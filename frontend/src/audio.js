@@ -1,0 +1,1143 @@
+import { createDecoder, firdes_kaiser_lowpass } from './lib/wrappers'
+
+import createWindow from 'live-moving-average'
+import { decode as cbor_decode } from 'cbor-x';
+import { encode, decode } from "./modules/ft8.js";
+
+import { AudioContext, ConvolverNode, IIRFilterNode, GainNode, AudioBuffer, AudioBufferSourceNode, DynamicsCompressorNode, MediaStreamAudioDestinationNode } from 'standardized-audio-context'
+import { BiquadFilterNode } from 'standardized-audio-context';
+
+import { fft, ifft } from 'fft-js';
+
+export default class SpectrumAudio {
+
+  constructor(endpoint) {
+
+
+    // For Recording
+    this.isRecording = false;
+    this.recordedAudio = [];
+
+    // Added to allow for adjustment of the //
+    // dynamic audio buffer //
+    this.bufferLimit = 0.5;
+    this.bufferThreshold = 0.1;
+
+    this.endpoint = endpoint
+
+    this.playAmount = 0
+
+    this.playMovingAverage = []
+    this.playSampleLength = 1
+    this.audioQueue = []
+
+    this.demodulation = 'USB'
+
+    // Decoders
+    this.accumulator = [];
+    this.decodeFT8 = false;
+    this.farthestDistance = 0;
+    this.nb = false;
+
+    // Audio controls
+    this.mute = false
+    this.squelchMute = false
+    this.squelch = false
+    this.squelchThreshold = 0
+    this.power = 1
+    this.ctcss = false
+    // Remove the element with id startaudio from the DOM
+
+    // AGC parameters
+    this.agcAttackTime = 0.03;       // 30 ms: reacts quickly to rising signals
+    this.agcReleaseTime = 0.30;      // 300 ms: gentle recovery to avoid pumping
+    this.agcLookaheadTime = 0.05;    // 50 ms: lookahead for peak anticipation
+    this.agcTargetLevel = 0.9;       // Target around -1 dBFS
+    this.agcMaxGain = 10;            // Allow up to 10× gain
+
+    // AGC state variables
+    this.agcGain = 1;
+    this.agcEnvelope = 0;
+    this.agcLookaheadBuffer = [];
+
+    // AGC enable and setting //
+    this.agcEnabled = false;
+
+    // Noise blanker parameters. Profile 5: Light Touch (preserve weak signals)
+    this.nbEnabled = false;
+    this.nbFFTSize = 1024;
+    this.nbOverlap = 512;
+    this.nbAverageWindows = 16;
+    this.nbThreshold = 0.180;
+    this.nbBuffer = new Float32Array(this.nbFFTSize);
+    this.nbSpectrumAverage = new Float32Array(this.nbFFTSize / 2);
+    this.nbSpectrumHistory = Array(this.nbAverageWindows).fill().map(() => new Float32Array(this.nbFFTSize / 2));
+    this.nbHistoryIndex = 0;
+
+    // ALTERNATIVE PROFILES FOR DIFFERENT USE CASES:
+    // =============================================
+
+    // Profile 1: Maximum Quality (recommended for strong signals)
+    // this.nbFFTSize = 2048;
+    // this.nbOverlap = 1536;          // 75% overlap
+    // this.nbAverageWindows = 32;
+    // this.nbThreshold = 0.140;
+
+    // Profile 2: Balanced (good general purpose)
+    // this.nbFFTSize = 2048;
+    // this.nbOverlap = 1024;          // 50% overlap
+    // this.nbAverageWindows = 24;
+    // this.nbThreshold = 0.135;
+
+    // Profile 3: Performance (lower CPU usage)
+    // this.nbFFTSize = 1024;
+    // this.nbOverlap = 768;           // 75% overlap
+    // this.nbAverageWindows = 20;
+    // this.nbThreshold = 0.145;
+
+    // Profile 4: Aggressive Blanking (heavy QRM environments)
+    // this.nbFFTSize = 2048;
+    // this.nbOverlap = 1536;
+    // this.nbAverageWindows = 40;     // Very stable baseline
+    // this.nbThreshold = 0.110;       // More sensitive
+
+    // Profile 5: Light Touch (preserve weak signals)
+    // this.nbFFTSize = 1024;
+    // this.nbOverlap = 512;
+    // this.nbAverageWindows = 16;
+    // this.nbThreshold = 0.180;       // Less aggressive
+
+
+    // RECOMMENDED SETTINGS BY MODE:
+    // =============================
+
+    // SSB/USB/LSB: Use Profile 1 (Maximum Quality)
+    // CW: Use Profile 2 (Balanced) or Profile 5 (Light Touch)
+    // AM: Use Profile 2 (Balanced)
+    // FM: Use Profile 3 (Performance) - impulse noise less critical
+    // Weak Signal Work: Use Profile 5 (Light Touch)
+    // Urban/High QRM: Use Profile 4 (Aggressive Blanking)
+
+    if (this.audioCtx && this.audioCtx.state == 'running') {
+      startaudio = document.getElementById('startaudio')
+      if (startaudio) {
+        startaudio.remove()
+      }
+    } else {
+      // for chrome
+      const userGestureFunc = () => {
+        if (this.audioCtx && this.audioCtx.state !== 'running') {
+          this.audioCtx.resume()
+        }
+        // Remove the element with id startaudio from the DOM
+        const startaudio = document.getElementById('startaudio')
+        if (startaudio) {
+          startaudio.remove()
+        }
+        document.documentElement.removeEventListener('mousedown', userGestureFunc)
+      }
+      document.documentElement.addEventListener('mousedown', userGestureFunc)
+    }
+
+
+    this.mode = 0
+    this.d = 10
+    this.v = 10
+    this.n2 = 10
+    this.n1 = 10
+    this.var = 10
+    this.highThres = 1
+
+    this.initTimer(); // Start the timing mechanism
+  }
+
+  async init() {
+    if (this.promise) {
+      return this.promise
+    }
+
+    this.promise = new Promise((resolve, reject) => {
+      this.resolvePromise = resolve
+      this.rejectPromise = reject
+    })
+
+    this.audioSocket = new WebSocket(this.endpoint)
+    this.audioSocket.binaryType = 'arraybuffer'
+    this.firstAudioMessage = true
+    this.audioSocket.onmessage = this.socketMessageInitial.bind(this)
+
+    return this.promise
+  }
+
+  stop() {
+    this.audioSocket.close()
+    this.decoder.free()
+  }
+
+  applyAGC(pcmArray) {
+
+    pcmArray = this.applyNoiseBlanker(pcmArray);
+
+
+    const attackCoeff = Math.exp(-1 / (this.agcAttackTime * this.audioOutputSps));
+    const releaseCoeff = Math.exp(-1 / (this.agcReleaseTime * this.audioOutputSps));
+    const lookaheadSamples = Math.floor(this.agcLookaheadTime * this.audioOutputSps);
+
+    const processedArray = new Float32Array(pcmArray.length);
+
+    // Fill lookahead buffer if needed
+    while (this.agcLookaheadBuffer.length < lookaheadSamples) {
+      this.agcLookaheadBuffer.push(0);
+    }
+
+    for (let i = 0; i < pcmArray.length; i++) {
+      // Add current sample to lookahead buffer
+      this.agcLookaheadBuffer.push(pcmArray[i]);
+
+      // Get sample from lookahead buffer
+      const sample = this.agcLookaheadBuffer.shift();
+
+      // Calculate envelope
+      const sampleAbs = Math.abs(sample);
+      if (sampleAbs > this.agcEnvelope) {
+        this.agcEnvelope = attackCoeff * this.agcEnvelope + (1 - attackCoeff) * sampleAbs;
+      } else {
+        this.agcEnvelope = releaseCoeff * this.agcEnvelope + (1 - releaseCoeff) * sampleAbs;
+      }
+
+      // Calculate gain
+      const desiredGain = this.agcTargetLevel / (this.agcEnvelope + 1e-6);
+      this.agcGain = Math.min(desiredGain, this.agcMaxGain) * 0.1;
+
+      // Apply gain
+      processedArray[i] = sample * this.agcGain;
+    }
+
+    return processedArray;
+  }
+
+   // AGC parameters
+
+setAGC(newAGCSpeed) {
+  // Always start with baseline gain and enable AGC
+  this.setGain(398); // was 50
+  this.agcEnabled = true;
+
+  switch (newAGCSpeed) {
+
+    case 0: // AGC Auto (adaptive, moderate)
+      // Automatically balances responsiveness and smoothness
+      this.agcAttackTime = 0.03;       // 30 ms: reacts quickly to rising signals
+      this.agcReleaseTime = 0.30;      // 300 ms: gentle recovery to avoid pumping
+      this.agcLookaheadTime = 0.05;    // 50 ms: lookahead for peak anticipation
+      this.agcTargetLevel = 0.9;       // Target around -1 dBFS
+      this.agcMaxGain = 12;            // Allow up to 12× gain
+      this.smoothMaxgain(0.9);         // Slight smoothing for steady gain
+      break;
+
+    case 1: // AGC Speed Fast
+      // Ideal for speech or CW signals where rapid response is needed
+      this.agcAttackTime = 0.005;      // 5 ms: very quick attack for transients
+      this.agcReleaseTime = 0.05;      // 50 ms: quick recovery to new levels
+      this.agcLookaheadTime = 0.02;    // 20 ms: short lookahead to catch peaks
+      this.agcTargetLevel = 0.75;      // Slightly lower target (-2.5 dBFS)
+      this.agcMaxGain = 10;            // Moderate gain limit to avoid overshoot
+      this.smoothMaxgain(0.7);         // Faster smoothing for agility
+      break;
+
+    case 2: // AGC Speed Medium
+      // Balanced mode: good for general music and broadcast audio
+      this.agcAttackTime = 0.02;       // 20 ms: natural attack
+      this.agcReleaseTime = 1.0;       // 1000 ms: slower release to maintain warmth
+      this.agcLookaheadTime = 0.08;    // 80 ms: moderate lookahead
+      this.agcTargetLevel = 1.0;       // Nominal unity (0 dBFS target)
+      this.agcMaxGain = 10;            // Up to 10× gain
+      this.smoothMaxgain(1.0);         // Balanced smoothing factor
+      break;
+
+    case 3: // AGC Speed Slow
+      // Smooth long-term leveling, ideal for wide dynamic range (music, AM/FM)
+      this.agcAttackTime = 0.1;        // 100 ms: slow attack to preserve transients
+      this.agcReleaseTime = 2.0;       // 2.0 s: long release for stable dynamics
+      this.agcLookaheadTime = 0.12;    // 120 ms: slightly longer lookahead
+      this.agcTargetLevel = 1.1;       // Slightly boosted target
+      this.agcMaxGain = 10;            // More headroom for quiet passages
+      this.smoothMaxgain(1.3);         // Slower gain smoothing
+      break;
+
+    case 4: // AGC Off
+      // Manual gain mode: disable AGC entirely
+      this.agcEnabled = false;
+      this.mute = false;
+      this.setGain(398);
+      break;
+
+    default:
+      console.warn("Unknown AGC speed mode: " + newAGCSpeed);
+      break;
+  }
+
+  console.log("AGC Enabled = " + this.agcEnabled + " | AGC Speed = " + newAGCSpeed);
+}
+      
+
+
+  smoothMaxgain(maxgain) {
+          for (let i = 1; i < 20002; i++) {
+          if (i > 20000) {
+          this.setGain(398);
+          }
+        }
+    }
+
+applyNoiseBlanker(pcmArray) {
+  if (!this.nbEnabled) return pcmArray;
+
+  // Ensure defaults
+  this.nbFFTSize = this.nbFFTSize || 1024; //2048
+  this.nbOverlap = this.nbOverlap || (this.nbFFTSize >> 1);
+  this.nbAverageWindows = this.nbAverageWindows || 24;
+  this.nbThreshold = (typeof this.nbThreshold === 'number') ? this.nbThreshold : 0.135;
+  this.nbNoiseAlpha = (typeof this.nbNoiseAlpha === 'number') ? this.nbNoiseAlpha : 0.985;
+  this.nbGainFloor = (typeof this.nbGainFloor === 'number') ? this.nbGainFloor : 0.15;
+
+  // Allocate helpers once
+  if (!this.nbWindow || this.nbWindow.length !== this.nbFFTSize) {
+    this.nbWindow = new Float32Array(this.nbFFTSize);
+    for (let n = 0; n < this.nbFFTSize; n++) {
+      this.nbWindow[n] = 0.5 - 0.5 * Math.cos((2 * Math.PI * n) / (this.nbFFTSize - 1)); // Hann
+    }
+    // Overlap-add normalization
+    const win2 = new Float32Array(this.nbFFTSize);
+    for (let n = 0; n < this.nbFFTSize; n++) win2[n] = this.nbWindow[n] * this.nbWindow[n];
+    const acc = new Float32Array(this.nbFFTSize + this.nbOverlap);
+    for (let i = 0; i <= this.nbFFTSize - this.nbOverlap; i += this.nbOverlap) {
+      for (let n = 0; n < this.nbFFTSize; n++) acc[i + n] += win2[n];
+    }
+    this.nbOLANorm = acc.slice(0, this.nbFFTSize);
+  }
+  if (!this.nbNoiseFloor || this.nbNoiseFloor.length !== (this.nbFFTSize >> 1)) {
+    this.nbNoiseFloor = new Float32Array(this.nbFFTSize >> 1).fill(1e-6);
+  }
+  if (!this.nbSpectrumHistory || !this.nbSpectrumAverage) {
+    // Initialize if host code hasn't
+    this.nbSpectrumHistory = Array.from({length: this.nbAverageWindows}, () => new Float32Array(this.nbFFTSize >> 1));
+    this.nbSpectrumAverage = new Float32Array(this.nbFFTSize >> 1);
+    this.nbHistoryIndex = 0;
+  }
+
+  // Expect global fft/ifft utilities to exist in the environment.
+  const out = new Float32Array(pcmArray.length);
+
+  for (let i = 0; i < pcmArray.length; i += this.nbOverlap) {
+    // Frame and window
+    const frame = new Float32Array(this.nbFFTSize);
+    const src = pcmArray.subarray(i, Math.min(i + this.nbFFTSize, pcmArray.length));
+    frame.set(src);
+    for (let n = 0; n < this.nbFFTSize; n++) frame[n] *= this.nbWindow[n];
+
+    // FFT
+    const ph = fft(Array.from(frame)); // ph[k] = [re, im]
+
+    // Magnitudes (half spectrum)
+    const half = this.nbFFTSize >> 1;
+    const mags = new Float32Array(half);
+    for (let k = 0; k < half; k++) {
+      const re = ph[k][0], im = ph[k][1];
+      mags[k] = Math.hypot(re, im);
+    }
+
+    // Update average spectrum
+    this.nbSpectrumHistory[this.nbHistoryIndex].set(mags);
+    this.nbHistoryIndex = (this.nbHistoryIndex + 1) % this.nbAverageWindows;
+    for (let k = 0; k < half; k++) {
+      let sum = 0;
+      for (let w = 0; w < this.nbAverageWindows; w++) sum += this.nbSpectrumHistory[w][k];
+      this.nbSpectrumAverage[k] = sum / this.nbAverageWindows;
+    }
+
+    // Dynamic threshold
+    let avgSignalLevel = 0;
+    for (let k = 0; k < half; k++) avgSignalLevel += this.nbSpectrumAverage[k];
+    avgSignalLevel /= half;
+    const dynamicThreshold = this.nbThreshold * avgSignalLevel;
+
+    // Update noise floor (EMA) when below threshold
+    const a = this.nbNoiseAlpha, nf = this.nbNoiseFloor;
+    for (let k = 0; k < half; k++) {
+      const m = mags[k];
+      nf[k] = (m <= dynamicThreshold) ? a * nf[k] + (1 - a) * m : nf[k];
+    }
+
+    // Wiener-style gain with a protective floor
+    for (let k = 0; k < half; k++) {
+      const N = nf[k];
+      const S2 = Math.max(0, mags[k] * mags[k] - N * N);
+      const G  = Math.max(this.nbGainFloor, S2 / (S2 + N * N + 1e-12));
+      ph[k][0] *= G;
+      ph[k][1] *= G;
+      // Mirror upper bins if your FFT expects symmetry; many JS FFT libs handle full spectrum.
+      if (k && (k < this.nbFFTSize - k)) {
+        ph[this.nbFFTSize - k][0] *= G;
+        ph[this.nbFFTSize - k][1] *= G;
+      }
+    }
+
+    // IFFT
+    const time = ifft(ph); // array of [re, im]
+
+    // Overlap–add with normalization
+    for (let n = 0; n < this.nbFFTSize && (i + n) < out.length; n++) {
+      const norm = this.nbOLANorm[n] || 1;
+      out[i + n] += (time[n][0] * this.nbWindow[n]) / norm;
+    }
+  }
+
+  return out;
+}
+
+
+  initAudio(settings) {
+    const sampleRate = this.audioOutputSps
+    try {
+      this.audioCtx = new AudioContext({
+        sampleRate: sampleRate
+      })
+    } catch {
+      this.resolvePromise()
+      return
+    }
+
+    this.audioStartTime = this.audioCtx.currentTime
+    this.playTime = this.audioCtx.currentTime + 0.1
+    this.playStartTime = this.audioCtx.currentTime
+
+    this.decoder = createDecoder(settings.audio_compression, this.audioMaxSps, this.trueAudioSps, this.audioOutputSps)
+
+    // Bass boost (lowshelf filter)
+    this.bassBoost = new BiquadFilterNode(this.audioCtx)
+    this.bassBoost.type = 'lowshelf'
+    this.bassBoost.frequency.value = 100
+    this.bassBoost.Q.value = 0.7
+    this.bassBoost.gain.value = 6
+
+    // Bandpass filter for speech enhancement
+    this.bandpass = new BiquadFilterNode(this.audioCtx)
+    this.bandpass.type = 'peaking'
+    this.bandpass.frequency.value = 1800
+    this.bandpass.Q.value = 1.2
+    this.bandpass.gain.value = 3
+
+    // High-pass filter
+    this.highPass = new BiquadFilterNode(this.audioCtx)
+    this.highPass.type = 'highpass'
+    this.highPass.frequency.value = 60
+    this.highPass.Q.value = 0.7
+
+    // Presence boost
+    this.presenceBoost = new BiquadFilterNode(this.audioCtx)
+    this.presenceBoost.type = 'peaking'
+    this.presenceBoost.frequency.value = 3500
+    this.presenceBoost.Q.value = 1.5
+    this.presenceBoost.gain.value = 4
+
+    // Convolver node for additional filtering
+    this.convolverNode = new ConvolverNode(this.audioCtx)
+    this.setLowpass(15000)
+
+    // Dynamic compressor
+    this.compressor = new DynamicsCompressorNode(this.audioCtx)
+    this.compressor.threshold.value = -24
+    this.compressor.knee.value = 30
+    this.compressor.ratio.value = 12
+    this.compressor.attack.value = 0.001
+    this.compressor.release.value = 0.25
+
+    // Gain node
+    this.gainNode = new GainNode(this.audioCtx)
+    this.setGain(5)
+
+
+
+    // Add MediaStreamDestination node
+    this.destinationNode = new MediaStreamAudioDestinationNode(this.audioCtx);
+
+    // Connect nodes in the correct order
+    this.convolverNode.connect(this.highPass)
+    this.highPass.connect(this.bandpass)
+    this.bandpass.connect(this.bassBoost)
+    this.bassBoost.connect(this.presenceBoost)
+    this.presenceBoost.connect(this.compressor)
+    this.compressor.connect(this.gainNode)
+    this.gainNode.connect(this.destinationNode);
+    this.gainNode.connect(this.audioCtx.destination)
+
+    this.audioInputNode = this.convolverNode
+
+    // Initial filter update based on current demodulation
+    this.updateFilters()
+
+    this.resolvePromise(settings)
+  }
+
+  updateFilters() {
+    switch (this.demodulation) {
+      case 'USB':
+      case 'LSB':
+      case 'CW':
+        this.bassBoost.gain.value = 12
+        this.bandpass.frequency.value = 1800
+        this.bandpass.Q.value = 1.2
+        this.bandpass.gain.value = 3
+        this.highPass.frequency.value = 60
+        this.presenceBoost.gain.value = 4
+        this.setLowpass(3000)
+        break
+      case 'CW':
+        this.bassBoost.gain.value = 0
+        this.bandpass.frequency.value = 700
+        this.bandpass.Q.value = 1.2
+        this.bandpass.gain.value = 2
+        this.highPass.frequency.value = 400
+        this.presenceBoost.gain.value = 1
+        this.setLowpass(1000)
+        break
+      case 'AM':
+        this.bassBoost.gain.value = 20
+        this.bandpass.frequency.value = 1500
+        this.bandpass.Q.value = 1
+        this.bandpass.gain.value = 2
+        this.highPass.frequency.value = 50
+        this.presenceBoost.gain.value = 3
+        this.setLowpass(4500)
+        break
+      case 'FM':
+        this.bassBoost.gain.value = 40
+        this.bandpass.frequency.value = 2400
+        this.bandpass.Q.value = 1
+        this.bandpass.gain.value = 2
+        this.highPass.frequency.value = this.ctcss ? 300 : 100
+        this.presenceBoost.gain.value = 3
+        this.setLowpass(4800)
+        break
+    }
+  }
+
+
+  setFIRFilter(fir) {
+    const firAudioBuffer = new AudioBuffer({ length: fir.length, numberOfChannels: 1, sampleRate: this.audioOutputSps })
+    firAudioBuffer.copyToChannel(fir, 0, 0)
+    this.convolverNode.buffer = firAudioBuffer
+  }
+
+  setLowpass(lowpass) {
+    const sampleRate = this.audioOutputSps
+    // Bypass the FIR filter if the sample rate is low enough
+    if (lowpass >= sampleRate / 2) {
+      this.setFIRFilter(Float32Array.of(1))
+      return
+    }
+    const fir = firdes_kaiser_lowpass(lowpass / sampleRate, 1000 / sampleRate, 0.001)
+    this.setFIRFilter(fir)
+  }
+
+
+  // Audio Buffer Delay function that sets the new values for //
+  // bufferLimit and bufferThreshold //
+  setAudioBufferDelay(newAudioBufferLimit, newAudioBufferThreshold) {
+    this.bufferThreshold = newAudioBufferThreshold;
+    this.bufferLimit = newAudioBufferLimit;
+  }
+
+
+  setFT8Decoding(value) {
+    this.decodeFT8 = value;
+  }
+
+
+
+  setFmDeemph(tau) {
+    if (tau === 0) {
+      this.audioInputNode = this.convolverNode
+      return
+    }
+    // FM deemph https://github.com/gnuradio/gnuradio/blob/master/gr-analog/python/analog/fm_emph.py
+    // Digital corner frequency
+    const wc = 1.0 / tau
+    const fs = this.audioOutputSps
+
+    // Prewarped analog corner frequency
+    const wca = 2.0 * fs * Math.tan(wc / (2.0 * fs))
+
+    // Resulting digital pole, zero, and gain term from the bilinear
+    // transformation of H(s) = w_ca / (s + w_ca) to
+    // H(z) = b0 (1 - z1 z^-1)/(1 - p1 z^-1)
+    const k = -wca / (2.0 * fs)
+    const z1 = -1.0
+    const p1 = (1.0 + k) / (1.0 - k)
+    const b0 = -k / (1.0 - k)
+
+    const feedForwardTaps = [b0 * 1.0, b0 * -z1]
+    const feedBackwardTaps = [1.0, -p1]
+
+    this.fmDeemphNode = new IIRFilterNode(this.audioCtx, { feedforward: feedForwardTaps, feedback: feedBackwardTaps })
+    this.fmDeemphNode.connect(this.convolverNode)
+
+    this.audioInputNode = this.fmDeemphNode
+  }
+
+  socketMessageInitial(event) {
+    // first message gives the parameters in json
+    const settings = JSON.parse(event.data)
+    this.settings = settings
+    this.fftSize = settings.fft_size
+    this.audioMaxSize = settings.fft_result_size
+    this.baseFreq = settings.basefreq
+    this.totalBandwidth = settings.total_bandwidth
+    this.sps = settings.sps
+    this.audioOverlap = settings.fft_overlap / 2
+    this.audioMaxSps = settings.audio_max_sps
+    this.grid_locator = settings.grid_locator
+    this.smeter_offset = settings.smeter_offset
+
+    this.audioL = settings.defaults.l
+    this.audioM = settings.defaults.m
+    this.audioR = settings.defaults.r
+
+    const targetFFTBins = Math.ceil(this.audioMaxSps * this.audioMaxSize / this.sps / 4) * 4
+
+    this.trueAudioSps = targetFFTBins / this.audioMaxSize * this.sps
+    this.audioOutputSps = Math.min(this.audioMaxSps, 96000)
+
+    this.audioSocket.onmessage = this.socketMessage.bind(this)
+
+    this.initAudio(settings)
+
+    console.log('Audio Samplerate: ', this.trueAudioSps)
+  }
+
+  socketMessage(event) {
+    if (event.data instanceof ArrayBuffer) {
+      const packet = cbor_decode(new Uint8Array(event.data))
+      const receivedPower = packet.pwr
+      this.power = 0.5 * this.power + 0.5 * receivedPower || 1
+      const dBpower = 20 * Math.log10(Math.sqrt(this.power) / 2)
+      this.dBPower = dBpower
+      if (this.squelch && dBpower < this.squelchThreshold) {
+        this.squelchMute = true
+      } else {
+        this.squelchMute = false
+      }
+
+      this.decode(packet.data)
+    }
+  }
+
+  decode(encoded) {
+    // Audio not available
+    if (!this.audioCtx) {
+      return
+    }
+    let pcmArray = this.decoder.decode(encoded)
+    // More samples needed
+    if (pcmArray.length === 0) {
+      return
+    }
+
+    this.intervals = this.intervals || createWindow(10000, 0)
+    this.lens = this.lens || createWindow(10000, 0)
+    this.lastReceived = this.lastReceived || 0
+    // For checking sample rate
+    if (this.lastReceived === 0) {
+      this.lastReceived = performance.now()
+    } else {
+      const curReceived = performance.now()
+      const delay = curReceived - this.lastReceived
+      this.intervals.push(delay)
+      this.lastReceived = curReceived
+      this.lens.push(pcmArray.length)
+
+      let updatedv = true
+
+      if (this.mode === 0) {
+        if (Math.abs(delay - this.n1) > Math.abs(this.v) * 2 + 800) {
+          this.var = 0
+          this.mode = 1
+        }
+      } else {
+        this.var = this.var / 2 + Math.abs((2 * delay - this.n1 - this.n2) / 8)
+        if (this.var <= 63) {
+          this.mode = 0
+          updatedv = false
+        }
+      }
+
+      if (updatedv) {
+        if (this.mode === 0) {
+          this.d = 0.125 * delay + 0.875 * this.d
+        } else {
+          this.d = this.d + delay - this.n1
+        }
+        this.v = 0.125 * Math.abs(delay - this.d) + 0.875 * this.v
+      }
+
+      this.n2 = this.n1
+      this.n1 = delay
+    }
+
+    this.pcmArray = pcmArray
+    if (this.signalDecoder) {
+      this.signalDecoder.decode(pcmArray)
+    }
+
+    this.playAudio(pcmArray)
+  }
+
+  updateAudioParams() {
+    if (this.demodulation == "CW") {
+      this.audioSocket.send(JSON.stringify({
+        cmd: 'window',
+        l: this.audioLOffset,
+        m: this.audioMOffset,
+        r: this.audioROffset
+      }))
+    } else {
+      this.audioSocket.send(JSON.stringify({
+        cmd: 'window',
+        l: this.audioL,
+        m: this.audioM,
+        r: this.audioR
+      }))
+    }
+
+  }
+
+  setAudioDemodulation(demodulation) {
+
+    this.demodulation = demodulation
+    if (demodulation == "CW") {
+      demodulation = "USB"
+    }
+    this.updateFilters()
+    this.audioSocket.send(JSON.stringify({
+      cmd: 'demodulation',
+      demodulation: demodulation
+    }))
+  }
+
+  setAudioRange(audioL, audioM, audioR, audioLOffset, audioMOffset, audioROffset) {
+    this.audioL = Math.floor(audioL);
+    this.audioM = audioM;
+    this.audioR = Math.ceil(audioR);
+    this.actualL = audioL;
+    this.actualR = audioR;
+
+    this.audioLOffset = Math.floor(audioLOffset);
+    this.audioMOffset = audioMOffset;
+    this.audioROffset = Math.ceil(audioROffset);
+    this.actualLOffset = audioLOffset;
+    this.actualROffset = audioROffset;
+
+
+    this.updateAudioParams();
+  }
+
+  getAudioRange() {
+    return [this.actualL, this.audioM, this.actualR]
+  }
+
+  setAudioOptions(options) {
+    this.audioOptions = options
+    this.audioSocket.send(JSON.stringify({
+      cmd: 'options',
+      options: options
+    }))
+  }
+
+  setGain(gain) {
+    gain /= 35;
+    this.gain = gain
+    this.gainNode.gain.value = gain
+  }
+
+  setMute(mute) {
+    if (mute === this.mute) {
+      return
+    }
+    this.mute = mute
+    this.audioSocket.send(JSON.stringify({
+      cmd: 'mute',
+      mute: mute
+    }))
+  }
+
+  setCTCSSFilter(ctcss) {
+    this.ctcss = ctcss;
+    this.updateFilters();
+  }
+
+  setSquelch(squelch) {
+    this.squelch = squelch
+  }
+
+  setSquelchThreshold(squelchThreshold) {
+    this.squelchThreshold = squelchThreshold
+  }
+
+  getPowerDb() {
+    return this.dBPower
+  }
+
+  setUserID(userID) {
+    this.audioSocket.send(JSON.stringify({
+      cmd: 'userid',
+      userid: userID
+    }))
+  }
+
+  setSignalDecoder(decoder) {
+    this.signalDecoder = decoder
+  }
+
+  getSignalDecoder() {
+    return this.signalDecoder
+  }
+
+
+  // FT8 Start
+
+
+  gridSquareToLatLong(gridSquare) {
+    const l = gridSquare.toUpperCase();
+    let lon = ((l.charCodeAt(0) - 'A'.charCodeAt(0)) * 20) - 180;
+    let lat = ((l.charCodeAt(1) - 'A'.charCodeAt(0)) * 10) - 90;
+
+    if (l.length >= 4) {
+      lon += ((l.charCodeAt(2) - '0'.charCodeAt(0)) * 2);
+      lat += (l.charCodeAt(3) - '0'.charCodeAt(0));
+    }
+
+    if (l.length == 6) {
+      lon += ((l.charCodeAt(4) - 'A'.charCodeAt(0)) * (5 / 60));
+      lat += ((l.charCodeAt(5) - 'A'.charCodeAt(0)) * (2.5 / 60));
+      lon += (5 / 120); // center of the square for 6-char grid
+      lat += (1.25 / 120); // center of the square for 6-char grid
+    } else if (l.length == 4) {
+      lon += 1; // center of the square for 4-char grid
+      lat += 0.5; // center of the square for 4-char grid
+    }
+
+    return [lat, lon];
+  }
+
+
+  initTimer() {
+    // Check every second to adjust the collecting status based on current time
+    setInterval(() => {
+      this.updateCollectionStatus();
+    }, 1000);
+  }
+
+  // For FT8
+  extractGridLocators(message) {
+    // Regular expression for matching grid locators
+    const regex = /[A-R]{2}[0-9]{2}([A-X]{2})?/gi;
+
+    // Find matches in the provided message
+    const matches = message.match(regex);
+
+    // Ensure unique matches, as the same locator might appear more than once
+    const uniqueLocators = matches ? Array.from(new Set(matches)) : [];
+
+    return uniqueLocators;
+  }
+
+
+  calculateDistance(lat1, lon1, lat2, lon2) {
+    function toRad(x) {
+      return x * Math.PI / 180;
+    }
+
+    var R = 6371; // km
+    var dLat = toRad(lat2 - lat1);
+    var dLon = toRad(lon2 - lon1);
+    var a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
+      Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    var c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    var d = R * c;
+    return d;
+  }
+
+
+
+
+  updateCollectionStatus() {
+    const now = new Date();
+    const seconds = now.getSeconds();
+    const waitSeconds = 15 - (seconds % 15);
+
+    if (waitSeconds === 15 && !this.isCollecting) {
+      this.startCollection();
+    } else if (waitSeconds === 1 && this.isCollecting) {
+      this.stopCollection();
+    }
+  }
+
+  startCollection() {
+    this.isCollecting = true;
+    this.accumulator = []; // Reset the accumulator
+  }
+
+  async stopCollection() {
+    this.isCollecting = false;
+    if (this.decodeFT8) {
+      const bigFloat32Array = new Float32Array(this.accumulator.flat());
+      let decodedMessages = await decode(bigFloat32Array);
+      const messagesListDiv = document.getElementById('ft8MessagesList');
+
+      let baseLocation = this.gridSquareToLatLong(this.grid_locator);
+
+      for (let message of decodedMessages) {
+        let locators = this.extractGridLocators(message.text);
+
+        if (locators.length > 0) {
+          let targetLocation = this.gridSquareToLatLong(locators[0]);
+          let distance = this.calculateDistance(baseLocation[0], baseLocation[1], targetLocation[0], targetLocation[1]);
+
+          if (distance > this.farthestDistance) {
+            this.farthestDistance = distance;
+            document.getElementById('farthest-distance').textContent = `Farthest Distance: ${this.farthestDistance.toFixed(2)} km`;
+          }
+
+          const messageDiv = document.createElement('div');
+          messageDiv.classList.add('glass-message', 'p-2', 'rounded-lg', 'text-sm', 'flex', 'justify-between', 'items-center');
+
+          // Message content
+          const messageContent = document.createElement('div');
+          messageContent.classList.add('flex-grow');
+          messageContent.textContent = message.text;
+          messageDiv.appendChild(messageContent);
+
+          // Locators and distance
+          const infoDiv = document.createElement('div');
+          infoDiv.classList.add('flex', 'flex-col', 'items-end', 'ml-2', 'text-xs');
+
+          // Locators
+          const locatorsDiv = document.createElement('div');
+          locators.forEach((locator, index) => {
+            const locatorLink = document.createElement('a');
+            locatorLink.href = `https://www.levinecentral.com/ham/grid_square.php?&Grid=${locator}&Zoom=13&sm=y`;
+            locatorLink.classList.add('text-yellow-300', 'hover:underline');
+            locatorLink.textContent = locator;
+            locatorLink.target = "_blank";
+            if (index > 0) locatorsDiv.appendChild(document.createTextNode(', '));
+            locatorsDiv.appendChild(locatorLink);
+          });
+          infoDiv.appendChild(locatorsDiv);
+
+          // Distance
+          const distanceDiv = document.createElement('div');
+          distanceDiv.textContent = `${distance.toFixed(2)} km`;
+          infoDiv.appendChild(distanceDiv);
+
+          messageDiv.appendChild(infoDiv);
+
+          messagesListDiv.appendChild(messageDiv);
+        }
+      }
+
+      setTimeout(() => {
+        messagesListDiv.scrollTop = messagesListDiv.scrollHeight;
+      }, 500);
+    }
+  }
+
+  // FT8 END
+
+
+
+
+  playAudio(pcmArray) {
+    if (this.mute || (this.squelchMute && this.squelch)) {
+      return
+    }
+    if (this.audioCtx.state !== 'running') {
+      return
+    }
+
+    // Apply AGC
+    if (this.agcEnabled) {
+      pcmArray = this.applyAGC(pcmArray);
+    }
+
+    if (this.isCollecting && this.decodeFT8) {
+      this.accumulator.push(...pcmArray);
+    }
+
+
+    const curPlayTime = this.playPCM(pcmArray, this.playTime, this.audioOutputSps, 1)
+
+    // Dynamic adjustment of play time
+    const currentTime = this.audioCtx.currentTime;
+    // The line below was commented out by NY4Q to allow for a mod to //
+    // adjust the dynamic limits of this function. //
+    //const bufferThreshold = 0.1; // 100ms buffer //
+    if ((this.playTime - currentTime) <= this.bufferThreshold) {
+      // Underrun: increase buffer
+      this.playTime = (currentTime + this.bufferThreshold + curPlayTime);
+      // removed 0.5 and placed bufferLimit in its place - NY4Q //
+    } else if ((this.playTime - currentTime) > this.bufferLimit) { // Originally at 0.5
+      // Overrun: decrease buffer
+      this.playTime = (currentTime + this.bufferThreshold);
+    } else {
+      // Normal operation: advance play time
+      this.playTime += curPlayTime;
+    }
+
+    if (this.isRecording) {
+      this.recordedAudio.push(...pcmArray);
+    }
+  }
+
+  playPCM(buffer, playTime, sampleRate, scale) {
+    if (!this.audioInputNode) {
+      console.warn('Audio not initialized');
+      return 0;
+    }
+    const source = new AudioBufferSourceNode(this.audioCtx);
+    const audioBuffer = new AudioBuffer({
+      length: buffer.length,
+      numberOfChannels: 1,
+      sampleRate: this.audioOutputSps
+    });
+
+    audioBuffer.copyToChannel(buffer, 0, 0);
+
+    source.buffer = audioBuffer;
+    source.connect(this.audioInputNode);
+
+    const scheduledTime = Math.max(playTime, this.audioCtx.currentTime);
+    source.start(scheduledTime);
+
+    source.onended = () => {
+      source.disconnect();
+    };
+
+
+
+    return audioBuffer.duration;
+  }
+
+  startRecording() {
+    if (this.isRecording) return;
+
+    this.isRecording = true;
+    this.recordedChunks = [];
+
+    this.mediaRecorder = new MediaRecorder(this.destinationNode.stream);
+
+    this.mediaRecorder.ondataavailable = (event) => {
+      if (event.data.size > 0) {
+        this.recordedChunks.push(event.data);
+      }
+    };
+
+    this.mediaRecorder.start();
+  }
+
+  stopRecording() {
+    if (!this.isRecording) return;
+
+    this.isRecording = false;
+    this.mediaRecorder.stop();
+  }
+
+  downloadRecording() {
+    if (this.recordedChunks.length === 0) {
+      console.warn('No recorded audio to download');
+      return;
+    }
+
+    const blob = new Blob(this.recordedChunks, { type: 'audio/webm' });
+
+    // Convert blob to ArrayBuffer
+    blob.arrayBuffer().then(arrayBuffer => {
+      // Decode the audio data
+      this.audioCtx.decodeAudioData(arrayBuffer).then(audioBuffer => {
+        // Create WAV file
+        const wavFile = this.createWavFile(audioBuffer);
+        // Create a timestamp for the audio file to be saved //
+        const audioDate = new Date();
+        const audioYear = audioDate.getFullYear();
+        const audioMonth = (audioDate.getMonth() + 1);
+        const audioDay = audioDate.getDate();
+        //
+        const audioHour = audioDate.getHours();
+        const audioMinute = audioDate.getMinutes();
+        const audioSeconds = audioDate.getSeconds();
+        //
+        const audioFullDate = audioYear + '-' + audioDay + '-' + audioMonth;
+        const audioTime = audioHour + '-' + audioMinute + '-' + audioSeconds;
+        const timeStamp = audioFullDate + '_' + audioTime;
+        // Create download link
+        const url = URL.createObjectURL(new Blob([wavFile], { type: 'audio/wav' }));
+        const a = document.createElement('a');
+        document.body.appendChild(a);
+        a.style.display = 'none';
+        a.href = url;
+        a.download = 'recorded_audio_' + timeStamp + '_.wav';
+        a.click();
+        window.URL.revokeObjectURL(url);
+      });
+    });
+  }
+
+  createWavFile(audioBuffer) {
+    const numChannels = audioBuffer.numberOfChannels;
+    const sampleRate = audioBuffer.sampleRate;
+    const format = 1; // PCM
+    const bitsPerSample = 16;
+    const bytesPerSample = bitsPerSample / 8;
+    const blockAlign = numChannels * bytesPerSample;
+    const byteRate = sampleRate * blockAlign;
+    const dataSize = audioBuffer.length * blockAlign;
+    const bufferSize = 44 + dataSize;
+    const arrayBuffer = new ArrayBuffer(bufferSize);
+    const view = new DataView(arrayBuffer);
+
+    const writeString = (view, offset, string) => {
+      for (let i = 0; i < string.length; i++) {
+        view.setUint8(offset + i, string.charCodeAt(i));
+      }
+    };
+
+    // Write WAV header
+    writeString(view, 0, 'RIFF');
+    view.setUint32(4, bufferSize - 8, true);
+    writeString(view, 8, 'WAVE');
+    writeString(view, 12, 'fmt ');
+    view.setUint32(16, 16, true);
+    view.setUint16(20, format, true);
+    view.setUint16(22, numChannels, true);
+    view.setUint32(24, sampleRate, true);
+    view.setUint32(28, byteRate, true);
+    view.setUint16(32, blockAlign, true);
+    view.setUint16(34, bitsPerSample, true);
+    writeString(view, 36, 'data');
+    view.setUint32(40, dataSize, true);
+
+    // Write audio data
+    const offset = 44;
+    for (let i = 0; i < audioBuffer.numberOfChannels; i++) {
+      const channel = audioBuffer.getChannelData(i);
+      for (let j = 0; j < channel.length; j++) {
+        const sample = Math.max(-1, Math.min(1, channel[j]));
+        view.setInt16(offset + (j * numChannels + i) * bytesPerSample, sample * 0x7FFF, true);
+      }
+    }
+
+    return arrayBuffer;
+  }
+
+}

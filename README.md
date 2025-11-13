@@ -13,11 +13,10 @@ We offer more features as we only maintain support for Linux instead of the offi
 - New approach in functions as reduced Latency, Noise Reduction, AGC selection, Auto SQL, Buffer adjustments, Auto Adjust waterfall, Mouse wheel use, Keyboard shortcuts, Bookmarks download and upload, Zoom slider, enhanced Mobile GUI,
 - WebSDR List (https://sdr-list.xyz),
 - Supported receivers RX-888, RTL V.4, Airspy Discovery, HackRF, SDRPLAY RSP1A (original and clone) and many more to be added,
-- More to come!
+- More to come!...
 
 ## Issues
 - If you face issues try to run it on Ubuntu, as most was tested on Ubuntu.
-
 
 ## Features
 - WebSDR which can handle multiple hundreds of users depending on the Hardware.
@@ -82,7 +81,7 @@ nvm list-remote
 nvm install node
 node --version
 ```
-(Let’s install two more versions, the latest LTS version, and version 18.10.0:)
+(Let’s install two more versions, the latest LTS version, and version 18.10.0. This is an optional step, usually the version 25.0.0 works just fine )
 ```
 nvm install --lts
 nvm install 18.10.0
@@ -122,10 +121,23 @@ You have also to modify the  .toml file, e.g. config-rtl.toml
 ```
 rtl_sdr -f 145000000 -s 3200000 - | ./build/spectrumserver --config config.toml
 ```
-### HackRF
+### HackRF (10 Msps, WBFM; format: s8)
 ```
-rx_sdr -f 145000000 -s 20000000 -d driver=hackrf - | ./build/spectrumserver --config config.toml
+hackrf_transfer -r - -f 100900000 -s 10000000 | ./build/spectrumserver --config config.toml
 ```
+### Airspy HF+ (912 ksps, AM; format: s16)
+```
+airspy_rx -r - -f 648000 -s 912000 | ./build/spectrumserver --config config.toml
+```
+### SDRplay RSP1A (8 Msps, LSB; format: s16)
+```
+rx_sdr -d driver=sdrplay -f 7100000 -s 8000000 - | ./build/spectrumserver --config config.toml
+```
+### RX888 MK2 (real sampling 6 Msps; format: s16, signal=real)
+```
+rx888_stream -s 6000000 | ./build/spectrumserver --config config.toml
+```
+
 ## Added start files and configs for various recievers. 
 Some need Soapy and RX_TOOLS installed else they do not work, e.g. Airspy Discovery and SDRPlay RSP1A.
 
@@ -133,7 +145,7 @@ I also added psutils as it's needed for killall command.
 
 Do not forget to disable opencl if you didn't install it, it's recommened you do.
 
-## After finished install, edit the file PhantomSDR-Plus/frontendsite/information.json.
+## After finished install, enter the frontend directory and edit the site-information.json file with your favorite editor.
 
 	"siteSysop": "your name or callsign",
 	"siteSysopEmailAddress": "mail@mail.net",
@@ -151,7 +163,7 @@ Do not forget to disable opencl if you didn't install it, it's recommened you do
 	"siteRegion": 1,
 	"siteChatEnabled": true
 
-"siteSDRBandwidth": you must type the usefull band with of your receiver, e.g. for RTL is 2048000, 30000000 or 60000000 for RX-888 etc.
+"siteSDRBandwidth": you must type the usefull band with of your receiver, e.g. for RTL is 2048000, for RX-888 is 60000000 or 1200000000 etc.
 
 "siteRegion": , you have to select IARU region, where:
 

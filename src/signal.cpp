@@ -1,4 +1,3 @@
-
 #include <complex.h>
 
 #include "fft.h"
@@ -9,60 +8,100 @@
 #include <chrono>
 #include <thread>
 #include <iostream>
-// ---- Synchronous AM (SAM) product detector with simple PI-PLL ----
 #include <unordered_map>
 #include <cmath>
 
+// ---- Synchronous AM (SAM) product detector with simple PI-PLL ----
 namespace {
 struct SAM_PLL {
     double fs = 48000.0;
     double theta = 0.0;     // NCO phase
-    double dtheta = 0.0;    // nominal freq (rad/sample), keep at 0 (centered)
+    double dtheta = 0.0;    // nominal freq offset (rad/sample), keep at 0 for centered carrier
     double ki = 0.0, kp = 0.0;
     double acc = 0.0;       // integrator
     float  xm1 = 0.0f, ym1 = 0.0f; // DC blocker state
     double dc_a = 0.995;
+    
+    // Signal magnitude tracking for normalization
+    float mag_avg = 1.0f;
+    float mag_alpha = 0.01f;  // smoothing factor for magnitude
 
-    void setup(double sample_rate, double loop_bw_hz=20.0){
+    void setup(double sample_rate, double loop_bw_hz = 50.0) {
         fs = sample_rate > 1.0 ? sample_rate : 48000.0;
-        // convert loop bandwidth to discrete PI gains (heuristic)
-        const double wn = 2.0*M_PI*loop_bw_hz / fs;
-        kp = 2.7*wn;
-        ki = 0.5*wn*wn;
+        // convert loop bandwidth to discrete PI gains
+        // Using damping factor of 0.707 (critically damped)
+        const double damping = 0.707;
+        const double wn = 2.0 * M_PI * loop_bw_hz / fs;
+        kp = 2.0 * damping * wn;
+        ki = wn * wn;
+        // Reset state
+        theta = 0.0;
+        acc = 0.0;
+        xm1 = 0.0f;
+        ym1 = 0.0f;
+        mag_avg = 1.0f;
     }
-    inline float wrap(float a){
-        while(a >  M_PI) a -= 2.0f*M_PI;
-        while(a <= -M_PI) a += 2.0f*M_PI;
+
+    inline float wrap(float a) {
+        while (a >  M_PI) a -= 2.0f * M_PI;
+        while (a <= -M_PI) a += 2.0f * M_PI;
         return a;
     }
-    inline float dcblock(float x){
-        float y = x - xm1 + (float)dc_a*ym1;
-        xm1 = x; ym1 = y;
+
+    inline float dcblock(float x) {
+        float y = x - xm1 + (float)dc_a * ym1;
+        xm1 = x; 
+        ym1 = y;
         return y;
     }
-    // process one IQ sample
-    inline float step(float I, float Q){
-        // Phase detector using input instantaneous phase (amplitude-insensitive)
-        float phi = atan2f(Q, I);
-        float e = wrap(phi - (float)theta);
 
-        // PI loop
+    // process one IQ sample
+    inline float step(float I, float Q) {
+        // Track signal magnitude for normalization
+        float mag = sqrtf(I * I + Q * Q);
+        if (mag > 0.0001f) {  // avoid division by zero
+            mag_avg = mag_avg * (1.0f - mag_alpha) + mag * mag_alpha;
+        }
+        
+        // Normalize input to help phase detector
+        float norm_factor = (mag_avg > 0.0001f) ? (1.0f / mag_avg) : 1.0f;
+        I *= norm_factor;
+        Q *= norm_factor;
+
+        // NCO rotation by -theta to bring carrier to baseband
+        float c = cosf((float)theta);
+        float s = sinf((float)theta);
+        float Ir =  I * c + Q * s;
+        float Qr = -I * s + Q * c;
+
+        // Phase detector - use atan2 for better acquisition over wide range
+        float e = atan2f(Qr, Ir);
+        
+        // Alternative: For locked condition, Qr alone works better
+        // float e = Qr;
+
+        // PI loop filter
         acc += ki * e;
         double u = kp * e + acc;
 
-        // NCO rotation by -theta
-        float c = cosf((float)theta);
-        float s = sinf((float)theta);
-        float Ir =  I*c + Q*s;
-        // float Qr = -I*s + Q*c; // not used
-
-        // advance NCO
+        // Advance NCO with loop correction
         theta += dtheta + u;
-        if (theta >  M_PI) theta -= 2.0*M_PI;
-        if (theta <= -M_PI) theta += 2.0*M_PI;
+        
+        // Wrap phase to [-π, π]
+        if (theta >  M_PI) theta -= 2.0 * M_PI;
+        if (theta <= -M_PI) theta += 2.0 * M_PI;
 
-        // DC block on the audio
-        return dcblock(Ir);
+        // Return the in-phase component (demodulated audio) with DC blocking
+        // Scale back by magnitude for proper amplitude
+        return dcblock(Ir * mag_avg);
+    }
+
+    void reset() {
+        theta = 0.0;
+        acc = 0.0;
+        xm1 = 0.0f;
+        ym1 = 0.0f;
+        mag_avg = 1.0f;
     }
 };
 
@@ -70,19 +109,26 @@ struct SAM_PLL {
 static std::unordered_map<const void*, SAM_PLL> g_sam_by_client;
 
 // Helper to get/create SAM for a client pointer
-static SAM_PLL& get_sam(const void* key, double fs){
+static SAM_PLL& get_sam(const void* key, double fs) {
     auto it = g_sam_by_client.find(key);
-    if (it == g_sam_by_client.end()){
-        SAM_PLL sam; sam.setup(fs, 25.0); // default 25 Hz loop BW
+    if (it == g_sam_by_client.end()) {
+        SAM_PLL sam; 
+        sam.setup(fs, 50.0); // 50 Hz loop BW for good acquisition
         auto it2 = g_sam_by_client.emplace(key, sam);
         return it2.first->second;
     }
-    // refresh fs if changed slightly (rare)
-    if (fabs(it->second.fs - fs) > 1.0){
-        it->second.setup(fs, 25.0);
+    // refresh fs if changed
+    if (fabs(it->second.fs - fs) > 1.0) {
+        it->second.setup(fs, 50.0);
     }
     return it->second;
 }
+
+// Cleanup SAM instance for a client
+static void cleanup_sam(const void* key) {
+    g_sam_by_client.erase(key);
+}
+
 } // namespace
 
 
@@ -157,7 +203,6 @@ AudioClient::AudioClient(connection_hdl hdl, PacketSender &sender,
 
     dc = DCBlocker<float>(audio_max_sps / 750 * 2);
     agc = AGC(0.1f, 100.0f, 30.0f, 100.0f, audio_max_sps);
-    //agc = AGC(0.1f, 100.0f, 30.0f, 100.0f, audio_max_sps);
     ma = MovingAverage<float>(10);
     mm = MovingMode<int>(10);
 
@@ -197,9 +242,11 @@ void AudioClient::set_audio_range(int l, double m, int r) {
     }
     sender.broadcast_signal_changes(unique_id, l, m, r);
 }
+
 void AudioClient::set_audio_demodulation(demodulation_mode demodulation) {
     this->demodulation = demodulation;
 }
+
 const std::string &AudioClient::get_unique_id() { return unique_id; }
 
 // Does the demodulation and sends the audio to the client
@@ -223,8 +270,6 @@ void AudioClient::send_audio(std::complex<float> *buf, size_t frame_num) {
             buf, buf + len, 0.0f,
             [](float a, std::complex<float> &b) { return a + std::norm(b); });
 
-        // average_power /= len;
-
         // Main demodulation logic for the frequency
         if (demodulation == USB || demodulation == LSB) {
             if (demodulation == USB) {
@@ -236,7 +281,7 @@ void AudioClient::send_audio(std::complex<float> *buf, size_t frame_num) {
                 // intersect and copy
                 int copy_l = std::max(audio_l, audio_m);
                 int copy_r = std::min(audio_r, audio_m + audio_fft_size);
-                 if (copy_r >= copy_l) {
+                if (copy_r >= copy_l) {
                     std::copy(buf + copy_l - audio_l, buf + copy_r - audio_l,
                             audio_fft_input.get() + copy_l - audio_m);
                 }
@@ -276,7 +321,7 @@ void AudioClient::send_audio(std::complex<float> *buf, size_t frame_num) {
             dsp_add_float(audio_real.data(), audio_real_prev.data(),
                           audio_fft_size / 2);
         } else if (demodulation == AM || demodulation == FM) {
-            // For AM, copy the bins to the complex baseband frequencies
+            // For AM/SAM/FM, copy the bins to the complex baseband frequencies
             std::fill(audio_fft_input.get(),
                       audio_fft_input.get() + audio_fft_size, 0.0f);
 
@@ -308,23 +353,25 @@ void AudioClient::send_audio(std::complex<float> *buf, size_t frame_num) {
                       audio_complex_baseband_prev.get());
 
             if (demodulation == AM) {
-                // Carrier
+                // Carrier reconstruction for envelope detection
                 std::copy(audio_complex_baseband_carrier.get() +
                               audio_fft_size / 2,
                           audio_complex_baseband_carrier.get() + audio_fft_size,
                           audio_complex_baseband_carrier_prev.get());
             }
+
             // Copy the bins to the complex baseband frequencies
-            // Remove DC
             fftwf_execute(p_complex);
+
             if (demodulation == AM) {
-                // Keep only the low frequencies < 500Hz
+                // Keep only the low frequencies < 500Hz for carrier estimation
                 int cutoff = 500 * audio_fft_size / audio_rate;
                 std::fill(audio_fft_input.get() + cutoff,
                           audio_fft_input.get() + audio_fft_size - cutoff,
                           0.0f);
                 fftwf_execute(p_complex_carrier);
             }
+
             if (frame_num % 2 == 1 && ((audio_m_idx % 2 == 0 && !is_real) ||
                                        (audio_m_idx % 2 == 1 && is_real))) {
                 // If the center frequency is even and the frame number is odd,
@@ -337,42 +384,25 @@ void AudioClient::send_audio(std::complex<float> *buf, size_t frame_num) {
                                        audio_fft_size);
                 }
             }
+
             dsp_add_complex(audio_complex_baseband.get(),
                             audio_complex_baseband_prev.get(),
                             audio_fft_size / 2);
+
             if (demodulation == AM) {
                 dsp_add_complex(audio_complex_baseband_carrier.get(),
                                 audio_complex_baseband_carrier_prev.get(),
                                 audio_fft_size / 2);
 
-
-#ifdef HAS_LIQUID
-                // Improved AM demodulation with PLL optimization
-                nco_crcf_pll_set_bandwidth(mixer, 0.1f);  // Adjust as needed
-                agc_crcf q = agc_crcf_create();
-                agc_crcf_set_bandwidth(q, 0.1f);
+                // Synchronous AM demodulation with PLL (SAM)
+                SAM_PLL& sam = get_sam(this, audio_rate);
                 for (int i = 0; i < audio_fft_size / 2; i++) {
-                    std::complex<float> v0, v1;
-                    agc_crcf_execute(q, audio_complex_baseband[i], &v0);
-                    nco_crcf_mix_down(mixer, audio_complex_baseband_carrier[i],
-                                      &v0);
-                    nco_crcf_mix_down(mixer, audio_complex_baseband[i], &v1);
-                    float phase_error = std::arg(v0);
-                    nco_crcf_pll_step(mixer, phase_error);
-                    nco_crcf_step(mixer);
-                    audio_real[i] = v1.real();
+                    audio_real[i] = sam.step(
+                        audio_complex_baseband[i].real(),
+                        audio_complex_baseband[i].imag()
+                    );
                 }
-               
-#else
-                // Envelope detection for AM
-                dsp_am_demod(audio_complex_baseband.get(), audio_real.data(),
-                             audio_fft_size / 2);
-#endif
-                // Envelope detection for AM - Stick to this, its better mostly
-                dsp_am_demod(audio_complex_baseband.get(), audio_real.data(),
-                             audio_fft_size / 2);
-            }
-            if (demodulation == FM) {
+            } else if (demodulation == FM) {
                 // Polar discriminator for FM
                 polar_discriminator_fm(audio_complex_baseband.get(), prev,
                                        audio_real.data(), audio_fft_size / 2);
@@ -395,6 +425,7 @@ void AudioClient::send_audio(std::complex<float> *buf, size_t frame_num) {
 
         // AGC
         agc.process(audio_real.data(), audio_fft_size / 2);
+
         // Quantize into 16 bit audio to save bandwidth
         dsp_float_to_int16(audio_real.data(), audio_real_int16.data(),
                            65536 / 2, audio_fft_size / 2);
@@ -410,7 +441,7 @@ void AudioClient::send_audio(std::complex<float> *buf, size_t frame_num) {
         ensure_audio_monitor_thread_runs();
         
         // Convert bytes to bits and add to the total_bits_sent
-        size_t bits_sent = (audio_fft_size / 2 ) * 4; // Convert bytes to bits
+        size_t bits_sent = (audio_fft_size / 2) * 4; // Convert bytes to bits
         total_audio_bits_sent.fetch_add(bits_sent, std::memory_order_relaxed);
 
         // Increment the frame number
@@ -447,7 +478,15 @@ void AudioClient::on_demodulation_message(std::string &demodulation) {
     } else if (demodulation == "FM") {
         this->demodulation = FM;
     }
+    
+    // Reset AGC when changing demodulation modes
     this->agc.reset();
+    
+    // Reset SAM PLL when switching to AM mode
+    if (demodulation == "AM") {
+        SAM_PLL& sam = get_sam(this, audio_rate);
+        sam.reset();
+    }
 }
 
 void AudioClient::on_close() {
@@ -456,7 +495,11 @@ void AudioClient::on_close() {
         signal_slices.erase(it);
     }
     sender.broadcast_signal_changes(unique_id, -1, -1, -1);
+    
+    // Clean up SAM PLL instance for this client
+    cleanup_sam(this);
 }
+
 AudioClient::~AudioClient() {
     fftwf_destroy_plan(p_real);
     fftwf_destroy_plan(p_complex_carrier);
@@ -464,4 +507,7 @@ AudioClient::~AudioClient() {
 #ifdef HAS_LIQUID
     nco_crcf_destroy(mixer);
 #endif
+    
+    // Clean up SAM PLL instance
+    cleanup_sam(this);
 }

@@ -3244,7 +3244,7 @@ function _animateNeedle(ts) {
                 </div>
                    
                 <div class="second-column"> 
-                 <embed id="dx" src=https://www.dxfuncluster.com/widgets/cluster25.php" width="670" height="480" frameborder="0" scrolling="yes" style="margin-left: 10px;"/>
+                 <embed id="dx" src="https://www.dxfuncluster.com/widgets/cluster25.php" width="670" height="480" frameborder="0" scrolling="yes" style="margin-left: 10px;"/>
                 <!-- you can delete the link above and add anything else you want, which will be appeared in the second column 
                  e.g links to use 
                 -->

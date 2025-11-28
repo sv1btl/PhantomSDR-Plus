@@ -292,6 +292,16 @@ let currentAGC = 0;
 
   function onKey(e) {
 
+    // If focus is in an editable field, let ArrowLeft/ArrowRight move the caret.
+    try {
+      const t = e.target;
+      const tag = (t && t.tagName ? t.tagName.toUpperCase() : "");
+      const isEditable = !!(t && (tag === "INPUT" || tag === "TEXTAREA" || t.isContentEditable));
+      if (isEditable && (e.code === "ArrowLeft" || e.code === "ArrowRight")) {
+        return; // allow native cursor movement
+      }
+    } catch {}
+
     // --- Right-Ctrl = snap to .00 kHz ---
     if (e.code === "ControlRight") {
       cancelBrowser(e);

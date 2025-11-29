@@ -306,13 +306,23 @@
 
   function onKey(e) {
 
-    // If focus is in an editable field, let ArrowLeft/ArrowRight move the caret.
+    // If ArrowLeft/ArrowRight are pressed inside the chat input textarea,
+    // let them move the caret instead of tuning.
     try {
       const t = e.target;
-      const tag = (t && t.tagName ? t.tagName.toUpperCase() : "");
-      const isEditable = !!(t && (tag === "INPUT" || tag === "TEXTAREA" || t.isContentEditable));
-      if (isEditable && (e.code === "ArrowLeft" || e.code === "ArrowRight")) {
-        return; // allow native cursor movement
+
+      if (t instanceof HTMLElement) {
+        // Adjust these selectors to match your chat & bookmark textarea
+        const inTextInput =
+          t.id === "textInput" ||                  // e.g. <textarea id="textInput">
+          t.closest?.('[data-role="chat-input"]'); // or wrapper with data-role
+
+        if (
+          inTextInput &&
+          (e.code === "ArrowLeft" || e.code === "ArrowRight")
+        ) {
+          return; // allow native cursor movement only in chat input
+        }
       }
     } catch {}
 
@@ -547,7 +557,7 @@
   let bandwidth;
 
   // Waterfall drawing
-  let currentColormap = "custom"; //select any of "turbo, gqrx, twente, twentev2, SpectraVU, custom"
+  let currentColormap = "gqrx"; //select any of "turbo, gqrx, twente, twentev2, SpectraVU, custom"
   let alpha = 0.5;
   let brightness = 130;
   let min_waterfall = -30;
@@ -4720,7 +4730,7 @@ Click again to de-activate"
                           >Add New Bookmark</label
                         >
                         <div class="flex items-center gap-2">
-                          <input
+                          <input id="textInput"
                             class="glass-input text-white text-sm rounded-lg focus:outline-none px-3 py-2 flex-grow"
                             bind:value={newBookmarkName}
                             placeholder="Bookmark name"
@@ -5043,7 +5053,7 @@ Click again to de-activate"
                   <div
                     class="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2"
                   >
-                    <input
+                    <input id="textInput"
                       class="glass-input text-white py-2 px-3 rounded-lg outline-none text-xs sm:text-sm flex-grow"
                       bind:value={newMessage}
                       on:keydown={handleEnterKey}

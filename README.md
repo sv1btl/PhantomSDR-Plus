@@ -119,8 +119,17 @@ You have also to modify the  .toml file, e.g. config-rtl.toml
 
 ### RTL-SDR
 ```
-rtl_sdr -f 145000000 -s 3200000 - | ./build/spectrumserver --config config.toml
+rtl_sdr -f 145000000 -s 2048000 - | ./build/spectrumserver --config config.toml
 ```
+**and in .toml** <br />
+sps=2048000 # RTLSDR Input Sample Rate for144-146 MHz receivingfrequency=144500000 # <br />
+Baseband frequency frequency=144800000 # <br />
+Default frequency to show usermodulation="FM" # <br />
+
+**and in sites-information** <br />
+"siteSDRBaseFrequency": 144500000,<br />
+"siteSDRBandwidth": 2048000,
+
 ### HackRF (10 Msps, WBFM; format: s8)
 ```
 hackrf_transfer -r - -f 100900000 -s 10000000 | ./build/spectrumserver --config config.toml
@@ -176,16 +185,14 @@ Do not forget to disable opencl if you didn't install it, it's recommened you do
 
 Opus encoder/decoder needs to be installed as follows:
 
-- Install "libopus" for Linux, if it is not yet installed
+- Install "libopus" for Linux, and then install "wasm-audio-decoders/opus-ml" for PhantomSDR. Very important step, so the Opus to be activated and running.
 ```
-sudo apt-get update && sudo apt-get install libopus0
-```
-
-- and then install "wasm-audio-decoders/opus-ml" for PhantomSDR. Very important step, so the Opus to be activated and running.
-```
-cd PhantomSDR-Plus
+sudo apt-get update && sudo apt-get install libopus0 
 cd frontend
-npm install @wasm-audio-decoders/opus-ml
+npm install
+npm install @wasm-audio-decoders/opus-mlo
+npm audit fix
+npm run build
 ```
 After the installation, you have to rebuild/recompile with npm, as described below.
 

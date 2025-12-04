@@ -3170,47 +3170,7 @@ function _animateNeedle(ts) {
                 </span>
 
                 <div class="flex justify-center w-full">
-
-                {#if showShortcuts}
-                  <div class="modal-backdrop" on:click|self={closeShortcuts}></div>
-
-                  <div
-                    id="shortcuts-dialog"
-                    role="dialog"
-                    aria-modal="true"
-                    aria-labelledby="shortcuts-title"
-                    class="modal-right"
-                  >
-                    <div class="modal-header">
-                      <h2 id="shortcuts-title">Keyboard Shortcuts</h2>
-                      <button
-                        class="close-btn"
-                        on:click={closeShortcuts}
-                        bind:this={closeBtnEl}
-                        title="Close window"
-                        aria-label="Close"
-                      >×</button>
-                    </div>
-
-                    <div class="modal-body">
-                      <table class="shortcuts-table">
-                        <tbody>
-                          <tr><td>ControlRight</td><td>.00 KHz </td></tr>
-                          <tr><td>↑ / ↓</td><td>±0.01 kHz</td></tr>
-                          <tr><td>← / →</td><td>∓0.10 kHz</td></tr>
-                          <tr><td>Shift + ↑ / ↓</td><td>±1 kHz</td></tr>
-                          <tr><td>Shift + ← / →</td><td>∓10 kHz</td></tr>
-                          <tr><td>Ctrl + ↑ / ↓</td><td>±100 kHz</td></tr>
-                          <tr><td>Ctrl + ← / →</td><td>∓500 kHz</td></tr>
-                          <tr><td>Shift + Ctrl + ↑ / ↓</td><td>±1 MHz</td></tr>
-                          <tr><td>Shift + Ctrl + ← / →</td><td>∓10 MHz</td></tr>
-                        </tbody>
-                      </table>
-                      <p class="hint">Press <kbd>Esc</kbd> or click <b>×</b> to close.</p>
-                    </div>
-                  </div>
-                {/if}
-
+                  
                   <!-- Frequency & QRZ Lookup -->
 
                   Frequency Lookup :&nbsp;
@@ -3259,8 +3219,9 @@ function _animateNeedle(ts) {
                       style="color:rgba(0, 225, 255, 0.993)"
                     />
                   </form>
-                  <!-- Shortcuts trigger + popup -->
-                  <div class="relative inline-block ml-2 shortcuts-trigger">
+                   &nbsp - &nbsp
+
+              <!-- Shortcuts trigger + popup -->
                     <button
                       type="button"
                       class="glass-button text-white py-1 px-3 mb-2 lg:mb-0 rounded-lg text-xs sm:text-sm"
@@ -3272,23 +3233,55 @@ function _animateNeedle(ts) {
                     >
                       ⌨️
                     </button>
+                  
+                <div>
+                
+                {#if showShortcuts}
+                  <div class="modal-backdrop" on:click|self={closeShortcuts}></div>
 
-                    {#if showShortcuts}
-                      <div
-                        id="shortcuts-dialog"
-                        class="shortcuts-popup absolute right-0 mt-2 w-64 rounded-lg shadow-xl z-[5000]"
-                        role="dialog"
-                        aria-label="Keyboard Shortcuts"
-                      > 
-                        <div class="p-3 text-sm text-gray-100">
-                          <div class="flex justify-between items-center mb-2">
-                            <span class="font-semibold text-gray-200">Keyboard Shortcuts inside waterfall</span>
-                            <button
-                              class="text-gray-400 hover:text-white text-xs"
-                              on:click={closeShortcuts}
-                              aria-label="Close shortcuts popup"
-                            >
-                              ✕
+                  <div 
+                    id="shortcuts-dialog"
+                    role="dialog"
+                    aria-modal="true"
+                    aria-labelledby="shortcuts-title"
+                    class="modal-right"
+                  >
+                    <div class="modal-header">
+                      <h2 id="shortcuts-title">Keyboard Shortcuts</h2>
+                      <button
+                        class="close-btn"
+                        on:click={closeShortcuts}
+                        bind:this={closeBtnEl}
+                        title="Close window"
+                        aria-label="Close"
+                      >×</button>
+                    </div>
+
+                    <div class="modal-body">
+                      <table class="shortcuts-table">
+                        <tbody>
+                          <tr><td>ControlRight</td><td>.00 KHz </td></tr>
+                          <tr><td>↑ / ↓</td><td>±0.01 kHz</td></tr>
+                          <tr><td>← / →</td><td>∓0.10 kHz</td></tr>
+                          <tr><td>Shift + ↑ / ↓</td><td>±1 kHz</td></tr>
+                          <tr><td>Shift + ← / →</td><td>∓10 kHz</td></tr>
+                          <tr><td>Ctrl + ↑ / ↓</td><td>±100 kHz</td></tr>
+                          <tr><td>Ctrl + ← / →</td><td>∓500 kHz</td></tr>
+                          <tr><td>Shift + Ctrl + ↑ / ↓</td><td>±1 MHz</td></tr>
+                          <tr><td>Shift + Ctrl + ← / →</td><td>∓10 MHz</td></tr>
+                        </tbody>
+                      </table>
+                      <p class="hint">Press <kbd>Esc</kbd> or click <b>×</b> to close.</p>
+                    </div>
+
+                    <div class="modal-body">
+                       <div class="flex justify-between items-center mb-2">
+                        <span class="font-semibold text-gray-200">Keyboard Shortcuts inside waterfall</span>
+                          <button
+                            class="text-gray-400 hover:text-white text-xs"
+                            on:click={closeShortcuts}
+                            aria-label="Close shortcuts popup"
+                          >
                             </button>
                           </div>
 
@@ -3320,8 +3313,6 @@ function _animateNeedle(ts) {
                       </div>
                     {/if}
                   </div>
-
-                  <br />
                 </div>
                 <!-- End Frequency & QRZ Lookupp -->
 

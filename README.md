@@ -189,7 +189,8 @@ Opus encoder/decoder needs to be installed as follows:
 
 - Install "libopus" for Linux, and then install "wasm-audio-decoders/opus-ml" for PhantomSDR. Very important step, so the Opus to be activated and running.
 ```
-sudo apt-get update && sudo apt-get install libopus0 
+sudo apt-get update && sudo apt-get install libopus0
+cd PhantomSDR-Plus
 cd frontend
 npm install
 npm install @wasm-audio-decoders/opus-mlo

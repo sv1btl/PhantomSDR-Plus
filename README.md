@@ -121,13 +121,15 @@ You have also to modify the  .toml file, e.g. config-rtl.toml
 ```
 rtl_sdr -f 145000000 -s 2048000 - | ./build/spectrumserver --config config.toml
 ```
-**and in .toml** <br />
-sps=2048000 # RTLSDR Input Sample Rate for144-146 MHz receivingfrequency=144500000 # <br />
-Baseband frequency frequency=144800000 # <br />
-Default frequency to show usermodulation="FM" # <br />
+**in .toml** <br />
+sps=2048000 # RTLSDR Input Sample Rate for 144-146 MHz receiving <br />
+frequency=145000000 # Baseband frequency <br />
+
+frequency=145000000 # Default frequency to show user <br />
+modulation="FM" # Default modulation <br />
 
 **and in sites-information** <br />
-"siteSDRBaseFrequency": 144500000,<br />
+"siteSDRBaseFrequency": 145000000,<br />
 "siteSDRBandwidth": 2048000,
 
 ### HackRF (10 Msps, WBFM; format: s8)

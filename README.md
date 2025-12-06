@@ -1,18 +1,19 @@
-# PhantomSDR-Plus WebSDR (version 1.6.0)
-## Note: Please dont use Ubuntu 24.04, stick to Ubuntu 22.04 as it wont compile on 24.04!
-This is different Repo than the Official PhantomSDR Repo
+# PhantomSDR-Plus WebSDR (version 1.6.1)
+## Note: Please dont use Ubuntu 24.04, stick to Ubuntu 22.04 as it wont compile successfully on 24.04 (FM demodulation problems)!
+This is **different Repo than the Official PhantomSDR Repo**
 
-We offer more features as we only maintain support for Linux instead of the official repo
+We offer more **features**:
 - Futuristic Design,
 - Decoders,
-- Band Plan in the Waterfall,
+- Band Plan in the Waterfall, definition for different brigthness, start frequbcy and visibility for each band, 
 - Statistics,
 - Better Custom Colorsmap,
 - Optimized Flac encoder with balanced latency,
+- Optimized Opus encoder with balanced latency,
 - Analog or digital smeter by choice (files for copy-paste are included, must recompile for newer use),
-- New approach in functions as reduced Latency, Noise Reduction, AGC selection, Auto SQL, Buffer adjustments, Auto Adjust waterfall, Mouse wheel use, Keyboard shortcuts, Bookmarks download and upload, Zoom slider, enhanced Mobile GUI,
+- New approach in functions as reduced Latency, Noise Reduction, Noise Cancell & Noise Blanker, Synchronous AM by default, AGC selection, Auto SQL, Buffer adjustments, Auto Adjust waterfall, Mouse wheel use, Keyboard shortcuts, Bookmarks download and upload, Zoom slider, enhanced Mobile GUI,
 - WebSDR List (https://sdr-list.xyz),
-- Supported receivers RX-888, RTL V.4, Airspy Discovery, HackRF, SDRPLAY RSP1A (original and clone) and many more to be added,
+- Supported receivers RX-888, RTL V.4, Airspy Discovery, HackRF, SDRPLAY RSP1A (original and clone) via Soapy and many more to be added,
 - More to come!...
 
 ## Issues
@@ -118,8 +119,19 @@ You have also to modify the  .toml file, e.g. config-rtl.toml
 
 ### RTL-SDR
 ```
-rtl_sdr -f 145000000 -s 3200000 - | ./build/spectrumserver --config config.toml
+rtl_sdr -f 145000000 -s 2048000 - | ./build/spectrumserver --config config.toml
 ```
+**in .toml** <br />
+sps=2048000 # RTLSDR Input Sample Rate for 144-146 MHz receiving <br />
+frequency=145000000 # Baseband frequency <br />
+
+frequency=145000000 # Default frequency to show user <br />
+modulation="FM" # Default modulation <br />
+
+**and in sites-information** <br />
+"siteSDRBaseFrequency": 145000000,<br />
+"siteSDRBandwidth": 2048000,
+
 ### HackRF (10 Msps, WBFM; format: s8)
 ```
 hackrf_transfer -r - -f 100900000 -s 10000000 | ./build/spectrumserver --config config.toml
@@ -141,6 +153,7 @@ rx888_stream -s 6000000 | ./build/spectrumserver --config config.toml
 Some need Soapy and RX_TOOLS installed else they do not work, e.g. Airspy Discovery and SDRPlay RSP1A.<br />
 I also added psutils as it's needed for killall command.<br />
 Do not forget to disable opencl if you didn't install it, it's recommened you do.
+
 
 ## After finished install, enter the frontend directory and edit the site-information.json file with your favorite editor.
 
@@ -167,7 +180,26 @@ Do not forget to disable opencl if you didn't install it, it's recommened you do
 2 is for the Americas, including North, Central, and South America, as well as the Caribbean and<br />
 3 is for Oceania, East Asia, Southeast Asia, and the Pacific Islands.
 
-"siteChatEnabled": true defines if the chat window will be activated.
+"siteChatEnabled": **true** defines if the chat window will be activated.
+
+
+## Opus install
+
+Opus encoder/decoder needs to be installed as follows:
+
+- Install "libopus" for Linux, and then install "wasm-audio-decoders/opus-ml" for PhantomSDR. Very important step, so the Opus to be activated and running.
+```
+sudo apt-get update && sudo apt-get install libopus0
+cd PhantomSDR-Plus
+cd frontend
+npm install
+npm install @wasm-audio-decoders/opus-ml
+npm audit fix
+npm run build
+```
+After the installation, you have to rebuild/recompile with npm, as described below.
+
+Select "flac" or "opus" in .toml file and restart server.
 
 
 ## .toml file
@@ -209,11 +241,20 @@ format="u8" # Sample format: u8, s8, u16, s16, u32, s32, f32, f64 -> use s16 for
 frequency=1170000 # Default frequency to show user<br />
 modulation="AM" # Default modulation<br />
 
+
 ## Backgroud image
 
 The image is located in PhantomSDR-Plus/frontend/src/assets/background.jpg<br />
 Change it with the image you prefer, but keep the name
 
+
+## Every change in files inside PhantomSDR-Plus/src, needs recompile with ninja.
+```
+cd PhantomSDR-Plus
+meson setup build --wipe
+meson setup build --backend=ninja
+meson compile -C build
+```
 
 ## Every change in files inside PhantomSDR-Plus/frontend, needs recompile with npm.
 ```
@@ -224,21 +265,13 @@ npm audit fix
 npm run build
 ```
 
-## Every change in files inside PhantomSDR-Plus/src, needs recompile with ninja.
-```
-cd PhantomSDR-Plus
-meson setup build --wipe
-meson setup build --backend=ninja
-meson compile -C build
-```
-
 ## Final notes.
 In case you re-install or upgrade, please make a backup of your older modified by you files as:<br /> 
 site_information.json, waterfall.js (in frontend and frontend/src), markers.json, start and stop scripts and your .toml and maybe chat_history.txt (all located in root of PhantoSDR-Plus folder) and replace the original ones after the installation, so not to edit them again. <br />
 Don't forget to recompile after that.
 
-### Upgrade folder
-This upgrade (1.6.1) brings the Opus encoder activated. Please read the readme.md file included.
+**Note:**</br>
+App.svelte is the main Gui file. The other variants have to replace the App.svelte and renamed, so to be activated after the compile with npm.
 
 
 ## Start and Stop server.

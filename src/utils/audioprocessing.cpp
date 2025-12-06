@@ -17,7 +17,7 @@ AGC::AGC(float desiredLevel, float attackTimeMs, float releaseTimeMs, float look
     gains.resize(5, 1.0f);
 
     // Limit how loud AGC can go (effective max_lin_gain ≈ max_gain * 0.01)
-    max_gain = 500.0f;                                                  // → max_lin_gain ≈ 2.5x (~+8 dB)
+    max_gain = 250.0f;                                                  // → max_lin_gain ≈ 2.5x (~+8 dB)
 
     // Hang system
     hang_time = static_cast<size_t>(0.15f * sample_rate);               // ~150 ms
@@ -27,20 +27,8 @@ AGC::AGC(float desiredLevel, float attackTimeMs, float releaseTimeMs, float look
     fast_attack_coeff = 1.0f - std::exp(-1.0f / (0.003f * sample_rate)); // ~3 ms
     
     // AM time constants
-    am_attack_coeff  = attack_coeff  * 0.5f;
-    am_release_coeff = release_coeff * 0.1f;
-
-    /* Helper
-
-    | Mode             | Profile         | desiredLevel | attackTimeMs | releaseTimeMs | lookAheadTimeMs | Comment                                 |
-    | ---------------- | --------------- | ------------ | ------------ | ------------- | --------------- | --------------------------------------- |
-    | **SSB Fast**     | Voice DX        | 0.18         | 5            | 200           | 3               | Very snappy, good for weak, QSB-y SSB.  |
-    | **SSB Med**      | General         | 0.20         | 10           | 400           | 3               | Good “default” SSB.                     |
-    | **SSB Slow**     | Relaxed         | 0.22         | 20           | 800           | 5               | Very smooth, less level chasing.        |
-    | **AM Broadcast** | SW/MW/FM relays | 0.20         | 15           | 500           | 5               | Use your “very smooth” AM scaling.      |
-    | **AM Ham**       | AM QSOs         | 0.18         | 8            | 300           | 3               | Snappier than broadcast, still smooth.  |
-    | **CW**           | Narrow          | 0.16         | 4            | 250           | 2               | Keeps code clicks tamed but responsive. |
-    */
+    am_attack_coeff  = attack_coeff  * 0.6f;
+    am_release_coeff = release_coeff * 0.2f;
 
     // Initialize Noise Blanker parameters
     nb_enabled = false;
@@ -152,34 +140,70 @@ void AGC::applyNoiseBlanker(std::vector<float>& buffer) {
 
 
 void AGC::process(float *arr, size_t len) {
+    // Copy input buffer so we can run the noise blanker
     std::vector<float> buffer(arr, arr + len);
 
     // Apply Noise Blanker if enabled
-    if(nb_enabled) {
+    if (nb_enabled) {
         applyNoiseBlanker(buffer);
-    }  
+    }
 
-    for (size_t i = 0; i < len; i++) {
+    // --- ZERO-LOOKAHEAD / MINIMUM-LATENCY PATH ---
+    if (look_ahead_samples == 0) {
+        for (size_t i = 0; i < len; ++i) {
+            float sample = buffer[i];
+            float peak_sample = std::fabs(sample);
+
+            // Desired gain from instantaneous peak
+            float desired_gain = std::min(
+                desired_level / (peak_sample + 1e-15f),
+                max_gain
+            );
+
+            applyProgressiveAGC(desired_gain);
+
+            // Combine all gain stages
+            float total_gain = 1.0f;
+            for (float g : gains) {
+                total_gain *= g;
+            }
+            total_gain = std::min(total_gain, max_gain);
+
+            // Apply scaled gain (your code uses *0.01f)
+            arr[i] = sample * (total_gain * 0.01f);
+        }
+        return;
+    }
+
+    // --- ORIGINAL LOOKAHEAD PATH (adds lookAheadTimeMs latency) ---
+    for (size_t i = 0; i < len; ++i) {
         push(buffer[i]);
 
         if (lookahead_buffer.size() == look_ahead_samples) {
             float current_sample = lookahead_buffer.front();
-            float peak_sample = max();
+            float peak_sample    = max();
 
-            float desired_gain = std::min(desired_level / (peak_sample + 1e-15f), max_gain);
+            float desired_gain = std::min(
+                desired_level / (peak_sample + 1e-15f),
+                max_gain
+            );
 
             applyProgressiveAGC(desired_gain);
 
-            // Apply the combined gain to the current sample
             float total_gain = 1.0f;
-            for (float g : gains) total_gain *= g;
-            total_gain = std::min(total_gain, max_gain);  // Apply maximum gain limit
+            for (float g : gains) {
+                total_gain *= g;
+            }
+            total_gain = std::min(total_gain, max_gain);
+
             arr[i] = current_sample * (total_gain * 0.01f);
         } else {
+            // Still filling lookahead buffer – output muted until we have full window
             arr[i] = 0.0f;
         }
     }
 }
+
 
 void AGC::applyProgressiveAGC(float desired_gain) {
     // Apply AGC progressively to different stages

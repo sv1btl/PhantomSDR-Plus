@@ -178,8 +178,8 @@ export default class SpectrumAudio {
 
     // Added to allow for adjustment of the //
     // dynamic audio buffer //
-    this.bufferLimit = 0.5;      // max ~500 ms ahead
-    this.bufferThreshold = 0.1;  // aim for ~100 ms safety buffer
+    this.bufferLimit = 0.20;
+    this.bufferThreshold = 0.04;
 
     this.endpoint = endpoint
 
@@ -411,7 +411,7 @@ setAGC(newAGCSpeed) {
       // Automatically balances responsiveness and smoothness
       this.agcAttackTime = 0.03;       // 30 ms: reacts quickly to rising signals
       this.agcReleaseTime = 0.50;      // 300 ms: gentle recovery to avoid pumping
-      this.agcLookaheadTime = 0.05;    // 50 ms: lookahead for peak anticipation
+      this.agcLookaheadTime = 0.01;    // 10 ms: lookahead for peak anticipation
       this.agcTargetLevel = 0.9;       // Target around -1 dBFS
       this.agcMaxGain = 5;             // Allow up to 5× gain
       this.smoothMaxgain(0.9);         // Slight smoothing for steady gain
@@ -421,7 +421,7 @@ setAGC(newAGCSpeed) {
       // Ideal for speech or CW signals where rapid response is needed
       this.agcAttackTime = 0.005;      // 5 ms: very quick attack for transients
       this.agcReleaseTime = 0.2;      // 50 ms: quick recovery to new levels
-      this.agcLookaheadTime = 0.02;    // 20 ms: short lookahead to catch peaks
+      this.agcLookaheadTime = 0.01;    // 10 ms: short lookahead to catch peaks
       this.agcTargetLevel = 0.75;      // Slightly lower target (-2.5 dBFS)
       this.agcMaxGain = 5;             // Moderate gain limit to avoid overshoot
       this.smoothMaxgain(0.7);         // Faster smoothing for agility
@@ -431,7 +431,7 @@ setAGC(newAGCSpeed) {
       // Balanced mode: good for general music and broadcast audio
       this.agcAttackTime = 0.02;       // 20 ms: natural attack
       this.agcReleaseTime = 1.5;       // 1000 ms: slower release to maintain warmth
-      this.agcLookaheadTime = 0.08;    // 80 ms: moderate lookahead
+      this.agcLookaheadTime = 0.01;    // 10 ms: moderate lookahead
       this.agcTargetLevel = 1.0;       // Nominal unity (0 dBFS target)
       this.agcMaxGain = 5;             // Up to 5× gain
       this.smoothMaxgain(1.0);         // Balanced smoothing factor
@@ -441,7 +441,7 @@ setAGC(newAGCSpeed) {
       // Smooth long-term leveling, ideal for wide dynamic range (music, AM/FM)
       this.agcAttackTime = 0.1;        // 100 ms: slow attack to preserve transients
       this.agcReleaseTime = 2.5;       // 2.0 s: long release for stable dynamics
-      this.agcLookaheadTime = 0.12;    // 120 ms: slightly longer lookahead
+      this.agcLookaheadTime = 0.02;    // 20 ms: slightly longer lookahead
       this.agcTargetLevel = 1.1;       // Slightly boosted target
       this.agcMaxGain = 5;             // More headroom for quiet passages
       this.smoothMaxgain(1.3);         // Slower gain smoothing
@@ -641,32 +641,34 @@ setAGC(newAGCSpeed) {
       this.decoder = createDecoder(settings.audio_compression, this.audioMaxSps, this.trueAudioSps, this.audioOutputSps);
     }
 
-    // Bass boost (lowshelf filter)
+    // Bass boost (lowshelf filter) – a bit more bass, slightly higher corner
     this.bassBoost = new BiquadFilterNode(this.audioCtx)
     this.bassBoost.type = 'lowshelf'
-    this.bassBoost.frequency.value = 100
-    this.bassBoost.Q.value = 0.7
-    this.bassBoost.gain.value = 6
+    this.bassBoost.frequency.value = 120    // was 100
+    this.bassBoost.Q.value = 0.8            // was 0.7
+    this.bassBoost.gain.value = 8           // was 6 (more bass)
 
-    // Bandpass filter for speech enhancement
+    /* Bandpass (upper mids) – slightly lower center, softer gain
+      so the midrange is not so “forward” */
     this.bandpass = new BiquadFilterNode(this.audioCtx)
     this.bandpass.type = 'peaking'
-    this.bandpass.frequency.value = 1800
-    this.bandpass.Q.value = 1.2
-    this.bandpass.gain.value = 3
+    this.bandpass.frequency.value = 1600    // was 1800
+    this.bandpass.Q.value = 1.0             // was 1.2
+    this.bandpass.gain.value = 2            // was 3
 
-    // High-pass filter
+    // High-pass filter – let a bit more low end through
     this.highPass = new BiquadFilterNode(this.audioCtx)
     this.highPass.type = 'highpass'
-    this.highPass.frequency.value = 60
+    this.highPass.frequency.value = 45      // was 60
     this.highPass.Q.value = 0.7
 
-    // Presence boost
+    /* Presence boost – move it lower and reduce gain
+      so highs are smoother / less sharp */
     this.presenceBoost = new BiquadFilterNode(this.audioCtx)
     this.presenceBoost.type = 'peaking'
-    this.presenceBoost.frequency.value = 3500
-    this.presenceBoost.Q.value = 1.5
-    this.presenceBoost.gain.value = 4
+    this.presenceBoost.frequency.value = 2800  // was 3500
+    this.presenceBoost.Q.value = 1.2           // was 1.5
+    this.presenceBoost.gain.value = 2          // was 4
 
     // Convolver node for additional filtering
     this.convolverNode = new ConvolverNode(this.audioCtx)
@@ -761,9 +763,9 @@ setAGC(newAGCSpeed) {
   // Audio Buffer Delay function that sets the new values for //
   // bufferLimit and bufferThreshold //
   setAudioBufferDelay(newAudioBufferLimit, newAudioBufferThreshold) {
-    this.bufferThreshold = 0.06;   // ~60 ms safety
-    this.bufferLimit     = 0.30;   // cap at ~300 ms ahead
-  }
+    this.bufferThreshold = 0.04;   // ~40 ms safety
+    this.bufferLimit     = 0.20;   // cap at ~200 ms ahead
+}
 
 
   setFT8Decoding(value) {

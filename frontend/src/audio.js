@@ -973,7 +973,7 @@ setAGC(newAGCSpeed) {
   }
 
   setGain(gain) {
-    gain /= 20;
+    gain /= 30;
     this.gain = gain
     this.gainNode.gain.value = gain
   }

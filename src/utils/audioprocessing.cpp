@@ -17,25 +17,21 @@ AGC::AGC(float desiredLevel, float attackTimeMs, float releaseTimeMs, float look
     gains.resize(5, 1.0f);
 
     // Limit how loud AGC can go (effective max_lin_gain ≈ max_gain * 0.01)
-    max_gain = 500.0f;                                                  // → max_lin_gain ≈ 2.5x (~+8 dB)
+    max_gain = 500.0f;  // → max_lin_gain ≈ 3x (~+8 dB)
 
-    // Hang system
-    hang_time = static_cast<size_t>(0.15f * sample_rate);               // ~150 ms
-    hang_threshold = 0.01f;                                             // ~ -40 dBFS
-
-    // Dual time constant
+    // Dual time constant (fast branch, common to all modes)
     fast_attack_coeff = 1.0f - std::exp(-1.0f / (0.003f * sample_rate)); // ~3 ms
-    
-    // AM time constants
-    am_attack_coeff  = attack_coeff  * 0.7f;
-    am_release_coeff = release_coeff * 0.1f;
+
+    // ▼ Default profile: SSB / CW (more agile speech AGC)
+    configureForSSB();
+    // ▲ Caller can later call configureForAM() when demod is AM
 
     // Initialize Noise Blanker parameters
     nb_enabled = false;
-    nb_fft_size = 2048; //Profile 1 Audio.js
-    nb_overlap = 1536; 
-    nb_average_windows = 32; 
-    nb_threshold = 140.0f; 
+    nb_fft_size = 1024; //Profile 5 Audio.js
+    nb_overlap = 512; 
+    nb_average_windows = 16; 
+    nb_threshold = 180.0f; 
     
     nb_buffer.resize(nb_fft_size);
     nb_spectrum_history.resize(nb_average_windows, std::vector<float>(nb_fft_size / 2));
@@ -48,6 +44,34 @@ AGC::AGC(float desiredLevel, float attackTimeMs, float releaseTimeMs, float look
     nb_ifft_plan = fftwf_plan_dft_1d(nb_fft_size, nb_fft_out, nb_fft_in, FFTW_BACKWARD, FFTW_ESTIMATE);
     
     reset();
+}
+
+// --------------------------------------------------------------------------
+// Mode-dependent AGC profiles
+// --------------------------------------------------------------------------
+
+// SSB / CW: more agile, good for speech and QSOs
+void AGC::configureForSSB() {
+    // Hang: shorter, so speech recovers between phrases
+    hang_time      = static_cast<size_t>(0.12f * sample_rate); // ~120 ms
+    hang_threshold = 0.01f;                                    // ~ -40 dBFS
+
+    // Time constants: reasonably fast down, moderate up
+    am_attack_coeff  = attack_coeff * 0.6f;   // clamp peaks, but not brick-wall
+    am_release_coeff = release_coeff * 0.20f; // recover within speech rhythm
+}
+
+// AM broadcast: very tight, long delay when audio drops
+void AGC::configureForAM() {
+    // Longer hang so gain stays put between words / short pauses
+    hang_time      = static_cast<size_t>(0.35f * sample_rate); // ~350 ms
+    hang_threshold = 0.10f;                                    // was 0.005f
+
+    // Peaks: still clamp firmly
+    am_attack_coeff  = attack_coeff * 0.9f;    // keep tight on loud peaks
+
+    // Gain-up: a bit slower than before, to avoid noise pumping in pauses
+    am_release_coeff = release_coeff * 0.05f;  // was 0.12f (0.03f originally)
 }
 
 void AGC::push(float sample) {

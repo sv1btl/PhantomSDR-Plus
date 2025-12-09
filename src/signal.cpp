@@ -209,14 +209,21 @@ void ensure_audio_monitor_thread_runs() {
 
 
 
-AudioClient::AudioClient(connection_hdl hdl, PacketSender &sender,
-                         audio_compressor audio_compression, bool is_real,
-                         int audio_fft_size, int audio_max_sps,
+AudioClient::AudioClient(connection_hdl hdl,
+                         PacketSender &sender,
+                         audio_compressor audio_compression,
+                         bool is_real,
+                         int audio_fft_size,
+                         int audio_max_sps,
                          int fft_result_size)
-    : Client(hdl, sender, AUDIO), is_real{is_real},
-      audio_fft_size{audio_fft_size}, fft_result_size{fft_result_size},
-      audio_rate{audio_max_sps}, signal_slices{sender.get_signal_slices()},
-      signal_slice_mtx{sender.get_signal_slice_mtx()} {
+    : Client(hdl, sender, AUDIO),
+      is_real(is_real),
+      audio_fft_size(audio_fft_size),
+      fft_result_size(fft_result_size),
+      audio_rate(audio_max_sps),
+      signal_slices(sender.get_signal_slices()),
+      signal_slice_mtx(sender.get_signal_slice_mtx()),
+      agc(0.1f, 100.0f, 30.0f, 100.0f, audio_max_sps) {
 
     if (audio_compression == AUDIO_FLAC) {
         std::unique_ptr<FlacEncoder> encoder =
@@ -256,8 +263,7 @@ else if (audio_compression == AUDIO_OPUS) {
     audio_real_prev.resize(audio_fft_size);
     audio_real_int16.resize(audio_fft_size);
 
-    dc = DCBlocker<float>(audio_max_sps / 750 * 2);
-    agc = AGC(0.1f, 100.0f, 30.0f, 100.0f, audio_max_sps);
+    dc = DCBlocker<float>(audio_max_sps / 750 * 2);    
     ma = MovingAverage<float>(10);
     mm = MovingMode<int>(10);
 
@@ -541,9 +547,17 @@ void AudioClient::on_demodulation_message(std::string &demodulation) {
     } else if (demodulation == "FM") {
         this->demodulation = FM;
     }
-    
+
     // Reset AGC when changing demodulation modes
     this->agc.reset();
+
+    // Mode-dependent AGC profile
+    if (this->demodulation == AM) {
+        this->agc.configureForAM();
+    } else {
+        // USB, LSB, CW (if you ever add it) and FM
+        this->agc.configureForSSB();
+    }
     
     // Reset SAM PLL when switching to AM mode
     if (demodulation == "AM") {

@@ -55,12 +55,16 @@ class AGC {
     void applyProgressiveAGC(float desired_gain);
     void applyNoiseBlanker(std::vector<float>& buffer);
 
-  public:
-    AGC(float desiredLevel = 0.1f, float attackTimeMs = 50.0f,
-        float releaseTimeMs = 300.0f, float lookAheadTimeMs = 10.0f,
-        float sr = 44100.0f);
+public:
+    AGC(float desiredLevel,
+        float attackTimeMs,
+        float releaseTimeMs,
+        float lookAheadTimeMs,
+        float sr);
     void process(float *arr, size_t len);
     void reset();
+    void configureForSSB();
+    void configureForAM();
 };
 
 #endif

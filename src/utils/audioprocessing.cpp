@@ -50,28 +50,22 @@ AGC::AGC(float desiredLevel, float attackTimeMs, float releaseTimeMs, float look
 // Mode-dependent AGC profiles
 // --------------------------------------------------------------------------
 
-// SSB / CW: more agile, good for speech and QSOs
+// SSB / CW: smoother speech handling
 void AGC::configureForSSB() {
-    // Hang: shorter, so speech recovers between phrases
-    hang_time      = static_cast<size_t>(0.12f * sample_rate); // ~120 ms
-    hang_threshold = 0.01f;                                    // ~ -40 dBFS
+    hang_time      = static_cast<size_t>(0.18f * sample_rate);  // mild hold; avoids syllable pumping
+    hang_threshold = 0.12f;                                     // trigger hang at normal speech level
 
-    // Time constants: reasonably fast down, moderate up
-    am_attack_coeff  = attack_coeff * 0.6f;   // clamp peaks, but not brick-wall
-    am_release_coeff = release_coeff * 0.20f; // recover within speech rhythm
+    am_attack_coeff  = attack_coeff * 0.5f;                     // moderate peak control
+    am_release_coeff = release_coeff * 0.15f;                   // gentle gain-up; smoother audio
 }
 
-// AM broadcast: very tight, long delay when audio drops
+// AM broadcast: steady level, minimal movement in pauses
 void AGC::configureForAM() {
-    // Longer hang so gain stays put between words / short pauses
-    hang_time      = static_cast<size_t>(0.35f * sample_rate); // ~350 ms
-    hang_threshold = 0.10f;                                    // was 0.005f
+    hang_time      = static_cast<size_t>(0.50f * sample_rate);  // long hold; stable loudness
+    hang_threshold = 0.20f;                                     // engage hang early; suppress noise rise
 
-    // Peaks: still clamp firmly
-    am_attack_coeff  = attack_coeff * 0.9f;    // keep tight on loud peaks
-
-    // Gain-up: a bit slower than before, to avoid noise pumping in pauses
-    am_release_coeff = release_coeff * 0.05f;  // was 0.12f (0.03f originally)
+    am_attack_coeff  = attack_coeff * 0.8f;                     // tight peak control
+    am_release_coeff = release_coeff * 0.06f;                   // very slow gain-up; no “breathing”
 }
 
 void AGC::push(float sample) {

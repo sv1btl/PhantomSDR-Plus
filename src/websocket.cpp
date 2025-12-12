@@ -6,6 +6,100 @@
 
 #include "glaze/glaze.hpp"
 
+#include <chrono>
+#include <map>
+
+// ---------------------------------------------------------------------------
+// Adaptive throttling
+//
+// Browsers aggressively throttle background tabs (JS timers, rendering, and
+// websocket message handling). When the client becomes a slow consumer,
+// websocketpp's send buffer grows; if the server responds by *never sending*
+// (i.e., `continue;` forever), the user experiences a "freeze".
+//
+// The strategy below is:
+//  - Never enter an infinite starvation state.
+//  - When buffered_amount rises, reduce send rate (drop intermediate frames).
+//  - When buffered_amount falls, automatically ramp back up.
+//
+// This keeps audio/waterfall "alive" under background throttling, while still
+// protecting server memory.
+// ---------------------------------------------------------------------------
+
+namespace {
+using clock_t = std::chrono::steady_clock;
+
+struct throttle_state {
+    uint64_t last_frame_sent = 0;                 // last frame_num we sent
+    clock_t::time_point last_send_time = {};      // last time we sent
+};
+
+// Use owner_less so connection_hdl can be map key safely.
+using throttle_map_t = std::map<connection_hdl, throttle_state, std::owner_less<connection_hdl>>;
+
+// Separate state for audio and waterfall (different thresholds).
+throttle_map_t g_audio_throttle;
+throttle_map_t g_waterfall_throttle;
+
+// Decide whether to send this frame given the current buffered amount.
+// Returns true if we should send now.
+inline bool should_send_adaptive(throttle_state &st,
+                                const size_t buffered_amount,
+                                const uint64_t frame_num,
+                                const int base_fps_cap) {
+    // base_fps_cap is interpreted as a *minimum* cadence guard in ms when
+    // we are under pressure (acts like a token bucket).
+    // In normal operation, we send every frame.
+
+    // Map buffer pressure -> frame skipping and minimum interval.
+    // These values are conservative and meant to avoid starvation.
+    int skip_mod = 1;
+    int min_interval_ms = 0;
+
+    if (buffered_amount > 700000) {          // very slow client
+        skip_mod = 30;
+        min_interval_ms = base_fps_cap * 6;
+    } else if (buffered_amount > 400000) {
+        skip_mod = 15;
+        min_interval_ms = base_fps_cap * 4;
+    } else if (buffered_amount > 200000) {
+        skip_mod = 8;
+        min_interval_ms = base_fps_cap * 3;
+    } else if (buffered_amount > 100000) {
+        skip_mod = 4;
+        min_interval_ms = base_fps_cap * 2;
+    } else if (buffered_amount > 50000) {
+        skip_mod = 2;
+        min_interval_ms = base_fps_cap;
+    }
+
+    // If no pressure: send.
+    if (skip_mod == 1 && min_interval_ms == 0) {
+        return true;
+    }
+
+    // Skip intermediate frames by modulo.
+    if ((frame_num % static_cast<uint64_t>(skip_mod)) != 0) {
+        return false;
+    }
+
+    // Also enforce a minimum time interval when under pressure.
+    const auto now = clock_t::now();
+    if (min_interval_ms > 0) {
+        if (st.last_send_time.time_since_epoch().count() != 0) {
+            const auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - st.last_send_time).count();
+            if (elapsed < min_interval_ms) {
+                return false;
+            }
+        }
+    }
+
+    st.last_send_time = now;
+    st.last_frame_sent = frame_num;
+    return true;
+}
+} // namespace
+
 void broadcast_server::send_basic_info(connection_hdl hdl) {
 
     // Example format:
@@ -134,7 +228,12 @@ void broadcast_server::on_open_signal(connection_hdl hdl,
 
     server::connection_ptr con = m_server.get_con_from_hdl(hdl);
 
-    con->set_close_handler(std::bind(&AudioClient::on_close, client));
+    con->set_close_handler([client](connection_hdl h) {
+        // Clean up throttle state for this connection
+        g_audio_throttle.erase(h);
+        // AudioClient::on_close() takes no arguments
+        try { client->on_close(); } catch (...) {}
+    });
     con->set_message_handler(std::bind(
         &broadcast_server::on_message, this, std::placeholders::_1,
         std::placeholders::_2, std::static_pointer_cast<Client>(client)));
@@ -177,9 +276,14 @@ std::vector<std::future<void>> broadcast_server::signal_loop() {
                 continue;
             }
 
-            // Fixed version, no need to output
-            if (con->get_buffered_amount() > 50000) { 
-                continue; 
+            // Adaptive throttling: never starve the client forever.
+            // When buffered_amount rises (common in background tabs), reduce
+            // send rate instead of hard-dropping everything.
+            const size_t buffered = con->get_buffered_amount();
+            auto &st = g_audio_throttle[data->hdl];
+            // base_fps_cap (ms) ~25ms => ~40Hz minimum cadence under pressure.
+            if (!should_send_adaptive(st, buffered, static_cast<uint64_t>(frame_num), 25)) {
+                continue;
             }
 
             // Equivalent to
@@ -210,7 +314,11 @@ void broadcast_server::on_open_waterfall(connection_hdl hdl) {
     client->set_waterfall_range(downsample_levels - 1, 0, min_waterfall_fft);
 
     server::connection_ptr con = m_server.get_con_from_hdl(hdl);
-    con->set_close_handler(std::bind(&WaterfallClient::on_close, client));
+    con->set_close_handler([client](connection_hdl h) {
+        // Clean up throttle state for this connection
+        g_waterfall_throttle.erase(h);
+        try { client->on_close(); } catch (...) {}
+    });
     con->set_message_handler(std::bind(
         &broadcast_server::on_message, this, std::placeholders::_1,
         std::placeholders::_2, std::static_pointer_cast<Client>(client)));
@@ -239,9 +347,13 @@ broadcast_server::waterfall_loop(int8_t *fft_power_quantized) {
                     continue;
                 }
 
-                // Fixed version, no need to output
-                if (con->get_buffered_amount() > 100000) { 
-                    continue; 
+                // Adaptive throttling: waterfall can be aggressively decimated
+                // under pressure because we only care about the *latest* line.
+                const size_t buffered = con->get_buffered_amount();
+                auto &st = g_waterfall_throttle[data->hdl];
+                // base_fps_cap (ms) ~40ms => ~25Hz minimum cadence under pressure.
+                if (!should_send_adaptive(st, buffered, static_cast<uint64_t>(frame_num), 40)) {
+                    continue;
                 }
                 
                 // Equivalent to
@@ -364,8 +476,9 @@ void broadcast_server::send_text_packet(
             return;
         }
         
-        // Check if the send buffer is too full
-        if (con->get_buffered_amount() > 100000) {
+        // Don't drop important control text packets too aggressively.
+        // We allow moderate buffering so background tabs can recover.
+        if (con->get_buffered_amount() > 800000) {
             return;
         }
 
@@ -407,8 +520,8 @@ void broadcast_server::send_binary_packet(
             return;
         }
         
-        // Check if the send buffer is too full
-        if (con->get_buffered_amount() > 100000) {
+        // Binary packets can be large; allow some buffering but cap runaway.
+        if (con->get_buffered_amount() > 800000) {
             return;
         }
 

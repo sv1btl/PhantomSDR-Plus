@@ -167,7 +167,7 @@ std::vector<std::future<void>> broadcast_server::signal_loop() {
     for (auto &[slice, data] : signal_slices) {
         auto &[l_idx, r_idx] = slice;
         // If the client is slow, avoid unnecessary buffering and drop the
-        // audio value was 50000 -> Changed to 1000
+        // audio value - default is 50000
         
         try {
             auto con = m_server.get_con_from_hdl(data->hdl);
@@ -178,7 +178,7 @@ std::vector<std::future<void>> broadcast_server::signal_loop() {
             }
 
             // Fixed version, no need to output
-            if (con->get_buffered_amount() > 1000) { 
+            if (con->get_buffered_amount() > 50000) { 
                 continue; 
             }
 

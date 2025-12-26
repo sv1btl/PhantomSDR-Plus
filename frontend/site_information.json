@@ -1,0 +1,17 @@
+{
+	"siteSysop": "your name or callsign",
+	"siteSysopEmailAddress": "mail@mail.net",
+	"siteGridSquare": "QTH locator",
+	"siteCity": "City Country",
+	"siteInformation": "Your Information",
+	"siteHardware": "Hardware you are using, ",
+	"siteSoftware": "Software you are using",
+	"siteReceiver": "Receiver model",
+	"siteAntenna": "Receiving Antenna.",
+	"siteNote": "This is a bright new open source WebSDR project, which is dynamicaly developing.",
+	"siteIP": "Your site IP:port",
+	"siteSDRBaseFrequency": 0,
+	"siteSDRBandwidth": 30000000,
+	"siteRegion": 1,
+	"siteChatEnabled": true
+}

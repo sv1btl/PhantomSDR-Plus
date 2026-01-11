@@ -26,7 +26,7 @@ This comprehensive guide will walk you through installing and configuring Phanto
 ### Supported Operating Systems
 
 **Primary (Recommended):**
-- Ubuntu 22.04 LTS (x86_64)
+- Ubuntu 22.04 LTS (x86_64) (recommended)
 
 **Alternative:**
 - Fedora (latest stable release)

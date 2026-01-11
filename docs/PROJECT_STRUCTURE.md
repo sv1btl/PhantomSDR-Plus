@@ -94,6 +94,7 @@ PhantomSDR-Plus/
 |       |   App__v2_analog_smeter_.svelte
 |       |   App__v2_digital_smeter_.svelte
 |       |   audio.js
+|       |   bands-config.js
 |       |   eventBus.js
 |       |   events.js
 |       |   fft.js

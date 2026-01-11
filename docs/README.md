@@ -149,12 +149,12 @@ For detailed installation instructions, see [INSTALLATION.md](INSTALLATION.md).
 
 3. **`markers.json`** - Frequency markers and band plan
 
-4. **`frontend/src/waterfall.js`** - Public site information
-   - Go to the section  ->   this.bands = [
-   - This section prepare bands that will be appeared
-   - You will see something like this:
+4. **`frontend/src/bands-config.js`** - Public site information
+   The file is located in frontend/src/bands-config.js and build the bands that SySop creates. <br />
+- You will see something like this, and you are free to edit as you like:
    ```
-   ..............
+   - const bands = 
+   .....
    - { ITU: 1,
             name: '40m', min: -30, max: 110, initFreq: '7120000', publishBand: '1', startFreq: 7000000, endFreq: 7200000,  stepi: 1000, color: 'rgba(50, 168, 72, 0.6)', 
 	    modes: [
@@ -172,17 +172,18 @@ For detailed installation instructions, see [INSTALLATION.md](INSTALLATION.md).
             modes: [
               { mode: MODES.CW, startFreq: 7000000, endFreq: 7040000 },
               { mode: MODES.LSB, startFreq: 7040000, endFreq: 7200000 }]
-   ..............
+   .....
    etc
    ```
-   - ITU is the region the server is located, 
-   - min & max is the brightness of the band, 
-   - initFreq is the initial frequency of the band when it is selected, 
-   - publishband declares if the band will be shown or not 1 for amateur band, 2 for broadcasting bands, 
-   - startFreq & endFreq declare the band limits, 
-   - stepi is the default wheel step for the band, modes is the prefered default mode for the band.
+   **Where:** <br />
+   - **ITU** is the region the server is located, 
+   - **min & max** is the brightness of the waterfall for given band, 
+   - **initFreq** is the initial frequency of the band when it is selected, 
+   - **publishband** declares if the band will be shown or not 1 for amateur band, 2 for broadcasting bands, 
+   - **startFreq & endFreq** declare the band limits, 
+   - **stepi** is the default wheel step for the band, modes is the prefered default mode for the band.
 
-- After modification run compile.sh in the terminal.
+- After modification **run recompile.sh in the terminal** located in PhantomSDR-Plus folder.
 
 For configuration examples, see the included sample files:
 - `config-rtl.toml` - RTL-SDR configuration

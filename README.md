@@ -218,6 +218,43 @@ frequency=1170000 # Default frequency to show user<br />
 modulation="AM" # Default modulation<br />
 
 
+## The bands-config.js
+The file is located in frontend/src/bands-config.js and build the bands that SySop creates. <br />
+- You will see something like this, and you are free to edit as you like:
+   ```
+   - const bands = 
+   .....
+   - { ITU: 1,
+            name: '40m', min: -30, max: 110, initFreq: '7120000', publishBand: '1', startFreq: 7000000, endFreq: 7200000,  stepi: 1000, color: 'rgba(50, 168, 72, 0.6)', 
+	    modes: [
+              { mode: MODES.CW, startFreq: 7000000, endFreq: 7040000 },
+              { mode: MODES.LSB, startFreq: 7040000, endFreq: 7200000 }]
+	},
+	{ ITU: 2,
+            name: '40m', min: -30, max: 110, initFreq: '', publishBand: '1', startFreq: 7000000, endFreq: 7300000,  stepi: 1000, color: 'rgba(50, 168, 72, 0.6)', 
+	    modes: [
+              { mode: MODES.CW, startFreq: 7000000, endFreq: 7050000 },
+              { mode: MODES.LSB, startFreq: 7050000, endFreq: 7300000 }]
+	},
+	{ ITU: 3,
+            name: '40m', min: -30, max: 110, initFreq: '', publishBand: '1', startFreq: 7000000, endFreq: 7200000,  stepi: 1000, color: 'rgba(50, 168, 72, 0.6)',
+            modes: [
+              { mode: MODES.CW, startFreq: 7000000, endFreq: 7040000 },
+              { mode: MODES.LSB, startFreq: 7040000, endFreq: 7200000 }]
+   .....
+   etc
+   ```
+   **Where:** <br />
+   - **ITU** is the region the server is located, 
+   - **min & max** is the brightness of the waterfall for given band, 
+   - **initFreq** is the initial frequency of the band when it is selected, 
+   - **publishband** declares if the band will be shown or not 1 for amateur band, 2 for broadcasting bands, 
+   - **startFreq & endFreq** declare the band limits, 
+   - **stepi** is the default wheel step for the band, modes is the prefered default mode for the band.
+
+- After modification **run recompile.sh in the terminal** located in PhantomSDR-Plus folder.
+
+
 ## Backgroud image
 
 The image is located in PhantomSDR-Plus/frontend/src/assets/background.jpg<br />

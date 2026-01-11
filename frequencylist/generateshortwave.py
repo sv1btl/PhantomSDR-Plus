@@ -26,7 +26,7 @@ for k, v in sorted(frequencies.items()):
 json.dump(frequenciesSorted, open('shortwavestations.json','w'), indent=4)
 
 
-#download from https://new.hfcc.org/data/ the newest list, at the buttom of page, here: "B25allx2.zip - B25 Operational Schedule - Last updated on 20-Dec-2025"
+#download from https://new.hfcc.org/data/ the newest list, at the buttom of page, here: B25allx2.zip - B25 Operational Schedule - Last updated on 08-Jan-2026 
 #unzip the downloaded file, here: "B25allx2.zip"
 #move "B25all00.TXT" and "broadcas.txt" at the "frequencylist" folder
 #edit the file "generateshortwave.py"

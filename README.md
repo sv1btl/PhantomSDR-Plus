@@ -150,7 +150,7 @@ Do not forget to disable opencl if you didn't install it, it's recommended you d
 
 
 ## During install procedure, the script will edit and save the site-information.json file with your favorite editor. Don't avoid to do this!
-{
+
 	"siteSysop": "your name or callsign",
 	"siteSysopEmailAddress": "mail@mail.net",
 	"siteGridSquare": "QTH locator",
@@ -167,7 +167,7 @@ Do not forget to disable opencl if you didn't install it, it's recommended you d
 	"siteSDRBandwidth": 30000000,
 	"siteRegion": 1,
 	"siteChatEnabled": true
-}
+
 
 Where: <br />
 

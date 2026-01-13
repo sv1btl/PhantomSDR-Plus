@@ -150,7 +150,7 @@ Do not forget to disable opencl if you didn't install it, it's recommended you d
 
 
 ## During install procedure, the script will edit and save the site-information.json file with your favorite editor. Don't avoid to do this!
-
+{
 	"siteSysop": "your name or callsign",
 	"siteSysopEmailAddress": "mail@mail.net",
 	"siteGridSquare": "QTH locator",
@@ -160,7 +160,16 @@ Do not forget to disable opencl if you didn't install it, it's recommended you d
 	"siteSoftware": "Software you are using",
 	"siteReceiver": "Receiver model",
 	"siteAntenna": "Receiving Antenna.",
-... etc
+	"siteNote": "This is a bright new open source WebSDR project, which is dynamicaly developing.",
+	"siteIP": "http://Your site IP:port",
+	"siteStats": "http://Your site IP:3001",
+	"siteSDRBaseFrequency": 0,
+	"siteSDRBandwidth": 30000000,
+	"siteRegion": 1,
+	"siteChatEnabled": true
+}
+
+Where: <br />
 
 **"siteSDRBandwidth"**: you must type the usefull band with of your receiver, e.g. for RTL is 2048000, for RX-888 is 60000000 or 1200000000 etc.<br />
 **"siteInformation"**: "https://github.com/sv1btl/PhantomSDR-Plus" please don't change it. It indicates the github repo of the project.<br />

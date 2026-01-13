@@ -328,7 +328,7 @@ Please refer to **[Readme](docs/sdr-stats/README.md)** - for detailed instructio
 In case you re-install or upgrade, please make a backup of your older installation in case you will need some files as: <br /> 
 - site_information.json (in frontend), 
 - markers.json, start and stop scripts & your .toml and maybe chat_history.txt (all located in the root of PhantoSDR-Plus folder)
-- bands-config.js (in frontend/src)
+- bands-config.js (in frontend/src) <br />
 and replace the original ones after the installation, so not to edit them again. <br />
 Don't forget to recompile after that.
 

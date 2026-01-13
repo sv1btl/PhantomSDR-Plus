@@ -16,6 +16,7 @@ We offer more **features**:
 - Optimized Flac and Opus encoder with balanced latency,
 - New approach in functions as reduced Latency, Noise Reduction, Noise Cancel & Noise Blanker, Synchronous AM by default, AGC selection, Auto SQL, Buffer adjustments, Auto Adjust waterfall, Mouse wheel use, Keyboard shortcuts, Bookmarks download and upload, Zoom slider, enhanced Mobile GUI, selectable Noise Gate with presets, Precise tuning with mouse and frequency index in the waterfall with mouse,
 - 4 different GUI templates, that can be selected using a popup float menu,
+- Optional monitor tool that adds real-time server monitoring to your PhantomSDR application.
 - WebSDR List (https://sdr-list.xyz),
 - Supported receivers RX-888, RTL V.4, Airspy Discovery, HackRF, SDRPLAY RSP1A (original and clone) via Soapy and many more to be added,
 - More to come!...
@@ -169,7 +170,8 @@ Do not forget to disable opencl if you didn't install it, it's recommended you d
 
 **"siteSDRBandwidth"**: you must type the usefull band with of your receiver, e.g. for RTL is 2048000, for RX-888 is 60000000 or 1200000000 etc.<br />
 **"siteInformation"**: "https://github.com/sv1btl/PhantomSDR-Plus" please don't change it. It indicates the github repo of the project.
-**"siteIP": "Your site IP:port"** e.g. http://mysite.com:9002 <br />
+**"siteIP": "http://Your site IP:port"** e.g. http://mysite.com:9002 
+**"siteStats": "http://Your site IP:3001"**  e.g. http://mysite.com:3001 or any other port that you want to use, during the monitor's tool setup. <br />
 
 **"siteRegion"**: , you have to select IARU region, where:<br />
 1 is for Africa, Europe, the Middle East, and northern Asia,<br />

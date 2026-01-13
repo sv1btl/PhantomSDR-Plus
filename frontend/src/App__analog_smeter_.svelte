@@ -47,6 +47,7 @@
     siteAntenna,
     siteNote,
     siteIP,
+    siteStats,
     siteSDRBaseFrequency,
     siteSDRBandwidth,
     siteRegion,
@@ -521,6 +522,74 @@
   onMount(() => window.addEventListener("keydown", onGlobalKey, { capture: true }));
   onDestroy(() => window.removeEventListener("keydown", onGlobalKey, { capture: true }));
   // End of the popup window
+
+  // Window for system stats
+  let showSystemStats = false;
+  let systemStatsCloseBtnEl;
+  let systemStatsInterval;
+
+  // System stats data - will be fetched from server
+  let systemStats = {
+    cpu: { usage: 0, cores: 0, temperature: null, topProcesses: [] },
+    memory: { used: 0, total: 0, percent: 0 },
+    disk: { used: 0, total: 0, percent: 0 }
+  };
+
+  // Fetch system stats from the server
+  async function fetchSystemStats() {
+    try {
+      const response = await fetch(`${siteStats}/api/system-stats`);
+      if (response.ok) {
+        systemStats = await response.json();
+      } else {
+        console.error('Failed to fetch system stats:', response.statusText);
+      }
+    } catch (error) {
+      console.error('Error fetching system stats:', error);
+    }
+  }
+
+  function openSystemStats() {
+    showSystemStats = true;
+    tick().then(() => systemStatsCloseBtnEl && systemStatsCloseBtnEl.focus());
+    
+    // Fetch stats immediately when opening
+    fetchSystemStats();
+    
+    // Update stats every 5 seconds while the modal is open
+    systemStatsInterval = setInterval(fetchSystemStats, 5000);
+  }
+
+  function closeSystemStats() {
+    showSystemStats = false;
+    
+    // Stop updating when modal is closed
+    if (systemStatsInterval) {
+      clearInterval(systemStatsInterval);
+      systemStatsInterval = null;
+    }
+  }
+
+  function onSystemStatsKey(e) {
+    if (showSystemStats && (e.key === "Escape" || e.code === "Escape")) {
+      e.preventDefault();
+      closeSystemStats();
+    }
+  }
+
+  onMount(() => {
+    window.addEventListener("keydown", onSystemStatsKey, { capture: true });
+    // Optionally fetch stats on initial load
+    fetchSystemStats();
+  });
+  
+  onDestroy(() => {
+    window.removeEventListener("keydown", onSystemStatsKey, { capture: true });
+    if (systemStatsInterval) {
+      clearInterval(systemStatsInterval);
+    }
+  });
+  // End of system stats popup window
 
   // Wheel zooming, update passband and markers
   function handleWaterfallWheel(e) {
@@ -3567,7 +3636,7 @@ function _animateNeedle(ts) {
                     onClick="window.open('https://sdr-list.xyz/');"
                   >
                     <span class="icon">Servers</span>
-                  </button>                
+                  </button>                          
 
                 <div class="flex justify-center w-full">
                 
@@ -3716,6 +3785,110 @@ function _animateNeedle(ts) {
                     <b>Setup &amp; Configuration:</b>
                     <br>
                     <span style="/*text-decoration: line-through*/">PC: {siteHardware} {siteSoftware}</span>
+                    
+                   <!-- In case you don't want the Stats Button to appear, please comment this button section (12 lines)-->                     
+                    <!-- System Stats Button -->
+                    <button
+                      type="button"
+                      class="glass-button text-white py-1 px-2 ml-2 rounded text-xs"
+                      on:click={openSystemStats}
+                      title="System Resources"
+                      aria-haspopup="dialog"
+                      aria-expanded={showSystemStats}
+                      aria-controls="system-stats-dialog"
+                      style="color:rgba(0, 225, 255, 0.993); font-size: 0.75rem;"
+                    >
+                      📊 Stats
+                    </button>
+
+                    <!-- System Stats Modal -->
+                    {#if showSystemStats}
+                      <div class="modal-backdrop" on:click|self={closeSystemStats}></div>
+
+                      <div 
+                        id="system-stats-dialog"
+                        role="dialog"
+                        aria-modal="true"
+                        aria-labelledby="system-stats-title"
+                        class="modal-right"
+                      >
+                        <div class="modal-header">
+                          <h2 id="system-stats-title">System Resources</h2>
+                          <button
+                            class="close-btn"
+                            on:click={closeSystemStats}
+                            bind:this={systemStatsCloseBtnEl}
+                            title="Close window"
+                            aria-label="Close"
+                          >×</button>
+                        </div>
+                        
+                        <div class="modal-body">
+                          <div style="font-size: 0.9rem;">
+                            <!-- CPU Stats -->
+                            <div style="margin-bottom: 1rem; padding: 0.75rem; background: rgba(255,255,255,0.05); border-radius: 8px;">
+                              <h3 style="margin: 0 0 0.5rem 0; color: rgba(0, 225, 255, 0.993); font-size: 1rem;">🖥️ CPU</h3>
+                              <div style="display: flex; justify-content: space-between; margin-bottom: 0.25rem;">
+                                <span>Usage:</span>
+                                <span style="color: #4ade80;">{systemStats.cpu.usage}%</span>
+                              </div>
+                              <div style="display: flex; justify-content: space-between; margin-bottom: 0.25rem;">
+                                <span>Cores:</span>
+                                <span>{systemStats.cpu.cores}</span>
+                              </div>
+                              {#if systemStats.cpu.temperature !== null}
+                              <div style="display: flex; justify-content: space-between; margin-bottom: 0.25rem;">
+                                <span>Temperature:</span>
+                                <span style="color: {systemStats.cpu.temperature > 70 ? '#fbbf24' : '#4ade80'};">{systemStats.cpu.temperature}°C</span>
+                              </div>
+                              {/if}
+                              
+                              {#if systemStats.cpu.topProcesses && systemStats.cpu.topProcesses.length > 0}
+                              <div style="margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid rgba(255,255,255,0.1);">
+                                <h4 style="margin: 0 0 0.5rem 0; font-size: 0.85rem; color: rgba(0, 225, 255, 0.8);">Top Processes:</h4>
+                                {#each systemStats.cpu.topProcesses as process}
+                                <div style="display: flex; justify-content: space-between; margin-bottom: 0.25rem; font-size: 0.85rem;">
+                                  <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 70%;">{process.name}</span>
+                                  <span style="color: {process.cpu > 50 ? '#ef4444' : process.cpu > 25 ? '#fbbf24' : '#4ade80'};">{process.cpu}%</span>
+                                </div>
+                                {/each}
+                              </div>
+                              {/if}
+                            </div>
+
+                            <!-- Memory Stats -->
+                            <div style="margin-bottom: 1rem; padding: 0.75rem; background: rgba(255,255,255,0.05); border-radius: 8px;">
+                              <h3 style="margin: 0 0 0.5rem 0; color: rgba(0, 225, 255, 0.993); font-size: 1rem;">💾 Memory</h3>
+                              <div style="display: flex; justify-content: space-between; margin-bottom: 0.25rem;">
+                                <span>Used:</span>
+                                <span>{systemStats.memory.used} GB / {systemStats.memory.total} GB</span>
+                              </div>
+                              <div style="display: flex; justify-content: space-between;">
+                                <span>Usage:</span>
+                                <span style="color: {systemStats.memory.percent > 80 ? '#ef4444' : '#4ade80'};">{systemStats.memory.percent}%</span>
+                              </div>
+                            </div>
+
+                            <!-- Disk Stats -->
+                            <div style="padding: 0.75rem; background: rgba(255,255,255,0.05); border-radius: 8px;">
+                              <h3 style="margin: 0 0 0.5rem 0; color: rgba(0, 225, 255, 0.993); font-size: 1rem;">💿 Disk</h3>
+                              <div style="display: flex; justify-content: space-between; margin-bottom: 0.25rem;">
+                                <span>Used:</span>
+                                <span>{systemStats.disk.used} GB / {systemStats.disk.total} GB</span>
+                              </div>
+                              <div style="display: flex; justify-content: space-between;">
+                                <span>Usage:</span>
+                                <span style="color: {systemStats.disk.percent > 80 ? '#ef4444' : '#4ade80'};">{systemStats.disk.percent}%</span>
+                              </div>
+                            </div>
+                          </div>
+
+                          <br>
+                          <p class="hint" style="font-size: 0.75rem;">Press <kbd>Esc</kbd> or click <b>×</b> to close.</p>
+                        </div>
+                      </div>
+                    {/if}
+                    <!-- End System Stats Modal -->
                     <br> <br>
                     <b>SDR Receivers &amp; Antenna</b>
                     <br>
@@ -3743,8 +3916,7 @@ function _animateNeedle(ts) {
                 <div class="second-column"> 
                  <embed id="dx" src="https://www.dxfuncluster.com/widgets/cluster25.php" width="670" height="480" frameborder="0" scrolling="yes" style="margin-left: 10px;"/>
                 <!-- you can delete the link above and add anything else you want, which will be appeared in the second column 
-                 e.g links to use 
-                
+                 e.g links to use                  
                  https://www.dxfuncluster.com/widgets/cluster25.php
                 -->
               </div>     

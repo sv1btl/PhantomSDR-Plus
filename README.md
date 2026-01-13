@@ -161,6 +161,7 @@ Do not forget to disable opencl if you didn't install it, it's recommended you d
 	"siteAntenna": "Receiving Antenna.",
 	"siteNote": "This is a bright new open source WebSDR project, which is dynamicaly developing.",
 	"siteIP": "http://Your site IP:port",
+  "siteStats": "http://Your site IP:3001"
 	"siteSDRBaseFrequency": 0,
 	"siteSDRBandwidth": 30000000,
 	"siteRegion": 1,
@@ -313,6 +314,11 @@ Select an option [0-7]:
 The script will build all separate /dist folders with their index.html files, and it will include the favico.ico and the Sysop in the title of each webpage.
 
 
+## The Monitor tool.
+This is an optional feature that adds real-time server monitoring to your PhantomSDR application using an automated installation script.<br />
+Please refer to **[Readme](docs/sdr-stats/README.md)** - for detailed instructions.
+
+
 ## Final notes.
 In case you re-install or upgrade, please make a backup of your older installation in case you will need some files as: <br /> 
 site_information.json (in frontend), markers.json, start and stop scripts and your .toml and maybe chat_history.txt (all located in the root of PhantoSDR-Plus folder) and replace the original ones after the installation, so not to edit them again. From waterfall.js (in /frontend/src) you maybe need to keep all the section **this.bands =** with the settings for the bands you have propably already have<br />
@@ -349,6 +355,10 @@ For detailed information about installation, usage, and project structure, pleas
   - Configuration file formats
   - Build system documentation
   - File modification guidelines
+
+- **[Monitor Tool](docs/sdr-stats/README.md)** - for detailed instructions adding the monitor tool.
+  - Auto installation script
+  - Files for manual installation  
 
 ### 👥 For End Users:
 

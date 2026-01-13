@@ -4,7 +4,7 @@
 # SDR System Stats Server - Automated Installer
 # For PhantomSDR-Plus
 # Author: SV1BTL
-# Version: 1.0
+# Version: 1.1
 #####################################################
 
 # Colors for output
@@ -95,6 +95,48 @@ if ! command -v npm &> /dev/null; then
 else
     NPM_VERSION=$(npm --version)
     print_success "npm is installed (version: $NPM_VERSION)"
+fi
+
+# Check if lm-sensors is installed (needed for accurate CPU temperature)
+echo ""
+if ! command -v sensors &> /dev/null; then
+    print_warning "lm-sensors is not installed"
+    echo "lm-sensors is recommended for accurate CPU temperature readings on Intel/AMD systems"
+    read -p "Would you like to install lm-sensors now? (y/n): " install_sensors
+    
+    if [ "$install_sensors" = "y" ] || [ "$install_sensors" = "Y" ]; then
+        print_info "Installing lm-sensors..."
+        
+        if [ -f /etc/debian_version ]; then
+            # Debian/Ubuntu
+            sudo apt-get update
+            sudo apt-get install -y lm-sensors
+        elif [ -f /etc/redhat-release ]; then
+            # RedHat/CentOS
+            sudo yum install -y lm_sensors
+        else
+            print_warning "Could not auto-install lm-sensors on this OS"
+            echo "Please install it manually: sudo apt-get install lm-sensors"
+        fi
+        
+        if command -v sensors &> /dev/null; then
+            print_success "lm-sensors installed successfully"
+            
+            # Run sensors-detect
+            print_info "Running sensors-detect to configure sensors..."
+            echo "Press ENTER for all prompts to accept defaults"
+            sleep 2
+            sudo sensors-detect --auto
+            print_success "Sensors configured"
+        else
+            print_warning "lm-sensors installation may have failed"
+        fi
+    else
+        print_warning "Skipping lm-sensors installation"
+        echo "Temperature readings may not be accurate on Intel/AMD systems"
+    fi
+else
+    print_success "lm-sensors is installed"
 fi
 
 echo ""
@@ -206,7 +248,7 @@ echo ""
 cat > package.json <<EOF
 {
   "name": "sdr-system-stats-server",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "System stats API server for SDR monitoring",
   "main": "system-stats-server.js",
   "scripts": {
@@ -272,29 +314,69 @@ function cpuAverage() {
   };
 }
 
-// Helper function to get CPU temperature (Linux only)
+// Helper function to get CPU temperature (Intel/AMD/ARM compatible)
 function getCPUTemperature() {
   return new Promise((resolve) => {
-    // Try reading from thermal zone (works on most Linux systems including Raspberry Pi)
-    fs.readFile('/sys/class/thermal/thermal_zone0/temp', 'utf8', (err, data) => {
-      if (!err) {
-        const temp = parseInt(data) / 1000; // Convert from millidegrees to degrees
-        resolve(Math.round(temp * 10) / 10);
-      } else {
-        // Fallback: try sensors command
-        exec('sensors', (error, stdout) => {
-          if (!error) {
-            const match = stdout.match(/Core 0:\s+\+(\d+\.\d+)°C/);
-            if (match) {
-              resolve(parseFloat(match[1]));
-            } else {
-              resolve(null); // Temperature not available
-            }
-          } else {
-            resolve(null); // Temperature not available
-          }
-        });
+    // Method 1: Try sensors command looking for Package id (Intel) or Tdie/Tctl (AMD)
+    exec("sensors 2>/dev/null", (err1, stdout1) => {
+      if (!err1 && stdout1) {
+        // Try to find Intel Package temperature
+        const packageMatch = stdout1.match(/Package id 0:\s+\+([0-9.]+)°C/);
+        if (packageMatch) {
+          const temp = parseFloat(packageMatch[1]);
+          resolve(Math.round(temp * 10) / 10);
+          return;
+        }
+        
+        // Try to find AMD Tdie temperature
+        const tdieMatch = stdout1.match(/Tdie:\s+\+([0-9.]+)°C/);
+        if (tdieMatch) {
+          const temp = parseFloat(tdieMatch[1]);
+          resolve(Math.round(temp * 10) / 10);
+          return;
+        }
+        
+        // Try to find AMD Tctl temperature
+        const tctlMatch = stdout1.match(/Tctl:\s+\+([0-9.]+)°C/);
+        if (tctlMatch) {
+          const temp = parseFloat(tctlMatch[1]);
+          resolve(Math.round(temp * 10) / 10);
+          return;
+        }
+        
+        // Try to find any Core temperature
+        const coreMatch = stdout1.match(/Core 0:\s+\+([0-9.]+)°C/);
+        if (coreMatch) {
+          const temp = parseFloat(coreMatch[1]);
+          resolve(Math.round(temp * 10) / 10);
+          return;
+        }
       }
+      
+      // Method 2: Try reading directly from coretemp (Intel)
+      exec("cat /sys/devices/platform/coretemp.0/hwmon/hwmon*/temp1_input 2>/dev/null", (err2, stdout2) => {
+        if (!err2 && stdout2.trim()) {
+          const temp = parseInt(stdout2.trim()) / 1000;
+          if (temp > 0 && temp < 150) {
+            resolve(Math.round(temp * 10) / 10);
+            return;
+          }
+        }
+        
+        // Method 3: Try thermal zone (fallback for ARM/Raspberry Pi)
+        fs.readFile('/sys/class/thermal/thermal_zone0/temp', 'utf8', (err3, data) => {
+          if (!err3 && data.trim()) {
+            const temp = parseInt(data) / 1000;
+            if (temp > 0 && temp < 150) {
+              resolve(Math.round(temp * 10) / 10);
+              return;
+            }
+          }
+          
+          // No temperature available
+          resolve(null);
+        });
+      });
     });
   });
 }

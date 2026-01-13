@@ -1,6 +1,6 @@
 {
   "name": "sdr-system-stats-server",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "System stats API server for SDR monitoring",
   "main": "system-stats-server.js",
   "scripts": {

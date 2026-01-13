@@ -46,29 +46,69 @@ function cpuAverage() {
   };
 }
 
-// Helper function to get CPU temperature (Linux only)
+// Helper function to get CPU temperature (Intel coretemp optimized)
 function getCPUTemperature() {
   return new Promise((resolve) => {
-    // Try reading from thermal zone (works on most Linux systems including Raspberry Pi)
-    fs.readFile('/sys/class/thermal/thermal_zone0/temp', 'utf8', (err, data) => {
-      if (!err) {
-        const temp = parseInt(data) / 1000; // Convert from millidegrees to degrees
-        resolve(Math.round(temp * 10) / 10);
-      } else {
-        // Fallback: try sensors command
-        exec('sensors', (error, stdout) => {
-          if (!error) {
-            const match = stdout.match(/Core 0:\s+\+(\d+\.\d+)°C/);
-            if (match) {
-              resolve(parseFloat(match[1]));
-            } else {
-              resolve(null); // Temperature not available
-            }
-          } else {
-            resolve(null); // Temperature not available
-          }
-        });
+    // Method 1: Try sensors command looking for Package id (Intel) or Tdie/Tctl (AMD)
+    exec("sensors 2>/dev/null", (err1, stdout1) => {
+      if (!err1 && stdout1) {
+        // Try to find Intel Package temperature
+        const packageMatch = stdout1.match(/Package id 0:\s+\+([0-9.]+)°C/);
+        if (packageMatch) {
+          const temp = parseFloat(packageMatch[1]);
+          resolve(Math.round(temp * 10) / 10);
+          return;
+        }
+        
+        // Try to find AMD Tdie temperature
+        const tdieMatch = stdout1.match(/Tdie:\s+\+([0-9.]+)°C/);
+        if (tdieMatch) {
+          const temp = parseFloat(tdieMatch[1]);
+          resolve(Math.round(temp * 10) / 10);
+          return;
+        }
+        
+        // Try to find AMD Tctl temperature
+        const tctlMatch = stdout1.match(/Tctl:\s+\+([0-9.]+)°C/);
+        if (tctlMatch) {
+          const temp = parseFloat(tctlMatch[1]);
+          resolve(Math.round(temp * 10) / 10);
+          return;
+        }
+        
+        // Try to find any Core temperature
+        const coreMatch = stdout1.match(/Core 0:\s+\+([0-9.]+)°C/);
+        if (coreMatch) {
+          const temp = parseFloat(coreMatch[1]);
+          resolve(Math.round(temp * 10) / 10);
+          return;
+        }
       }
+      
+      // Method 2: Try reading directly from coretemp (Intel)
+      exec("cat /sys/devices/platform/coretemp.0/hwmon/hwmon*/temp1_input 2>/dev/null", (err2, stdout2) => {
+        if (!err2 && stdout2.trim()) {
+          const temp = parseInt(stdout2.trim()) / 1000;
+          if (temp > 0 && temp < 150) {
+            resolve(Math.round(temp * 10) / 10);
+            return;
+          }
+        }
+        
+        // Method 3: Try thermal zone (fallback for ARM/Raspberry Pi)
+        fs.readFile('/sys/class/thermal/thermal_zone0/temp', 'utf8', (err3, data) => {
+          if (!err3 && data.trim()) {
+            const temp = parseInt(data) / 1000;
+            if (temp > 0 && temp < 150) {
+              resolve(Math.round(temp * 10) / 10);
+              return;
+            }
+          }
+          
+          // No temperature available
+          resolve(null);
+        });
+      });
     });
   });
 }

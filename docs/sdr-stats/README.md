@@ -19,6 +19,7 @@ Stats automatically update every 5 seconds while the modal is open.
 - **Internet connection** (for downloading Node.js and packages)
 - **Sudo access** (for systemd service setup)
 - **PhantomSDR-Plus** already installed and running
+- **lm-sensors** (recommended for Intel/AMD CPU temperature - automatically installed by script)
 
 ---
 
@@ -375,51 +376,73 @@ sudo rm /etc/systemd/system/sdr-stats.service
 
 ## Manual Installation (Option 2)
 
-If you prefer to install manually without the script:
+**⚠️ Warning:** Manual installation may use outdated files. The **automated script is strongly recommended** as it:
+- Installs the latest version with improved temperature detection
+- Auto-installs and configures lm-sensors
+- Handles all dependencies automatically
+
+If you still prefer manual installation:
 
 ### 1. Install Node.js
-
 ```bash
 # Ubuntu/Debian:
 curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
 sudo apt-get install -y nodejs
 ```
 
-### 2. Create Directory
+### 2. Install lm-sensors (Required for Intel/AMD temperature)
+```bash
+sudo apt-get update
+sudo apt-get install -y lm-sensors
+sudo sensors-detect --auto
+```
 
+### 3. Create Directory
 ```bash
 mkdir ~/sdr-stats-server
 cd ~/sdr-stats-server
 ```
 
-### 3. Create Files
+### 4. Download Latest Files
 
-Copy these files located in **/PhantomSDR-Plus/docs/sdr-stats** to the directory **/sdr-stats-server**:
-- `system-stats-server.js`
-- `package.json`
+**Important:** Copy the updated files from `/PhantomSDR-Plus/docs/sdr-stats/`.
 
-**Important:** Edit line 6 in `system-stats-server.js` to set your port:
-```javascript
-const PORT = process.env.PORT || 3001;  // Change 3001 to your port
+Instead, run the automated script once to generate the latest files, then copy them:
+```bash
+# Run automated script in temp directory
+cd ~
+./install-stats-server.sh
+# When prompted, use a temporary port like 9999
+# After installation completes, copy the generated files
+cp ~/sdr-stats-server/system-stats-server.js ~/your-manual-install-dir/
+cp ~/sdr-stats-server/package.json ~/your-manual-install-dir/
 ```
 
-### 4. Install Dependencies
+**OR** manually create the files using the latest code from the installation script.
 
+### 5. Edit Port (if needed)
+```bash
+nano ~/sdr-stats-server/system-stats-server.js
+```
+
+Change line 6:
+```javascript
+const PORT = process.env.PORT || 3001;  // Change this number
+```
+
+### 6. Install Dependencies
 ```bash
 npm install
 ```
 
-### 5. Test Run
-
+### 7. Test Run
 ```bash
 npm start
 ```
 
-### 6. Set Up Service (Optional)
+### 8. Set Up Service (Optional)
 
 Follow the systemd service setup from the automated installation section.
-
----
 
 ## Changing the Port After Installation
 
@@ -641,6 +664,34 @@ Once installed and configured, the stats modal displays:
 
 ---
 
+
+## Temperature Detection
+
+The stats server uses advanced multi-method temperature detection:
+
+### ✅ **Supported Systems:**
+- **Intel Processors**: Reads from coretemp sensors via lm-sensors
+- **AMD Processors**: Reads from k10temp sensors (Tdie/Tctl)
+- **ARM Processors**: Reads from thermal zones (Raspberry Pi, etc.)
+
+### 📋 **Requirements:**
+- **Intel/AMD**: Requires `lm-sensors` package (auto-installed by script)
+- **ARM/Raspberry Pi**: Works out of the box, no additional packages needed
+
+### 🔧 **Installation Priority:**
+1. Tries `sensors` command for Package/Core temperature (Intel/AMD)
+2. Falls back to direct coretemp reading (Intel)
+3. Falls back to thermal_zone0 (ARM/Raspberry Pi)
+
+If temperature shows `null`, install lm-sensors:
+```bash
+sudo apt-get install lm-sensors
+sudo sensors-detect --auto
+sudo systemctl restart sdr-stats.service
+```
+
+---
+
 ## Features Summary
 
 ✅ **Real-time Monitoring** - Live system stats from your server  
@@ -734,7 +785,7 @@ sudo rm /etc/systemd/system/sdr-stats.service"`
 ---
 
 **Author:** Created for PhantomSDR-Plus  
-**Version:** 1.1  
+**Version:** 1.1 (Improved CPU temperature detection for Intel/AMD) 
 **Updated:** January 2026  
 **License:** MIT
 
@@ -760,7 +811,7 @@ curl http://localhost:3001/api/health       # Health check
 
 # Troubleshooting
 sudo lsof -i :3001                          # Check port
-whoami                                       # Check username
+whoami                                      # Check username
 node --version                              # Check Node.js
 ```
 

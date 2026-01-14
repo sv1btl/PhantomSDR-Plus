@@ -3595,7 +3595,7 @@ function _animateNeedle(ts) {
                   >
 
                   &nbsp-&nbsp
-                  <script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script>
+                  <script>
                     let popup;
 
                     function openAudioPopup() {

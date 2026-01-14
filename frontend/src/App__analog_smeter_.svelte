@@ -3583,7 +3583,9 @@ function _animateNeedle(ts) {
                 <!-- Details -->
                 <span class="text-white text-sm sm:text-sm mr-4 mb-2 sm:mb-0">
                   {siteSysop}:
-                  <a href="/cdn-cgi/l/email-protection#2e555d475a4b7d575d415e6b434f47426f4a4a5c4b5d5d53115d5b4c444b4d5a13794b4c7d6a7c" style="color:rgba(0, 225, 255, 0.993)">email</a
+                  <a
+                    href="mailto:{siteSysopEmailAddress}?subject=WebSDR"
+                    style="color:rgba(0, 225, 255, 0.993)">email</a
                   >
                   <span class="text-white text-xs sm:text-sm mr-4 mb-2 sm:mb-0"
                   ></span>-
@@ -3593,7 +3595,7 @@ function _animateNeedle(ts) {
                   >
 
                   &nbsp-&nbsp
-                  <script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script>
+                  <script>
                     let popup;
 
                     function openAudioPopup() {

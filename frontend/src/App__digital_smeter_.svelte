@@ -1505,6 +1505,17 @@
     }
   }
 
+  function handleNRChange() {
+    NREnabled = !NREnabled;
+    if (audio) {
+      // Wire NR toggle to client-side audio.js and server-side decoder
+      audio.nrEnabled = NREnabled;
+      if (audio.decoder && typeof audio.decoder.set_nr === "function") {
+        audio.decoder.set_nr(NREnabled);
+      }
+    }
+  }
+
   function handleNBChange() {
     NBEnabled = !NBEnabled;
     if (audio) {

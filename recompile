@@ -1,0 +1,270 @@
+#!/bin/bash
+
+# PhantomSDR-Plus Recompile Script
+# This script helps you recompile backend and/or frontend components
+
+set -e  # Exit on error
+
+echo "=========================================="
+echo "  PhantomSDR-Plus Recompile Script"
+echo "=========================================="
+echo ""
+
+# Function to find PhantomSDR-Plus directory
+find_phantom_dir() {
+    # Check if we're already inside PhantomSDR-Plus directory
+    if [ -f "meson.build" ] && [ -d "frontend" ] && [ -d "src" ]; then
+        PHANTOM_DIR="."
+        echo "✅ Found PhantomSDR-Plus in current directory"
+        return 0
+    fi
+    
+    # Check if PhantomSDR-Plus exists as a subdirectory
+    if [ -d "PhantomSDR-Plus" ]; then
+        PHANTOM_DIR="PhantomSDR-Plus"
+        echo "✅ Found PhantomSDR-Plus directory"
+        return 0
+    fi
+    
+    # Check parent directory
+    if [ -d "../PhantomSDR-Plus" ]; then
+        PHANTOM_DIR="../PhantomSDR-Plus"
+        echo "✅ Found PhantomSDR-Plus in parent directory"
+        return 0
+    fi
+    
+    # Check common locations
+    if [ -d "$HOME/PhantomSDR-Plus" ]; then
+        PHANTOM_DIR="$HOME/PhantomSDR-Plus"
+        echo "✅ Found PhantomSDR-Plus in home directory"
+        return 0
+    fi
+    
+    # Not found, ask user
+    echo "❌ Could not automatically locate PhantomSDR-Plus directory"
+    echo ""
+    read -p "Enter the full path to PhantomSDR-Plus directory: " user_path
+    
+    if [ -d "$user_path" ] && [ -f "$user_path/meson.build" ]; then
+        PHANTOM_DIR="$user_path"
+        echo "✅ Using: $PHANTOM_DIR"
+        return 0
+    else
+        echo "❌ Error: Invalid path or not a PhantomSDR-Plus directory!"
+        exit 1
+    fi
+}
+
+# Find the PhantomSDR-Plus directory
+find_phantom_dir
+echo ""
+
+# Function to recompile backend
+recompile_backend() {
+    echo ""
+    echo "=========================================="
+    echo "Recompiling Backend"
+    echo "=========================================="
+    echo ""
+    
+    cd "$PHANTOM_DIR"
+    
+    echo "Removing old build directory..."
+    rm -rf build
+    
+    echo "Setting up new build with Meson..."
+    meson setup build
+    
+    if [ $? -ne 0 ]; then
+        echo "❌ Error: Meson setup failed!"
+        cd - > /dev/null
+        exit 1
+    fi
+    
+    echo "Compiling backend..."
+    meson compile -C build
+    
+    if [ $? -eq 0 ]; then
+        echo ""
+        echo "✅ Backend compiled successfully!"
+    else
+        echo ""
+        echo "❌ Backend compilation failed!"
+        cd - > /dev/null
+        exit 1
+    fi
+    
+    cd - > /dev/null
+}
+
+# Function to recompile frontend
+recompile_frontend() {
+    echo ""
+    echo "=========================================="
+    echo "Frontend Build Options"
+    echo "=========================================="
+    echo ""
+    echo "Select which frontend build script to run:"
+    echo ""
+    echo "  [1] build-all.sh           - Build all versions (recommended)"
+    echo "  [2] build-default.sh       - Build default version only"
+    echo "  [3] build-digital.sh       - Build digital S-meter version"
+    echo "  [4] build-v2-analog.sh     - Build V2 analog S-meter version"
+    echo "  [5] build-v2-digital.sh    - Build V2 digital S-meter version"
+    echo "  [6] Custom selection       - Choose multiple builds"
+    echo "  [0] Skip frontend build"
+    echo ""
+    read -p "Select an option [0-6]: " frontend_option
+    
+    case $frontend_option in
+        0)
+            echo "Skipping frontend build..."
+            return
+            ;;
+        1)
+            BUILD_SCRIPTS=("build-all.sh")
+            ;;
+        2)
+            BUILD_SCRIPTS=("build-default.sh")
+            ;;
+        3)
+            BUILD_SCRIPTS=("build-digital.sh")
+            ;;
+        4)
+            BUILD_SCRIPTS=("build-v2-analog.sh")
+            ;;
+        5)
+            BUILD_SCRIPTS=("build-v2-digital.sh")
+            ;;
+        6)
+            echo ""
+            echo "Custom Selection Mode"
+            echo "Enter the numbers of builds you want (space-separated):"
+            echo "Example: 2 3 5"
+            echo ""
+            echo "  [2] build-default.sh"
+            echo "  [3] build-digital.sh"
+            echo "  [4] build-v2-analog.sh"
+            echo "  [5] build-v2-digital.sh"
+            echo ""
+            read -p "Your selection: " custom_selection
+            
+            BUILD_SCRIPTS=()
+            for num in $custom_selection; do
+                case $num in
+                    2) BUILD_SCRIPTS+=("build-default.sh") ;;
+                    3) BUILD_SCRIPTS+=("build-digital.sh") ;;
+                    4) BUILD_SCRIPTS+=("build-v2-analog.sh") ;;
+                    5) BUILD_SCRIPTS+=("build-v2-digital.sh") ;;
+                    *) echo "⚠️  Invalid option: $num (skipping)" ;;
+                esac
+            done
+            
+            if [ ${#BUILD_SCRIPTS[@]} -eq 0 ]; then
+                echo "No valid builds selected. Skipping frontend build."
+                return
+            fi
+            ;;
+        *)
+            echo "Invalid option. Skipping frontend build."
+            return
+            ;;
+    esac
+    
+    # Navigate to frontend directory
+    FRONTEND_DIR="$PHANTOM_DIR/frontend"
+    
+    if [ ! -d "$FRONTEND_DIR" ]; then
+        echo "❌ Error: Frontend directory not found at $FRONTEND_DIR"
+        exit 1
+    fi
+    
+    cd "$FRONTEND_DIR"
+    
+    # Run npm install to ensure dependencies are up to date
+    echo ""
+    echo "Updating npm dependencies..."
+    npm install
+    
+    if [ $? -ne 0 ]; then
+        echo "⚠️  Warning: npm install had issues, but continuing..."
+    fi
+    
+    # Execute selected build scripts
+    for script in "${BUILD_SCRIPTS[@]}"; do
+        echo ""
+        echo "=========================================="
+        echo "Running $script"
+        echo "=========================================="
+        
+        if [ ! -f "$script" ]; then
+            echo "❌ Error: $script not found in $FRONTEND_DIR/"
+            continue
+        fi
+        
+        chmod +x "$script"
+        ./"$script"
+        
+        if [ $? -eq 0 ]; then
+            echo "✅ $script completed successfully!"
+        else
+            echo "❌ $script failed!"
+        fi
+    done
+    
+    cd - > /dev/null
+}
+
+
+# Main script execution
+echo "What would you like to recompile?"
+echo ""
+echo "  [1] Backend only"
+echo "  [2] Frontend only"
+echo "  [3] Both backend and frontend"
+echo "  [0] Exit"
+echo ""
+read -p "Select an option [0-3]: " main_option
+
+case $main_option in
+    1)
+        recompile_backend
+        ;;
+    2)
+        recompile_frontend
+        ;;
+    3)
+        recompile_backend
+        recompile_frontend
+        ;;
+    0)
+        echo "Exiting..."
+        exit 0
+        ;;
+    *)
+        echo "Invalid option. Exiting."
+        exit 1
+        ;;
+esac
+
+echo ""
+echo "=========================================="
+echo "✅ Recompile Complete!"
+echo "=========================================="
+echo ""
+
+if [ -d "$PHANTOM_DIR/frontend/dist" ]; then
+    echo "📁 Frontend output: $PHANTOM_DIR/frontend/dist/"
+fi
+
+if [ -d "$PHANTOM_DIR/build" ]; then
+    echo "📁 Backend output: $PHANTOM_DIR/build/"
+fi
+
+echo ""
+echo "Next steps:"
+echo "  - Test your changes"
+echo "  - Restart your PhantomSDR-Plus server if it's running"
+echo ""
+echo "Thank you for using PhantomSDR-Plus!"
+echo ""

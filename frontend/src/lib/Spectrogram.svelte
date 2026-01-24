@@ -119,7 +119,7 @@
 
       fftBinFreqs = Array.from(
         { length: analyser.frequencyBinCount },
-        (_, i) => (i * audioContext.sampleRate) / analyser.fftSize
+        (_, i) => ((i * audioContext.sampleRate) / analyser.fftSize) * frequencyCalibration
       );
 
       playTime = audioContext.currentTime;

@@ -149,6 +149,9 @@ PhantomSDR-Plus/
 │   ├── tailwind.config.cjs
 │   └── vite.config.js
 ├── install.sh
+├── install_arc.sh
+├── install_fedora.sh
+├── install_opensusse.sh
 ├── instractions-for-airspy
 ├── instractions-for-rsp1a
 ├── jsdsp

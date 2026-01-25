@@ -55,6 +55,11 @@ sudo apt-get install curl build-essential cmake pkg-config meson curl libfftw3-d
 ```
 dnf install g++ meson cmake fftw3-devel websocketpp-devel flac-devel zlib-devel boost-devel libzstd-devel opus-devel liquid-dsp-devel git
 ```
+Inside the PhantomSDR folder, there is a script for use in Fedora named: **install_fedora.sh**
+
+### for use with Arc and openSUSSE
+Inside the PhantomSDR folder, there are a scripts for use in Arc and openSUSSE named: **install_arc.sh** and **install_opensusse.sh**
+
 
 ## Building the binary automatically
 Restart your Terminal after you ran install.sh otherwise it wont work..

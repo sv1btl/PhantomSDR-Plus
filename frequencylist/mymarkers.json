@@ -1,0 +1,18 @@
+[
+  {
+    "frequency": 1840000,
+    "name": "FT8",
+    "mode": "USB"
+  },
+  {
+    "frequency": 7074000,
+    "name": "FT8",
+    "mode": "USB"
+  },
+  {
+    "frequency": 14074000,
+    "name": "FT8",
+    "mode": "USB"
+  }
+
+]

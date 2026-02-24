@@ -3342,11 +3342,140 @@
                 </div>
                    
                 <div class="second-column"> 
-                 <embed id="dx" src="https://www.dxfuncluster.com/widgets/cluster25.php" width="670" height="480" frameborder="0" scrolling="yes" style="margin-left: 10px;"/>
-                <!-- you can delete the link above and add anything else you want, which will be appeared in the second column 
-                 e.g links to use 
-                 https://pskreporter.info/pskmap.html?preset&callsign=SV1BTL&txrx=rx&mode=FT8&timerange=900&mapCenter=37.99596100000002,23.803441,1.2 
-                 -->
+                 <!-- ── Native DX Cluster Widget ─────────────────────────────────────── -->
+                 <!-- Replaces the cross-origin <embed> so frequency clicks can directly  -->
+                 <!-- tune the waterfall via frequencyInputComponent.setFrequency()        -->
+                 <div style="
+                   margin-left:10px;
+                   width:660px;
+                   background:#0d1117;
+                   border:1px solid #30363d;
+                   border-radius:6px;
+                   font-family:monospace;
+                   font-size:12px;
+                   color:#c9d1d9;
+                   overflow:hidden;
+                 ">
+                   <!-- Header bar -->
+                   <div style="
+                     background:#161b22;
+                     border-bottom:1px solid #30363d;
+                     padding:6px 10px;
+                     display:flex;
+                     align-items:center;
+                     justify-content:space-between;
+                     gap:6px;
+                     flex-wrap:wrap;
+                   ">
+                     <span style="color:#58a6ff;font-weight:bold;font-size:13px;">📡 DX Cluster</span>
+                     <!-- Band filter buttons -->
+                     <div style="display:flex;flex-wrap:wrap;gap:3px;">
+                       {#each DX_BAND_LIST as band}
+                         <button
+                           on:click={() => dxSelectBand(band)}
+                           style="
+                             padding:2px 6px;
+                             border-radius:4px;
+                             border:1px solid {dxBandFilter===band ? '#58a6ff' : '#30363d'};
+                             background:{dxBandFilter===band ? 'rgba(88,166,255,0.2)' : 'transparent'};
+                             color:{dxBandFilter===band ? '#58a6ff' : '#8b949e'};
+                             cursor:pointer;
+                             font-size:11px;
+                             font-family:monospace;
+                             transition:all 0.15s;
+                           "
+                         >{band==='ALL' ? 'All' : band+'m'}</button>
+                       {/each}
+                     </div>
+                     <!-- Refresh button -->
+                     <button
+                       on:click={fetchDXSpots}
+                       title="Refresh spots"
+                       style="
+                         padding:2px 8px;
+                         border-radius:4px;
+                         border:1px solid #30363d;
+                         background:transparent;
+                         color:#8b949e;
+                         cursor:pointer;
+                         font-size:11px;
+                         font-family:monospace;
+                       "
+                     >{dxLoading ? '⟳ …' : '⟳ Refresh'}</button>
+                   </div>
+
+                   <!-- Table area -->
+                   <div style="height:430px;overflow-y:auto;">
+                     {#if dxError}
+                       <div style="padding:16px;color:#f85149;text-align:center;line-height:1.6;">
+                         ⚠ Could not load spots<br>
+                         <small style="color:#8b949e;">{dxError}</small><br><br>
+                         <small style="color:#6e7681;">
+                           All three CORS proxies failed.<br>
+                           Possible causes: network/firewall blocks outbound HTTPS,<br>
+                           or all proxy services are temporarily unavailable.<br>
+                           Try clicking Refresh in a moment.
+                         </small>
+                       </div>
+                     {:else if dxLoading && dxSpots.length === 0}
+                       <div style="padding:16px;color:#8b949e;text-align:center;">Loading spots…</div>
+                     {:else if dxSpots.length === 0}
+                       <div style="padding:16px;color:#8b949e;text-align:center;">No spots found.</div>
+                     {:else}
+                       <table style="width:100%;border-collapse:collapse;">
+                         <thead>
+                           <tr style="background:#161b22;position:sticky;top:0;z-index:1;">
+                             <th style="padding:4px 6px;text-align:left;color:#8b949e;font-weight:normal;border-bottom:1px solid #21262d;white-space:nowrap;">UTC</th>
+                             <th style="padding:4px 6px;text-align:left;color:#8b949e;font-weight:normal;border-bottom:1px solid #21262d;">Spotter</th>
+                             <th style="padding:4px 6px;text-align:left;color:#8b949e;font-weight:normal;border-bottom:1px solid #21262d;">DX Call</th>
+                             <th style="padding:4px 6px;text-align:right;color:#8b949e;font-weight:normal;border-bottom:1px solid #21262d;">Freq (kHz)</th>
+                             <th style="padding:4px 6px;text-align:left;color:#8b949e;font-weight:normal;border-bottom:1px solid #21262d;">Band</th>
+                             <th style="padding:4px 6px;text-align:left;color:#8b949e;font-weight:normal;border-bottom:1px solid #21262d;">Mode</th>
+                             <th style="padding:4px 6px;text-align:left;color:#8b949e;font-weight:normal;border-bottom:1px solid #21262d;">Comment</th>
+                           </tr>
+                         </thead>
+                         <tbody>
+                           {#each dxSpots as spot, i}
+                             <tr style="background:{i%2===0 ? 'transparent' : 'rgba(255,255,255,0.02)'};">
+                               <td style="padding:3px 6px;color:#8b949e;white-space:nowrap;">{formatDXTime(spot.time)}</td>
+                               <td style="padding:3px 6px;color:#79c0ff;white-space:nowrap;">{spot.spotter ?? ''}</td>
+                               <td style="padding:3px 6px;color:#ffa657;font-weight:bold;white-space:nowrap;">{spot.dx ?? ''}</td>
+                               <!-- ★ Clickable frequency – tunes the waterfall -->
+                               <td style="padding:3px 6px;text-align:right;">
+                                 <button
+                                   on:click={() => tuneToDXFrequency(spot.freq)}
+                                   title="Click to tune waterfall to {spot.freq} kHz"
+                                   style="
+                                     background:transparent;
+                                     border:none;
+                                     color:#3fb950;
+                                     cursor:pointer;
+                                     font-family:monospace;
+                                     font-size:12px;
+                                     font-weight:bold;
+                                     padding:0;
+                                     text-decoration:underline dotted;
+                                     white-space:nowrap;
+                                   "
+                                 >{spot.freq}</button>
+                               </td>
+                               <td style="padding:3px 6px;color:#8b949e;white-space:nowrap;">{spot.band ?? ''}</td>
+                               <td style="padding:3px 6px;color:#d2a8ff;white-space:nowrap;">{spot.mode ?? ''}</td>
+                               <td style="padding:3px 6px;color:#c9d1d9;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title={spot.comment ?? ''}>{spot.comment ?? ''}</td>
+                             </tr>
+                           {/each}
+                         </tbody>
+                       </table>
+                     {/if}
+                   </div>
+
+                   <!-- Footer -->
+                   <div style="padding:4px 10px;background:#161b22;border-top:1px solid #30363d;color:#484f58;font-size:10px;display:flex;justify-content:space-between;">
+                     <span>Data: hamqth.com DX cluster • auto-refresh 30 s</span>
+                     <span>{dxSpots.length} spot{dxSpots.length===1?'':'s'}</span>
+                   </div>
+                 </div>
+                 <!-- ── End DX Cluster Widget ──────────────────────────────────────────── -->
               </div>     
             </div>
            </div>

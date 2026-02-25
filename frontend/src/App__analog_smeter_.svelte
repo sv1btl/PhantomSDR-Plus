@@ -3252,7 +3252,12 @@ function _animateNeedle(ts) {
     audio.stop();
     waterfall.stop();
     socket.close();
+    // Stop DX cluster auto-refresh
+    if (dxRefreshInterval) clearInterval(dxRefreshInterval);
   });
+
+  // Start DX cluster widget after DOM is ready
+  onMount(() => startDXCluster());
 
   // Added to allow the user to adjust the dynamic audio //
   // buffer limits in the playAudio(pcmArray) function inside //
@@ -3628,6 +3633,169 @@ function _animateNeedle(ts) {
 
   }
 
+  // ── DX Cluster Widget ────────────────────────────────────────────────────
+  let dxSpots = [];
+  let dxBandFilter = 'ALL';
+  let dxLoading = false;
+  let dxError = null;
+  let dxRefreshInterval = null;
+
+  const DX_BAND_LIST = ['ALL','160','80','60','40','30','20','17','15','12','10','6'];
+
+  // HamQTH CSV format: Call^Frequency^Date/Time^Spotter^Comment^LoTW^eQSL^Continent^Band^Country
+  // No auth required – designed for programmatic use.
+  // DX cluster APIs are legacy servers with no CORS headers, so we try several
+  // public CORS proxy services in order until one succeeds.
+  function buildDXUrl() {
+    const band = dxBandFilter === 'ALL' ? '' : `&band=${dxBandFilter}m`;
+    return `https://www.hamqth.com/dxc_csv.php?limit=30${band}`;
+  }
+
+  function parseDXCSV(text) {
+    return text.trim().split('\n')
+      .filter(line => line.trim() && !line.startsWith('#'))
+      .map(line => {
+        const parts = line.split('^');
+        // Call^Frequency^Date/Time^Spotter^Comment^LoTW^eQSL^Continent^Band^Country
+        return {
+          dx:      (parts[0] ?? '').trim(),
+          freq:    (parts[1] ?? '').trim(),
+          time:    (parts[2] ?? '').trim(),
+          spotter: (parts[3] ?? '').trim(),
+          comment: (parts[4] ?? '').trim(),
+          band:    (parts[8] ?? '').trim(),
+          country: (parts[9] ?? '').trim(),
+        };
+      })
+      .filter(s => s.dx && s.freq && parseFloat(s.freq) > 0);
+  }
+
+  async function tryFetch(url) {
+    const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return res.text();
+  }
+
+  async function fetchDXSpots() {
+    dxLoading = true;
+    dxError = null;
+    const target = buildDXUrl();
+    // Proxy ladder – try each until one works
+    const proxies = [
+      `https://corsproxy.io/?url=${encodeURIComponent(target)}`,
+      `https://api.allorigins.win/raw?url=${encodeURIComponent(target)}`,
+      `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(target)}`,
+    ];
+    let lastErr = null;
+    for (const proxy of proxies) {
+      try {
+        const text = await tryFetch(proxy);
+        const spots = parseDXCSV(text);
+        if (spots.length > 0) {
+          dxSpots = spots;
+          dxError = null;
+          dxLoading = false;
+          return;
+        }
+        // empty result – try next proxy
+        lastErr = new Error('Empty response');
+      } catch (e) {
+        lastErr = e;
+      }
+    }
+    // All proxies failed
+    dxError = `All proxy attempts failed (${lastErr?.message ?? 'unknown'}). Check the browser console.`;
+    dxSpots = [];
+    dxLoading = false;
+  }
+
+  // Tune waterfall to a DX spot frequency (kHz → Hz),
+  // zoom into the band and apply the band's brightness settings —
+  // mirrors handleBandChange() but centres on the spot frequency.
+  function tuneToDXFrequency(freqKhz) {
+    const hz = parseFloat(freqKhz) * 1000;
+    if (isNaN(hz) || hz <= 0) return;
+    try {
+      // ── 1. Tune frequency display + audio passband ──────────────────────
+      frequencyInputComponent.setFrequency(hz);
+      handleFrequencyChange({ detail: hz });
+      updatePassband();
+
+      // ── 2. Find the matching band (same lookup used everywhere else) ─────
+      const freqKHz = hz / 1000;
+      let bandIdx = -1;
+      for (let i = 0; i < bandArray.length; i++) {
+        const b = bandArray[i];
+        if (freqKHz >= b.startFreq / 1000 &&
+            freqKHz <= b.endFreq   / 1000 &&
+            (b.ITU === siteRegion || b.ITU === 123)) {
+          bandIdx = i;
+          break;
+        }
+      }
+      if (bandIdx < 0) return; // frequency outside any known band – just tune
+
+      const band = bandArray[bandIdx];
+
+      // ── 3. Disable auto-adjust so it cannot override the band brightness ─
+      if (autoAdjustEnabled) {
+        autoAdjustEnabled = false;
+        waterfall.autoAdjust = false;
+        storeWaterfallSettings = false;
+      }
+      if (typeof AutoAdjustEnabled !== 'undefined' && AutoAdjustEnabled) {
+        AutoAdjustEnabled = false;
+      }
+
+      // ── 4. Apply the band's brightness from bands-config.js ──────────────
+      min_waterfall = parseInt(band.min);
+      max_waterfall = parseInt(band.max);
+      handleMinMove();
+      handleMaxMove();
+
+      // ── 5. Compute waterfall zoom span from the band's edge frequencies ──
+      const hzPerBin  = waterfall.sps / waterfall.fftSize;
+      const spanEnd   = band.endFreq   / hzPerBin;
+      const spanStart = band.startFreq / hzPerBin;
+      let   bandSpan  = (spanEnd - spanStart) / 2;
+      bandSpan += bandSpan * 0.01; // 1 % margin to show both edges
+
+      // ── 6. Centre the zoom window on the spot frequency ──────────────────
+      let m = frequencyToFFTOffset(hz);
+      m = Math.min(waterfall.waterfallMaxSize - 512, Math.max(512, m));
+      const l = Math.floor(m - 512) - bandSpan;
+      const r = Math.ceil (m + 512) + bandSpan;
+
+      waterfall.setWaterfallRange(l, r);
+
+      // ── 7. Update all UI markers / tracking ─────────────────────────────
+      frequencyMarkerComponent.updateFrequencyMarkerPositions();
+      updatePassband();
+      currentBand     = bandIdx;
+      bandName        = band.name;
+      currentTuneStep = band.stepi;
+    } catch (e) {
+      console.warn('DX tune error:', e);
+    }
+  }
+
+  function dxSelectBand(band) {
+    dxBandFilter = band;
+    fetchDXSpots();
+  }
+
+  function formatDXTime(t) {
+    if (!t) return '';
+    if (typeof t === 'string' && /^\d{4}Z$/.test(t)) return t;
+    try { const d = new Date(t); return d.toUTCString().slice(17,22)+'Z'; } catch { return String(t); }
+  }
+
+  // Start auto-refresh when component mounts (called in existing onMount)
+  function startDXCluster() {
+    fetchDXSpots();
+    dxRefreshInterval = setInterval(fetchDXSpots, 30000);
+  }
+
 </script>
 
 <svelte:window
@@ -3969,7 +4137,7 @@ function _animateNeedle(ts) {
 
                      <b>Note:</b> <br> 
                      <span style="/*text-decoration: line-through*/">{siteNote} <br>
-                    
+                     
                      <!-- Any other information here --> 
                      
                      <br>
@@ -4081,7 +4249,7 @@ function _animateNeedle(ts) {
                                <td style="padding:3px 6px;color:#8b949e;white-space:nowrap;">{formatDXTime(spot.time)}</td>
                                <td style="padding:3px 6px;color:#79c0ff;white-space:nowrap;">{spot.spotter ?? ''}</td>
                                <td style="padding:3px 6px;color:#ffa657;font-weight:bold;white-space:nowrap;">{spot.dx ?? ''}</td>
-                               <!-- ★ Clickable frequency – tunes the waterfall -->
+                               <!-- ★ Clickable frequency – tunes the waterfall + zooms to band -->
                                <td style="padding:3px 6px;text-align:right;">
                                  <button
                                    on:click={() => tuneToDXFrequency(spot.freq)}
@@ -4464,7 +4632,7 @@ Click again to de-activate"
                   <h3 class="text-white text-base font-semibold mb-2">AGC</h3>
                   <div class="w-full mb-6">
                     <div id="moreoptions" class="grid grid-cols-4 gap-2">
-                      <script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script>
+                      <script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script>
                         let AGCbutton = false;
                       </script>
                       {#each [{ option: "Auto", AGCbutton: 0 }, { option: "Fast", AGCbutton: 1 }, { option: "Mid", AGCbutton: 2 }, { option: "Slow", AGCbutton: 3 }] as { option, AGCbutton }}

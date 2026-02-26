@@ -4240,8 +4240,24 @@ function _animateNeedle(ts) {
                              <tr style="background:{i%2===0 ? 'transparent' : 'rgba(255,255,255,0.02)'};">
                                <td style="padding:3px 6px;color:#8b949e;white-space:nowrap;">{formatDXTime(spot.time)}</td>
                                <td style="padding:3px 6px;color:#79c0ff;white-space:nowrap;">{spot.spotter ?? ''}</td>
-                               <td style="padding:3px 6px;color:#ffa657;font-weight:bold;white-space:nowrap;">{spot.dx ?? ''}</td>
-                               <!-- ★ Clickable frequency – tunes the waterfall + zooms to band -->
+                               <td style="padding:3px 6px;white-space:nowrap;">
+                                 <a
+                                   href="https://www.qrzcq.com/call/{(spot.dx ?? '').trim()}"
+                                   target="_blank"
+                                   rel="noopener noreferrer"
+                                   title="Look up {(spot.dx ?? '').trim()} on QRZCQ"
+                                   style="
+                                     color:#ffa657;
+                                     font-weight:bold;
+                                     text-decoration:none;
+                                     border-bottom:1px dotted rgba(255,166,87,0.5);
+                                     transition:color 0.15s;
+                                   "
+                                   on:mouseover={e => e.target.style.color='#ffcc99'}
+                                   on:mouseout={e => e.target.style.color='#ffa657'}
+                                 >{spot.dx ?? ''}</a>
+                               </td>
+                               <!-- ★ Clickable frequency – tunes the waterfall -->
                                <td style="padding:3px 6px;text-align:right;">
                                  <button
                                    on:click={() => tuneToDXFrequency(spot.freq)}

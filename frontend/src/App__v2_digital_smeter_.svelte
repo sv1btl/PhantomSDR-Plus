@@ -3004,7 +3004,7 @@
   // HamQTH CSV format: Call^Frequency^Date/Time^Spotter^Comment^LoTW^eQSL^Continent^Band^Country
   function buildDXUrl() {
     const band = dxBandFilter === 'ALL' ? '' : `&band=${dxBandFilter}m`;
-    return `https://www.hamqth.com/dxc_csv.php?limit=30${band}`;
+    return `https://www.hamqth.com/dxc_csv.php?limit=30${band}&_t=${Date.now()}`;
   }
 
   function parseDXCSV(text) {
@@ -3026,7 +3026,7 @@
   }
 
   async function tryFetch(url) {
-    const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
+    const res = await fetch(url, { signal: AbortSignal.timeout(8000), cache: 'no-store' });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return res.text();
   }
@@ -3598,7 +3598,7 @@
                            {#each dxSpots as spot, i}
                              <tr style="background:{i%2===0 ? 'transparent' : 'rgba(255,255,255,0.02)'};">
                                <td style="padding:3px 6px;color:#8b949e;white-space:nowrap;">{formatDXTime(spot.time)}</td>
-                               <td style="padding:3px 6px;color:#79c0ff;white-space:nowrap;">{spot.spotter ?? ''}</td>
+                               <td style="padding:3px 6px;color:#79c0ff;">{spot.spotter ?? ''}</td>
                                <td style="padding:3px 6px;white-space:nowrap;">
                                  <a
                                    href="https://www.qrzcq.com/call/{(spot.dx ?? '').trim()}"

@@ -256,6 +256,11 @@ export default class SpectrumAudio {
     // Spectrogram integration
     this.spectrogramCallback = null
     this.spectrogramEnabled = false
+
+    // CW Decoder state — initialised by _cwReset()
+    this.decodeCW = false;
+    this.cwCallback = null;
+    this._cwReset();
     
     // Remove the element with id startaudio from the DOM
 
@@ -446,6 +451,8 @@ export default class SpectrumAudio {
     this.recordedAudio = [];
     this.audioQueue = [];
     this.recordedChunks = [];
+    // Clear CW state
+    this._cwReset();
   }
 
     applyAGC(pcmArray) {
@@ -1632,6 +1639,11 @@ setAGC(newAGCSpeed) {
       }
     }
 
+    // Feed PCM to CW decoder
+    if (this.decodeCW) {
+      try { this._cwFeedPCM(pcmArray); } catch(e) { console.error('CW feed error', e); }
+    }
+
     if (this.isCollecting && this.decodeFT8) {
       this.accumulator.push(...pcmArray);
       
@@ -1870,6 +1882,541 @@ setAGC(newAGCSpeed) {
 
     return arrayBuffer;
   }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  //  CW DECODER v5  –  Timing PLL + space k-means
+  //
+  //  Added on top of v4 (IIR biquad + envelope):
+  //
+  //  1. Timing PLL (cwPllPeriod)
+  //     Single authoritative dit-clock period, updated by *both* marks and
+  //     spaces via integral control.  Replaces the ad-hoc cwDitLen-nudge
+  //     that v3/v4 used for inter-element calibration.
+  //
+  //     On each classified mark:
+  //       error = observed − n × T   (n = 1 dit, 3 dah)
+  //       T += 0.04 × error          if |error| < 0.5 × expected
+  //
+  //     On each classified space:
+  //       error = observed − n × T   (n = 1 inter-elem, 3 inter-char, 7 word)
+  //       T += 0.025 × error         if |error| < 0.6 × expected
+  //
+  //     The asymmetric error clamp rejects outliers (missed elements, QRM
+  //     bursts) while allowing the PLL to track speed changes within a QSO.
+  //     Farnsworth timing works naturally: wildly long inter-char gaps exceed
+  //     the clamp so they don't corrupt the element-period estimate.
+  //
+  //  2. Space k-means (cwShortSpace, cwLongSpace)
+  //     Two independent cluster centres replace the fixed-ratio thresholds
+  //     (1.8 × dit = inter-char, 5 × dit = word) used in v3/v4.
+  //
+  //     cwShortSpace ≈ 1T  (inter-element gap)
+  //     cwLongSpace  ≈ 3T  (inter-character gap)
+  //
+  //     Word-space threshold = cwLongSpace × 1.6  (once long centre is known)
+  //                          = T × 5              (fallback during cold-start)
+  //
+  //     This makes the decoder self-calibrating for any operating style:
+  //     standard, Farnsworth, contest-speed, or casual ragchew.
+  //
+  //  Signal chain (unchanged from v4):
+  //    PCM → biquad BP → |y| → asymmetric IIR envelope → Schmitt →
+  //    edge → (PLL + k-means) → character output
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  _cwReset() {
+    this.cwFreqBuf       = [];
+    this.cwFreqBufTarget = 4096;   // ~0.34 s at 12 kHz
+    this.cwToneFreq = 700;         // Hz; updated by FFT
+    this.cwSR       = 12000;
+
+    // ── IIR biquad bandpass state ─────────────────────────────────────────
+    this.cwIirX1 = 0; this.cwIirX2 = 0;
+    this.cwIirY1 = 0; this.cwIirY2 = 0;
+    this.cwIirB0 = 0; this.cwIirB2 = 0;
+    this.cwIirA1 = 0; this.cwIirA2 = 0;
+    this.cwIirFreq = 0;
+
+    // ── Envelope detector state ───────────────────────────────────────────
+    this.cwEnv   = 0;
+    this.cwPeak  = 0;
+    this.cwFloor = 1e-7;
+
+    // ── Schmitt trigger ───────────────────────────────────────────────────
+    this.cwKeyDown = false;
+
+    // ── Timing counters (samples) ─────────────────────────────────────────
+    this.cwMarkSamp  = 0;
+    this.cwSpaceSamp = 0;
+
+    // ── Mark k-means centres (samples; 0 = unknown) ───────────────────────
+    //    cwDitLen / cwDahLen track the physical durations of dit and dah
+    //    elements as seen at the Schmitt trigger output (including envelope
+    //    attack/release bias, which is constant and cancels out).
+    this.cwDitLen = 0;
+    this.cwDahLen = 0;
+
+    // ── Timing PLL ────────────────────────────────────────────────────────
+    //    cwPllPeriod = authoritative dit-clock period in samples.
+    //    Bootstrapped from the first dit measurement, then refined by
+    //    integral corrections from every mark and every space.
+    this.cwPllPeriod = 0;
+
+    // ── Space k-means centres (samples; 0 = unknown) ──────────────────────
+    //    cwShortSpace ≈ 1T  (inter-element gap, should equal 1 dit)
+    //    cwLongSpace  ≈ 3T  (inter-character gap)
+    //    Word spaces are classified separately (> cwLongSpace × 1.6).
+    this.cwShortSpace = 0;
+    this.cwLongSpace  = 0;
+
+    // ── Silence detection ──────────────────────────────────────────────────
+    //    cwSilent = true once silence is declared; cleared on next rising edge.
+    //    Prevents emitting repeated silence events during one quiet period.
+    this.cwSilent = false;
+
+    // ── Morse character buffer ────────────────────────────────────────────
+    this.cwMorse = '';
+    if (this.cwCharTimeout) { clearTimeout(this.cwCharTimeout); this.cwCharTimeout = null; }
+  }
+
+  setCWDecoding(value) {
+    this.decodeCW = value;
+    this._cwReset();
+  }
+
+  setCWCallback(cb) {
+    this.cwCallback = cb;
+  }
+
+  // ── Biquad bandpass coefficient computation ─────────────────────────────────
+  /**
+   * Direct-Form-I biquad bandpass, Q = 15 (≈ ±47 Hz at 700 Hz).
+   * Audio-EQ cookbook formulation; coefficients pre-divided by a0.
+   *   y[n] = B0·x[n] + B2·x[n-2] − A1·y[n-1] − A2·y[n-2]
+   */
+  _cwComputeBiquad(freq, sr) {
+    // Q = 10 → 3 dB bandwidth = freq/Q ≈ ±35 Hz at 700 Hz.
+    // Wider than v4's Q=15 (±23 Hz): tolerates the ~30–40 Hz error that
+    // can exist during the first FFT frame (0.34 s) before the frequency
+    // estimate has converged to the true tone.
+    const Q     = 10;
+    const w0    = 2 * Math.PI * freq / sr;
+    const alpha = Math.sin(w0) / (2 * Q);
+    const a0    = 1 + alpha;
+    this.cwIirB0  =  alpha / a0;
+    this.cwIirB2  = -alpha / a0;
+    this.cwIirA1  = -2 * Math.cos(w0) / a0;
+    this.cwIirA2  = (1 - alpha) / a0;
+    this.cwIirFreq = freq;
+    console.debug(`[CW] biquad @ ${freq.toFixed(1)} Hz`);
+  }
+
+  // ── Frequency auto-detection ────────────────────────────────────────────────
+  /**
+   * 4096-point FFT, Hann window, quadratic sub-bin interpolation.
+   * Returns NaN when SNR < 8 dB (prevents noise stealing the frequency lock).
+   */
+  _cwDetectFreq(samples, sr) {
+    const N = 4096;
+    const fftin = new Array(N);
+    for (let i = 0; i < N; i++) {
+      const w = 0.5 * (1 - Math.cos(2 * Math.PI * i / (N - 1)));
+      fftin[i] = [i < samples.length ? samples[i] * w : 0, 0];
+    }
+    let spectrum;
+    try { spectrum = fft(fftin); } catch(e) { return NaN; }
+
+    const freqRes = sr / N;
+    const binLow  = Math.max(1,   Math.floor(200  / freqRes));
+    const binHigh = Math.min(N/2, Math.ceil (2500 / freqRes));
+
+    let maxPow = 0, maxBin = binLow;
+    const pow = new Float32Array(N / 2 + 1);
+    for (let b = binLow; b <= binHigh; b++) {
+      const re = spectrum[b][0], im = spectrum[b][1];
+      pow[b] = re * re + im * im;
+      if (pow[b] > maxPow) { maxPow = pow[b]; maxBin = b; }
+    }
+
+    // SNR guard: peak must be ≥ 8 dB (6.3×) above ±20-bin neighbourhood mean
+    const nbHalf = 20;
+    let nbSum = 0, nbCnt = 0;
+    for (let b = Math.max(binLow, maxBin - nbHalf);
+             b <= Math.min(binHigh, maxBin + nbHalf); b++) {
+      if (b === maxBin) continue;
+      nbSum += pow[b]; nbCnt++;
+    }
+    const meanNb = nbCnt > 0 ? nbSum / nbCnt : maxPow;
+    if (maxPow < meanNb * 6.3) return NaN;
+
+    // Quadratic interpolation for sub-bin accuracy
+    let delta = 0;
+    if (maxBin > binLow && maxBin < binHigh) {
+      const yL = pow[maxBin - 1], yC = pow[maxBin], yR = pow[maxBin + 1];
+      const denom = 2 * (2 * yC - yL - yR);
+      if (denom > 0) delta = (yL - yR) / denom;
+    }
+    const detectedHz = (maxBin + delta) * freqRes;
+    console.debug(`[CW] tone ${detectedHz.toFixed(1)} Hz  SNR ${(10*Math.log10(maxPow/meanNb)).toFixed(1)} dB`);
+    return detectedHz;
+  }
+
+  // ── Mark classifier with PLL update ────────────────────────────────────────
+  /**
+   * Online k-means for two element clusters (dit / dah), with integral-gain
+   * PLL update after each classification.
+   *
+   * The PLL update uses n = 1 (dit) or n = 3 (dah).  The error is clamped to
+   * ±50% of the expected duration to reject false edges from noise bursts.
+   */
+  _cwClassifyMark(dur) {
+    const bothKnown = this.cwDitLen > 0 && this.cwDahLen > 0;
+    const LEARN = bothKnown ? 0.07 : 0.15;
+    let isDit;
+
+    // ── k-means ──────────────────────────────────────────────────────────
+    if (this.cwDitLen === 0 && this.cwDahLen === 0) {
+      // Cold start: store provisional dit — will be corrected if next
+      // element reveals this was actually a dah (see retroactive check below)
+      this.cwDitLen = dur; isDit = true;
+
+    } else if (this.cwDahLen === 0) {
+      if (dur > this.cwDitLen * 2.2) {
+        // Clearly longer → bootstrap dah centre
+        this.cwDahLen = dur; isDit = false;
+      } else if (dur < this.cwDitLen * 0.45) {
+        // ── Retroactive correction ──────────────────────────────────────
+        // The first (provisional) element was actually a DAH — it is more
+        // than 2× this new element.  Swap: move provisional value to dah,
+        // set dit to current duration.
+        // Threshold 0.45: real dit/dah ratio = 1/3 ≈ 0.33; 0.45 gives safe
+        // margin above 1:2 ambiguity, below 1:3 target.
+        this.cwDahLen = this.cwDitLen;
+        this.cwDitLen = dur;
+        isDit = true;
+      } else {
+        // Within range of current dit estimate
+        this.cwDitLen = this.cwDitLen * (1 - LEARN) + dur * LEARN; isDit = true;
+      }
+
+    } else if (this.cwDitLen === 0) {
+      if (dur < this.cwDahLen * 0.55) {
+        this.cwDitLen = dur; isDit = true;
+      } else {
+        this.cwDahLen = this.cwDahLen * (1 - LEARN) + dur * LEARN; isDit = false;
+      }
+    } else {
+      const mid = (this.cwDitLen + this.cwDahLen) / 2;
+      if (dur < mid) {
+        this.cwDitLen = this.cwDitLen * (1 - LEARN) + dur * LEARN; isDit = true;
+      } else {
+        this.cwDahLen = this.cwDahLen * (1 - LEARN) + dur * LEARN; isDit = false;
+      }
+    }
+
+    // ── PLL integral update ───────────────────────────────────────────────
+    // n = 1 for dit, 3 for dah.  Clamp to ±50% of expected to reject noise.
+    const n = isDit ? 1 : 3;
+    if (this.cwPllPeriod < 1) {
+      // Bootstrap from first element regardless of type:
+      //   first dit → T = dur
+      //   first dah → T = dur / 3  (only after retroactive correction fires)
+      if (isDit) this.cwPllPeriod = this.cwDitLen;       // corrected dit len
+      else       this.cwPllPeriod = this.cwDahLen / 3;   // dah → infer T
+    } else {
+      const expected = n * this.cwPllPeriod;
+      const error    = dur - expected;
+      if (Math.abs(error) < expected * 0.5) {
+        this.cwPllPeriod = Math.max(10, this.cwPllPeriod + 0.04 * error);
+      }
+    }
+
+    return isDit ? '.' : '-';
+  }
+
+  // ── Space classifier with k-means + PLL update ──────────────────────────────
+  /**
+   * Two independent k-means clusters replace the fixed-ratio thresholds:
+   *   cwShortSpace ≈ 1T  (inter-element gap)
+   *   cwLongSpace  ≈ 3T  (inter-character gap)
+   *
+   * Word space = clearly beyond inter-character territory:
+   *   > cwLongSpace × 1.6   when long centre is known
+   *   > T × 5               during cold-start (before long centre established)
+   *
+   * Every classified space nudges cwPllPeriod via integral control.
+   * Error clamped to ±60% of expected to handle Farnsworth and slow ops.
+   */
+  _cwClassifySpace(spaceSamp) {
+    // Use PLL period as timing reference; fall back to mark k-means dit length
+    const T = this.cwPllPeriod > 1 ? this.cwPllPeriod : this.cwDitLen;
+    if (T < 1) return;  // no timing reference yet — discard
+
+    const LEARN_SP = 0.10;  // slightly faster than mark k-means (spaces are noisier)
+
+    // ── PLL integral update (inner helper) ───────────────────────────────
+    //    n = expected integer multiple of T.
+    //    Gain 0.025 (gentler than mark gain 0.04 — spaces have more jitter).
+    //    Clamp ±60% of expected: rejects wildly long Farnsworth inter-char
+    //    gaps from corrupting the element-period estimate.
+    const pllNudge = (samp, n) => {
+      if (this.cwPllPeriod < 1) return;
+      const expected = n * this.cwPllPeriod;
+      const error    = samp - expected;
+      if (Math.abs(error) < expected * 0.6) {
+        this.cwPllPeriod = Math.max(10, this.cwPllPeriod + 0.025 * error);
+      }
+    };
+
+    // ── Word space check (runs first, before k-means) ─────────────────────
+    //    Standard CW: inter-char = 3T, word space = 7T → ratio 2.33×
+    //    Tight operators: inter-char ≈ 3T, word space ≈ 5T → ratio 1.67×
+    //    Geometric-mean split between 3T and 7T: √(3×7) × T ≈ 4.58T = 3T × 1.53
+    //    We use 1.6× (slightly above geometric mean) to stay clear of
+    //    jittery inter-char gaps while catching tight 5T word spaces.
+    //
+    //    Cold-start fallback: 4T (midpoint between 3T inter-char and 5T word).
+    //    This fires earlier than the old 5T and catches all real-world operators.
+    const wordThresh = this.cwLongSpace > 0
+      ? this.cwLongSpace * 1.6
+      : T * 4;
+
+    if (spaceSamp >= wordThresh) {
+      this._cwFlushChar();
+      pllNudge(spaceSamp, 7);    // clamped → no-op if Farnsworth inter-char gap
+      if (this.cwCallback) this.cwCallback({ type: 'word' });
+      return;
+    }
+
+    // ── Space k-means ─────────────────────────────────────────────────────
+
+    // Cold start: neither centre known → classify by PLL period
+    if (this.cwShortSpace === 0 && this.cwLongSpace === 0) {
+      if (spaceSamp < T * 2.0) {
+        this.cwShortSpace = spaceSamp;    // inter-element
+        pllNudge(spaceSamp, 1);
+      } else {
+        this.cwLongSpace = spaceSamp;     // inter-character → flush
+        this._cwFlushChar();
+        pllNudge(spaceSamp, 3);
+      }
+      return;
+    }
+
+    // Only short centre known
+    if (this.cwLongSpace === 0) {
+      if (spaceSamp > this.cwShortSpace * 2.2) {
+        this.cwLongSpace = spaceSamp;     // bootstrap long centre → flush
+        this._cwFlushChar();
+        pllNudge(spaceSamp, 3);
+      } else {
+        this.cwShortSpace = this.cwShortSpace * (1 - LEARN_SP) + spaceSamp * LEARN_SP;
+        pllNudge(spaceSamp, 1);
+      }
+      return;
+    }
+
+    // Only long centre known
+    if (this.cwShortSpace === 0) {
+      if (spaceSamp < this.cwLongSpace * 0.55) {
+        this.cwShortSpace = spaceSamp;    // bootstrap short centre
+        pllNudge(spaceSamp, 1);
+      } else {
+        this.cwLongSpace = this.cwLongSpace * (1 - LEARN_SP) + spaceSamp * LEARN_SP;
+        this._cwFlushChar();
+        pllNudge(spaceSamp, 3);
+      }
+      return;
+    }
+
+    // Both centres known → nearest-centre assignment
+    const midSp = (this.cwShortSpace + this.cwLongSpace) / 2;
+    if (spaceSamp < midSp) {
+      // Inter-element gap
+      this.cwShortSpace = this.cwShortSpace * (1 - LEARN_SP) + spaceSamp * LEARN_SP;
+      pllNudge(spaceSamp, 1);
+    } else if (spaceSamp > this.cwLongSpace * 1.5) {
+      // Clearly beyond inter-char territory even with jitter → word space.
+      // This safety catch prevents a slipped word-space from pulling
+      // cwLongSpace upward and raising the threshold for future detections.
+      this._cwFlushChar();
+      pllNudge(spaceSamp, 7);
+      if (this.cwCallback) this.cwCallback({ type: 'word' });
+    } else {
+      // Inter-character gap → flush current character
+      this.cwLongSpace = this.cwLongSpace * (1 - LEARN_SP) + spaceSamp * LEARN_SP;
+      this._cwFlushChar();
+      pllNudge(spaceSamp, 3);
+    }
+  }
+
+  // ── Morse lookup + char flush ───────────────────────────────────────────────
+  _cwFlushChar() {
+    if (!this.cwMorse) return;
+    const ch = this._cwLookup(this.cwMorse);
+    this.cwMorse = '';
+    if (ch && this.cwCallback) this.cwCallback({ type: 'char', char: ch });
+  }
+
+  _cwLookup(m) {
+    const T = {
+      '.-':'A',   '-...':'B', '-.-.':'C', '-..':'D',  '.':'E',
+      '..-.':'F', '--.':'G',  '....':'H', '..':'I',   '.---':'J',
+      '-.-':'K',  '.-..':'L', '--':'M',   '-.':'N',   '---':'O',
+      '.--.':'P', '--.-':'Q', '.-.':'R',  '...':'S',  '-':'T',
+      '..-':'U',  '...-':'V', '.--':'W',  '-..-':'X', '-.--':'Y',
+      '--..':'Z',
+      '-----':'0','.----':'1','..---':'2','...--':'3','....-':'4',
+      '.....':'5','-....':'6','--...':'7','---..':'8','----.':'9',
+      '.-.-.-':'.','--..--':',','..--..':'?','-..-.':'/',
+      '-.-.--':'!','.--.-.':'@','-....-':'-','...-..-':'$'
+    };
+    return T[m] || `[${m}]`;
+  }
+
+  // ── Main PCM entry point ────────────────────────────────────────────────────
+  /**
+   * Sample-by-sample IIR pipeline (unchanged from v4).
+   * PLL period is now used for the safety flush timer instead of cwDitLen,
+   * giving a more accurate timeout at all operating speeds.
+   */
+  _cwFeedPCM(pcmArray) {
+    const sr = this.cwSR = (this.audioOutputSps || 12000);
+
+    // Time constants — exact, sample-rate-independent
+    const ATK        = 1 - Math.exp(-1 / (sr * 0.002));   // envelope attack  τ = 2 ms
+    const REL        = 1 - Math.exp(-1 / (sr * 0.006));   // envelope release τ = 6 ms
+    const PEAK_DECAY = Math.exp(-Math.LN2 / sr);           // peak half-life   1 s
+    const FLOOR_FALL = 1 - Math.exp(-1 / (sr * 1.0));     // noise floor fall τ = 1 s
+    const FLOOR_RISE = 1 - Math.exp(-1 / (sr * 30.0));    // noise floor rise τ = 30 s
+
+    if (this.cwIirFreq === 0) this._cwComputeBiquad(this.cwToneFreq, sr);
+
+    for (let i = 0; i < pcmArray.length; i++) {
+      const x = pcmArray[i];
+
+      // ── A. FFT frequency-detection buffer ─────────────────────────────
+      this.cwFreqBuf.push(x);
+      if (this.cwFreqBuf.length >= this.cwFreqBufTarget) {
+        const snap = this.cwFreqBuf.splice(0, this.cwFreqBufTarget);
+        const hz   = this._cwDetectFreq(snap, sr);
+        if (!isNaN(hz) && hz > 150 && hz < 3000) {
+          this.cwToneFreq = this.cwToneFreq * 0.60 + hz * 0.40;  // IIR smooth (faster convergence)
+          const wpm = this.cwPllPeriod > 0
+            ? Math.round(1200 / (this.cwPllPeriod / sr * 1000))
+            : 0;
+          if (this.cwCallback) this.cwCallback({ type: 'freq', hz: Math.round(this.cwToneFreq), wpm });
+        }
+      }
+
+      // ── B. Recompute biquad if tone drifted > 2 Hz ────────────────────
+      if (Math.abs(this.cwToneFreq - this.cwIirFreq) > 2) {
+        this._cwComputeBiquad(this.cwToneFreq, sr);
+      }
+
+      // ── C. IIR bandpass (Direct Form I, b1 = 0) ───────────────────────
+      const y = this.cwIirB0 * x
+              + this.cwIirB2 * this.cwIirX2
+              - this.cwIirA1 * this.cwIirY1
+              - this.cwIirA2 * this.cwIirY2;
+      this.cwIirX2 = this.cwIirX1; this.cwIirX1 = x;
+      this.cwIirY2 = this.cwIirY1; this.cwIirY1 = y;
+
+      // ── D. Full-wave rectify → asymmetric IIR envelope ────────────────
+      const rect  = Math.abs(y);
+      const alpha = rect > this.cwEnv ? ATK : REL;
+      this.cwEnv += alpha * (rect - this.cwEnv);
+      const env = this.cwEnv;
+
+      // ── E. Peak tracker (instant attack, 1 s half-life decay) ─────────
+      if (env >= this.cwPeak) { this.cwPeak = env; }
+      else                    { this.cwPeak *= PEAK_DECAY; }
+
+      // ── F. Noise floor ─────────────────────────────────────────────────
+      if (env < this.cwFloor) { this.cwFloor -= FLOOR_FALL * (this.cwFloor - env); }
+      else                    { this.cwFloor += FLOOR_RISE * (env - this.cwFloor); }
+
+      // ── G. SNR guard + silence detection ─────────────────────────────
+      if (this.cwPeak < this.cwFloor * 3 || this.cwPeak < 1e-6) {
+        this.cwSpaceSamp++;
+
+        // Silence threshold: 2 s absolute, or 20 × PLL period (whichever
+        // is larger), so fast operators still get a 2 s gap between QSOs.
+        // We use samples, not ms, for exact comparison.
+        const silenceThresh = Math.max(
+          sr * 2,
+          this.cwPllPeriod > 0 ? this.cwPllPeriod * 20 : 0
+        );
+
+        if (!this.cwSilent && this.cwSpaceSamp >= silenceThresh) {
+          this.cwSilent = true;
+
+          // Flush any partial character that the safety timer hasn't fired yet
+          if (this.cwCharTimeout) { clearTimeout(this.cwCharTimeout); this.cwCharTimeout = null; }
+          this._cwFlushChar();
+
+          // Cap cwSpaceSamp so when signal returns _cwClassifySpace sees at
+          // most one clean word-space worth of samples, not millions.
+          // We use 8 × T (just above the 7T word-space boundary) so it
+          // correctly fires as a word space on the next rising edge.
+          const T = this.cwPllPeriod > 1 ? this.cwPllPeriod : this.cwDitLen;
+          this.cwSpaceSamp = T > 0 ? Math.round(T * 8) : this.cwSpaceSamp;
+
+          if (this.cwCallback) this.cwCallback({ type: 'silence' });
+        }
+        continue;
+      }
+
+      // ── H. Schmitt trigger ─────────────────────────────────────────────
+      const HIGH = this.cwPeak * 0.60;
+      const LOW  = this.cwPeak * 0.25;
+      let keyNow = this.cwKeyDown;
+      if (!this.cwKeyDown && env > HIGH) keyNow = true;
+      if ( this.cwKeyDown && env < LOW ) keyNow = false;
+
+      // ── I. Edge detection ──────────────────────────────────────────────
+      if (keyNow !== this.cwKeyDown) {
+        if (keyNow) {
+          // Rising edge: key DOWN
+          this.cwKeyDown = true;
+          this.cwSilent = false;   // signal returned — clear silence flag
+          if (this.cwCharTimeout) { clearTimeout(this.cwCharTimeout); this.cwCharTimeout = null; }
+          if (this.cwSpaceSamp > 0) {
+            this._cwClassifySpace(this.cwSpaceSamp);
+            this.cwSpaceSamp = 0;
+          }
+        } else {
+          // Falling edge: key UP
+          this.cwKeyDown = false;
+          if (this.cwMarkSamp > 0) {
+            const elem = this._cwClassifyMark(this.cwMarkSamp);
+            // Guard: longest valid code is 7 elements ($=...-..-)
+            // Cap at 8 to prevent noise building unbounded garbage.
+            if (this.cwMorse.length < 8) this.cwMorse += elem;
+            this.cwMarkSamp = 0;
+          }
+          // Safety flush timer: uses PLL period (most accurate available estimate).
+          // Falls back to mark k-means dit length before PLL is bootstrapped.
+          // Minimum 350 ms covers up to ~40 WPM (dit ≈ 30 ms → 5 dits = 150 ms).
+          const T      = this.cwPllPeriod > 1 ? this.cwPllPeriod : this.cwDitLen;
+          const ditMs  = T > 0 ? (T / sr) * 1000 : 80;
+          const flushMs = Math.max(350, ditMs * 5);
+          if (this.cwCharTimeout) clearTimeout(this.cwCharTimeout);
+          this.cwCharTimeout = setTimeout(() => {
+            this.cwCharTimeout = null;
+            this._cwFlushChar();
+          }, flushMs);
+        }
+      }
+
+      // ── J. Accumulate timing counters ──────────────────────────────────
+      if (this.cwKeyDown) { this.cwMarkSamp++;  }
+      else                { this.cwSpaceSamp++; }
+    }
+  }
+
+
+  // ═══════════════════════════════════════════════════════════════════════════
 
   /**
    * Set spectrogram callback for feeding PCM data

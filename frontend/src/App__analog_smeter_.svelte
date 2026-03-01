@@ -1,7 +1,7 @@
 <script>
   const VERSION = "1.7.0 with mobile support and enhancements";
 
-  import { onDestroy, onMount, tick } from "svelte";
+  import { onDestroy, onMount, tick, afterUpdate } from "svelte";
   import { fade, fly, scale } from "svelte/transition";
   import copy from "copy-to-clipboard";
   import { RollingMax } from "efficient-rolling-stats";
@@ -772,6 +772,17 @@
 
   // Decoder
   let ft8Enabled = false;
+  let cwEnabled = false;
+  let cwMessages = [];          // array of decoded CW text lines
+  let cwCurrentLine = '';       // line being built
+  let cwDetectedHz = 0;         // live auto-detected tone frequency
+  let cwScrollEl;               // bind:this on the CW text div for auto-scroll
+  let cwDetectedWpm = 0;        // live WPM from PLL
+
+  // Auto-scroll CW window to bottom whenever messages update
+  afterUpdate(() => {
+    if (cwScrollEl) cwScrollEl.scrollTop = cwScrollEl.scrollHeight;
+  });
 
   // Handling dragging the waterfall left or right
   let waterfallDragging = false;
@@ -1117,13 +1128,13 @@
   // Audio demodulation selection
   let demodulators = ["USB", "LSB", "CW", "CW-L", "AM", "QUAM", "FM"];
   const demodulationDefaults = {
-    USB: { type: "USB", offsets: [0, 2700] },
-    LSB: { type: "LSB", offsets: [2700, 0] },
-    CW: { type: "USB", offsets: [250, 250] },
-    //CW: { type: "CW", offsets: [2800, -100] },
-    AM: { type: "AM", offsets: [4500, 4500] }, // Set to 9KHz for AM
+    USB:  { type: "USB",  offsets: [0, 2700] },
+    LSB:  { type: "LSB",  offsets: [2700, 0] },
+    CW:   { type: "CW",   offsets: [250, 250] }, // DSB centered on carrier, ±250 Hz
+    "CW-L": { type: "CWL", offsets: [250, 250] }, // CW lower sideband tone, ±250 Hz
+    AM:   { type: "AM",   offsets: [4500, 4500] }, // 9 kHz for AM
     QUAM: { type: "QUAM", offsets: [5000, 5000] }, // C-QUAM AM-stereo
-    FM: { type: "FM", offsets: [5000, 5000] },
+    FM:   { type: "FM",   offsets: [5000, 5000] },
   };
 
   let demodulation = "USB";
@@ -1133,7 +1144,7 @@
   }
 
   function SetMode(mode) {
-    if (mode == "CW-U" || mode == "CW-L") {
+    if (mode == "CW-U") {
       mode = "CW";
     }
     console.log("Setting mode to", mode);
@@ -1144,7 +1155,7 @@
   }
 
   function setModePopup(mode) {
-    if (mode == "CW-U" || mode == "CW-L") {
+    if (mode == "CW-U") {
       mode = "CW";
     }
     console.log("Setting mode to", mode);
@@ -1167,14 +1178,7 @@
       } else {
         audio.setFmDeemph(0);
       }
-      if (
-        demodulationDefault.type == "USB" &&
-        demodulationDefault.offsets[0] == 250
-      ) {
-        audio.setAudioDemodulation("CW");
-      } else {
-        audio.setAudioDemodulation(demodulationDefault.type);
-      }
+      audio.setAudioDemodulation(demodulationDefault.type);
     }
     let prevBFO = frequencyInputComponent.getBFO();
     let newBFO = demodulationDefault.bfo || 0;
@@ -1204,9 +1208,65 @@
     updateLink();
   }
 
+  function handleNoneDecoder(e) {
+    ft8Enabled = false;
+    audio.setFT8Decoding(false);
+    if (cwEnabled) handleCwDecoder(e, false);
+  }
+
   function handleFt8Decoder(e, value) {
     ft8Enabled = value;
     audio.setFT8Decoding(value);
+    if (value && cwEnabled) handleCwDecoder(e, false);
+  }
+
+  function handleCwDecoder(e, value) {
+    cwEnabled = value;
+    audio.setCWDecoding(value);
+    if (value) {
+      cwMessages = [];
+      cwCurrentLine = '';
+      cwDetectedHz  = 0;
+      cwDetectedWpm = 0;
+      audio.setCWCallback((event) => {
+        if (event.type === 'char') {
+          cwCurrentLine += event.char;
+          if (cwCurrentLine.length >= 60) {
+            cwMessages = [...cwMessages, cwCurrentLine].slice(-100);
+            cwCurrentLine = '';
+          }
+        } else if (event.type === 'word') {
+          // Word boundary: if there's content on the current line, append a
+          // visible space then let text continue.  If the line is already long
+          // (≥45 chars), break to a new line so words never run together across
+          // a wrap point and remain individually scannable.
+          if (cwCurrentLine.length >= 45) {
+            cwMessages = [...cwMessages, cwCurrentLine].slice(-100);
+            cwCurrentLine = '';
+          } else if (cwCurrentLine.length > 0) {
+            cwCurrentLine += ' ';
+          }
+        } else if (event.type === 'freq') {
+          cwDetectedHz  = event.hz;
+          cwDetectedWpm = event.wpm || 0;
+        } else if (event.type === 'silence') {
+          // Station went QRT — flush current line, add separator, reset freq display
+          if (cwCurrentLine.trim()) {
+            cwMessages = [...cwMessages, cwCurrentLine].slice(-100);
+            cwCurrentLine = '';
+          }
+          cwMessages = [...cwMessages, '───'].slice(-100);
+          cwDetectedHz  = 0;
+          cwDetectedWpm = 0;
+        }
+        cwMessages = cwMessages;
+        cwCurrentLine = cwCurrentLine;
+      });
+    } else {
+      audio.setCWCallback(null);
+      cwDetectedHz  = 0;
+      cwDetectedWpm = 0;
+    }
   }
 
   // Normalizes dB values to a 0-100 scale for visualization
@@ -3493,7 +3553,6 @@ function _animateNeedle(ts) {
 
   // Function to publish bandwidth buttons //
   let newBandwidth = [
-    "250",
     "500",
     "1800",
     "2400",
@@ -3503,6 +3562,7 @@ function _animateNeedle(ts) {
     "4000",
     "4500",
     "5000",
+    "6000",
     "10000",
     "12000",
   ];
@@ -3852,9 +3912,7 @@ function _animateNeedle(ts) {
                 <!-- Details -->
                 <span class="text-white text-sm sm:text-sm mr-4 mb-2 sm:mb-0">
                   {siteSysop}:
-                  <a
-                    href="mailto:{siteSysopEmailAddress}?subject=WebSDR"
-                    style="color:rgba(0, 225, 255, 0.993)">email</a>
+                  <a href="/cdn-cgi/l/email-protection#68131b011c0d3b111b07182d05090104290c0c1a0d1b1b15571b1d0a020d0b1c553f0d0a3b2c3a" style="color:rgba(0, 225, 255, 0.993)">email</a>
 
                    &nbsp - &nbsp
 
@@ -4137,7 +4195,7 @@ function _animateNeedle(ts) {
 
                      <b>Note:</b> <br> 
                      <span style="/*text-decoration: line-through*/">{siteNote} <br>
-                     
+
                      <!-- Any other information here --> 
                      
                      <br>
@@ -4300,7 +4358,6 @@ function _animateNeedle(ts) {
                      <span>{dxSpots.length} spot{dxSpots.length===1?'':'s'}</span>
                    </div>
                  </div>
-                 <!-- ── End DX Cluster Widget ──────────────────────────────────────────── -->
               </div>     
             </div>
            </div>
@@ -4648,7 +4705,7 @@ Click again to de-activate"
                   <h3 class="text-white text-base font-semibold mb-2">AGC</h3>
                   <div class="w-full mb-6">
                     <div id="moreoptions" class="grid grid-cols-4 gap-2">
-                      <script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script>
+                      <script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script>
                         let AGCbutton = false;
                       </script>
                       {#each [{ option: "Auto", AGCbutton: 0 }, { option: "Fast", AGCbutton: 1 }, { option: "Mid", AGCbutton: 2 }, { option: "Slow", AGCbutton: 3 }] as { option, AGCbutton }}
@@ -5299,8 +5356,7 @@ Click again to de-activate"
                                           )}
                                         title={newbandwidth}
                                       >
-                                        {#if newbandwidth == 250}250 Hz
-                                        {:else if newbandwidth == 500}500 Hz
+                                        {#if newbandwidth == 500}500 Hz                                        
                                         {:else if newbandwidth == 1800}1.8 kHz
                                         {:else if newbandwidth == 2400}2.4 kHz
                                         {:else if newbandwidth == 2700}2.7 kHz
@@ -5309,6 +5365,7 @@ Click again to de-activate"
                                         {:else if newbandwidth == 4000}4.0 kHz
                                         {:else if newbandwidth == 4500}4.5 kHz
                                         {:else if newbandwidth == 5000}5.0 kHz
+                                        {:else if newbandwidth == 6000}6.0 kHz
                                         {:else if newbandwidth == 10000}10.0 kHz
                                         {:else if newbandwidth == 12000}12.0 kHz
                                         {:else}{/if}
@@ -5395,49 +5452,49 @@ Click again to de-activate"
                   <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
                     <!-- Audio Spectrogram Section -->
                     <div>
-                      <h3 class="text-white text-base font-semibold mb-2">
+                      <h3 class="text-left text-white text-base font-semibold mb-2">
                         Audio Spectrogram
                       </h3>
                       <div class="flex items-center gap-3 flex-wrap">
-      <button
-                            class="retro-button px-4 py-2 text-white text-sm rounded-md border border-gray-600 shadow-inner transition-all duration-200 ease-in-out {spectrogramEnabled
-                              ? 'bg-blue-600 pressed scale-95'
-                              : 'bg-gray-700 hover:bg-gray-600'}"
-                            on:click={toggleSpectrogram}
-                          >
-                            {spectrogramEnabled ? '📊 Hide' : '📊 Show'}
-                          </button>
-
-                          {#if spectrogramEnabled}
-                            <div class="flex items-center gap-2">
-                              <label class="text-sm text-gray-300">Gain:</label>
-                              <input
-                                type="range"
-                                min="0"
-                                max="3"
-                                step="0.1"
-                                bind:value={spectrogramGain}
-                                on:input={() => spectrogramComponent?.setDisplayGain(spectrogramGain)}
-                                class="w-24"
-                              />
-                              <span class="text-xs text-gray-400">{spectrogramGain.toFixed(1)}×</span>
-                            </div>
-
-                            <div class="flex items-center gap-2">
-                              <label class="text-sm text-gray-300">Color:</label>
-                              <select
-                                bind:value={spectrogramColorScheme}
-                                class="glass-select px-2 py-1 text-sm text-white"
-                              >
-                                <option value="rainbow">Rainbow</option>
-                                <option value="blue">Blue</option>
-                                <option value="green">Green</option>
-                                <option value="white">Grayscale</option>
-                              </select>
-                            </div>
-                          {/if}
+                      <button
+                        class="retro-button px-4 py-2 text-white text-sm rounded-md border border-gray-600 shadow-inner transition-all duration-200 ease-in-out {spectrogramEnabled
+                          ? 'bg-blue-600 pressed scale-95'
+                          : 'bg-gray-700 hover:bg-gray-600'}"
+                        on:click={toggleSpectrogram}
+                      >
+                        {spectrogramEnabled ? '📊 Hide' : '📊 Show'}
+                      </button>
+                    
+                    {#if spectrogramEnabled}
+                      <div class="flex items-center gap-2">
+                        <label class="text-sm text-gray-300">Gain:</label>
+                        <input
+                          type="range"
+                          min="0"
+                          max="3"
+                          step="0.1"
+                          bind:value={spectrogramGain}
+                          on:input={() => spectrogramComponent?.setDisplayGain(spectrogramGain)}
+                          class="w-24"
+                        />
+                        <span class="text-xs text-gray-400">{spectrogramGain.toFixed(1)}×</span>
                       </div>
-                    </div>
+                      
+                      <div class="flex items-center gap-2">
+                        <label class="text-sm text-gray-300">Color:</label>
+                        <select
+                          bind:value={spectrogramColorScheme}
+                          class="glass-select px-2 py-1 text-sm text-white"
+                        >
+                          <option value="rainbow">Rainbow</option>
+                          <option value="blue">Blue</option>
+                          <option value="green">Green</option>
+                          <option value="white">Grayscale</option>
+                        </select>
+                      </div>
+                    {/if}
+                  </div>
+                </div>
 
                     <!-- Decoder Options Section -->
                     <div>
@@ -5446,10 +5503,10 @@ Click again to de-activate"
                       </h3>
                       <div class="flex justify-center gap-4">
       <button
-                            class="bg-gray-700 hover:bg-gray-600 text-white font-medium py-2 px-4 rounded-lg flex items-center transition-colors {!ft8Enabled
+                            class="bg-gray-700 hover:bg-gray-600 text-white font-medium py-2 px-4 rounded-lg flex items-center transition-colors {!ft8Enabled && !cwEnabled
                               ? 'ring-2 ring-blue-500'
                               : ''}"
-                            on:click={(e) => handleFt8Decoder(e, false)}
+                            on:click={(e) => handleNoneDecoder(e)}
                           >
                             None
                           </button>
@@ -5461,6 +5518,15 @@ Click again to de-activate"
                             on:click={(e) => handleFt8Decoder(e, true)}
                           >
                             FT8
+                          </button>
+                          <button
+                            id="cw-decoder"
+                            class="bg-gray-700 hover:bg-gray-600 text-white font-medium py-2 px-4 rounded-lg flex items-center transition-colors {cwEnabled
+                              ? 'ring-2 ring-amber-400'
+                              : ''}"
+                            on:click={(e) => handleCwDecoder(e, true)}
+                          >
+                            CW
                           </button>
                       </div>
                     </div>
@@ -5487,6 +5553,44 @@ Click again to de-activate"
                           <!-- Dynamic content populated here -->
                         </div>
                         <div><hr class="border-gray-600 my-2" /></div>
+                      </div>
+                    </div>
+                  {/if}
+
+                  <!-- CW Decoder Window -->
+                  {#if cwEnabled}
+                    <div class="w-full bg-gray-700 rounded-lg p-4 mt-6">
+                      <div class="w-full flex justify-between items-center mb-3 text-xs">
+                        <h4 class="text-white font-semibold flex items-center gap-2">
+                          <span class="inline-block w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span>
+                          CW Decoder
+                          {#if cwDetectedHz > 0}
+                            <span class="text-amber-400 font-mono font-normal">≈ {cwDetectedHz} Hz</span>
+                            {#if cwDetectedWpm > 0}
+                              <span class="text-gray-400 font-mono font-normal text-xs">· {cwDetectedWpm} WPM</span>
+                            {/if}
+                          {:else}
+                            <span class="text-gray-500 font-normal italic">scanning…</span>
+                          {/if}
+                        </h4>
+                        <button
+                          class="text-gray-400 hover:text-white text-xs px-2 py-0.5 rounded border border-gray-600 hover:border-gray-400 transition-colors"
+                          on:click={() => { cwMessages = []; cwCurrentLine = ''; }}
+                        >Clear</button>
+                      </div>
+                      <div
+                        bind:this={cwScrollEl}
+                        class="w-full font-mono text-sm text-amber-300 bg-gray-900 rounded p-3 overflow-y-auto max-h-64 custom-scrollbar"
+                        style="letter-spacing:0.05em; word-break:break-all;"
+                      >
+                        {#each cwMessages as line}
+                          <div>{line}</div>
+                        {/each}
+                        {#if cwCurrentLine}
+                          <div class="text-amber-200">{cwCurrentLine}<span class="animate-pulse">▋</span></div>
+                        {:else if cwMessages.length === 0}
+                          <div class="text-gray-500 italic">Listening for CW signal…</div>
+                        {/if}
                       </div>
                     </div>
                   {/if}
@@ -6977,8 +7081,7 @@ Click again to de-activate"
                                           )}
                                         title={newbandwidth}
                                       >
-                                        {#if newbandwidth == 250}250 Hz
-                                        {:else if newbandwidth == 500}500 Hz
+                                        {#if newbandwidth == 500}500 Hz                                        
                                         {:else if newbandwidth == 1800}1.8 kHz
                                         {:else if newbandwidth == 2400}2.4 kHz
                                         {:else if newbandwidth == 2700}2.7 kHz
@@ -6987,6 +7090,7 @@ Click again to de-activate"
                                         {:else if newbandwidth == 4000}4.0 kHz
                                         {:else if newbandwidth == 4500}4.5 kHz
                                         {:else if newbandwidth == 5000}5.0 kHz
+                                        {:else if newbandwidth == 6000}6.0 kHz
                                         {:else if newbandwidth == 10000}10.0 kHz
                                         {:else if newbandwidth == 12000}12.0 kHz
                                         {:else}{/if}

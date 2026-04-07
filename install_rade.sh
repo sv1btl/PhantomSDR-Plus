@@ -41,7 +41,6 @@ if [[ -d "$RADAE_DIR/.git" ]]; then
     if [[ "$LOCAL" == "$REMOTE" ]]; then
         ok "radae is already up to date (${LOCAL:0:8})"
         NEED_CLONE=false
-        # Still check if lpcnet_demo binary exists
         if [[ -f "$RADAE_DIR/build/src/lpcnet_demo" ]]; then
             ok "lpcnet_demo binary already present — skipping rebuild"
             NEED_BUILD=false
@@ -52,7 +51,7 @@ if [[ -d "$RADAE_DIR/.git" ]]; then
     else
         warn "Update available: local=${LOCAL:0:8}  remote=${REMOTE:0:8}"
         info "Will pull latest code and rebuild"
-        NEED_CLONE=false   # repo exists, just pull
+        NEED_CLONE=false
     fi
 else
     info "No existing radae installation found — performing fresh install"
@@ -98,7 +97,6 @@ fi
 # =============================================================================
 section "Step 2 — Python packages"
 
-# Install numpy / scipy / matplotlib / websockets via apt — fast, no pip conflicts
 info "Installing numpy, scipy, matplotlib, websockets via apt…"
 sudo apt-get install -y \
     python3-numpy \
@@ -107,23 +105,28 @@ sudo apt-get install -y \
     python3-websockets
 
 # pip is only needed for torch.
-# Detect pip version to decide whether --break-system-packages is needed.
-PIP_MAJOR=$(pip3 --version 2>/dev/null | awk '{print $2}' | cut -d. -f1)
-if (( PIP_MAJOR >= 22 )); then
-    info "pip ${PIP_MAJOR} — using --break-system-packages"
+# Do NOT guess support from version number alone; detect the actual flag.
+PIP_VER=$(pip3 --version 2>/dev/null | awk '{print $2}' || echo "unknown")
+PIP_FLAGS=""
+
+if pip3 install --help 2>/dev/null | grep -q -- '--break-system-packages'; then
+    info "pip ${PIP_VER} supports --break-system-packages"
     PIP_FLAGS="--break-system-packages"
 else
-    warn "pip ${PIP_MAJOR} (< 22) — installing without --break-system-packages"
-    PIP_FLAGS=""
+    warn "pip ${PIP_VER} does NOT support --break-system-packages — installing without it"
 fi
 
-# Check if torch is already installed before downloading ~200 MB
+# Check if torch is already installed before downloading
 if python3 -c "import torch" 2>/dev/null; then
     TORCH_VER=$(python3 -c "import torch; print(torch.__version__)")
     ok "torch ${TORCH_VER} already installed — skipping download"
 else
     info "Installing torch CPU wheel (this may take a few minutes)…"
-    pip3 install $PIP_FLAGS torch --index-url https://download.pytorch.org/whl/cpu
+    if [[ -n "$PIP_FLAGS" ]]; then
+        pip3 install $PIP_FLAGS torch --index-url https://download.pytorch.org/whl/cpu
+    else
+        pip3 install torch --index-url https://download.pytorch.org/whl/cpu
+    fi
 fi
 
 info "Verifying Python imports…"
@@ -180,7 +183,6 @@ fi
 # =============================================================================
 # STEP 4 — Python dependencies (second confirmation, idempotent)
 # =============================================================================
-# Already done in Step 2 — kept here as a no-op marker for the numbered steps.
 section "Step 4 — Python dependencies (already installed in Step 2)"
 ok "Nothing more to do"
 
@@ -231,7 +233,7 @@ echo -e "  ${GREEN}✔${NC}  Python packages       websockets matplotlib torch n
 echo -e "  ${GREEN}✔${NC}  radae repository      $RADAE_DIR"
 
 if [[ -f "$RADAE_DIR/build/src/lpcnet_demo" ]]; then
-echo -e "  ${GREEN}✔${NC}  lpcnet_demo           $(ls -lh $RADAE_DIR/build/src/lpcnet_demo | awk '{print $5, $9}')"
+echo -e "  ${GREEN}✔${NC}  lpcnet_demo           $(ls -lh "$RADAE_DIR/build/src/lpcnet_demo" | awk '{print $5, $9}')"
 else
 echo -e "  ${RED}✘${NC}  lpcnet_demo           NOT FOUND"
 fi

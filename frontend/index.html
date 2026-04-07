@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" href="/favicon.ico" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>PhantomSDR+</title>
+  </head>
+  <body>
+    <div id="app"></div>
+
+    <!-- ===== CATsync / KiwiSDR emulation shim ===== -->
+
+    <!-- Detection element — CATsync looks for this -->
+    <div id="id-kiwi-container" style="display:none"></div>
+
+    <!-- Dummy Kiwi frequency form — CATsync writes the frequency here -->
+    <form name="form_freq" style="display:none">
+      <input type="text" value="" />
+    </form>
+
+    <script>
+    (function () {
+
+      // -------------------------------------------------
+      // Global CATsync / Kiwi state
+      // Runs BEFORE Svelte loads — queues commands until
+      // the real implementations are installed by onMount.
+      // -------------------------------------------------
+      window.__catsync_q     = window.__catsync_q     || [];
+      window.__catsync_state = window.__catsync_state || { hz: null, mode: null };
+
+      // Prevent audio stutter from repeated identical retunes
+      var __catsync_last_hz = null;
+
+      // -------------------------------------------------
+      // freqset_complete() — KiwiSDR-style frequency set
+      // CATsync writes a kHz value into form_freq and
+      // then calls this function.
+      // -------------------------------------------------
+      window.freqset_complete = function () {
+        try {
+          var f = document.forms["form_freq"].elements[0].value;
+          var x = Number(f);
+          if (!isFinite(x)) return false;
+
+          // Kiwi uses kHz; accept raw Hz too (large numbers)
+          var hz = (x < 1e6) ? Math.round(x * 1000) : Math.round(x);
+
+          if (__catsync_last_hz === hz) return true;   // idempotent
+          __catsync_last_hz = hz;
+
+          window.__catsync_state.hz = hz;
+
+          if (typeof window.__catsync_setfreq_impl === "function") {
+            return window.__catsync_setfreq_impl(hz);
+          }
+          window.__catsync_q.push({ t: "freq", hz: hz });
+          return true;
+        } catch (e) {
+          return false;
+        }
+      };
+
+      // -------------------------------------------------
+      // setfreq() — WebSDR / Twente-style frequency set
+      // -------------------------------------------------
+      window.setfreq = function (f) {
+        var x = Number(f);
+        if (!isFinite(x)) return false;
+
+        var hz = (x < 1e6) ? Math.round(x * 1000) : Math.round(x);
+
+        if (__catsync_last_hz === hz) return true;
+        __catsync_last_hz = hz;
+
+        window.__catsync_state.hz = hz;
+
+        if (typeof window.__catsync_setfreq_impl === "function") {
+          return window.__catsync_setfreq_impl(hz);
+        }
+        window.__catsync_q.push({ t: "freq", hz: hz });
+        return true;
+      };
+
+      // -------------------------------------------------
+      // Getters — read back current state
+      // -------------------------------------------------
+      window.ext_get_freq_kHz = function () {
+        return (window.__catsync_state.hz == null)
+          ? null
+          : window.__catsync_state.hz / 1000;
+      };
+
+      window.nominalfreq = function () {
+        return (window.__catsync_state.hz == null)
+          ? null
+          : window.__catsync_state.hz / 1000;
+      };
+
+      window.ext_get_mode = function () {
+        var m = (window.__catsync_state && window.__catsync_state.mode)
+          ? String(window.__catsync_state.mode).toUpperCase().trim()
+          : "USB";
+
+        // Map PhantomSDR mode names -> Kiwi names
+        if (m === "FM")  return "nbfm";
+        if (m === "USB") return "usb";
+        if (m === "LSB") return "lsb";
+        if (m === "AM")  return "am";
+        if (m === "CW")  return "cw";
+        return "usb";   // safe fallback
+      };
+
+      // -------------------------------------------------
+      // ext_set_mode() — KiwiSDR-style mode set
+      // -------------------------------------------------
+      window.ext_set_mode = function (m) {
+        var mode = String(m || "").toUpperCase().trim();
+
+        // Map Kiwi names -> PhantomSDR names
+        if (mode === "NBFM") mode = "FM";
+
+        if (!mode) return false;
+
+        window.__catsync_state.mode = mode;
+
+        if (typeof window.__catsync_setmode_impl === "function") {
+          return window.__catsync_setmode_impl(mode);
+        }
+        window.__catsync_q.push({ t: "mode", mode: mode });
+        return true;
+      };
+
+      // set_mode() alias (WebSDR style)
+      window.set_mode = function (m) {
+        return window.ext_set_mode(m);
+      };
+
+    })();
+    </script>
+
+    <!-- ===== Svelte / Vite bundle ===== -->
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>

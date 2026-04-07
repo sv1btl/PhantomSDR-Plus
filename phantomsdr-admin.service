@@ -1,0 +1,20 @@
+[Unit]
+Description=PhantomSDR-Plus Admin Panel
+After=network.target
+
+[Service]
+Type=simple
+User=YOUR_USERNAME
+WorkingDirectory=/path/to/PhantomSDR-Plus
+ExecStart=/usr/bin/python3 /path/to/PhantomSDR-Plus/admin_server.py
+Restart=on-failure
+RestartSec=5
+Environment=ADMIN_PORT=3000
+# Change the ADMIN_PORT with your real port selected
+# Set a fixed secret key so sessions survive restarts:
+# Environment=ADMIN_SECRET=your_very_long_random_string_here
+StandardOutput=append:/var/log/phantomsdr-admin.log
+StandardError=append:/var/log/phantomsdr-admin.log
+
+[Install]
+WantedBy=multi-user.target

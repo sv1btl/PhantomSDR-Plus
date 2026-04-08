@@ -271,6 +271,19 @@ export default class SpectrumAudio {
     this.playSampleLength = 1
     this.audioQueue = []
 
+    // Continuous playback scheduler: accumulate small websocket/audio decoder
+    // chunks into slightly larger scheduled buffers. This avoids one-source-
+    // per-packet playback, which is prone to browser micro-gaps.
+    this._streamSchedulerEnabled = true;
+    this.streamChunkTargetSec = 0.060;   // target scheduled chunk size
+    this.streamChunkMaxSec = 0.180;      // hard flush if pending audio grows larger
+    this.streamLookAheadSec = 0.030;     // minimum scheduling lead time
+    this._streamPending = [];
+    this._streamPendingFrames = 0;
+    this._streamPendingChannels = 1;
+    this._streamFlushTimer = null;
+    this._scheduledSources = new Set();
+
     this.demodulation = 'USB'
     this.channels = 1  // ✅ ADDED: Track mono/stereo (1 or 2) for C-QUAM
 
@@ -596,6 +609,7 @@ async init() {
         console.warn('Error closing audio context:', e);
       }
       this.audioCtx = null;
+      this._resetStreamScheduler();
     }
     
     // ✅ FIXED: Clear accumulator and recording data
@@ -1174,6 +1188,7 @@ setAGC(newAGCSpeed) {
     this.audioStartTime = this.audioCtx.currentTime
     this.playTime       = this.audioCtx.currentTime + this.bufferThreshold;
     this.playStartTime  = this.audioCtx.currentTime;
+    this._resetStreamScheduler(true);
 
     // ✅ FIXED: Free old decoder before creating new one to prevent memory leak
     if (this.decoder && typeof this.decoder.free === 'function') {
@@ -2349,21 +2364,17 @@ async stopFT4Collection() {
 
     const curPlayTime = this.playPCM(pcmArray, this.playTime, this.audioOutputSps, 1, this.channels)  // ✅ ADDED: Pass channels parameter
 
-    // Dynamic adjustment of play time
-    const currentTime = this.audioCtx.currentTime;
-    // The line below was commented out by NY4Q to allow for a mod to //
-    // adjust the dynamic limits of this function. //
-    //const bufferThreshold = 0.1; // 100ms buffer //
-    if ((this.playTime - currentTime) <= this.bufferThreshold) {
-      // Underrun: increase buffer
-      this.playTime = (currentTime + this.bufferThreshold + curPlayTime);
-      // removed 0.5 and placed bufferLimit in its place - NY4Q //
-    } else if ((this.playTime - currentTime) > this.bufferLimit) { // Originally at 0.5
-      // Overrun: decrease buffer
-      this.playTime = (currentTime + this.bufferThreshold);
-    } else {
-      // Normal operation: advance play time
-      this.playTime += curPlayTime;
+    // Legacy playTime drift correction is only needed for one-buffer-per-source
+    // playback. The continuous scheduler updates this.playTime internally.
+    if (!this._streamSchedulerEnabled) {
+      const currentTime = this.audioCtx.currentTime;
+      if ((this.playTime - currentTime) <= this.bufferThreshold) {
+        this.playTime = (currentTime + this.bufferThreshold + curPlayTime);
+      } else if ((this.playTime - currentTime) > this.bufferLimit) {
+        this.playTime = (currentTime + this.bufferThreshold);
+      } else {
+        this.playTime += curPlayTime;
+      }
     }
 
     if (this.isRecording) {
@@ -2395,80 +2406,191 @@ async stopFT4Collection() {
     }
   }
 
+
+  _resetStreamScheduler(resetPlayClock = false) {
+    if (this._streamFlushTimer) {
+      clearTimeout(this._streamFlushTimer);
+      this._streamFlushTimer = null;
+    }
+    this._streamPending = [];
+    this._streamPendingFrames = 0;
+    this._streamPendingChannels = 1;
+    if (this._scheduledSources) {
+      for (const src of this._scheduledSources) {
+        try { src.onended = null; } catch (e) {}
+        try { src.disconnect(); } catch (e) {}
+        try { src.stop(); } catch (e) {}
+      }
+      this._scheduledSources.clear();
+    } else {
+      this._scheduledSources = new Set();
+    }
+    if (resetPlayClock && this.audioCtx) {
+      this.playTime = this.audioCtx.currentTime + this.bufferThreshold;
+    }
+  }
+
+  _ensureStreamFlushTimer() {
+    if (this._streamFlushTimer) return;
+    const delayMs = Math.max(12, Math.min(35, Math.round(this.streamChunkTargetSec * 500)));
+    this._streamFlushTimer = setTimeout(() => {
+      this._streamFlushTimer = null;
+      if (this._streamPendingFrames > 0) {
+        this._flushPendingPlayback(true);
+      }
+    }, delayMs);
+  }
+
+  _appendPlaybackChunk(buffer, channels) {
+    const frames = (channels === 2) ? Math.floor(buffer.length / 2) : buffer.length;
+    if (frames <= 0) return 0;
+
+    if (this._streamPendingFrames > 0 && this._streamPendingChannels !== channels) {
+      this._flushPendingPlayback(true);
+    }
+
+    const copy = new Float32Array(buffer.length);
+    copy.set(buffer);
+    this._streamPending.push(copy);
+    this._streamPendingFrames += frames;
+    this._streamPendingChannels = channels;
+    return frames / this.audioOutputSps;
+  }
+
+  _buildPendingInterleaved() {
+    const channels = this._streamPendingChannels || 1;
+    const totalFrames = this._streamPendingFrames || 0;
+    if (!totalFrames) return null;
+
+    const out = new Float32Array(totalFrames * channels);
+    let offset = 0;
+    for (const chunk of this._streamPending) {
+      out.set(chunk, offset);
+      offset += chunk.length;
+    }
+
+    this._streamPending = [];
+    this._streamPendingFrames = 0;
+    return { out, channels, duration: totalFrames / this.audioOutputSps };
+  }
+
+  _scheduleBufferSource(interleaved, channels) {
+    const frames = (channels === 2) ? Math.floor(interleaved.length / 2) : interleaved.length;
+    if (frames <= 0 || !this.audioInputNode) return 0;
+
+    const audioBuffer = new AudioBuffer({
+      length: frames,
+      numberOfChannels: channels,
+      sampleRate: this.audioOutputSps
+    });
+
+    if (channels === 2) {
+      const L = new Float32Array(frames);
+      const R = new Float32Array(frames);
+      for (let i = 0; i < frames; i++) {
+        L[i] = interleaved[2 * i];
+        R[i] = interleaved[2 * i + 1];
+      }
+      audioBuffer.copyToChannel(L, 0, 0);
+      audioBuffer.copyToChannel(R, 1, 0);
+    } else {
+      audioBuffer.copyToChannel(interleaved, 0, 0);
+    }
+
+    const source = new AudioBufferSourceNode(this.audioCtx);
+    source.buffer = audioBuffer;
+    source.connect(this.audioInputNode);
+
+    const now = this.audioCtx.currentTime;
+    const minSchedule = now + this.streamLookAheadSec;
+    const ahead = Math.max(0, (this.playTime || 0) - now);
+
+    if (ahead > this.bufferLimit) {
+      this.playTime = now + this.bufferThreshold;
+    }
+
+    const scheduledTime = Math.max(this.playTime || 0, minSchedule);
+    this.playTime = scheduledTime + audioBuffer.duration;
+
+    let cleaned = false;
+    const cleanup = () => {
+      if (cleaned) return;
+      cleaned = true;
+      this._scheduledSources.delete(source);
+      try { source.disconnect(); } catch (e) {}
+    };
+    source.onended = cleanup;
+    this._scheduledSources.add(source);
+
+    try {
+      source.start(scheduledTime);
+    } catch (e) {
+      console.error('Failed to start scheduled audio source:', e);
+      cleanup();
+      return 0;
+    }
+
+    setTimeout(cleanup, Math.max(1000, Math.ceil((audioBuffer.duration + 1.0) * 1000)));
+    return audioBuffer.duration;
+  }
+
+  _flushPendingPlayback(force = false) {
+    if (!this.audioCtx || !this.audioInputNode || this._streamPendingFrames <= 0) return 0;
+
+    const pendingDuration = this._streamPendingFrames / this.audioOutputSps;
+    const now = this.audioCtx.currentTime;
+    const ahead = Math.max(0, (this.playTime || 0) - now);
+
+    if (!force && pendingDuration < this.streamChunkTargetSec && ahead >= this.bufferThreshold * 0.75) {
+      this._ensureStreamFlushTimer();
+      return 0;
+    }
+
+    const built = this._buildPendingInterleaved();
+    if (!built) return 0;
+    return this._scheduleBufferSource(built.out, built.channels);
+  }
+
   playPCM(buffer, playTime, sampleRate, scale, channels = 1) {  // ✅ ADDED: channels parameter
     if (!this.audioInputNode) {
       console.warn('Audio not initialized');
       return 0;
     }
-    
-    const source = new AudioBufferSourceNode(this.audioCtx);
-    
-    // ✅ ADDED: For stereo (channels=2), buffer is interleaved [L,R,L,R,...]
-    const frames = (channels === 2) ? Math.floor(buffer.length / 2) : buffer.length;
-    
-    const audioBuffer = new AudioBuffer({
-      length: frames,  // ✅ CHANGED: Use frames instead of buffer.length
-      numberOfChannels: channels,  // ✅ CHANGED: Use channels parameter
-      sampleRate: this.audioOutputSps
-    });
 
-    // ✅ ADDED: Handle stereo de-interleaving
-    if (channels === 2) {
-      // De-interleave stereo
-      const L = new Float32Array(frames);
-      const R = new Float32Array(frames);
-      for (let i = 0; i < frames; i++) {
-        L[i] = buffer[2 * i];
-        R[i] = buffer[2 * i + 1];
+    if (!this._streamSchedulerEnabled) {
+      const source = new AudioBufferSourceNode(this.audioCtx);
+      const frames = (channels === 2) ? Math.floor(buffer.length / 2) : buffer.length;
+      const audioBuffer = new AudioBuffer({
+        length: frames,
+        numberOfChannels: channels,
+        sampleRate: this.audioOutputSps
+      });
+      if (channels === 2) {
+        const L = new Float32Array(frames);
+        const R = new Float32Array(frames);
+        for (let i = 0; i < frames; i++) {
+          L[i] = buffer[2 * i];
+          R[i] = buffer[2 * i + 1];
+        }
+        audioBuffer.copyToChannel(L, 0, 0);
+        audioBuffer.copyToChannel(R, 1, 0);
+      } else {
+        audioBuffer.copyToChannel(buffer, 0, 0);
       }
-      audioBuffer.copyToChannel(L, 0, 0);
-      audioBuffer.copyToChannel(R, 1, 0);
-    } else {
-      // Mono
-      audioBuffer.copyToChannel(buffer, 0, 0);
+      source.buffer = audioBuffer;
+      source.connect(this.audioInputNode);
+      const scheduledTime = Math.max(playTime, this.audioCtx.currentTime);
+      source.onended = () => { try { source.disconnect(); } catch (e) {} };
+      try { source.start(scheduledTime); } catch (e) {
+        console.error('Failed to start audio source:', e);
+        try { source.disconnect(); } catch (e2) {}
+        return 0;
+      }
+      return audioBuffer.duration;
     }
 
-    source.buffer = audioBuffer;
-    source.connect(this.audioInputNode);
-
-    const scheduledTime = Math.max(playTime, this.audioCtx.currentTime);
-    
-    // FIX: keep a reference to the safety timer so we can cancel it when
-    // onended fires normally — otherwise every frame leaves a live timer.
-    let safetyTimerId = null;
-    let disconnected = false;
-    const disconnect = () => {
-      if (!disconnected) {
-        disconnected = true;
-        if (safetyTimerId !== null) {
-          clearTimeout(safetyTimerId);
-          safetyTimerId = null;
-        }
-        try {
-          source.disconnect();
-        } catch (e) {
-          // Source already disconnected, ignore error
-        }
-      }
-    };
-    
-    // Primary cleanup via onended
-    source.onended = disconnect;
-    
-    // Safety timeout in case onended never fires (Add 1 second buffer for safety)
-    const safetyTimeout = (audioBuffer.duration + 1) * 1000;
-    safetyTimerId = setTimeout(disconnect, safetyTimeout);
-    
-    // ✅ FIXED: Handle start() errors
-    try {
-      source.start(scheduledTime);
-    } catch (e) {
-      console.error('Failed to start audio source:', e);
-      disconnect();
-      return 0;
-    }
-
-    return audioBuffer.duration;
+    this._appendPlaybackChunk(buffer, channels);
+    return this._flushPendingPlayback(false);
   }
 
   startRecording() {

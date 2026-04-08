@@ -465,6 +465,23 @@ _findSyncNear(expectedSyncStart) {
       out[i + 3] = 255;
     }
 
+    // Very conservative impulse-noise cleanup only.
+    // Does not touch sync, mode logic, or frequency estimation.
+    for (let x = 1; x < W - 1; x++) {
+      const i = x * 4;
+      const il = (x - 1) * 4;
+      const ir = (x + 1) * 4;
+      for (let c = 0; c < 3; c++) {
+        const left = out[il + c];
+        const mid = out[i + c];
+        const right = out[ir + c];
+        const lrAvg = (left + right) * 0.5;
+        if (Math.abs(left - right) <= 8 && Math.abs(mid - lrAvg) >= 56) {
+          out[i + c] = Math.round(lrAvg);
+        }
+      }
+    }
+
     return out;
   }
 

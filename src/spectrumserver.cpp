@@ -345,7 +345,7 @@ void broadcast_server::start_websdr_updates() {
     websdr_thread = std::thread(&broadcast_server::update_websdr_list, this);
 }
 
-// To register on http://list.phantomsdr.fun
+// To register on http://sdr-list.xyz
 void broadcast_server::update_websdr_list() {
     // Seed the random number generator
     std::srand(std::time(nullptr));
@@ -414,7 +414,7 @@ void broadcast_server::update_websdr_list() {
        
         if(curl) {
             // Set the URL for the POST request
-            curl_easy_setopt(curl, CURLOPT_URL, "http://list.phantomsdr.fun/api/update_websdr");
+            curl_easy_setopt(curl, CURLOPT_URL, "https://sdr-list.xyz/api/update_websdr");
 
 
             // Dont print to stdout - This is the only way to do it sadly...
@@ -434,7 +434,7 @@ void broadcast_server::update_websdr_list() {
             struct curl_slist *tmp = curl_slist_append(headers, "Content-Type: application/json");
             if (!tmp) { std::cerr << "curl_slist_append OOM\n"; continue; }
             headers = tmp;
-            tmp = curl_slist_append(headers, "Host: list.phantomsdr.fun");
+            tmp = curl_slist_append(headers, "Host: sdr-list.xyz");
             if (!tmp) { curl_slist_free_all(headers); std::cerr << "curl_slist_append OOM\n"; continue; }
             headers = tmp;
             curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);

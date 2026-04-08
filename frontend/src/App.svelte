@@ -5210,14 +5210,12 @@ function _animateNeedle(ts) {
   };
 
 
-  // DX Summit JSON API.
-  // NOTE: dxsummit.fi is HTTP-only (no HTTPS). A direct browser fetch from an
-  // HTTPS page is blocked as mixed content, so we always go through a CORS
-  // proxy which fetches HTTP server-side and returns it over HTTPS.
+  
+  // DX spots come from the local backend endpoint to avoid public CORS proxies.
+  // The backend normalizes upstream data into a JSON array.
   function buildDXUrl() {
-    const band = dxBandFilter === 'ALL' ? '' : `&include=${DX_BAND_FREQ[dxBandFilter]}`;
-    // http:// intentional — dxsummit.fi has no HTTPS endpoint
-    return `http://www.dxsummit.fi/api/v1/spots?limit=30${band}&_t=${Date.now()}`;
+    const band = dxBandFilter === 'ALL' ? '' : `&band=${encodeURIComponent(dxBandFilter)}`;
+    return `/api/dxspots?limit=30${band}&_t=${Date.now()}`;
   }
 
   function freqToBand(f) {
@@ -5246,61 +5244,53 @@ function _animateNeedle(ts) {
   }
 
   function parseDXJSON(data) {
-    return data
-      .filter(s => s.dx_call && s.frequency > 0 && s.frequency < 60000)
+    return (Array.isArray(data) ? data : [])
+      .filter(s => s && s.dx_call && Number(s.frequency) > 0 && Number(s.frequency) < 60000)
       .map(s => ({
-        dx:      (s.dx_call  || '').trim(),
-        spotter: (s.de_call  || '').trim().replace(/-@$/, ''),
+        dx:      String(s.dx_call  || '').trim(),
+        spotter: String(s.de_call  || '').trim().replace(/-@$/, ''),
         freq:    String(s.frequency),
         time:    s.time || '',
         comment: s.info || '',
         mode:    detectMode(s.info),
-        band:    freqToBand(s.frequency),
+        band:    freqToBand(Number(s.frequency)),
         country: s.dx_country || '',
       }));
   }
 
   async function tryFetch(url) {
     var _dxAbort = new AbortController();
-    var _dxTimer = setTimeout(function() { _dxAbort.abort(); }, 8000);
-    const res = await fetch(url, { signal: _dxAbort.signal, cache: 'no-store' });
-    clearTimeout(_dxTimer);
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    return res.text();
+    var _dxTimer = setTimeout(function() { _dxAbort.abort(); }, 10000);
+    try {
+      const res = await fetch(url, {
+        signal: _dxAbort.signal,
+        cache: 'no-store',
+        headers: { 'Accept': 'application/json' }
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return res.json();
+    } finally {
+      clearTimeout(_dxTimer);
+    }
   }
 
   async function fetchDXSpots() {
     dxLoading = true;
     dxError = null;
-    const target = buildDXUrl();
-    // dxsummit.fi is HTTP-only; browser blocks direct fetch from HTTPS pages.
-    // Route through CORS proxies (server-side fetch, returned over HTTPS).
-    const proxies = [
-      `https://corsproxy.io/?url=${encodeURIComponent(target)}`,
-      `https://api.allorigins.win/raw?url=${encodeURIComponent(target)}`,
-      `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(target)}`,
-    ];
-    let lastErr = null;
-    for (const url of proxies) {
-      try {
-        const text = await tryFetch(url);
-        const data = JSON.parse(text);
-        const spots = parseDXJSON(Array.isArray(data) ? data : []);
-        if (spots.length > 0) {
-          dxSpots = spots;
-          dxError = null;
-          dxLoading = false;
-          return;
-        }
-        lastErr = new Error('Empty response');
-      } catch (e) {
-        lastErr = e;
-      }
+    const url = buildDXUrl();
+    try {
+      const data = await tryFetch(url);
+      const spots = parseDXJSON(data);
+      dxSpots = spots;
+      dxError = spots.length ? null : 'No spots returned by backend.';
+    } catch (e) {
+      dxError = 'Could not load spots from local backend (' + (e && e.message ? e.message : 'unknown') + ').';
+      dxSpots = [];
+    } finally {
+      dxLoading = false;
     }
-    dxError = 'Could not load spots (' + (lastErr && lastErr.message ? lastErr.message : 'unknown') + '). Check browser console.';
-    dxSpots = [];
-    dxLoading = false;
   }
+
 
   // Tune waterfall to a DX spot frequency (kHz → Hz),
   // zoom into the band and apply the band's brightness settings —
@@ -5493,7 +5483,7 @@ function _animateNeedle(ts) {
                     class="glass-button text-white py-1 px-3 mb-2 lg:mb-0 rounded-lg text-xs sm:text-sm"
                     style="color:rgba(0, 225, 255, 0.993)"
                     title="Other servers lookup"
-                    onClick="window.open('http://list.phantomsdr.fun');"
+                    onClick="window.open('https://sdr-list.xyz');"
                   >
                     <span class="icon">Servers</span>
                   </button>                
@@ -5930,7 +5920,7 @@ function _animateNeedle(ts) {
 
                    <!-- Footer -->
                    <div style="padding:4px 10px;background:#161b22;border-top:1px solid #30363d;color:#484f58;font-size:10px;display:flex;justify-content:space-between;">
-                     <span>Data: dxsummit.fi (via proxy) • auto-refresh 20 s</span>
+                     <span>Data: local backend /api/dxspots • auto-refresh 20 s</span>
                      <span>{dxSpots.length} spot{dxSpots.length===1?'':'s'}</span>
                    </div>
                  </div>
@@ -8655,7 +8645,7 @@ Click again to de-activate"
                   <br />
                   Other &nbsp;
                   <a
-                    href="http://list.phantomsdr.fun"
+                    href="https://sdr-list.xyz"
                     target="new"
                     style="color:rgba(0, 225, 255, 0.993)">Servers</a
                   >

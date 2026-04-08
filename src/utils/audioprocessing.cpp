@@ -131,10 +131,10 @@ void AGC::configureForSSB() {
 
 // AM broadcast: TIGHTER - very stable level, aggressive control, minimal movement
 void AGC::configureForAM() {
-    hang_time      = static_cast<size_t>(2.0f * sample_rate);   // 1 second hold (was 0.5s)
+    hang_time      = static_cast<size_t>(1.0f * sample_rate);   // 1 second hold (was 0.5s)
     hang_threshold = 0.25f;                                     // engage hang more often (was 0.20)
-    am_attack_coeff  = attack_coeff * 0.3f;                     // faster peak control (was 0.5)
-    am_release_coeff = release_coeff * 0.08f;                   // ultra-slow gain-up (was 0.15)
+    am_attack_coeff  = attack_coeff * 0.5f;                     // faster peak control (was 0.5)
+    am_release_coeff = release_coeff * 0.15f;                   // ultra-slow gain-up (was 0.15)
 }
 
 // --------------------------------------------------------------------------

@@ -2880,16 +2880,8 @@ function startTopFrequencyBarSync() {
       if (selectedDigitIdx < 0) { return; }
       var delta = e.key === "ArrowUp" ? 1 : -1;
       var step = DIGIT_POWERS_HZ[selectedDigitIdx];
-      var frequencyHz = Math.round(parseFloat(frequency) * 1e3);
-      var remainder = frequencyHz % step;
-      if (remainder === 0) {
-        frequencyHz = frequencyHz + delta * step;
-      } else if (delta > 0) {
-        frequencyHz = Math.ceil(frequencyHz / step) * step;
-      } else {
-        frequencyHz = Math.floor(frequencyHz / step) * step;
-      }
-      frequencyHz = Math.max(0, frequencyHz);
+      var frequencyHz = Math.round((parseFloat(frequency) || 0) * 1e3);
+      frequencyHz = Math.max(0, frequencyHz + delta * step);
       frequency = (frequencyHz / 1e3).toFixed(2);
       dispatchFrequencyDebounced(frequencyHz); // FIX [2]
     } else if (e.key === "ArrowLeft") {
@@ -2928,14 +2920,7 @@ function startTopFrequencyBarSync() {
       if (selectedDigitIdx >= 0) {
         // Digit-specific tuning
         step = DIGIT_POWERS_HZ[selectedDigitIdx];
-        var remainder = frequencyHz % step;
-        if (remainder === 0) {
-          frequencyHz = frequencyHz + delta * step;
-        } else if (delta > 0) {
-          frequencyHz = Math.ceil(frequencyHz / step) * step;
-        } else {
-          frequencyHz = Math.floor(frequencyHz / step) * step;
-        }
+        frequencyHz = frequencyHz + delta * step;
       } else {
         // No digit selected — fall back to default step tuning
         step = currentTuneStep || (isAltPressed ? 10000 : isShiftPressed ? 1000 : defaultStep);

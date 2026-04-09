@@ -790,6 +790,10 @@ setAGC(newAGCSpeed) {
     this.ft4AccumulatorLen  = 0;
     this.wsprAccumulator    = new Float32Array(this.maxWSPRAccumulatorSize);
     this.wsprAccumulatorLen = 0;
+    // Pre-allocated plain Array reused by applyNoiseBlanker as fft-js input.
+    // Avoids a ~16 KB Array.from(Float32Array) heap allocation on every packet
+    // which was causing GC pressure and flush-timer jitter (audio micro-glitches).
+    this._nbInputArr = new Array(this.nbFFTSize).fill(0);
   }
 
   applyNoiseBlanker(pcmArray) {
@@ -806,8 +810,15 @@ setAGC(newAGCSpeed) {
       // Fill FFT buffer with a block of samples
       this.nbBuffer.set(pcmArray.subarray(i, i + this.nbFFTSize));
 
+      // Reuse the pre-allocated plain Array required by fft-js.
+      // Rebuild it only when nbFFTSize has changed (rare).
+      if (!this._nbInputArr || this._nbInputArr.length !== this.nbFFTSize) {
+        this._nbInputArr = new Array(this.nbFFTSize).fill(0);
+      }
+      for (let k = 0; k < this.nbFFTSize; k++) this._nbInputArr[k] = this.nbBuffer[k];
+
       // Perform FFT
-      const phasors = fft(Array.from(this.nbBuffer));
+      const phasors = fft(this._nbInputArr);
 
       // Calculate magnitude spectrum
       const magnitudeSpectrum = new Float32Array(this.nbFFTSize / 2);
@@ -1569,6 +1580,12 @@ setAGC(newAGCSpeed) {
       // reaches it, so the S-meter tracks the audio instead of leading it.
       if (this.audioCtx && this.playTime) {
         this._dBQueue.push({ playAt: this.playTime, value: dBpower });
+        // Prevent unbounded growth when getPowerDb() is not called (e.g. page hidden,
+        // RAF paused, S-meter component unmounted). Keep the newest 300 entries (~10 s
+        // at 30 packets/sec) and silently discard the oldest.
+        if (this._dBQueue.length > 300) {
+          this._dBQueue.splice(0, this._dBQueue.length - 300);
+        }
       } else {
         this.dBPower = dBpower;
       }
@@ -2279,7 +2296,15 @@ async stopFT4Collection() {
 
     // Speaker-audio gate starts here. Decoder feeds above must still run.
     if (this.mute || (this.squelchMute && this.squelch)) {
+      this._wasMuted = true;
       return
+    }
+    // Audio is resuming after a mute or squelch period.
+    // The noise gate may have closed while audio was absent; re-open it so the
+    // first arriving audio is not silenced waiting for the gate threshold to trip.
+    if (this._wasMuted) {
+      this._wasMuted = false;
+      this.noiseGateOpen = true;
     }
     if (this.audioCtx.state !== 'running') {
       return
@@ -2510,7 +2535,10 @@ async stopFT4Collection() {
     }
 
     const scheduledTime = Math.max(this.playTime || 0, minSchedule);
-    this.playTime = scheduledTime + audioBuffer.duration;
+    // NOTE: playTime is advanced only after source.start() succeeds.
+    // Previously it was advanced unconditionally before start(), so a
+    // start() exception (e.g. AudioContext not running) would leave playTime
+    // in the future causing a ~100 ms gap on the next scheduled chunk.
 
     let cleaned = false;
     const cleanup = () => {
@@ -2524,6 +2552,7 @@ async stopFT4Collection() {
 
     try {
       source.start(scheduledTime);
+      this.playTime = scheduledTime + audioBuffer.duration;  // advance only on success
     } catch (e) {
       console.error('Failed to start scheduled audio source:', e);
       cleanup();
@@ -2541,7 +2570,7 @@ async stopFT4Collection() {
     const now = this.audioCtx.currentTime;
     const ahead = Math.max(0, (this.playTime || 0) - now);
 
-    if (!force && pendingDuration < this.streamChunkTargetSec && ahead >= this.bufferThreshold * 0.75) {
+    if (!force && pendingDuration < this.streamChunkTargetSec && pendingDuration < this.streamChunkMaxSec && ahead >= this.bufferThreshold * 0.75) {
       this._ensureStreamFlushTimer();
       return 0;
     }

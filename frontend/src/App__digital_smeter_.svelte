@@ -4624,6 +4624,7 @@ function startTopFrequencyBarSync() {
         spotter: String(s.de_call  || '').trim().replace(/-@$/, ''),
         freq:    String(s.frequency),
         time:    s.time || '',
+        timeUtc: String(s.time_utc_hhmm || '').trim(),
         comment: s.info || '',
         mode:    detectMode(s.info),
         band:    freqToBand(Number(s.frequency)),
@@ -4739,15 +4740,29 @@ function startTopFrequencyBarSync() {
     fetchDXSpots();
   }
 
-  function formatDXTime(t) {
+  function formatDXTime(t, safeUtc = '') {
+    const hhmm = String(safeUtc || '').trim();
+
+    if (/^\d{4}$/.test(hhmm)) {
+      return `${hhmm}Z`;
+    }
+
     if (!t) return '';
+
     try {
-      // DX Summit ISO format: "2026-03-08T10:55:08" (UTC)
-      const d = new Date(t.includes('Z') ? t : t + 'Z');
-      const h = d.getUTCHours().toString().padStart(2, '0');
-      const m = d.getUTCMinutes().toString().padStart(2, '0');
-      return `${h}${m}Z`;
-    } catch(e) { return String(t).slice(11, 16) + 'Z'; }
+      if (/^\d{4}(\s|$)/.test(String(t))) {
+        return `${String(t).slice(0, 4)}Z`;
+      }
+
+      const d = new Date(String(t).includes('Z') ? String(t) : String(t) + 'Z');
+      if (!Number.isNaN(d.getTime())) {
+        const h = d.getUTCHours().toString().padStart(2, '0');
+        const m = d.getUTCMinutes().toString().padStart(2, '0');
+        return `${h}${m}Z`;
+      }
+    } catch (e) {}
+
+    return '';
   }
 
 
@@ -4858,7 +4873,7 @@ function startTopFrequencyBarSync() {
                     class="glass-button text-white py-1 px-3 mb-2 lg:mb-0 rounded-lg text-xs sm:text-sm"
                     style="color:rgba(0, 225, 255, 0.993)"
                     title="Other servers"
-                    onClick="window.open('http://list.phantomsdr.fun/');"
+                    onClick="window.open('http://list.phantomsdr.fun');"
                   >
                     <span class="icon">Servers</span>
                   </button>                
@@ -5230,7 +5245,7 @@ function startTopFrequencyBarSync() {
                          <tbody>
                            {#each dxSpots as spot, i}
                              <tr style="background:{i%2===0 ? 'transparent' : 'rgba(255,255,255,0.02)'};">
-                               <td style="padding:3px 6px;color:#8b949e;white-space:nowrap;">{formatDXTime(spot.time)}</td>
+                               <td style="padding:3px 6px;color:#8b949e;white-space:nowrap;">{formatDXTime(spot.time, spot.timeUtc)}</td>
                                <td style="padding:3px 6px;white-space:nowrap;">
                                  <a
                                    href="https://www.qrzcq.com/call/{(spot.spotter || '').trim()}"
@@ -5301,6 +5316,14 @@ function startTopFrequencyBarSync() {
                    </div>
                  </div>
                  <!-- ── End DX Cluster Widget ──────────────────────────────────────────── -->
+                  
+                <!-- you can delete the link above and add anything else you want, which will be appeared in the second column 
+                 e.g links to use 
+                 https://pskreporter.info/pskmap.html?preset&callsign=SV1BTL&txrx=rx&mode=FT8&timerange=900&mapCenter=37.99596100000002,23.803441,1.2 
+                 or 
+                 https://www.dxfuncluster.com/widgets/cluster25.php
+                 or
+                 https://pskreporter.info/pskmap.html?preset&callsign=SV1BTL&txrx=rx&mode=WSPR&timerange=900&mapCenter=37.99596100000002,23.803441,1.2 -->
               </div>     
             </div>
            </div>
@@ -7951,7 +7974,7 @@ Click again to de-activate"
                   <br />
                   Other &nbsp;
                   <a
-                    href="http://list.phantomsdr.fun/"
+                    href="http://list.phantomsdr.fun"
                     target="new"
                     style="color:rgba(0, 225, 255, 0.993)">Servers</a
                   >

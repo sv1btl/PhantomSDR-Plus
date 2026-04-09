@@ -8,6 +8,8 @@
 #include <vector>
 #include <algorithm>
 #include <cctype>
+#include <chrono>
+#include <mutex>
 #include <curl/curl.h>
 #include <nlohmann/json.hpp>
 
@@ -81,7 +83,16 @@ static bool looks_like_json(const std::string &s) {
     return false;
 }
 
-static bool band_matches(double f, const std::string &band) {
+static std::string normalize_band(std::string band) {
+    band = trim_copy(band);
+    boost::algorithm::to_upper(band);
+    if (band == "ALL" || band == "*" || band.empty()) return "ALL";
+    if (!band.empty() && band.back() == 'M') band.pop_back();
+    return band;
+}
+
+static bool band_matches(double f, const std::string &band_in) {
+    const std::string band = normalize_band(band_in);
     if (band.empty() || band == "ALL") return true;
     if (band == "160") return f >= 1800  && f <= 2000;
     if (band == "80")  return f >= 3500  && f <= 4000;
@@ -97,43 +108,105 @@ static bool band_matches(double f, const std::string &band) {
     return true;
 }
 
+static bool json_value_to_double(const nlohmann::json &j, double &out) {
+    try {
+        if (j.is_number_float() || j.is_number_integer() || j.is_number_unsigned()) {
+            out = j.get<double>();
+            return true;
+        }
+        if (j.is_string()) {
+            const auto s = trim_copy(j.get<std::string>());
+            if (s.empty()) return false;
+            out = std::stod(s);
+            return true;
+        }
+    } catch (...) {}
+    return false;
+}
+
+static std::string json_value_to_string(const nlohmann::json &obj, const std::vector<std::string> &keys) {
+    for (const auto &key : keys) {
+        try {
+            if (!obj.contains(key)) continue;
+            const auto &v = obj.at(key);
+            if (v.is_string()) return v.get<std::string>();
+            if (v.is_number_integer()) return std::to_string(v.get<long long>());
+            if (v.is_number_unsigned()) return std::to_string(v.get<unsigned long long>());
+            if (v.is_number_float()) {
+                std::ostringstream os;
+                os << v.get<double>();
+                return os.str();
+            }
+        } catch (...) {}
+    }
+    return "";
+}
+
+static std::string extract_utc_hhmm(const std::string &time_str) {
+    if (time_str.size() >= 4) {
+        if (std::isdigit(static_cast<unsigned char>(time_str[0])) &&
+            std::isdigit(static_cast<unsigned char>(time_str[1])) &&
+            std::isdigit(static_cast<unsigned char>(time_str[2])) &&
+            std::isdigit(static_cast<unsigned char>(time_str[3]))) {
+            return time_str.substr(0, 4);
+        }
+    }
+    for (size_t i = 0; i + 4 < time_str.size(); ++i) {
+        if (std::isdigit(static_cast<unsigned char>(time_str[i])) &&
+            std::isdigit(static_cast<unsigned char>(time_str[i + 1])) &&
+            time_str[i + 2] == ':' &&
+            std::isdigit(static_cast<unsigned char>(time_str[i + 3])) &&
+            std::isdigit(static_cast<unsigned char>(time_str[i + 4]))) {
+            return time_str.substr(i, 2) + time_str.substr(i + 3, 2);
+        }
+    }
+    return "";
+}
+
 static nlohmann::json normalize_json_spots(const nlohmann::json &in, const std::string &band, int limit_num) {
     nlohmann::json out = nlohmann::json::array();
     if (!in.is_array()) return out;
 
     for (const auto &s : in) {
         try {
-            std::string dx_call, de_call, info, time, dx_country;
-            double frequency = 0.0;
+            if (!s.is_object()) continue;
 
-            if (s.is_object()) {
-                dx_call = s.value("dx_call", s.value("dx", ""));
-                de_call = s.value("de_call", s.value("spotter", ""));
-                info = s.value("info", s.value("comment", ""));
-                time = s.value("time", "");
-                dx_country = s.value("dx_country", s.value("country", ""));
-                if (s.contains("frequency")) frequency = s["frequency"].get<double>();
-                else if (s.contains("freq")) frequency = std::stod(s["freq"].get<std::string>());
+            std::string dx_call = json_value_to_string(s, {"dx_call", "dx", "call", "callsign"});
+            std::string de_call = json_value_to_string(s, {"de_call", "spotter", "de", "spotter_call"});
+            std::string info = json_value_to_string(s, {"info", "comment", "remarks", "message"});
+            std::string time = json_value_to_string(s, {"time", "spot_time", "timestamp", "utc"});
+            std::string dx_country = json_value_to_string(s, {"dx_country", "country"});
+
+            double frequency = 0.0;
+            bool have_freq = false;
+            if (s.contains("frequency")) have_freq = json_value_to_double(s["frequency"], frequency);
+            if (!have_freq && s.contains("freq")) have_freq = json_value_to_double(s["freq"], frequency);
+            if (!have_freq && s.contains("mhz")) {
+                double mhz = 0.0;
+                if (json_value_to_double(s["mhz"], mhz)) {
+                    frequency = mhz * 1000.0;
+                    have_freq = true;
+                }
             }
 
-            if (dx_call.empty() || frequency <= 0.0 || !band_matches(frequency, band)) continue;
+            if (dx_call.empty() || !have_freq || frequency <= 0.0 || !band_matches(frequency, band)) continue;
 
             out.push_back({
                 {"dx_call", dx_call},
                 {"de_call", de_call},
                 {"frequency", frequency},
                 {"time", time},
+                {"time_utc_hhmm", extract_utc_hhmm(time)},
                 {"info", info},
                 {"dx_country", dx_country}
             });
+
             if ((int)out.size() >= limit_num) break;
         } catch (...) {}
     }
     return out;
 }
 
-// Parse classic DX Summit text lines, e.g.
-// F4GYI-@ 7074.0 DB5KV ft8 tnx qso 0819 04 Apr
 static nlohmann::json parse_dxsummit_text(const std::string &text, const std::string &band, int limit_num) {
     nlohmann::json out = nlohmann::json::array();
     std::stringstream ss(text);
@@ -147,7 +220,7 @@ static nlohmann::json parse_dxsummit_text(const std::string &text, const std::st
         std::vector<std::string> tokens;
         std::string tok;
         while (ls >> tok) tokens.push_back(tok);
-        if (tokens.size() < 6) continue;
+        if (tokens.size() < 3) continue;
 
         double freq = 0.0;
         size_t freq_idx = std::string::npos;
@@ -166,27 +239,23 @@ static nlohmann::json parse_dxsummit_text(const std::string &text, const std::st
 
         std::string de_call = tokens[0];
         std::string dx_call = tokens[freq_idx + 1];
-
-        if (tokens.size() < 3) continue;
         std::string time = "";
         std::string comment = "";
 
-        // assume trailing "... HHMM DD Mon"
-        if (tokens.size() >= 3) {
-            const size_t n = tokens.size();
-            if (n >= 3 &&
-                tokens[n-3].size() == 4 &&
-                std::all_of(tokens[n-3].begin(), tokens[n-3].end(), ::isdigit)) {
-                time = tokens[n-3] + " " + tokens[n-2] + " " + tokens[n-1];
-                for (size_t i = freq_idx + 2; i + 3 < n; ++i) {
-                    if (!comment.empty()) comment += " ";
-                    comment += tokens[i];
-                }
-            } else {
-                for (size_t i = freq_idx + 2; i < n; ++i) {
-                    if (!comment.empty()) comment += " ";
-                    comment += tokens[i];
-                }
+        const size_t n = tokens.size();
+        if (n >= 3 &&
+            tokens[n - 3].size() == 4 &&
+            std::all_of(tokens[n - 3].begin(), tokens[n - 3].end(),
+                        [](unsigned char c) { return std::isdigit(c); })) {
+            time = tokens[n - 3] + " " + tokens[n - 2] + " " + tokens[n - 1];
+            for (size_t i = freq_idx + 2; i + 3 < n; ++i) {
+                if (!comment.empty()) comment += " ";
+                comment += tokens[i];
+            }
+        } else {
+            for (size_t i = freq_idx + 2; i < n; ++i) {
+                if (!comment.empty()) comment += " ";
+                comment += tokens[i];
             }
         }
 
@@ -195,6 +264,7 @@ static nlohmann::json parse_dxsummit_text(const std::string &text, const std::st
             {"de_call", de_call},
             {"frequency", freq},
             {"time", time},
+            {"time_utc_hhmm", extract_utc_hhmm(time)},
             {"info", comment},
             {"dx_country", ""}
         });
@@ -222,7 +292,7 @@ void broadcast_server::on_http(connection_hdl hdl) {
     std::string resource = con->get_resource();
 
     if (resource.rfind("/api/dxspots", 0) == 0) {
-        std::string band = get_query_param(resource, "band");
+        std::string band = normalize_band(get_query_param(resource, "band"));
         std::string limit = get_query_param(resource, "limit");
 
         int limit_num = 30;
@@ -234,6 +304,27 @@ void broadcast_server::on_http(connection_hdl hdl) {
         if (limit_num < 1) limit_num = 1;
         if (limit_num > 200) limit_num = 200;
 
+        static std::mutex cache_mtx;
+        static std::string cached_band = "";
+        static int cached_limit = 0;
+        static std::string cached_body = "[]";
+        static auto cached_at = std::chrono::steady_clock::time_point{};
+        {
+            std::scoped_lock lk(cache_mtx);
+            const auto now = std::chrono::steady_clock::now();
+            if (cached_limit == limit_num &&
+                cached_band == band &&
+                cached_at.time_since_epoch().count() != 0 &&
+                std::chrono::duration_cast<std::chrono::seconds>(now - cached_at).count() < 10) {
+                con->append_header("Content-Type", "application/json");
+                con->append_header("Cache-Control", "no-store");
+                con->append_header("Access-Control-Allow-Origin", "*");
+                con->set_body(cached_body);
+                con->set_status(websocketpp::http::status_code::ok);
+                return;
+            }
+        }
+
         const std::vector<std::string> urls = {
             "https://www.dxsummit.fi/text/dx25.html",
             "http://www.dxsummit.fi/text/dx25.html",
@@ -243,89 +334,77 @@ void broadcast_server::on_http(connection_hdl hdl) {
         };
 
         CURL *curl = curl_easy_init();
-        if (!curl) {
-            con->append_header("Content-Type", "application/json");
-            con->append_header("Cache-Control", "no-store");
-            con->set_body("{\"error\":\"curl init failed\"}");
-            con->set_status(websocketpp::http::status_code::internal_server_error);
-            return;
-        }
-
         nlohmann::json normalized = nlohmann::json::array();
-        CURLcode last_rc = CURLE_OK;
-        long last_http_code = 0;
 
-        for (const auto &url : urls) {
-            std::string response_data;
-            long http_code = 0;
+        if (curl) {
+            for (const auto &url : urls) {
+                std::string response_data;
+                long http_code = 0;
 
-            curl_easy_reset(curl);
-            curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
-            curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, dxspots_write_cb);
-            curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response_data);
-            curl_easy_setopt(curl, CURLOPT_TIMEOUT, 10L);
-            curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT, 5L);
-            curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
-            curl_easy_setopt(curl, CURLOPT_MAXREDIRS, 5L);
-            curl_easy_setopt(curl, CURLOPT_ACCEPT_ENCODING, "");
-            curl_easy_setopt(curl, CURLOPT_USERAGENT, "PhantomSDR-Plus/1.0");
-            curl_easy_setopt(curl, CURLOPT_NOSIGNAL, 1L);
+                curl_easy_reset(curl);
+                curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
+                curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, dxspots_write_cb);
+                curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response_data);
+                curl_easy_setopt(curl, CURLOPT_TIMEOUT, 10L);
+                curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT, 5L);
+                curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
+                curl_easy_setopt(curl, CURLOPT_MAXREDIRS, 5L);
+                curl_easy_setopt(curl, CURLOPT_ACCEPT_ENCODING, "");
+                curl_easy_setopt(curl, CURLOPT_USERAGENT, "PhantomSDR-Plus/1.0");
+                curl_easy_setopt(curl, CURLOPT_NOSIGNAL, 1L);
 
-            struct curl_slist *headers = nullptr;
-            headers = curl_slist_append(headers, "Accept: application/json, text/plain, text/html, */*");
-            curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
+                struct curl_slist *headers = nullptr;
+                headers = curl_slist_append(headers, "Accept: application/json, text/plain, text/html, */*");
+                curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
 
-            last_rc = curl_easy_perform(curl);
-            if (last_rc == CURLE_OK) {
-                curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &http_code);
-                last_http_code = http_code;
-
-                if (http_code < 400 && !response_data.empty()) {
-                    try {
-                        if (looks_like_json(response_data)) {
-                            normalized = normalize_json_spots(nlohmann::json::parse(response_data), band, limit_num);
-                        } else {
+                CURLcode rc = curl_easy_perform(curl);
+                if (rc == CURLE_OK) {
+                    curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &http_code);
+                    if (http_code < 400 && !response_data.empty()) {
+                        try {
+                            if (looks_like_json(response_data)) {
+                                normalized = normalize_json_spots(nlohmann::json::parse(response_data), band, limit_num);
+                            } else {
+                                normalized = parse_dxsummit_text(response_data, band, limit_num);
+                            }
+                        } catch (...) {
                             normalized = parse_dxsummit_text(response_data, band, limit_num);
                         }
-                    } catch (...) {
-                        normalized = parse_dxsummit_text(response_data, band, limit_num);
-                    }
 
-                    if (normalized.is_array() && !normalized.empty()) {
-                        curl_slist_free_all(headers);
-                        break;
+                        if (normalized.is_array()) {
+                            curl_slist_free_all(headers);
+                            break;
+                        }
                     }
                 }
+
+                curl_slist_free_all(headers);
             }
 
-            curl_slist_free_all(headers);
+            curl_easy_cleanup(curl);
         }
 
-        curl_easy_cleanup(curl);
+        if (!normalized.is_array()) normalized = nlohmann::json::array();
 
-        if (!normalized.is_array() || normalized.empty()) {
-            con->append_header("Content-Type", "application/json");
-            con->append_header("Cache-Control", "no-store");
-            std::stringstream err;
-            err << "{\"error\":\"dx spots unavailable\",\"curl_code\":" << static_cast<int>(last_rc)
-                << ",\"http_status\":" << last_http_code << "}";
-            con->set_body(err.str());
-            con->set_status(websocketpp::http::status_code::bad_gateway);
-            return;
+        const std::string body = normalized.dump();
+        {
+            std::scoped_lock lk(cache_mtx);
+            cached_band = band;
+            cached_limit = limit_num;
+            cached_body = body;
+            cached_at = std::chrono::steady_clock::now();
         }
 
         con->append_header("Content-Type", "application/json");
         con->append_header("Cache-Control", "no-store");
         con->append_header("Access-Control-Allow-Origin", "*");
-        con->set_body(normalized.dump());
+        con->set_body(body);
         con->set_status(websocketpp::http::status_code::ok);
         return;
     }
 
     std::ifstream file;
-    std::string filename = std::filesystem::weakly_canonical(
-                               std::filesystem::path("/" + resource))
-                               .string();
+    std::string filename = std::filesystem::weakly_canonical(std::filesystem::path("/" + resource)).string();
     std::string response;
 
     filename = filename.substr(0, filename.find("?"));
@@ -359,12 +438,10 @@ void broadcast_server::on_http(connection_hdl hdl) {
     file.seekg(0, std::ios::end);
     response.reserve(file.tellg());
     file.seekg(0, std::ios::beg);
-    response.assign(std::istreambuf_iterator<char>(file),
-                    std::istreambuf_iterator<char>());
+    response.assign(std::istreambuf_iterator<char>(file), std::istreambuf_iterator<char>());
 
     std::set<std::string> encodings;
-    boost::algorithm::split(encodings,
-                            con->get_request_header("accept-encoding"),
+    boost::algorithm::split(encodings, con->get_request_header("accept-encoding"),
                             boost::is_any_of(", "), boost::token_compress_on);
     if (encodings.find("gzip") != encodings.end()) {
         response = Gzip::compress(response);

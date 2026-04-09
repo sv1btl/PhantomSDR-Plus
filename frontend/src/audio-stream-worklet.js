@@ -11,6 +11,8 @@ class PhantomSDRAudioStreamProcessor extends AudioWorkletProcessor {
     this.bufferedFrames = 0;
     this.droppedFrames = 0;
     this.underruns = 0;
+    this.minStartFrames = Math.max(256, Math.floor(this.sampleRateHint * 0.06));
+    this.started = false;
     this._lastStatsFrame = 0;
 
     this.port.onmessage = (event) => {
@@ -23,6 +25,7 @@ class PhantomSDRAudioStreamProcessor extends AudioWorkletProcessor {
         this.currentIndex = 0;
         this.bufferedFrames = 0;
         this.underruns = 0;
+        this.started = false;
       }
     };
   }
@@ -33,12 +36,20 @@ class PhantomSDRAudioStreamProcessor extends AudioWorkletProcessor {
     const frames = ch === 2 ? Math.floor(samples.length / 2) : samples.length;
     if (frames <= 0) return;
 
+    // bufferedFrames tracks queue frames only. Include remaining frames in
+    // `current` (mid-play chunk) so the drop guard sees the true total.
+    const currentRemaining = this.current
+      ? (this.current.frames - this.currentIndex)
+      : 0;
+    let totalBuffered = this.bufferedFrames + currentRemaining;
+
     // Drop oldest queued audio if buffering runs too deep.
-    while (this.bufferedFrames + frames > this.maxBufferedFrames && this.queue.length > 0) {
+    while (totalBuffered + frames > this.maxBufferedFrames && this.queue.length > 0) {
       const old = this.queue.shift();
       this.droppedFrames += old.frames;
       this.bufferedFrames -= old.frames;
       if (this.bufferedFrames < 0) this.bufferedFrames = 0;
+      totalBuffered = this.bufferedFrames + currentRemaining;
     }
 
     this.queue.push({ samples, channels: ch, frames });
@@ -62,12 +73,26 @@ class PhantomSDRAudioStreamProcessor extends AudioWorkletProcessor {
 
     const left = output[0];
     const right = output[1] || output[0];
+    let hadUnderrun = false;
+
+    const currentRemaining = this.current ? (this.current.frames - this.currentIndex) : 0;
+    const totalBuffered = this.bufferedFrames + currentRemaining;
+    if (!this.started) {
+      if (totalBuffered < this.minStartFrames) {
+        for (let i = 0; i < left.length; i++) {
+          left[i] = 0;
+          if (output[1]) right[i] = 0;
+        }
+        return true;
+      }
+      this.started = true;
+    }
 
     for (let i = 0; i < left.length; i++) {
       if (!this.current && !this._beginNextChunk()) {
         left[i] = 0;
         if (output[1]) right[i] = 0;
-        this.underruns++;
+        hadUnderrun = true;
         continue;
       }
 
@@ -91,6 +116,8 @@ class PhantomSDRAudioStreamProcessor extends AudioWorkletProcessor {
         this.currentIndex = 0;
       }
     }
+
+    if (hadUnderrun) this.underruns++;
 
     this._lastStatsFrame += left.length;
     if (this._lastStatsFrame >= 1024) {

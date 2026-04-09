@@ -261,6 +261,10 @@ export default class SpectrumAudio {
     // Added to allow for adjustment of the //
     // dynamic audio buffer //
     this.bufferLimit = 0.5;      // max ~500 ms ahead
+    this.playbackWorkletNode = null;
+    this.playbackWorkletReady = false;
+    this.playbackChannels = 1;
+    this._pendingWorkletChunks = [];
     this.bufferThreshold = 0.1;  // aim for ~100 ms safety buffer
 
     this.endpoint = endpoint
@@ -270,19 +274,6 @@ export default class SpectrumAudio {
     this.playMovingAverage = []
     this.playSampleLength = 1
     this.audioQueue = []
-
-    // Continuous playback scheduler: accumulate small websocket/audio decoder
-    // chunks into slightly larger scheduled buffers. This avoids one-source-
-    // per-packet playback, which is prone to browser micro-gaps.
-    this._streamSchedulerEnabled = true;
-    this.streamChunkTargetSec = 0.060;   // target scheduled chunk size
-    this.streamChunkMaxSec = 0.180;      // hard flush if pending audio grows larger
-    this.streamLookAheadSec = 0.030;     // minimum scheduling lead time
-    this._streamPending = [];
-    this._streamPendingFrames = 0;
-    this._streamPendingChannels = 1;
-    this._streamFlushTimer = null;
-    this._scheduledSources = new Set();
 
     this.demodulation = 'USB'
     this.channels = 1  // ✅ ADDED: Track mono/stereo (1 or 2) for C-QUAM
@@ -609,7 +600,6 @@ async init() {
         console.warn('Error closing audio context:', e);
       }
       this.audioCtx = null;
-      this._resetStreamScheduler();
     }
     
     // ✅ FIXED: Clear accumulator and recording data
@@ -790,10 +780,6 @@ setAGC(newAGCSpeed) {
     this.ft4AccumulatorLen  = 0;
     this.wsprAccumulator    = new Float32Array(this.maxWSPRAccumulatorSize);
     this.wsprAccumulatorLen = 0;
-    // Pre-allocated plain Array reused by applyNoiseBlanker as fft-js input.
-    // Avoids a ~16 KB Array.from(Float32Array) heap allocation on every packet
-    // which was causing GC pressure and flush-timer jitter (audio micro-glitches).
-    this._nbInputArr = new Array(this.nbFFTSize).fill(0);
   }
 
   applyNoiseBlanker(pcmArray) {
@@ -810,15 +796,8 @@ setAGC(newAGCSpeed) {
       // Fill FFT buffer with a block of samples
       this.nbBuffer.set(pcmArray.subarray(i, i + this.nbFFTSize));
 
-      // Reuse the pre-allocated plain Array required by fft-js.
-      // Rebuild it only when nbFFTSize has changed (rare).
-      if (!this._nbInputArr || this._nbInputArr.length !== this.nbFFTSize) {
-        this._nbInputArr = new Array(this.nbFFTSize).fill(0);
-      }
-      for (let k = 0; k < this.nbFFTSize; k++) this._nbInputArr[k] = this.nbBuffer[k];
-
       // Perform FFT
-      const phasors = fft(this._nbInputArr);
+      const phasors = fft(Array.from(this.nbBuffer));
 
       // Calculate magnitude spectrum
       const magnitudeSpectrum = new Float32Array(this.nbFFTSize / 2);
@@ -1199,7 +1178,10 @@ setAGC(newAGCSpeed) {
     this.audioStartTime = this.audioCtx.currentTime
     this.playTime       = this.audioCtx.currentTime + this.bufferThreshold;
     this.playStartTime  = this.audioCtx.currentTime;
-    this._resetStreamScheduler(true);
+    this.playbackWorkletNode = null;
+    this.playbackWorkletReady = false;
+    this._pendingWorkletChunks = [];
+    this._setupPlaybackWorklet();
 
     // ✅ FIXED: Free old decoder before creating new one to prevent memory leak
     if (this.decoder && typeof this.decoder.free === 'function') {
@@ -1364,6 +1346,7 @@ setAGC(newAGCSpeed) {
     this.gainNode.connect(this.audioCtx.destination)
 
     this.audioInputNode = this.convolverNode
+    this._connectPlaybackSource()
 
     // Initial filter update based on current demodulation
     this.updateFilters()
@@ -1404,6 +1387,60 @@ setAGC(newAGCSpeed) {
         this.presenceBoost.gain.value = 3
         this.setLowpass(4800)
         break
+    }
+  }
+
+  _disconnectPlaybackSource() {
+    if (this.playbackWorkletNode) {
+      try { this.playbackWorkletNode.disconnect(); } catch (e) {}
+    }
+  }
+
+  _connectPlaybackSource() {
+    if (this.playbackWorkletNode && this.audioInputNode) {
+      try { this.playbackWorkletNode.disconnect(); } catch (e) {}
+      try { this.playbackWorkletNode.connect(this.audioInputNode); } catch (e) {
+        console.warn('[AudioWorklet] connect failed:', e)
+      }
+    }
+  }
+
+  async _setupPlaybackWorklet() {
+    if (!this.audioCtx || this.playbackWorkletReady) return;
+    if (!this.audioCtx.audioWorklet || typeof AudioWorkletNode === 'undefined') {
+      console.warn('[AudioWorklet] audioWorklet not available, using fallback scheduling')
+      return;
+    }
+    try {
+      await this.audioCtx.audioWorklet.addModule(new URL('./audio-stream-worklet.js', import.meta.url));
+      this.playbackWorkletNode = new AudioWorkletNode(this.audioCtx, 'phantomsdr-audio-stream', {
+        numberOfInputs: 0,
+        numberOfOutputs: 1,
+        outputChannelCount: [2],
+        processorOptions: {
+          sampleRate: this.audioOutputSps,
+          maxBufferedSeconds: Math.max(0.5, this.bufferLimit + 0.25)
+        }
+      });
+      this.playbackWorkletNode.port.onmessage = (event) => {
+        const data = event.data || {};
+        if (data.type === 'stats') {
+          this._playbackStats = data;
+        }
+      };
+      this.playbackWorkletReady = true;
+      this._connectPlaybackSource();
+      if (this._pendingWorkletChunks && this._pendingWorkletChunks.length) {
+        for (const item of this._pendingWorkletChunks) {
+          this.playbackWorkletNode.port.postMessage(item);
+        }
+        this._pendingWorkletChunks = [];
+      }
+      console.log('[AudioWorklet] playback stream ready')
+    } catch (e) {
+      console.error('[AudioWorklet] setup failed, using fallback scheduling:', e)
+      this.playbackWorkletNode = null;
+      this.playbackWorkletReady = false;
     }
   }
 
@@ -1488,6 +1525,7 @@ setAGC(newAGCSpeed) {
   setFmDeemph(tau) {
     if (tau === 0) {
       this.audioInputNode = this.convolverNode
+      this._connectPlaybackSource()
       return
     }
     // FM deemph https://github.com/gnuradio/gnuradio/blob/master/gr-analog/python/analog/fm_emph.py
@@ -1513,6 +1551,7 @@ setAGC(newAGCSpeed) {
     this.fmDeemphNode.connect(this.convolverNode)
 
     this.audioInputNode = this.fmDeemphNode
+    this._connectPlaybackSource()
   }
 
   socketMessageInitial(event) {
@@ -1580,12 +1619,6 @@ setAGC(newAGCSpeed) {
       // reaches it, so the S-meter tracks the audio instead of leading it.
       if (this.audioCtx && this.playTime) {
         this._dBQueue.push({ playAt: this.playTime, value: dBpower });
-        // Prevent unbounded growth when getPowerDb() is not called (e.g. page hidden,
-        // RAF paused, S-meter component unmounted). Keep the newest 300 entries (~10 s
-        // at 30 packets/sec) and silently discard the oldest.
-        if (this._dBQueue.length > 300) {
-          this._dBQueue.splice(0, this._dBQueue.length - 300);
-        }
       } else {
         this.dBPower = dBpower;
       }
@@ -2296,15 +2329,7 @@ async stopFT4Collection() {
 
     // Speaker-audio gate starts here. Decoder feeds above must still run.
     if (this.mute || (this.squelchMute && this.squelch)) {
-      this._wasMuted = true;
       return
-    }
-    // Audio is resuming after a mute or squelch period.
-    // The noise gate may have closed while audio was absent; re-open it so the
-    // first arriving audio is not silenced waiting for the gate threshold to trip.
-    if (this._wasMuted) {
-      this._wasMuted = false;
-      this.noiseGateOpen = true;
     }
     if (this.audioCtx.state !== 'running') {
       return
@@ -2389,17 +2414,21 @@ async stopFT4Collection() {
 
     const curPlayTime = this.playPCM(pcmArray, this.playTime, this.audioOutputSps, 1, this.channels)  // ✅ ADDED: Pass channels parameter
 
-    // Legacy playTime drift correction is only needed for one-buffer-per-source
-    // playback. The continuous scheduler updates this.playTime internally.
-    if (!this._streamSchedulerEnabled) {
-      const currentTime = this.audioCtx.currentTime;
-      if ((this.playTime - currentTime) <= this.bufferThreshold) {
-        this.playTime = (currentTime + this.bufferThreshold + curPlayTime);
-      } else if ((this.playTime - currentTime) > this.bufferLimit) {
-        this.playTime = (currentTime + this.bufferThreshold);
-      } else {
-        this.playTime += curPlayTime;
-      }
+    // Dynamic adjustment of play time
+    const currentTime = this.audioCtx.currentTime;
+    // The line below was commented out by NY4Q to allow for a mod to //
+    // adjust the dynamic limits of this function. //
+    //const bufferThreshold = 0.1; // 100ms buffer //
+    if ((this.playTime - currentTime) <= this.bufferThreshold) {
+      // Underrun: increase buffer
+      this.playTime = (currentTime + this.bufferThreshold + curPlayTime);
+      // removed 0.5 and placed bufferLimit in its place - NY4Q //
+    } else if ((this.playTime - currentTime) > this.bufferLimit) { // Originally at 0.5
+      // Overrun: decrease buffer
+      this.playTime = (currentTime + this.bufferThreshold);
+    } else {
+      // Normal operation: advance play time
+      this.playTime += curPlayTime;
     }
 
     if (this.isRecording) {
@@ -2431,78 +2460,40 @@ async stopFT4Collection() {
     }
   }
 
-
-  _resetStreamScheduler(resetPlayClock = false) {
-    if (this._streamFlushTimer) {
-      clearTimeout(this._streamFlushTimer);
-      this._streamFlushTimer = null;
+  playPCM(buffer, playTime, sampleRate, scale, channels = 1) {  // ✅ ADDED: channels parameter
+    if (!this.audioInputNode) {
+      console.warn('Audio not initialized');
+      return 0;
     }
-    this._streamPending = [];
-    this._streamPendingFrames = 0;
-    this._streamPendingChannels = 1;
-    if (this._scheduledSources) {
-      for (const src of this._scheduledSources) {
-        try { src.onended = null; } catch (e) {}
-        try { src.disconnect(); } catch (e) {}
-        try { src.stop(); } catch (e) {}
-      }
-      this._scheduledSources.clear();
-    } else {
-      this._scheduledSources = new Set();
-    }
-    if (resetPlayClock && this.audioCtx) {
-      this.playTime = this.audioCtx.currentTime + this.bufferThreshold;
-    }
-  }
 
-  _ensureStreamFlushTimer() {
-    if (this._streamFlushTimer) return;
-    const delayMs = Math.max(12, Math.min(35, Math.round(this.streamChunkTargetSec * 500)));
-    this._streamFlushTimer = setTimeout(() => {
-      this._streamFlushTimer = null;
-      if (this._streamPendingFrames > 0) {
-        this._flushPendingPlayback(true);
-      }
-    }, delayMs);
-  }
-
-  _appendPlaybackChunk(buffer, channels) {
     const frames = (channels === 2) ? Math.floor(buffer.length / 2) : buffer.length;
     if (frames <= 0) return 0;
+    const duration = frames / this.audioOutputSps;
 
-    if (this._streamPendingFrames > 0 && this._streamPendingChannels !== channels) {
-      this._flushPendingPlayback(true);
+    if (this.playbackWorkletReady && this.playbackWorkletNode) {
+      // Copy to a fresh buffer so posting to the worklet cannot race with any
+      // later mutations or reuse in the main pipeline.
+      const chunk = new Float32Array(buffer.length);
+      chunk.set(buffer);
+      this.playbackWorkletNode.port.postMessage({
+        type: 'push',
+        pcm: chunk,
+        channels: channels
+      });
+      return duration;
     }
 
-    const copy = new Float32Array(buffer.length);
-    copy.set(buffer);
-    this._streamPending.push(copy);
-    this._streamPendingFrames += frames;
-    this._streamPendingChannels = channels;
-    return frames / this.audioOutputSps;
-  }
-
-  _buildPendingInterleaved() {
-    const channels = this._streamPendingChannels || 1;
-    const totalFrames = this._streamPendingFrames || 0;
-    if (!totalFrames) return null;
-
-    const out = new Float32Array(totalFrames * channels);
-    let offset = 0;
-    for (const chunk of this._streamPending) {
-      out.set(chunk, offset);
-      offset += chunk.length;
+    if (!this.playbackWorkletReady && this.audioCtx && this.audioCtx.audioWorklet) {
+      const chunk = new Float32Array(buffer.length);
+      chunk.set(buffer);
+      this._pendingWorkletChunks.push({ type: 'push', pcm: chunk, channels: channels });
+      if (this._pendingWorkletChunks.length > 64) {
+        this._pendingWorkletChunks.splice(0, this._pendingWorkletChunks.length - 64);
+      }
+      return duration;
     }
 
-    this._streamPending = [];
-    this._streamPendingFrames = 0;
-    return { out, channels, duration: totalFrames / this.audioOutputSps };
-  }
-
-  _scheduleBufferSource(interleaved, channels) {
-    const frames = (channels === 2) ? Math.floor(interleaved.length / 2) : interleaved.length;
-    if (frames <= 0 || !this.audioInputNode) return 0;
-
+    const source = new AudioBufferSourceNode(this.audioCtx);
     const audioBuffer = new AudioBuffer({
       length: frames,
       numberOfChannels: channels,
@@ -2513,113 +2504,48 @@ async stopFT4Collection() {
       const L = new Float32Array(frames);
       const R = new Float32Array(frames);
       for (let i = 0; i < frames; i++) {
-        L[i] = interleaved[2 * i];
-        R[i] = interleaved[2 * i + 1];
+        L[i] = buffer[2 * i];
+        R[i] = buffer[2 * i + 1];
       }
       audioBuffer.copyToChannel(L, 0, 0);
       audioBuffer.copyToChannel(R, 1, 0);
     } else {
-      audioBuffer.copyToChannel(interleaved, 0, 0);
+      audioBuffer.copyToChannel(buffer, 0, 0);
     }
 
-    const source = new AudioBufferSourceNode(this.audioCtx);
     source.buffer = audioBuffer;
     source.connect(this.audioInputNode);
 
-    const now = this.audioCtx.currentTime;
-    const minSchedule = now + this.streamLookAheadSec;
-    const ahead = Math.max(0, (this.playTime || 0) - now);
+    const scheduledTime = Math.max(playTime, this.audioCtx.currentTime);
 
-    if (ahead > this.bufferLimit) {
-      this.playTime = now + this.bufferThreshold;
-    }
-
-    const scheduledTime = Math.max(this.playTime || 0, minSchedule);
-    // NOTE: playTime is advanced only after source.start() succeeds.
-    // Previously it was advanced unconditionally before start(), so a
-    // start() exception (e.g. AudioContext not running) would leave playTime
-    // in the future causing a ~100 ms gap on the next scheduled chunk.
-
-    let cleaned = false;
-    const cleanup = () => {
-      if (cleaned) return;
-      cleaned = true;
-      this._scheduledSources.delete(source);
-      try { source.disconnect(); } catch (e) {}
+    let safetyTimerId = null;
+    let disconnected = false;
+    const disconnect = () => {
+      if (!disconnected) {
+        disconnected = true;
+        if (safetyTimerId !== null) {
+          clearTimeout(safetyTimerId);
+          safetyTimerId = null;
+        }
+        try {
+          source.disconnect();
+        } catch (e) {}
+      }
     };
-    source.onended = cleanup;
-    this._scheduledSources.add(source);
+
+    source.onended = disconnect;
+    const safetyTimeout = (audioBuffer.duration + 1) * 1000;
+    safetyTimerId = setTimeout(disconnect, safetyTimeout);
 
     try {
       source.start(scheduledTime);
-      this.playTime = scheduledTime + audioBuffer.duration;  // advance only on success
     } catch (e) {
-      console.error('Failed to start scheduled audio source:', e);
-      cleanup();
+      console.error('Failed to start audio source:', e);
+      disconnect();
       return 0;
     }
 
-    setTimeout(cleanup, Math.max(1000, Math.ceil((audioBuffer.duration + 1.0) * 1000)));
     return audioBuffer.duration;
-  }
-
-  _flushPendingPlayback(force = false) {
-    if (!this.audioCtx || !this.audioInputNode || this._streamPendingFrames <= 0) return 0;
-
-    const pendingDuration = this._streamPendingFrames / this.audioOutputSps;
-    const now = this.audioCtx.currentTime;
-    const ahead = Math.max(0, (this.playTime || 0) - now);
-
-    if (!force && pendingDuration < this.streamChunkTargetSec && pendingDuration < this.streamChunkMaxSec && ahead >= this.bufferThreshold * 0.75) {
-      this._ensureStreamFlushTimer();
-      return 0;
-    }
-
-    const built = this._buildPendingInterleaved();
-    if (!built) return 0;
-    return this._scheduleBufferSource(built.out, built.channels);
-  }
-
-  playPCM(buffer, playTime, sampleRate, scale, channels = 1) {  // ✅ ADDED: channels parameter
-    if (!this.audioInputNode) {
-      console.warn('Audio not initialized');
-      return 0;
-    }
-
-    if (!this._streamSchedulerEnabled) {
-      const source = new AudioBufferSourceNode(this.audioCtx);
-      const frames = (channels === 2) ? Math.floor(buffer.length / 2) : buffer.length;
-      const audioBuffer = new AudioBuffer({
-        length: frames,
-        numberOfChannels: channels,
-        sampleRate: this.audioOutputSps
-      });
-      if (channels === 2) {
-        const L = new Float32Array(frames);
-        const R = new Float32Array(frames);
-        for (let i = 0; i < frames; i++) {
-          L[i] = buffer[2 * i];
-          R[i] = buffer[2 * i + 1];
-        }
-        audioBuffer.copyToChannel(L, 0, 0);
-        audioBuffer.copyToChannel(R, 1, 0);
-      } else {
-        audioBuffer.copyToChannel(buffer, 0, 0);
-      }
-      source.buffer = audioBuffer;
-      source.connect(this.audioInputNode);
-      const scheduledTime = Math.max(playTime, this.audioCtx.currentTime);
-      source.onended = () => { try { source.disconnect(); } catch (e) {} };
-      try { source.start(scheduledTime); } catch (e) {
-        console.error('Failed to start audio source:', e);
-        try { source.disconnect(); } catch (e2) {}
-        return 0;
-      }
-      return audioBuffer.duration;
-    }
-
-    this._appendPlaybackChunk(buffer, channels);
-    return this._flushPendingPlayback(false);
   }
 
   startRecording() {

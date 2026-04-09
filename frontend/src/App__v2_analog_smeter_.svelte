@@ -8357,6 +8357,11 @@ Click again to de-activate"
                               <span class="text-white text-sm"
                                 >{bookmark.name}</span
                               >
+                              {#if bookmark.label}
+                                <span class="text-yellow-300 text-xs"
+                                  >{bookmark.label}</span
+                                >
+                              {/if}
                               <span class="text-gray-400 text-xs"
                                 >{(bookmark.frequency / 1000).toFixed(3)} kHz</span
                               >

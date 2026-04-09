@@ -4858,7 +4858,7 @@ function startTopFrequencyBarSync() {
                     class="glass-button text-white py-1 px-3 mb-2 lg:mb-0 rounded-lg text-xs sm:text-sm"
                     style="color:rgba(0, 225, 255, 0.993)"
                     title="Other servers"
-                    onClick="window.open('https://sdr-list.xyz');"
+                    onClick="window.open('http://list.phantomsdr.fun/');"
                   >
                     <span class="icon">Servers</span>
                   </button>                
@@ -7951,7 +7951,7 @@ Click again to de-activate"
                   <br />
                   Other &nbsp;
                   <a
-                    href="https://sdr-list.xyz"
+                    href="http://list.phantomsdr.fun/"
                     target="new"
                     style="color:rgba(0, 225, 255, 0.993)">Servers</a
                   >

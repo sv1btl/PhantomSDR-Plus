@@ -3724,12 +3724,6 @@ function setSignalStrengthFromDbm(dbm) {
       ) {
         currentBand = i;
         newStaticBandwidth = 0; // To reset the IF Filter button //
-        /* if (bandArray[i].max < 256) {
-          min_waterfall = bandArray[i].min;
-          max_waterfall = bandArray[i].max;
-          handleMinMove();
-          handleMaxMove();
-        }*/
         if (prevBand != currentBand) {
           currentTuneStep = bandArray[i].stepi;
         }
@@ -3747,7 +3741,7 @@ function setSignalStrengthFromDbm(dbm) {
 
 function _smeterTick() {
   let powerDb = audio.getPowerDb();
-  const visualGain = 1.10;
+  const visualGain = 0.95;
   const minDb = -130;
 
   powerDb = minDb + (powerDb - minDb) * visualGain;

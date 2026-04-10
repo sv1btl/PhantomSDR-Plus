@@ -3051,7 +3051,7 @@ function _animateNeedle(ts) {
 
 // ===== LED Windows (dBm & SNR) beneath the center screw =====
     (function () {
-      const dbm = (typeof window !== "undefined" && typeof window._lastPowerDb === "number") ? Math.round(window._lastPowerDb + 5.5) : null; //correct factor dbm
+      const dbm = (typeof window !== "undefined" && typeof window._lastPowerDb === "number") ? Math.round(window._lastPowerDb + 13) : null; //correct factor dbm
       const snr = (typeof window !== "undefined" && typeof window._lastSnr === "number") ? Math.round(window._lastSnr) : (dbm !== null && typeof window !== "undefined" && typeof window._minDbForSnr === "number" ? Math.round(dbm - window._minDbForSnr) : null);
 
       // Layout
@@ -3250,26 +3250,59 @@ function _animateNeedle(ts) {
     return drawSMeterDesktop(value);
   }
 
-  function setSignalStrength(power) {
-    power = Math.min(Math.max(power, 0), 100);
+function clamp(v, lo, hi) {
+  return Math.max(lo, Math.min(hi, v));
+}
 
-    let calibratedPower;
+function lerp(a, b, t) {
+  return a + (b - a) * t;
+}
 
-    if (power < 10) {
-      calibratedPower = power * 0.3;
-    } else if (power < 40) {
-      calibratedPower = 3 + (power - 10) * 0.8;
-    } else if (power < 70) {
-      calibratedPower = 27 + (power - 40) * 1.0;
-    } else {
-      calibratedPower = 57 + (power - 70) * 1.43;
+function invLerp(a, b, v) {
+  if (a === b) return 0;
+  return (v - a) / (b - a);
+}
+
+const ANALOG_S_METER_POINTS = [
+  { dbm: -121, pos: 0 },
+  { dbm: -115, pos: 8 },
+  { dbm: -109, pos: 16 },
+  { dbm: -103, pos: 24 },
+  { dbm: -97, pos: 32 },
+  { dbm: -91, pos: 40 },
+  { dbm: -85, pos: 48 },
+  { dbm: -79, pos: 56 },
+  { dbm: -73, pos: 64 },
+  { dbm: -63, pos: 76 },
+  { dbm: -53, pos: 88 },
+  { dbm: -33, pos: 100 }
+];
+
+function dbmToAnalogScale(dbm, trimDb = 0) {
+  const correctedDbm = dbm + trimDb;
+  const pts = ANALOG_S_METER_POINTS;
+
+  if (!Number.isFinite(correctedDbm)) return 0;
+  if (correctedDbm <= pts[0].dbm) return pts[0].pos;
+  if (correctedDbm >= pts[pts.length - 1].dbm) return pts[pts.length - 1].pos;
+
+  for (let i = 0; i < pts.length - 1; i++) {
+    const a = pts[i];
+    const b = pts[i + 1];
+    if (correctedDbm >= a.dbm && correctedDbm <= b.dbm) {
+      const t = clamp(invLerp(a.dbm, b.dbm, correctedDbm), 0, 1);
+      return lerp(a.pos, b.pos, t);
     }
-
-    const ANALOG_NEEDLE_TRIM = 0; // 👉 Trimm needle in analog smeter
-    calibratedPower = Math.max(0, calibratedPower + ANALOG_NEEDLE_TRIM);
-
-    drawSMeter(calibratedPower);
   }
+
+  return 0;
+}
+
+function setSignalStrengthFromDbm(dbm) {
+  const trimDb = Number(audio?.smeter_offset || 0);
+  const analogValue = clamp(dbmToAnalogScale(dbm, trimDb), 0, 100);
+  drawSMeter(analogValue);
+}
 
   function handleWheel(node) {
     function onWheel(event) {
@@ -3712,36 +3745,26 @@ function _animateNeedle(ts) {
   let updateInterval;
   let lastUpdated = 0;
 
-  function _smeterTick() {
-    let powerDb = audio.getPowerDb();
-    const visualGain = 1.20;
-    const minDb = -130;
-    const s9Db = -73;
-    const maxDb = -13;
-    powerDb = minDb + (powerDb - minDb) * visualGain;
-    let power;
-    if (powerDb < minDb) {
-      power = 0;
-    } else if (powerDb < s9Db) {
-      const norm = (powerDb - minDb) / (s9Db - minDb);
-      const curved = Math.pow(norm, 0.6);
-      power = curved * 60;
-    } else {
-      const norm = (powerDb - s9Db) / (maxDb - s9Db);
-      const curved = Math.pow(norm, 0.8);
-      power = 60 + curved * 40;
-    }
-    power = Math.min(Math.max(power, 0), 100);
-    powerPeak = accumulator(power);
-    try {
-      window._lastPowerDb = powerDb;
-      window._minDbForSnr = minDb;
-      window._lastPowerDisplay = power;
-      window._lastSnr = (typeof powerDb === "number" && typeof minDb === "number") ? (powerDb - minDb) : undefined;
-    } catch (e) {}
-    drawSMeter(power);
-    _smeterRaf = requestAnimationFrame(_smeterTick);
-  }
+function _smeterTick() {
+  let powerDb = audio.getPowerDb();
+  const visualGain = 1.10;
+  const minDb = -130;
+
+  powerDb = minDb + (powerDb - minDb) * visualGain;
+  powerPeak = accumulator(powerDb);
+
+  try {
+    window._lastPowerDb = powerDb;
+    window._minDbForSnr = minDb;
+    window._lastSnr =
+      (typeof powerDb === "number" && typeof minDb === "number")
+        ? (powerDb - minDb)
+        : undefined;
+  } catch (e) {}
+
+  setSignalStrengthFromDbm(powerDb);
+  _smeterRaf = requestAnimationFrame(_smeterTick);
+}
 
   function updateTick() {
     if (events.getLastModified() > lastUpdated) {

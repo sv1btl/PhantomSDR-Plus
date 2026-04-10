@@ -9,6 +9,9 @@ This document covers the complete integration of RADE v1 receive support into
 PhantomSDR-Plus, implemented as a Python sidecar (`rade_helper.py`) that bridges
 the browser to the `radae_rxe.py` + `lpcnet_demo` decode pipeline.
 
+- **[Manually install Rade in Linux](docs/RADE_General_INSTALL_MANUAL_LINUX.md)** - Complete guide for using the WebSDR
+- **[Manually install Rade in Pi/Debian Bookworm (ARM64)](docs/RADE_Pi_INSTALL_MANUAL.md)** - Complete guide for using the WebSDR
+
 ---
 
 ## Table of Contents

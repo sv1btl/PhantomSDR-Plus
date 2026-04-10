@@ -2880,8 +2880,16 @@ function startTopFrequencyBarSync() {
       if (selectedDigitIdx < 0) { return; }
       var delta = e.key === "ArrowUp" ? 1 : -1;
       var step = DIGIT_POWERS_HZ[selectedDigitIdx];
-      var frequencyHz = Math.round((parseFloat(frequency) || 0) * 1e3);
-      frequencyHz = Math.max(0, frequencyHz + delta * step);
+      var frequencyHz = Math.round(parseFloat(frequency) * 1e3);
+      var remainder = frequencyHz % step;
+      if (remainder === 0) {
+        frequencyHz = frequencyHz + delta * step;
+      } else if (delta > 0) {
+        frequencyHz = Math.ceil(frequencyHz / step) * step;
+      } else {
+        frequencyHz = Math.floor(frequencyHz / step) * step;
+      }
+      frequencyHz = Math.max(0, frequencyHz);
       frequency = (frequencyHz / 1e3).toFixed(2);
       dispatchFrequencyDebounced(frequencyHz); // FIX [2]
     } else if (e.key === "ArrowLeft") {
@@ -2920,7 +2928,14 @@ function startTopFrequencyBarSync() {
       if (selectedDigitIdx >= 0) {
         // Digit-specific tuning
         step = DIGIT_POWERS_HZ[selectedDigitIdx];
-        frequencyHz = frequencyHz + delta * step;
+        var remainder = frequencyHz % step;
+        if (remainder === 0) {
+          frequencyHz = frequencyHz + delta * step;
+        } else if (delta > 0) {
+          frequencyHz = Math.ceil(frequencyHz / step) * step;
+        } else {
+          frequencyHz = Math.floor(frequencyHz / step) * step;
+        }
       } else {
         // No digit selected — fall back to default step tuning
         step = currentTuneStep || (isAltPressed ? 10000 : isShiftPressed ? 1000 : defaultStep);
@@ -3137,6 +3152,12 @@ function startTopFrequencyBarSync() {
       ) {
         currentBand = i;
         newStaticBandwidth = 0; // To reset the IF Filter button //
+        /* if (bandArray[i].max < 256) {
+          min_waterfall = bandArray[i].min;
+          max_waterfall = bandArray[i].max;
+          handleMinMove();
+          handleMaxMove();
+        }*/
         if (prevBand != currentBand) {
           currentTuneStep = bandArray[i].stepi;
         }
@@ -4577,12 +4598,14 @@ function startTopFrequencyBarSync() {
     '12': '24MHz',   '10': '28MHz',  '6':  '50MHz',
   };
 
-  
-  // DX spots come from the local backend endpoint to avoid public CORS proxies.
-  // The backend normalizes upstream data into a JSON array.
+  // DX Summit JSON API. Call^Frequency^Date/Time^Spotter^Comment^LoTW^eQSL^Continent^Band^Country
+  // NOTE: dxsummit.fi is HTTP-only (no HTTPS). A direct browser fetch from an
+  // HTTPS page is blocked as mixed content, so we always go through a CORS
+  // proxy which fetches HTTP server-side and returns it over HTTPS.
   function buildDXUrl() {
-    const band = dxBandFilter === 'ALL' ? '' : `&band=${encodeURIComponent(dxBandFilter)}`;
-    return `/api/dxspots?limit=30${band}&_t=${Date.now()}`;
+    const band = dxBandFilter === 'ALL' ? '' : `&include=${DX_BAND_FREQ[dxBandFilter]}`;
+    // http:// intentional — dxsummit.fi has no HTTPS endpoint
+    return `http://www.dxsummit.fi/api/v1/spots?limit=30${band}&_t=${Date.now()}`;
   }
 
   function freqToBand(f) {
@@ -4611,54 +4634,61 @@ function startTopFrequencyBarSync() {
   }
 
   function parseDXJSON(data) {
-    return (Array.isArray(data) ? data : [])
-      .filter(s => s && s.dx_call && Number(s.frequency) > 0 && Number(s.frequency) < 60000)
+    return data
+      .filter(s => s.dx_call && s.frequency > 0 && s.frequency < 60000)
       .map(s => ({
-        dx:      String(s.dx_call  || '').trim(),
-        spotter: String(s.de_call  || '').trim().replace(/-@$/, ''),
+        dx:      (s.dx_call  || '').trim(),
+        spotter: (s.de_call  || '').trim().replace(/-@$/, ''),
         freq:    String(s.frequency),
         time:    s.time || '',
-        timeUtc: String(s.time_utc_hhmm || '').trim(),
         comment: s.info || '',
         mode:    detectMode(s.info),
-        band:    freqToBand(Number(s.frequency)),
+        band:    freqToBand(s.frequency),
         country: s.dx_country || '',
       }));
   }
 
   async function tryFetch(url) {
     var _dxAbort = new AbortController();
-    var _dxTimer = setTimeout(function() { _dxAbort.abort(); }, 10000);
-    try {
-      const res = await fetch(url, {
-        signal: _dxAbort.signal,
-        cache: 'no-store',
-        headers: { 'Accept': 'application/json' }
-      });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      return res.json();
-    } finally {
-      clearTimeout(_dxTimer);
-    }
+    var _dxTimer = setTimeout(function() { _dxAbort.abort(); }, 8000);
+    const res = await fetch(url, { signal: _dxAbort.signal, cache: 'no-store' });
+    clearTimeout(_dxTimer);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return res.text();
   }
 
   async function fetchDXSpots() {
     dxLoading = true;
     dxError = null;
-    const url = buildDXUrl();
-    try {
-      const data = await tryFetch(url);
-      const spots = parseDXJSON(data);
-      dxSpots = spots;
-      dxError = spots.length ? null : 'No spots returned by backend.';
-    } catch (e) {
-      dxError = 'Could not load spots from local backend (' + (e && e.message ? e.message : 'unknown') + ').';
-      dxSpots = [];
-    } finally {
-      dxLoading = false;
+    const target = buildDXUrl();
+    // dxsummit.fi is HTTP-only; browser blocks direct fetch from HTTPS pages.
+    // Route through CORS proxies (server-side fetch, returned over HTTPS).
+    const proxies = [
+      `https://corsproxy.io/?url=${encodeURIComponent(target)}`,
+      `https://api.allorigins.win/raw?url=${encodeURIComponent(target)}`,
+      `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(target)}`,
+    ];
+    let lastErr = null;
+    for (const url of proxies) {
+      try {
+        const text = await tryFetch(url);
+        const data = JSON.parse(text);
+        const spots = parseDXJSON(Array.isArray(data) ? data : []);
+        if (spots.length > 0) {
+          dxSpots = spots;
+          dxError = null;
+          dxLoading = false;
+          return;
+        }
+        lastErr = new Error('Empty response');
+      } catch (e) {
+        lastErr = e;
+      }
     }
+    dxError = 'Could not load spots (' + (lastErr && lastErr.message ? lastErr.message : 'unknown') + '). Check browser console.';
+    dxSpots = [];
+    dxLoading = false;
   }
-
 
   // Tune waterfall to a DX spot frequency (kHz → Hz),
   // zoom into the band and apply the band's brightness settings.
@@ -4734,29 +4764,15 @@ function startTopFrequencyBarSync() {
     fetchDXSpots();
   }
 
-  function formatDXTime(t, safeUtc = '') {
-    const hhmm = String(safeUtc || '').trim();
-
-    if (/^\d{4}$/.test(hhmm)) {
-      return `${hhmm}Z`;
-    }
-
+  function formatDXTime(t) {
     if (!t) return '';
-
     try {
-      if (/^\d{4}(\s|$)/.test(String(t))) {
-        return `${String(t).slice(0, 4)}Z`;
-      }
-
-      const d = new Date(String(t).includes('Z') ? String(t) : String(t) + 'Z');
-      if (!Number.isNaN(d.getTime())) {
-        const h = d.getUTCHours().toString().padStart(2, '0');
-        const m = d.getUTCMinutes().toString().padStart(2, '0');
-        return `${h}${m}Z`;
-      }
-    } catch (e) {}
-
-    return '';
+      // DX Summit ISO format: "2026-03-08T10:55:08" (UTC)
+      const d = new Date(t.includes('Z') ? t : t + 'Z');
+      const h = d.getUTCHours().toString().padStart(2, '0');
+      const m = d.getUTCMinutes().toString().padStart(2, '0');
+      return `${h}${m}Z`;
+    } catch(e) { return String(t).slice(11, 16) + 'Z'; }
   }
 
 
@@ -5310,14 +5326,6 @@ function startTopFrequencyBarSync() {
                    </div>
                  </div>
                  <!-- ── End DX Cluster Widget ──────────────────────────────────────────── -->
-                  
-                <!-- you can delete the link above and add anything else you want, which will be appeared in the second column 
-                 e.g links to use 
-                 https://pskreporter.info/pskmap.html?preset&callsign=SV1BTL&txrx=rx&mode=FT8&timerange=900&mapCenter=37.99596100000002,23.803441,1.2 
-                 or 
-                 https://www.dxfuncluster.com/widgets/cluster25.php
-                 or
-                 https://pskreporter.info/pskmap.html?preset&callsign=SV1BTL&txrx=rx&mode=WSPR&timerange=900&mapCenter=37.99596100000002,23.803441,1.2 -->
               </div>     
             </div>
            </div>
@@ -7687,11 +7695,6 @@ Click again to de-activate"
                               <span class="text-white text-sm"
                                 >{bookmark.name}</span
                               >
-                              {#if bookmark.label}
-                                <span class="text-yellow-300 text-xs"
-                                  >{bookmark.label}</span
-                                >
-                              {/if}
                               <span class="text-gray-400 text-xs"
                                 >{(bookmark.frequency / 1000).toFixed(3)} kHz</span
                               >

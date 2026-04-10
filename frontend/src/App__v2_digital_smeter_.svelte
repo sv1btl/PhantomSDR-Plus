@@ -352,7 +352,7 @@ function startTopFrequencyBarSync() {
       // ENABLING - wait for component to be created by Svelte
       await tick(); // Wait for DOM to update
       
-      // CRITICAL FIX: Wait for canvas to be visible and sized
+      // CRITICAL FIX: Wait a bit more for canvas to be visible and sized
       await new Promise(resolve => setTimeout(resolve, 50));
       
       if (spectrogramComponent && !spectrogramComponent.audioContext) {
@@ -374,13 +374,13 @@ function startTopFrequencyBarSync() {
     }
   }
 
-  // Update spectrogram frequency range - Fixed 50-10000 Hz for all modes
+  // Update spectrogram frequency range - Fixed 0-8 kHz for all modes
   function updateSpectrogramRange() {
     if (!spectrogramComponent || !spectrogramEnabled) return;
     
-    // Fixed range: 50-10000 Hz for all modes
+    // Fixed range: 0-8000 Hz for all modes
     const minFreq = 50;
-    const maxFreq = 10000;
+    const maxFreq = 8000;
     
     spectrogramComponent.setFrequencyRange(minFreq, maxFreq);
     console.log(`Spectrogram range: ${minFreq}-${maxFreq} Hz (fixed for all modes)`);
@@ -868,10 +868,9 @@ function startTopFrequencyBarSync() {
     canvas.style.cursor = waterfall.checkClientClick(x, y) !== null ? "pointer" : "default";
   }
 
-  // Decoder
   // ── Unified decoder toggle / dropdown ──────────────────────────────────
-  let decoderOn      = false;   // Off/On master toggle
-  let selectedDecoder = 'none'; // value from the <select> dropdown
+  let decoderOn       = false;   // Off/On master toggle
+  let selectedDecoder = 'none';  // value from the <select> dropdown
 
   // internal per-decoder state (driven by activateSelectedDecoder)
   let ft8Enabled = false;
@@ -1849,10 +1848,10 @@ function startTopFrequencyBarSync() {
 
 
   // CW text output
-  let cwMessages     = [];
-  let cwCurrentLine  = '';
-  let cwDetectedHz   = 0;
-  let cwDetectedWpm  = 0;
+  let cwMessages    = [];
+  let cwCurrentLine = '';
+  let cwDetectedHz  = 0;
+  let cwDetectedWpm = 0;
   let cwScrollEl;
 
   // ── Digital mode decoder state ───────────────────────────────────────────
@@ -2212,14 +2211,14 @@ function startTopFrequencyBarSync() {
   // Audio demodulation selection
   let demodulators = ["USB", "LSB", "CW", "CW-L", "AM", "QUAM", "FM"];
   const demodulationDefaults = {
-    USB:  { type: "USB",  offsets: [0, 2700] },
-    LSB:  { type: "LSB",  offsets: [2700, 0] },
-    CW:   { type: "CW",   offsets: [250, 250] }, // DSB centered on carrier, ±250 Hz
-    "CW-L": { type: "CWL", offsets: [250, 250] }, // CW lower sideband tone, ±250 Hz
-    AM:   { type: "AM",   offsets: [4500, 4500] }, // 9 kHz for AM
-    QUAM: { type: "QUAM", offsets: [5000, 5000] }, // C-QUAM AM-stereo
-    FM:   { type: "FM",   offsets: [5000, 5000] },
-    WBFM: { type: "FM",   offsets: [80000, 80000] },
+    USB:    { type: "USB",  offsets: [0, 2700] },
+    LSB:    { type: "LSB",  offsets: [2700, 0] },
+    CW:     { type: "CW",   offsets: [250, 250] }, // DSB centered on carrier, ±250 Hz
+    "CW-L": { type: "CWL",  offsets: [250, 250] }, // CW lower sideband tone, ±250 Hz
+    AM:     { type: "AM",   offsets: [4500, 4500] }, // 9 kHz for AM
+    QUAM:   { type: "QUAM", offsets: [5000, 5000] }, // C-QUAM AM-stereo
+    FM:     { type: "FM",   offsets: [5000, 5000] },
+    WBFM:   { type: "FM",   offsets: [80000, 80000] },
     RADEL: { type: 'LSB', offsets: [2200, -700] }, // RADE v1 Lower sideband — 700 Hz to 2200 Hz from carrier
     RADEU: { type: 'USB', offsets: [-700, 2200] }, // RADE v1 Upper sideband — 700 Hz to 2200 Hz from carrier
   };
@@ -2310,24 +2309,15 @@ function startTopFrequencyBarSync() {
 
   /** Stop every decoder and reset all flags */
   function _deactivateAll() {
-    // FT8 / FT4
     if (ft8Enabled) { ft8Enabled = false; audio.setFT8Decoding(false); }
     if (ft4Enabled) { ft4Enabled = false; audio.setFT4Decoding(false); }
-    // CW
-    if (cwEnabled)  { cwEnabled = false; audio.setCWDecoding(false); audio.setCWCallback(null); cwDetectedHz = 0; cwDetectedWpm = 0; }
-    // WSPR
+    if (cwEnabled)   { cwEnabled = false; audio.setCWDecoding(false); audio.setCWCallback(null); cwDetectedHz = 0; cwDetectedWpm = 0; }
     if (wsprEnabled) { wsprEnabled = false; audio.setWSPRDecoding(false); wsprMessages = []; _wsprTickStop(); }
-    // FAX
-    if (faxEnabled) { _faxDeactivate(); }
-    // SSTV
-    if (sstvEnabled) { _sstvDeactivate(); }
-    // NAVTEX
+    if (faxEnabled)  { _faxDeactivate(); }
     if (navtexEnabled) { _navtexDeactivate(); }
-    // FSK / RTTY
-    if (fskEnabled) { fskEnabled = false; audio.setFSKDecoding(false); audio.setFSKCallback(null); _fskRestoreReceiverControl(); }
+    if (fskEnabled)    { fskEnabled = false; audio.setFSKDecoding(false); audio.setFSKCallback(null); _fskRestoreReceiverControl(); }
     // RADE v1
     if (radeEnabled) { _radeDeactivate(); }
-    // Digital
   }
 
   /** Build a callback that feeds the shared digi text window */
@@ -2402,7 +2392,6 @@ function startTopFrequencyBarSync() {
         cwMessages = cwMessages; cwCurrentLine = cwCurrentLine;
       });
 
-
     } else if (d === 'wspr') {
       wsprEnabled  = true;
       wsprMessages = [];
@@ -2410,7 +2399,6 @@ function startTopFrequencyBarSync() {
       if (wsprList) wsprList.innerHTML = '';
       audio.setWSPRDecoding(true);
       _wsprTickStart();
-      // Pass dial frequency from current tuned frequency if available
       if (audio && typeof audio.setWSPRDialFreq === 'function') {
         const dialHz = typeof frequency !== 'undefined' ? frequency * 1000 : 0;
         audio.setWSPRDialFreq(dialHz);
@@ -2452,7 +2440,6 @@ function startTopFrequencyBarSync() {
       });
       audio.setRADEDecoding(true, sideband);
     }
-    // 'none' → everything already off from _deactivateAll()
   }
 
   /** Master Off/On toggle */
@@ -2472,11 +2459,9 @@ function startTopFrequencyBarSync() {
   }
 
   // Legacy shims — keep for any remaining call sites in the file
-  function handleFt8Decoder(e, value)   { selectedDecoder = 'ft8';  decoderOn = !!value; if (decoderOn) activateSelectedDecoder(); else _deactivateAll(); }
-  function handleFt4Decoder(e, value)   { selectedDecoder = 'ft4';  decoderOn = !!value; if (decoderOn) activateSelectedDecoder(); else _deactivateAll(); }
-  function handleCwDecoder(e, value)    { selectedDecoder = 'cw';   decoderOn = !!value; if (decoderOn) activateSelectedDecoder(); else _deactivateAll(); }
-
-
+  function handleFt8Decoder(e, value) { selectedDecoder = 'ft8'; decoderOn = !!value; if (decoderOn) activateSelectedDecoder(); else _deactivateAll(); }
+  function handleFt4Decoder(e, value) { selectedDecoder = 'ft4'; decoderOn = !!value; if (decoderOn) activateSelectedDecoder(); else _deactivateAll(); }
+  function handleCwDecoder(e, value)  { selectedDecoder = 'cw';  decoderOn = !!value; if (decoderOn) activateSelectedDecoder(); else _deactivateAll(); }
 
   // Normalizes dB values to a 0-100 scale for visualization
   function normalizeDb(dbValue) {
@@ -2485,7 +2470,7 @@ function startTopFrequencyBarSync() {
     return ((dbValue - minDb) / (maxDb - minDb)) * 100;
   }
 
-function handlePassbandChange(passband) {
+  function handlePassbandChange(passband) {
   let [l, m, r] = passband.detail.map(waterfallOffsetToFrequency);
   
   let bfo = frequencyInputComponent.getBFO();
@@ -2668,516 +2653,10 @@ function handlePassbandChange(passband) {
   const s9Index = 17;
   const accumulator = RollingMax(10);
 
-// --- Smooth S-Meter needle animation (add this) ------------------------------
-let currentPower = 0;   // what we actually draw (smoothed)
-let targetPower  = 0;   // latest requested value
-let animating    = false;
-let _lastTs      = 0;
-let _smeterRaf   = null;
-
-// Time constant (ms): lower = snappier, higher = smoother
-const SMOOTH_TIME_MS = 2000; //lower ->faster, higher -> smoother e.g. 120-2000
-// Stop when we're within this many "power" units
-const STOP_EPS = 0.02;
-
-function setSMeterPower(value) {
-  // clamp 0..100 like your gauge
-  targetPower = Math.max(0, Math.min(100, value|0 === value ? value : +value));
-  if (!animating) {
-    animating = true;
-    _lastTs = performance.now();
-    requestAnimationFrame(_animateNeedle);
-  }
-}
-
-function _animateNeedle(ts) {
-  const dt = Math.min(100, ts - _lastTs); // cap big frame gaps
-  _lastTs = ts;
-
-  // Exponential smoothing with time-constant (frame-rate independent)
-  const alpha = 1 - Math.exp(-dt / SMOOTH_TIME_MS);
-  currentPower += (targetPower - currentPower) * alpha;
-
-  // Draw using the smoothed value
-  drawSMeterDesktop(currentPower);
-
-  if (Math.abs(targetPower - currentPower) > STOP_EPS) {
-    requestAnimationFrame(_animateNeedle);
-  } else {
-    currentPower = targetPower;
-    drawSMeterDesktop(currentPower); // final snap to exact target
-    animating = false;
-  }
-}
-
-  // === dBm Calibration (persistent, module-scope) ===
-  let dBmCalOffset = 0;
-  try {
-    const _savedCal = localStorage.getItem("dbmCalOffset");
-    if (_savedCal !== null && !isNaN(parseFloat(_savedCal))) dBmCalOffset = parseFloat(_savedCal);
-  } catch (_) {}
-
-  // Call this from the browser console to set a persistent dBm calibration offset in dB.
-  function setDbmCalibration(offsetDb) {
-    dBmCalOffset = Number(offsetDb) || 0;
-    try { localStorage.setItem("dbmCalOffset", String(dBmCalOffset)); } catch (_) {}
-    try { drawSMeter(0); } catch (_) {}
-  }
-  try { window.setDbmCalibration = setDbmCalibration; } catch (_) {}
-
-  function drawSMeterDesktop(powerValue) {
+  // Function to draw the S-meter
+  function drawSMeter(value) {
     const canvas = document.getElementById("sMeter");
-    if (!canvas) {
-      console.error("S-Meter canvas not found!");
-      return;
-    }
-
     const ctx = canvas.getContext("2d");
-    canvas.width = 220;
-    canvas.height = 220;
-
-    const width = canvas.width;
-    const height = canvas.height;
-    const centerX = width / 2;
-    const centerY = height - 50;
-    const radius = 160;
-
-    // Rounded rectangle clip
-    const cornerRadius = 20;
-    ctx.beginPath();
-    ctx.moveTo(cornerRadius, 0);
-    ctx.lineTo(canvas.width - cornerRadius, 0);
-    ctx.quadraticCurveTo(canvas.width, 0, canvas.width, cornerRadius);
-    ctx.lineTo(canvas.width, canvas.height - cornerRadius);
-    ctx.quadraticCurveTo(
-      canvas.width,
-      canvas.height,
-      canvas.width - cornerRadius,
-      canvas.height,
-    );
-    ctx.lineTo(cornerRadius, canvas.height);
-    ctx.quadraticCurveTo(0, canvas.height, 0, canvas.height - cornerRadius);
-    ctx.lineTo(0, cornerRadius);
-    ctx.quadraticCurveTo(0, 0, cornerRadius, 0);
-    ctx.closePath();
-    ctx.clip();
-
-    ctx.clearRect(0, 0, width, height);
-
-    const startAngle = Math.PI * 1.25;
-    const endAngle = Math.PI * 1.75;
-    const totalSweep = endAngle - startAngle;
-
-    // Clamp power value
-    powerValue = Math.min(Math.max(powerValue, 0), 100);
-    const normalizedValue = powerValue / 100;
-    const needleAngle = startAngle + normalizedValue * totalSweep;
-
-    // ===== Dark Brushed Metal Background =====
-    const bgGradient = ctx.createLinearGradient(0, 0, width, height);
-    bgGradient.addColorStop(0, "#0a0a0a");
-    bgGradient.addColorStop(0.4, "#111");
-    bgGradient.addColorStop(0.6, "#1b1b1b");
-    bgGradient.addColorStop(1, "#050505");
-    ctx.fillStyle = bgGradient;
-    ctx.fillRect(0, 0, width, height);
-
-    // Add subtle brushed texture (horizontal)
-    ctx.globalAlpha = 0.15;
-    for (let i = 0; i < height; i += 2) {
-      const shade = (Math.random() * 20 + 30) | 0;
-      ctx.strokeStyle = `rgb(${shade},${shade},${shade})`;
-      ctx.beginPath();
-      ctx.moveTo(0, i);
-      ctx.lineTo(width, i);
-      ctx.stroke();
-    }
-    ctx.globalAlpha = 1;
-
-    // ===== Dark Chrome Rim =====
-    const rimGradient = ctx.createLinearGradient(
-      0,
-      centerY - radius,
-      0,
-      centerY + radius,
-    );
-    rimGradient.addColorStop(0, "#333");
-    rimGradient.addColorStop(0.25, "#111");
-    rimGradient.addColorStop(0.5, "#555");
-    rimGradient.addColorStop(0.75, "#0a0a0a");
-    rimGradient.addColorStop(1, "#000");
-
-    ctx.lineWidth = 14;
-    ctx.strokeStyle = rimGradient;
-    ctx.beginPath();
-    ctx.arc(centerX, centerY, radius - 6, startAngle, endAngle);
-    ctx.stroke();
-
-    // Rim reflection highlight
-    const rimHighlight = ctx.createLinearGradient(
-      centerX - 60,
-      centerY - 80,
-      centerX + 60,
-      centerY + 100,
-    );
-    rimHighlight.addColorStop(0, "rgba(255,255,255,0.05)");
-    rimHighlight.addColorStop(0.5, "rgba(255,255,255,0.25)");
-    rimHighlight.addColorStop(1, "rgba(255,255,255,0.05)");
-    ctx.lineWidth = 2;
-    ctx.strokeStyle = rimHighlight;
-    ctx.beginPath();
-    ctx.arc(centerX, centerY, radius - 6, startAngle + 0.05, endAngle - 0.05);
-    ctx.stroke();
-
-    // ===== Scale Base (Deep Metal Groove) =====
-    const scaleGradient = ctx.createLinearGradient(
-      0,
-      centerY - radius,
-      0,
-      centerY + radius,
-    );
-    scaleGradient.addColorStop(0, "#111");
-    scaleGradient.addColorStop(0.5, "#080808");
-    scaleGradient.addColorStop(1, "#000");
-    ctx.strokeStyle = scaleGradient;
-    ctx.lineWidth = 18;
-    ctx.beginPath();
-    ctx.arc(centerX, centerY, radius - 15, startAngle, endAngle);
-    ctx.stroke();
-
-    // ===== Color Segments =====
-    const totalSegments = 32;
-    const segmentGap = 0.008;
-    const segmentWidth = totalSweep / totalSegments - segmentGap;
-
-    for (let i = 0; i < totalSegments; i++) {
-      const segmentProgress = i / totalSegments;
-      const segStart =
-        startAngle + (i * totalSweep) / totalSegments + segmentGap / 2;
-      const segEnd = segStart + segmentWidth;
-
-      let color1, color2;
-      if (segmentProgress < 0.56) {
-        const blueProgress = segmentProgress / 0.56;
-        color1 = `rgb(${Math.floor(0 + blueProgress * 20)}, ${Math.floor(120 - blueProgress * 20)}, ${Math.floor(200 - blueProgress * 40)})`;
-        color2 = `rgb(${Math.floor(0 + blueProgress * 20)}, ${Math.floor(100 - blueProgress * 20)}, ${Math.floor(170 - blueProgress * 40)})`;
-      } else {
-        const redProgress = (segmentProgress - 0.56) / 0.44;
-        color1 = `rgb(${Math.floor(255 - redProgress * 40)}, ${Math.floor(50 - redProgress * 40)}, ${Math.floor(50 - redProgress * 40)})`;
-        color2 = `rgb(${Math.floor(200 - redProgress * 40)}, 0, 0)`;
-      }
-
-      const segGradient = ctx.createLinearGradient(
-        centerX + Math.cos(segStart) * radius,
-        centerY + Math.sin(segStart) * radius,
-        centerX + Math.cos(segEnd) * radius,
-        centerY + Math.sin(segEnd) * radius,
-      );
-      segGradient.addColorStop(0, color1);
-      segGradient.addColorStop(1, color2);
-
-      ctx.strokeStyle = segGradient;
-      ctx.lineWidth = 12;
-      ctx.lineCap = "butt";
-      ctx.beginPath();
-      ctx.arc(centerX, centerY, radius - 15, segStart, segEnd);
-      ctx.stroke();
-
-      // Metallic shine line
-      ctx.strokeStyle = "rgba(255,255,255,0.1)";
-      ctx.lineWidth = 1.2;
-      ctx.beginPath();
-      ctx.arc(centerX, centerY, radius - 21, segStart, segEnd);
-      ctx.stroke();
-
-      // Outer dark shadow
-      ctx.strokeStyle = "rgba(0,0,0,0.35)";
-      ctx.lineWidth = 0.6;
-      ctx.beginPath();
-      ctx.arc(centerX, centerY, radius - 9, segStart, segEnd);
-      ctx.stroke();
-    }
-
-    // ===== Major Ticks and Labels =====
-    const labels = ["S1", "3", "5", "7", "9", "+20", "+40", "+60"];
-    const majorMarks = labels.length - 1;
-
-    for (let i = 0; i <= majorMarks; i++) {
-      const angle = startAngle + (i / majorMarks) * totalSweep;
-      const markStart = radius - 26;
-      const markEnd = radius - 38;
-
-      const tickGradient = ctx.createLinearGradient(
-        centerX + Math.cos(angle) * markStart,
-        centerY + Math.sin(angle) * markStart,
-        centerX + Math.cos(angle) * markEnd,
-        centerY + Math.sin(angle) * markEnd,
-      );
-      tickGradient.addColorStop(0, "#ddd");
-      tickGradient.addColorStop(1, "#666");
-
-      ctx.strokeStyle = tickGradient;
-      ctx.lineWidth = 2.5;
-      ctx.beginPath();
-      ctx.moveTo(
-        centerX + Math.cos(angle) * markStart,
-        centerY + Math.sin(angle) * markStart,
-      );
-      ctx.lineTo(
-        centerX + Math.cos(angle) * markEnd,
-        centerY + Math.sin(angle) * markEnd,
-      );
-      ctx.stroke();
-
-      const labelRadius = radius - 55;
-      const labelX = centerX + Math.cos(angle) * labelRadius;
-      const labelY = centerY + Math.sin(angle) * labelRadius;
-
-      ctx.font = "bold 13px 'Courier New', monospace";
-      ctx.textAlign = "center";
-      ctx.textBaseline = "middle";
-      ctx.fillStyle = "rgba(0,0,0,0.9)";
-      ctx.fillText(labels[i], labelX + 1, labelY + 1);
-      ctx.fillStyle = i <= 4 ? "#33bbff" : "#ff9933";
-      ctx.fillText(labels[i], labelX, labelY);
-    }
-
-    // ===== Minor Ticks =====
-    for (let i = 0; i < majorMarks * 2; i++) {
-      if (i % 2 === 1) {
-        const angle = startAngle + (i / (majorMarks * 2)) * totalSweep;
-        const markStart = radius - 26;
-        const markEnd = radius - 33;
-        ctx.strokeStyle = "rgba(160,160,160,0.5)";
-        ctx.lineWidth = 1.2;
-        ctx.beginPath();
-        ctx.moveTo(
-          centerX + Math.cos(angle) * markStart,
-          centerY + Math.sin(angle) * markStart,
-        );
-        ctx.lineTo(
-          centerX + Math.cos(angle) * markEnd,
-          centerY + Math.sin(angle) * markEnd,
-        );
-        ctx.stroke();
-      }
-    }
-
-    // ===== Center Pivot (Dark Metal) =====
-    const pivotOuter = ctx.createRadialGradient(
-      centerX,
-      centerY,
-      0,
-      centerX,
-      centerY,
-      15,
-    );
-    pivotOuter.addColorStop(0, "#666");
-    pivotOuter.addColorStop(0.5, "#222");
-    pivotOuter.addColorStop(1, "#000");
-    ctx.fillStyle = pivotOuter;
-    ctx.beginPath();
-    ctx.arc(centerX, centerY, 15, 0, Math.PI * 2);
-    ctx.fill();
-
-    const pivotInner = ctx.createRadialGradient(
-      centerX - 2,
-      centerY - 2,
-      0,
-      centerX,
-      centerY,
-      9,
-    );
-    pivotInner.addColorStop(0, "#999");
-    pivotInner.addColorStop(1, "#222");
-    ctx.fillStyle = pivotInner;
-    ctx.beginPath();
-    ctx.arc(centerX, centerY, 9, 0, Math.PI * 2);
-    ctx.fill();
-
-    // ===== Needle (Deep Metallic Red) =====
-    const needleLength = radius - 30;
-    ctx.save();
-    ctx.shadowColor = "rgba(0,0,0,0.8)";
-    ctx.shadowBlur = 18;
-    ctx.shadowOffsetX = 3;
-    ctx.shadowOffsetY = 3;
-
-    const needleGradient = ctx.createLinearGradient(
-      centerX,
-      centerY,
-      centerX + Math.cos(needleAngle) * needleLength,
-      centerY + Math.sin(needleAngle) * needleLength,
-    );
-    needleGradient.addColorStop(0, "#660000");
-    needleGradient.addColorStop(0.5, "#cc0000");
-    needleGradient.addColorStop(1, "#ff3333");
-
-    ctx.fillStyle = needleGradient;
-    ctx.beginPath();
-    ctx.moveTo(centerX, centerY);
-    ctx.lineTo(
-      centerX + Math.cos(needleAngle - 0.06) * 35,
-      centerY + Math.sin(needleAngle - 0.06) * 35,
-    );
-    ctx.lineTo(
-      centerX + Math.cos(needleAngle) * needleLength,
-      centerY + Math.sin(needleAngle) * needleLength,
-    );
-    ctx.lineTo(
-      centerX + Math.cos(needleAngle + 0.06) * 35,
-      centerY + Math.sin(needleAngle + 0.06) * 35,
-    );
-    ctx.closePath();
-    ctx.fill();
-    ctx.restore();
-
-    // ===== Center Screw (Dark Chrome) =====
-    const screwGrad = ctx.createRadialGradient(
-      centerX - 2,
-      centerY - 2,
-      0,
-      centerX,
-      centerY,
-      8,
-    );
-    screwGrad.addColorStop(0, "#bbb");
-    screwGrad.addColorStop(0.4, "#444");
-    screwGrad.addColorStop(1, "#111");
-    ctx.fillStyle = screwGrad;
-    ctx.beginPath();
-    ctx.arc(centerX, centerY, 6, 0, Math.PI * 2);
-    ctx.fill();
-
-// ===== LED Windows (dBm & SNR) beneath the center screw =====
-    (function () {
-      const dbm = (typeof window !== "undefined" && typeof window._lastPowerDb === "number") ? Math.round(window._lastPowerDb + 5.5) : null; //correct factor dbm
-      const snr = (typeof window !== "undefined" && typeof window._lastSnr === "number") ? Math.round(window._lastSnr) : (dbm !== null && typeof window !== "undefined" && typeof window._minDbForSnr === "number" ? Math.round(dbm - window._minDbForSnr) : null);
-
-      // Layout
-      const rectW = 40;
-      const rectH = 25;
-      const gap = 10;
-      const baseY = centerY + 18;
-      const leftX = Math.round(centerX - rectW - gap/2);
-      const rightX = Math.round(centerX + gap/2);
-
-      // Helper draw rounded rectangle
-      const rr = (x, y, w, h, r=4) => {
-        ctx.beginPath();
-        ctx.moveTo(x+r, y);
-        ctx.arcTo(x+w, y, x+w, y+h, r);
-        ctx.arcTo(x+w, y+h, x, y+h, r);
-        ctx.arcTo(x, y+h, x, y, r);
-        ctx.arcTo(x, y, x+w, y, r);
-        ctx.closePath();
-      };
-
-      // LED background gradient
-      const ledBg = ctx.createLinearGradient(0, baseY, 0, baseY + rectH);
-      ledBg.addColorStop(0, "#020202");
-      ledBg.addColorStop(1, "#0a0a0a");
-
-      // Left: dBm
-      rr(leftX, baseY, rectW, rectH, 3);
-      ctx.fillStyle = ledBg;
-      ctx.fill();
-      ctx.lineWidth = 1;
-      ctx.strokeStyle = "#0d0d0d";
-      ctx.stroke();
-
-      // Right: SNR
-      rr(rightX, baseY, rectW, rectH, 3);
-      ctx.fillStyle = ledBg;
-      ctx.fill();
-      ctx.strokeStyle = "#0d0d0d";
-      ctx.stroke();
-
-      // Thin inner highlight for definition (per-window)
-      ctx.save();
-      ctx.globalAlpha = 0.10;
-      ctx.strokeStyle = "#ffffff";
-      rr(leftX+0.5, baseY+0.5, rectW-1, rectH-1, 2.5);
-      ctx.stroke();
-      ctx.restore();
-
-      // SNR: dimmer highlight
-      ctx.save();
-      ctx.globalAlpha = 0.10;
-      ctx.strokeStyle = "#ffffff";
-      rr(rightX+0.5, baseY+0.5, rectW-1, rectH-1, 2.5);
-      ctx.stroke();
-      ctx.restore();
-
-     // Inner glow depending on value
-      const glow = (val) => {
-        if (val == null) return "rgba(0,0,0,0)";
-        // Map val to 0..1 for intensity (soft clip around 30 dB)
-        const n = Math.max(0, Math.min(1, (val + 130) / 160)); // for dBm roughly -130..30        
-        const i = 0.08 + 0.32*n; // was 0.08 + 0.32*n
-        return "rgba(180,255,120," + i.toFixed(3) + ")";
-      };
-
-      // Draw glows
-      const grdDbm = ctx.createRadialGradient(leftX+rectW/2, baseY+rectH/2, 2, leftX+rectW/2, baseY+rectH/2, rectW);
-      grdDbm.addColorStop(0, glow(dbm));
-      grdDbm.addColorStop(1, "rgba(0,0,0,0)");
-      ctx.fillStyle = grdDbm;
-      rr(leftX, baseY, rectW, rectH, 3); ctx.fill();
-
-      // SNR glow
-      const glowSnr = (val) => {
-        if (val == null) return "rgba(0,0,0,0)";
-        const n = Math.max(0, Math.min(1, (val + 130) / 160));
-        const i = 0.05 + 0.20*n; // // was 0.05 + 0.20*n
-        return "rgba(180,255,120," + i.toFixed(3) + ")";
-      };
-
-      const grdSnr = ctx.createRadialGradient(rightX+rectW/2, baseY+rectH/2, 2, rightX+rectW/2, baseY+rectH/2, rectW);
-      grdSnr.addColorStop(0, glowSnr(snr));
-      grdSnr.addColorStop(1, "rgba(0,0,0,0)");
-      ctx.fillStyle = grdSnr;
-      rr(rightX, baseY, rectW, rectH, 3); ctx.fill();
-      
-      // Labels and values
-      ctx.font = "12px system-ui, -apple-system, Segoe UI, Roboto, sans-serif";
-      ctx.textAlign = "center";
-      ctx.textBaseline = "middle";
-
-      ctx.fillStyle = "#7acb97";
-      ctx.fillText("dBm", leftX + rectW/2, baseY + 6);
-      ctx.fillStyle = "#6bb688";
-      ctx.fillText("SNR", rightX + rectW/2, baseY + 6);
-      ctx.fillStyle = "#d6fbe3";
-      const dTxt = (dbm != null ? (dbm > 0 ? "+"+dbm : ""+dbm) : "--");
-      const sTxt = (snr != null ? (snr + " dB") : "--");
-      ctx.font = "12px system-ui, -apple-system, Segoe UI, Roboto, sans-serif";
-      ctx.fillText(dTxt, leftX + rectW/2, baseY + rectH - 7);
-      ctx.fillText(sTxt, rightX + rectW/2, baseY + rectH - 7);
-    })();
-
-
-    ctx.strokeStyle = "#111";
-    ctx.lineWidth = 1.5;
-    ctx.beginPath();
-    ctx.moveTo(centerX - 4, centerY);
-    ctx.lineTo(centerX + 4, centerY);
-    ctx.stroke();
-
-    ctx.fillStyle = "rgba(255,255,255,0.4)";
-    ctx.beginPath();
-    ctx.arc(centerX - 1, centerY - 1, 2, 0, Math.PI * 2);
-    ctx.fill();
-  }
-
-  // --- Mobile version of S-Meter (injected, refined) ---
-  function drawSMeterMobile(value) {
-    const canvas = document.getElementById("sMeterMobile");
-    if (!canvas) return;
-    const ctx = canvas.getContext("2d");
-
-    // Apply class for mobile styling
-    canvas.classList.add("sMeterMobile");
 
     canvas.width = 300;
     canvas.height = 40;
@@ -3189,10 +2668,10 @@ function _animateNeedle(ts) {
 
     const segmentWidth = 6;
     const segmentGap = 3;
-    const segmentHeight = 6;
-    const lineY = 10;
-    const labelY = 18;
-    const tickHeight = 4;
+    const segmentHeight = 8;
+    const lineY = 15;
+    const labelY = 25;
+    const tickHeight = 5;
     const longTickHeight = 5;
 
     const s9Position = width / 2;
@@ -3220,7 +2699,7 @@ function _animateNeedle(ts) {
       ctx.fillRect(x, 0, segmentWidth, segmentHeight);
     }
 
-    ctx.font = "10px monospace";
+    ctx.font = "11px monospace";
     ctx.textAlign = "center";
 
     const labels = ["S1", "3", "5", "7", "9", "+20", "+40", "+60dB"];
@@ -3230,9 +2709,9 @@ function _animateNeedle(ts) {
       ctx.fillStyle = x <= s9Position ? "#a3eced" : "#d9191c";
 
       if (i % 2 === 1) {
-        ctx.fillRect(x, lineY, 1, longTickHeight + 1);
+        ctx.fillRect(x, lineY, 1, longTickHeight + 2);
         if ((i - 1) / 2 < labels.length) {
-          ctx.fillText(labels[(i - 1) / 2], x, labelY + 5);
+          ctx.fillText(labels[(i - 1) / 2], x, labelY + 8);
         }
       } else {
         ctx.fillRect(x, lineY, 1, tickHeight);
@@ -3240,35 +2719,16 @@ function _animateNeedle(ts) {
     }
   }
 
-  // --- Wrapper: switches between Desktop and Mobile implementations ---
-  function drawSMeter(value) {
-    if (typeof Device !== "undefined" && Device && Device.isMobile) {
-      // Map 0–100 power to 0–30 segments for the bar
-      const segments = Math.max(0, Math.min(30, Math.round(value * 0.3)));
-      return drawSMeterMobile(segments);
-    }
-    return drawSMeterDesktop(value);
-  }
+  function setSignalStrength(db) {
+    db = Math.min(Math.max(db, -100), 0);
 
-  function setSignalStrength(power) {
-    power = Math.min(Math.max(power, 0), 100);
+    const DIGITAL_BAR_TRIM = 0; // 👉 Trimm bars in digital smeter
+    const activeSegments = Math.max(
+      0,
+      Math.min(numberOfDots, Math.round(((db + 100) * numberOfDots) / 100) + DIGITAL_BAR_TRIM)
+    );
 
-    let calibratedPower;
-
-    if (power < 10) {
-      calibratedPower = power * 0.3;
-    } else if (power < 40) {
-      calibratedPower = 3 + (power - 10) * 0.8;
-    } else if (power < 70) {
-      calibratedPower = 27 + (power - 40) * 1.0;
-    } else {
-      calibratedPower = 57 + (power - 70) * 1.43;
-    }
-
-    const analogTrim = Number(audio?.smeter_offset ?? 0);
-    calibratedPower = Math.max(0, Math.min(100, calibratedPower + analogTrim));
-
-    drawSMeter(calibratedPower);
+    drawSMeter(activeSegments);
   }
 
   function handleWheel(node) {
@@ -3321,6 +2781,7 @@ function _animateNeedle(ts) {
       },
     };
   }
+
 
   // Auto-focus helper action used by the frequency manual input
   function focusOnMount(node) {
@@ -3419,8 +2880,16 @@ function _animateNeedle(ts) {
       if (selectedDigitIdx < 0) { return; }
       var delta = e.key === "ArrowUp" ? 1 : -1;
       var step = DIGIT_POWERS_HZ[selectedDigitIdx];
-      var frequencyHz = Math.round((parseFloat(frequency) || 0) * 1e3);
-      frequencyHz = Math.max(0, frequencyHz + delta * step);
+      var frequencyHz = Math.round(parseFloat(frequency) * 1e3);
+      var remainder = frequencyHz % step;
+      if (remainder === 0) {
+        frequencyHz = frequencyHz + delta * step;
+      } else if (delta > 0) {
+        frequencyHz = Math.ceil(frequencyHz / step) * step;
+      } else {
+        frequencyHz = Math.floor(frequencyHz / step) * step;
+      }
+      frequencyHz = Math.max(0, frequencyHz);
       frequency = (frequencyHz / 1e3).toFixed(2);
       dispatchFrequencyDebounced(frequencyHz); // FIX [2]
     } else if (e.key === "ArrowLeft") {
@@ -3459,7 +2928,14 @@ function _animateNeedle(ts) {
       if (selectedDigitIdx >= 0) {
         // Digit-specific tuning
         step = DIGIT_POWERS_HZ[selectedDigitIdx];
-        frequencyHz = frequencyHz + delta * step;
+        var remainder = frequencyHz % step;
+        if (remainder === 0) {
+          frequencyHz = frequencyHz + delta * step;
+        } else if (delta > 0) {
+          frequencyHz = Math.ceil(frequencyHz / step) * step;
+        } else {
+          frequencyHz = Math.floor(frequencyHz / step) * step;
+        }
       } else {
         // No digit selected — fall back to default step tuning
         step = currentTuneStep || (isAltPressed ? 10000 : isShiftPressed ? 1000 : defaultStep);
@@ -3505,16 +2981,7 @@ function _animateNeedle(ts) {
   // ── End digit tuning ─────────────────────────────────────────────────────
 
   // Bandwidth offset controls
-  let bandwithoffsets = [
-    "-1000",
-    "-500",
-    "-200",
-    "-100",
-    "+100",
-    "+200",
-    "+500",
-    "+1000",
-  ];
+  let bandwithoffsets = ["-1000", "-500", "-200", "-100", "+100", "+200", "+500", "+1000"];
   function handleBandwidthOffsetClick(bandwidthoffset) {
     bandwidthoffset = parseFloat(bandwidthoffset);
     const demodulationDefault = demodulationDefaults[demodulation].type;
@@ -3524,22 +2991,14 @@ function _animateNeedle(ts) {
     } else if (demodulationDefault === "LSB") {
       l = Math.max(m - getMaximumBandwidth(), Math.min(m, l - bandwidthoffset));
     } else {
-      r = Math.max(
-        0,
-        Math.min(m + getMaximumBandwidth() / 2, r + bandwidthoffset / 2),
-      );
-      l = Math.max(
-        m - getMaximumBandwidth() / 2,
-        Math.min(m, l - bandwidthoffset / 2),
-      );
+      r = Math.max(0, Math.min(m + getMaximumBandwidth() / 2, r + bandwidthoffset / 2));
+      l = Math.max(m - getMaximumBandwidth() / 2, Math.min(m, l - bandwidthoffset / 2));
     }
     let audioParameters = [l, m, r].map(frequencyToFFTOffset);
     const lOffset = l - 200;
     const mOffset = m - 750;
     const rOffset = r - 200;
-    const audioParametersOffset = [lOffset, mOffset, rOffset].map(
-      frequencyToFFTOffset,
-    );
+    const audioParametersOffset = [lOffset, mOffset, rOffset].map(frequencyToFFTOffset);
 
     audio.setAudioRange(...audioParameters, ...audioParametersOffset);
     updatePassband();
@@ -3658,23 +3117,25 @@ function _animateNeedle(ts) {
   // near the middle of this file and it's triggered //
   // by the -2 value. //
 
-  function initBandButton(Kcps) {
-    frequency = Kcps;
-    if (currentBand == -2) {
-      for (var i = 0; i < bandArray.length; i++) {
-        if (
-          frequency >= bandArray[i].startFreq / 1000 &&
-          frequency <= bandArray[i].endFreq / 1000 &&
-          (bandArray[i].ITU === siteRegion || bandArray[i].ITU === 123)
-        ) {
+ function initBandButton(Kcps) {
+ frequency = Kcps;
+ if (currentBand == -2)
+  {  for (var i = 0; i < bandArray.length; i++) {
+      if (
+        frequency >= bandArray[i].startFreq / 1000 &&
+        frequency <= bandArray[i].endFreq / 1000 &&
+        (bandArray[i].ITU === siteRegion || bandArray[i].ITU === 123)
+      )
+        {
           currentBand = i;
-          bandName = bandArray[i].name;
+	  bandName = bandArray[i].name;
         }
-      }
-    }
+     }
   }
+ }
 
-  // amkamk
+// amkamk
+
 
   // This function was added to track band changes //
   // and makes the band buttons track along with frequency //
@@ -3691,10 +3152,16 @@ function _animateNeedle(ts) {
       ) {
         currentBand = i;
         newStaticBandwidth = 0; // To reset the IF Filter button //
+        /* if (bandArray[i].max < 256) {
+          min_waterfall = bandArray[i].min;
+          max_waterfall = bandArray[i].max;
+          handleMinMove();
+          handleMaxMove();
+        }*/
         if (prevBand != currentBand) {
           currentTuneStep = bandArray[i].stepi;
         }
-        bandName = bandArray[i].name;
+	bandName = bandArray[i].name;
       }
     }
     prevBand = currentBand;
@@ -3705,34 +3172,11 @@ function _animateNeedle(ts) {
   //
   let updateInterval;
   let lastUpdated = 0;
+  let _smeterRaf = null;
 
   function _smeterTick() {
-    let powerDb = audio.getPowerDb();
-    const visualGain = 1.20;
-    const minDb = -130;
-    const s9Db = -73;
-    const maxDb = -13;
-    powerDb = minDb + (powerDb - minDb) * visualGain;
-    let power;
-    if (powerDb < minDb) {
-      power = 0;
-    } else if (powerDb < s9Db) {
-      const norm = (powerDb - minDb) / (s9Db - minDb);
-      const curved = Math.pow(norm, 0.6);
-      power = curved * 60;
-    } else {
-      const norm = (powerDb - s9Db) / (maxDb - s9Db);
-      const curved = Math.pow(norm, 0.8);
-      power = 60 + curved * 40;
-    }
-    power = Math.min(Math.max(power, 0), 100);
-    powerPeak = accumulator(power);
-    try {
-      window._lastPowerDb = powerDb;
-      window._minDbForSnr = minDb;
-      window._lastPowerDisplay = power;
-      window._lastSnr = (typeof powerDb === "number" && typeof minDb === "number") ? (powerDb - minDb) : undefined;
-    } catch (e) {}
+    power = (audio.getPowerDb() / 150) * 100 + audio.smeter_offset;
+    powerPeak = (accumulator(power) / 150) * 100 + audio.smeter_offset;
     setSignalStrength(power);
     _smeterRaf = requestAnimationFrame(_smeterTick);
   }
@@ -3833,7 +3277,6 @@ function _animateNeedle(ts) {
 
     const bookmark = {
       name: newBookmarkName,
-      label: newBookmarkLabel,
       link: link,
       frequency: frequencyInputComponent.getFrequency(),
       demodulation: demodulation,
@@ -3903,26 +3346,26 @@ function _animateNeedle(ts) {
     }
 
     // Set Noise Reduction
-    audio.decoder.set_nr(false);
+    if (audio && audio.decoder && typeof audio.decoder.set_nr === 'function') audio.decoder.set_nr(false);
     NREnabled = bookmark.NREnabled;
     if (audio) {
       audio.nrEnabled = NREnabled;
     }
-    audio.decoder.set_nr(NREnabled);
+    if (audio && audio.decoder && typeof audio.decoder.set_nr === 'function') audio.decoder.set_nr(NREnabled);
 
     // Set Noise Blanker
-    audio.decoder.set_nb(false);
+    if (audio && audio.decoder && typeof audio.decoder.set_nb === 'function') audio.decoder.set_nb(false);
     NBEnabled = bookmark.NBEnabled;
     if (audio) {
       audio.nbBlankerEnabled = NBEnabled;
       audio.nbEnabled = NBEnabled;
     }
-    audio.decoder.set_nb(NBEnabled);
+    if (audio && audio.decoder && typeof audio.decoder.set_nb === 'function') audio.decoder.set_nb(NBEnabled);
 
     // Set Auto Notch
-    audio.decoder.set_an(false);
+    if (audio && audio.decoder && typeof audio.decoder.set_an === 'function') audio.decoder.set_an(false);
     ANEnabled = bookmark.ANEnabled;
-    audio.decoder.set_an(ANEnabled);
+    if (audio && audio.decoder && typeof audio.decoder.set_an === 'function') audio.decoder.set_an(ANEnabled);
 
     // Set CTCSS
     CTCSSSupressEnabled = false;
@@ -4013,7 +3456,7 @@ function _animateNeedle(ts) {
       return;
     }
 
-    const fileExtension = file.name.split(".").pop().toLowerCase();
+    const fileExtension = file.name.split('.').pop().toLowerCase();
     if (fileExtension === "json") {
       // If the file is a JSON
       processJSON(file);
@@ -4041,7 +3484,7 @@ function _animateNeedle(ts) {
         console.log("Extracted Link:", extractedLink);
         console.log("Extracted Port:", extractedPort);
 
-        const updatedBookmarks = uploadedBookmarks.map((bookmark) => {
+        const updatedBookmarks = uploadedBookmarks.map(bookmark => {
           if (bookmark.link) {
             const bookmarkUrl = new URL(bookmark.link);
             const link_to_be_checked = bookmarkUrl.hostname;
@@ -4050,8 +3493,7 @@ function _animateNeedle(ts) {
               bookmarkUrl.port = extractedPort;
               bookmark.link = bookmarkUrl.toString();
 
-              bookmark.currentWaterfallR =
-                waterfall.waterfallMaxSize.toString();
+              bookmark.currentWaterfallR = waterfall.waterfallMaxSize.toString();
               bookmark.currentWaterfallL = "1".toString();
             }
           }
@@ -4078,7 +3520,7 @@ function _animateNeedle(ts) {
     reader.readAsText(file);
   }
 
-  // Function to process CSV files
+ // Function to process CSV files
   function processCSV(file) {
     const rightEdge = waterfall.waterfallMaxSize;
     const reader = new FileReader();
@@ -4091,7 +3533,7 @@ function _animateNeedle(ts) {
       try {
         const csvData = event.target.result;
         // Split by LF (Line Feed) to separate rows in the CSV
-        const rows = csvData.split("\n").filter((row) => row.trim() !== ""); // Split by LF
+        const rows = csvData.split('\n').filter(row => row.trim() !== ''); // Split by LF
         console.log("Raw CSV data after splitting by LF:", rows);
         // Skip the header row manually, as it's the first line
         rows.shift();
@@ -4129,7 +3571,8 @@ function _animateNeedle(ts) {
             waterfallDisplay: true, // default
             spectrumDisplay: false, // default
             currentBandwidth: 0, // default
-            staticBandwidthEnabled: false, // default
+            staticBandwidthEnabled: false // default
+
           };
         });
         console.log("bookmarksFromCSV:", bookmarksFromCSV);
@@ -4193,6 +3636,7 @@ function _animateNeedle(ts) {
 
   //end of amkbookmarks
 
+
   let showBookmarkPopup,
     showModePopup,
     showBandPopup,
@@ -4237,12 +3681,13 @@ function _animateNeedle(ts) {
       handleFrequencyChange({ detail: vfoBFrequency });
       frequencyMarkerComponent.updateFrequencyMarkerPositions();
       updatePassband();
-      //      handleBandChangePopup(currentBand)
+//      handleBandChangePopup(currentBand)
       min_waterfall = parseInt(bandArray[currentBand].min);
       max_waterfall = parseInt(bandArray[currentBand].max);
       handleMinMove();
       handleMaxMove();
-      ////      updateBandButton();
+////      updateBandButton();
+
     }
     if (!vfoModeA) {
       vfo = "VFO A";
@@ -4258,7 +3703,7 @@ function _animateNeedle(ts) {
       handleFrequencyChange({ detail: vfoAFrequency });
       frequencyMarkerComponent.updateFrequencyMarkerPositions();
       updatePassband();
-      //      handleBandChangePopup(currentBand)
+//      handleBandChangePopup(currentBand)
       min_waterfall = parseInt(bandArray[currentBand].min);
       max_waterfall = parseInt(bandArray[currentBand].max);
       handleMinMove();
@@ -4267,7 +3712,7 @@ function _animateNeedle(ts) {
     vfoModeA = !vfoModeA;
     handleFineTuningStep(0); // Needed for a waterfall bug //
   }
-
+  
   let backendPromise;
   onMount(async () => {
     loadWaterfallDirection();
@@ -4363,7 +3808,7 @@ function _animateNeedle(ts) {
     }
 
     updateInterval = setInterval(() => requestAnimationFrame(updateTick), 200);
-    _smeterTick();
+    _smeterTick()
 
     window["spectrumAudio"] = audio;
     window["spectrumWaterfall"] = waterfall;
@@ -4437,6 +3882,16 @@ function _animateNeedle(ts) {
       unsubscribeSetMode,
     ].filter((fn) => typeof fn === "function");
 
+    return () => {
+      window.removeEventListener("resize", setWidth);
+      eventBusUnsubscribers.forEach((unsubscribe) => {
+        try {
+          unsubscribe();
+        } catch (e) {}
+      });
+      eventBusUnsubscribers = [];
+    };
+
     // =========================================================
     // CATsync API — installed after backend is ready
     // =========================================================
@@ -4448,7 +3903,7 @@ function _animateNeedle(ts) {
     };
 
     window.catsync_getMode = function () {
-      return demodulation || null;  // "USB", "LSB", ...
+      return demodulation || null;
     };
 
     window.catsync_setFrequency = function (hz) {
@@ -4498,11 +3953,9 @@ function _animateNeedle(ts) {
     // Internal implementations called by the early index.html shim
     window.__catsync_setfreq_impl = function (hz) {
       if (!frequencyInputComponent || !frequencyInputComponent.setFrequency) return false;
-      // Idempotent: skip if same frequency — prevents audio stutter from polling
       if (__catsync_last_applied_hz === hz) return true;
       __catsync_last_applied_hz = hz;
       frequencyInputComponent.setFrequency(hz);
-      // Pass __catsync_remote so handleFrequencyChange won't re-notify CATsync
       handleFrequencyChange({ detail: hz, __catsync_remote: true });
       window.__catsync_state = window.__catsync_state || { hz: null, mode: null };
       window.__catsync_state.hz = hz;
@@ -4526,15 +3979,6 @@ function _animateNeedle(ts) {
       if (__catsync_cmd.t === "mode") window.__catsync_setmode_impl(__catsync_cmd.mode);
     }
 
-    return () => {
-      window.removeEventListener("resize", setWidth);
-      eventBusUnsubscribers.forEach((unsubscribe) => {
-        try {
-          unsubscribe();
-        } catch (e) {}
-      });
-      eventBusUnsubscribers = [];
-    };
   });
 
   function sendMessage() {
@@ -4544,16 +3988,16 @@ function _animateNeedle(ts) {
         message: newMessage.trim(),
         username: username,
       };
-      socket.send(JSON.stringify(messageObject));
-      newMessage = "";
-      scrollToBottom();
+    socket.send(JSON.stringify(messageObject));
+    newMessage = "";
+    scrollToBottom();
+      }
     }
-  }
 
   function stripText(s) {
-    let badStrings = ["777", "chmod", ".sh", "chown", "tftp"];
-    let fixedStrings = new RegExp("\\b(" + badStrings.join("|") + ")\\b", "g");
-    return (s || "").replace(fixedStrings, "").replace(/[ ]{2,}/, " ");
+    let badStrings = ['777', 'chmod', '.sh', 'chown', 'tftp'];
+    let fixedStrings = new RegExp('\\b(' + badStrings.join('|') + ')\\b', 'g');
+    return (s || '').replace(fixedStrings, '').replace(/[ ]{2,}/, ' ');
   }
 
   function pasteFrequency() {
@@ -4858,11 +4302,12 @@ function _animateNeedle(ts) {
   }
 }
 
-  // by sv2amkzoom
+
+// by sv2amkzoom 
   // Added by sv2amk to allow the user to adjust the zoom //
   // with a button and a slider but in mobile version only //
 
-  function handleZoomStepMove(e, newZoomStep) {
+  function handleZoomStepMove(e,newZoomStep) {
     if (newZoomStep > 8) {
       newZoomStep = 1;
     }
@@ -4874,7 +4319,7 @@ function _animateNeedle(ts) {
     }
     switch (zoomStep) {
       case 1:
-        handleWaterfallMagnify(e, "min");
+	handleWaterfallMagnify(e, "min");
         break;
       case 2:
         zwaterfallSpan = 16384;
@@ -4905,15 +4350,15 @@ function _animateNeedle(ts) {
         handleZoomStepMagnify();
         break;
       case 9:
-        handleWaterfallMagnify(e, "min");
-        for (var i = 0; i <= 5 * zoomStep; i++) {
-          handleWaterfallMagnify(e, "+");
-        }
+	handleWaterfallMagnify(e, "min");
+	 for (var i = 0; i <= 5*zoomStep; i++) {
+	  handleWaterfallMagnify(e, "+");
+	 }
         break;
     }
   }
-
-  // by sv2amkzoom
+  
+  // by sv2amkzoom 
   // This Band Selection function handles band changes sent from the Band Selection section of the main page //
   // The 7.15255 float below is (total_watefall_span / maximum_frequency_sampled) //
   function handleBandChangePopup(newBand) {
@@ -4925,12 +4370,8 @@ function _animateNeedle(ts) {
     min_waterfall = parseInt(bandArray[newBand].min);
     max_waterfall = parseInt(bandArray[newBand].max);
 
-    let waterfallEndSpan = parseFloat(
-      bandArray[newBand].endFreq / (waterfall.sps / waterfall.fftSize),
-    );
-    let waterfallStartSpan = parseFloat(
-      bandArray[newBand].startFreq / (waterfall.sps / waterfall.fftSize),
-    );
+    let waterfallEndSpan = parseFloat(bandArray[newBand].endFreq / (waterfall.sps/waterfall.fftSize));
+    let waterfallStartSpan = parseFloat(bandArray[newBand].startFreq / (waterfall.sps/waterfall.fftSize));
     let waterfallSpan = (waterfallEndSpan - waterfallStartSpan) / 2;
     waterfallSpan = waterfallSpan + waterfallSpan * 0.01; // 10% above band edge
     frequencyInputComponent.setFrequency(centerFreq);
@@ -4952,9 +4393,7 @@ function _animateNeedle(ts) {
     l -= waterfallSpan;
     r += waterfallSpan;
 
-    if (initFreq) {
-      centerFreq = initFreq;
-    }
+    if (initFreq) { centerFreq = initFreq; }
 
     frequencyInputComponent.setFrequency(centerFreq);
     handleFrequencyChange({ detail: centerFreq });
@@ -4968,7 +4407,7 @@ function _animateNeedle(ts) {
   }
   // End of Band Selection Function //
 
-  // by sv2amkzoom
+  // by sv2amkzoom 
   // This Band Selection function handles band changes sent from the Band Selection section of the main page //
   // The 7.15255 float below is (total_watefall_span / maximum_frequency_sampled) //
   function handleBandChange(newBand) {
@@ -4980,12 +4419,8 @@ function _animateNeedle(ts) {
     min_waterfall = parseInt(bandArray[newBand].min);
     max_waterfall = parseInt(bandArray[newBand].max);
 
-    let waterfallEndSpan = parseFloat(
-      bandArray[newBand].endFreq / (waterfall.sps / waterfall.fftSize),
-    );
-    let waterfallStartSpan = parseFloat(
-      bandArray[newBand].startFreq / (waterfall.sps / waterfall.fftSize),
-    );
+    let waterfallEndSpan = parseFloat(bandArray[newBand].endFreq / (waterfall.sps/waterfall.fftSize));
+    let waterfallStartSpan = parseFloat(bandArray[newBand].startFreq / (waterfall.sps/waterfall.fftSize));
     let waterfallSpan = (waterfallEndSpan - waterfallStartSpan) / 2;
     waterfallSpan = waterfallSpan + waterfallSpan * 0.01; // 10% above band edge
     frequencyInputComponent.setFrequency(centerFreq);
@@ -5007,18 +4442,17 @@ function _animateNeedle(ts) {
     l -= waterfallSpan;
     r += waterfallSpan;
 
-    if (initFreq) {
-      centerFreq = initFreq;
-    }
+    if (initFreq) { centerFreq = initFreq; }
 
     frequencyInputComponent.setFrequency(centerFreq);
     handleFrequencyChange({ detail: centerFreq });
     waterfall.setWaterfallRange(l, r);
     frequencyMarkerComponent.updateFrequencyMarkerPositions();
     updatePassband();
-    currentBand = newBand;
+    currentBand = newBand;    
   }
   // End of Band Selection Function //
+
 
   // This function by sv2amk handles the magnification of the waterfall //
   // according to the magnification factor -zwaterfallSpan- comming from the  //
@@ -5026,6 +4460,7 @@ function _animateNeedle(ts) {
   // according to the currentBand. //
 
   function handleZoomStepMagnify() {
+
     min_waterfall = parseInt(bandArray[currentBand].min);
     max_waterfall = parseInt(bandArray[currentBand].max);
     let [l, m, r] = audio.getAudioRange();
@@ -5044,7 +4479,8 @@ function _animateNeedle(ts) {
     updatePassband();
   }
 
-  // End of zoom slider magnification  Function by sv2amk//
+ // End of zoom slider magnification  Function by sv2amk//
+
 
   // Function to publish bandwidth buttons //
   let newBandwidth = [
@@ -5147,32 +4583,6 @@ function _animateNeedle(ts) {
     }
   }
 
-  // === dBm Visual Correction (display-only, module-scope) ===
-  let dBmVisualOffset = 0;
-  try {
-    const savedVis = localStorage.getItem("dbmVisualOffset");
-    if (savedVis !== null && !isNaN(parseFloat(savedVis))) dBmVisualOffset = parseFloat(savedVis);
-  } catch (_) {}
-
-  // Display-only correction in dB for the dBm LED (does not affect SNR or needle)
-  function setDbmVisual(offsetDb) {
-    dBmVisualOffset = Number(offsetDb) || 0;
-    try { localStorage.setItem("dbmVisualOffset", String(dBmVisualOffset)); } catch (_) {}
-    // Update cached visual value immediately
-    try {
-      if (typeof window !== 'undefined' && typeof window._lastPowerDb === 'number') {
-        const cal = (typeof dBmCalOffset === 'number' ? dBmCalOffset : 0);
-        window._lastPowerDbVisual = window._lastPowerDb + cal + dBmVisualOffset;
-      }
-    } catch (_) {}
-    // Redraw with the last displayed power
-    try {
-      const pwr = (typeof window !== 'undefined' && typeof window._lastPowerDisplay === 'number') ? window._lastPowerDisplay : 0;
-      requestAnimationFrame(function() { drawSMeter(pwr); });
-    } catch (_) {}
-  }
-  try { window.setDbmVisual = setDbmVisual; } catch (_) {}
-
   // ── DX Cluster Widget ────────────────────────────────────────────────────
   let dxSpots = [];
   let dxBandFilter = 'ALL';
@@ -5188,13 +4598,14 @@ function _animateNeedle(ts) {
     '12': '24MHz',   '10': '28MHz',  '6':  '50MHz',
   };
 
-
-  
-  // DX spots come from the local backend endpoint to avoid public CORS proxies.
-  // The backend normalizes upstream data into a JSON array.
+  // DX Summit JSON API. Call^Frequency^Date/Time^Spotter^Comment^LoTW^eQSL^Continent^Band^Country
+  // NOTE: dxsummit.fi is HTTP-only (no HTTPS). A direct browser fetch from an
+  // HTTPS page is blocked as mixed content, so we always go through a CORS
+  // proxy which fetches HTTP server-side and returns it over HTTPS.
   function buildDXUrl() {
-    const band = dxBandFilter === 'ALL' ? '' : `&band=${encodeURIComponent(dxBandFilter)}`;
-    return `/api/dxspots?limit=30${band}&_t=${Date.now()}`;
+    const band = dxBandFilter === 'ALL' ? '' : `&include=${DX_BAND_FREQ[dxBandFilter]}`;
+    // http:// intentional — dxsummit.fi has no HTTPS endpoint
+    return `http://www.dxsummit.fi/api/v1/spots?limit=30${band}&_t=${Date.now()}`;
   }
 
   function freqToBand(f) {
@@ -5223,68 +4634,74 @@ function _animateNeedle(ts) {
   }
 
   function parseDXJSON(data) {
-    return (Array.isArray(data) ? data : [])
-      .filter(s => s && s.dx_call && Number(s.frequency) > 0 && Number(s.frequency) < 60000)
+    return data
+      .filter(s => s.dx_call && s.frequency > 0 && s.frequency < 60000)
       .map(s => ({
-        dx:      String(s.dx_call  || '').trim(),
-        spotter: String(s.de_call  || '').trim().replace(/-@$/, ''),
+        dx:      (s.dx_call  || '').trim(),
+        spotter: (s.de_call  || '').trim().replace(/-@$/, ''),
         freq:    String(s.frequency),
         time:    s.time || '',
-        timeUtc: String(s.time_utc_hhmm || '').trim(),
         comment: s.info || '',
         mode:    detectMode(s.info),
-        band:    freqToBand(Number(s.frequency)),
+        band:    freqToBand(s.frequency),
         country: s.dx_country || '',
       }));
   }
 
   async function tryFetch(url) {
     var _dxAbort = new AbortController();
-    var _dxTimer = setTimeout(function() { _dxAbort.abort(); }, 10000);
-    try {
-      const res = await fetch(url, {
-        signal: _dxAbort.signal,
-        cache: 'no-store',
-        headers: { 'Accept': 'application/json' }
-      });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      return res.json();
-    } finally {
-      clearTimeout(_dxTimer);
-    }
+    var _dxTimer = setTimeout(function() { _dxAbort.abort(); }, 8000);
+    const res = await fetch(url, { signal: _dxAbort.signal, cache: 'no-store' });
+    clearTimeout(_dxTimer);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return res.text();
   }
 
   async function fetchDXSpots() {
     dxLoading = true;
     dxError = null;
-    const url = buildDXUrl();
-    try {
-      const data = await tryFetch(url);
-      const spots = parseDXJSON(data);
-      dxSpots = spots;
-      dxError = spots.length ? null : 'No spots returned by backend.';
-    } catch (e) {
-      dxError = 'Could not load spots from local backend (' + (e && e.message ? e.message : 'unknown') + ').';
-      dxSpots = [];
-    } finally {
-      dxLoading = false;
+    const target = buildDXUrl();
+    // dxsummit.fi is HTTP-only; browser blocks direct fetch from HTTPS pages.
+    // Route through CORS proxies (server-side fetch, returned over HTTPS).
+    const proxies = [
+      `https://corsproxy.io/?url=${encodeURIComponent(target)}`,
+      `https://api.allorigins.win/raw?url=${encodeURIComponent(target)}`,
+      `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(target)}`,
+    ];
+    let lastErr = null;
+    for (const url of proxies) {
+      try {
+        const text = await tryFetch(url);
+        const data = JSON.parse(text);
+        const spots = parseDXJSON(Array.isArray(data) ? data : []);
+        if (spots.length > 0) {
+          dxSpots = spots;
+          dxError = null;
+          dxLoading = false;
+          return;
+        }
+        lastErr = new Error('Empty response');
+      } catch (e) {
+        lastErr = e;
+      }
     }
+    dxError = 'Could not load spots (' + (lastErr && lastErr.message ? lastErr.message : 'unknown') + '). Check browser console.';
+    dxSpots = [];
+    dxLoading = false;
   }
 
-
   // Tune waterfall to a DX spot frequency (kHz → Hz),
-  // zoom into the band and apply the band's brightness settings —
-  // mirrors handleBandChange() but centres on the spot frequency.
+  // zoom into the band and apply the band's brightness settings.
   function tuneToDXFrequency(freqKhz) {
     const hz = parseFloat(freqKhz) * 1000;
     if (isNaN(hz) || hz <= 0) return;
     try {
-      // ── 1. Tune frequency display + audio passband ──────────────────────
+      // 1. Tune frequency display + audio passband
       frequencyInputComponent.setFrequency(hz);
       handleFrequencyChange({ detail: hz });
       updatePassband();
 
-      // ── 2. Find the matching band (same lookup used everywhere else) ─────
+      // 2. Find the matching band
       const freqKHz = hz / 1000;
       let bandIdx = -1;
       for (let i = 0; i < bandArray.length; i++) {
@@ -5296,42 +4713,42 @@ function _animateNeedle(ts) {
           break;
         }
       }
-      if (bandIdx < 0) return; // frequency outside any known band – just tune
+      if (bandIdx < 0) return;
 
       const band = bandArray[bandIdx];
 
-      // ── 3. Disable auto-adjust so it cannot override the band brightness ─
+      // 3. Disable auto-adjust so it cannot override the band brightness
       if (autoAdjustEnabled) {
         autoAdjustEnabled = false;
         waterfall.autoAdjust = false;
         storeWaterfallSettings = false;
       }
+      // Also disable legacy AutoAdjust if active
       if (typeof AutoAdjustEnabled !== 'undefined' && AutoAdjustEnabled) {
         AutoAdjustEnabled = false;
       }
 
-      // ── 4. Apply the band's brightness from bands-config.js ──────────────
+      // 4. Apply the band's brightness from bands-config.js
       min_waterfall = parseInt(band.min);
       max_waterfall = parseInt(band.max);
       handleMinMove();
       handleMaxMove();
 
-      // ── 5. Compute waterfall zoom span from the band's edge frequencies ──
-      const hzPerBin  = waterfall.sps / waterfall.fftSize;
+      // 5. Compute waterfall zoom span from band edge frequencies
+      const hzPerBin = waterfall.sps / waterfall.fftSize;
       const spanEnd   = band.endFreq   / hzPerBin;
       const spanStart = band.startFreq / hzPerBin;
-      let   bandSpan  = (spanEnd - spanStart) / 2;
-      bandSpan += bandSpan * 0.01; // 1 % margin to show both edges
+      let bandSpan = (spanEnd - spanStart) / 2;
+      bandSpan += bandSpan * 0.01; // 1% margin
 
-      // ── 6. Centre the zoom window on the spot frequency ──────────────────
+      // 6. Centre the zoom window on the spot frequency
       let m = frequencyToFFTOffset(hz);
       m = Math.min(waterfall.waterfallMaxSize - 512, Math.max(512, m));
       const l = Math.floor(m - 512) - bandSpan;
       const r = Math.ceil (m + 512) + bandSpan;
-
       waterfall.setWaterfallRange(l, r);
 
-      // ── 7. Update all UI markers / tracking ─────────────────────────────
+      // 7. Update UI markers / tracking
       frequencyMarkerComponent.updateFrequencyMarkerPositions();
       updatePassband();
       currentBand     = bandIdx;
@@ -5347,30 +4764,17 @@ function _animateNeedle(ts) {
     fetchDXSpots();
   }
 
-  function formatDXTime(t, safeUtc = '') {
-    const hhmm = String(safeUtc || '').trim();
-
-    if (/^\d{4}$/.test(hhmm)) {
-      return `${hhmm}Z`;
-    }
-
+  function formatDXTime(t) {
     if (!t) return '';
-
     try {
-      if (/^\d{4}(\s|$)/.test(String(t))) {
-        return `${String(t).slice(0, 4)}Z`;
-      }
-
-      const d = new Date(String(t).includes('Z') ? String(t) : String(t) + 'Z');
-      if (!Number.isNaN(d.getTime())) {
-        const h = d.getUTCHours().toString().padStart(2, '0');
-        const m = d.getUTCMinutes().toString().padStart(2, '0');
-        return `${h}${m}Z`;
-      }
-    } catch (e) {}
-
-    return '';
+      // DX Summit ISO format: "2026-03-08T10:55:08" (UTC)
+      const d = new Date(t.includes('Z') ? t : t + 'Z');
+      const h = d.getUTCHours().toString().padStart(2, '0');
+      const m = d.getUTCMinutes().toString().padStart(2, '0');
+      return `${h}${m}Z`;
+    } catch(e) { return String(t).slice(11, 16) + 'Z'; }
   }
+
 
   function startDXCluster() {
     fetchDXSpots();
@@ -5458,6 +4862,8 @@ function _animateNeedle(ts) {
 
                    &nbsp - &nbsp
 
+                   &nbsp - &nbsp
+
               <!-- Shortcuts trigger + popup -->
                     <button
                       type="button"
@@ -5476,7 +4882,7 @@ function _animateNeedle(ts) {
                   <button
                     class="glass-button text-white py-1 px-3 mb-2 lg:mb-0 rounded-lg text-xs sm:text-sm"
                     style="color:rgba(0, 225, 255, 0.993)"
-                    title="Other servers lookup"
+                    title="Other servers"
                     onClick="window.open('http://list.phantomsdr.fun');"
                   >
                     <span class="icon">Servers</span>
@@ -5537,15 +4943,16 @@ function _animateNeedle(ts) {
                 <div>
                 
                 {#if showShortcuts}
-                  <div class="modal-backdrop" on:click={closeShortcuts}>
-                    <div 
-                      id="shortcuts-dialog"
-                      role="dialog"
-                      aria-modal="true"
-                      aria-labelledby="shortcuts-title"
-                      class="modal-right"
-                      on:click|stopPropagation
-                    >
+                  <div class="modal-backdrop" on:click={closeShortcuts}></div>
+
+                  <div 
+                    id="shortcuts-dialog"
+                    role="dialog"
+                    aria-modal="true"
+                    aria-labelledby="shortcuts-title"
+                    class="modal-right"
+                    on:click|stopPropagation
+                  >
                     <div class="modal-header">
                       <h2 id="shortcuts-title">Keyboard Shortcuts</h2>
                       <button
@@ -5592,11 +4999,11 @@ function _animateNeedle(ts) {
                     <p class="hint">Press <kbd>Esc</kbd> or click <b>×</b> to close.</p>
                           </div>
                         </div>
-                      </div>
                     {/if}
                   </div>
                 
                 <!-- End Frequency & QRZ Lookupp -->
+              
 
               <!-- Collapsible Menu -->
               <div>
@@ -5919,45 +5326,30 @@ function _animateNeedle(ts) {
                    </div>
                  </div>
                  <!-- ── End DX Cluster Widget ──────────────────────────────────────────── -->
-                  
-                <!-- you can delete the link above and add anything else you want, which will be appeared in the second column 
-                 e.g links to use 
-                 https://pskreporter.info/pskmap.html?preset&callsign=SV1BTL&txrx=rx&mode=FT8&timerange=900&mapCenter=37.99596100000002,23.803441,1.2 
-                 or 
-                 https://www.dxfuncluster.com/widgets/cluster25.php
-                 or
-                 https://pskreporter.info/pskmap.html?preset&callsign=SV1BTL&txrx=rx&mode=WSPR&timerange=900&mapCenter=37.99596100000002,23.803441,1.2 -->
               </div>     
             </div>
            </div>
          </div>
         </div>
 
-              <style>
-                .hidden {
-                  display: none;
-                }
+      <style>
+      .hidden {
+          display: none;
+        }
 
-                /* Setting the container width to 100% enabling overflow auto to clear the float */
-                .columns {
-                  width: 100%;
-                  overflow: auto; /* To clear the float */
-                }
+      /* Setting the container width to 100% enabling overflow auto to clear the float */
+      .columns {
+          width: 100%;
+          overflow: auto; /* To clear the float */}
 
-                /* Styling for the left column */
-                .first-column {
-                  float: left; /* Float left to place it on the left side */
-                  width: 47%; /* Taking 47% of the container width */
-                }
+      /* Styling for the left column */.first-column {
+          float: left; /* Float left to place it on the left side */    width: 47%; /* Taking 47% of the container width */}
 
-                /* Styling for the right column */
-                .second-column {
-                  float: right; /* Float right to place it on the right side */
-                  width: 53%; /* Taking 53% of the container width */
-                }
-              </style>
-
-              <!--End of Titel Box -->
+      /* Styling for the right column */.second-column {
+          float: right; /* Float right to place it on the right side */    width: 53%; /* Taking 53% of the container width */}
+      </style>
+                
+      <!--End of Titel Box -->
 
               <!--Beginn of Waterfall -->
               <div class="flex justify-center w-full">
@@ -6115,49 +5507,48 @@ Shift + Ctrl + Wheel = snap to .00 KHz"
                       ></canvas>
                     </div>
 
-                    <!-- Spectrogram Display -->
-                    <div class="mt-2 w-full" style="display: {spectrogramEnabled ? 'block' : 'none'}">
-                      <Spectrogram
-                        bind:this={spectrogramComponent}
-                        minHz={50}
-                        maxHzLimit={10000}
-                        fftSize={4096}
-                        displayGain={spectrogramGain}
-                        colorScheme={spectrogramColorScheme}
-                        showLabels={true}
-                        height={spectrogramHeight}
-                        enabled={spectrogramEnabled}
-                        on:initialized={initSpectrogram}
-                      />
-                    </div>
-                  </div>
+                <!-- Spectrogram Display -->
+                <div class="mt-2 w-full" style="display: {spectrogramEnabled ? 'block' : 'none'}">
+                  <Spectrogram
+                    bind:this={spectrogramComponent}
+                    minHz={50}
+                    maxHzLimit={10000}
+                    fftSize={4096}
+                    displayGain={spectrogramGain}
+                    colorScheme={spectrogramColorScheme}
+                    showLabels={true}
+                    height={spectrogramHeight}
+                    enabled={spectrogramEnabled}
+                    on:initialized={initSpectrogram}
+                  />
                 </div>
               </div>
+            </div>
+          </div>
 
-              <div
-                class="absolute inset-0 z-20 bg-black bg-opacity-40 backdrop-filter backdrop-blur-sm transition-opacity duration-300 ease-in-out cursor-pointer flex justify-center items-center"
-                id="startaudio"
+          <div
+            class="absolute inset-0 z-20 bg-black bg-opacity-40 backdrop-filter backdrop-blur-sm transition-opacity duration-300 ease-in-out cursor-pointer flex justify-center items-center"
+            id="startaudio"
+          >
+            <div class="text-center p-4 pointer-events-none">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                class="h-12 w-12 mx-auto mb-2 text-white opacity-80"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
               >
-                <div class="text-center p-4 pointer-events-none">
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    class="h-12 w-12 mx-auto mb-2 text-white opacity-80"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      stroke-width="1.5"
-                      d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"
-                    />
-                  </svg>
-                  <p class="text-white text-lg font-medium">
-                    Tap to enable audio
-                  </p>
-                </div>
-              </div>
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="1.5"
+                  d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"
+                />
+              </svg>
+              <p class="text-white text-lg font-medium">Tap to enable audio</p>
+            </div>
+          </div>
+
 
               <!-- Audio Begins -->
 
@@ -6167,9 +5558,84 @@ Shift + Ctrl + Wheel = snap to .00 KHz"
                 class="flex flex-col xl:flex-row rounded p-5 justify-center rounded y-7"
                 id="middle-column"
               >
+
                 <div
                   class="p-5 flex flex-col items-center bg-gray-800 lg:border lg:border-gray-700 rounded-none rounded-t-lg lg:rounded-none lg:rounded-l-lg"
                 >
+
+              <!-- Begin Band Selection -->
+                  <h3 class="text-white text-base font-semibold mb-2">
+                    Band selector
+                  </h3>
+                  <div class="w-full grid grid-cols-5 sm:grid-cols-5 gap-2">
+                    {#each bandArray as bandData, index}
+                      {#if verifyRegion(bandData.ITU)}
+                        {#if bandData.publishBand == 1}
+                          {#if printBandButton(bandData.startFreq, bandData.endFreq, bandData.publishBand)}
+                            <button
+                              id="band-selector"
+                              class="retro-button text-sm text-white fontrbold h-7 text-base rounded-md flex items-center justify-center border border-gray-600 shadow-inner transition-all duration-200 ease-in-out {currentBand ===
+                              index
+                                ? 'bg-blue-600 pressed scale-95'
+                                : 'bg-gray-700 hover:bg-gray-600'}"
+                              on:click={() => handleBandChange(index)}
+                              title={bandData.name}
+                              >{bandData.name}
+                            </button>
+                          {/if}
+                        {/if}
+                      {:else}{/if}
+                    {/each}
+                  </div>
+                  <div><hr class="border-gray-600 my-2" /></div>
+                  <div class="w-full grid grid-cols-5 sm:grid-cols-5 gap-2">
+                    {#each bandArray as bandData, index}
+                      {#if verifyRegion(bandData.ITU)}
+                        {#if bandData.publishBand == 2}
+                          {#if printBandButton(bandData.startFreq, bandData.endFreq, bandData.publishBand)}
+                            <button
+                              id="band-selector"
+                              class="retro-button text-sm text-white fontrbold h-7 text-base rounded-md flex items-center justify-center border border-gray-600 shadow-inner transition-all duration-200 ease-in-out {currentBand ===
+                              index
+                                ? 'bg-blue-600 pressed scale-95'
+                                : 'bg-gray-700 hover:bg-gray-600'}"
+                              on:click={() => handleBandChange(index)}
+                              title={bandData.name}
+                              >{bandData.name}
+                            </button>
+                          {/if}
+                        {/if}
+                      {:else}{/if}
+                    {/each}
+                  </div>
+                  <!-- End Band Selection -->
+
+                  <div><hr class="border-gray-600 my-2" /></div>
+
+                  <!-- Begin Modes Selection -->
+                  <h3 class="text-white text-base font-semibold mb-2">
+                    Modes selector
+                  </h3>
+                  <div
+                    id="demodulationModes"
+                    class="grid grid-cols-3 sm:grid-cols-6 gap-2 w-full max-w-md"
+                  >
+                    {#each ["USB", "LSB", "CW", "AM", "QUAM", "FM"] as mode}
+                      <button
+                        on:click={() => SetMode(mode)}
+                        class="retro-button text-sm text-white fontrbold h-7 text-base rounded-md flex items-center justify-center border border-gray-600 shadow-inner transition-all duration-200 ease-in-out {demodulation ===
+                        mode
+                          ? 'bg-blue-600 pressed scale-95'
+                          : 'bg-gray-700 hover:bg-gray-600'}"
+                      >
+                        {mode}
+                      </button>
+                    {/each}
+                  </div>
+                  <!-- End of Mode Content -->
+                   
+                   <div style="margin-bottom: 5px; margin-top: 5px;">&nbsp;&nbsp;&nbsp;</div>
+                   
                   <h3 class="text-base font-semibold text-gray-100 mb-6">
                     Audio & Buffer
                   </h3>
@@ -6205,7 +5671,6 @@ Shift + Ctrl + Wheel = snap to .00 KHz"
                         type="range"
                         bind:value={volume}
                         on:input={handleVolumeChange}
-                        title="Audio slider"
                         class="glass-slider"
                         disabled={mute}
                         min="0"
@@ -6238,7 +5703,6 @@ Click again to de-activate"
                         type="range"
                         bind:value={squelch}
                         on:input={handleSquelchMove}
-                        title="Squelch slider"
                         class="glass-slider"
                         min="-150"
                         max="0"
@@ -6294,7 +5758,6 @@ Click again to de-activate"
                         type="range"
                         bind:value={audioBufferDelay}
                         on:input={handleAudioBufferDelayMove(audioBufferDelay)}
-                        title="Buffer slider"
                         class="glass-slider"
                         min="1"
                         max="5"
@@ -6314,7 +5777,9 @@ Click again to de-activate"
                   <h3 class="text-white text-base font-semibold mb-2">AGC</h3>
                   <div class="w-full mb-6">
                     <div id="moreoptions" class="grid grid-cols-4 gap-2">
-                      
+                      <script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script>
+                        let AGCbutton = false;
+                      </script>
                       {#each [{ option: "Auto", AGCbutton: 0 }, { option: "Fast", AGCbutton: 1 }, { option: "Mid", AGCbutton: 2 }, { option: "Slow", AGCbutton: 3 }] as { option, AGCbutton }}
                         <button
                           class="retro-button h-8 text-white font-bold h-8 text-sm rounded-md flex items-center justify-center border border-gray-600 shadow-inner transition-all duration-200 ease-in-out {AGCbutton ==
@@ -6367,7 +5832,6 @@ Click again to de-activate"
                         <option value="smooth">Smooth</option>
                         <option value="maximum">Maximum</option>
                         <option value="cw">CW/Digital</option>
-                        <option value="wspr">WSPR</option>
                         <option value="am-fm">AM/FM</option>
                       </select>
                     </div>
@@ -6419,352 +5883,267 @@ Click again to de-activate"
                       {/each}
                     </div>
                     <!-- End Filter Selection -->
-                  </div>
-
-                  <!-- Begin Modes Selection -->
-                  <h3 class="text-white text-base font-semibold mb-2">
-                    Modes selector
-                  </h3>
-                  <div
-                    id="demodulationModes"
-                    class="grid grid-cols-3 sm:grid-cols-6 gap-2 w-full max-w-md"
-                  >
-                    {#each ["USB", "LSB", "CW", "AM", "QUAM", "FM"] as mode}
-                      <button
-                        on:click={() => SetMode(mode)}
-                        class="retro-button text-sm text-white fontrbold h-7 text-base rounded-md flex items-center justify-center border border-gray-600 shadow-inner transition-all duration-200 ease-in-out {demodulation ===
-                        mode
-                          ? 'bg-blue-600 pressed scale-95'
-                          : 'bg-gray-700 hover:bg-gray-600'}"
-                      >
-                        {mode}
-                      </button>
-                    {/each}
-                  </div>
-                  <!-- End of Mode Content -->
-
-                  <div><hr class="border-gray-600 my-2" /></div>
-
-                  <!-- Begin Band Selection -->
-                  <h3 class="text-white text-base font-semibold mb-2">
-                    Band selector
-                  </h3>
-                  <div class="w-full grid grid-cols-5 sm:grid-cols-5 gap-2">
-                    {#each bandArray as bandData, index}
-                      {#if verifyRegion(bandData.ITU)}
-                        {#if bandData.publishBand == 1}
-                          {#if printBandButton(bandData.startFreq, bandData.endFreq, bandData.publishBand)}
-                            <button
-                              id="band-selector"
-                              class="retro-button text-sm text-white fontrbold h-7 text-base rounded-md flex items-center justify-center border border-gray-600 shadow-inner transition-all duration-200 ease-in-out {currentBand ===
-                              index
-                                ? 'bg-blue-600 pressed scale-95'
-                                : 'bg-gray-700 hover:bg-gray-600'}"
-                              on:click={() => handleBandChange(index)}
-                              title={bandData.name}
-                              >{bandData.name}
-                            </button>
-                          {/if}
-                        {/if}
-                      {:else}{/if}
-                    {/each}
-                  </div>
-                  <div><hr class="border-gray-600 my-2" /></div>
-                  <div class="w-full grid grid-cols-5 sm:grid-cols-5 gap-2">
-                    {#each bandArray as bandData, index}
-                      {#if verifyRegion(bandData.ITU)}
-                        {#if bandData.publishBand == 2}
-                          {#if printBandButton(bandData.startFreq, bandData.endFreq, bandData.publishBand)}
-                            <button
-                              id="band-selector"
-                              class="retro-button text-sm text-white fontrbold h-7 text-base rounded-md flex items-center justify-center border border-gray-600 shadow-inner transition-all duration-200 ease-in-out {currentBand ===
-                              index
-                                ? 'bg-blue-600 pressed scale-95'
-                                : 'bg-gray-700 hover:bg-gray-600'}"
-                              on:click={() => handleBandChange(index)}
-                              title={bandData.name}
-                              >{bandData.name}
-                            </button>
-                          {/if}
-                        {/if}
-                      {:else}{/if}
-                    {/each}
-                  </div>
+                  </div>                  
                 </div>
 
-                <!-- Audio Ends -->
+              <!-- Audio Ends -->
 
-                <!-- Second Column -->
+            <!-- Second Column -->
 
+            <div
+              class="flex flex-col items-center bg-gray-800 p-6 border-l-0 border-r-0 border border-gray-700"
+            >
+              <div
+                class="bg-black rounded-lg p-8 min-w-80 lg:min-w-0 lg:p-4 mb-4 w-full"
+                id="smeter-tut"
+              >
                 <div
-                  class="flex flex-col items-center bg-gray-800 p-6 border-l-0 border-r-0 border border-gray-700"
+                  class="flex flex-col sm:flex-row items-center justify-between gap-4"
                 >
-                  <div
-                    class="bg-black rounded-lg p-8 min-w-40 lg:min-w-0 lg:p-4 mb-4 w-full"
-                    id="smeter-tut"
-                  >
-                    <div
-                      class="flex flex-col sm:flex-row items-center justify-between gap-4"
-                    >
-                      <div class="flex flex-col items-center">
+                  <div class="flex flex-col items-center">
 <!--
                   Added by sv2amk to triger the initBandButton function
-                  and show the proper band upon startup                  
+                  and show the proper band upon startup
 -->
-                        <div
-                          class="flex items-center justify-center text-xs w-48"
-                        >
-                          <span class="date-time text-cyan-300 px-1"
-                            >{time}
-                          </span>
-                        </div>
-                        <div><hr class="border-gray-600 my-2" /></div>
-                        {#if currentBand == -2}
-                          {initBandButton(frequency)}
-                        {/if}
-                        <!-- Digit-by-digit frequency tuner -->
-                        <div class="relative mb-2">
-                          <div
-                            class="flex items-center justify-center font-mono select-none rounded-lg px-2 py-1 bg-black border border-gray-700 cursor-default focus:outline-none focus:ring-2 focus:ring-cyan-500"
-                            use:handleDigitWheel
-                            tabindex="0"
-                            title="Click a digit then scroll / arrow-key to tune · Right-click to type"
-                            on:keydown={handleDigitKeydown}
-                            on:contextmenu={handleDigitContextMenu}
-                          >
-                            {#each freqDigitChars as d}
-                              <span
-                                class="text-4xl w-5 text-center rounded transition-colors duration-100 {selectedDigitIdx === d.idx ? 'bg-cyan-600 text-white' : d.dim ? 'text-gray-600 hover:text-gray-400' : 'text-cyan-300 hover:text-cyan-100'}"
-                                on:click={() => handleDigitClick(d.idx)}
-                              >{d.ch}</span>
-                              {#if d.idx === 2}
-                                <span class="text-gray-500 text-2xl w-3 text-center">,</span>
-                              {/if}
-                              {#if d.idx === 5}
-                                <span class="text-gray-400 text-2xl w-3 text-center">.</span>
-                              {/if}
-                            {/each}
-                          </div>
-                          {#if showFreqInput}
-                            <div class="absolute inset-0 flex items-center justify-center bg-black rounded-lg border border-cyan-500 z-50">
-                              <input
-                                class="w-full text-center bg-transparent text-cyan-300 text-2xl font-mono focus:outline-none px-2"
-                                type="text"
-                                inputmode="decimal"
-                                bind:value={freqInputValue}
-                                on:keydown={handleFreqInputKey}
-                                on:blur={commitFreqInput}
-                                use:focusOnMount
-                              />
-                            </div>
+                   {#if currentBand ==-2} {initBandButton(frequency)} {/if}
+                    <!-- Digit-by-digit frequency tuner -->
+                    <div class="relative mb-2">
+                      <div
+                        class="flex items-center justify-center font-mono select-none rounded-lg px-2 py-1 bg-black border border-gray-700 cursor-default focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                        use:handleDigitWheel
+                        tabindex="0"
+                        title="Click a digit then scroll / arrow-key to tune · Right-click to type"
+                        on:keydown={handleDigitKeydown}
+                        on:contextmenu={handleDigitContextMenu}
+                      >
+                        {#each freqDigitChars as d}
+                          <span
+                            class="text-4xl w-5 text-center rounded transition-colors duration-100 {selectedDigitIdx === d.idx ? 'bg-cyan-600 text-white' : d.dim ? 'text-gray-600 hover:text-gray-400' : 'text-cyan-300 hover:text-cyan-100'}"
+                            on:click={() => handleDigitClick(d.idx)}
+                          >{d.ch}</span>
+                          {#if d.idx === 2}
+                            <span class="text-gray-500 text-2xl w-3 text-center">,</span>
                           {/if}
-                        </div>
-
-                        <div
-                          class="flex items-center justify-center text-xs w-48"
-                        >
-                          <span class="text-cyan-400 px-1"
-                            >Current Band:&nbsp;{bandName}</span
-                          >
-                        </div>
-
-                        <div
-                          class="flex items-center justify-center text-xs w-48"
-                        >
-                          <span class="text-yellow-400 px-1">{vfo}</span>
-                          <span class="text-gray-400 px-1">|</span>
-                          <span class="text-green-400 px-1">{demodulation}</span
-                          >
-                          <span class="text-gray-400 px-1">|</span>
-                          <span class="text-cyan-300 px-1">{bandwidth} kHz</span
-                          >
-                        </div>
-
-                        <div><hr class="border-gray-600 my-2" /></div>
-
-                        <div
-                          class="flex items-center justify-center text-xs w-48 w-full"
-                        >
-                          <div
-                            class="px-1 py-0.5 flex items-center justify-center w-9 h-5 relative overflow-hidden"
-                          >
-                            <span
-                              class="text-xs font-mono {mute
-                                ? 'text-red-500'
-                                : 'text-red-500 opacity-20 relative z-10'}"
-                              >MUTED</span
-                            >
-                          </div>
-
-                          <div
-                            class="px-1 py-0.5 flex items-center justify-center w-9 h-5 relative overflow-hidden"
-                          >
-                            <span
-                              class="text-xs font-mono {squelchEnable
-                                ? `text-orange-500`
-                                : `text-orange-500 opacity-20 relative z-10`}"
-                              >SQ</span
-                            >
-                          </div>
-
-                          <div
-                            class="px-1 py-0.5 flex items-center justify-center w-9 h-5 relative overflow-hidden"
-                          >
-                            <span
-                              class="text-xs font-mono {NREnabled
-                                ? `text-green-500`
-                                : `text-green-500 opacity-20 relative z-10`}"
-                              >NR</span
-                            >
-                          </div>
-
-                          <div
-                            class="px-1 py-0.5 flex items-center justify-center w-9 h-5 relative overflow-hidden"
-                          >
-                            <span
-                              class="text-xs font-mono {NBEnabled
-                                ? `text-green-500`
-                                : `text-green-500 opacity-20 relative z-10`}"
-                              >NB<span> </span></span
-                            >
-                          </div>
-
-                          <div
-                            class="px-1 py-0.5 flex items-center justify-center w-9 h-5 relative overflow-hidden"
-                          >
-                            <span
-                              class="text-xs font-mono {ANEnabled
-                                ? `text-green-500`
-                                : `text-green-500 opacity-20 relative z-10`}"
-                              >AN</span
-                            >
-                          </div>
-
-                          <div
-                            class="px-1 py-0.5 flex items-center justify-center w-9 h-5 relative overflow-hidden"
-                          >
-                            <span
-                              class="text-xs font-mono {CTCSSSupressEnabled
-                                ? `text-yellow-500`
-                                : `text-yellow-500 opacity-20 relative z-10`}"
-                              >CTCSS</span
-                            >
-                          </div>
-                        </div>
+                          {#if d.idx === 5}
+                            <span class="text-gray-400 text-2xl w-3 text-center">.</span>
+                          {/if}
+                        {/each}
                       </div>
+                      {#if showFreqInput}
+                        <div class="absolute inset-0 flex items-center justify-center bg-black rounded-lg border border-cyan-500 z-50">
+                          <input
+                            class="w-full text-center bg-transparent text-cyan-300 text-2xl font-mono focus:outline-none px-2"
+                            type="text"
+                            inputmode="decimal"
+                            bind:value={freqInputValue}
+                            on:keydown={handleFreqInputKey}
+                            on:blur={commitFreqInput}
+                            use:focusOnMount
+                          />
+                        </div>
+                      {/if}
+                    </div>
 
-                      <div class="flex flex-col items-center">
-                        <!-- SMeter -->
-                        <canvas id="sMeter" width="auto" height="auto"></canvas>
-                      </div>
+                    <div class="flex items-center justify-center text-xs w-48">
+                      <span class="text-cyan-400 px-1">Current Band:&nbsp;{bandName}</span>
+                    </div>
+
+                    <div class="flex items-center justify-center text-xs w-48">
+                      <span class="text-yellow-400 px-1">{vfo}</span>
+                      <span class="text-gray-400 px-1">|</span>
+                      <span class="text-green-400 px-1">{demodulation}</span>
+                      <span class="text-gray-400 px-1">|</span>
+                      <span class="text-cyan-300 px-1">{bandwidth} kHz</span>
                     </div>
                   </div>
+                  
 
-                  <div id="frequencyContainer" class="w-full mt-4">
-                    <div class="space-y-5">
-                      <!-- distance between row elements space-y-6 -->
-                      <!-- Begin Fine Tuning Buttons -->
-
-                      <div class="w-full mt-2">
-                        <!-- mt distance from the previous row -->
-                        <h3 class="text-white text-base font-semibold mb-2">
-                          Fine Tuning (kHz)
-                        </h3>
-                        <div class="grid grid-cols-5 sm:grid-cols-11 gap-2">
-                          {#each finetuningsteps as finetuningstep}
-                            <button
-                              id="fine-tuning-selector"
-                              class="retro-button text-white font-bold h-7 text-sm rounded-md flex items-center justify-center border border-gray-600 shadow-inner transition-all duration-200 ease-in-out bg-gray-700 hover:bg-gray-600"
-                              on:click={() =>
-                                handleFineTuningStep(finetuningstep)}
-                              title="{finetuningstep} kHz"
-                            >
-                              {finetuningstep}
-                            </button>
-                          {/each}
-                        </div>
-                        <hr class="border-gray-600 my-2" />
+                  <div class="flex flex-col items-center"> 
+                    <div class="flex space-x-2 mb-1">
+                      <span
+                        class="date-time"
+                        style="color:rgba(0, 225, 255, 0.993)"
+                        >Time: {time}
+                      </span>
+                      </div>
+                                      
+                    <div class="flex space-x-1 mb-1">
+                      <div
+                        class="px-1 py-0.5 flex items-center justify-center w-10 h-5 relative overflow-hidden"
+                      >
+                        <span
+                          class="text-xs font-mono {mute
+                            ? 'text-red-500'
+                            : 'text-red-500 opacity-20 relative z-10'}"
+                          >MUTED</span
+                        >
                       </div>
 
-                      <!-- Phil -->
-                      <!-- Begin Popup Buttons Menu -->
-                      <div class="w-full mt-4">
-                        <div class="grid grid-cols-4 sm:grid-cols-4 gap-2">
-                          <button
-                            id="vfo-ab-button"
-                            class="glass-button h-8 text-white font-bold text-xs py-2 px-4 rounded-lg flex items-center w-full justify-center {toggleVFO ===
-                            vfo
-                              ? 'bg-green-600 pressed scale-95'
-                              : 'bg-blue-700 hover:bg-gray-600'}"
-                            on:click={() => toggleVFO(vfo)}
-                            title="VFO Toggle"
-                          >
-                            <svg
-                              xmlns="http://www.w3.org/2000/svg"
-                              class="h-5 w-5 mr-2"
-                              viewBox="0 0 20 20"
-                              fill="currentColor"
-                            >
-                              <path
-                                d="M5 4a2 2 0 012-2h6a2 2 0 012 2v14l-5-2.5L5 18V4z"
-                              />
-                            </svg>
-                            {vfo}
-                          </button>
+                      <div
+                        class="px-1 py-0.5 flex items-center justify-center w-10 h-5 relative overflow-hidden"
+                      >
+                        <span
+                          class="text-xs font-mono {squelchEnable
+                            ? `text-orange-500`
+                            : `text-orange-500 opacity-20 relative z-10`}"
+                          >SQ</span
+                        >
+                      </div>
 
+                      <div
+                        class="px-1 py-0.5 flex items-center justify-center w-10 h-5 relative overflow-hidden"
+                      >
+                        <span
+                          class="text-xs font-mono {NREnabled
+                            ? `text-green-500`
+                            : `text-green-500 opacity-20 relative z-10`}"
+                          >NR</span
+                        >
+                      </div>
+
+                      <div
+                        class="px-1 py-0.5 flex items-center justify-center w-10 h-5 relative overflow-hidden"
+                      >
+                        <span
+                          class="text-xs font-mono {NBEnabled
+                            ? `text-green-500`
+                            : `text-green-500 opacity-20 relative z-10`}"
+                          >NB<span> </span></span
+                        >
+                      </div>
+
+                      <div
+                        class="px-1 py-0.5 flex items-center justify-center w-10 h-5 relative overflow-hidden"
+                      >
+                        <span
+                          class="text-xs font-mono {ANEnabled
+                            ? `text-green-500`
+                            : `text-green-500 opacity-20 relative z-10`}"
+                          >AN</span
+                        >
+                      </div>
+
+                      <div
+                        class="px-1 py-0.5 flex items-center justify-center w-10 h-5 relative overflow-hidden"
+                      >
+                        <span
+                          class="text-xs font-mono {CTCSSSupressEnabled
+                            ? `text-yellow-500`
+                            : `text-yellow-500 opacity-20 relative z-10`}"
+                          >CTCSS</span
+                        >
+                      </div>
+                    </div>
+
+                    <!-- SMeter -->
+                    <canvas id="sMeter" width="250" height="40"></canvas>
+                  </div>
+                </div>
+              </div>
+
+              <div id="frequencyContainer" class="w-full mt-4">
+                <div class="space-y-11">
+                  <!-- Begin Fine Tuning Buttons -->
+
+                  <div class="w-full mt-4">
+                    <h3 class="text-white text-base font-semibold mb-2">
+                      Fine Tuning (kHz)
+                    </h3>
+                    <div class="grid grid-cols-5 sm:grid-cols-11 gap-2">
+                        {#each finetuningsteps as finetuningstep}
                           <button
-                            id="mode-button"
-                            class="glass-button h-8 text-white font-bold text-sm py-2 px-4 rounded-lg flex items-center w-full justify-center"
-                            on:click={toggleModePopup}
+                            id="fine-tuning-selector"
+                            class="retro-button text-white font-bold h-7 text-sm rounded-md flex items-center justify-center border border-gray-600 shadow-inner transition-all duration-200 ease-in-out bg-gray-700 hover:bg-gray-600"
+                            on:click={() =>
+                              handleFineTuningStep(finetuningstep)}
+                            title="{finetuningstep} kHz"
                           >
-                            <svg
-                              xmlns="http://www.w3.org/2000/svg"
-                              class="h-5 w-5 mr-2"
-                              viewBox="0 0 20 20"
-                              fill="currentColor"
-                            >
-                              <path
-                                d="M5 4a2 2 0 012-2h6a2 2 0 012 2v14l-5-2.5L5 18V4z"
-                              />
-                            </svg>
-                            Modes
+                            {finetuningstep}
                           </button>
-                          <!-- Mode Popup -->
-                          {#if showModePopup}
-                            <div
-                              class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
-                              on:click={toggleModePopup}
-                            >
-                              <div
-                                class="bg-gray-800 p-6 rounded-lg max-w-lg w-full max-h-[80vh] flex flex-col"
-                                on:click|stopPropagation
+                        {/each}
+
+                    </div>
+                    <hr class="border-gray-600 my-2" />
+                  </div>
+
+                  <!-- Phil -->
+                  <!-- Begin Popup Buttons Menu -->
+                  <div class="w-full mt-4">
+                    <div class="grid grid-cols-4 sm:grid-cols-4 gap-2">
+                      <button
+                        id="vfo-ab-button"
+                        class="glass-button h-8 text-white font-bold text-xs py-2 px-4 rounded-lg flex items-center w-full justify-center {toggleVFO ===
+                        vfo
+                          ? 'bg-green-600 pressed scale-95'
+                          : 'bg-blue-700 hover:bg-gray-600'}"
+                        on:click={() => toggleVFO(vfo)}
+                        title="VFO Toggle"
+                      >
+                      <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          class="h-5 w-5 mr-2"
+                          viewBox="0 0 20 20"
+                          fill="currentColor"
+                        >
+                          <path
+                            d="M5 4a2 2 0 012-2h6a2 2 0 012 2v14l-5-2.5L5 18V4z"
+                          />
+                        </svg>
+                        {vfo}
+                      </button>
+
+                      <button
+                        id="mode-button"
+                        class="glass-button h-8 text-white font-bold text-sm py-2 px-4 rounded-lg flex items-center w-full justify-center"
+                        on:click={toggleModePopup}
+                      >
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          class="h-5 w-5 mr-2"
+                          viewBox="0 0 20 20"
+                          fill="currentColor"
+                        >
+                          <path
+                            d="M5 4a2 2 0 012-2h6a2 2 0 012 2v14l-5-2.5L5 18V4z"
+                          />
+                        </svg>
+                        Modes
+                      </button>
+                      <!-- Mode Popup -->
+                      {#if showModePopup}
+                        <div
+                          class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+                          on:click={toggleModePopup}
+                        >
+                          <div
+                            class="bg-gray-800 p-6 rounded-lg max-w-lg w-full max-h-[80vh] flex flex-col"
+                            on:click|stopPropagation
+                          >
+                            <div class="flex justify-between items-center mb-4">
+                              <h2 class="text-base font-bold text-white">
+                                Modes
+                              </h2>
+                              <button
+                                class="text-gray-400 hover:text-white"
+                                on:click={toggleModePopup}
                               >
-                                <div
-                                  class="flex justify-between items-center mb-4"
+                                <svg
+                                  class="w-6 h-6"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  viewBox="0 0 24 24"
+                                  xmlns="http://www.w3.org/2000/svg"
                                 >
-                                  <h2 class="text-base font-bold text-white">
-                                    Modes
-                                  </h2>
-                                  <button
-                                    class="text-gray-400 hover:text-white"
-                                    on:click={toggleModePopup}
-                                  >
-                                    <svg
-                                      class="w-6 h-6"
-                                      fill="none"
-                                      stroke="currentColor"
-                                      viewBox="0 0 24 24"
-                                      xmlns="http://www.w3.org/2000/svg"
-                                    >
-                                      <path
-                                        stroke-linecap="round"
-                                        stroke-linejoin="round"
-                                        stroke-width="2"
-                                        d="M6 18L18 6M6 6l12 12"
-                                      ></path>
-                                    </svg>
-                                  </button>
-                                </div>
+                                  <path
+                                    stroke-linecap="round"
+                                    stroke-linejoin="round"
+                                    stroke-width="2"
+                                    d="M6 18L18 6M6 6l12 12"
+                                  ></path>
+                                </svg>
+
+                              </button>
+                            </div>
                                 <!--Mode Content Begins -->
                                 <div
                                   id="demodulationModes"
@@ -6782,194 +6161,186 @@ Click again to de-activate"
                                   {/each}
                                 </div>
                                 <!-- End of Mode Content -->
-                              </div>
-                            </div>
-                          {/if}
-                          <!-- End of Modes Popup Menu -->
+                          </div>
+                        </div>
+                      {/if}
+                      <!-- End of Modes Popup Menu -->
 
-                          <!-- Begin Bands Popup Menu -->
-                          <button
-                            id="band-popup-button"
-                            class="glass-button h-8 text-white text-sm font-bold py-2 px-4 rounded-lg flex items-center w-full justify-center"
-                            on:click={toggleBandPopup}
+                      <!-- Begin Bands Popup Menu -->
+                      <button
+                        id="band-popup-button"
+                        class="glass-button h-8 text-white text-sm font-bold py-2 px-4 rounded-lg flex items-center w-full justify-center"
+                        on:click={toggleBandPopup}
+                      >
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          class="h-5 w-5 mr-2"
+                          viewBox="0 0 20 20"
+                          fill="currentColor"
+                        >
+                          <path
+                            d="M5 4a2 2 0 012-2h6a2 2 0 012 2v14l-5-2.5L5 18V4z"
+                          />
+                        </svg>
+                        Bands
+                      </button>
+
+                      <!-- Bands Popup -->
+                      {#if showBandPopup}
+                        <div
+                          class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+                          on:click={toggleBandPopup}
+                        >
+                          <div
+                            class="bg-gray-800 p-6 rounded-lg max-w-lg w-full max-h-[80vh] flex flex-col"
+                            on:click|stopPropagation
                           >
-                            <svg
-                              xmlns="http://www.w3.org/2000/svg"
-                              class="h-5 w-5 mr-2"
-                              viewBox="0 0 20 20"
-                              fill="currentColor"
-                            >
-                              <path
-                                d="M5 4a2 2 0 012-2h6a2 2 0 012 2v14l-5-2.5L5 18V4z"
-                              />
-                            </svg>
-                            Bands
-                          </button>
-
-                          <!-- Bands Popup -->
-                          {#if showBandPopup}
-                            <div
-                              class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
-                              on:click={toggleBandPopup}
-                            >
-                              <div
-                                class="bg-gray-800 p-6 rounded-lg max-w-lg w-full max-h-[80vh] flex flex-col"
-                                on:click|stopPropagation
+                            <div class="flex justify-between items-center mb-4">
+                              <h2 class="text-base font-bold text-white">
+                                Bands
+                              </h2>
+                              <button
+                                class="text-gray-400 hover:text-white"
+                                on:click={toggleBandPopup}
                               >
-                                <div
-                                  class="flex justify-between items-center mb-4"
+                                <svg
+                                  class="w-6 h-6"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  viewBox="0 0 24 24"
+                                  xmlns="http://www.w3.org/2000/svg"
                                 >
-                                  <h2 class="text-base font-bold text-white">
-                                    Bands
-                                  </h2>
-                                  <button
-                                    class="text-gray-400 hover:text-white"
-                                    on:click={toggleBandPopup}
-                                  >
-                                    <svg
-                                      class="w-6 h-6"
-                                      fill="none"
-                                      stroke="currentColor"
-                                      viewBox="0 0 24 24"
-                                      xmlns="http://www.w3.org/2000/svg"
-                                    >
-                                      <path
-                                        stroke-linecap="round"
-                                        stroke-linejoin="round"
-                                        stroke-width="2"
-                                        d="M6 18L18 6M6 6l12 12"
-                                      ></path>
-                                    </svg>
-                                  </button>
-                                </div>
-                                <!-- Content Starts -->
-
-                                <div
-                                  class="grid grid-cols-5 sm:grid-cols-5 gap-2"
-                                >
-                                  {#each bandArray as bandData, index}
-                                    {#if verifyRegion(bandData.ITU)}
-                                      {#if bandData.publishBand == 1}
-                                        {#if printBandButton(bandData.startFreq, bandData.endFreq, bandData.publishBand)}
-                                          <button
-                                            id="band-selector"
-                                            class="retro-button text-sm text-white fontrbold h-7 text-base rounded-md flex items-center justify-center border border-gray-600 shadow-inner transition-all duration-200 ease-in-out {currentBand ===
-                                            index
-                                              ? 'bg-blue-600 pressed scale-95'
-                                              : 'bg-gray-700 hover:bg-gray-600'}"
-                                            on:click={() =>
-                                              handleBandChangePopup(index)}
-                                            title={bandData.name}
-                                            >{bandData.name}
-                                          </button>
-                                        {/if}
-                                      {/if}
-                                    {:else}{/if}
-                                  {/each}
-                                </div>
-                                <div><hr class="border-gray-600 my-2" /></div>
-                                <div
-                                  class="grid grid-cols-5 sm:grid-cols-5 gap-2"
-                                >
-                                  {#each bandArray as bandData, index}
-                                    {#if verifyRegion(bandData.ITU)}
-                                      {#if bandData.publishBand == 2}
-                                        {#if printBandButton(bandData.startFreq, bandData.endFreq, bandData.publishBand)}
-                                          <button
-                                            id="band-selector"
-                                            class="retro-button text-sm text-white fontrbold h-7 text-base rounded-md flex items-center justify-center border border-gray-600 shadow-inner transition-all duration-200 ease-in-out {currentBand ===
-                                            index
-                                              ? 'bg-blue-600 pressed scale-95'
-                                              : 'bg-gray-700 hover:bg-gray-600'}"
-                                            on:click={() =>
-                                              handleBandChangePopup(index)}
-                                            title={bandData.name}
-                                            >{bandData.name}
-                                          </button>
-                                        {/if}
-                                      {/if}
-                                    {:else}{/if}
-                                  {/each}
-                                </div>
-                                <!-- Content Ends -->
-                              </div>
+                                  <path
+                                    stroke-linecap="round"
+                                    stroke-linejoin="round"
+                                    stroke-width="2"
+                                    d="M6 18L18 6M6 6l12 12"
+                                  ></path>
+                                </svg>
+                              </button>
                             </div>
-                          {/if}
-                          <!-- End Bands Popup Menu -->
+                            <!-- Content Starts -->
 
-                          <!-- Begin IF Filters Popup Menu -->
-                          <button
-                            id="if-filter-popup-button"
-                            class="glass-button h-8 text-white text-sm font-bold py-2 px-4 rounded-lg flex items-center w-full justify-center"
-                            on:click={toggleIFPopup}
+                            <div class="grid grid-cols-5 sm:grid-cols-5 gap-2">
+                              {#each bandArray as bandData, index}
+                                {#if verifyRegion(bandData.ITU)}
+                                {#if bandData.publishBand == 1}
+                                  {#if printBandButton(bandData.startFreq, bandData.endFreq, bandData.publishBand)}
+                                    <button
+                                      id="band-selector"
+                                      class="retro-button text-sm text-white fontrbold h-7 text-base rounded-md flex items-center justify-center border border-gray-600 shadow-inner transition-all duration-200 ease-in-out {currentBand ===
+                                      index
+                                        ? 'bg-blue-600 pressed scale-95'
+                                        : 'bg-gray-700 hover:bg-gray-600'}"
+                                      on:click={() =>
+                                        handleBandChangePopup(index)}
+                                      title={bandData.name}
+                                      >{bandData.name}
+                                    </button>
+                                      {/if}
+                                    {/if}
+                                  {:else}
+                                {/if}
+                              {/each}
+                            </div>
+                            <div><hr class="border-gray-600 my-2" /></div>
+                            <div class="grid grid-cols-5 sm:grid-cols-5 gap-2">
+                              {#each bandArray as bandData, index}
+                                {#if verifyRegion(bandData.ITU)}
+                                {#if bandData.publishBand == 2}
+                                  {#if printBandButton(bandData.startFreq, bandData.endFreq, bandData.publishBand)}
+                                    <button
+                                      id="band-selector"
+                                      class="retro-button text-sm text-white fontrbold h-7 text-base rounded-md flex items-center justify-center border border-gray-600 shadow-inner transition-all duration-200 ease-in-out {currentBand ===
+                                      index
+                                        ? 'bg-blue-600 pressed scale-95'
+                                        : 'bg-gray-700 hover:bg-gray-600'}"
+                                      on:click={() =>
+                                        handleBandChangePopup(index)}
+                                      title={bandData.name}
+                                      >{bandData.name}
+                                    </button>
+                                      {/if}
+                                    {/if}
+                                  {:else}
+                                {/if}
+                              {/each}
+                            </div>
+                            <!-- Content Ends -->
+                          </div>
+                        </div>
+                      {/if}
+                      <!-- End Bands Popup Menu -->
+
+                      <!-- Begin IF Filters Popup Menu -->
+                      <button
+                        id="if-filter-popup-button"
+                        class="glass-button h-8 text-white text-sm font-bold py-2 px-4 rounded-lg flex items-center w-full justify-center"
+                        on:click={toggleIFPopup}
+                      >
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          class="h-5 w-5 mr-2"
+                          viewBox="0 0 20 20"
+                          fill="currentColor"
+                        >
+                          <path
+                            d="M5 4a2 2 0 012-2h6a2 2 0 012 2v14l-5-2.5L5 18V4z"
+                          />
+                        </svg>
+                        IF Filters
+                      </button>
+
+                      <!-- Static IF Popup -->
+                      {#if showIFPopup}
+                        <div
+                          class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+                          on:click={toggleIFPopup}
+                        >
+                          <div
+                            class="bg-gray-800 p-6 rounded-lg max-w-lg w-full max-h-[80vh] flex flex-col"
+                            on:click|stopPropagation
                           >
-                            <svg
-                              xmlns="http://www.w3.org/2000/svg"
-                              class="h-5 w-5 mr-2"
-                              viewBox="0 0 20 20"
-                              fill="currentColor"
-                            >
-                              <path
-                                d="M5 4a2 2 0 012-2h6a2 2 0 012 2v14l-5-2.5L5 18V4z"
-                              />
-                            </svg>
-                            IF Filters
-                          </button>
-
-                          <!-- Static IF Popup -->
-                          {#if showIFPopup}
-                            <div
-                              class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
-                              on:click={toggleIFPopup}
-                            >
-                              <div
-                                class="bg-gray-800 p-6 rounded-lg max-w-lg w-full max-h-[80vh] flex flex-col"
-                                on:click|stopPropagation
+                            <div class="flex justify-between items-center mb-4">
+                              <h2 class="text-base font-bold text-white">
+                                Static IF Filters
+                              </h2>
+                              <button
+                                class="text-gray-400 hover:text-white"
+                                on:click={toggleIFPopup}
                               >
-                                <div
-                                  class="flex justify-between items-center mb-4"
+                                <svg
+                                  class="w-6 h-6"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  viewBox="0 0 24 24"
+                                  xmlns="http://www.w3.org/2000/svg"
                                 >
-                                  <h2 class="text-base font-bold text-white">
-                                    Static IF Filters
-                                  </h2>
+                                  <path
+                                    stroke-linecap="round"
+                                    stroke-linejoin="round"
+                                    stroke-width="2"
+                                    d="M6 18L18 6M6 6l12 12"
+                                  ></path>
+                                </svg>
+                              </button>
+                            </div>
+
+                            <!-- Content Starts -->
+
+                            <div class="w-full mt-4">
+                              <div
+                                class="grid grid-cols-4 sm:grid-cols-6 gap-2"
+                              >
+                                {#each newBandwidth as newbandwidth}
                                   <button
-                                    class="text-gray-400 hover:text-white"
-                                    on:click={toggleIFPopup}
-                                  >
-                                    <svg
-                                      class="w-6 h-6"
-                                      fill="none"
-                                      stroke="currentColor"
-                                      viewBox="0 0 24 24"
-                                      xmlns="http://www.w3.org/2000/svg"
-                                    >
-                                      <path
-                                        stroke-linecap="round"
-                                        stroke-linejoin="round"
-                                        stroke-width="2"
-                                        d="M6 18L18 6M6 6l12 12"
-                                      ></path>
-                                    </svg>
-                                  </button>
-                                </div>
-
-                                <!-- Content Starts -->
-
-                                <div class="w-full mt-4">
-                                  <div
-                                    class="grid grid-cols-4 sm:grid-cols-6 gap-2"
-                                  >
-                                    {#each newBandwidth as newbandwidth}
-                                      <button
-                                        id="static-bandwidth-selector"
-                                        class="retro-button text-sm text-white font-bold h-8 text-lg rounded-md flex items-center justify-center border border-gray-600 shadow-inner transition-all duration-200 ease-in-out {newStaticBandwidth ==
-                                        newbandwidth
-                                          ? 'bg-blue-600 pressed scale-95'
-                                          : 'bg-gray-700 hover:bg-gray-600'}"
-                                        on:click={() =>
-                                          handleSetStaticBandwidth(
-                                            newbandwidth,
-                                          )}
+                                    id="static-bandwidth-selector"
+                                    class="retro-button text-sm text-white font-bold h-8 text-lg rounded-md flex items-center justify-center border border-gray-600 shadow-inner transition-all duration-200 ease-in-out {newStaticBandwidth ==
+                                    newbandwidth
+                                      ? 'bg-blue-600 pressed scale-95'
+                                      : 'bg-gray-700 hover:bg-gray-600'}"
+                                    on:click={() =>
+                                      handleSetStaticBandwidth(newbandwidth)}
                                         title={newbandwidth}
                                       >
                                         {#if newbandwidth == 500}500 Hz                                        
@@ -6985,82 +6356,80 @@ Click again to de-activate"
                                         {:else if newbandwidth == 10000}10.0 kHz
                                         {:else if newbandwidth == 12000}12.0 kHz
                                         {:else}{/if}
-                                      </button>
-                                    {/each}
-                                  </div>
-                                </div>
-                                <!-- Content Ends -->
+                                  </button>
+                                {/each}
                               </div>
                             </div>
-                          {/if}
-                          <!-- End IF Filters Popup Menu -->
+                            <!-- Content Ends -->
+                          </div>
                         </div>
-                        <hr class="border-gray-600 my-2" />
-                      </div>
-                      <!-- End of Popup Buttons Menu -->
-
-                      <!-- Begin Bandwidth Selection Area -->
-                      <div class="w-full mt-4">
-                        <h3 class="text-white text-base font-semibold mb-2">
-                          Bandwidth
-                        </h3>
-                        <div class="grid grid-cols-4 sm:grid-cols-8 gap-2">
-                          {#each bandwithoffsets as bandwidthoffset (bandwidthoffset)}
-                            <button
-                              id="bandwidth-offset-selector"
-                              class="retro-button text-white font-bold h-8 text-sm rounded-md flex items-center justify-center border border-gray-600 shadow-inner transition-all duration-200 ease-in-out {bandwidth ===
-                              bandwidthoffset
-                                ? 'bg-blue-600 pressed scale-95'
-                                : 'bg-gray-700 hover:bg-gray-600'}"
-                              on:click={(e) =>
-                                handleBandwidthOffsetClick(bandwidthoffset)}
-                              title="{bandwidthoffset} kHz"
-                            >
-                              {bandwidthoffset}
-                            </button>
-                          {/each}
-                        </div>
-                        <hr class="border-gray-600 my-2" />
-                      </div>
-                      <!-- End of Bandwidth Selection Area -->
-
-                      <!-- Wheel Tuning Steps -->
-                      <div class="w-full mt-4">
-                        <h3 class="text-white text-base font-semibold mb-2">
-                          Wheel Tuning Steps
-                        </h3>
-                        <div class="grid grid-cols-4 sm:grid-cols-8 gap-2">
-                          {#each tuningsteps as tuningstep (tuningstep)}
-                            <button
-                              id="tuning-step-selector"
-                              class="text-sm retro-button text-white font-bold h-8 text-sm rounded-md flex items-center justify-center border border-gray-600 shadow-inner transition-all duration-200 ease-in-out {currentTuneStep ==
-                              tuningstep
-                                ? 'bg-blue-600 pressed scale-95'
-                                : 'bg-gray-700 hover:bg-gray-600'}"
-                              on:click={() => handleTuningStep(tuningstep)}
-                              title="{tuningstep} Hz"
-                            >
-                              {#if tuningstep == 10}10 Hz
-                              {:else if tuningstep == 50}50 Hz
-                              {:else if tuningstep == 100}100 Hz
-                              {:else if tuningstep == 500}500 Hz
-                              {:else if tuningstep == 1000}1 kHz
-                              {:else if tuningstep == 5000}5 kHz
-                              {:else if tuningstep == 9000}9 kHz
-                              {:else if tuningstep == 10000}10 kHz
-                              {:else}
-                                {tuningstep}
-                              {/if}
-                            </button>
-                          {/each}
-                        </div>
-                        <hr class="border-gray-600 my-2" />
-                      </div>
-
-                      <!-- End of Tuning Step Selection Area -->
+                      {/if}
+                      <!-- End IF Filters Popup Menu -->
                     </div>
+                    <hr class="border-gray-600 my-2" />
+                  </div>
+                  <!-- End of Popup Buttons Menu -->
+
+                  <!-- Begin Bandwidth Selection Area -->
+                  <div class="w-full mt-4">
+                    <h3 class="text-white text-base font-semibold mb-2">Bandwidth</h3>
+                    <div class="grid grid-cols-4 sm:grid-cols-8 gap-2">
+                      {#each bandwithoffsets as bandwidthoffset (bandwidthoffset)}
+                      <button id="bandwidth-offset-selector" class="retro-button text-white font-bold h-8 text-sm rounded-md flex items-center justify-center border border-gray-600 shadow-inner transition-all duration-200 ease-in-out {bandwidth === bandwidthoffset
+                  ? 'bg-blue-600 pressed scale-95'
+                  : 'bg-gray-700 hover:bg-gray-600'}"
+                      on:click={(e) => handleBandwidthOffsetClick(bandwidthoffset)}
+                        title="{bandwidthoffset} kHz"
+                    >
+                    {bandwidthoffset}
+                    </button>
+                    {/each}
+                  </div>
+                  <hr class="border-gray-600 my-2" />
+                  </div>
+                  <!-- End of Bandwidth Selection Area --> 
+
+
+
+                  <!-- Wheel Tuning Steps -->
+                  <div class="w-full mt-4">
+                    <h3 class="text-white text-base font-semibold mb-2">
+                      Wheel Tuning Steps
+                    </h3>
+                    <div class="grid grid-cols-4 sm:grid-cols-8 gap-2">
+                      {#each tuningsteps as tuningstep (tuningstep)}
+                        <button
+                          id="tuning-step-selector"
+                          class="text-sm retro-button text-white font-bold h-8 text-sm rounded-md flex items-center justify-center border border-gray-600 shadow-inner transition-all duration-200 ease-in-out {currentTuneStep ==
+                          tuningstep
+                            ? 'bg-blue-600 pressed scale-95'
+                            : 'bg-gray-700 hover:bg-gray-600'}"
+                          on:click={() => handleTuningStep(tuningstep)}
+                          title="{tuningstep} Hz"
+                        >
+                          {#if tuningstep == 10}10 Hz
+                          {:else if tuningstep == 50}50 Hz
+                          {:else if tuningstep == 100}100 Hz
+                          {:else if tuningstep == 500}500 Hz
+                          {:else if tuningstep == 1000}1 kHz
+                          {:else if tuningstep == 5000}5 kHz
+                          {:else if tuningstep == 9000}9 kHz
+                          {:else if tuningstep == 10000}10 kHz
+                          {:else}
+                            {tuningstep}
+                          {/if}
+                        </button>
+                      {/each}
+                    </div>
+                    <hr class="border-gray-600 my-2" />
                   </div>
 
+                  <!-- End of Tuning Step Selection Area -->
+
+
+                </div>
+              </div>
+           
 
                   <div><hr class="border-gray-600 my-2" /></div>
 
@@ -7154,21 +6523,21 @@ Click again to de-activate"
 
                   
                   
-                  <!-- FT8 / FT4 Messages List -->
-                  {#if decoderOn && (ft8Enabled || ft4Enabled)}
-                    <div class="w-full bg-gray-700 rounded-lg p-6 mt-6">
-                      <div class="w-full flex justify-between items-center mb-5 text-xs">
-                        <h4 class="text-white font-semibold">{ft4Enabled ? 'FT4' : 'FT8'} Messages</h4>
-                        <span class="text-gray-300 pl-4 lg:pl-0" id="farthest-distance">Farthest: 0 km</span>
-                      </div>
-                      <div class="w-full text-gray-300 overflow-auto max-h-40 custom-scrollbar pr-2">
-                        <div id="ft8MessagesList">
-                          <!-- Dynamic content populated here -->
-                        </div>
-                        <div><hr class="border-gray-600 my-2" /></div>
-                      </div>
+             <!-- FT8 / FT4 Messages List -->
+              {#if decoderOn && (ft8Enabled || ft4Enabled)}
+                <div class="w-full bg-gray-700 rounded-lg p-6 mt-6">
+                  <div class="w-full flex justify-between items-center mb-5 text-xs">
+                    <h4 class="text-white font-semibold">{ft4Enabled ? 'FT4' : 'FT8'} Messages</h4>
+                    <span class="text-gray-300 pl-4 lg:pl-0" id="farthest-distance">Farthest: 0 km</span>
+                  </div>
+                  <div class="w-full text-gray-300 overflow-auto max-h-40 custom-scrollbar pr-2">
+                    <div id="ft8MessagesList">
+                      <!-- Dynamic content populated here -->
                     </div>
-                  {/if}
+                    <div><hr class="border-gray-600 my-2" /></div>
+                  </div>
+                </div>
+              {/if}
 
                   <!-- CW Decoder Window -->
                   {#if decoderOn && cwEnabled}
@@ -7631,7 +7000,7 @@ Click again to de-activate"
                         <span class="text-gray-500 font-mono">1500 Hz BW · FARGAN vocoder</span>
                       </div>
 
-                      <!-- Info / error -->
+                      <!-- Error banner -->
                       {#if !radeConnected}
                         <div class="rounded bg-red-900/40 border border-red-700 px-3 py-2 text-xs text-red-300 mb-3">
                           <strong>⚠ Sidecar not reachable.</strong> Start it on the server:<br>
@@ -7788,13 +7157,12 @@ Click again to de-activate"
                   {/if}
                   <!-- END FSK Panel -->
 
-                  
 
                 </div>
 
-                <!-- Third Column -->
+            <!-- Third Column -->
 
-                <!-- WF Begins -->
+            <!-- WF Begins -->
                 <div
                   class="flex flex-col items-center bg-gray-800 p-6 lg:border lg:border-gray-700 rounded-none rounded-b-lg lg:rounded-none lg:rounded-r-lg"
                 >
@@ -7915,301 +7283,260 @@ Click again to de-activate"
                   </div>
                   <!-- End of Zoom Slider when Desktop -->
 
-                  <div class="w-full mb-6">
-                    <span><br /></span>
-                    <div id="colormap-select" class="relative">
-                      <select
-                        bind:value={currentColormap}
-                        on:change={handleWaterfallColormapSelect}
-                        class="glass-select block w-full pl-3 pr-10 py-2 text-sm rounded-lg text-gray-200 appearance-none focus:outline-none"
-                      >
-                        {#each availableColormaps as colormap}
-                          <option value={colormap}>{colormap}</option>
-                        {/each}
-                      </select>
-                      <div
-                        class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-400"
-                      >
-                        <svg
-                          class="fill-current h-4 w-4"
-                          xmlns="http://www.w3.org/2000/svg"
-                          viewBox="0 0 20 20"
-                        >
-                          <path
-                            d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"
-                          />
-                        </svg>
-                      </div>
-                    </div>
+              <div class="w-full mb-6">
+                <span><br></span>                
+                <div id="colormap-select" class="relative">
+                  <select
+                    bind:value={currentColormap}
+                    on:change={handleWaterfallColormapSelect}
+                    class="glass-select block w-full pl-3 pr-10 py-2 text-sm rounded-lg text-gray-200 appearance-none focus:outline-none"
+                  >
+                    {#each availableColormaps as colormap}
+                      <option value={colormap}>{colormap}</option>
+                    {/each}
+                  </select>
+                  <div
+                    class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-400"
+                  >
+                    <svg
+                      class="fill-current h-4 w-4"
+                      xmlns="http://www.w3.org/2000/svg"
+                      viewBox="0 0 20 20"
+                    >
+                      <path
+                        d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"
+                      />
+                    </svg>
                   </div>
+                </div>
+              </div>
 
-                  <div class="w-full mb-6">
-                    <h3 class="text-white text-base font-semibold mb-2">
-                      Zoom
-                    </h3>
-                    <div id="zoom-controls" class="grid grid-cols-4 gap-2">
+
+              <div class="w-full mb-6">
+                <h3 class="text-white text-base font-semibold mb-2">Zoom</h3>
+                <div id="zoom-controls" class="grid grid-cols-4 gap-2">
                       {#each [{ action: "+", title: "Zoom in", icon: "zoom-in", text: "In" }, { action: "-", title: "Zoom out", icon: "zoom-out", text: "Out" }, { action: "max", title: "Zoom to max", icon: "maximize", text: "Max" }, { action: "min", title: "Zoom to min", icon: "minimize", text: "Min" }] as { action, title, icon, text }}
-                        <button
-                          class="retro-button text-white font-bold h-8 text-sm rounded-md flex items-center justify-center border border-gray-600 shadow-inner transition-all duration-200 ease-in-out bg-gray-700 hover:bg-gray-600"
-                          on:click={(e) => handleWaterfallMagnify(e, action)}
-                          {title}
-                        >
-                          <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            class="h-4 w-4 mr-2"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            stroke-width="2"
-                            stroke-linecap="round"
-                            stroke-linejoin="round"
-                          >
-                            {#if icon === "zoom-in"}
-                              <circle cx="11" cy="11" r="8" />
-                              <line x1="21" y1="21" x2="16.65" y2="16.65" />
-                              <line x1="11" y1="8" x2="11" y2="14" />
-                              <line x1="8" y1="11" x2="14" y2="11" />
-                            {:else if icon === "zoom-out"}
-                              <circle cx="11" cy="11" r="8" />
-                              <line x1="21" y1="21" x2="16.65" y2="16.65" />
-                              <line x1="8" y1="11" x2="14" y2="11" />
-                            {:else if icon === "maximize"}
-                              <path
-                                d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"
-                              />
-                            {:else if icon === "minimize"}
-                              <path
-                                d="M8 3v3a2 2 0 0 1-2 2H3m18 0h-3a2 2 0 0 1-2-2V3m0 18v-3a2 2 0 0 1 2-2h3M3 16h3a2 2 0 0 1 2 2v3"
-                              />
-                            {/if}
-                          </svg>
-                          <span>{text}</span>
-                        </button>
-                      {/each}
-                    </div>
-                    <hr class="border-gray-600 my-2" />
-                  </div>
+                    <button
+                      class="retro-button text-white font-bold h-8 text-sm rounded-md flex items-center justify-center border border-gray-600 shadow-inner transition-all duration-200 ease-in-out bg-gray-700 hover:bg-gray-600"
+                      on:click={(e) => handleWaterfallMagnify(e, action)}
+                      {title}
+                    >
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        class="h-4 w-4 mr-2"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                      >
+                        {#if icon === "zoom-in"}
+                          <circle cx="11" cy="11" r="8" />
+                          <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                          <line x1="11" y1="8" x2="11" y2="14" />
+                          <line x1="8" y1="11" x2="14" y2="11" />
+                        {:else if icon === "zoom-out"}
+                          <circle cx="11" cy="11" r="8" />
+                          <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                          <line x1="8" y1="11" x2="14" y2="11" />
+                        {:else if icon === "maximize"}
+                          <path
+                            d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"
+                          />
+                        {:else if icon === "minimize"}
+                          <path
+                            d="M8 3v3a2 2 0 0 1-2 2H3m18 0h-3a2 2 0 0 1-2-2V3m0 18v-3a2 2 0 0 1 2-2h3M3 16h3a2 2 0 0 1 2 2v3"
+                          />
+                        {/if}
+                      </svg>
+                      <span>{text}</span>
+                    </button>
+                  {/each}
+                </div>
+                <hr class="border-gray-600 my-2" />
+              </div>
+              <div class="w-full mb-6">
+
+
+                  <!-- START of waterfal control buttons when Desktop -->
                   <div class="w-full mb-6">
-                    <!-- START of waterfal control buttons when Desktop -->
-                    <div class="w-full mb-6">
-                      <div class="grid grid-cols-1 sm:grid-cols-4 gap-2">
-                        <div
-                          id="waterfall-toggle"
-                          class="flex flex-col items-center"
+                    <div class="grid grid-cols-1 sm:grid-cols-4 gap-2">
+                      <div
+                        id="waterfall-toggle"
+                        class="flex flex-col items-center"
+                      >
+                        <span class="text-sm text-gray-300 mb-1 text-center"
+                          >Waterfall</span
                         >
-                          <span class="text-sm text-gray-300 mb-1 text-center"
-                            >Waterfall</span
-                          >
-                          <label class="toggle-switch">
-                            {#if waterfallDisplay}
-                              <input
-                                type="checkbox"
-                                checked
-                                on:change={handleWaterfallChange}
-                              />
-                            {:else}
-                              <input
-                                type="checkbox"
-                                on:change={handleWaterfallChange}
-                              />
-                            {/if}
-                            <span class="toggle-slider"></span>
-                          </label>
-                        </div>
-
-                        <div
-                          id="spectrum-toggle"
-                          class="flex flex-col items-center"
-                        >
-                          <span class="text-sm text-gray-300 mb-1"
-                            >Spectrum</span
-                          >
-                          <label class="toggle-switch">
-                            {#if spectrumDisplay}
-                              <input
-                                type="checkbox"
-                                checked
-                                on:change={handleSpectrumChange}
-                              />
-                            {:else}
-                              <input
-                                type="checkbox"
-                                on:change={handleSpectrumChange}
-                              />
-                            {/if}
-                            <span class="toggle-slider"></span>
-                          </label>
-                        </div>
-
-                        <div
-                          id="auto-adjust"
-                          class="flex flex-col items-center"
-                        >
-                          <span class="text-sm text-gray-300 mb-1"
-                            >Auto Adj.</span
-                          >
-                          <label class="toggle-switch">
+                        <label class="toggle-switch">
+                          {#if waterfallDisplay}
                             <input
                               type="checkbox"
-                              on:change={() => handleAutoAdjust()}
+                              checked
+                              on:change={handleWaterfallChange}
                             />
-                            <span class="toggle-slider"></span>
-                          </label>
-                        </div>
-
-                        <div
-                          id="bigger-waterfall"
-                          class="flex flex-col items-center"
-                        >
-                          <span class="text-sm text-gray-300 mb-1 text-center"
-                            >Height (+)</span
-                          >
-                          <label class="toggle-switch">
+                          {:else}
                             <input
                               type="checkbox"
-                              on:change={handleWaterfallSizeChange}
+                              on:change={handleWaterfallChange}
                             />
-                            <span class="toggle-slider"></span>
-                          </label>
-                        </div>
+                          {/if}
+                          <span class="toggle-slider"></span>
+                        </label>
                       </div>
-                      <!-- <hr class="border-gray-600 my-2" /> -->
-                    </div>
-                  </div>
-                  <!-- END of Waterfall Control Buttons when Desktop -->
 
-                  
+                      <div
+                        id="spectrum-toggle"
+                        class="flex flex-col items-center"
+                      >
+                        <span class="text-sm text-gray-300 mb-1">Spectrum</span>
+                        <label class="toggle-switch">
+                          {#if spectrumDisplay}
+                            <input
+                              type="checkbox"
+                              checked
+                              on:change={handleSpectrumChange}
+                            />
+                          {:else}
+                            <input
+                              type="checkbox"
+                              on:change={handleSpectrumChange}
+                            />
+                          {/if}
+                          <span class="toggle-slider"></span>
+                        </label>
+                      </div>
+
+                      <div id="auto-adjust" class="flex flex-col items-center">
+                        <span class="text-sm text-gray-300 mb-1"
+                          >Auto Adj.</span
+                        >
+                        <label class="toggle-switch">
+                          <input
+                            type="checkbox"
+                            on:change={() => handleAutoAdjust()}
+                          />
+                          <span class="toggle-slider"></span>
+                        </label>
+                      </div>
+
+                      <div
+                        id="bigger-waterfall"
+                        class="flex flex-col items-center"
+                      >
+                        <span class="text-sm text-gray-300 mb-1 text-center"
+                          >Height (+)</span
+                        >
+                        <label class="toggle-switch">
+                          <input
+                            type="checkbox"
+                            on:change={handleWaterfallSizeChange}
+                          />
+                          <span class="toggle-slider"></span>
+                        </label>
+                      </div>
+                    </div>
+                   <!-- <hr class="border-gray-600 my-2" /> -->
+                  </div>
+              </div>
+            <!-- END of Waterfall Control Buttons when Desktop -->
+
+              
 
 
 <!-- Begin Bookmark Button Area -->
-                  <button
-                    id="bookmark-button"
-                    class="glass-button text-white font-bold py-2 px-4 rounded-lg flex items-center w-full justify-center"
-                    on:click={toggleBookmarkPopup}
-                  >
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      class="h-5 w-5 mr-2"
-                      viewBox="0 0 20 20"
-                      fill="currentColor"
-                    >
-                      <path
-                        d="M5 4a2 2 0 012-2h6a2 2 0 012 2v14l-5-2.5L5 18V4z"
-                      />
-                    </svg>
-                    Bookmarks
-                  </button>
+              <button
+                id="bookmark-button"
+                class="glass-button text-white font-bold py-2 px-4 rounded-lg flex items-center w-full justify-center"
+                on:click={toggleBookmarkPopup}
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  class="h-5 w-5 mr-2"
+                  viewBox="0 0 20 20"
+                  fill="currentColor"
+                >
+                  <path d="M5 4a2 2 0 012-2h6a2 2 0 012 2v14l-5-2.5L5 18V4z" />
+                </svg>
+                Bookmarks
+              </button>
 
-                  <div
-                    id="user_count_container"
-                    class="w-full mt-4 bg-gradient-to-r from-purple-600 to-blue-600 rounded-lg p-1"
-                  >
-                    <div
-                      id="total_user_count"
-                      class="bg-gray-800 rounded-md p-2 text-center flex justify-between items-center"
-                    >
-                      <!-- Content will be populated by JavaScript -->
-                    </div>
-                  </div>
-
-                  <!-- Recording Options -->
-                  <div class="mt-6 w-full">
-                    <h3 class="text-white text-base font-semibold mb-2">
-                      Recording Options
-                    </h3>
-                    <div class="flex justify-center gap-4">
-                      <button
-                        class="bg-gray-700 hover:bg-red-600 text-white font-medium py-2 px-4 rounded-lg flex items-center transition-colors {isRecording
-                          ? 'ring-2 ring-red-500'
-                          : ''}"
-                        on:click={toggleRecording}
-                      >
-                        {#if isRecording}
-                          <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            class="h-4 w-4 mr-2"
-                            viewBox="0 0 20 20"
-                            fill="currentColor"
-                          >
-                            <path
-                              d="M10 18a8 8 0 100-16 8 8 0 000 16zM8 7a1 1 0 00-1 1v4a1 1 0 001 1h4a1 1 0 001-1V8a1 1 0 00-1-1H8z"
-                            />
-                          </svg>
-                          Stop
-                        {:else}
-                          <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            class="h-4 w-4 mr-2"
-                            viewBox="0 0 20 20"
-                            fill="currentColor"
-                          >
-                            <path
-                              fill-rule="evenodd"
-                              d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z"
-                              clip-rule="evenodd"
-                            />
-                          </svg>
-                          Record
-                        {/if}
-                      </button>
-
-                      {#if canDownload}
-                        <button
-                          class="bg-gray-700 hover:bg-green-600 text-white font-medium py-2 px-4 rounded-lg flex items-center transition-colors"
-                          on:click={downloadRecording}
-                        >
-                          <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            class="h-4 w-4 mr-2"
-                            viewBox="0 0 20 20"
-                            fill="currentColor"
-                          >
-                            <path
-                              fill-rule="evenodd"
-                              d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z"
-                              clip-rule="evenodd"
-                            />
-                          </svg>
-                          Download
-                        </button>
-                      {/if}
-                    </div>
-                  </div>
+              <div
+                id="user_count_container"
+                class="w-full mt-4 bg-gradient-to-r from-purple-600 to-blue-600 rounded-lg p-1"
+              >
+                <div
+                  id="total_user_count"
+                  class="bg-gray-800 rounded-md p-2 text-center flex justify-between items-center"
+                >
+                  <!-- Content will be populated by JavaScript -->
                 </div>
-                <!-- Audio Ends -->
+              </div>
 
-                <!-- Bookmark Popup -->
-                {#if showBookmarkPopup}
+                <!-- Recording Options -->
+             <div class="mt-6 w-full">
+              <h3 class="text-white text-base font-semibold mb-2">Recording Options</h3>
+              <div class="flex justify-center gap-4">
+                <button class="bg-gray-700 hover:bg-red-600 text-white font-medium py-2 px-4 rounded-lg flex items-center transition-colors {isRecording ? 'ring-2 ring-red-500' : ''}" on:click={toggleRecording}>
+                  {#if isRecording}
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                      <path d="M10 18a8 8 0 100-16 8 8 0 000 16zM8 7a1 1 0 00-1 1v4a1 1 0 001 1h4a1 1 0 001-1V8a1 1 0 00-1-1H8z" />
+                    </svg>
+                    Stop
+                  {:else}
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                      <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd" />
+                    </svg>
+                    Record
+		  {/if}
+                </button>
+
+                {#if canDownload}
+                  <button class="bg-gray-700 hover:bg-green-600 text-white font-medium py-2 px-4 rounded-lg flex items-center transition-colors" on:click={downloadRecording}>
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                      <path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clip-rule="evenodd" />
+                    </svg>
+                    Download
+                  </button>
+                {/if}
+               </div>
+              </div> 
+            </div>
+            <!-- Audio Ends -->
+
+              <!-- Bookmark Popup -->
+              {#if showBookmarkPopup}
+                <div
+                  class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+                  on:click={toggleBookmarkPopup}
+                >
                   <div
-                    class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
-                    on:click={toggleBookmarkPopup}
+                    class="bg-gray-800 p-6 rounded-lg max-w-lg w-full max-h-[80vh] flex flex-col"
+                    on:click|stopPropagation
                   >
-                    <div
-                      class="bg-gray-800 p-6 rounded-lg max-w-lg w-full max-h-[80vh] flex flex-col"
-                      on:click|stopPropagation
-                    >
-                      <div class="flex justify-between items-center mb-4">
-                        <h2 class="text-xl font-bold text-white">Bookmarks</h2>
-                        <button
-                          class="text-gray-400 hover:text-white"
-                          on:click={toggleBookmarkPopup}
+                    <div class="flex justify-between items-center mb-4">
+                      <h2 class="text-xl font-bold text-white">Bookmarks</h2>
+                      <button
+                        class="text-gray-400 hover:text-white"
+                        on:click={toggleBookmarkPopup}
+                      >
+                        <svg
+                          class="w-6 h-6"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                          xmlns="http://www.w3.org/2000/svg"
                         >
-                          <svg
-                            class="w-6 h-6"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                            xmlns="http://www.w3.org/2000/svg"
-                          >
-                            <path
-                              stroke-linecap="round"
-                              stroke-linejoin="round"
-                              stroke-width="2"
-                              d="M6 18L18 6M6 6l12 12"
-                            ></path>
-                          </svg>
-                        </button>
-                      </div>
+                          <path
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            stroke-width="2"
+                            d="M6 18L18 6M6 6l12 12"
+                          ></path>
+                        </svg>
+                      </button>
+                    </div>
 
                       <!-- Add Bookmark Section -->
                       <div class="mb-6">
@@ -8249,40 +7576,40 @@ Click again to de-activate"
                         </div>
                       </div>
 
-                      <!-- Current Link Section -->
-                      <div class="mb-6">
-                        <label
-                          class="block text-sm font-medium text-gray-300 mb-2"
-                          >Current Link</label
+                    <!-- Current Link Section -->
+                    <div class="mb-6">
+                      <label
+                        class="block text-sm font-medium text-gray-300 mb-2"
+                        >Current Link</label
+                      >
+                      <div class="flex items-center gap-2">
+                        <input
+                          type="text"
+                          class="glass-input text-white text-sm rounded-lg focus:outline-none px-3 py-2 flex-grow"
+                          value={link}
+                          readonly
+                        />
+                        <button
+                          class="glass-button text-white font-bold py-2 px-4 rounded-lg flex items-center"
+                          on:click={handleLinkCopyClick}
                         >
-                        <div class="flex items-center gap-2">
-                          <input
-                            type="text"
-                            class="glass-input text-white text-sm rounded-lg focus:outline-none px-3 py-2 flex-grow"
-                            value={link}
-                            readonly
-                          />
-                          <button
-                            class="glass-button text-white font-bold py-2 px-4 rounded-lg flex items-center"
-                            on:click={handleLinkCopyClick}
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            class="h-5 w-5 mr-2"
+                            viewBox="0 0 20 20"
+                            fill="currentColor"
                           >
-                            <svg
-                              xmlns="http://www.w3.org/2000/svg"
-                              class="h-5 w-5 mr-2"
-                              viewBox="0 0 20 20"
-                              fill="currentColor"
-                            >
-                              <path
-                                d="M8 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z"
-                              />
-                              <path
-                                d="M6 3a2 2 0 00-2 2v11a2 2 0 002 2h8a2 2 0 002-2V5a2 2 0 00-2-2 3 3 0 01-3 3H9a3 3 0 01-3-3z"
-                              />
-                            </svg>
-                            Copy
-                          </button>
-                        </div>
+                            <path
+                              d="M8 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z"
+                            />
+                            <path
+                              d="M6 3a2 2 0 00-2 2v11a2 2 0 002 2h8a2 2 0 002-2V5a2 2 0 00-2-2 3 3 0 01-3 3H9a3 3 0 01-3-3z"
+                            />
+                          </svg>
+                          Copy
+                        </button>
                       </div>
+                    </div>
 
                       <!-- amkbookmarks -->
 
@@ -8371,11 +7698,6 @@ Click again to de-activate"
                               <span class="text-white text-sm"
                                 >{bookmark.name}</span
                               >
-                              {#if bookmark.label}
-                                <span class="text-yellow-300 text-xs"
-                                  >{bookmark.label}</span
-                                >
-                              {/if}
                               <span class="text-gray-400 text-xs"
                                 >{(bookmark.frequency / 1000).toFixed(3)} kHz</span
                               >
@@ -8675,8 +7997,6 @@ Click again to de-activate"
                       bind:this={spectrumCanvas}
                       on:wheel={handleWaterfallWheel}
                       on:click={passbandTunerComponent.handlePassbandClick}
-                      on:mousemove={handleSpectrumMouseMove}
-                      on:mouseleave={handleSpectrumMouseLeave}
                       width="1024"
                       height="128"
                     ></canvas>
@@ -8707,8 +8027,6 @@ Click again to de-activate"
                       on:panmove={handleWaterfallPanMove}
                       on:wheel={handleWaterfallWheel}
                       on:mousedown={handleWaterfallMouseDown}
-                      on:mousemove={handleWaterfallMouseMove}
-                      on:mouseleave={handleWaterfallMouseLeave}
                       width="1024"
                     ></canvas>
                     <canvas
@@ -8724,7 +8042,6 @@ Click again to de-activate"
 
                     <FrequencyMarkers
                       bind:this={frequencyMarkerComponent}
-                      bookmarks={$bookmarks}
                       on:click={passbandTunerComponent.handlePassbandClick}
                       on:wheel={handleWaterfallWheel}
                       on:markerclick={handleFrequencyMarkerClick}
@@ -8783,22 +8100,6 @@ Click again to de-activate"
                         width="1024"
                         height="20"
                       ></canvas>
-                    </div>
-
-                    <!-- Spectrogram Display -->
-                    <div class="mt-2 w-full" style="display: {spectrogramEnabled ? 'block' : 'none'}">
-                      <Spectrogram
-                        bind:this={spectrogramComponent}
-                        minHz={50}
-                        maxHzLimit={10000}
-                        fftSize={4096}
-                        displayGain={spectrogramGain}
-                        colorScheme={spectrogramColorScheme}
-                        showLabels={true}
-                        height={spectrogramHeight}
-                        enabled={spectrogramEnabled}
-                        on:initialized={initSpectrogram}
-                      />
                     </div>
                   </div>
                 </div>
@@ -9019,8 +8320,7 @@ Click again to de-activate"
                         />
 
                         <!-- SMeter -->
-                        <canvas id="sMeterMobile" width="300" height="40"
-                        ></canvas>
+                        <canvas id="sMeter" width="20" height="20"></canvas>
 
                         <div
                           class="flex items-center justify-center text-xs w-48"
@@ -9410,7 +8710,7 @@ Click again to de-activate"
                           <div class="flex items-center gap-2">
                             <!-- Backend Noise Gate Toggle Button -->
                             <button
-                              class="text-xs px-3 py-1 rounded-md font-semibold transition-all duration-200 {backendNoiseGateEnabled
+                              class="text-sm px-3 py-1 rounded-md font-semibold transition-all duration-200 {backendNoiseGateEnabled
                                 ? 'bg-blue-600 text-white shadow-lg'
                                 : 'bg-gray-700 text-gray-300 hover:bg-gray-600'}"
                               on:click={toggleBackendNoiseGate}
@@ -9739,21 +9039,21 @@ Click again to de-activate"
 
                   
                   
-                  <!-- FT8 / FT4 Messages List -->
-                  {#if decoderOn && (ft8Enabled || ft4Enabled)}
-                    <div class="w-full bg-gray-700 rounded-lg p-6 mt-6">
-                      <div class="w-full flex justify-between items-center mb-5 text-xs">
-                        <h4 class="text-white font-semibold">{ft4Enabled ? 'FT4' : 'FT8'} Messages</h4>
-                        <span class="text-gray-300 pl-4 lg:pl-0" id="farthest-distance">Farthest: 0 km</span>
-                      </div>
-                      <div class="w-full text-gray-300 overflow-auto max-h-40 custom-scrollbar pr-2">
-                        <div id="ft8MessagesList">
-                          <!-- Dynamic content populated here -->
-                        </div>
-                        <div><hr class="border-gray-600 my-2" /></div>
-                      </div>
+             <!-- FT8 / FT4 Messages List -->
+              {#if decoderOn && (ft8Enabled || ft4Enabled)}
+                <div class="w-full bg-gray-700 rounded-lg p-6 mt-6">
+                  <div class="w-full flex justify-between items-center mb-5 text-xs">
+                    <h4 class="text-white font-semibold">{ft4Enabled ? 'FT4' : 'FT8'} Messages</h4>
+                    <span class="text-gray-300 pl-4 lg:pl-0" id="farthest-distance">Farthest: 0 km</span>
+                  </div>
+                  <div class="w-full text-gray-300 overflow-auto max-h-40 custom-scrollbar pr-2">
+                    <div id="ft8MessagesList">
+                      <!-- Dynamic content populated here -->
                     </div>
-                  {/if}
+                    <div><hr class="border-gray-600 my-2" /></div>
+                  </div>
+                </div>
+              {/if}
 
                   <!-- CW Decoder Window -->
                   {#if decoderOn && cwEnabled}
@@ -10216,7 +9516,7 @@ Click again to de-activate"
                         <span class="text-gray-500 font-mono">1500 Hz BW · FARGAN vocoder</span>
                       </div>
 
-                      <!-- Info / error -->
+                      <!-- Error banner -->
                       {#if !radeConnected}
                         <div class="rounded bg-red-900/40 border border-red-700 px-3 py-2 text-xs text-red-300 mb-3">
                           <strong>⚠ Sidecar not reachable.</strong> Start it on the server:<br>
@@ -11140,16 +10440,6 @@ Click again to de-activate"
 
   #sMeter {
     width: 300px;
-    height: 190px;
-    background-color: transparent;
-    display: block;
-    margin-left: auto;
-    margin-right: auto;
-    margin-top: 5px;
-  }
-
-  #sMeterMobile {
-    width: 300px;
     height: 40px;
     background-color: transparent;
     display: block;
@@ -11472,7 +10762,7 @@ Click again to de-activate"
     #outer-waterfall-container {
       min-width: 1372px;
     }
-
+ 
   /* --- Modal Header and close --- */
   .modal-header {
     display: flex;

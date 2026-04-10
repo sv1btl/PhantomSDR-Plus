@@ -261,11 +261,13 @@ export default class SpectrumAudio {
     // Added to allow for adjustment of the //
     // dynamic audio buffer //
     this.bufferLimit = 0.5;      // max ~500 ms ahead
-    this.playbackWorkletNode = null;
-    this.playbackWorkletReady = false;
-    this.playbackChannels = 1;
-    this._pendingWorkletChunks = [];
-    this.bufferThreshold = 0.1;  // aim for ~100 ms safety buffer
+    this.bufferThreshold = 0.2;  // aim for ~200 ms safety buffer
+
+    // AudioWorklet / fallback diagnostics and hardening
+    this._loggedWorkletPlayback = false;
+    this._loggedFallbackPlayback = false;
+    this._loggedWorkletFailure = false;
+    this._streamStats = null;
 
     this.endpoint = endpoint
 
@@ -1178,10 +1180,6 @@ setAGC(newAGCSpeed) {
     this.audioStartTime = this.audioCtx.currentTime
     this.playTime       = this.audioCtx.currentTime + this.bufferThreshold;
     this.playStartTime  = this.audioCtx.currentTime;
-    this.playbackWorkletNode = null;
-    this.playbackWorkletReady = false;
-    this._pendingWorkletChunks = [];
-    this._setupPlaybackWorklet();
 
     // ✅ FIXED: Free old decoder before creating new one to prevent memory leak
     if (this.decoder && typeof this.decoder.free === 'function') {
@@ -1346,7 +1344,6 @@ setAGC(newAGCSpeed) {
     this.gainNode.connect(this.audioCtx.destination)
 
     this.audioInputNode = this.convolverNode
-    this._connectPlaybackSource()
 
     // Initial filter update based on current demodulation
     this.updateFilters()
@@ -1387,60 +1384,6 @@ setAGC(newAGCSpeed) {
         this.presenceBoost.gain.value = 3
         this.setLowpass(4800)
         break
-    }
-  }
-
-  _disconnectPlaybackSource() {
-    if (this.playbackWorkletNode) {
-      try { this.playbackWorkletNode.disconnect(); } catch (e) {}
-    }
-  }
-
-  _connectPlaybackSource() {
-    if (this.playbackWorkletNode && this.audioInputNode) {
-      try { this.playbackWorkletNode.disconnect(); } catch (e) {}
-      try { this.playbackWorkletNode.connect(this.audioInputNode); } catch (e) {
-        console.warn('[AudioWorklet] connect failed:', e)
-      }
-    }
-  }
-
-  async _setupPlaybackWorklet() {
-    if (!this.audioCtx || this.playbackWorkletReady) return;
-    if (!this.audioCtx.audioWorklet || typeof AudioWorkletNode === 'undefined') {
-      console.warn('[AudioWorklet] audioWorklet not available, using fallback scheduling')
-      return;
-    }
-    try {
-      await this.audioCtx.audioWorklet.addModule(new URL('./audio-stream-worklet.js', import.meta.url));
-      this.playbackWorkletNode = new AudioWorkletNode(this.audioCtx, 'phantomsdr-audio-stream', {
-        numberOfInputs: 0,
-        numberOfOutputs: 1,
-        outputChannelCount: [2],
-        processorOptions: {
-          sampleRate: this.audioOutputSps,
-          maxBufferedSeconds: Math.max(0.5, this.bufferLimit + 0.25)
-        }
-      });
-      this.playbackWorkletNode.port.onmessage = (event) => {
-        const data = event.data || {};
-        if (data.type === 'stats') {
-          this._playbackStats = data;
-        }
-      };
-      this.playbackWorkletReady = true;
-      this._connectPlaybackSource();
-      if (this._pendingWorkletChunks && this._pendingWorkletChunks.length) {
-        for (const item of this._pendingWorkletChunks) {
-          this.playbackWorkletNode.port.postMessage(item);
-        }
-        this._pendingWorkletChunks = [];
-      }
-      console.log('[AudioWorklet] playback stream ready')
-    } catch (e) {
-      console.error('[AudioWorklet] setup failed, using fallback scheduling:', e)
-      this.playbackWorkletNode = null;
-      this.playbackWorkletReady = false;
     }
   }
 
@@ -1525,7 +1468,6 @@ setAGC(newAGCSpeed) {
   setFmDeemph(tau) {
     if (tau === 0) {
       this.audioInputNode = this.convolverNode
-      this._connectPlaybackSource()
       return
     }
     // FM deemph https://github.com/gnuradio/gnuradio/blob/master/gr-analog/python/analog/fm_emph.py
@@ -1551,7 +1493,6 @@ setAGC(newAGCSpeed) {
     this.fmDeemphNode.connect(this.convolverNode)
 
     this.audioInputNode = this.fmDeemphNode
-    this._connectPlaybackSource()
   }
 
   socketMessageInitial(event) {
@@ -2460,6 +2401,97 @@ async stopFT4Collection() {
     }
   }
 
+  async _ensureStreamingWorklet() {
+    if (!this.audioCtx || !this.audioInputNode) return false;
+    if (this._streamForceFallback) return false;
+    if (this._streamWorkletNode) {
+      if (this._streamConnectedNode !== this.audioInputNode) {
+        try { this._streamWorkletNode.disconnect(); } catch (_) {}
+        this._streamWorkletNode.connect(this.audioInputNode);
+        this._streamConnectedNode = this.audioInputNode;
+      }
+      return true;
+    }
+    if (this._streamInitPromise) {
+      return this._streamInitPromise;
+    }
+
+    this._streamInitPromise = (async () => {
+      try {
+        if (this.audioCtx.state === 'suspended') {
+          try { await this.audioCtx.resume(); } catch (_) {}
+        }
+        const WorkletCtor = globalThis.AudioWorkletNode || (typeof AudioWorkletNode !== 'undefined' ? AudioWorkletNode : null);
+        if (!this.audioCtx.audioWorklet || !WorkletCtor) {
+          throw new Error('AudioWorklet not available');
+        }
+        if (!this._streamWorkletModuleLoaded) {
+          await this.audioCtx.audioWorklet.addModule(new URL('./audio-stream-worklet.js', import.meta.url));
+          this._streamWorkletModuleLoaded = true;
+        }
+        const node = new WorkletCtor(this.audioCtx, 'phantomsdr-audio-stream', {
+          numberOfInputs: 0,
+          numberOfOutputs: 1,
+          outputChannelCount: [2],
+          processorOptions: {
+            sampleRate: this.audioOutputSps || this.audioCtx.sampleRate || 12000,
+            maxBufferedSeconds: 3.0,
+            minStartSeconds: 0.16,
+          }
+        });
+        node.connect(this.audioInputNode);
+        this._streamConnectedNode = this.audioInputNode;
+        node.port.onmessage = (event) => {
+          const data = event.data || {};
+          if (data.type === 'stats') {
+            this._streamStats = data;
+          }
+        };
+        this._streamWorkletNode = node;
+        if (!this._loggedWorkletPlayback) {
+          console.log('[Audio] Streaming AudioWorklet active');
+          this._loggedWorkletPlayback = true;
+        }
+        return true;
+      } catch (e) {
+        if (!this._loggedWorkletFailure) {
+          console.warn('[Audio] AudioWorklet stream unavailable, falling back:', e);
+          this._loggedWorkletFailure = true;
+        }
+        this._streamForceFallback = true;
+        this._streamWorkletNode = null;
+        return false;
+      } finally {
+        this._streamInitPromise = null;
+      }
+    })();
+
+    return this._streamInitPromise;
+  }
+
+  _enqueuePCMToStreamingWorklet(buffer, channels) {
+    if (!this._streamWorkletNode) return false;
+    try {
+      const pcm = new Float32Array(buffer);
+      this._streamWorkletNode.port.postMessage({
+        type: 'push',
+        pcm,
+        channels: channels === 2 ? 2 : 1,
+      });
+      return true;
+    } catch (e) {
+      console.warn('[Audio] Worklet enqueue failed:', e);
+      return false;
+    }
+  }
+
+  _logFallbackPlaybackOnce() {
+    if (!this._loggedFallbackPlayback) {
+      console.log('[Audio] Using fallback AudioBufferSourceNode playback');
+      this._loggedFallbackPlayback = true;
+    }
+  }
+
   playPCM(buffer, playTime, sampleRate, scale, channels = 1) {  // ✅ ADDED: channels parameter
     if (!this.audioInputNode) {
       console.warn('Audio not initialized');
@@ -2468,31 +2500,30 @@ async stopFT4Collection() {
 
     const frames = (channels === 2) ? Math.floor(buffer.length / 2) : buffer.length;
     if (frames <= 0) return 0;
-    const duration = frames / this.audioOutputSps;
 
-    if (this.playbackWorkletReady && this.playbackWorkletNode) {
-      // Copy to a fresh buffer so posting to the worklet cannot race with any
-      // later mutations or reuse in the main pipeline.
-      const chunk = new Float32Array(buffer.length);
-      chunk.set(buffer);
-      this.playbackWorkletNode.port.postMessage({
-        type: 'push',
-        pcm: chunk,
-        channels: channels
+    if (!this._streamForceFallback) {
+      this._ensureStreamingWorklet().then((ok) => {
+        if (ok) {
+          if (!this._enqueuePCMToStreamingWorklet(buffer, channels)) {
+            this._streamForceFallback = true;
+            this._streamWorkletNode = null;
+          }
+        }
+      }).catch((e) => {
+        if (!this._loggedWorkletFailure) {
+          console.warn('[Audio] AudioWorklet init promise failed, falling back:', e);
+          this._loggedWorkletFailure = true;
+        }
+        this._streamForceFallback = true;
+        this._streamWorkletNode = null;
       });
-      return duration;
-    }
-
-    if (!this.playbackWorkletReady && this.audioCtx && this.audioCtx.audioWorklet) {
-      const chunk = new Float32Array(buffer.length);
-      chunk.set(buffer);
-      this._pendingWorkletChunks.push({ type: 'push', pcm: chunk, channels: channels });
-      if (this._pendingWorkletChunks.length > 64) {
-        this._pendingWorkletChunks.splice(0, this._pendingWorkletChunks.length - 64);
+      if (this._streamWorkletNode && this._enqueuePCMToStreamingWorklet(buffer, channels)) {
+        return frames / (this.audioOutputSps || sampleRate || this.audioCtx.sampleRate || 12000);
       }
-      return duration;
     }
 
+    this._logFallbackPlaybackOnce();
+    
     const source = new AudioBufferSourceNode(this.audioCtx);
     const audioBuffer = new AudioBuffer({
       length: frames,
@@ -2517,7 +2548,6 @@ async stopFT4Collection() {
     source.connect(this.audioInputNode);
 
     const scheduledTime = Math.max(playTime, this.audioCtx.currentTime);
-
     let safetyTimerId = null;
     let disconnected = false;
     const disconnect = () => {
@@ -2527,9 +2557,7 @@ async stopFT4Collection() {
           clearTimeout(safetyTimerId);
           safetyTimerId = null;
         }
-        try {
-          source.disconnect();
-        } catch (e) {}
+        try { source.disconnect(); } catch (_) {}
       }
     };
 

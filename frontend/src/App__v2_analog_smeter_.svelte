@@ -7474,7 +7474,7 @@ Click again to de-activate"
                           <button class="decoder-btn-secondary" on:click={_sstvStart} disabled={sstvRunning}>▶ Start</button>
                           <button class="decoder-btn-secondary" on:click={_sstvStop} disabled={!sstvRunning}>■ Stop</button>
                           <button class="decoder-btn-secondary" on:click={sstvRefresh} disabled={!sstvRunning}>↺ Reset</button>
-                          <button class="decoder-btn-secondary" on:click={sstvSaveImage}>💾 Save Image</button>
+                          <button class="decoder-btn-secondary" on:click={sstvSaveImage}>💾 Save</button>
                         </div>
                       </div>
                       <div class="flex flex-wrap items-center gap-3 mb-2 text-xs text-gray-300">
@@ -10054,7 +10054,7 @@ Click again to de-activate"
                           <button class="decoder-btn-secondary" on:click={_sstvStart} disabled={sstvRunning}>▶ Start</button>
                           <button class="decoder-btn-secondary" on:click={_sstvStop} disabled={!sstvRunning}>■ Stop</button>
                           <button class="decoder-btn-secondary" on:click={sstvRefresh} disabled={!sstvRunning}>↺ Reset</button>
-                          <button class="decoder-btn-secondary" on:click={sstvSaveImage}>💾 Save Image</button>
+                          <button class="decoder-btn-secondary" on:click={sstvSaveImage}>💾 Save</button>
                         </div>
                       </div>
                       <div class="flex flex-wrap items-center gap-3 mb-2 text-xs text-gray-300">

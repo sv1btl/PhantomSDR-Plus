@@ -7,7 +7,10 @@
 #include "glaze/glaze.hpp"
 
 #include <chrono>
+#include <functional>
 #include <map>
+#include <memory>
+#include <numeric>
 
 // ---------------------------------------------------------------------------
 // Adaptive throttling
@@ -35,98 +38,139 @@ namespace {
 using clock_t = std::chrono::steady_clock;
 
 struct throttle_state {
-    uint64_t last_frame_sent = 0;                 // last frame_num we sent
-    clock_t::time_point last_send_time = {};      // last time we sent
+    uint64_t last_frame_sent = 0;
+    clock_t::time_point last_send_time = {};
 };
 
-// Use owner_less so connection_hdl can be map key safely.
 using throttle_map_t = std::map<connection_hdl, throttle_state, std::owner_less<connection_hdl>>;
+using timer_map_t = std::map<connection_hdl, std::shared_ptr<boost::asio::steady_timer>, std::owner_less<connection_hdl>>;
 
-// Separate state for audio and waterfall (different thresholds).
 throttle_map_t g_audio_throttle;
 throttle_map_t g_waterfall_throttle;
+timer_map_t g_ping_timers;
 
-// Decide whether to send this frame given the current buffered amount.
-// Returns true if we should send now.
-inline bool should_send_adaptive(throttle_state &st,
-                                const size_t buffered_amount,
-                                const uint64_t frame_num,
-                                const int base_fps_cap,
-                                const bool is_audio = false) {
-    // base_fps_cap is interpreted as a *minimum* cadence guard in ms when
-    // we are under pressure (acts like a token bucket).
-    // In normal operation, we send every frame.
-
-    // Map buffer pressure -> frame skipping and minimum interval.
-    // These values are conservative and meant to avoid starvation.
-    // Audio uses tighter thresholds to prevent audible gaps.
-    int skip_mod = 1;
+inline bool should_send_audio(throttle_state &st,
+                              const size_t buffered_amount,
+                              const uint64_t frame_num) {
+    // Audio must remain continuous. Do not modulo-skip frames the way we do
+    // for waterfall. Only apply a light cadence guard under severe pressure
+    // to stop runaway queue growth.
     int min_interval_ms = 0;
 
-    if (is_audio) {
-        // AUDIO: More aggressive early intervention to prevent buffer buildup
-        // Lower thresholds, gentler skipping to maintain continuity
-        if (buffered_amount > 500000) {          // severe pressure
-            skip_mod = 20;
-            min_interval_ms = base_fps_cap * 5;
-        } else if (buffered_amount > 300000) {   // high pressure
-            skip_mod = 10;
-            min_interval_ms = base_fps_cap * 4;
-        } else if (buffered_amount > 150000) {   // moderate pressure
-            skip_mod = 5;
-            min_interval_ms = base_fps_cap * 3;
-        } else if (buffered_amount > 75000) {    // light pressure
-            skip_mod = 3;
-            min_interval_ms = base_fps_cap * 2;
-        } else if (buffered_amount > 30000) {    // early warning
-            skip_mod = 2;
-            min_interval_ms = base_fps_cap;
-        }
-    } else {
-        // WATERFALL: Can tolerate more aggressive skipping
-        // Higher thresholds, more aggressive skipping (visual continuity less critical)
-        if (buffered_amount > 700000) {          // very slow client
-            skip_mod = 30;
-            min_interval_ms = base_fps_cap * 6;
-        } else if (buffered_amount > 400000) {
-            skip_mod = 15;
-            min_interval_ms = base_fps_cap * 4;
-        } else if (buffered_amount > 200000) {
-            skip_mod = 8;
-            min_interval_ms = base_fps_cap * 3;
-        } else if (buffered_amount > 100000) {
-            skip_mod = 4;
-            min_interval_ms = base_fps_cap * 2;
-        } else if (buffered_amount > 50000) {
-            skip_mod = 2;
-            min_interval_ms = base_fps_cap;
-        }
+    if (buffered_amount > 1200000) {
+        min_interval_ms = 20;
+    } else if (buffered_amount > 800000) {
+        min_interval_ms = 12;
+    } else if (buffered_amount > 500000) {
+        min_interval_ms = 8;
+    } else if (buffered_amount > 300000) {
+        min_interval_ms = 4;
     }
 
-    // If no pressure: send.
-    if (skip_mod == 1 && min_interval_ms == 0) {
+    if (min_interval_ms <= 0) {
+        st.last_frame_sent = frame_num;
+        st.last_send_time = clock_t::now();
         return true;
     }
 
-    // Skip intermediate frames by modulo.
+    const auto now = clock_t::now();
+    if (st.last_send_time.time_since_epoch().count() != 0) {
+        const auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - st.last_send_time).count();
+        if (elapsed < min_interval_ms) {
+            return false;
+        }
+    }
+
+    st.last_frame_sent = frame_num;
+    st.last_send_time = now;
+    return true;
+}
+
+inline bool should_send_waterfall(throttle_state &st,
+                                  const size_t buffered_amount,
+                                  const uint64_t frame_num,
+                                  const int base_fps_cap_ms) {
+    int skip_mod = 1;
+    int min_interval_ms = 0;
+
+    if (buffered_amount > 700000) {
+        skip_mod = 30;
+        min_interval_ms = base_fps_cap_ms * 6;
+    } else if (buffered_amount > 400000) {
+        skip_mod = 15;
+        min_interval_ms = base_fps_cap_ms * 4;
+    } else if (buffered_amount > 200000) {
+        skip_mod = 8;
+        min_interval_ms = base_fps_cap_ms * 3;
+    } else if (buffered_amount > 100000) {
+        skip_mod = 4;
+        min_interval_ms = base_fps_cap_ms * 2;
+    } else if (buffered_amount > 50000) {
+        skip_mod = 2;
+        min_interval_ms = base_fps_cap_ms;
+    }
+
+    if (skip_mod == 1 && min_interval_ms == 0) {
+        st.last_frame_sent = frame_num;
+        st.last_send_time = clock_t::now();
+        return true;
+    }
+
     if ((frame_num % static_cast<uint64_t>(skip_mod)) != 0) {
         return false;
     }
 
-    // Also enforce a minimum time interval when under pressure.
     const auto now = clock_t::now();
-    if (min_interval_ms > 0) {
-        if (st.last_send_time.time_since_epoch().count() != 0) {
-            const auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - st.last_send_time).count();
-            if (elapsed < min_interval_ms) {
-                return false;
-            }
+    if (min_interval_ms > 0 && st.last_send_time.time_since_epoch().count() != 0) {
+        const auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - st.last_send_time).count();
+        if (elapsed < min_interval_ms) {
+            return false;
         }
     }
 
-    st.last_send_time = now;
     st.last_frame_sent = frame_num;
+    st.last_send_time = now;
     return true;
+}
+
+inline void stop_ping_loop(connection_hdl hdl) {
+    auto it = g_ping_timers.find(hdl);
+    if (it != g_ping_timers.end()) {
+        try {
+            boost::system::error_code ec;
+            it->second->cancel(ec);
+        } catch (...) {}
+        g_ping_timers.erase(it);
+    }
+}
+
+inline void start_ping_loop(server &srv, connection_hdl hdl) {
+    auto &io = srv.get_io_service();
+    auto timer = std::make_shared<boost::asio::steady_timer>(io);
+    g_ping_timers[hdl] = timer;
+
+    auto weak = websocketpp::lib::weak_ptr<server::connection_type>(srv.get_con_from_hdl(hdl));
+    auto loop = std::make_shared<std::function<void()>>();
+    *loop = [&srv, hdl, timer, weak, loop]() {
+        if (g_ping_timers.find(hdl) == g_ping_timers.end()) {
+            return;
+        }
+        if (auto c = weak.lock()) {
+            if (c->get_state() == websocketpp::session::state::open) {
+                try { c->ping("k"); } catch (...) {}
+                timer->expires_after(std::chrono::seconds(25));
+                timer->async_wait([loop](const boost::system::error_code &e) {
+                    if (!e && *loop) {
+                        (*loop)();
+                    }
+                });
+                return;
+            }
+        }
+        stop_ping_loop(hdl);
+    };
+
+    (*loop)();
 }
 } // namespace
 
@@ -266,6 +310,7 @@ void broadcast_server::on_open_signal(connection_hdl hdl,
     con->set_close_handler([client](connection_hdl h) {
         // Clean up throttle state for this connection
         g_audio_throttle.erase(h);
+        stop_ping_loop(h);
         // AudioClient::on_close() takes no arguments
         try { client->on_close(); } catch (...) {}
     });
@@ -317,7 +362,7 @@ std::vector<std::future<void>> broadcast_server::signal_loop() {
             // (was 25ms/40Hz - now tighter for better audio continuity)
             const size_t buffered = con->get_buffered_amount();
             auto &st = g_audio_throttle[data->hdl];
-            if (!should_send_adaptive(st, buffered, static_cast<uint64_t>(frame_num), 20, true)) {
+            if (!should_send_audio(st, buffered, static_cast<uint64_t>(frame_num))) {
                 continue;
             }
 
@@ -352,6 +397,7 @@ void broadcast_server::on_open_waterfall(connection_hdl hdl) {
     con->set_close_handler([client](connection_hdl h) {
         // Clean up throttle state for this connection
         g_waterfall_throttle.erase(h);
+        stop_ping_loop(h);
         try { client->on_close(); } catch (...) {}
     });
     con->set_message_handler(std::bind(
@@ -387,7 +433,7 @@ broadcast_server::waterfall_loop(int8_t *fft_power_quantized) {
                 const size_t buffered = con->get_buffered_amount();
                 auto &st = g_waterfall_throttle[data->hdl];
                 // base_fps_cap (ms) ~40ms => ~25Hz minimum cadence under pressure.
-                if (!should_send_adaptive(st, buffered, static_cast<uint64_t>(frame_num), 40, false)) {
+                if (!should_send_waterfall(st, buffered, static_cast<uint64_t>(frame_num), 40)) {
                     continue;
                 }
                 
@@ -412,7 +458,7 @@ broadcast_server::waterfall_loop(int8_t *fft_power_quantized) {
 void broadcast_server::on_open_unknown(connection_hdl hdl) {
     server::connection_ptr con = m_server.get_con_from_hdl(hdl);
     if (con) {
-        con->set_close_handler([](connection_hdl) {}); // No-op
+        con->set_close_handler([](connection_hdl h) { stop_ping_loop(h); });
     }
     // Immediately close with a benign status
     websocketpp::lib::error_code ec;
@@ -462,38 +508,21 @@ void broadcast_server::on_open(connection_hdl hdl) {
     // Per-connection pong timeout (10s) to detect dead peers.
     try { con->set_pong_timeout(10000); } catch (...) {}
 
-    // Start a lightweight keepalive ping loop to prevent idle/proxy drops.
-    {
-        auto& io = m_server.get_io_service();
-        auto timer = std::make_shared<boost::asio::steady_timer>(io);
-        std::weak_ptr<server::connection_type> weak = m_server.get_con_from_hdl(hdl);
-        std::function<void()> ping_loop;
-        ping_loop = [this, timer, weak, ping_loop]() mutable {
-            if (auto c = weak.lock()) {
-                if (c->get_state() == websocketpp::session::state::open) {
-                    websocketpp::lib::error_code ignore_ec;
-                    try { c->ping("k"); } catch (...) {}
-                }
-                timer->expires_after(std::chrono::seconds(25));
-                timer->async_wait([ping_loop](const boost::system::error_code& e){
-                    if (!e) ping_loop();
-                });
-            }
-        };
-        ping_loop();
-    }
-
     if (path == "/audio") {
+        start_ping_loop(m_server, hdl);
         on_open_signal(hdl, AUDIO);
     } else if (path == "/signal") {
         // on_open_signal(hdl, SIGNAL);
     } else if (path == "/waterfall") {
+        start_ping_loop(m_server, hdl);
         on_open_waterfall(hdl);
     } else if (path == "/waterfall_raw") {
         // on_open_waterfall_raw(hdl);
     } else if (path == "/events") {
+        start_ping_loop(m_server, hdl);
         on_open_events(hdl);
     } else if (path == "/chat") {
+        start_ping_loop(m_server, hdl);
         on_open_chat(hdl);
     } else {
         on_open_unknown(hdl);

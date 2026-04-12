@@ -35,6 +35,6 @@ struct server_config : public websocketpp::config::asio {
     };
 };
 
-typedef websocketpp::server<websocketpp::config::asio> server;
+typedef websocketpp::server<server_config> server;
 
 #endif

@@ -263,14 +263,6 @@ export default class SpectrumAudio {
     this.bufferLimit = 0.5;      // max ~500 ms ahead
     this.bufferThreshold = 0.2;  // aim for ~200 ms safety buffer
 
-    // Adaptive jitter-buffer control
-    this.underruns = 0;
-    this.stablePlayback = false;
-    this.stablePlaybackCounter = 0;
-    this.lastUnderrunTime = 0;
-    this.minBufferThreshold = 0.05;
-    this.maxBufferThreshold = this.bufferLimit;
-
     // AudioWorklet / fallback diagnostics and hardening
     this._loggedWorkletPlayback = false;
     this._loggedFallbackPlayback = false;
@@ -1422,8 +1414,6 @@ setAGC(newAGCSpeed) {
     console.warn('Invalid buffer delay parameters, using defaults');
     this.bufferLimit = 0.5;
     this.bufferThreshold = 0.1;
-    this.minBufferThreshold = 0.05;
-    this.maxBufferThreshold = this.bufferLimit;
     return;
   }
   
@@ -1436,56 +1426,9 @@ setAGC(newAGCSpeed) {
   // Clamp to reasonable ranges (20ms to 5 seconds)
   this.bufferThreshold = Math.max(0.02, Math.min(5.0, newAudioBufferThreshold));
   this.bufferLimit = Math.max(0.02, Math.min(5.0, newAudioBufferLimit));
-  this.minBufferThreshold = Math.min(0.05, this.bufferThreshold);
-  this.maxBufferThreshold = this.bufferLimit;
   
   console.log(`Audio buffer delay updated: threshold=${this.bufferThreshold.toFixed(3)}s, limit=${this.bufferLimit.toFixed(3)}s`);
 }
-
-  _updateAdaptiveBuffer(currentBuffered, currentTime) {
-    const nowMs = performance.now();
-
-    if (currentBuffered <= this.bufferThreshold) {
-      this.underruns++;
-      this.lastUnderrunTime = nowMs;
-      this.stablePlayback = false;
-      this.stablePlaybackCounter = 0;
-    } else {
-      this.stablePlayback = (nowMs - this.lastUnderrunTime) > 2000;
-      if (this.stablePlayback) {
-        this.stablePlaybackCounter++;
-      } else {
-        this.stablePlaybackCounter = 0;
-      }
-    }
-
-    const maxThreshold = Math.max(this.bufferThreshold, this.maxBufferThreshold || this.bufferLimit || 0.05);
-    const minThreshold = Math.min(this.bufferThreshold, this.minBufferThreshold || 0.05);
-
-    if (this.underruns > 3) {
-      const nextThreshold = Math.min(this.bufferThreshold + 0.02, maxThreshold);
-      if (nextThreshold !== this.bufferThreshold) {
-        this.bufferThreshold = nextThreshold;
-        if (this.playTime < currentTime + this.bufferThreshold) {
-          this.playTime = currentTime + this.bufferThreshold;
-        }
-        console.log(`[Audio] Adaptive buffer increased threshold to ${this.bufferThreshold.toFixed(3)}s after underruns=${this.underruns}`);
-      }
-      this.underruns = 0;
-      this.stablePlayback = false;
-      this.stablePlaybackCounter = 0;
-      return;
-    }
-
-    if (this.stablePlaybackCounter > 50) {
-      const nextThreshold = Math.max(this.bufferThreshold - 0.01, minThreshold);
-      if (nextThreshold !== this.bufferThreshold) {
-        this.bufferThreshold = nextThreshold;
-        console.log(`[Audio] Adaptive buffer decreased threshold to ${this.bufferThreshold.toFixed(3)}s after stable playback`);
-      }
-      this.stablePlaybackCounter = 0;
-    }
-  }
 
   setFT8Decoding(value) {
     this.decodeFT8 = value;
@@ -2415,16 +2358,14 @@ async stopFT4Collection() {
 
     // Dynamic adjustment of play time
     const currentTime = this.audioCtx.currentTime;
-    const currentBuffered = this.playTime - currentTime;
-    this._updateAdaptiveBuffer(currentBuffered, currentTime);
     // The line below was commented out by NY4Q to allow for a mod to //
     // adjust the dynamic limits of this function. //
     //const bufferThreshold = 0.1; // 100ms buffer //
-    if (currentBuffered <= this.bufferThreshold) {
+    if ((this.playTime - currentTime) <= this.bufferThreshold) {
       // Underrun: increase buffer
       this.playTime = (currentTime + this.bufferThreshold + curPlayTime);
       // removed 0.5 and placed bufferLimit in its place - NY4Q //
-    } else if (currentBuffered > this.bufferLimit) { // Originally at 0.5
+    } else if ((this.playTime - currentTime) > this.bufferLimit) { // Originally at 0.5
       // Overrun: decrease buffer
       this.playTime = (currentTime + this.bufferThreshold);
     } else {

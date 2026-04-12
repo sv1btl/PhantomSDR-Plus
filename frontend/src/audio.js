@@ -1508,6 +1508,7 @@ setAGC(newAGCSpeed) {
     this.audioMaxSps = settings.audio_max_sps
     this.grid_locator = settings.grid_locator
     this.smeter_offset = settings.smeter_offset
+    this.analog_smeter_offset = settings.analog_smeter_offset ?? 0
 
     this.audioL = settings.defaults.l
     this.audioM = settings.defaults.m

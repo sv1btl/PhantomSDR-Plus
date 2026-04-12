@@ -83,6 +83,36 @@ static bool looks_like_json(const std::string &s) {
     return false;
 }
 
+static bool looks_like_callsign(const std::string &s) {
+    const std::string t = trim_copy(s);
+    if (t.empty() || t.size() < 3 || t.size() > 16) return false;
+
+    bool has_alpha = false;
+    bool has_digit = false;
+    for (unsigned char c : t) {
+        if (std::isalpha(c)) {
+            has_alpha = true;
+            continue;
+        }
+        if (std::isdigit(c)) {
+            has_digit = true;
+            continue;
+        }
+        if (c == '/' || c == '-' || c == '#') continue;
+        return false;
+    }
+
+    if (!has_alpha || !has_digit) return false;
+
+    std::string u = t;
+    boost::algorithm::to_upper(u);
+    if (u == "META" || u == "HTML" || u == "HEAD" || u == "BODY" || u == "TITLE" || u == "SCRIPT") {
+        return false;
+    }
+
+    return true;
+}
+
 static std::string normalize_band(std::string band) {
     band = trim_copy(band);
     boost::algorithm::to_upper(band);
@@ -142,24 +172,63 @@ static std::string json_value_to_string(const nlohmann::json &obj, const std::ve
     return "";
 }
 
-static std::string extract_utc_hhmm(const std::string &time_str) {
-    if (time_str.size() >= 4) {
-        if (std::isdigit(static_cast<unsigned char>(time_str[0])) &&
-            std::isdigit(static_cast<unsigned char>(time_str[1])) &&
-            std::isdigit(static_cast<unsigned char>(time_str[2])) &&
-            std::isdigit(static_cast<unsigned char>(time_str[3]))) {
-            return time_str.substr(0, 4);
+
+static bool is_likely_callsign(const std::string &s_in) {
+    const std::string s = trim_copy(s_in);
+    if (s.size() < 3 || s.size() > 24) return false;
+    bool has_digit = false;
+    bool has_alpha = false;
+    for (unsigned char c : s) {
+        if (std::isdigit(c)) {
+            has_digit = true;
+            continue;
         }
+        if (std::isalpha(c)) {
+            has_alpha = true;
+            continue;
+        }
+        if (c == '/' || c == '-' || c == '#') continue;
+        return false;
     }
+    return has_digit && has_alpha;
+}
+
+static std::string extract_utc_hhmm(const std::string &time_str) {
+    // Prefer HH:MM found anywhere in the string.
+    // This avoids misreading ISO timestamps like "2026-04-12T08:19:00" as "2026".
     for (size_t i = 0; i + 4 < time_str.size(); ++i) {
         if (std::isdigit(static_cast<unsigned char>(time_str[i])) &&
             std::isdigit(static_cast<unsigned char>(time_str[i + 1])) &&
             time_str[i + 2] == ':' &&
             std::isdigit(static_cast<unsigned char>(time_str[i + 3])) &&
             std::isdigit(static_cast<unsigned char>(time_str[i + 4]))) {
-            return time_str.substr(i, 2) + time_str.substr(i + 3, 2);
+            const int hh = (time_str[i] - '0') * 10 + (time_str[i + 1] - '0');
+            const int mm = (time_str[i + 3] - '0') * 10 + (time_str[i + 4] - '0');
+            if (hh >= 0 && hh <= 23 && mm >= 0 && mm <= 59) {
+                return time_str.substr(i, 2) + time_str.substr(i + 3, 2);
+            }
         }
     }
+
+    // Accept compact HHMM only when it really looks like a time token,
+    // not the leading year of an ISO date.
+    for (size_t i = 0; i + 3 < time_str.size(); ++i) {
+        if (std::isdigit(static_cast<unsigned char>(time_str[i])) &&
+            std::isdigit(static_cast<unsigned char>(time_str[i + 1])) &&
+            std::isdigit(static_cast<unsigned char>(time_str[i + 2])) &&
+            std::isdigit(static_cast<unsigned char>(time_str[i + 3]))) {
+            const bool prev_ok = (i == 0) || !std::isdigit(static_cast<unsigned char>(time_str[i - 1]));
+            const bool next_ok = (i + 4 >= time_str.size()) || !std::isdigit(static_cast<unsigned char>(time_str[i + 4]));
+            if (!prev_ok || !next_ok) continue;
+
+            const int hh = (time_str[i] - '0') * 10 + (time_str[i + 1] - '0');
+            const int mm = (time_str[i + 2] - '0') * 10 + (time_str[i + 3] - '0');
+            if (hh >= 0 && hh <= 23 && mm >= 0 && mm <= 59) {
+                return time_str.substr(i, 4);
+            }
+        }
+    }
+
     return "";
 }
 
@@ -189,7 +258,7 @@ static nlohmann::json normalize_json_spots(const nlohmann::json &in, const std::
                 }
             }
 
-            if (dx_call.empty() || !have_freq || frequency <= 0.0 || !band_matches(frequency, band)) continue;
+            if (dx_call.empty() || !is_likely_callsign(dx_call) || (!de_call.empty() && !is_likely_callsign(de_call)) || !have_freq || frequency <= 0.0 || !band_matches(frequency, band)) continue;
 
             out.push_back({
                 {"dx_call", dx_call},
@@ -216,6 +285,21 @@ static nlohmann::json parse_dxsummit_text(const std::string &text, const std::st
         line = trim_copy(line);
         if (line.empty()) continue;
 
+        // Ignore HTML / markup lines if an upstream text URL returns an HTML wrapper
+        std::string upper = line;
+        boost::algorithm::to_upper(upper);
+        if (!line.empty() && line[0] == '<') continue;
+        if (line.find('<') != std::string::npos || line.find('>') != std::string::npos) continue;
+        if (boost::algorithm::starts_with(upper, "<!DOCTYPE")) continue;
+        if (boost::algorithm::starts_with(upper, "<HTML")) continue;
+        if (boost::algorithm::starts_with(upper, "<HEAD")) continue;
+        if (boost::algorithm::starts_with(upper, "<META")) continue;
+        if (boost::algorithm::starts_with(upper, "META ")) continue;
+        if (upper.find("HTTP-EQUIV") != std::string::npos) continue;
+        if (boost::algorithm::starts_with(upper, "<TITLE")) continue;
+        if (boost::algorithm::starts_with(upper, "<BODY")) continue;
+        if (boost::algorithm::starts_with(upper, "<SCRIPT")) continue;
+
         std::istringstream ls(line);
         std::vector<std::string> tokens;
         std::string tok;
@@ -239,6 +323,9 @@ static nlohmann::json parse_dxsummit_text(const std::string &text, const std::st
 
         std::string de_call = tokens[0];
         std::string dx_call = tokens[freq_idx + 1];
+        if (!looks_like_callsign(dx_call)) continue;
+        if (!looks_like_callsign(de_call)) de_call.clear();
+        if (!is_likely_callsign(dx_call) || !is_likely_callsign(de_call)) continue;
         std::string time = "";
         std::string comment = "";
 
@@ -326,11 +413,11 @@ void broadcast_server::on_http(connection_hdl hdl) {
         }
 
         const std::vector<std::string> urls = {
-            "https://www.dxsummit.fi/text/dx25.html",
-            "http://www.dxsummit.fi/text/dx25.html",
             "https://new.dxsummit.fi/api/v1/spots?limit=" + std::to_string(limit_num),
             "http://new.dxsummit.fi/api/v1/spots?limit=" + std::to_string(limit_num),
-            "http://www.dxsummit.fi/api/v1/spots?limit=" + std::to_string(limit_num)
+            "http://www.dxsummit.fi/api/v1/spots?limit=" + std::to_string(limit_num),
+            "https://www.dxsummit.fi/text/dx25.html",
+            "http://www.dxsummit.fi/text/dx25.html"
         };
 
         CURL *curl = curl_easy_init();

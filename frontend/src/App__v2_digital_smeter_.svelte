@@ -1,5 +1,5 @@
 <script>
-  const VERSION = "3.1.0 with mobile support and enhancements";
+  const VERSION = "3.1.1 with mobile support and enhancements";
 
   import { onDestroy, onMount, tick, afterUpdate } from "svelte";
   import { fade, fly, scale } from "svelte/transition";
@@ -2881,14 +2881,7 @@ function startTopFrequencyBarSync() {
       var delta = e.key === "ArrowUp" ? 1 : -1;
       var step = DIGIT_POWERS_HZ[selectedDigitIdx];
       var frequencyHz = Math.round(parseFloat(frequency) * 1e3);
-      var remainder = frequencyHz % step;
-      if (remainder === 0) {
-        frequencyHz = frequencyHz + delta * step;
-      } else if (delta > 0) {
-        frequencyHz = Math.ceil(frequencyHz / step) * step;
-      } else {
-        frequencyHz = Math.floor(frequencyHz / step) * step;
-      }
+      frequencyHz = frequencyHz + delta * step;
       frequencyHz = Math.max(0, frequencyHz);
       frequency = (frequencyHz / 1e3).toFixed(2);
       dispatchFrequencyDebounced(frequencyHz); // FIX [2]
@@ -2926,16 +2919,9 @@ function startTopFrequencyBarSync() {
       var step; // FIX [4]: declare once, assign in branches
 
       if (selectedDigitIdx >= 0) {
-        // Digit-specific tuning
+        // Digit-specific tuning: true place-value add/subtract, no snapping
         step = DIGIT_POWERS_HZ[selectedDigitIdx];
-        var remainder = frequencyHz % step;
-        if (remainder === 0) {
-          frequencyHz = frequencyHz + delta * step;
-        } else if (delta > 0) {
-          frequencyHz = Math.ceil(frequencyHz / step) * step;
-        } else {
-          frequencyHz = Math.floor(frequencyHz / step) * step;
-        }
+        frequencyHz = frequencyHz + delta * step;
       } else {
         // No digit selected — fall back to default step tuning
         step = currentTuneStep || (isAltPressed ? 10000 : isShiftPressed ? 1000 : defaultStep);
@@ -4598,14 +4584,10 @@ function startTopFrequencyBarSync() {
     '12': '24MHz',   '10': '28MHz',  '6':  '50MHz',
   };
 
-  // DX Summit JSON API. Call^Frequency^Date/Time^Spotter^Comment^LoTW^eQSL^Continent^Band^Country
-  // NOTE: dxsummit.fi is HTTP-only (no HTTPS). A direct browser fetch from an
-  // HTTPS page is blocked as mixed content, so we always go through a CORS
-  // proxy which fetches HTTP server-side and returns it over HTTPS.
+  // DX spots are fetched from the local backend endpoint.
   function buildDXUrl() {
-    const band = dxBandFilter === 'ALL' ? '' : `&include=${DX_BAND_FREQ[dxBandFilter]}`;
-    // http:// intentional — dxsummit.fi has no HTTPS endpoint
-    return `http://www.dxsummit.fi/api/v1/spots?limit=30${band}&_t=${Date.now()}`;
+    const band = dxBandFilter === 'ALL' ? '' : `&band=${dxBandFilter}`;
+    return `/api/dxspots?limit=30${band}&_t=${Date.now()}`;
   }
 
   function freqToBand(f) {
@@ -4641,6 +4623,7 @@ function startTopFrequencyBarSync() {
         spotter: (s.de_call  || '').trim().replace(/-@$/, ''),
         freq:    String(s.frequency),
         time:    s.time || '',
+        timeUtc: s.time_utc_hhmm || '',
         comment: s.info || '',
         mode:    detectMode(s.info),
         band:    freqToBand(s.frequency),
@@ -4661,33 +4644,24 @@ function startTopFrequencyBarSync() {
     dxLoading = true;
     dxError = null;
     const target = buildDXUrl();
-    // dxsummit.fi is HTTP-only; browser blocks direct fetch from HTTPS pages.
-    // Route through CORS proxies (server-side fetch, returned over HTTPS).
-    const proxies = [
-      `https://corsproxy.io/?url=${encodeURIComponent(target)}`,
-      `https://api.allorigins.win/raw?url=${encodeURIComponent(target)}`,
-      `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(target)}`,
-    ];
-    let lastErr = null;
-    for (const url of proxies) {
-      try {
-        const text = await tryFetch(url);
-        const data = JSON.parse(text);
-        const spots = parseDXJSON(Array.isArray(data) ? data : []);
-        if (spots.length > 0) {
-          dxSpots = spots;
-          dxError = null;
-          dxLoading = false;
-          return;
-        }
-        lastErr = new Error('Empty response');
-      } catch (e) {
-        lastErr = e;
+    try {
+      const text = await tryFetch(target);
+      const data = JSON.parse(text);
+      const spots = parseDXJSON(Array.isArray(data) ? data : []);
+      if (spots.length > 0) {
+        dxSpots = spots;
+        dxError = null;
+        dxLoading = false;
+        return;
       }
+      dxError = 'Could not load spots (Empty response). Check browser console.';
+      dxSpots = [];
+      dxLoading = false;
+    } catch (e) {
+      dxError = 'Could not load spots (' + (e && e.message ? e.message : 'unknown') + '). Check browser console.';
+      dxSpots = [];
+      dxLoading = false;
     }
-    dxError = 'Could not load spots (' + (lastErr && lastErr.message ? lastErr.message : 'unknown') + '). Check browser console.';
-    dxSpots = [];
-    dxLoading = false;
   }
 
   // Tune waterfall to a DX spot frequency (kHz → Hz),
@@ -4883,7 +4857,7 @@ function startTopFrequencyBarSync() {
                     class="glass-button text-white py-1 px-3 mb-2 lg:mb-0 rounded-lg text-xs sm:text-sm"
                     style="color:rgba(0, 225, 255, 0.993)"
                     title="Other servers"
-                    onClick="window.open('http://list.phantomsdr.fun');"
+                    onClick="window.open('http://list.novasdr.fun');"
                   >
                     <span class="icon">Servers</span>
                   </button>                
@@ -5023,7 +4997,7 @@ function startTopFrequencyBarSync() {
                     <ul style="font-size: 0.91rem; text-align: left;">
                     <b>Setup &amp; Configuration:</b>
                       <img
-                        src="https://img.shields.io/badge/version- 3.1.0-cyan?logo=github"
+                        src="https://img.shields.io/badge/version- 3.1.1-cyan?logo=github"
                         alt="Version"
                         class="inline-block align-middle ml-2"
                       />
@@ -7974,7 +7948,7 @@ Click again to de-activate"
                   <br />
                   Other &nbsp;
                   <a
-                    href="http://list.phantomsdr.fun"
+                    href="http://list.novasdr.fun"
                     target="new"
                     style="color:rgba(0, 225, 255, 0.993)">Servers</a
                   >

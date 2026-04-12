@@ -138,7 +138,11 @@ void broadcast_server::send_basic_info(connection_hdl hdl) {
 
     std::string grid_locator = config["websdr"]["grid_locator"].value_or("-");
     std::optional<int> offset_smeter = config["input"]["smeter_offset"].value<int>();
-    int offset_smeter_value = offset_smeter.value();
+    int offset_smeter_value = offset_smeter.value_or(0);
+
+    std::optional<int> analog_offset_smeter = config["input"]["analog_smeter_offset"].value<int>();
+    int analog_offset_smeter_value = analog_offset_smeter.value_or(0);
+
     glz::json_t json = {
         {"sps", sps},
         {"audio_max_sps", audio_max_sps},
@@ -158,6 +162,7 @@ void broadcast_server::send_basic_info(connection_hdl hdl) {
         {"audio_compression", audio_compression_str},
         {"grid_locator", grid_locator},
         {"smeter_offset", offset_smeter_value},
+        {"analog_smeter_offset", analog_offset_smeter_value},
         {"markers", markers.dump()}  
     };
     

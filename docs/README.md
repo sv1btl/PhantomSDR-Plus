@@ -1,7 +1,7 @@
 # PhantomSDR-Plus
 
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
-[![Version](https://img.shields.io/badge/version-1.7.1-blue.svg)](https://github.com/sv1btl/PhantomSDR-Plus)
+[![Version](https://img.shields.io/badge/version-3.1.1-cyan.svg)](https://github.com/sv1btl/PhantomSDR-Plus)
 
 **An enhanced open-source WebSDR server with advanced features and futuristic design**
 

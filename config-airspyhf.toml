@@ -11,32 +11,23 @@ antenna="ChangeThis" # Antenna that is shown on https://sdr-list.xyz
 grid_locator="ChangeThis" # 4 or 6 length Grid Locatlr shown on https://sdr-list.xyz and for the Distance of FT8 Signals
 hostname="" # If you use ddns or something to host with a domain enter it here for https://sdr-list.xyz
 
-[limits]
-audio=100
-waterfall=100
-events=100
-
 [input]
 sps=912000 # Input Sample Rate
 fft_size=131072 # FFT bins
 fft_threads=2
-brightness_offset=-8 # Waterfall brightness offset. Reduce to negative if you see black regions in the waterfall
-frequency=6956000 # Baseband frequency
-		  # The principe is Bandwidth / 2 + Lower frequency e.g. 912000/2 = 456000 + 6500000 = 6956000
+brightness_offset=-6 # Waterfall brightness offset. Reduce to negative if you see black regions in the waterfall
+frequency=456000 # Baseband frequency
 signal="iq" # real or iq
-accelerator="none" # Accelerator: none, cuda, opencl
+accelerator="opencl" # Accelerator: none, cuda, opencl
 audio_sps=12000 # Audio Sample Rate
 audio_compression="flac" # flac or opus
-smeter_offset=-8
+smeter_offset=0 # digital-only S-meter offset
+analog_smeter_offset=0 # analog-only S-meter offset
 
 [input.driver]
 name="stdin" # Driver name
 format="s16" # Sample format: u8, s8, u16, s16, u32, s32, f32, f64
 
 [input.defaults]
-frequency=7100000 # Default frequency to show user
-# for above frequency in site_information.json you must set:
-# 	"siteSDRBaseFrequency": 650000,
-#	"siteSDRBandwidth": 912000,
+frequency=648000 # Default frequency to show user
 modulation="AM" # Default modulation
-

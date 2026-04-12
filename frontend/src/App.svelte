@@ -1,5 +1,5 @@
 <script>
-  const VERSION = "3.1.0 with mobile support and enhancements";
+  const VERSION = "3.1.1 with mobile support and enhancements";
 
   import { onDestroy, onMount, tick, afterUpdate } from "svelte";
   import { fade, fly, scale } from "svelte/transition";
@@ -2710,21 +2710,6 @@ function _animateNeedle(ts) {
   }
 }
 
-  // === dBm Calibration (persistent, module-scope) ===
-  let dBmCalOffset = 0;
-  try {
-    const _savedCal = localStorage.getItem("dbmCalOffset");
-    if (_savedCal !== null && !isNaN(parseFloat(_savedCal))) dBmCalOffset = parseFloat(_savedCal);
-  } catch (_) {}
-
-  // Call this from the browser console to set a persistent dBm calibration offset in dB.
-  function setDbmCalibration(offsetDb) {
-    dBmCalOffset = Number(offsetDb) || 0;
-    try { localStorage.setItem("dbmCalOffset", String(dBmCalOffset)); } catch (_) {}
-    try { drawSMeter(0); } catch (_) {}
-  }
-  try { window.setDbmCalibration = setDbmCalibration; } catch (_) {}
-
   function drawSMeterDesktop(powerValue) {
     const canvas = document.getElementById("sMeter");
     if (!canvas) {
@@ -3051,7 +3036,9 @@ function _animateNeedle(ts) {
 
 // ===== LED Windows (dBm & SNR) beneath the center screw =====
     (function () {
-      const dbm = (typeof window !== "undefined" && typeof window._lastPowerDb === "number") ? Math.round(window._lastPowerDb + 5.5) : null; //correct factor dbm
+      const VISUAL_DBM_OFFSET = 5; // 👈 +10 or -10 or whatever you want
+
+      const dbm = (typeof window !== "undefined" && typeof window._lastPowerDb === "number") ? Math.round(window._lastPowerDb + VISUAL_DBM_OFFSET) : null;
       const snr = (typeof window !== "undefined" && typeof window._lastSnr === "number") ? Math.round(window._lastSnr) : (dbm !== null && typeof window !== "undefined" && typeof window._minDbForSnr === "number" ? Math.round(dbm - window._minDbForSnr) : null);
 
       // Layout
@@ -3265,9 +3252,6 @@ function _animateNeedle(ts) {
       calibratedPower = 57 + (power - 70) * 1.43;
     }
 
-    const ANALOG_NEEDLE_TRIM = 0; // 👉 Trimm needle in analog smeter
-    calibratedPower = Math.max(0, calibratedPower + ANALOG_NEEDLE_TRIM);
-
     drawSMeter(calibratedPower);
   }
 
@@ -3420,14 +3404,7 @@ function _animateNeedle(ts) {
       var delta = e.key === "ArrowUp" ? 1 : -1;
       var step = DIGIT_POWERS_HZ[selectedDigitIdx];
       var frequencyHz = Math.round(parseFloat(frequency) * 1e3);
-      var remainder = frequencyHz % step;
-      if (remainder === 0) {
-        frequencyHz = frequencyHz + delta * step;
-      } else if (delta > 0) {
-        frequencyHz = Math.ceil(frequencyHz / step) * step;
-      } else {
-        frequencyHz = Math.floor(frequencyHz / step) * step;
-      }
+      frequencyHz = frequencyHz + delta * step;
       frequencyHz = Math.max(0, frequencyHz);
       frequency = (frequencyHz / 1e3).toFixed(2);
       dispatchFrequencyDebounced(frequencyHz); // FIX [2]
@@ -3465,16 +3442,9 @@ function _animateNeedle(ts) {
       var step; // FIX [4]: declare once, assign in branches
 
       if (selectedDigitIdx >= 0) {
-        // Digit-specific tuning
+        // Digit-specific tuning: true place-value add/subtract, no snapping
         step = DIGIT_POWERS_HZ[selectedDigitIdx];
-        var remainder = frequencyHz % step;
-        if (remainder === 0) {
-          frequencyHz = frequencyHz + delta * step;
-        } else if (delta > 0) {
-          frequencyHz = Math.ceil(frequencyHz / step) * step;
-        } else {
-          frequencyHz = Math.floor(frequencyHz / step) * step;
-        }
+        frequencyHz = frequencyHz + delta * step;
       } else {
         // No digit selected — fall back to default step tuning
         step = currentTuneStep || (isAltPressed ? 10000 : isShiftPressed ? 1000 : defaultStep);
@@ -3729,7 +3699,11 @@ function _animateNeedle(ts) {
 
   function _smeterTick() {
     let powerDb = audio.getPowerDb();
-    const visualGain = 1.20;
+    const analogSmeterOffset = Number.isFinite(Number(audio?.analog_smeter_offset))
+      ? Number(audio.analog_smeter_offset)
+      : 0;
+    powerDb += analogSmeterOffset;
+    const visualGain = 1.10; // 👈 every 0.10 = 5 dbm
     const minDb = -130;
     const s9Db = -73;
     const maxDb = -13;
@@ -5210,14 +5184,10 @@ function _animateNeedle(ts) {
   };
 
 
-  // DX Summit JSON API.
-  // NOTE: dxsummit.fi is HTTP-only (no HTTPS). A direct browser fetch from an
-  // HTTPS page is blocked as mixed content, so we always go through a CORS
-  // proxy which fetches HTTP server-side and returns it over HTTPS.
+  // DX spots are fetched from the local backend endpoint.
   function buildDXUrl() {
-    const band = dxBandFilter === 'ALL' ? '' : `&include=${DX_BAND_FREQ[dxBandFilter]}`;
-    // http:// intentional — dxsummit.fi has no HTTPS endpoint
-    return `http://www.dxsummit.fi/api/v1/spots?limit=30${band}&_t=${Date.now()}`;
+    const band = dxBandFilter === 'ALL' ? '' : `&band=${dxBandFilter}`;
+    return `/api/dxspots?limit=30${band}&_t=${Date.now()}`;
   }
 
   function freqToBand(f) {
@@ -5253,6 +5223,7 @@ function _animateNeedle(ts) {
         spotter: (s.de_call  || '').trim().replace(/-@$/, ''),
         freq:    String(s.frequency),
         time:    s.time || '',
+        timeUtc: s.time_utc_hhmm || '',
         comment: s.info || '',
         mode:    detectMode(s.info),
         band:    freqToBand(s.frequency),
@@ -5273,33 +5244,24 @@ function _animateNeedle(ts) {
     dxLoading = true;
     dxError = null;
     const target = buildDXUrl();
-    // dxsummit.fi is HTTP-only; browser blocks direct fetch from HTTPS pages.
-    // Route through CORS proxies (server-side fetch, returned over HTTPS).
-    const proxies = [
-      `https://corsproxy.io/?url=${encodeURIComponent(target)}`,
-      `https://api.allorigins.win/raw?url=${encodeURIComponent(target)}`,
-      `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(target)}`,
-    ];
-    let lastErr = null;
-    for (const url of proxies) {
-      try {
-        const text = await tryFetch(url);
-        const data = JSON.parse(text);
-        const spots = parseDXJSON(Array.isArray(data) ? data : []);
-        if (spots.length > 0) {
-          dxSpots = spots;
-          dxError = null;
-          dxLoading = false;
-          return;
-        }
-        lastErr = new Error('Empty response');
-      } catch (e) {
-        lastErr = e;
+    try {
+      const text = await tryFetch(target);
+      const data = JSON.parse(text);
+      const spots = parseDXJSON(Array.isArray(data) ? data : []);
+      if (spots.length > 0) {
+        dxSpots = spots;
+        dxError = null;
+        dxLoading = false;
+        return;
       }
+      dxError = 'Could not load spots (Empty response). Check browser console.';
+      dxSpots = [];
+      dxLoading = false;
+    } catch (e) {
+      dxError = 'Could not load spots (' + (e && e.message ? e.message : 'unknown') + '). Check browser console.';
+      dxSpots = [];
+      dxLoading = false;
     }
-    dxError = 'Could not load spots (' + (lastErr && lastErr.message ? lastErr.message : 'unknown') + '). Check browser console.';
-    dxSpots = [];
-    dxLoading = false;
   }
 
   // Tune waterfall to a DX spot frequency (kHz → Hz),
@@ -5377,15 +5339,22 @@ function _animateNeedle(ts) {
     fetchDXSpots();
   }
 
-  function formatDXTime(t) {
+  function formatDXTime(t, hhmm) {
+    const hhmmStr = String(hhmm || '').trim();
+    if (/^\d{4}$/.test(hhmmStr)) return `${hhmmStr}Z`;
     if (!t) return '';
     try {
-      // DX Summit ISO format: "2026-03-08T10:55:08" (UTC)
+      // DX Summit may return ISO-like UTC timestamps without explicit timezone.
       const d = new Date(t.includes('Z') ? t : t + 'Z');
-      const h = d.getUTCHours().toString().padStart(2, '0');
-      const m = d.getUTCMinutes().toString().padStart(2, '0');
-      return `${h}${m}Z`;
-    } catch(e) { return String(t).slice(11, 16) + 'Z'; }
+      if (!Number.isNaN(d.getTime())) {
+        const h = d.getUTCHours().toString().padStart(2, '0');
+        const m = d.getUTCMinutes().toString().padStart(2, '0');
+        return `${h}${m}Z`;
+      }
+    } catch (e) {}
+    const m = String(t).match(/(?:^|\D)(\d{2}):(\d{2})(?::\d{2})?(?:\D|$)/);
+    if (m) return `${m[1]}${m[2]}Z`;
+    return '';
   }
 
   function startDXCluster() {
@@ -5493,7 +5462,7 @@ function _animateNeedle(ts) {
                     class="glass-button text-white py-1 px-3 mb-2 lg:mb-0 rounded-lg text-xs sm:text-sm"
                     style="color:rgba(0, 225, 255, 0.993)"
                     title="Other servers lookup"
-                    onClick="window.open('http://list.phantomsdr.fun');"
+                    onClick="window.open('http://list.novasdr.fun');"
                   >
                     <span class="icon">Servers</span>
                   </button>                
@@ -5632,7 +5601,7 @@ function _animateNeedle(ts) {
                     <ul style="font-size: 0.91rem; text-align: left;">
                     <b>Setup &amp; Configuration:</b>
                       <img
-                        src="https://img.shields.io/badge/version- 3.1.0-cyan?logo=github"
+                        src="https://img.shields.io/badge/version- 3.1.1-cyan?logo=github"
                         alt="Version"
                         class="inline-block align-middle ml-2"
                       />
@@ -8655,7 +8624,7 @@ Click again to de-activate"
                   <br />
                   Other &nbsp;
                   <a
-                    href="http://list.phantomsdr.fun"
+                    href="http://list.novasdr.fun"
                     target="new"
                     style="color:rgba(0, 225, 255, 0.993)">Servers</a
                   >

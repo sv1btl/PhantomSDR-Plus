@@ -11,6 +11,13 @@ export const waterfall = new SpectrumWaterfall(baseUri + '/waterfall')
 export const audio = new SpectrumAudio(baseUri + '/audio')
 export const events = new SpectrumEvents(baseUri + '/events')
 
+// Expose live instances for browser-console debugging
+try {
+  window.audio = audio
+  window.waterfall = waterfall
+  window.events = events
+} catch (e) {}
+
 let _initDone = false
 export function markInitDone () { _initDone = true }
 

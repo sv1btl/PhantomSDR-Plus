@@ -21,7 +21,8 @@ signal="iq" # real or iq
 accelerator="none" # Accelerator: none, cuda, opencl
 audio_sps=12000 # Audio Sample Rate
 audio_compression="flac" # flac or opus
-smeter_offset=-10
+smeter_offset=0 # digital-only S-meter offset
+analog_smeter_offset=0 # analog-only S-meter offset
 
 [input.driver]
 name="stdin" # Driver name

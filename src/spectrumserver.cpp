@@ -360,6 +360,20 @@ void broadcast_server::update_websdr_list() {
     std::string signal_type = config["input"]["signal"].value_or("real");
     std::optional<int64_t> max_users = config["limits"]["audio"].value<int64_t>();
 
+    std::vector<std::string> register_urls;
+    if (auto *url_array = config["websdr"]["register_urls"].as_array()) {
+        for (const auto &node : *url_array) {
+            if (auto url = node.value<std::string>()) {
+                if (!url->empty()) {
+                    register_urls.push_back(*url);
+                }
+            }
+        }
+    }
+    if (register_urls.empty()) {
+        register_urls.emplace_back("https://sdr-list.xyz/api/update_websdr");
+    }
+
     std::string websdr_id = std::to_string(std::rand());
     if(signal_type == "real")
     {
@@ -378,6 +392,11 @@ void broadcast_server::update_websdr_list() {
         std::cerr << "Failed to initialize cURL" << std::endl;
         return; // Or handle the error appropriately
     }
+
+    curl_easy_setopt(curl, CURLOPT_NOSIGNAL, 1L);
+    curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT, 5L);
+    curl_easy_setopt(curl, CURLOPT_TIMEOUT, 10L);
+    curl_easy_setopt(curl, CURLOPT_VERBOSE, 0L);
 
     FILE *devnull = fopen("/dev/null", "w+");
     if (!devnull) {
@@ -413,47 +432,37 @@ void broadcast_server::update_websdr_list() {
 
        
         if(curl) {
-            // Set the URL for the POST request
-            curl_easy_setopt(curl, CURLOPT_URL, "https://sdr-list.xyz/api/update_websdr");
-
-
-            // Dont print to stdout - This is the only way to do it sadly...
+            // Dont print to stdout
             curl_easy_setopt(curl, CURLOPT_WRITEDATA, devnull);
 
-
-            // Set the JSON data
+            // Set the JSON data once per update cycle
             curl_easy_setopt(curl, CURLOPT_POSTFIELDS, serialized_json.c_str());
+            curl_easy_setopt(curl, CURLOPT_POSTFIELDSIZE, static_cast<long>(serialized_json.length()));
 
-            // Disable verbose output
-            curl_easy_setopt(curl, CURLOPT_VERBOSE, 0L);
+            for (const auto &register_url : register_urls) {
+                curl_easy_setopt(curl, CURLOPT_URL, register_url.c_str());
 
-            // Set the Content-Type header
-            // FIX: Check curl_slist_append return values — returns NULL on OOM,
-            // which would leak any partially-built list if not caught.
-            struct curl_slist *headers = NULL;
-            struct curl_slist *tmp = curl_slist_append(headers, "Content-Type: application/json");
-            if (!tmp) { std::cerr << "curl_slist_append OOM\n"; continue; }
-            headers = tmp;
-            tmp = curl_slist_append(headers, "Host: sdr-list.xyz");
-            if (!tmp) { curl_slist_free_all(headers); std::cerr << "curl_slist_append OOM\n"; continue; }
-            headers = tmp;
-            curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
+                // Let libcurl generate the correct Host header from the URL.
+                struct curl_slist *headers = NULL;
+                struct curl_slist *tmp = curl_slist_append(headers, "Content-Type: application/json");
+                if (!tmp) {
+                    std::cerr << "curl_slist_append OOM" << std::endl;
+                    continue;
+                }
+                headers = tmp;
+                curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
 
-            // Set the Content-Length header
-            curl_easy_setopt(curl, CURLOPT_POSTFIELDSIZE, serialized_json.length());
+                res = curl_easy_perform(curl);
 
-            // Perform the request
-            res = curl_easy_perform(curl);
+                if (res != CURLE_OK) {
+                    std::cerr << "curl_easy_perform() failed for "
+                              << register_url << ": "
+                              << curl_easy_strerror(res) << std::endl;
+                }
 
-            // Check for errors
-            if(res != CURLE_OK)
-                std::cerr << "curl_easy_perform() failed: " << curl_easy_strerror(res) << std::endl;
-
-            curl_slist_free_all(headers);
-
-
-            
-
+                curl_slist_free_all(headers);
+                curl_easy_setopt(curl, CURLOPT_HTTPHEADER, nullptr);
+            }
         }
 
         // Delay for 10 seconds before sending the next request

@@ -1,10 +1,26 @@
-# PhantomSDR-Plus WebSDR (version 3.1.0)
+# PhantomSDR-Plus WebSDR (version 3.1.1)
 
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-cyan.svg)](https://www.gnu.org/licenses/gpl-3.0)
-[![Version](https://img.shields.io/badge/version-3.1.0-cyan.svg)](https://github.com/sv1btl/PhantomSDR-Plus)
+[![Version](https://img.shields.io/badge/version-3.1.1-cyan.svg)](https://github.com/sv1btl/PhantomSDR-Plus)
 
 ## Note: Please dont use Ubuntu 24.04, stick to Ubuntu 22.04 as it wont compile successfully on 24.04 (FM demodulation problems)!
 This is a **different Repo than the Official PhantomSDR Repo**
+
+**Fixed bugs and improved functions from v.3.1.0**
+
+New in v. 3.1.1
+- Decoders in mobile version:
+A new button is added in the mobile view and all decoders can be called from a mobile phone.
+- Frequency digit selector:
+Now you can select any digit in frequency and change only this, without affecting the other digits. With right click, you can insert a full desired frequency.
+- AVAST warnings:
+No more fake AVAST warnings about the security of the Website. DX Cluster window is now called from backend.
+- Buffer improvements (thanks to F1NSK - Eric):
+A small but very importand change in buffer (frontend/src/audio.js) which minimize audio brakes, withoud adding latency.
+- Analog smeter calibration from ./toml file:
+In .toml has been added an offset for analog smeter, along with the previous for digital. Now you can adjust the two smeters to show the same. Micro-trimming are also kept in analog smeter files in " function _smeterTick -> const visualGain = ". The smeters are calibrated out of the box now under my conditions using a signal generator, but you maybe want to play with them.
+- Map registration:
+You can now register your WebSDR in both http://list.novasdr.fun/ (or the same http://list.phantomsdr.fun/) AND https://sdr-list.xyz. Changes in .toml file and src/spectrumeserver.cpp (in backend).
 
 We offer more **features**:
 - **New install.sh** procedure, that simplifies initial setup,

@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # ==============================================================================
-# PhantomSDR-Plus Installer — Fedora
+# PhantomSDR-Plus Installer — Arch Linux
 # ==============================================================================
 
 # ------------------------------------------------------------------------------
@@ -128,23 +128,26 @@ echo ""
 
 banner "Installing System Dependencies"
 
-echo "Installing build tools and libraries..."
-run $SUDO dnf install -y \
-    @development-tools cmake pkg-config meson ninja-build \
-    fftw-devel websocketpp-devel flac-devel \
-    zlib-devel libzstd-devel boost-devel \
-    opus-devel liquid-dsp-devel \
-    curlpp-devel curl \
-    nlohmann-json-devel \
-    git cargo
+# Use -Syu (full sync + upgrade) before installing.
+# -Sy alone (sync without upgrade) is unsafe on Arch — it can produce a
+# partial-upgrade state where newly installed packages link against newer
+# libs than the rest of the system has.
+echo "Synchronising and upgrading packages..."
+run $SUDO pacman -Syu --needed --noconfirm \
+    base-devel cmake pkg-config meson ninja \
+    fftw websocketpp flac zlib zstd boost opus liquid-dsp \
+    git curl cargo nlohmann-json
 
-# Note: nlohmann-json-devel is the correct package name on Fedora 37+.
-# On older Fedora (<37) it may be called json-devel.  If the install above
-# fails, try: sudo dnf install -y json-devel
-
-# Note: libmirisdr-devel is NOT in the Fedora official repos or RPM Fusion.
-# If you need SDRPlay support, you must build libmirisdr-5 from source:
-#   https://github.com/ericek111/libmirisdr-5
+# curlpp is in AUR only — handle gracefully.
+if ! pacman -Qi curlpp >/dev/null 2>&1; then
+    yellow ""
+    yellow "⚠️  curlpp is not in the official repos (AUR only)."
+    yellow "   Install it with your AUR helper before continuing:"
+    yellow "     yay -S curlpp   or   paru -S curlpp"
+    yellow ""
+    read -rp "Continue without curlpp? (y/n): " skip_curlpp
+    [[ $skip_curlpp =~ ^[Yy]$ ]] || die "Please install curlpp and re-run the script."
+fi
 
 green "✅ System packages installed"
 echo ""
@@ -173,7 +176,7 @@ banner "SDR Hardware Setup"
 echo "Which SDR would you like to set up?"
 echo "  [1] RX888 MkII / RX888"
 echo "  [2] RTL-SDR"
-echo "  [3] SDRPlay (requires manual build — see note below)"
+echo "  [3] SDRPlay (via libmirisdr — AUR)"
 echo "  [4] Skip — install SDR driver manually later"
 read -rp "Select an option [1-4]: " option
 
@@ -182,9 +185,8 @@ case $option in
     # ------------------------------------------------------------------
     1)  echo ""
         echo "Setting up RX888 MkII / RX888..."
-        # dnf remove (not autoremove) is the correct command to remove a
-        # named package.  autoremove only removes unused auto-deps.
-        $SUDO dnf remove -y rust 2>/dev/null || true
+        # Remove system Rust so rustup has a clean environment.
+        $SUDO pacman -R --noconfirm rust 2>/dev/null || true
 
         echo "Installing Rust via rustup..."
         run curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
@@ -213,13 +215,13 @@ case $option in
 
         if [[ $rtlsdr_v4 =~ ^[Yy]$ ]]; then
             echo "Setting up RTL-SDR Blog V4..."
-            $SUDO dnf remove -y 'rtl-sdr*' 'librtlsdr*' 2>/dev/null || true
+            $SUDO pacman -R --noconfirm rtl-sdr 2>/dev/null || true
             $SUDO rm -f \
                 /usr/lib/librtlsdr* /usr/include/rtl-sdr* \
                 /usr/local/lib/librtlsdr* /usr/local/include/rtl-sdr* \
                 /usr/local/include/rtl_* /usr/local/bin/rtl_*
 
-            run $SUDO dnf install -y libusb-devel git cmake pkg-config
+            run $SUDO pacman -S --needed --noconfirm libusb git cmake pkg-config
 
             if [ -d "rtl-sdr-blog" ]; then
                 yellow "rtl-sdr-blog already exists — pulling latest..."
@@ -244,19 +246,18 @@ case $option in
             NEEDS_REBOOT=true
         else
             echo "Setting up standard RTL-SDR..."
-            run $SUDO dnf install -y rtl-sdr rtl-sdr-devel
+            run $SUDO pacman -S --needed --noconfirm rtl-sdr
             green "✅ Standard RTL-SDR drivers installed"
         fi
         ;;
 
     # ------------------------------------------------------------------
     3)  echo ""
-        yellow "⚠️  libmirisdr-devel is NOT available in Fedora or RPM Fusion repos."
-        yellow "   You must build libmirisdr-5 from source:"
-        yellow "     git clone https://github.com/ericek111/libmirisdr-5"
-        yellow "     cd libmirisdr-5 && cmake . && make && sudo make install"
+        yellow "⚠️  libmirisdr is available via AUR only."
+        yellow "   Install it with your AUR helper, then re-run this script:"
+        yellow "     yay -S libmirisdr-git   or   paru -S libmirisdr-git"
         echo ""
-        read -rp "Press Enter to continue (assuming you have already built it)..."
+        read -rp "Press Enter to continue (assuming you have already installed it)..."
         ;;
 
     # ------------------------------------------------------------------
@@ -289,7 +290,7 @@ elif command -v vim >/dev/null 2>&1; then
 elif command -v vi >/dev/null 2>&1; then
     VISUAL_EDITOR="vi"
 else
-    run $SUDO dnf install -y nano
+    run $SUDO pacman -S --noconfirm nano
     VISUAL_EDITOR="nano"
 fi
 
@@ -463,30 +464,28 @@ read -rp "Install OpenCL support? (y/n): " install_opencl
 if [[ $install_opencl =~ ^[Yy]$ ]]; then
     echo ""
     echo "Installing OpenCL base packages..."
-    run $SUDO dnf install -y ocl-icd ocl-icd-devel opencl-headers clinfo
+    run $SUDO pacman -S --needed --noconfirm ocl-icd opencl-headers clinfo
 
     cpu_vendor=$(lscpu | awk '/Vendor ID/{print $3}')
 
     case "$cpu_vendor" in
         GenuineIntel)
-            echo "Intel CPU detected."
-            echo ""
-            yellow "⚠️  Intel Compute Runtime on Fedora requires manual steps."
-            echo "   Option 1 — Intel CPU with integrated GPU:"
-            echo "     sudo dnf install -y intel-opencl"
-            echo "   Option 2 — CPU-only NEO driver (RPM packages):"
-            echo "     https://github.com/intel/compute-runtime/releases"
-            echo "     Download the .rpm files for your Fedora version and install with dnf."
-            echo ""
-            read -rp "Press Enter to continue after installing the Intel runtime..."
+            echo "Intel CPU detected — installing intel-compute-runtime..."
+            # intel-compute-runtime is in the extra/community repo on Arch.
+            if $SUDO pacman -S --needed --noconfirm intel-compute-runtime 2>/dev/null; then
+                green "✅ Intel Compute Runtime installed"
+            else
+                yellow "⚠️  intel-compute-runtime not found in repos."
+                yellow "   Try: yay -S intel-compute-runtime"
+            fi
             ;;
         AuthenticAMD)
             yellow "AMD CPU/GPU detected."
-            yellow "   Install ROCm OpenCL: sudo dnf install -y rocm-opencl"
+            yellow "   Install ROCm OpenCL with: sudo pacman -S rocm-opencl-runtime"
             ;;
         *)
             yellow "Unknown CPU vendor '$cpu_vendor'."
-            yellow "   For NVIDIA: install the CUDA toolkit from https://developer.nvidia.com/cuda-downloads"
+            yellow "   For NVIDIA: sudo pacman -S opencl-nvidia"
             ;;
     esac
 
@@ -494,7 +493,6 @@ if [[ $install_opencl =~ ^[Yy]$ ]]; then
     echo "Testing OpenCL installation (as current user)..."
     if clinfo > /dev/null 2>&1; then
         green "✅ OpenCL device(s) detected"
-        NEEDS_REBOOT=true
     else
         yellow "⚠️  clinfo found no devices — reboot and run 'clinfo' to verify."
         NEEDS_REBOOT=true
@@ -515,7 +513,7 @@ green "✅ System packages:"
 echo "   • Node.js $(node --version) / npm $(npm --version)"
 echo "   • Build tools (gcc, cmake, meson, ninja)"
 echo "   • DSP libs (FFTW3, libopus, libliquid)"
-echo "   • Network libs (libwebsocketpp, curlpp)"
+echo "   • Network libs (libwebsocketpp, curl)"
 echo "   • Compression libs (zlib, zstd, FLAC)"
 echo "   • Boost libraries"
 [[ $install_opencl =~ ^[Yy]$ ]] && echo "   • OpenCL"
@@ -535,7 +533,7 @@ case $option in
             && echo "   • RTL-SDR Blog V4 drivers + udev rules installed" \
             || echo "   • Standard RTL-SDR drivers installed"
         ;;
-    3)  yellow "⚠️  SDR hardware: SDRPlay — build libmirisdr-5 from source manually" ;;
+    3)  yellow "⚠️  SDR hardware: SDRPlay — install libmirisdr-git from AUR manually" ;;
     4)  yellow "⚠️  SDR hardware: skipped — install driver manually" ;;
 esac
 

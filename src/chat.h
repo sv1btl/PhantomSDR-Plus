@@ -4,6 +4,7 @@
 
 #include "client.h"
 #include <string>
+#include <mutex>
 #include <unordered_map>
 #include <deque>
 #include <set>
@@ -19,10 +20,14 @@ public:
     std::string get_or_generate_username(const std::string& user_id);
     std::string get_chat_history_as_string();
     static std::set<connection_hdl, std::owner_less<connection_hdl>>& get_chat_connections();
-    virtual ~ChatClient() { chat_connections.erase(hdl); }
+    virtual ~ChatClient() {
+        std::scoped_lock lk(chat_connections_mtx);
+        chat_connections.erase(hdl);
+    }
 
 private:
     static std::set<connection_hdl, std::owner_less<connection_hdl>> chat_connections;
+    static std::mutex chat_connections_mtx;
     std::unordered_map<std::string, std::string> user_id_to_name;
     static std::deque<std::string> chat_messages_history;
     static const std::set<std::string> blocked_usernames;

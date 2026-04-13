@@ -374,7 +374,8 @@ std::string get_mime_type(std::string &extension) {
 }
 
 void broadcast_server::on_http(connection_hdl hdl) {
-    m_server.set_access_channels(websocketpp::log::alevel::none);
+    // NOTE: set_access_channels is a global server setting — do NOT call it here
+    //       per request (was a race condition). Configure logging at startup instead.
     server::connection_ptr con = m_server.get_con_from_hdl(hdl);
     std::string resource = con->get_resource();
 
@@ -412,86 +413,108 @@ void broadcast_server::on_http(connection_hdl hdl) {
             }
         }
 
-        const std::vector<std::string> urls = {
-            "https://new.dxsummit.fi/api/v1/spots?limit=" + std::to_string(limit_num),
-            "http://new.dxsummit.fi/api/v1/spots?limit=" + std::to_string(limit_num),
-            "http://www.dxsummit.fi/api/v1/spots?limit=" + std::to_string(limit_num),
-            "https://www.dxsummit.fi/text/dx25.html",
-            "http://www.dxsummit.fi/text/dx25.html"
-        };
+        // Defer response: run the blocking curl fetch on a background thread
+        // so the WebSocket I/O thread is never stalled.
+        con->defer_http_response();
 
-        CURL *curl = curl_easy_init();
-        nlohmann::json normalized = nlohmann::json::array();
+        std::thread([this, con, band, limit_num]() {
+            const std::vector<std::string> urls = {
+                "https://new.dxsummit.fi/api/v1/spots?limit=" + std::to_string(limit_num),
+                "http://new.dxsummit.fi/api/v1/spots?limit=" + std::to_string(limit_num),
+                "http://www.dxsummit.fi/api/v1/spots?limit=" + std::to_string(limit_num),
+                "https://www.dxsummit.fi/text/dx25.html",
+                "http://www.dxsummit.fi/text/dx25.html"
+            };
 
-        if (curl) {
-            for (const auto &url : urls) {
-                std::string response_data;
-                long http_code = 0;
+            CURL *curl = curl_easy_init();
+            nlohmann::json normalized = nlohmann::json::array();
 
-                curl_easy_reset(curl);
-                curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
-                curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, dxspots_write_cb);
-                curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response_data);
-                curl_easy_setopt(curl, CURLOPT_TIMEOUT, 10L);
-                curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT, 5L);
-                curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
-                curl_easy_setopt(curl, CURLOPT_MAXREDIRS, 5L);
-                curl_easy_setopt(curl, CURLOPT_ACCEPT_ENCODING, "");
-                curl_easy_setopt(curl, CURLOPT_USERAGENT, "PhantomSDR-Plus/1.0");
-                curl_easy_setopt(curl, CURLOPT_NOSIGNAL, 1L);
+            if (curl) {
+                for (const auto &url : urls) {
+                    std::string response_data;
+                    long http_code = 0;
 
-                struct curl_slist *headers = nullptr;
-                headers = curl_slist_append(headers, "Accept: application/json, text/plain, text/html, */*");
-                curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
+                    curl_easy_reset(curl);
+                    curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
+                    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, dxspots_write_cb);
+                    curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response_data);
+                    curl_easy_setopt(curl, CURLOPT_TIMEOUT, 10L);
+                    curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT, 5L);
+                    curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
+                    curl_easy_setopt(curl, CURLOPT_MAXREDIRS, 5L);
+                    curl_easy_setopt(curl, CURLOPT_ACCEPT_ENCODING, "");
+                    curl_easy_setopt(curl, CURLOPT_USERAGENT, "PhantomSDR-Plus/1.0");
+                    curl_easy_setopt(curl, CURLOPT_NOSIGNAL, 1L);
 
-                CURLcode rc = curl_easy_perform(curl);
-                if (rc == CURLE_OK) {
-                    curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &http_code);
-                    if (http_code < 400 && !response_data.empty()) {
-                        try {
-                            if (looks_like_json(response_data)) {
-                                normalized = normalize_json_spots(nlohmann::json::parse(response_data), band, limit_num);
-                            } else {
+                    struct curl_slist *headers = nullptr;
+                    headers = curl_slist_append(headers, "Accept: application/json, text/plain, text/html, */*");
+                    curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
+
+                    CURLcode rc = curl_easy_perform(curl);
+                    if (rc == CURLE_OK) {
+                        curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &http_code);
+                        if (http_code < 400 && !response_data.empty()) {
+                            try {
+                                if (looks_like_json(response_data)) {
+                                    normalized = normalize_json_spots(nlohmann::json::parse(response_data), band, limit_num);
+                                } else {
+                                    normalized = parse_dxsummit_text(response_data, band, limit_num);
+                                }
+                            } catch (...) {
                                 normalized = parse_dxsummit_text(response_data, band, limit_num);
                             }
-                        } catch (...) {
-                            normalized = parse_dxsummit_text(response_data, band, limit_num);
-                        }
 
-                        if (normalized.is_array()) {
-                            curl_slist_free_all(headers);
-                            break;
+                            if (normalized.is_array()) {
+                                curl_slist_free_all(headers);
+                                break;
+                            }
                         }
                     }
+
+                    curl_slist_free_all(headers);
                 }
 
-                curl_slist_free_all(headers);
+                curl_easy_cleanup(curl);
             }
 
-            curl_easy_cleanup(curl);
-        }
+            if (!normalized.is_array()) normalized = nlohmann::json::array();
 
-        if (!normalized.is_array()) normalized = nlohmann::json::array();
+            const std::string body = normalized.dump();
+            {
+                static std::mutex cache_mtx;
+                static std::string cached_band;
+                static int cached_limit = 0;
+                static std::string cached_body = "[]";
+                static auto cached_at = std::chrono::steady_clock::time_point{};
+                std::scoped_lock lk(cache_mtx);
+                cached_band = band;
+                cached_limit = limit_num;
+                cached_body = body;
+                cached_at = std::chrono::steady_clock::now();
+            }
 
-        const std::string body = normalized.dump();
-        {
-            std::scoped_lock lk(cache_mtx);
-            cached_band = band;
-            cached_limit = limit_num;
-            cached_body = body;
-            cached_at = std::chrono::steady_clock::now();
-        }
+            con->append_header("Content-Type", "application/json");
+            con->append_header("Cache-Control", "no-store");
+            con->append_header("Access-Control-Allow-Origin", "*");
+            con->set_body(body);
+            con->set_status(websocketpp::http::status_code::ok);
+            con->send_http_response();
+        }).detach();
 
-        con->append_header("Content-Type", "application/json");
-        con->append_header("Cache-Control", "no-store");
-        con->append_header("Access-Control-Allow-Origin", "*");
-        con->set_body(body);
-        con->set_status(websocketpp::http::status_code::ok);
         return;
     }
 
     std::ifstream file;
-    std::string filename = std::filesystem::weakly_canonical(std::filesystem::path("/" + resource)).string();
+    std::string filename;
+    try {
+        filename = std::filesystem::weakly_canonical(
+                       std::filesystem::path("/" + resource))
+                       .string();
+    } catch (const std::filesystem::filesystem_error &) {
+        con->set_body("Bad Request");
+        con->set_status(websocketpp::http::status_code::bad_request);
+        return;
+    }
     std::string response;
 
     filename = filename.substr(0, filename.find("?"));
@@ -499,6 +522,25 @@ void broadcast_server::on_http(connection_hdl hdl) {
         filename = m_docroot + "/" + "index.html";
     } else {
         filename = m_docroot + "/" + filename.substr(1);
+    }
+
+    // Docroot boundary check — prevent symlink / path-traversal escapes
+    {
+        std::string canonical_docroot;
+        std::string canonical_file;
+        try {
+            canonical_docroot = std::filesystem::canonical(m_docroot).string();
+            canonical_file    = std::filesystem::weakly_canonical(filename).string();
+        } catch (...) {
+            con->set_body("Not Found");
+            con->set_status(websocketpp::http::status_code::not_found);
+            return;
+        }
+        if (canonical_file.rfind(canonical_docroot, 0) != 0) {
+            con->set_body("Not Found");
+            con->set_status(websocketpp::http::status_code::not_found);
+            return;
+        }
     }
 
     std::string extension = std::filesystem::path(filename).extension();

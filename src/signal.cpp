@@ -184,22 +184,24 @@ struct SAM_PLL {
 };
 
 // Keep a per-AudioClient SAM_PLL instance without editing headers
-static std::unordered_map<const void*, SAM_PLL> g_sam_by_client;
+static std::unordered_map<const void*, std::shared_ptr<SAM_PLL>> g_sam_by_client;
 static std::mutex g_sam_mutex;  // Thread-safe access to prevent crashes on rapid mode switching
 
-// Helper to get/create SAM for a client pointer
-static SAM_PLL& get_sam(const void* key, double fs) {
-    std::lock_guard<std::mutex> lock(g_sam_mutex);  // Protect against race conditions
+// Helper to get/create SAM for a client pointer.
+// Returns a shared_ptr so the PLL object survives concurrent cleanup_sam()
+// calls — the caller holds a live reference even if the map entry is erased.
+static std::shared_ptr<SAM_PLL> get_sam(const void* key, double fs) {
+    std::lock_guard<std::mutex> lock(g_sam_mutex);
     auto it = g_sam_by_client.find(key);
     if (it == g_sam_by_client.end()) {
-        SAM_PLL sam; 
-        sam.setup(fs, 50.0); // 50 Hz for proper AM stereo tracking (was 20 Hz, too slow)
+        auto sam = std::make_shared<SAM_PLL>();
+        sam->setup(fs, 50.0);
         auto it2 = g_sam_by_client.emplace(key, sam);
         return it2.first->second;
     }
     // refresh fs if changed
-    if (fabs(it->second.fs - fs) > 1.0) {
-        it->second.setup(fs, 50.0);  // 50 Hz (was 20 Hz)
+    if (fabs(it->second->fs - fs) > 1.0) {
+        it->second->setup(fs, 50.0);
     }
     return it->second;
 }
@@ -417,12 +419,9 @@ void AudioClient::set_am_stereo(bool enable) {
     am_stereo = enable;
     
     // FIX: Always reset the PLL unconditionally when toggling stereo.
-    // Previously, toggling stereo ON reused an existing PLL without resetting,
-    // so accumulated integrator wind-up (acc) from a previous AM session would
-    // cause immediate audio artifacts after switching to C-QUAM.
-    SAM_PLL& sam = get_sam(this, audio_rate);
-    sam.set_stereo_mode(enable);
-    sam.reset();  // always reset — clears theta, acc, and DC blocker state
+    auto sam = get_sam(this, audio_rate);
+    sam->set_stereo_mode(enable);
+    sam->reset();  // always reset — clears theta, acc, and DC blocker state
     
     // Recreate encoder with correct channel count
     if (encoder) {
@@ -614,12 +613,12 @@ void AudioClient::send_audio(std::complex<float> *buf, size_t frame_num) {
                                               audio_fft_size / 2);
 
                 // Synchronous AM demodulation with PLL (SAM / C-QUAM)
-                SAM_PLL& sam = get_sam(this, audio_rate);
+                auto sam = get_sam(this, audio_rate);
                 if (am_stereo) {
                     // C-QUAM: decode true stereo (L/R)
                     for (int i = 0; i < audio_fft_size / 2; i++) {
                         float L, R;
-                        sam.step_cquam(
+                        sam->step_cquam(
                             audio_complex_baseband[i].real(),
                             audio_complex_baseband[i].imag(),
                             L, R
@@ -630,7 +629,7 @@ void AudioClient::send_audio(std::complex<float> *buf, size_t frame_num) {
                 } else {
                     // Standard mono SAM
                     for (int i = 0; i < audio_fft_size / 2; i++) {
-                        audio_real[i] = sam.step(
+                        audio_real[i] = sam->step(
                             audio_complex_baseband[i].real(),
                             audio_complex_baseband[i].imag()
                         );
@@ -948,8 +947,8 @@ void AudioClient::on_demodulation_message(std::string &demodulation) {
     
     // Reset SAM PLL when switching to AM mode
     if (this->demodulation == AM) {
-        SAM_PLL& sam = get_sam(this, audio_rate);
-        sam.reset();
+        auto sam = get_sam(this, audio_rate);
+        sam->reset();
     }
     
     // Reset noise gate when changing modes

@@ -12,12 +12,14 @@ std::mutex fftwf_planner_mutex;
 
 // Compiler autovectorization
 static inline float vec_log2(float val, int power_offset) {
-    uint32_t *bit_exponent = (uint32_t *)&val;
+    uint32_t bit_exponent;
+    memcpy(&bit_exponent, &val, sizeof(bit_exponent));  // avoids strict-aliasing UB
     float log_val =
-        (float)((int)((*bit_exponent >> 23) & 0xFF) - 128) + power_offset;
+        (float)((int)((bit_exponent >> 23) & 0xFF) - 128) + power_offset;
     // Set exponent to 0
-    *bit_exponent &= ~(255 << 23);
-    *bit_exponent += 127 << 23;
+    bit_exponent &= ~(255u << 23);
+    bit_exponent += 127u << 23;
+    memcpy(&val, &bit_exponent, sizeof(val));
     log_val += ((-0.34484843f) * val + 2.02466578f) * val - 0.67487759f;
     return log_val;
 }
@@ -63,7 +65,7 @@ static inline void half_and_quantize(float *powerbuf, float *halfbuf,
 FFT::FFT(size_t size, int nthreads, int downsample_levels,
          int brightness_offset)
     : size{size}, nthreads{nthreads}, downsample_levels{downsample_levels},
-      inbuf{0}, outbuf{0} {
+      additional_size{0}, inbuf{0}, outbuf{0} {
     windowbuf = new (std::align_val_t(32)) float[size];
     size_log2 = (int)round(log2(size)) + brightness_offset;
     build_hann_window(windowbuf, size);

@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # ==============================================================================
-# PhantomSDR-Plus Installer — Fedora
+# PhantomSDR-Plus Installer — openSUSE (Leap / Tumbleweed)
 # ==============================================================================
 
 # ------------------------------------------------------------------------------
@@ -128,23 +128,36 @@ echo ""
 
 banner "Installing System Dependencies"
 
+# Refresh with -y so new signing keys are accepted non-interactively.
+echo "Refreshing repositories..."
+run $SUDO zypper refresh -y
+
 echo "Installing build tools and libraries..."
-run $SUDO dnf install -y \
-    @development-tools cmake pkg-config meson ninja-build \
-    fftw-devel websocketpp-devel flac-devel \
+run $SUDO zypper install -y -t pattern devel_basis
+
+run $SUDO zypper install -y \
+    cmake pkg-config meson ninja \
+    fftw3-devel websocketpp-devel flac-devel \
     zlib-devel libzstd-devel boost-devel \
-    opus-devel liquid-dsp-devel \
-    curlpp-devel curl \
-    nlohmann-json-devel \
+    libopus-devel liquid-dsp-devel \
+    libcurl-devel curl \
+    nlohmann_json-devel \
     git cargo
 
-# Note: nlohmann-json-devel is the correct package name on Fedora 37+.
-# On older Fedora (<37) it may be called json-devel.  If the install above
-# fails, try: sudo dnf install -y json-devel
-
-# Note: libmirisdr-devel is NOT in the Fedora official repos or RPM Fusion.
-# If you need SDRPlay support, you must build libmirisdr-5 from source:
-#   https://github.com/ericek111/libmirisdr-5
+# curlpp availability varies by openSUSE version/repo.  Check if it is
+# available in the current repos before attempting to install.
+echo ""
+echo "Checking curlpp availability..."
+if $SUDO zypper install -y curlpp-devel 2>/dev/null; then
+    green "✅ curlpp-devel installed"
+else
+    yellow "⚠️  curlpp-devel not found in current repos."
+    yellow "   You may need to add an OBS repo or build from source."
+    yellow "   Build instructions: https://github.com/jpbarrette/curlpp"
+    echo ""
+    read -rp "Continue without curlpp? (y/n): " skip_curlpp
+    [[ $skip_curlpp =~ ^[Yy]$ ]] || die "Please install curlpp-devel and re-run the script."
+fi
 
 green "✅ System packages installed"
 echo ""
@@ -182,9 +195,7 @@ case $option in
     # ------------------------------------------------------------------
     1)  echo ""
         echo "Setting up RX888 MkII / RX888..."
-        # dnf remove (not autoremove) is the correct command to remove a
-        # named package.  autoremove only removes unused auto-deps.
-        $SUDO dnf remove -y rust 2>/dev/null || true
+        $SUDO zypper remove -y rust 2>/dev/null || true
 
         echo "Installing Rust via rustup..."
         run curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
@@ -213,13 +224,13 @@ case $option in
 
         if [[ $rtlsdr_v4 =~ ^[Yy]$ ]]; then
             echo "Setting up RTL-SDR Blog V4..."
-            $SUDO dnf remove -y 'rtl-sdr*' 'librtlsdr*' 2>/dev/null || true
+            $SUDO zypper remove -y rtl-sdr rtl-sdr-devel 2>/dev/null || true
             $SUDO rm -f \
                 /usr/lib/librtlsdr* /usr/include/rtl-sdr* \
                 /usr/local/lib/librtlsdr* /usr/local/include/rtl-sdr* \
                 /usr/local/include/rtl_* /usr/local/bin/rtl_*
 
-            run $SUDO dnf install -y libusb-devel git cmake pkg-config
+            run $SUDO zypper install -y libusb-1_0-devel git cmake pkg-config
 
             if [ -d "rtl-sdr-blog" ]; then
                 yellow "rtl-sdr-blog already exists — pulling latest..."
@@ -244,19 +255,25 @@ case $option in
             NEEDS_REBOOT=true
         else
             echo "Setting up standard RTL-SDR..."
-            run $SUDO dnf install -y rtl-sdr rtl-sdr-devel
+            run $SUDO zypper install -y rtl-sdr rtl-sdr-devel
             green "✅ Standard RTL-SDR drivers installed"
         fi
         ;;
 
     # ------------------------------------------------------------------
     3)  echo ""
-        yellow "⚠️  libmirisdr-devel is NOT available in Fedora or RPM Fusion repos."
-        yellow "   You must build libmirisdr-5 from source:"
-        yellow "     git clone https://github.com/ericek111/libmirisdr-5"
-        yellow "     cd libmirisdr-5 && cmake . && make && sudo make install"
+        yellow "⚠️  libmirisdr is not reliably available in standard openSUSE repos."
+        yellow "   Build from source using one of these:"
+        yellow "     https://github.com/ericek111/libmirisdr-5  (recommended)"
+        yellow "     https://github.com/f4exb/libmirisdr-4"
+        yellow "   Or search OBS: https://build.opensuse.org"
         echo ""
-        read -rp "Press Enter to continue (assuming you have already built it)..."
+        # Attempt install anyway in case the user has added an OBS repo.
+        $SUDO zypper install -y libmirisdr-devel 2>/dev/null \
+            && green "✅ libmirisdr-devel installed from repos" \
+            || yellow "   Not found in repos — manual build required."
+        echo ""
+        read -rp "Press Enter to continue..."
         ;;
 
     # ------------------------------------------------------------------
@@ -289,7 +306,7 @@ elif command -v vim >/dev/null 2>&1; then
 elif command -v vi >/dev/null 2>&1; then
     VISUAL_EDITOR="vi"
 else
-    run $SUDO dnf install -y nano
+    run $SUDO zypper install -y nano
     VISUAL_EDITOR="nano"
 fi
 
@@ -463,26 +480,29 @@ read -rp "Install OpenCL support? (y/n): " install_opencl
 if [[ $install_opencl =~ ^[Yy]$ ]]; then
     echo ""
     echo "Installing OpenCL base packages..."
-    run $SUDO dnf install -y ocl-icd ocl-icd-devel opencl-headers clinfo
+    run $SUDO zypper install -y ocl-icd-devel opencl-headers clinfo
 
     cpu_vendor=$(lscpu | awk '/Vendor ID/{print $3}')
 
     case "$cpu_vendor" in
         GenuineIntel)
-            echo "Intel CPU detected."
-            echo ""
-            yellow "⚠️  Intel Compute Runtime on Fedora requires manual steps."
-            echo "   Option 1 — Intel CPU with integrated GPU:"
-            echo "     sudo dnf install -y intel-opencl"
-            echo "   Option 2 — CPU-only NEO driver (RPM packages):"
-            echo "     https://github.com/intel/compute-runtime/releases"
-            echo "     Download the .rpm files for your Fedora version and install with dnf."
-            echo ""
-            read -rp "Press Enter to continue after installing the Intel runtime..."
+            echo "Intel CPU detected — attempting to install intel-opencl..."
+            # Attempt install; availability varies by repo configuration.
+            if $SUDO zypper install -y intel-opencl 2>/dev/null; then
+                green "✅ intel-opencl installed"
+            else
+                yellow "⚠️  intel-opencl not found in current repos."
+                yellow "   Options:"
+                yellow "   1. Enable Intel Graphics OBS repo and retry"
+                yellow "   2. Download RPM packages from:"
+                yellow "      https://github.com/intel/compute-runtime/releases"
+                echo ""
+                read -rp "Press Enter to continue..."
+            fi
             ;;
         AuthenticAMD)
             yellow "AMD CPU/GPU detected."
-            yellow "   Install ROCm OpenCL: sudo dnf install -y rocm-opencl"
+            yellow "   Install ROCm OpenCL: sudo zypper install rocm-opencl"
             ;;
         *)
             yellow "Unknown CPU vendor '$cpu_vendor'."
@@ -494,11 +514,10 @@ if [[ $install_opencl =~ ^[Yy]$ ]]; then
     echo "Testing OpenCL installation (as current user)..."
     if clinfo > /dev/null 2>&1; then
         green "✅ OpenCL device(s) detected"
-        NEEDS_REBOOT=true
     else
         yellow "⚠️  clinfo found no devices — reboot and run 'clinfo' to verify."
-        NEEDS_REBOOT=true
     fi
+    NEEDS_REBOOT=true
 else
     echo "Skipping OpenCL."
 fi
@@ -515,7 +534,7 @@ green "✅ System packages:"
 echo "   • Node.js $(node --version) / npm $(npm --version)"
 echo "   • Build tools (gcc, cmake, meson, ninja)"
 echo "   • DSP libs (FFTW3, libopus, libliquid)"
-echo "   • Network libs (libwebsocketpp, curlpp)"
+echo "   • Network libs (libwebsocketpp, curl)"
 echo "   • Compression libs (zlib, zstd, FLAC)"
 echo "   • Boost libraries"
 [[ $install_opencl =~ ^[Yy]$ ]] && echo "   • OpenCL"
@@ -535,7 +554,7 @@ case $option in
             && echo "   • RTL-SDR Blog V4 drivers + udev rules installed" \
             || echo "   • Standard RTL-SDR drivers installed"
         ;;
-    3)  yellow "⚠️  SDR hardware: SDRPlay — build libmirisdr-5 from source manually" ;;
+    3)  yellow "⚠️  SDR hardware: SDRPlay — build libmirisdr from source manually" ;;
     4)  yellow "⚠️  SDR hardware: skipped — install driver manually" ;;
 esac
 

@@ -119,14 +119,14 @@ broadcast_server::broadcast_server(
     // Read in configuration
     std::optional<int> sps_config = config["input"]["sps"].value<int>();
     if (!sps_config.has_value()) {
-        throw "Missing sample rate";
+        throw std::runtime_error("Missing sample rate");
     }
     sps = sps_config.value();
 
     std::optional<int64_t> frequency =
         config["input"]["frequency"].value<int64_t>();
     if (!frequency.has_value()) {
-        throw "Missing frequency";
+        throw std::runtime_error("Missing frequency");
     }
 
     std::string accelerator_str =
@@ -142,7 +142,7 @@ broadcast_server::broadcast_server(
             : "";
     if (!signal_type.has_value() ||
         (signal_type_str != "real" && signal_type_str != "iq")) {
-        throw "Invalid signal type, specify either real or IQ input";
+        throw std::runtime_error("Invalid signal type, specify either real or IQ input");
     }
 
     is_real = signal_type_str == "real";
@@ -231,7 +231,7 @@ broadcast_server::broadcast_server(
 #ifdef HAS_LIBAOM
         waterfall_compression = WATERFALL_AV1;
 #else
-        throw "AV1 support not compiled in";
+        throw std::runtime_error("AV1 support not compiled in");
 #endif
     }
 
@@ -241,7 +241,7 @@ broadcast_server::broadcast_server(
 #ifdef HAS_LIBOPUS
     audio_compression = AUDIO_OPUS;
 #else
-    throw "Opus support not compiled in";
+    throw std::runtime_error("Opus support not compiled in");
 #endif
 }
 
@@ -269,20 +269,20 @@ broadcast_server::broadcast_server(
 #ifdef CUFFT
         fft = std::make_unique<cuFFT>(fft_size, fft_threads, downsample_levels, brightness_offset);
 #else
-        throw "CUDA support is not compiled in";
+        throw std::runtime_error("CUDA support is not compiled in");
 #endif
     } else if (accelerator == GPU_clFFT) {
 #ifdef CLFFT
         fft = std::make_unique<clFFT>(fft_size, fft_threads, downsample_levels, brightness_offset);
 #else
-        throw "OpenCL support is not compiled in";
+        throw std::runtime_error("OpenCL support is not compiled in");
 #endif
     } else if (accelerator == CPU_mklFFT) {
 #ifdef MKL
         fft =
             std::make_unique<mklFFT>(fft_size, fft_threads, downsample_levels, brightness_offset);
 #else
-        throw "MKL support is not compiled in";
+        throw std::runtime_error("MKL support is not compiled in");
 #endif
     } else {
         fft = std::make_unique<FFTW>(fft_size, fft_threads, downsample_levels, brightness_offset);

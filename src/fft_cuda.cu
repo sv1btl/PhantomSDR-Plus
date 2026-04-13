@@ -2,8 +2,8 @@
 
 #include "fft.h"
 
-cuFFT::cuFFT(size_t size, int nthreads, int downsample_levels)
-    : FFT(size, nthreads, downsample_levels), plan{0} {
+cuFFT::cuFFT(size_t size, int nthreads, int downsample_levels, int brightness_offset)
+    : FFT(size, nthreads, downsample_levels, brightness_offset), plan{0} {
     int count;
     cudaGetDeviceCount(&count);
     if (!count) {
@@ -130,7 +130,7 @@ __global__ void half_and_quantize(float *powerbuf, float *halfbuf,
 int cuFFT::execute() {
     if (type == CUFFT_C2C) {
         cufftExecC2C(plan, (cufftComplex *)cuda_inbuf,
-                     (cufftComplex *)cuda_outbuf, CUFFT_FORWARD);
+                     (cufftComplex *)cuda_outbuf, cuda_direction);  // was hardcoded CUFFT_FORWARD
     } else if (type == CUFFT_R2C) {
         cufftExecR2C(plan, (cufftReal *)cuda_inbuf,
                      (cufftComplex *)cuda_outbuf);
@@ -180,5 +180,6 @@ cuFFT::~cuFFT() {
         cudaFree(cuda_outbuf);
         cudaFree(cuda_windowbuf);
         cudaFree(cuda_powerbuf);
+        cudaFree(cuda_quantizedbuf);  // was missing — GPU memory leak
     }
 }

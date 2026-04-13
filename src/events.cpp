@@ -29,34 +29,34 @@ std::string broadcast_server::get_event_info() {
 
     static auto last_kbits_time = std::chrono::steady_clock::now();
     auto now = std::chrono::steady_clock::now();
-    
+
+    // Hold the lock for the entire size-check + move to eliminate TOCTOU
+    std::scoped_lock lk(signal_changes_mtx);
+
     if (!signal_changes.size() && std::chrono::duration_cast<std::chrono::seconds>(now - last_kbits_time).count() >= 10) {
         event_info info;
         info.waterfall_clients = std::accumulate(
             waterfall_slices.begin(), waterfall_slices.end(), 0,
             [](size_t acc, const auto &it) { return acc + it.size(); });
         info.signal_clients = signal_slices.size();
-        info.waterfall_kbits = waterfall_kbits_per_second;
-        info.audio_kbits = audio_kbits_per_second.load(std::memory_order_relaxed);  // ✅ FIXED: Explicit atomic load
+        info.waterfall_kbits = waterfall_kbits_per_second.load(std::memory_order_relaxed);
+        info.audio_kbits = audio_kbits_per_second.load(std::memory_order_relaxed);
         last_kbits_time = now;
         return glz::write_json(info);
-    }else if (signal_changes.size())
-    {
+    } else if (signal_changes.size()) {
         event_info info;
-        // Put in the number of clients connected
-        info.waterfall_kbits = waterfall_kbits_per_second;
-        info.audio_kbits = audio_kbits_per_second.load(std::memory_order_relaxed);  // ✅ FIXED: Explicit atomic load
+        info.waterfall_kbits = waterfall_kbits_per_second.load(std::memory_order_relaxed);
+        info.audio_kbits = audio_kbits_per_second.load(std::memory_order_relaxed);
         info.waterfall_clients = std::accumulate(
             waterfall_slices.begin(), waterfall_slices.end(), 0,
             [](size_t acc, const auto &it) { return acc + it.size(); });
         info.signal_clients = signal_slices.size();
         if (show_other_users) {
-            std::scoped_lock lk(signal_changes_mtx);
             info.signal_changes = std::move(signal_changes);
         }
         return glz::write_json(info);
     }
- 
+
     return "";
 }
 

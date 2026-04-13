@@ -1,627 +1,648 @@
 #!/bin/bash
+set -euo pipefail
 
-# Check if sudo is available and set the command prefix accordingly
+# ==============================================================================
+# PhantomSDR-Plus Installer
+# Supported: Ubuntu 22.04 LTS (amd64 / arm64)
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# Helpers
+# ------------------------------------------------------------------------------
+
+NEEDS_REBOOT=false
+
+red()    { echo -e "\e[31m$*\e[0m"; }
+green()  { echo -e "\e[32m$*\e[0m"; }
+yellow() { echo -e "\e[33m$*\e[0m"; }
+blue()   { echo -e "\e[34m$*\e[0m"; }
+
+banner() {
+    echo ""
+    echo "=========================================="
+    blue "$1"
+    echo "=========================================="
+}
+
+die() {
+    red "❌ Fatal: $*"
+    exit 1
+}
+
+# Run a command and exit with a clear message on failure.
+run() {
+    "$@" || die "Command failed: $*"
+}
+
+# ------------------------------------------------------------------------------
+# Privilege escalation
+# ------------------------------------------------------------------------------
+
 if command -v sudo >/dev/null 2>&1; then
     SUDO="sudo"
 else
     SUDO=""
 fi
 
-# Check and install Node.js 18 using nvm
-echo "=========================================="
-echo "Checking Node.js and npm..."
-echo "=========================================="
+# ------------------------------------------------------------------------------
+# Node.js / npm via nvm
+# ------------------------------------------------------------------------------
 
-NODE_INSTALLED=false
-NPM_INSTALLED=false
-NODE_VERSION_OK=false
+banner "Checking Node.js and npm"
 
-if command -v node >/dev/null 2>&1; then
-    NODE_VERSION=$(node --version)
-    echo "✅ Node.js is already installed: $NODE_VERSION"
-    NODE_INSTALLED=true
-    
-    # Check if Node.js version is 18 or higher
-    NODE_MAJOR=$(echo $NODE_VERSION | cut -d'.' -f1 | tr -d 'v')
-    if [ "$NODE_MAJOR" -ge 18 ]; then
-        NODE_VERSION_OK=true
-        echo "✅ Node.js version is compatible (18+)"
+NVM_VERSION="v0.40.4"
+NODE_NEED=22
+
+install_node_via_nvm() {
+    echo "Installing nvm ${NVM_VERSION}..."
+    run curl -o- "https://raw.githubusercontent.com/nvm-sh/nvm/${NVM_VERSION}/install.sh" | bash
+
+    export NVM_DIR="$HOME/.nvm"
+    # shellcheck source=/dev/null
+    [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+
+    echo "Installing Node.js ${NODE_NEED}..."
+    run nvm install ${NODE_NEED}
+    run nvm use ${NODE_NEED}
+    run nvm alias default ${NODE_NEED}
+}
+
+# Load nvm if already installed
+export NVM_DIR="$HOME/.nvm"
+[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+
+NODE_OK=false
+if command -v node >/dev/null 2>&1 && command -v npm >/dev/null 2>&1; then
+    NODE_MAJOR=$(node --version | cut -d'.' -f1 | tr -d 'v')
+    if [ "$NODE_MAJOR" -ge ${NODE_NEED} ]; then
+        green "✅ Node.js $(node --version) and npm $(npm --version) — OK"
+        NODE_OK=true
     else
-        echo "⚠️  Node.js version is too old. Need version 18 or higher."
-        NODE_VERSION_OK=false
+        yellow "⚠️  Node.js $(node --version) is too old (need ${NODE_NEED}+)"
     fi
-else
-    echo "❌ Node.js is not installed"
 fi
 
-if command -v npm >/dev/null 2>&1; then
-    NPM_VERSION=$(npm --version)
-    echo "✅ npm is already installed: $NPM_VERSION"
-    NPM_INSTALLED=true
-else
-    echo "❌ npm is not installed"
-fi
-
-# Install or upgrade Node.js using nvm if needed
-if [ "$NODE_INSTALLED" = false ] || [ "$NPM_INSTALLED" = false ] || [ "$NODE_VERSION_OK" = false ]; then
-    echo ""
-    echo "Installing Node.js 18 via nvm (Node Version Manager)..."
-    
-    # Check if nvm is already installed
+if [ "$NODE_OK" = false ]; then
     if [ ! -d "$HOME/.nvm" ]; then
-        echo "Installing nvm..."
-        curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.0/install.sh | bash
-        
-        # Load nvm
-        export NVM_DIR="$HOME/.nvm"
-        [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+        install_node_via_nvm
     else
-        echo "nvm is already installed"
-        export NVM_DIR="$HOME/.nvm"
-        [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+        echo "nvm already installed — loading and upgrading Node.js..."
+        # shellcheck source=/dev/null
+        \. "$NVM_DIR/nvm.sh"
+        run nvm install ${NODE_NEED}
+        run nvm use ${NODE_NEED}
+        run nvm alias default ${NODE_NEED}
     fi
-    
-    # Install Node.js 18
-    echo "Installing Node.js 18..."
-    nvm install 18
-    nvm use 18
-    nvm alias default 18
-    
-    # Verify installation
-    if command -v node >/dev/null 2>&1 && command -v npm >/dev/null 2>&1; then
-        NODE_VERSION=$(node --version)
-        NPM_VERSION=$(npm --version)
-        echo "✅ Node.js installed successfully: $NODE_VERSION"
-        echo "✅ npm installed successfully: $NPM_VERSION"
-    else
-        echo "❌ Error: Node.js/npm installation failed"
-        echo "Please install Node.js 18+ manually and try again."
-        exit 1
-    fi
-else
-    echo "✅ Node.js and npm are ready to use"
+
+    command -v node >/dev/null 2>&1 && command -v npm >/dev/null 2>&1 \
+        || die "Node.js / npm installation failed. Install Node.js ${NODE_NEED}+ manually and retry."
+
+    green "✅ Node.js $(node --version) and npm $(npm --version) installed"
 fi
 
 echo ""
 
-# Function to find PhantomSDR-Plus directory
+# ------------------------------------------------------------------------------
+# Locate PhantomSDR-Plus source tree
+# ------------------------------------------------------------------------------
+
+banner "Locating PhantomSDR-Plus directory"
+
 find_phantom_dir() {
-    # Check if we're already inside PhantomSDR-Plus directory
-    if [ -f "meson.build" ] && [ -d "frontend" ] && [ -d "src" ]; then
-        PHANTOM_DIR="."
-        echo "✅ Found PhantomSDR-Plus in current directory"
-        return 0
-    fi
-    
-    # Check if PhantomSDR-Plus exists as a subdirectory
-    if [ -d "PhantomSDR-Plus" ]; then
-        PHANTOM_DIR="PhantomSDR-Plus"
-        echo "✅ Found PhantomSDR-Plus directory"
-        return 0
-    fi
-    
-    # Check parent directory
-    if [ -d "../PhantomSDR-Plus" ]; then
-        PHANTOM_DIR="../PhantomSDR-Plus"
-        echo "✅ Found PhantomSDR-Plus in parent directory"
-        return 0
-    fi
-    
-    # Check common locations
-    if [ -d "$HOME/PhantomSDR-Plus" ]; then
-        PHANTOM_DIR="$HOME/PhantomSDR-Plus"
-        echo "✅ Found PhantomSDR-Plus in home directory"
-        return 0
-    fi
-    
-    # Not found, ask user
-    echo "❌ Could not automatically locate PhantomSDR-Plus directory"
+    local candidates=(
+        "."
+        "PhantomSDR-Plus"
+        "../PhantomSDR-Plus"
+        "$HOME/PhantomSDR-Plus"
+    )
+
+    for dir in "${candidates[@]}"; do
+        if [ -f "$dir/meson.build" ] && [ -d "$dir/frontend" ] && [ -d "$dir/src" ]; then
+            PHANTOM_DIR=$(realpath "$dir")
+            green "✅ Found PhantomSDR-Plus at: $PHANTOM_DIR"
+            return 0
+        fi
+    done
+
+    red "❌ Could not locate PhantomSDR-Plus automatically"
     echo ""
-    read -p "Enter the full path to PhantomSDR-Plus directory: " user_path
-    
+    read -rp "Enter the full path to the PhantomSDR-Plus directory: " user_path
     if [ -d "$user_path" ] && [ -f "$user_path/meson.build" ]; then
-        PHANTOM_DIR="$user_path"
-        echo "✅ Using: $PHANTOM_DIR"
-        return 0
+        PHANTOM_DIR=$(realpath "$user_path")
+        green "✅ Using: $PHANTOM_DIR"
     else
-        echo "❌ Error: Invalid path or not a PhantomSDR-Plus directory!"
-        exit 1
+        die "Path '$user_path' is not a valid PhantomSDR-Plus directory."
     fi
 }
 
-# Find the PhantomSDR-Plus directory
-echo "=========================================="
-echo "Locating PhantomSDR-Plus directory..."
-echo "=========================================="
 find_phantom_dir
 echo ""
 
-# Update and install necessary packages
-echo "=========================================="
-echo "Installing PhantomSDR-Plus Dependencies"
-echo "=========================================="
-echo "Updating package lists and installing necessary packages..."
-$SUDO apt-get update
-$SUDO apt-get install -y build-essential cmake pkg-config meson libfftw3-dev libwebsocketpp-dev libflac++-dev zlib1g-dev libzstd-dev libboost-all-dev libopus-dev libliquid-dev git libcurlpp-dev curl cargo nlohmann-json3-dev
+# ------------------------------------------------------------------------------
+# System dependencies
+# ------------------------------------------------------------------------------
 
-# Check if the previous command was successful
-if [ $? -eq 0 ]; then
-    echo "Packages installed successfully."
-    
-    # Change to PhantomSDR-Plus directory for building
-    cd "$PHANTOM_DIR"
-    
-    # Build the main application with Meson
-    echo "Building the main application..."
-    meson build 
-    # Use just 2 cores to compile with -J2 else tiny systems like an RPi4 with 2GB won't finish compiling.
-    meson compile -j2 -C build
-    if [ $? -ne 0 ]; then
-        echo "Failed to build the main application. Please check for errors and try again."
-        exit 1
-    fi
-    
-    # Return to original directory
-    cd - > /dev/null
-    
-    echo "Welcome to PhantomPlus Installer!"
-    echo "Which SDR would you like to set up?"
-    echo "  [1] RX888 MKII / RX888"
-    echo "  [2] RTLSDR"
-    echo "  [3] SDRPlay"
-    echo "  [4] Do not install SDR driver, skip to websdr install only"
-    read -p "Select an option [1-4]: " option
+banner "Installing System Dependencies"
 
-    case $option in
-        1) echo "Setting up RX888 MKII / RX888..."
-            $SUDO apt-get autoremove -y rustc
-            echo "Installing Rust..."
-            curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
-            source "$HOME/.cargo/env"
-            
-            # Clone the rx888_stream repository
-            echo "Cloning the rx888_stream repository..."
-            git clone https://github.com/rhgndf/rx888_stream
+echo "Updating package lists..."
+run $SUDO apt-get update -qq
+
+echo "Installing build tools and libraries..."
+run $SUDO apt-get install -y \
+    build-essential cmake pkg-config meson ninja-build \
+    libfftw3-dev libwebsocketpp-dev libflac++-dev \
+    zlib1g-dev libzstd-dev libboost-all-dev \
+    libopus-dev libliquid-dev \
+    libcurlpp-dev curl \
+    nlohmann-json3-dev \
+    git cargo \
+    nano
+
+green "✅ System packages installed"
+echo ""
+
+# ------------------------------------------------------------------------------
+# Build PhantomSDR-Plus backend
+# ------------------------------------------------------------------------------
+
+banner "Building PhantomSDR-Plus Backend"
+
+cd "$PHANTOM_DIR"
+
+echo "Configuring with Meson..."
+# --wipe ensures a previous partial build directory does not cause failures.
+run meson setup --wipe build
+
+echo "Compiling (using 2 cores to stay within memory limits on low-RAM systems)..."
+run meson compile -j2 -C build
+
+green "✅ Backend compiled: $PHANTOM_DIR/build/"
+cd - > /dev/null
+echo ""
+
+# ------------------------------------------------------------------------------
+# SDR hardware driver
+# ------------------------------------------------------------------------------
+
+banner "SDR Hardware Setup"
+
+echo "Which SDR would you like to set up?"
+echo "  [1] RX888 MkII / RX888"
+echo "  [2] RTL-SDR"
+echo "  [3] SDRPlay (via libmirisdr-5)"
+echo "  [4] Skip — install SDR driver manually later"
+read -rp "Select an option [1-4]: " option
+
+case $option in
+
+    # ------------------------------------------------------------------
+    1)  echo ""
+        echo "Setting up RX888 MkII / RX888..."
+
+        # Remove any system-packaged Rust that might conflict.
+        $SUDO apt-get remove --purge -y rustc 2>/dev/null || true
+
+        echo "Installing Rust via rustup..."
+        run curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+        # shellcheck source=/dev/null
+        source "$HOME/.cargo/env"
+
+        echo "Cloning rx888_stream..."
+        if [ -d "rx888_stream" ]; then
+            yellow "rx888_stream directory already exists — pulling latest..."
             cd rx888_stream
-            
-            # Build and install
-            echo "Building and installing..."
-            RUSTFLAGS="-C target-cpu=native" cargo build --release
-            RUSTFLAGS="-C target-cpu=native" cargo install --path .
-            
-            echo "RX888 is successfully set up."
-            cd ..
-            ;;
-        2) echo "Setting up RTLSDR..."
-            read -p "Do you have a RTL-SDR V4? (y/n): " rtlsdr_v4
-            if [[ $rtlsdr_v4 == "y" || $rtlsdr_v4 == "Y" ]]; then
-                echo "Setting up RTL-SDR V4..."
-                $SUDO apt purge ^librtlsdr -y
-                $SUDO rm -rvf /usr/lib/librtlsdr* /usr/include/rtl-sdr* /usr/local/lib/librtlsdr* /usr/local/include/rtl-sdr* /usr/local/include/rtl_* /usr/local/bin/rtl_*
-                $SUDO apt-get install libusb-1.0-0-dev git cmake pkg-config -y
-                git clone https://github.com/rtlsdrblog/rtl-sdr-blog
+            run git pull
+        else
+            run git clone https://github.com/rhgndf/rx888_stream
+            cd rx888_stream
+        fi
+
+        echo "Building rx888_stream..."
+        run RUSTFLAGS="-C target-cpu=native" cargo build --release
+        run RUSTFLAGS="-C target-cpu=native" cargo install --path .
+
+        green "✅ RX888 driver built and installed (~/.cargo/bin/rx888_stream)"
+        cd ..
+        ;;
+
+    # ------------------------------------------------------------------
+    2)  echo ""
+        read -rp "Do you have an RTL-SDR Blog V4? (y/n): " rtlsdr_v4
+
+        if [[ $rtlsdr_v4 =~ ^[Yy]$ ]]; then
+            echo "Setting up RTL-SDR Blog V4..."
+
+            # Remove conflicting upstream packages.
+            $SUDO apt-get purge -y "^librtlsdr" 2>/dev/null || true
+            $SUDO rm -f \
+                /usr/lib/librtlsdr* \
+                /usr/include/rtl-sdr* \
+                /usr/local/lib/librtlsdr* \
+                /usr/local/include/rtl-sdr* \
+                /usr/local/include/rtl_* \
+                /usr/local/bin/rtl_*
+
+            run $SUDO apt-get install -y libusb-1.0-0-dev git cmake pkg-config
+
+            if [ -d "rtl-sdr-blog" ]; then
+                yellow "rtl-sdr-blog already exists — pulling latest..."
                 cd rtl-sdr-blog
-                mkdir build
-                cd build
-                cmake ../ -DINSTALL_UDEV_RULES=ON
-                make
-                $SUDO make install
-                $SUDO cp ../rtl-sdr.rules /etc/udev/rules.d/
-                $SUDO ldconfig
-                echo 'blacklist dvb_usb_rtl28xxu' | $SUDO tee --append /etc/modprobe.d/blacklist-dvb_usb_rtl28xxu.conf
-                cd ../..
-                echo "Please note: You'll need to reboot after the full installation is complete for RTL-SDR V4 changes to take effect."
+                run git pull
+                cd ..
             else
-                echo "Setting up a non V4 RTLSDR..."
-                $SUDO apt-get install libusb-1.0-0-dev git cmake pkg-config librtlsdr0 librtlsdr-dev rtlsdr -y
-                echo "RTLSDR setup is complete."
+                run git clone https://github.com/rtlsdrblog/rtl-sdr-blog
             fi
-            ;;
-        3) echo "Setting up SDRPlay..."
-            git clone https://github.com/ericek111/libmirisdr-5 || { echo "Failed to clone libmirisdr-5 repository."; exit 1; }
-            cd libmirisdr-5 || { echo "Failed to enter the libmirisdr-5 directory."; exit 1; }
-            
-            cmake . || { echo "CMake configuration failed."; exit 1; }
-            make || { echo "Make failed."; exit 1; }
-            $SUDO make install || { echo "Make install failed."; exit 1; }
-            cd ..
-            $SUDO rm -rf libmirisdr-5
-            
-            echo "SDRPlay setup is complete."
-            ;;
-        4) echo "Skipping SDR driver installation..."
-            ;;
-        *) echo "Invalid option selected. Exiting."
-            exit 1
-            ;;
-    esac
-    
-    # Configure site information
-    echo ""
-    echo "=========================================="
-    echo "Site Information Configuration"
-    echo "=========================================="
-    echo ""
-    
-    SITE_INFO_PATH="$PHANTOM_DIR/frontend/site_information.json"
-    
-    if [ ! -f "$SITE_INFO_PATH" ]; then
-        echo "Error: site_information.json not found at $SITE_INFO_PATH"
-        echo "Please ensure the file exists in the frontend directory."
-        exit 1
-    fi
-    
-    echo "Now you will edit your site information..."
-    echo "This includes your callsign, location, hardware details, etc."
-    echo ""
-    read -p "Press ENTER to open the editor..."
-    
-    # Determine which editor to use
-    if command -v nano >/dev/null 2>&1; then
-        EDITOR="nano"
-    elif command -v vi >/dev/null 2>&1; then
-        EDITOR="vi"
-    elif command -v vim >/dev/null 2>&1; then
-        EDITOR="vim"
-    else
-        echo "No text editor found (nano/vi/vim). Installing nano..."
-        $SUDO apt-get install -y nano
-        EDITOR="nano"
-    fi
-    
-    echo "Opening $SITE_INFO_PATH with $EDITOR..."
-    echo "Edit your information, then save and exit."
-    if [ "$EDITOR" = "nano" ]; then
-        echo "(Press Ctrl+X to exit, then Y to save, then ENTER to confirm)"
-    fi
-    echo ""
-    
-    $EDITOR "$SITE_INFO_PATH"
-    
-    if [ $? -ne 0 ]; then
-        echo "Error editing the file. Continuing anyway..."
-    else
-        echo "Site information saved successfully!"
-    fi
-    
-    # Install Frontend Dependencies with specific Vite version
-    echo ""
-    echo "=========================================="
-    echo "Installing Frontend Dependencies"
-    echo "=========================================="
-    echo ""
-    
-    if [ ! -d "$PHANTOM_DIR/frontend" ]; then
-        echo "❌ Error: Frontend directory not found at $PHANTOM_DIR/frontend"
-        exit 1
-    fi
-    
+
+            cd rtl-sdr-blog
+            mkdir -p build && cd build
+            run cmake ../ -DINSTALL_UDEV_RULES=ON
+            run make
+            run $SUDO make install
+            run $SUDO cp ../rtl-sdr.rules /etc/udev/rules.d/
+            run $SUDO ldconfig
+            echo 'blacklist dvb_usb_rtl28xxu' \
+                | $SUDO tee /etc/modprobe.d/blacklist-dvb_usb_rtl28xxu.conf > /dev/null
+            cd ../..
+
+            green "✅ RTL-SDR Blog V4 drivers installed"
+            yellow "⚠️  A reboot is required for the RTL-SDR V4 to be recognised."
+            NEEDS_REBOOT=true
+
+        else
+            echo "Setting up standard RTL-SDR..."
+            run $SUDO apt-get install -y \
+                libusb-1.0-0-dev librtlsdr0 librtlsdr-dev rtlsdr
+            green "✅ Standard RTL-SDR drivers installed"
+        fi
+        ;;
+
+    # ------------------------------------------------------------------
+    3)  echo ""
+        echo "Setting up SDRPlay via libmirisdr-5..."
+
+        if [ -d "libmirisdr-5" ]; then
+            yellow "libmirisdr-5 already exists — re-using existing clone."
+        else
+            run git clone https://github.com/ericek111/libmirisdr-5
+        fi
+
+        cd libmirisdr-5 || die "Failed to enter libmirisdr-5 directory"
+        run cmake .
+        run make
+        run $SUDO make install
+        cd ..
+        $SUDO rm -rf libmirisdr-5
+
+        green "✅ SDRPlay (libmirisdr-5) installed"
+        ;;
+
+    # ------------------------------------------------------------------
+    4)  echo "Skipping SDR driver installation."
+        ;;
+
+    # ------------------------------------------------------------------
+    *)  die "Invalid option '$option'." ;;
+
+esac
+echo ""
+
+# ------------------------------------------------------------------------------
+# Site information
+# ------------------------------------------------------------------------------
+
+banner "Site Information"
+
+SITE_INFO_PATH="$PHANTOM_DIR/frontend/site_information.json"
+
+[ -f "$SITE_INFO_PATH" ] \
+    || die "site_information.json not found at $SITE_INFO_PATH — is the source tree complete?"
+
+echo "You will now edit your site information (callsign, location, hardware, etc.)."
+echo ""
+read -rp "Press ENTER to open the editor (or Ctrl+C to skip)..."
+
+if command -v nano >/dev/null 2>&1; then
+    VISUAL_EDITOR="nano"
+elif command -v vim >/dev/null 2>&1; then
+    VISUAL_EDITOR="vim"
+elif command -v vi >/dev/null 2>&1; then
+    VISUAL_EDITOR="vi"
+else
+    echo "No editor found — installing nano..."
+    run $SUDO apt-get install -y nano
+    VISUAL_EDITOR="nano"
+fi
+
+[ "$VISUAL_EDITOR" = "nano" ] && echo "(Ctrl+X → Y → ENTER to save and exit)"
+echo ""
+"$VISUAL_EDITOR" "$SITE_INFO_PATH" || yellow "⚠️  Editor exited non-zero — verify the file manually."
+echo ""
+green "✅ Site information saved: $SITE_INFO_PATH"
+echo ""
+
+# ------------------------------------------------------------------------------
+# Frontend dependencies and build
+# ------------------------------------------------------------------------------
+
+banner "Installing Frontend Dependencies"
+
+[ -d "$PHANTOM_DIR/frontend" ] \
+    || die "Frontend directory not found at $PHANTOM_DIR/frontend"
+
+cd "$PHANTOM_DIR/frontend"
+
+echo "Cleaning previous install artefacts..."
+rm -rf node_modules package-lock.json
+
+# ------------------------------------------------------------------------------
+# Patch package.json before any npm install
+# ------------------------------------------------------------------------------
+# This does two things automatically:
+#
+#   1. Injects an "overrides" block so npm resolves deprecated/vulnerable
+#      transitive packages to safe modern versions on first install, avoiding
+#      the flood of `npm warn deprecated` messages.
+#
+#   2. Upgrades ESLint to ^9 in devDependencies if the project still pins ^8.
+#      ESLint 8 is deprecated and drags in rimraf@2/3, glob@7, and the
+#      @humanwhocodes/* packages.  ESLint 9 replaces all of them.
+#      NOTE: ESLint 9 uses flat config (eslint.config.js).  If linting breaks
+#      after this upgrade run:  npx @eslint/migrate-config .eslintrc.*
+#
+# Packages deliberately NOT overridden:
+#   inflight@1.0.6  — deprecated but has no API-compatible replacement and
+#                     poses no security risk (JS GC handles the leak in
+#                     practice for short-lived processes like a build tool).
+# ------------------------------------------------------------------------------
+echo "Patching package.json -- injecting transitive dependency overrides..."
+python3 - "$PHANTOM_DIR/frontend/package.json" << 'PYEOF'
+import sys, json
+
+path = sys.argv[1]
+with open(path) as fh:
+    pkg = json.load(fh)
+
+all_deps = {}
+all_deps.update(pkg.get('dependencies', {}))
+all_deps.update(pkg.get('devDependencies', {}))
+
+# Repair: if a previous run of this script incorrectly upgraded eslint to ^9
+# while eslint-config-* or eslint-plugin-* packages (which pin to eslint@^8)
+# are still present, revert eslint back to ^8.0.0.
+# eslint-config-standard@17, and most other ESLint configs/plugins published
+# before 2025, carry a peer dep of eslint@^8 — they will break under ^9.
+has_eslint_ecosystem = any(
+    k.startswith('eslint-config-') or k.startswith('eslint-plugin-')
+    for k in all_deps
+)
+for section in ('dependencies', 'devDependencies'):
+    cur = pkg.get(section, {}).get('eslint', '')
+    if cur and cur.lstrip('^~').startswith('9.') and has_eslint_ecosystem:
+        pkg[section]['eslint'] = '^8.0.0'
+        print('   eslint: reverted ^9 -> ^8.0.0 (eslint-config/plugin packages require ^8)')
+
+# Force safe versions for deprecated/vulnerable transitive packages.
+#   rimraf ^4  - rimraf@2/3 are EOL
+#   glob  ^10  - glob@7 has a published ReDoS security advisory
+# ESLint 8 deprecation is a warning only, not a security issue — not touched.
+# inflight has no API-compatible replacement — not touched.
+overrides = {
+    'rimraf': '^4.0.0',
+    'glob':   '^10.3.0',
+}
+pkg.setdefault('overrides', {}).update(overrides)
+for k, v in overrides.items():
+    print('   override', k, '->', v)
+
+with open(path, 'w') as fh:
+    json.dump(pkg, fh, indent=2)
+    print(file=fh)
+PYEOF
+
+echo ""
+echo "Installing pinned Vite / Svelte packages..."
+# VERSION NOTES (April 2026)
+# ─────────────────────────────────────────────────────────────────────────────
+# Vite 8 (current stable) requires @sveltejs/vite-plugin-svelte v7, which in
+# turn requires Svelte 5.  PhantomSDR-Plus uses Svelte 4 components; upgrading
+# requires source migration:  npx sv migrate svelte-5
+# Until that migration is done, Vite 5.4.16 + Svelte 4 are the correct pins.
+#
+# When ready to upgrade replace this block with:
+#   vite@latest  "@sveltejs/vite-plugin-svelte@^7"  "svelte@^5"
+# and drop @vitejs/plugin-legacy (Vite 8 targets modern browsers by default).
+#
+# esbuild: NOT pinned here — Vite 5 has a strict peer range (^0.21.x);
+# let npm resolve it automatically from Vite's peer dep.
+# ─────────────────────────────────────────────────────────────────────────────
+run npm install --save-dev \
+    vite@5.4.16 \
+    "@sveltejs/vite-plugin-svelte@^3.1.2" \
+    "@vitejs/plugin-legacy@^5.4.2" \
+    "svelte@^4.2.20"
+
+echo ""
+echo "Installing remaining dependencies from package.json..."
+run npm install
+
+echo ""
+echo "Installing Opus WASM decoder..."
+run npm install @wasm-audio-decoders/opus-ml
+
+# Run audit fix WITHOUT --force so only safe (non-breaking) patches are
+# applied.  --force can silently pull in Vite 6/7/8 or Svelte 5 and break
+# the build; we deliberately avoid it here.
+echo ""
+echo "Running safe audit fix..."
+npm audit fix 2>/dev/null || true
+# Re-install after audit fix to ensure the lock file is consistent.
+run npm install
+
+green "✅ npm dependencies installed"
+cd - > /dev/null
+echo ""
+
+
+# ------------------------------------------------------------------------------
+# Build all frontend variants
+# ------------------------------------------------------------------------------
+
+banner "Building All Frontend Versions"
+
+BUILD_SCRIPT="$PHANTOM_DIR/frontend/build-all.sh"
+
+if [ ! -f "$BUILD_SCRIPT" ]; then
+    yellow "⚠️  build-all.sh not found at $BUILD_SCRIPT — skipping."
+    yellow "    Run it manually once you have the script in place:"
+    yellow "      cd $PHANTOM_DIR/frontend && ./build-all.sh"
+else
+    chmod +x "$BUILD_SCRIPT"
     cd "$PHANTOM_DIR/frontend"
-    
-    echo "Cleaning previous installations..."
-    rm -rf node_modules package-lock.json
-    
-    echo ""
-    echo "Installing Vite 5.4.16 with Svelte 4 compatible packages..."
-    
-    # Uninstall any existing versions
-    npm uninstall vite @vitejs/plugin-legacy @sveltejs/vite-plugin-svelte 2>/dev/null || true
-    
-    # Install specific versions compatible with Svelte 4
-    npm install --save-dev vite@5.4.16
-    npm install --save-dev @sveltejs/vite-plugin-svelte@^3.1.2
-    npm install --save-dev @vitejs/plugin-legacy@^5.4.2
-    npm install --save-dev svelte@^4.2.20
-    npm install --save-dev esbuild@latest
-    
-    if [ $? -ne 0 ]; then
-        echo "⚠️  Warning: Some npm packages had installation issues, but continuing..."
+
+    if ./build-all.sh; then
+        green "✅ All frontend versions built: $PHANTOM_DIR/frontend/dist/"
     else
-        echo "✅ Vite 5.4.16 and compatible packages installed successfully"
+        yellow "⚠️  build-all.sh exited with errors — check output above."
+        yellow "    Re-run manually: cd $PHANTOM_DIR/frontend && ./build-all.sh"
     fi
-    
-    echo ""
-    echo "Installing remaining npm dependencies..."
-    npm install
-    
-    if [ $? -ne 0 ]; then
-        echo "⚠️  Warning: npm install had issues, but continuing..."
-    else
-        echo "✅ npm dependencies installed"
-    fi
-    
-    echo ""
-    echo "Installing Opus WASM decoder..."
-    npm install @wasm-audio-decoders/opus-ml
-    
-    if [ $? -eq 0 ]; then
-        echo "✅ Opus decoder installed successfully"
-    else
-        echo "⚠️  Warning: Opus decoder installation had issues, but continuing..."
-    fi
-    
-    echo ""
-    echo "Running npm audit fix..."
-    npm audit fix
-    
-    echo ""
-    echo "Building frontend..."
-    npm run build
-    
-    if [ $? -eq 0 ]; then
-        echo "✅ Frontend built successfully"
-    else
-        echo "⚠️  Warning: Frontend build had issues, but continuing..."
-    fi
-    
+
     cd - > /dev/null
-    
-    # Build the frontend
+fi
+echo ""
+
+# ------------------------------------------------------------------------------
+# OpenCL (optional, Intel CPU / GPU)
+# ------------------------------------------------------------------------------
+
+banner "OpenCL Support (Optional)"
+
+echo "OpenCL can accelerate FFT processing on Intel CPUs and integrated GPUs."
+echo "Recommended for Intel-based systems."
+echo ""
+read -rp "Install OpenCL support? (y/n): " install_opencl
+
+if [[ $install_opencl =~ ^[Yy]$ ]]; then
     echo ""
-    echo "=========================================="
-    echo "Building All Frontend Versions"
-    echo "=========================================="
-    echo ""
-    
-    BUILD_SCRIPT="$PHANTOM_DIR/frontend/build-all.sh"
-    
-    if [ ! -f "$BUILD_SCRIPT" ]; then
-        echo "Error: build-all.sh not found at $BUILD_SCRIPT"
-        echo "Skipping frontend build."
-    else
-        echo "Running build-all.sh to create all frontend versions..."
-        
-        # Change to frontend directory
-        cd "$PHANTOM_DIR/frontend"
-        
-        # Make sure the script is executable
-        chmod +x ./build-all.sh
-        
-        ./build-all.sh
-        
-        if [ $? -eq 0 ]; then
-            echo ""
-            echo "=========================================="
-            echo "✅ Frontend built successfully!"
-            echo "=========================================="
+    echo "Installing OpenCL packages..."
+    # Use the distro-packaged NEO runtime — the 2019 upstream .deb files are
+    # incompatible with Ubuntu 22.04 kernels and will fail to install.
+    if run $SUDO apt-get install -y \
+            ocl-icd-opencl-dev \
+            intel-opencl-icd \
+            libclfft-dev \
+            clinfo; then
+
+        green "✅ OpenCL packages installed"
+        echo ""
+        echo "Testing OpenCL installation..."
+        # Run as the current user (not root) — GPU device visibility
+        # for the user account is what actually matters.
+        if clinfo > /dev/null 2>&1; then
+            green "✅ OpenCL device(s) detected"
         else
-            echo ""
-            echo "=========================================="
-            echo "⚠️  Frontend build encountered errors"
-            echo "=========================================="
-            echo "Please check the error messages above."
-            echo "You may need to run the build manually:"
-            echo "  cd $PHANTOM_DIR/frontend"
-            echo "  ./build-all.sh"
+            yellow "⚠️  clinfo found no devices — reboot and run 'clinfo' to verify."
         fi
-        
-        cd - > /dev/null
-    fi
-    
-    # OpenCL Installation (Intel CPU)
-    echo ""
-    echo "=========================================="
-    echo "OpenCL Installation (Optional)"
-    echo "=========================================="
-    echo ""
-    echo "OpenCL can accelerate FFT processing on Intel CPUs."
-    echo "This is recommended for Intel-based systems."
-    echo ""
-    read -p "Do you want to install OpenCL support for Intel CPU? (y/n): " install_opencl
-    
-    if [[ $install_opencl == "y" || $install_opencl == "Y" ]]; then
-        echo ""
-        echo "Installing OpenCL dependencies..."
-        
-        # Install OpenCL development packages
-        $SUDO apt-get install -y libclfft-dev ocl-icd-opencl-dev clinfo
-        
-        if [ $? -ne 0 ]; then
-            echo "❌ Error: Failed to install OpenCL packages"
-            echo "Continuing without OpenCL support..."
-        else
-            echo "✅ OpenCL development packages installed"
-            
-            # Install Intel Compute Runtime
-            echo ""
-            echo "Installing Intel Compute Runtime..."
-            
-            mkdir -p neo
-            cd neo
-            
-            echo "Downloading Intel Compute Runtime packages..."
-            wget -q https://github.com/intel/compute-runtime/releases/download/19.07.12410/intel-gmmlib_18.4.1_amd64.deb
-            wget -q https://github.com/intel/compute-runtime/releases/download/19.07.12410/intel-igc-core_18.50.1270_amd64.deb
-            wget -q https://github.com/intel/compute-runtime/releases/download/19.07.12410/intel-igc-opencl_18.50.1270_amd64.deb
-            wget -q https://github.com/intel/compute-runtime/releases/download/19.07.12410/intel-opencl_19.07.12410_amd64.deb
-            wget -q https://github.com/intel/compute-runtime/releases/download/19.07.12410/intel-ocloc_19.07.12410_amd64.deb
-            
-            if [ $? -eq 0 ]; then
-                echo "Installing Intel Compute Runtime..."
-                $SUDO dpkg -i *.deb
-                
-                # Fix any dependency issues
-                $SUDO apt update
-                $SUDO apt install -y intel-opencl-icd
-                $SUDO apt --fix-broken install -y
-                $SUDO apt install -y intel-opencl-icd
-                
-                echo ""
-                echo "Testing OpenCL installation..."
-                $SUDO clinfo
-                
-                if [ $? -eq 0 ]; then
-                    echo ""
-                    echo "✅ OpenCL installed successfully!"
-                    echo ""
-                    echo "⚠️  IMPORTANT: You need to REBOOT your system for OpenCL to work properly."
-                    NEEDS_REBOOT=true
-                else
-                    echo "⚠️  OpenCL installation completed but clinfo test failed"
-                    echo "You may need to reboot and run 'clinfo' to verify"
-                fi
-            else
-                echo "❌ Error: Failed to download Intel Compute Runtime packages"
-                echo "Continuing without Intel Compute Runtime..."
-            fi
-            
-            cd ..
-            rm -rf neo
-        fi
+        NEEDS_REBOOT=true
     else
-        echo "Skipping OpenCL installation."
+        yellow "⚠️  OpenCL package installation failed — continuing without it."
     fi
-    
-    echo ""
-    echo "=========================================="
-    echo "Installation Summary"
-    echo "=========================================="
-    echo ""
-    echo "✅ System Packages:"
-    echo "   • Node.js 18 (via nvm)"
-    echo "   • Build tools (gcc, cmake, meson, pkg-config)"
-    echo "   • DSP libraries (FFTW3, libopus, libliquid)"
-    echo "   • Network libraries (libwebsocketpp, libcurlpp)"
-    echo "   • Compression libraries (zlib, zstd, FLAC)"
-    echo "   • Boost libraries"
-    if [[ $install_opencl == "y" || $install_opencl == "Y" ]]; then
-        echo "   • OpenCL support (Intel CPU acceleration)"
-    fi
-    echo ""
-    echo "✅ PhantomSDR-Plus Backend:"
-    echo "   • Main application compiled successfully"
-    echo "   • Location: $PHANTOM_DIR/build/"
-    echo ""
-    
-    case $option in
-        1) echo "✅ SDR Hardware: RX888 MKII / RX888"
-           echo "   • Rust toolchain installed"
-           echo "   • rx888_stream compiled and installed"
-           echo "   ⚠️  IMPORTANT: Restart your terminal before using rx888_stream"
-           echo "" ;;
-        2) echo "✅ SDR Hardware: RTLSDR"
-           if [[ $rtlsdr_v4 == "y" || $rtlsdr_v4 == "Y" ]]; then
-               echo "   • RTL-SDR Blog V4 drivers installed"
-               echo "   • USB rules configured"
-               echo "   ⚠️  IMPORTANT: REBOOT your system for RTL-SDR V4 to work properly"
-               NEEDS_REBOOT=true
-           else
-               echo "   • Standard RTLSDR drivers installed"
-           fi
-           echo "" ;;
-        3) echo "✅ SDR Hardware: SDRPlay"
-           echo "   • libmirisdr-5 installed"
-           echo "" ;;
-        4) echo "✅ SDR Hardware: Installation skipped"
-           echo "   • You can install SDR drivers manually later"
-           echo "" ;;
-    esac
-    
-    echo "✅ Frontend Configuration:"
-    echo "   • Node.js version: $(node --version)"
-    echo "   • Vite version: 5.4.16 (with Svelte 4)"
-    echo "   • Site information configured: $SITE_INFO_PATH"
-    echo "   • npm dependencies installed"
-    echo "   • Opus WASM audio decoder installed"
-    echo "   • npm audit fix applied"
-    
-    if [ -d "$PHANTOM_DIR/frontend/dist" ]; then
-        echo "   • All frontend versions built successfully"
-        echo "   • Output: $PHANTOM_DIR/frontend/dist/"
-    fi
-    echo ""
-    echo "=========================================="
-    echo "Next Steps to Launch Your WebSDR"
-    echo "=========================================="
-    echo ""
-    echo "🔧 Step 1: Configure Your Receiver"
-    echo "   Edit the appropriate .toml configuration file for your SDR:"
-    echo ""
-    case $option in
-        1) echo "   For RX888:"
-           echo "   nano $PHANTOM_DIR/rx888.toml" ;;
-        2) echo "   For RTLSDR:"
-           echo "   nano $PHANTOM_DIR/rtlsdr.toml" ;;
-        3) echo "   For SDRPlay:"
-           echo "   nano $PHANTOM_DIR/sdrplay.toml" ;;
-        4) echo "   Choose the appropriate .toml file for your SDR" ;;
-    esac
-    echo ""
-    echo "🔧 Step 2: Review Site Information (Optional)"
-    echo "   nano $SITE_INFO_PATH"
-    echo ""
-    echo "🚀 Step 3: Start the PhantomSDR-Plus Server"
-    echo "   cd $PHANTOM_DIR"
-    case $option in
-        1) echo "   ./build/spectrumserver rx888.toml" ;;
-        2) echo "   ./build/spectrumserver rtlsdr.toml" ;;
-        3) echo "   ./build/spectrumserver sdrplay.toml" ;;
-        4) echo "   ./build/spectrumserver <your_config>.toml" ;;
-    esac
-    echo ""
-    echo "🌐 Step 4: Test the Web Interface"
-    echo "   Open your browser and navigate to:"
-    echo "   http://localhost:port_used"
-    echo ""
-    echo "   Or test with Python server:"
-    echo "   cd $PHANTOM_DIR/frontend/dist"
-    echo "   python3 -m http.server port_used"
-    echo ""
-    echo "=========================================="
-    echo "Available Frontend Versions"
-    echo "=========================================="
-    echo ""
-    if [ -d "$PHANTOM_DIR/frontend/dist" ]; then
-        echo "   http://localhost:port_used/           		→ Analog S-Meter"
-        echo "   http://localhost:port_used/digital/index.html      → Digital S-Meter"
-        echo "   http://localhost:port_used/v2-analog/index.html    → V2 Analog S-Meter"
-        echo "   http://localhost:port_used/v2-digital/index.html   → V2 Digital S-Meter"
-    fi
-    echo ""
-    echo "=========================================="
-    echo "Helpful Resources"
-    echo "=========================================="
-    echo ""
-    echo "📚 Documentation: https://github.com/sv1btl/PhantomSDR-Plus"
-    echo "🛠 Report Issues: https://github.com/sv1btl/PhantomSDR-Plus/issues"
-    echo "💬 Community Support: Check the GitHub discussions"
-    echo ""
-    
-    # Check if reboot is needed
-    if [ "$NEEDS_REBOOT" = true ]; then
-        echo "=========================================="
-        echo ""
-        echo "╔══════════════════════════════════════════════════════════════╗"
-        echo "║                                                              ║"
-        echo "║   ⚠️  IMPORTANT: SYSTEM REBOOT REQUIRED  ⚠️                   ║"
-        echo "║                                                              ║"
-        if [[ $rtlsdr_v4 == "y" || $rtlsdr_v4 == "Y" ]]; then
-        echo "║   RTL-SDR V4 drivers require a reboot to take effect.        ║"
-        fi
-        if [[ $install_opencl == "y" || $install_opencl == "Y" ]]; then
-        echo "║   OpenCL drivers require a reboot to take effect.            ║"
-        fi
-        echo "║                                                              ║"
-        echo "║   Please reboot your system before using PhantomSDR-Plus.    ║"
-        echo "║                                                              ║"
-        echo "╚══════════════════════════════════════════════════════════════╝"
-        echo ""
-    fi
-    
-    echo "=========================================="    
-    # Final success message
-    echo ""
+else
+    echo "Skipping OpenCL."
+fi
+echo ""
+
+# ------------------------------------------------------------------------------
+# Summary
+# ------------------------------------------------------------------------------
+
+banner "Installation Summary"
+
+echo ""
+green "✅ System packages:"
+echo "   • Node.js $(node --version) / npm $(npm --version)"
+echo "   • Build tools (gcc, cmake, meson, ninja)"
+echo "   • DSP libs (FFTW3, libopus, libliquid)"
+echo "   • Network libs (libwebsocketpp, libcurlpp)"
+echo "   • Compression libs (zlib, zstd, FLAC)"
+echo "   • Boost libraries"
+[[ $install_opencl =~ ^[Yy]$ ]] && echo "   • OpenCL (intel-opencl-icd)"
+
+echo ""
+green "✅ Backend:"
+echo "   • Compiled: $PHANTOM_DIR/build/"
+
+echo ""
+case $option in
+    1)  green "✅ SDR hardware: RX888 MkII / RX888"
+        echo "   • Rust toolchain: $(rustc --version 2>/dev/null || echo 'see ~/.cargo/bin')"
+        echo "   • rx888_stream: installed to ~/.cargo/bin/"
+        yellow "   ⚠️  Open a new terminal (or 'source ~/.cargo/env') before using rx888_stream"
+        ;;
+    2)  green "✅ SDR hardware: RTL-SDR"
+        [[ $rtlsdr_v4 =~ ^[Yy]$ ]] \
+            && echo "   • RTL-SDR Blog V4 drivers + udev rules installed" \
+            || echo "   • Standard RTL-SDR drivers installed"
+        ;;
+    3)  green "✅ SDR hardware: SDRPlay (libmirisdr-5)" ;;
+    4)  yellow "⚠️  SDR hardware: skipped — install driver manually" ;;
+esac
+
+echo ""
+green "✅ Frontend:"
+echo "   • Vite 5.4.16 / Svelte 4"
+echo "   • Site information: $SITE_INFO_PATH"
+[ -d "$PHANTOM_DIR/frontend/dist" ] \
+    && echo "   • Built: $PHANTOM_DIR/frontend/dist/"
+
+# ------------------------------------------------------------------------------
+# Next steps
+# ------------------------------------------------------------------------------
+
+banner "Next Steps"
+
+echo ""
+echo "🔧 1. Configure your receiver — edit the appropriate .toml:"
+case $option in
+    1) echo "      nano $PHANTOM_DIR/rx888.toml" ;;
+    2) echo "      nano $PHANTOM_DIR/rtlsdr.toml" ;;
+    3) echo "      nano $PHANTOM_DIR/sdrplay.toml" ;;
+    4) echo "      nano $PHANTOM_DIR/<your_sdr>.toml" ;;
+esac
+
+echo ""
+echo "🚀 2. Start the server:"
+echo "      cd $PHANTOM_DIR"
+case $option in
+    1) echo "      ./build/spectrumserver rx888.toml" ;;
+    2) echo "      ./build/spectrumserver rtlsdr.toml" ;;
+    3) echo "      ./build/spectrumserver sdrplay.toml" ;;
+    4) echo "      ./build/spectrumserver <your_sdr>.toml" ;;
+esac
+
+echo ""
+echo "🌐 3. Open in your browser (replace PORT with the port in your .toml):"
+if [ -d "$PHANTOM_DIR/frontend/dist" ]; then
+    echo "      http://localhost:PORT/                      → Analog S-Meter"
+    echo "      http://localhost:PORT/digital/              → Digital S-Meter"
+    echo "      http://localhost:PORT/v2-analog/            → V2 Analog S-Meter"
+    echo "      http://localhost:PORT/v2-digital/           → V2 Digital S-Meter"
+else
+    echo "      http://localhost:PORT/"
+fi
+
+echo ""
+echo "📚 Docs / issues: https://github.com/sv1btl/PhantomSDR-Plus"
+
+# ------------------------------------------------------------------------------
+# Reboot warning
+# ------------------------------------------------------------------------------
+
+if [ "$NEEDS_REBOOT" = true ]; then
     echo ""
     echo "╔══════════════════════════════════════════════════════════════╗"
     echo "║                                                              ║"
-    echo "║           🎉 INSTALLATION COMPLETED SUCCESSFULLY! 🎉         ║"
+    echo "║          ⚠️  SYSTEM REBOOT REQUIRED  ⚠️                       ║"
     echo "║                                                              ║"
-    echo "║              Welcome to PhantomSDR-Plus WebSDR!              ║"
+    [[ ${rtlsdr_v4:-n} =~ ^[Yy]$ ]] && \
+    echo "║   RTL-SDR V4 udev rules take effect after reboot.           ║"
+    [[ ${install_opencl:-n} =~ ^[Yy]$ ]] && \
+    echo "║   OpenCL drivers take effect after reboot.                  ║"
+    echo "║                                                              ║"
+    echo "║   Run:  sudo reboot                                          ║"
     echo "║                                                              ║"
     echo "╚══════════════════════════════════════════════════════════════╝"
     echo ""
-    
-else
-    echo "An error occurred during package installation. Please check your installation and try again."
-    exit 1
 fi
+
+# ------------------------------------------------------------------------------
+# Done
+# ------------------------------------------------------------------------------
+
+echo ""
+echo "╔══════════════════════════════════════════════════════════════╗"
+echo "║                                                              ║"
+echo "║           🎉  INSTALLATION COMPLETE  🎉                      ║"
+echo "║                PhantomSDR-Plus WebSDR                        ║"
+echo "║                                                              ║"
+echo "╚══════════════════════════════════════════════════════════════╝"
+echo ""

@@ -66,9 +66,13 @@ OpusAudioEncoder::OpusAudioEncoder(websocketpp::connection_hdl hdl,
     opus_channels = (channels == 2) ? 2 : 1;
     int err = 0;
 
-    // Opus accepts 8k–48k; clamp to be safe (valid values: 8k, 12k, 16k, 24k, 48k)
-    samplerate = std::clamp(samplerate, 8000, 48000);
-    opus_samplerate = samplerate;
+    // Opus only accepts these discrete rates: 8k, 12k, 16k, 24k, 48k
+    static const int valid_opus_rates[] = {8000, 12000, 16000, 24000, 48000};
+    opus_samplerate = *std::min_element(
+        std::begin(valid_opus_rates), std::end(valid_opus_rates),
+        [samplerate](int a, int b) {
+            return std::abs(a - samplerate) < std::abs(b - samplerate);
+        });
 
     encoder = opus_encoder_create(opus_samplerate, opus_channels, OPUS_APPLICATION_AUDIO, &err);
     if (!encoder || err != OPUS_OK) {

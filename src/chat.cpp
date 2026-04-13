@@ -9,6 +9,7 @@
 #include <regex>
 
 std::set<websocketpp::connection_hdl, std::owner_less<websocketpp::connection_hdl>> ChatClient::chat_connections;
+std::mutex ChatClient::chat_connections_mtx;
 std::deque<std::string> ChatClient::chat_messages_history;
 bool ChatClient::is_history_loaded = false;
 
@@ -66,14 +67,9 @@ std::string ChatClient::filter_message(const std::string& message) {
 
 
 void ChatClient::store_chat_message(const std::string& message) {
-    if(chat_messages_history.size() >= 20) 
-    {
+    if(chat_messages_history.size() >= 20)
         chat_messages_history.pop_front();
-    }
-    else
-    {
-        chat_messages_history.push_back(message);
-    }
+    chat_messages_history.push_back(message);  // always push
     save_chat_history();
 }
 
@@ -90,9 +86,15 @@ void ChatClient::on_chat_message(connection_hdl sender_hdl, std::string& usernam
     const size_t MAX_USERNAME_LENGTH = 14;
     const size_t MAX_MESSAGE_LENGTH = 200;
 
-     // Trim leading and trailing spaces from the username
+    // Trim leading and trailing spaces from the username
     username.erase(0, username.find_first_not_of(" \t\n\r\f\v"));
-    username.erase(username.find_last_not_of(" \t\n\r\f\v") + 1);
+    {
+        auto last = username.find_last_not_of(" \t\n\r\f\v");
+        if (last != std::string::npos)
+            username.erase(last + 1);
+        else
+            username.clear();
+    }
 
     if (username.length() > MAX_USERNAME_LENGTH) {
         username = username.substr(0, MAX_USERNAME_LENGTH);
@@ -113,7 +115,9 @@ void ChatClient::on_chat_message(connection_hdl sender_hdl, std::string& usernam
     auto now = std::chrono::system_clock::now();
     auto now_c = std::chrono::system_clock::to_time_t(now);
     std::stringstream ss;
-    ss << std::put_time(std::localtime(&now_c), "%Y-%m-%d %H:%M:%S");
+    struct tm tm_buf{};
+    localtime_r(&now_c, &tm_buf);
+    ss << std::put_time(&tm_buf, "%Y-%m-%d %H:%M:%S");
     std::string timestamp = ss.str();
 
     std::string filtered_message = filter_message(message);
@@ -121,13 +125,17 @@ void ChatClient::on_chat_message(connection_hdl sender_hdl, std::string& usernam
 
     store_chat_message(formatted_message);
 
+    std::scoped_lock lk(chat_connections_mtx);
     for (const auto& conn : chat_connections) {
         sender.send_text_packet(conn, formatted_message);
     }
 }
 
 void ChatClient::on_open_chat(connection_hdl hdl) {
-    chat_connections.insert(hdl);
+    {
+        std::scoped_lock lk(chat_connections_mtx);
+        chat_connections.insert(hdl);
+    }
     if (!chat_messages_history.empty()) {
         std::string history = "Chat history:\n" + get_chat_history_as_string();
         sender.send_text_packet(hdl, history);
@@ -135,6 +143,7 @@ void ChatClient::on_open_chat(connection_hdl hdl) {
 }
 
 void ChatClient::on_close_chat(connection_hdl hdl) {
+    std::scoped_lock lk(chat_connections_mtx);
     chat_connections.erase(hdl);
 }
 

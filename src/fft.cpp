@@ -104,7 +104,7 @@ void broadcast_server::fft_task() {
             // If the user requested a range near the 0 frequency,
             // the data will wrap around, copy the front to the back to make
             // it contiguous
-            memcpy(&fft_buffer[fft_result_size], &fft_buffer[0],
+            memmove(&fft_buffer[fft_result_size], &fft_buffer[0],
                    sizeof(fftwf_complex) * audio_max_fft_size);
         }
 
@@ -124,6 +124,10 @@ void broadcast_server::fft_task() {
             // sps_measured.getAverage()<<std::endl;
         }*/
     }
+    // Ensure last iteration's async tasks finish before fft is destroyed
+    for (auto &f : signal_futures)    f.wait();
+    for (auto &f : waterfall_futures) f.wait();
+
     fft->free(input_buffers[0]);
     fft->free(input_buffers[1]);
     fft->free(input_buffers[2]);

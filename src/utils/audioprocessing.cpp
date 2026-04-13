@@ -170,70 +170,92 @@ float AGC::max() {
 // --------------------------------------------------------------------------
 
 void AGC::applyNoiseBlanker(std::vector<float>& buffer) {
-    // ✅ CRITICAL FIX: Check if NB is enabled AND plans are valid before processing
-    // This prevents crashes if FFTW plan creation failed or NB is disabled
+    // Check if NB is enabled AND plans are valid before processing
     if (!nb_enabled.load(std::memory_order_relaxed) || !nb_fft_plan || !nb_ifft_plan) {
         return;
     }
-    
+
     std::vector<float> processed_buffer(buffer.size());
+    const float norm = 1.0f / static_cast<float>(nb_fft_size);  // FIX 1: IFFT normalisation factor
 
     for (size_t i = 0; i < buffer.size(); i += nb_overlap) {
-        // Fill the buffer
+        // FIX 3: Copy available samples then ZERO-PAD the remainder so the
+        // FFT never sees stale data from the previous iteration.
         size_t copy_size = std::min(nb_fft_size, buffer.size() - i);
         std::copy(buffer.begin() + i, buffer.begin() + i + copy_size, nb_buffer.begin());
+        if (copy_size < nb_fft_size) {
+            std::fill(nb_buffer.begin() + copy_size, nb_buffer.end(), 0.0f);
+        }
 
-        // Perform FFT
+        // Load as real-valued complex input (imaginary = 0)
         for (size_t j = 0; j < nb_fft_size; ++j) {
             nb_fft_in[j][0] = nb_buffer[j];
-            nb_fft_in[j][1] = 0;
+            nb_fft_in[j][1] = 0.0f;
         }
         fftwf_execute(nb_fft_plan);
 
-        // Calculate magnitude spectrum
+        // Calculate magnitude spectrum (positive frequencies only)
         std::vector<float> magnitude_spectrum(nb_fft_size / 2);
         for (size_t j = 0; j < nb_fft_size / 2; ++j) {
-            magnitude_spectrum[j] = std::sqrt(nb_fft_out[j][0] * nb_fft_out[j][0] + nb_fft_out[j][1] * nb_fft_out[j][1]);
+            magnitude_spectrum[j] = std::sqrt(nb_fft_out[j][0] * nb_fft_out[j][0] +
+                                              nb_fft_out[j][1] * nb_fft_out[j][1]);
         }
 
-        // Update average spectrum
+        // FIX 4: Incremental running-difference average update — O(N/2) instead of O(N/2 × W)
+        // Subtract the bin that is being evicted, add the new bin.
+        for (size_t j = 0; j < nb_fft_size / 2; ++j) {
+            nb_spectrum_average[j] +=
+                (magnitude_spectrum[j] - nb_spectrum_history[nb_history_index][j])
+                / static_cast<float>(nb_average_windows);
+        }
         nb_spectrum_history[nb_history_index] = magnitude_spectrum;
         nb_history_index = (nb_history_index + 1) % nb_average_windows;
 
-        for (size_t j = 0; j < nb_fft_size / 2; ++j) {
-            nb_spectrum_average[j] = std::accumulate(nb_spectrum_history.begin(), nb_spectrum_history.end(), 0.0f,
-                [j](float sum, const std::vector<float>& spectrum) { return sum + spectrum[j]; }) / nb_average_windows;
-        }
-
-        // Calculate average signal level
-        float avg_signal_level = std::accumulate(nb_spectrum_average.begin(), nb_spectrum_average.end(), 0.0f) / nb_spectrum_average.size();
-
-        // ✅ CRITICAL FIX: Dynamic threshold now uses the CORRECTED normalized threshold (0.140)
-        // Previously this was using 140.0, which would make dynamic_threshold = 140.0 * avg_signal_level
-        // This would cause ALL signals to be blanked since the threshold would be way too high.
-        // 
-        // Now with nb_threshold = 0.140, we get: dynamic_threshold = 0.14 * avg_signal_level
-        // This means "blank impulses that exceed 14% above the average spectrum level" - much more reasonable!
+        // Derive threshold from average spectral level
+        float avg_signal_level = std::accumulate(nb_spectrum_average.begin(),
+                                                 nb_spectrum_average.end(), 0.0f)
+                                 / static_cast<float>(nb_spectrum_average.size());
         float dynamic_threshold = nb_threshold * avg_signal_level;
 
-        // Scale current spectrum (spectral noise reduction)
-        for (size_t j = 0; j < nb_fft_size / 2; ++j) {
-            float ratio = magnitude_spectrum[j] / (nb_spectrum_average[j] + 1e-12f);
-            float scale = ratio > 1 ? 1 / std::pow(ratio, 0.5f) : 1; // More gradual scaling
-            nb_fft_out[j][0] *= scale;
-            nb_fft_out[j][1] *= scale;
+        // Scale spectral bins and FIX 2: apply the SAME scale to the
+        // conjugate-symmetric upper half so the IFFT output stays real.
+        // DC (j=0) and Nyquist (j=N/2) are self-conjugate — scale once.
+        {
+            // DC bin
+            float ratio0 = magnitude_spectrum[0] / (nb_spectrum_average[0] + 1e-12f);
+            float scale0 = ratio0 > 1.0f ? 1.0f / std::pow(ratio0, 0.5f) : 1.0f;
+            nb_fft_out[0][0] *= scale0;
+            nb_fft_out[0][1] *= scale0;
+
+            // Positive + mirrored negative frequencies
+            for (size_t j = 1; j < nb_fft_size / 2; ++j) {
+                float ratio = magnitude_spectrum[j] / (nb_spectrum_average[j] + 1e-12f);
+                float scale = ratio > 1.0f ? 1.0f / std::pow(ratio, 0.5f) : 1.0f;
+                nb_fft_out[j][0] *= scale;
+                nb_fft_out[j][1] *= scale;
+                // Mirror to conjugate-symmetric bin
+                nb_fft_out[nb_fft_size - j][0] *= scale;
+                nb_fft_out[nb_fft_size - j][1] *= scale;
+            }
+
+            // Nyquist bin
+            float ratioN = magnitude_spectrum[nb_fft_size / 2 - 1]
+                           / (nb_spectrum_average[nb_fft_size / 2 - 1] + 1e-12f);
+            float scaleN = ratioN > 1.0f ? 1.0f / std::pow(ratioN, 0.5f) : 1.0f;
+            nb_fft_out[nb_fft_size / 2][0] *= scaleN;
+            nb_fft_out[nb_fft_size / 2][1] *= scaleN;
         }
 
-        // Inverse FFT
+        // Inverse FFT — result lands in nb_fft_in
         fftwf_execute(nb_ifft_plan);
 
-        // Apply noise reduction (time-domain blanking)
+        // Time-domain blanking using the normalised IFFT output as signal estimate
         for (size_t j = 0; j < nb_fft_size && (i + j) < buffer.size(); ++j) {
-            float magnitude = std::sqrt(nb_fft_in[j][0] * nb_fft_in[j][0] + nb_fft_in[j][1] * nb_fft_in[j][1]);
+            // FIX 1: Normalise IFFT output by 1/N before comparing with threshold
+            float real_out = nb_fft_in[j][0] * norm;
+            float imag_out = nb_fft_in[j][1] * norm;
+            float magnitude = std::sqrt(real_out * real_out + imag_out * imag_out);
 
-            // ✅ FIXED: Now using properly scaled dynamic_threshold
-            // This will only blank samples where magnitude significantly exceeds the threshold,
-            // instead of blanking everything like before.
             if (magnitude > dynamic_threshold) {
                 float reduction_factor = dynamic_threshold / (magnitude + 1e-12f);
                 processed_buffer[i + j] = buffer[i + j] * reduction_factor;
@@ -243,7 +265,6 @@ void AGC::applyNoiseBlanker(std::vector<float>& buffer) {
         }
     }
 
-    // Copy the processed buffer back to the input buffer
     buffer = processed_buffer;
 }
 
@@ -322,6 +343,13 @@ void AGC::process(float *arr, size_t len) {
 // --------------------------------------------------------------------------
 
 void AGC::applyProgressiveAGC(float desired_gain) {
+    // FIX: Decrement hang_counter ONCE per call (outside the stage loop).
+    // Previously it was decremented once per gain stage (5×), causing the
+    // hang timer to expire 5× faster than configured.
+    if (hang_counter > 0) {
+        hang_counter--;
+    }
+
     // Apply AGC progressively to different stages
     for (size_t i = 0; i < gains.size(); ++i) {
         float stage_desired_gain = std::min(std::pow(desired_gain, 1.0f / gains.size()), max_gain);
@@ -332,13 +360,12 @@ void AGC::applyProgressiveAGC(float desired_gain) {
         }
         
         if (hang_counter > 0) {
-            hang_counter--;
+            // Hang active — hold current gain, don't release
         } else {
             // Dual time constant system
             float fast_gain = gains[i] * (1 - fast_attack_coeff) + stage_desired_gain * fast_attack_coeff;
             float slow_gain;
             
-            // Use AM time constants for slower AGC
             if (stage_desired_gain < gains[i]) {
                 slow_gain = gains[i] * (1 - am_attack_coeff) + stage_desired_gain * am_attack_coeff;
             } else {

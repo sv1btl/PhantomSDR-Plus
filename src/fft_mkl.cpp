@@ -1,7 +1,7 @@
 #include "fft.h"
 
-mklFFT::mklFFT(size_t size, int nthreads, int downsample_levels)
-    : FFT(size, nthreads, downsample_levels) {}
+mklFFT::mklFFT(size_t size, int nthreads, int downsample_levels, int brightness_offset)
+    : FFT(size, nthreads, downsample_levels, brightness_offset) {}
 
 float *mklFFT::malloc(size_t size) {
     return (float *)fftwf_malloc(sizeof(float) * size);

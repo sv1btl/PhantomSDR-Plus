@@ -7,7 +7,7 @@
 
 extern std::atomic<size_t> total_bits_sent;
 extern std::atomic<bool> monitor_thread_running;
-extern double waterfall_kbits_per_second;
+extern std::atomic<double> waterfall_kbits_per_second;
 
 class WaterfallClient : public Client {
   public:

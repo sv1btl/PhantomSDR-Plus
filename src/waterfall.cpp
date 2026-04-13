@@ -8,23 +8,25 @@
 #include <iostream>
 
 std::atomic<bool> monitor_thread_running{false};
-std::atomic<size_t> total_bits_sent{0}; // Atomic to safely increment from multiple clients
-double waterfall_kbits_per_second = 0;
+std::atomic<size_t> total_bits_sent{0};
+std::atomic<double> waterfall_kbits_per_second{0.0};
 
 void monitor_data_rate() {
     monitor_thread_running = true;
     while (monitor_thread_running) {
         std::this_thread::sleep_for(std::chrono::seconds(1));
         size_t bits = total_bits_sent.exchange(0); // Reset counter and get value atomically
-        waterfall_kbits_per_second = bits / 1000.0;
+        waterfall_kbits_per_second.store(bits / 1000.0, std::memory_order_relaxed);
         //std::cout << "Data rate: " << kbits_per_second << " kbit/s" << std::endl;
     }
 }
 
+static std::once_flag waterfall_monitor_once_flag;
+
 void ensure_monitor_thread_runs() {
-    if (!monitor_thread_running) {
+    std::call_once(waterfall_monitor_once_flag, [] {
         std::thread(monitor_data_rate).detach();
-    }
+    });
 }
 
 WaterfallClient::WaterfallClient(

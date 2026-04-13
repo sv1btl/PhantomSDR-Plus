@@ -3,7 +3,7 @@
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-cyan.svg)](https://www.gnu.org/licenses/gpl-3.0)
 [![Version](https://img.shields.io/badge/version-3.1.1-cyan.svg)](https://github.com/sv1btl/PhantomSDR-Plus)
 
-## Note: Please dont use Ubuntu 24.04, stick to Ubuntu 22.04 as it wont compile successfully on 24.04 (FM demodulation problems)!
+## Note: Tested on Debian 12 (Bookworm), Debian 13 (Trixie) and Ubuntu 22.04.
 This is a **different Repo than the Official PhantomSDR Repo**
 
 **Fixed bugs and improved functions from v.3.1.0**

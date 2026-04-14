@@ -1,4 +1,3 @@
-[
     {
       "frequency": 77500,
       "name": "DCF77",
@@ -638,10 +637,5 @@
       "frequency": 28180000,
       "name": "FT4",
       "mode": "USB"
-    },    
-    {
-      "frequency": 28585000,
-      "name": "28585",
-      "mode": "USB"
     }
-]
+

@@ -10413,7 +10413,7 @@ Click again to de-activate"
   }
 
   #sMeter {
-    width: 300px;
+    width: 290px;
     height: 40px;
     background-color: transparent;
     display: block;

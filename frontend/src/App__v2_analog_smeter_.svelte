@@ -11114,7 +11114,7 @@ Click again to de-activate"
   }
 
   #sMeter {
-    width: 300px;
+    width: 305px;
     height: 190px;
     background-color: transparent;
     display: block;

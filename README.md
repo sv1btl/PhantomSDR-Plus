@@ -134,7 +134,6 @@ cd PhantomSDR-Plus
 ```
 
 or for Ubuntu 22.04
-./install_rade.sh for Debian 12 or 13 and Ubuntu 24.04
 ```
 cd PhantomSDR-Plus
 ./install_rade_ubuntu22.sh

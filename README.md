@@ -3,7 +3,7 @@
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-cyan.svg)](https://www.gnu.org/licenses/gpl-3.0)
 [![Version](https://img.shields.io/badge/version-3.1.1-cyan.svg)](https://github.com/sv1btl/PhantomSDR-Plus)
 
-## Note: Tested on Debian 12 (Bookworm), Debian 13 (Trixie) and Ubuntu 22.04.
+## Note: Tested on Debian 12 (Bookworm), Debian 13 (Trixie), Ubuntu 22.04, Ubuntu 24.04.
 This is a **different Repo than the Official PhantomSDR Repo**
 
 **Fixed bugs and improved functions from v.3.1.0**
@@ -173,6 +173,12 @@ sudo apt --fix-broken install
 sudo apt install intel-opencl-icd
 sudo clinfo
 ```
+
+## RADE install for FreeDV RADE V1 decoding
+**Run:**
+./install_rade.sh for Debian 12 or 13 and Ubuntu 24.04
+**OR**
+./install_rade_ubuntu22.sh for Ubuntu 22.04
 
 ## Examples
 Remember to set the frequency and sample rate correctly, in the .sh files, e.g. start-rtl.sh <br />

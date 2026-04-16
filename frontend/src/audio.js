@@ -260,11 +260,8 @@ export default class SpectrumAudio {
 
     // Added to allow for adjustment of the //
     // dynamic audio buffer //
-    this.bufferLimit = 0.35;      // max ~500 ms ahead
-    this.bufferThreshold = 0.12;
-
-    this.underruns = 0;
-    this.stableFrames = 0;  // aim for ~200 ms safety buffer
+    this.bufferLimit = 0.5;      // max ~500 ms ahead
+    this.bufferThreshold = 0.01;  // aim for ~200 ms safety buffer
 
     // AudioWorklet / fallback diagnostics and hardening
     this._loggedWorkletPlayback = false;
@@ -364,6 +361,7 @@ export default class SpectrumAudio {
     this._radeCallback = null;
     this._radeReady    = false;
     this._radeNextTime = 0;    // scheduled end-time of last RADE audio chunk
+    this._radeSources  = new Set(); // active/scheduled RADE decoded-audio sources
 
     // ── Generic Kiwi-style FSK decoder state (weather / maritime / ham) ──
     this.decodeFSK   = false;
@@ -1345,6 +1343,13 @@ setAGC(newAGCSpeed) {
     this.compressor.connect(this.gainNode)
     this.gainNode.connect(this.destinationNode);
     this.gainNode.connect(this.audioCtx.destination)
+
+    // RADE decoded-audio gain node.
+    // Change ONLY the next line to trim recorded demodulated RADE audio:
+    // lower value = quieter recording, higher value = louder recording.
+    this.radeGainNode = new GainNode(this.audioCtx)
+    this.radeGainNode.gain.value = 0.30 // <-- TRIM RADE RECORDED AUDIO LEVEL HERE
+    this.radeGainNode.connect(this.gainNode)
 
     this.audioInputNode = this.convolverNode
 
@@ -2718,6 +2723,18 @@ async stopFT4Collection() {
     if (!enabled) {
       this.decodeRADE = false;
       this._radeReady = false;
+
+      // Stop any already-scheduled/playing RADE decoded audio immediately.
+      // Without this, queued RADE chunks can keep sounding briefly while raw
+      // receiver audio resumes, which makes the audio sound scattered.
+      if (this._radeSources && this._radeSources.size) {
+        for (const src of this._radeSources) {
+          try { src.stop(0); } catch (e) {}
+          try { src.disconnect(); } catch (e) {}
+        }
+        this._radeSources.clear();
+      }
+
       this._radeNextTime = 0;
       if (this._radeSocket) {
         try { this._radeSocket.close(); } catch (e) {}
@@ -2812,17 +2829,23 @@ async stopFT4Collection() {
 
       var src = this.audioCtx.createBufferSource();
       src.buffer = buf;
-      // Route RADE into the normal output chain so it is included in
-      // MediaRecorder(this.destinationNode.stream), like the other decoders.
-      if (this.gainNode) {
-        src.connect(this.gainNode);
-      } else if (this.audioInputNode) {
-        src.connect(this.audioInputNode);
+
+      // Route RADE through its own gain stage first so recorded RADE level
+      // can be trimmed independently from the normal receiver audio path.
+      if (this.radeGainNode) {
+        src.connect(this.radeGainNode);
       } else {
         src.connect(this.audioCtx.destination);
       }
+
+      // Track each RADE source so disabling RADE can cancel queued playback cleanly.
+      this._radeSources.add(src);
+
       src.start(this._radeNextTime);
-      src.onended = function() { try { src.disconnect(); } catch (_) {} };
+      src.onended = () => {
+        if (this._radeSources) this._radeSources.delete(src);
+        try { src.disconnect(); } catch (_) {}
+      };
 
       // Advance the clock by the exact duration of this chunk
       this._radeNextTime += samples.length / SAMPLE_RATE;

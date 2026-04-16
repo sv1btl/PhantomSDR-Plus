@@ -260,8 +260,11 @@ export default class SpectrumAudio {
 
     // Added to allow for adjustment of the //
     // dynamic audio buffer //
-    this.bufferLimit = 0.5;      // max ~500 ms ahead
-    this.bufferThreshold = 0.2;  // aim for ~200 ms safety buffer
+    this.bufferLimit = 0.35;      // max ~500 ms ahead
+    this.bufferThreshold = 0.12;
+
+    this.underruns = 0;
+    this.stableFrames = 0;  // aim for ~200 ms safety buffer
 
     // AudioWorklet / fallback diagnostics and hardening
     this._loggedWorkletPlayback = false;
@@ -2809,9 +2812,17 @@ async stopFT4Collection() {
 
       var src = this.audioCtx.createBufferSource();
       src.buffer = buf;
-      src.connect(this.audioCtx.destination);
+      // Route RADE into the normal output chain so it is included in
+      // MediaRecorder(this.destinationNode.stream), like the other decoders.
+      if (this.gainNode) {
+        src.connect(this.gainNode);
+      } else if (this.audioInputNode) {
+        src.connect(this.audioInputNode);
+      } else {
+        src.connect(this.audioCtx.destination);
+      }
       src.start(this._radeNextTime);
-      src.onended = function() { src.disconnect(); };
+      src.onended = function() { try { src.disconnect(); } catch (_) {} };
 
       // Advance the clock by the exact duration of this chunk
       this._radeNextTime += samples.length / SAMPLE_RATE;

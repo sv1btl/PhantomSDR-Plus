@@ -269,6 +269,16 @@ static void apply_impulse_blanker_complex(std::complex<float>* buf,
 
 std::atomic<bool> monitor_audio_thread_running{false};
 std::atomic<size_t> total_audio_bits_sent{0};
+
+namespace {
+struct StereoAgcState {
+    float level = 0.1f;
+    float gain = 1.0f;
+};
+
+std::mutex stereo_agc_state_mtx;
+std::unordered_map<AudioClient*, StereoAgcState> stereo_agc_states;
+}
 std::atomic<double> audio_kbits_per_second{0.0};
 
 void monitor_audio_data_rate() {
@@ -411,25 +421,32 @@ void AudioClient::set_audio_demodulation(demodulation_mode demodulation) {
 }
 
 void AudioClient::set_am_stereo(bool enable) {
-    // If switching away from stereo, cleanup SAM PLL
+    // If switching away from stereo, cleanup SAM PLL and per-client stereo AGC state
     if (!enable && am_stereo) {
         cleanup_sam(this);
+        std::scoped_lock lk(stereo_agc_state_mtx);
+        stereo_agc_states.erase(this);
     }
-    
+
     am_stereo = enable;
-    
-    // FIX: Always reset the PLL unconditionally when toggling stereo.
-    auto sam = get_sam(this, audio_rate);
-    sam->set_stereo_mode(enable);
-    sam->reset();  // always reset — clears theta, acc, and DC blocker state
-    
+
+    // Only create/reset the SAM PLL when enabling stereo.
+    if (enable) {
+        auto sam = get_sam(this, audio_rate);
+        sam->set_stereo_mode(true);
+        sam->reset();  // clears theta, acc, and internal DC blocker state
+
+        std::scoped_lock lk(stereo_agc_state_mtx);
+        stereo_agc_states[this] = StereoAgcState{};
+    }
+
     // Recreate encoder with correct channel count
     if (encoder) {
         encoder->finish_encoder();
-        
+
         // Determine channels: stereo (2) if C-QUAM enabled, else mono (1)
         const int channels = enable ? 2 : 1;
-        
+
         if (dynamic_cast<FlacEncoder*>(encoder.get())) {
             std::unique_ptr<FlacEncoder> flac_encoder =
                 std::make_unique<FlacEncoder>(hdl, sender);
@@ -438,20 +455,16 @@ void AudioClient::set_am_stereo(bool enable) {
             flac_encoder->set_sample_rate(audio_rate);
             flac_encoder->set_bits_per_sample(16);
             flac_encoder->configure_flac(FlacMode::Balanced); // sets good compression params + streamable_subset(true)
-            flac_encoder->set_streamable_subset(false);        // ✅ CRITICAL: override AFTER configure_flac (see mono encoder comment)
-            flac_encoder->set_blocksize(audio_fft_size / 2);  // exact match to process() call size → no buffering → no tremor
+            flac_encoder->set_streamable_subset(false);        // override AFTER configure_flac
+            flac_encoder->set_blocksize(audio_fft_size / 2);  // exact match to process() call size
             flac_encoder->init();
             encoder = std::move(flac_encoder);
-            // std::cout << "[C-QUAM] FLAC encoder recreated with " << channels 
-            //          << " channel(s) for " << (enable ? "stereo" : "mono") << " mode\n";
         }
 #ifdef HAS_LIBOPUS
         else if (dynamic_cast<OpusAudioEncoder*>(encoder.get())) {
             std::unique_ptr<OpusAudioEncoder> opus_encoder =
                 std::make_unique<OpusAudioEncoder>(hdl, sender, audio_rate, channels);
             encoder = std::move(opus_encoder);
-            // std::cout << "[C-QUAM] Opus encoder recreated with " << channels 
-            //          << " channel(s) for " << (enable ? "stereo" : "mono") << " mode\n";
         }
 #endif
     }
@@ -648,153 +661,83 @@ void AudioClient::send_audio(std::complex<float> *buf, size_t frame_num) {
         if (demodulation == AM && am_stereo) {
             // ===== C-QUAM STEREO PROCESSING =====
             // At this point: audio_real[i] = L, audio_real_prev[i] = R
-            
+
             // Process L and R channels separately
             std::vector<float, AlignedAllocator<float>> L_channel(audio_fft_size / 2);
             std::vector<float, AlignedAllocator<float>> R_channel(audio_fft_size / 2);
-            
+
             // Copy to separate buffers
             std::copy(audio_real.begin(), audio_real.begin() + audio_fft_size / 2, L_channel.begin());
             std::copy(audio_real_prev.begin(), audio_real_prev.begin() + audio_fft_size / 2, R_channel.begin());
-            
 
-            /*
-            // ===== ✅ LIGHT COMPRESSOR FOR C-QUAM =====
+            // Optional backend noise gate per channel
+            noise_gate.process(L_channel.data(), audio_fft_size / 2);
+            noise_gate.process(R_channel.data(), audio_fft_size / 2);
 
-            static float rms_L = 0.0f;           
-            static float rms_R = 0.0f;           
-            static float current_gain_L = 1.0f;  
-            static float current_gain_R = 1.0f;  
+            // Stereo-safe AGC:
+            // derive ONE shared gain from combined L+R level,
+            // then apply the same gain to both channels.
+            if (agc_enabled) {
+                const size_t n = audio_fft_size / 2;
 
-            // LIGHT Compressor parameters
-            const float stage1_threshold = 0.08f;   // Higher (was 0.05) - only very weak signals
-            const float stage1_ratio = 2.5f;        // Gentler (was 4.0) - light boost
-            const float stage2_threshold = 0.20f;   // Higher (was 0.12) - moderate signals
-            const float stage2_ratio = 1.5f;        // Very gentle (was 2.5) - minimal boost
-            const float stage3_threshold = 0.40f;   // Higher (was 0.30) - most signals natural
-            const float stage3_ratio = 1.1f;        // Almost none (was 1.2) - barely there
-
-            // Ultra-smooth timing for maximum transparency
-            const float rms_alpha = 0.00001f;       // Slower (was 0.00002) - 2 second tracking
-            const float attack_coeff = 0.0001f;     // Gentler (was 0.0002) - 200ms attack
-            const float release_coeff = 0.000001f;  // Ultra-slow (was 0.000002) - 20 second release!
-            const float gain_smooth = 0.95f;        // More smoothing (was 0.9) - imperceptible
-
-            const size_t block_size = audio_fft_size / 2;
-
-            for (size_t i = 0; i < block_size; i++) {
-                // === L CHANNEL ===
-                float L_sq = L_channel[i] * L_channel[i];
-                rms_L += rms_alpha * (L_sq - rms_L);
-                float L_rms = sqrtf(rms_L + 1e-12f);
-                
-                float target_gain_L = 1.0f;
-                if (L_rms < stage1_threshold) {
-                    float ratio = L_rms / (stage1_threshold + 1e-6f);
-                    target_gain_L = stage1_ratio * (1.0f - ratio) + ratio;
-                } else if (L_rms < stage2_threshold) {
-                    float ratio = (L_rms - stage1_threshold) / (stage2_threshold - stage1_threshold + 1e-6f);
-                    target_gain_L = stage2_ratio * (1.0f - ratio) + ratio;
-                } else if (L_rms < stage3_threshold) {
-                    float ratio = (L_rms - stage2_threshold) / (stage3_threshold - stage2_threshold + 1e-6f);
-                    target_gain_L = stage3_ratio * (1.0f - ratio) + ratio;
+                // Measure combined stereo level
+                float avg_abs = 0.0f;
+                for (size_t i = 0; i < n; ++i) {
+                    avg_abs += 0.5f * (std::fabs(L_channel[i]) + std::fabs(R_channel[i]));
                 }
-                
-                if (target_gain_L < current_gain_L) {
-                    current_gain_L += attack_coeff * (target_gain_L - current_gain_L);
-                } else {
-                    current_gain_L += release_coeff * (target_gain_L - current_gain_L);
-                }
-                
-                static float smoothed_gain_L = 1.0f;
-                smoothed_gain_L += gain_smooth * (current_gain_L - smoothed_gain_L);
-                
-                L_channel[i] *= smoothed_gain_L;
-                
-                // === R CHANNEL (same process) ===
-                float R_sq = R_channel[i] * R_channel[i];
-                rms_R += rms_alpha * (R_sq - rms_R);
-                float R_rms = sqrtf(rms_R + 1e-12f);
-                
-                float target_gain_R = 1.0f;
-                if (R_rms < stage1_threshold) {
-                    float ratio = R_rms / (stage1_threshold + 1e-6f);
-                    target_gain_R = stage1_ratio * (1.0f - ratio) + ratio;
-                } else if (R_rms < stage2_threshold) {
-                    float ratio = (R_rms - stage1_threshold) / (stage2_threshold - stage1_threshold + 1e-6f);
-                    target_gain_R = stage2_ratio * (1.0f - ratio) + ratio;
-                } else if (R_rms < stage3_threshold) {
-                    float ratio = (R_rms - stage2_threshold) / (stage3_threshold - stage2_threshold + 1e-6f);
-                    target_gain_R = stage3_ratio * (1.0f - ratio) + ratio;
-                }
-                
-                if (target_gain_R < current_gain_R) {
-                    current_gain_R += attack_coeff * (target_gain_R - current_gain_R);
-                } else {
-                    current_gain_R += release_coeff * (target_gain_R - current_gain_R);
-                }
-                
-                static float smoothed_gain_R = 1.0f;
-                smoothed_gain_R += gain_smooth * (current_gain_R - smoothed_gain_R);
-                
-                R_channel[i] *= smoothed_gain_R;
-            }
-            // ===== ✅ END LIGHT COMPRESSOR =====
-            */
+                avg_abs /= static_cast<float>(n);
 
-            
-            /*
-            // ===== ✅ LIGHT AGC FOR C-QUAM =====
+                StereoAgcState state;
+                {
+                    std::scoped_lock lk(stereo_agc_state_mtx);
+                    state = stereo_agc_states[this];
+                }
 
-            // Static state - persists between calls for smooth tracking
-            static float agc_level = 0.3f;        // Current average level tracker
-            static float agc_gain = 1.0f;         // Current AGC gain multiplier
-            
-            // AGC parameters - VERY GENTLE!
-            const float agc_target = 0.40f;       // Good output (40%)
-            const float agc_max_gain = 3.0f;      // Can boost (3×)
-            const float agc_min_gain = 0.4f;      // Can reduce (0.4×)
-            const float agc_alpha = 0.00005f;     // Fast tracking (400ms)
-            const float agc_gain_alpha = 0.000005f;// VERY SLOW RELEASE (4 seconds!)
-            
-            // Calculate average level from both channels (stereo-aware)
-            float block_avg = 0.0f;
-            const size_t agc_samples = audio_fft_size / 2;
-            for (size_t i = 0; i < agc_samples; i++) {
-                // Use sum of L+R absolute values (stereo total energy)
-                float sample_energy = (std::abs(L_channel[i]) + std::abs(R_channel[i])) * 0.5f;
-                block_avg += sample_energy;
+                // Smooth detector
+                const float level_alpha = 0.02f;
+                state.level += level_alpha * (avg_abs - state.level);
+
+                // Gentle target and limits
+                const float target_level = 0.20f;
+                const float min_gain = 0.25f;
+                const float max_gain = 10.0f;
+
+                float target_gain = 1.0f;
+                if (state.level > 1e-6f) {
+                    target_gain = target_level / state.level;
+                    target_gain = std::clamp(target_gain, min_gain, max_gain);
+                }
+
+                // Fast attack, adaptive release
+                const float attack_alpha       = 0.22f;
+                const float release_alpha_fast = 0.006f;
+                const float release_alpha_slow = 0.003f;
+
+                // When already high in gain, rise more slowly to avoid pumping/noise chasing
+                const bool near_max_gain = (state.gain > max_gain * 0.75f);
+                const float release_alpha = near_max_gain ? release_alpha_slow : release_alpha_fast;
+
+                const float alpha = (target_gain < state.gain) ? attack_alpha : release_alpha;
+                state.gain += alpha * (target_gain - state.gain);
+
+                {
+                    std::scoped_lock lk(stereo_agc_state_mtx);
+                    stereo_agc_states[this] = state;
+                }
+
+                // Apply same gain to both channels
+                for (size_t i = 0; i < n; ++i) {
+                    L_channel[i] *= state.gain;
+                    R_channel[i] *= state.gain;
+                }
             }
-            block_avg /= agc_samples;
-            
-            // Smooth level tracking (ultra-slow for transparency)
-            agc_level += agc_alpha * (block_avg - agc_level);
-            
-            // Calculate desired gain (very gentle adjustment)
-            float target_gain = 1.0f;
-            if (agc_level > 1e-6f) {  // Avoid division by zero
-                target_gain = agc_target / agc_level;
-                // Clamp to safe range (prevent over-amplification)
-                target_gain = std::clamp(target_gain, agc_min_gain, agc_max_gain);
-            }
-            
-            // Ultra-slow gain adjustment (no pumping/breathing)
-            agc_gain += agc_gain_alpha * (target_gain - agc_gain);
-            
-            // Apply same gentle gain to both channels (preserves stereo image!)
-            for (size_t i = 0; i < agc_samples; i++) {
-                L_channel[i] *= agc_gain;
-                R_channel[i] *= agc_gain;
-            }
-            // ===== ✅ END VERY LIGHT AGC =====
-            */
-            
-            
+
             // Interleave L and R for stereo encoder
             // CORRECTED: Balanced gain so mono AM is louder (as expected)
-            const float stereo_gain = 0.5f;  // CORRECTED: Changed from 1.2 to 0.2
-            
-            // ✅ Soft limiter to prevent harsh clipping distortion.float threshold = 0.85 - 0.99 - Lower if compressed, higher if not. Value 2.0f dissables Limiter
+            const float stereo_gain = 0.5f;
+
+            // ✅ Soft limiter to prevent harsh clipping distortion.
+            // threshold 2.0f effectively disables limiting for normal levels.
             auto soft_limit = [](float x, float threshold = 2.0f) -> float {
                 if (x > threshold) {
                     float excess = x - threshold;
@@ -805,30 +748,31 @@ void AudioClient::send_audio(std::complex<float> *buf, size_t frame_num) {
                 }
                 return x;
             };
-            
+
             for (int i = 0; i < audio_fft_size / 2; i++) {
                 const float L = L_channel[i] * stereo_gain;
                 const float R = R_channel[i] * stereo_gain;
-                
+
                 // Apply soft limiting before int16 conversion
                 const float L_limited = soft_limit(L);
                 const float R_limited = soft_limit(R);
-                
+
                 // Convert to int16 and interleave: [L0, R0, L1, R1, ...]
                 int32_t L_int = static_cast<int32_t>(L_limited * 32767.0f);
                 int32_t R_int = static_cast<int32_t>(R_limited * 32767.0f);
-                L_int = std::clamp(L_int, -32768, 32767);  // Final safety clamp
+                L_int = std::clamp(L_int, -32768, 32767);
                 R_int = std::clamp(R_int, -32768, 32767);
-                
+
                 audio_real_int16[i * 2] = L_int;
                 audio_real_int16[i * 2 + 1] = R_int;
             }
-            
+
             // Set audio details with stereo channel count
             encoder->set_data(frame_num, audio_l, audio_mid, audio_r,
-                            average_power, out_channels);
-            
-            // Send interleaved stereo audio (size is now samples-per-channel, not total samples)
+                              average_power, out_channels);
+
+            // Send interleaved stereo audio
+            // size argument is samples-per-channel, not total interleaved samples
             encoder->process(audio_real_int16.data(), audio_fft_size / 2);
             } else {
             // ===== MONO PROCESSING (USB, LSB, AM mono, FM, etc.) =====
@@ -873,7 +817,7 @@ void AudioClient::send_audio(std::complex<float> *buf, size_t frame_num) {
         ensure_audio_monitor_thread_runs();
         
         // Convert bytes to bits and add to the total_bits_sent
-        size_t bits_sent = (audio_fft_size / 2) * 4; // Convert bytes to bits
+        size_t bits_sent = static_cast<size_t>(audio_fft_size / 2) * static_cast<size_t>(out_channels) * 16; // frames * channels * 16 bits
         total_audio_bits_sent.fetch_add(bits_sent, std::memory_order_relaxed);
 
         // Increment the frame number

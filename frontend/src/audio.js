@@ -64,6 +64,16 @@ class OpusMLAdapter {
     this.channels = 1;  // ✅ ADDED: Track mono/stereo (1 or 2) for C-QUAM
     this.decoder = null;
     this.isReady = false;
+    // Native-rate tap for timing-sensitive decoders other than FAX.
+    // FAX always uses the shared pipeline (rawPcm) for both FLAC and Opus.
+    this.lastNativePcm = new Float32Array(0);
+    this.lastNativeSampleRate = 48000;
+    // Fractional phase accumulators for non-integer resampling in resampleAndGain.
+    // Carries the remainder across decode() calls so the output sample rate is
+    // exact on average rather than drifting by Math.round() error each frame.
+    // Separate L/R accumulators so stereo channels don't share phase state.
+    this._resampleAccum  = 0.0;   // mono / stereo-L
+    this._resampleAccumR = 0.0;   // stereo-R only
     this._createDecoder();  // ✅ ADDED: Separate decoder creation method
   }
   
@@ -141,28 +151,70 @@ class OpusMLAdapter {
       // and to make even very small decoded values audible for debugging.
       const gain = 300.0; // Adjust if it sounds too loud/quiet.
 
+      const nativeGainOnly = (input) => {
+        if (!input || input.length === 0) return new Float32Array(0);
+        const out = new Float32Array(input.length);
+        for (let i = 0; i < input.length; i++) out[i] = input[i] * gain;
+        return out;
+      };
+
       // Determine input/output sample rates
       const inSampleRate = result.sampleRate || this.targetSampleRate || 48000;
       const outSampleRate = this.targetSampleRate || inSampleRate;
 
-      // ✅ ADDED: Helper function to resample and apply gain
-      const resampleAndGain = (input) => {
+      // ✅ ADDED: Helper function to resample and apply gain.
+      // `accumKey` selects which phase-accumulator field to use so that
+      // stereo L and R channels each carry their own fractional remainder
+      // across frames without polluting each other's phase state.
+      const resampleAndGain = (input, accumKey) => {
         if (!input || input.length === 0) return new Float32Array(0);
 
         if (inSampleRate && outSampleRate && inSampleRate !== outSampleRate) {
           const ratio = inSampleRate / outSampleRate;
           const rounded = Math.round(ratio);
           if (Math.abs(ratio - rounded) < 1e-6 && rounded >= 1) {
+            // ── Integer decimation (e.g. 48000→12000, factor=4) ──────────────
+            // Boxcar-average each group of `factor` input samples.
+            // Nearest-neighbour (taking input[i*factor] only) aliases the full
+            // 0–24 kHz Opus output into the 0–12 kHz band, corrupting the FAX
+            // FM phase discriminator.  Boxcar gives a sinc anti-alias response
+            // with a first null at outSampleRate, sufficient to suppress alias
+            // energy across the FAX tone band (1500–2300 Hz).
             const factor = rounded;
             const outLen = Math.floor(input.length / factor);
             const out = new Float32Array(outLen);
+            const invFactor = 1.0 / factor;
             for (let i = 0; i < outLen; i++) {
-              out[i] = input[i * factor] * gain;
+              const base = i * factor;
+              let sum = 0;
+              for (let j = 0; j < factor; j++) sum += input[base + j];
+              out[i] = sum * invFactor * gain;
             }
             return out;
           }
+
+          // ── Non-integer decimation (e.g. 48000→trueAudioSps≈12207 Hz) ─────
+          // Using Math.round(L/ratio) per frame causes a fixed fractional error
+          // that accumulates as sample-rate drift (visible as diagonal lean in
+          // HF FAX images).  A phase accumulator carried across frames ensures
+          // the output rate equals outSampleRate exactly on average.
+          // Each channel uses its own accumulator field (accumKey) so L and R
+          // are independently phase-accurate.
+          const out = [];
+          let pos = this[accumKey];          // fractional input position
+          while (pos < input.length) {
+            const idx  = Math.floor(pos);
+            const frac = pos - idx;
+            const a    = input[idx];
+            const b    = input[Math.min(idx + 1, input.length - 1)];
+            out.push((a + frac * (b - a)) * gain);
+            pos += ratio;
+          }
+          this[accumKey] = pos - input.length; // carry remainder to next frame
+          return new Float32Array(out);
         }
 
+        // inSampleRate === outSampleRate — gain only, no resampling needed.
         const out = new Float32Array(input.length);
         for (let i = 0; i < input.length; i++) {
           out[i] = input[i] * gain;
@@ -173,10 +225,17 @@ class OpusMLAdapter {
       let pcm;
       let maxAbs = 0;
 
+      // Native-rate tap (48 kHz, no anti-aliasing).  Not used by any active decoder;
+      // retained in case a future timing-sensitive consumer needs it.  FAX was removed
+      // from this path — it now uses the shared 12 kHz pipeline like all other decoders.
+      this.lastNativeSampleRate = inSampleRate || 48000;
+      this.lastNativePcm = nativeGainOnly(result.channelData[0] || new Float32Array(0));
+
       // ✅ ADDED: Stereo (C-QUAM) handling - interleave L/R channels
       if (this.channels === 2 && result.channelData.length >= 2) {
-        const L = resampleAndGain(result.channelData[0] || new Float32Array(0));
-        const R = resampleAndGain(result.channelData[1] || new Float32Array(0));
+        // L uses _resampleAccum, R uses _resampleAccumR — independent phase state.
+        const L = resampleAndGain(result.channelData[0] || new Float32Array(0), '_resampleAccum');
+        const R = resampleAndGain(result.channelData[1] || new Float32Array(0), '_resampleAccumR');
         const len = Math.min(L.length, R.length);
 
         // Interleave L and R: [L0, R0, L1, R1, L2, R2, ...]
@@ -195,7 +254,7 @@ class OpusMLAdapter {
       } else {
         // Mono path (original code)
         const pcmRaw = result.channelData[0] || new Float32Array(0);
-        pcm = resampleAndGain(pcmRaw);
+        pcm = resampleAndGain(pcmRaw, '_resampleAccum');
         
         const step = Math.max(1, Math.floor(pcm.length / 32));
         for (let i = 0; i < pcm.length; i += step) {
@@ -245,6 +304,7 @@ class OpusMLAdapter {
     }
     this.decoder = null;
     this.isReady = false;
+    this.lastNativePcm = new Float32Array(0);
   }
 }
 /**/
@@ -1668,6 +1728,10 @@ setAGC(newAGCSpeed) {
       this.signalDecoder.decode(pcmArray)
     }
 
+    // FAX always uses rawPcm (the shared, properly band-limited 12 kHz stream)
+    // regardless of codec.  The old Opus native-PCM override (48 kHz without
+    // anti-aliasing) corrupted the FM phase discriminator and prevented phasing
+    // calibration.  FLAC and Opus now follow the identical path here.
     this.playAudio(pcmArray, pcmArrayPreBoost)
   }
 
@@ -2240,7 +2304,9 @@ async stopFT4Collection() {
       this.wsprAccumulatorLen = end;
     }
 
-    // FAX tap — same raw PCM, before any DSP
+    // FAX tap — uses rawPcm for both FLAC and Opus.  The 12 kHz pipeline stream
+    // is already band-limited server-side, giving the FM phase discriminator a
+    // clean signal.  No Opus-specific override; see calibration note above.
     if (this.decodeFAX) {
       try { this._faxFeedPCM(rawPcm); }
       catch(e) { console.error('[FAX] feed error', e); }
@@ -3363,8 +3429,15 @@ async stopFT4Collection() {
     const startRatio = startDet / rms;
     const stopRatio  = stopDet / rms;
 
-    if (startRatio > 0.90 && startDet > 12) return 'START';
-    if (stopRatio  > 0.90 && stopDet  > 12) return 'STOP';
+    // Threshold derivation: for a perfect 300 Hz square wave (0/255 pixels),
+    // startRatio = 4/(π√2) ≈ 0.637.  For a sinusoidal tone it is 1/√2 ≈ 0.707.
+    // The old value of 0.90 exceeds the theoretical maximum for any real-valued
+    // periodic signal, so START/STOP were never detected and phasing alignment
+    // (the skip that removes diagonal shear) was never applied.
+    // 0.40 sits well above image-content noise (≈0.05–0.15) while reliably
+    // catching real phasing tones even under moderate HF noise conditions.
+    if (startRatio > 0.40 && startDet > 12) return 'START';
+    if (stopRatio  > 0.40 && stopDet  > 12) return 'STOP';
     return 'IMAGE';
   }
 
@@ -3547,10 +3620,11 @@ async stopFT4Collection() {
 
   /**
    * Feed raw PCM into a KiwiSDR-style HF FAX discriminator.
-   * The PCM is expected to be post-demod audio at audioOutputSps.
+   * The PCM is expected to be post-demod audio at audioOutputSps,
+   * unless an explicit inputSampleRate is supplied (used for native-rate Opus FAX).
    */
-  _faxFeedPCM(pcm) {
-    const inSr = this.audioOutputSps || 12000;
+  _faxFeedPCM(pcm, inputSampleRate = null) {
+    const inSr = inputSampleRate || this.audioOutputSps || 12000;
     const sr = this._faxDecodeSps || 12000;
     const carrier = this._faxCenter;
     const phInc = carrier / sr;

@@ -4376,7 +4376,7 @@ function _animateNeedle(ts) {
           const historyMessages = history.split("\n").map((line, index) => ({
             id: Date.now() + index,
             text: line.trim(),
-            isCurrentUser: line.startsWith(userId),
+            isCurrentUser: line.includes(` ${username}: `),
             timestamp: Date.now() - (history.length - index) * 1000, // Approximate timestamp
           }));
           messages.set(historyMessages);
@@ -4385,7 +4385,7 @@ function _animateNeedle(ts) {
         const receivedMessageObject = {
           id: Date.now(),
           text: event.data.trim(),
-          isCurrentUser: event.data.startsWith(userId),
+          isCurrentUser: event.data.includes(` ${username}: `),
           timestamp: Date.now(),
         };
         messages.update((currentMessages) => [
@@ -4565,7 +4565,7 @@ function _animateNeedle(ts) {
     const messageObject = {
       cmd: "chat",
       message: shareMessage,
-      userid: userId,
+      username: username,
     };
     socket.send(JSON.stringify(messageObject));
     scrollToBottom();
@@ -5607,7 +5607,7 @@ function _animateNeedle(ts) {
                       />
                      with <a href="https://catsyncsdr.wordpress.com/" target="new" style="color:rgba(0, 225, 255, 0.993)">CAT sync ®</a>
                     <br>
-                    <span style="/*text-decoration: line-through*/">PC: {siteHardware} {siteSoftware}</span>
+                    <span style="/*text-decoration: line-through*/">PC: <a href="https://amzn.eu/d/jf1j5iG/" target="new" style="color:rgba(0, 225, 255, 0.993)"> {siteHardware} {siteSoftware}</a></span>
                     
                    <!-- In case you don't want the Stats Button to appear, please comment this button section (12 lines)-->                     
                     <!-- System Stats Button -->
@@ -5716,15 +5716,15 @@ function _animateNeedle(ts) {
                     <br> <br>
                     <b>SDR Receivers &amp; Antenna</b>
                     <br>
-                    <span style="/*text-decoration: line-through*/">Receiver: {siteReceiver}</span>
+                    <span style="/*text-decoration: line-through*/">Receiver: <a href="https://www.rx-888.com/rx/" target="new" style="color:rgba(0, 225, 255, 0.993)">{siteReceiver}</a></span>
                     <br>                    
-                    <span style="/*text-decoration: line-through*/">Antenna: {siteAntenna}</span> <br>
+                    <span style="/*text-decoration: line-through*/">Antenna: <a href="https://hamradioshop.net/en/Antennas/DIY-End-Fed-Antennas/294/End-fed-antenna-building-kit-complete-for-10-12-15-17-20-30-40-80-160-meter-band.-450-watt-PEP" target="new" style="color:rgba(0, 225, 255, 0.993)"> {siteAntenna} </a></span> <br>
                     <span>Github: <a href="https://github.com/sv1btl/PhantomSDR-Plus" target="new" style="color:rgba(0, 225, 255, 0.993)"> {siteInformation} </a></span>
                     <br><br>
 
                      <b>Note:</b> <br> 
                      <span style="/*text-decoration: line-through*/">{siteNote} <br>
-
+                     Alternative <a href="http://web-888.no-ip.org:8073" target="new" style="color:rgba(0, 225, 255, 0.993)">WEB-888 WebSDR</a></span><br> 
                      <!-- Any other information here --> 
                      
                      <br>
@@ -5904,6 +5904,14 @@ function _animateNeedle(ts) {
                    </div>
                  </div>
                  <!-- ── End DX Cluster Widget ──────────────────────────────────────────── -->
+                  
+                <!-- you can delete the link above and add anything else you want, which will be appeared in the second column 
+                 e.g links to use 
+                 https://pskreporter.info/pskmap.html?preset&callsign=SV1BTL&txrx=rx&mode=FT8&timerange=900&mapCenter=37.99596100000002,23.803441,1.2 
+                 or 
+                 https://www.dxfuncluster.com/widgets/cluster25.php
+                 or
+                 https://pskreporter.info/pskmap.html?preset&callsign=SV1BTL&txrx=rx&mode=WSPR&timerange=900&mapCenter=37.99596100000002,23.803441,1.2 -->
               </div>     
             </div>
            </div>
@@ -7441,10 +7449,10 @@ Click again to de-activate"
                           <span class="text-xs {sstvSoftSync ? 'text-yellow-300' : 'text-gray-400'}">{sstvSoftSync ? 'soft sync hold' : 'hard sync lock'}</span>
                         </div>
                         <div class="flex items-center gap-2">
-                          <button class="decoder-btn-secondary" on:click={_sstvStart} disabled={sstvRunning}>▶ Start</button>
-                          <button class="decoder-btn-secondary" on:click={_sstvStop} disabled={!sstvRunning}>■ Stop</button>
-                          <button class="decoder-btn-secondary" on:click={sstvRefresh} disabled={!sstvRunning}>↺ Reset</button>
-                          <button class="decoder-btn-secondary" on:click={sstvSaveImage}>💾 Save</button>
+                          <button class="text-xs px-3 py-1 rounded bg-teal-700 hover:bg-teal-600 text-white transition-colors whitespace-nowrap" on:click={_sstvStart} disabled={sstvRunning}>▶ Start</button>
+                          <button class="text-xs px-3 py-1 rounded bg-teal-700 hover:bg-teal-600 text-white transition-colors whitespace-nowrap" on:click={_sstvStop} disabled={!sstvRunning}>■ Stop</button>
+                          <button class="text-xs px-3 py-1 rounded bg-teal-700 hover:bg-teal-600 text-white transition-colors whitespace-nowrap" on:click={sstvRefresh} disabled={!sstvRunning}>↺ Reset</button>
+                          <button class="text-xs px-3 py-1 rounded bg-teal-700 hover:bg-teal-600 text-white transition-colors whitespace-nowrap" on:click={sstvSaveImage}>💾 Save</button>
                         </div>
                       </div>
                       <div class="flex flex-wrap items-center gap-3 mb-2 text-xs text-gray-300">
@@ -7628,9 +7636,14 @@ Click again to de-activate"
                         <code class="text-gray-400">lpcnet_demo</code><br>
                         {demodulation === 'RADEL' ? 'LSB — use on 40 m / 80 m / 160 m.' : 'USB — use on 20 m / 17 m / 15 m / 10 m.'}
                         See <a href="https://freedv.org/radio-autoencoder/" target="_blank" rel="noopener noreferrer" style="color:cyan;">freedv.org/radio-autoencoder</a>.
-                         - 
-                         <a href="https://qso.freedv.org//" target="_blank" rel="noopener noreferrer" style="color:cyan;">FreeDV Reporter</a>.
-                      </p>
+                      <div class="mt-3 flex justify-end">
+                        <button
+                          class="text-xs px-3 py-1 rounded bg-green-700 hover:bg-green-600 text-white transition-colors whitespace-nowrap"
+                          on:click={() => window.open("https://qso.freedv.org/", "_blank")}
+                        >
+                          FreeDV Reporter
+                        </button>
+                      </div>
                     </div>
                   {/if}
                   <!-- END RADE Panel -->
@@ -10021,10 +10034,10 @@ Click again to de-activate"
                           <span class="text-xs {sstvSoftSync ? 'text-yellow-300' : 'text-gray-400'}">{sstvSoftSync ? 'soft sync hold' : 'hard sync lock'}</span>
                         </div>
                         <div class="flex items-center gap-2">
-                          <button class="decoder-btn-secondary" on:click={_sstvStart} disabled={sstvRunning}>▶ Start</button>
-                          <button class="decoder-btn-secondary" on:click={_sstvStop} disabled={!sstvRunning}>■ Stop</button>
-                          <button class="decoder-btn-secondary" on:click={sstvRefresh} disabled={!sstvRunning}>↺ Reset</button>
-                          <button class="decoder-btn-secondary" on:click={sstvSaveImage}>💾 Save</button>
+                          <button class="text-xs px-3 py-1 rounded bg-teal-700 hover:bg-teal-600 text-white transition-colors whitespace-nowrap" on:click={_sstvStart} disabled={sstvRunning}>▶ Start</button>
+                          <button class="text-xs px-3 py-1 rounded bg-teal-700 hover:bg-teal-600 text-white transition-colors whitespace-nowrap" on:click={_sstvStop} disabled={!sstvRunning}>■ Stop</button>
+                          <button class="text-xs px-3 py-1 rounded bg-teal-700 hover:bg-teal-600 text-white transition-colors whitespace-nowrap" on:click={sstvRefresh} disabled={!sstvRunning}>↺ Reset</button>
+                          <button class="text-xs px-3 py-1 rounded bg-teal-700 hover:bg-teal-600 text-white transition-colors whitespace-nowrap" on:click={sstvSaveImage}>💾 Save</button>
                         </div>
                       </div>
                       <div class="flex flex-wrap items-center gap-3 mb-2 text-xs text-gray-300">
@@ -10208,9 +10221,14 @@ Click again to de-activate"
                         <code class="text-gray-400">lpcnet_demo</code><br>
                         {demodulation === 'RADEL' ? 'LSB — use on 40 m / 80 m / 160 m.' : 'USB — use on 20 m / 17 m / 15 m / 10 m.'}
                         See <a href="https://freedv.org/radio-autoencoder/" target="_blank" rel="noopener noreferrer" style="color:cyan;">freedv.org/radio-autoencoder</a>.
-                         - 
-                         <a href="https://qso.freedv.org//" target="_blank" rel="noopener noreferrer" style="color:cyan;">FreeDV Reporter</a>.
-                      </p>
+                      <div class="mt-3 flex justify-end">
+                        <button
+                          class="text-xs px-3 py-1 rounded bg-green-700 hover:bg-green-600 text-white transition-colors whitespace-nowrap"
+                          on:click={() => window.open("https://qso.freedv.org/", "_blank")}
+                        >
+                          FreeDV Reporter
+                        </button>
+                      </div>
                     </div>
                   {/if}
                   <!-- END RADE Panel -->

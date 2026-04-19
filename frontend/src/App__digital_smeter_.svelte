@@ -6801,10 +6801,10 @@ Click again to de-activate"
                           <span class="text-xs {sstvSoftSync ? 'text-yellow-300' : 'text-gray-400'}">{sstvSoftSync ? 'soft sync hold' : 'hard sync lock'}</span>
                         </div>
                         <div class="flex items-center gap-2">
-                          <button class="decoder-btn-secondary" on:click={_sstvStart} disabled={sstvRunning}>▶ Start</button>
-                          <button class="decoder-btn-secondary" on:click={_sstvStop} disabled={!sstvRunning}>■ Stop</button>
-                          <button class="decoder-btn-secondary" on:click={sstvRefresh} disabled={!sstvRunning}>↺ Reset</button>
-                          <button class="decoder-btn-secondary" on:click={sstvSaveImage}>💾 Save</button>
+                          <button class="text-xs px-3 py-1 rounded bg-teal-700 hover:bg-teal-600 text-white transition-colors whitespace-nowrap" on:click={_sstvStart} disabled={sstvRunning}>▶ Start</button>
+                          <button class="text-xs px-3 py-1 rounded bg-teal-700 hover:bg-teal-600 text-white transition-colors whitespace-nowrap" on:click={_sstvStop} disabled={!sstvRunning}>■ Stop</button>
+                          <button class="text-xs px-3 py-1 rounded bg-teal-700 hover:bg-teal-600 text-white transition-colors whitespace-nowrap" on:click={sstvRefresh} disabled={!sstvRunning}>↺ Reset</button>
+                          <button class="text-xs px-3 py-1 rounded bg-teal-700 hover:bg-teal-600 text-white transition-colors whitespace-nowrap" on:click={sstvSaveImage}>💾 Save</button>
                         </div>
                       </div>
                       <div class="flex flex-wrap items-center gap-3 mb-2 text-xs text-gray-300">
@@ -6988,9 +6988,14 @@ Click again to de-activate"
                         <code class="text-gray-400">lpcnet_demo</code><br>
                         {demodulation === 'RADEL' ? 'LSB — use on 40 m / 80 m / 160 m.' : 'USB — use on 20 m / 17 m / 15 m / 10 m.'}
                         See <a href="https://freedv.org/radio-autoencoder/" target="_blank" rel="noopener noreferrer" style="color:cyan;">freedv.org/radio-autoencoder</a>.
-                         - 
-                         <a href="https://qso.freedv.org//" target="_blank" rel="noopener noreferrer" style="color:cyan;">FreeDV Reporter</a>.
-                      </p>
+                      <div class="mt-3 flex justify-end">
+                        <button
+                          class="text-xs px-3 py-1 rounded bg-green-700 hover:bg-green-600 text-white transition-colors whitespace-nowrap"
+                          on:click={() => window.open("https://qso.freedv.org/", "_blank")}
+                        >
+                          FreeDV Reporter
+                        </button>
+                      </div>
                     </div>
                   {/if}
                   <!-- END RADE Panel -->
@@ -9317,10 +9322,10 @@ Click again to de-activate"
                           <span class="text-xs {sstvSoftSync ? 'text-yellow-300' : 'text-gray-400'}">{sstvSoftSync ? 'soft sync hold' : 'hard sync lock'}</span>
                         </div>
                         <div class="flex items-center gap-2">
-                          <button class="decoder-btn-secondary" on:click={_sstvStart} disabled={sstvRunning}>▶ Start</button>
-                          <button class="decoder-btn-secondary" on:click={_sstvStop} disabled={!sstvRunning}>■ Stop</button>
-                          <button class="decoder-btn-secondary" on:click={sstvRefresh} disabled={!sstvRunning}>↺ Reset</button>
-                          <button class="decoder-btn-secondary" on:click={sstvSaveImage}>💾 Save</button>
+                          <button class="text-xs px-3 py-1 rounded bg-teal-700 hover:bg-teal-600 text-white transition-colors whitespace-nowrap" on:click={_sstvStart} disabled={sstvRunning}>▶ Start</button>
+                          <button class="text-xs px-3 py-1 rounded bg-teal-700 hover:bg-teal-600 text-white transition-colors whitespace-nowrap" on:click={_sstvStop} disabled={!sstvRunning}>■ Stop</button>
+                          <button class="text-xs px-3 py-1 rounded bg-teal-700 hover:bg-teal-600 text-white transition-colors whitespace-nowrap" on:click={sstvRefresh} disabled={!sstvRunning}>↺ Reset</button>
+                          <button class="text-xs px-3 py-1 rounded bg-teal-700 hover:bg-teal-600 text-white transition-colors whitespace-nowrap" on:click={sstvSaveImage}>💾 Save</button>
                         </div>
                       </div>
                       <div class="flex flex-wrap items-center gap-3 mb-2 text-xs text-gray-300">
@@ -9504,9 +9509,14 @@ Click again to de-activate"
                         <code class="text-gray-400">lpcnet_demo</code><br>
                         {demodulation === 'RADEL' ? 'LSB — use on 40 m / 80 m / 160 m.' : 'USB — use on 20 m / 17 m / 15 m / 10 m.'}
                         See <a href="https://freedv.org/radio-autoencoder/" target="_blank" rel="noopener noreferrer" style="color:cyan;">freedv.org/radio-autoencoder</a>.
-                         - 
-                         <a href="https://qso.freedv.org//" target="_blank" rel="noopener noreferrer" style="color:cyan;">FreeDV Reporter</a>.
-                      </p>
+                      <div class="mt-3 flex justify-end">
+                        <button
+                          class="text-xs px-3 py-1 rounded bg-green-700 hover:bg-green-600 text-white transition-colors whitespace-nowrap"
+                          on:click={() => window.open("https://qso.freedv.org/", "_blank")}
+                        >
+                          FreeDV Reporter
+                        </button>
+                      </div>
                     </div>
                   {/if}
                   <!-- END RADE Panel -->

@@ -36,12 +36,12 @@ class PhantomSDRAudioStreamProcessor extends AudioWorkletProcessor {
     const frames = ch === 2 ? Math.floor(samples.length / 2) : samples.length;
     if (frames <= 0) return;
 
-    // bufferedFrames tracks queue frames only. Include remaining frames in
-    // `current` (mid-play chunk) so the drop guard sees the true total.
-    const currentRemaining = this.current
-      ? (this.current.frames - this.currentIndex)
-      : 0;
-    let totalBuffered = this.bufferedFrames + currentRemaining;
+    // bufferedFrames is incremented when a chunk is pushed and decremented
+    // per-frame consumed in process() — it therefore already includes any
+    // remaining frames from the in-progress chunk (this.current).  Adding
+    // currentRemaining on top double-counts those frames, making the buffer
+    // look ~2× fuller than it is and causing premature drops.
+    let totalBuffered = this.bufferedFrames;
 
     // Drop oldest queued audio if buffering runs too deep.
     while (totalBuffered + frames > this.maxBufferedFrames && this.queue.length > 0) {
@@ -49,7 +49,7 @@ class PhantomSDRAudioStreamProcessor extends AudioWorkletProcessor {
       this.droppedFrames += old.frames;
       this.bufferedFrames -= old.frames;
       if (this.bufferedFrames < 0) this.bufferedFrames = 0;
-      totalBuffered = this.bufferedFrames + currentRemaining;
+      totalBuffered = this.bufferedFrames;
     }
 
     this.queue.push({ samples, channels: ch, frames });

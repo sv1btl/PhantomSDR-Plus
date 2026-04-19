@@ -263,19 +263,6 @@ class OpusMLAdapter {
         }
       }
 
-      console.debug(
-        'OpusMLAdapter.decode: pcm len =',
-        pcm.length,
-        'channels =',
-        this.channels,
-        'approx max|x| =',
-        maxAbs.toFixed(3),
-        'stream sampleRate =',
-        result.sampleRate,
-        'pipeline target =',
-        this.targetSampleRate
-      );
-
       if (result.errors && result.errors.length) {
         console.warn('OpusMLDecoder reported errors for frame:', result.errors[0]);
       }
@@ -859,8 +846,12 @@ setAGC(newAGCSpeed) {
       // Fill FFT buffer with a block of samples
       this.nbBuffer.set(pcmArray.subarray(i, i + this.nbFFTSize));
 
-      // Perform FFT
-      const phasors = fft(Array.from(this.nbBuffer));
+      // Reuse a pre-allocated plain Array for fft-js (which requires Array, not Float32Array).
+      // Array.from(Float32Array) in the hot path allocated 2048-element Arrays at ~50/s,
+      // generating continuous GC pressure.
+      if (!this._nbFFTInput) this._nbFFTInput = new Array(this.nbFFTSize);
+      for (let _j = 0; _j < this.nbFFTSize; _j++) this._nbFFTInput[_j] = this.nbBuffer[_j];
+      const phasors = fft(this._nbFFTInput);
 
       // Calculate magnitude spectrum
       const magnitudeSpectrum = new Float32Array(this.nbFFTSize / 2);
@@ -1627,8 +1618,12 @@ setAGC(newAGCSpeed) {
       // Capture scheduled play time BEFORE decode() advances this.playTime.
       // getPowerDb() will only release this value once audioCtx.currentTime
       // reaches it, so the S-meter tracks the audio instead of leading it.
-      if (this.audioCtx && this.playTime) {
+      if (this.audioCtx && this.audioCtx.state === 'running' && this.playTime) {
         this._dBQueue.push({ playAt: this.playTime, value: dBpower });
+        // Cap queue: when AudioContext is suspended (background tab, autoplay policy)
+        // currentTime freezes so nothing drains, causing unbounded GC pressure that
+        // eventually stalls the event loop and backs up the server's send path.
+        if (this._dBQueue.length > 300) this._dBQueue.splice(0, this._dBQueue.length - 300);
       } else {
         this.dBPower = dBpower;
       }
@@ -1662,7 +1657,7 @@ setAGC(newAGCSpeed) {
         interleaved[i * 2 + 1] = R[i]
       }
       pcmArray = interleaved
-      console.log('[FLAC Stereo] Interleaved channelData:', len, 'frames')
+      if (!this._flacStereoLogged) { console.log('[FLAC Stereo] Interleaved channelData:', len, 'frames'); this._flacStereoLogged = true; }
     }
 
     this.intervals = this.intervals || createWindow(10000, 0)
@@ -2577,22 +2572,31 @@ async stopFT4Collection() {
     if (frames <= 0) return 0;
 
     if (!this._streamForceFallback) {
-      this._ensureStreamingWorklet().then((ok) => {
-        if (ok) {
-          if (!this._enqueuePCMToStreamingWorklet(buffer, channels)) {
-            this._streamForceFallback = true;
-            this._streamWorkletNode = null;
-          }
+      if (this._streamWorkletNode) {
+        // Worklet already initialised — enqueue synchronously and return.
+        // IMPORTANT: do NOT also enqueue via an async .then() path.  Because
+        // _ensureStreamingWorklet() is async, the previous implementation ran
+        // both the .then() callback (next microtask) AND the sync guard below
+        // for the same buffer, sending every packet to the worklet twice.
+        // That halved the effective maxBufferedSeconds, causing the ring buffer
+        // to overflow in ~1.5 s and backing up the WebSocket receive queue.
+        if (this._enqueuePCMToStreamingWorklet(buffer, channels)) {
+          return frames / (this.audioOutputSps || sampleRate || this.audioCtx.sampleRate || 12000);
         }
-      }).catch((e) => {
-        if (!this._loggedWorkletFailure) {
-          console.warn('[Audio] AudioWorklet init promise failed, falling back:', e);
-          this._loggedWorkletFailure = true;
-        }
+        // Enqueue failed — fall through to AudioBufferSourceNode fallback.
         this._streamForceFallback = true;
         this._streamWorkletNode = null;
-      });
-      if (this._streamWorkletNode && this._enqueuePCMToStreamingWorklet(buffer, channels)) {
+      } else {
+        // Not yet initialised — kick off async init; drop this frame (first-time only).
+        this._ensureStreamingWorklet().catch((e) => {
+          if (!this._loggedWorkletFailure) {
+            console.warn('[Audio] AudioWorklet init failed, falling back:', e);
+            this._loggedWorkletFailure = true;
+          }
+          this._streamForceFallback = true;
+          this._streamWorkletNode = null;
+        });
+        // Advance playTime correctly even though we dropped the frame.
         return frames / (this.audioOutputSps || sampleRate || this.audioCtx.sampleRate || 12000);
       }
     }

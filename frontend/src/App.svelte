@@ -6144,9 +6144,84 @@ Shift + Ctrl + Wheel = snap to .00 KHz"
                 class="flex flex-col xl:flex-row rounded p-5 justify-center rounded y-7"
                 id="middle-column"
               >
+
                 <div
                   class="p-5 flex flex-col items-center bg-gray-800 lg:border lg:border-gray-700 rounded-none rounded-t-lg lg:rounded-none lg:rounded-l-lg"
                 >
+
+              <!-- Begin Band Selection -->
+                  <h3 class="text-white text-base font-semibold mb-2">
+                    Band selector
+                  </h3>
+                  <div class="w-full grid grid-cols-5 sm:grid-cols-5 gap-2">
+                    {#each bandArray as bandData, index}
+                      {#if verifyRegion(bandData.ITU)}
+                        {#if bandData.publishBand == 1}
+                          {#if printBandButton(bandData.startFreq, bandData.endFreq, bandData.publishBand)}
+                            <button
+                              id="band-selector"
+                              class="retro-button text-sm text-white fontrbold h-7 text-base rounded-md flex items-center justify-center border border-gray-600 shadow-inner transition-all duration-200 ease-in-out {currentBand ===
+                              index
+                                ? 'bg-blue-600 pressed scale-95'
+                                : 'bg-gray-700 hover:bg-gray-600'}"
+                              on:click={() => handleBandChange(index)}
+                              title={bandData.name}
+                              >{bandData.name}
+                            </button>
+                          {/if}
+                        {/if}
+                      {:else}{/if}
+                    {/each}
+                  </div>
+                  <div><hr class="border-gray-600 my-2" /></div>
+                  <div class="w-full grid grid-cols-5 sm:grid-cols-5 gap-2">
+                    {#each bandArray as bandData, index}
+                      {#if verifyRegion(bandData.ITU)}
+                        {#if bandData.publishBand == 2}
+                          {#if printBandButton(bandData.startFreq, bandData.endFreq, bandData.publishBand)}
+                            <button
+                              id="band-selector"
+                              class="retro-button text-sm text-white fontrbold h-7 text-base rounded-md flex items-center justify-center border border-gray-600 shadow-inner transition-all duration-200 ease-in-out {currentBand ===
+                              index
+                                ? 'bg-blue-600 pressed scale-95'
+                                : 'bg-gray-700 hover:bg-gray-600'}"
+                              on:click={() => handleBandChange(index)}
+                              title={bandData.name}
+                              >{bandData.name}
+                            </button>
+                          {/if}
+                        {/if}
+                      {:else}{/if}
+                    {/each}
+                  </div>
+                  <!-- End Band Selection -->
+
+                  <div><hr class="border-gray-600 my-2" /></div>
+
+                  <!-- Begin Modes Selection -->
+                  <h3 class="text-white text-base font-semibold mb-2">
+                    Modes selector
+                  </h3>
+                  <div
+                    id="demodulationModes"
+                    class="grid grid-cols-3 sm:grid-cols-6 gap-2 w-full max-w-md"
+                  >
+                    {#each ["USB", "LSB", "CW", "AM", "QUAM", "FM"] as mode}
+                      <button
+                        on:click={() => SetMode(mode)}
+                        class="retro-button text-sm text-white fontrbold h-7 text-base rounded-md flex items-center justify-center border border-gray-600 shadow-inner transition-all duration-200 ease-in-out {demodulation ===
+                        mode
+                          ? 'bg-blue-600 pressed scale-95'
+                          : 'bg-gray-700 hover:bg-gray-600'}"
+                      >
+                        {mode}
+                      </button>
+                    {/each}
+                  </div>
+                  <!-- End of Mode Content -->
+                   
+                   <div style="margin-bottom: 5px; margin-top: 5px;">&nbsp;&nbsp;&nbsp;</div>
+                   
                   <h3 class="text-base font-semibold text-gray-100 mb-6">
                     Audio & Buffer
                   </h3>
@@ -6182,7 +6257,6 @@ Shift + Ctrl + Wheel = snap to .00 KHz"
                         type="range"
                         bind:value={volume}
                         on:input={handleVolumeChange}
-                        title="Audio slider"
                         class="glass-slider"
                         disabled={mute}
                         min="0"
@@ -6215,7 +6289,6 @@ Click again to de-activate"
                         type="range"
                         bind:value={squelch}
                         on:input={handleSquelchMove}
-                        title="Squelch slider"
                         class="glass-slider"
                         min="-150"
                         max="0"
@@ -6271,7 +6344,6 @@ Click again to de-activate"
                         type="range"
                         bind:value={audioBufferDelay}
                         on:input={handleAudioBufferDelayMove(audioBufferDelay)}
-                        title="Buffer slider"
                         class="glass-slider"
                         min="1"
                         max="5"
@@ -6291,7 +6363,9 @@ Click again to de-activate"
                   <h3 class="text-white text-base font-semibold mb-2">AGC</h3>
                   <div class="w-full mb-6">
                     <div id="moreoptions" class="grid grid-cols-4 gap-2">
-                      
+                      <script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script>
+                        let AGCbutton = false;
+                      </script>
                       {#each [{ option: "Auto", AGCbutton: 0 }, { option: "Fast", AGCbutton: 1 }, { option: "Mid", AGCbutton: 2 }, { option: "Slow", AGCbutton: 3 }] as { option, AGCbutton }}
                         <button
                           class="retro-button h-8 text-white font-bold h-8 text-sm rounded-md flex items-center justify-center border border-gray-600 shadow-inner transition-all duration-200 ease-in-out {AGCbutton ==
@@ -6344,7 +6418,6 @@ Click again to de-activate"
                         <option value="smooth">Smooth</option>
                         <option value="maximum">Maximum</option>
                         <option value="cw">CW/Digital</option>
-                        <option value="wspr">WSPR</option>
                         <option value="am-fm">AM/FM</option>
                       </select>
                     </div>
@@ -6396,80 +6469,10 @@ Click again to de-activate"
                       {/each}
                     </div>
                     <!-- End Filter Selection -->
-                  </div>
-
-                  <!-- Begin Modes Selection -->
-                  <h3 class="text-white text-base font-semibold mb-2">
-                    Modes selector
-                  </h3>
-                  <div
-                    id="demodulationModes"
-                    class="grid grid-cols-3 sm:grid-cols-6 gap-2 w-full max-w-md"
-                  >
-                    {#each ["USB", "LSB", "CW", "AM", "QUAM", "FM"] as mode}
-                      <button
-                        on:click={() => SetMode(mode)}
-                        class="retro-button text-sm text-white fontrbold h-7 text-base rounded-md flex items-center justify-center border border-gray-600 shadow-inner transition-all duration-200 ease-in-out {demodulation ===
-                        mode
-                          ? 'bg-blue-600 pressed scale-95'
-                          : 'bg-gray-700 hover:bg-gray-600'}"
-                      >
-                        {mode}
-                      </button>
-                    {/each}
-                  </div>
-                  <!-- End of Mode Content -->
-
-                  <div><hr class="border-gray-600 my-2" /></div>
-
-                  <!-- Begin Band Selection -->
-                  <h3 class="text-white text-base font-semibold mb-2">
-                    Band selector
-                  </h3>
-                  <div class="w-full grid grid-cols-5 sm:grid-cols-5 gap-2">
-                    {#each bandArray as bandData, index}
-                      {#if verifyRegion(bandData.ITU)}
-                        {#if bandData.publishBand == 1}
-                          {#if printBandButton(bandData.startFreq, bandData.endFreq, bandData.publishBand)}
-                            <button
-                              id="band-selector"
-                              class="retro-button text-sm text-white fontrbold h-7 text-base rounded-md flex items-center justify-center border border-gray-600 shadow-inner transition-all duration-200 ease-in-out {currentBand ===
-                              index
-                                ? 'bg-blue-600 pressed scale-95'
-                                : 'bg-gray-700 hover:bg-gray-600'}"
-                              on:click={() => handleBandChange(index)}
-                              title={bandData.name}
-                              >{bandData.name}
-                            </button>
-                          {/if}
-                        {/if}
-                      {:else}{/if}
-                    {/each}
-                  </div>
-                  <div><hr class="border-gray-600 my-2" /></div>
-                  <div class="w-full grid grid-cols-5 sm:grid-cols-5 gap-2">
-                    {#each bandArray as bandData, index}
-                      {#if verifyRegion(bandData.ITU)}
-                        {#if bandData.publishBand == 2}
-                          {#if printBandButton(bandData.startFreq, bandData.endFreq, bandData.publishBand)}
-                            <button
-                              id="band-selector"
-                              class="retro-button text-sm text-white fontrbold h-7 text-base rounded-md flex items-center justify-center border border-gray-600 shadow-inner transition-all duration-200 ease-in-out {currentBand ===
-                              index
-                                ? 'bg-blue-600 pressed scale-95'
-                                : 'bg-gray-700 hover:bg-gray-600'}"
-                              on:click={() => handleBandChange(index)}
-                              title={bandData.name}
-                              >{bandData.name}
-                            </button>
-                          {/if}
-                        {/if}
-                      {:else}{/if}
-                    {/each}
-                  </div>
+                  </div>                  
                 </div>
 
-                <!-- Audio Ends -->
+              <!-- Audio Ends -->
 
                 <!-- Second Column -->
 
@@ -7438,10 +7441,10 @@ Click again to de-activate"
                           <span class="text-xs {sstvSoftSync ? 'text-yellow-300' : 'text-gray-400'}">{sstvSoftSync ? 'soft sync hold' : 'hard sync lock'}</span>
                         </div>
                         <div class="flex items-center gap-2">
-                          <button class="text-xs px-3 py-1 rounded bg-teal-700 hover:bg-teal-600 text-white transition-colors whitespace-nowrap" on:click={_sstvStart} disabled={sstvRunning}>▶ Start</button>
-                          <button class="text-xs px-3 py-1 rounded bg-teal-700 hover:bg-teal-600 text-white transition-colors whitespace-nowrap" on:click={_sstvStop} disabled={!sstvRunning}>■ Stop</button>
-                          <button class="text-xs px-3 py-1 rounded bg-teal-700 hover:bg-teal-600 text-white transition-colors whitespace-nowrap" on:click={sstvRefresh} disabled={!sstvRunning}>↺ Reset</button>
-                          <button class="text-xs px-3 py-1 rounded bg-teal-700 hover:bg-teal-600 text-white transition-colors whitespace-nowrap" on:click={sstvSaveImage}>💾 Save</button>
+                          <button class="decoder-btn-secondary" on:click={_sstvStart} disabled={sstvRunning}>▶ Start</button>
+                          <button class="decoder-btn-secondary" on:click={_sstvStop} disabled={!sstvRunning}>■ Stop</button>
+                          <button class="decoder-btn-secondary" on:click={sstvRefresh} disabled={!sstvRunning}>↺ Reset</button>
+                          <button class="decoder-btn-secondary" on:click={sstvSaveImage}>💾 Save</button>
                         </div>
                       </div>
                       <div class="flex flex-wrap items-center gap-3 mb-2 text-xs text-gray-300">
@@ -7625,14 +7628,9 @@ Click again to de-activate"
                         <code class="text-gray-400">lpcnet_demo</code><br>
                         {demodulation === 'RADEL' ? 'LSB — use on 40 m / 80 m / 160 m.' : 'USB — use on 20 m / 17 m / 15 m / 10 m.'}
                         See <a href="https://freedv.org/radio-autoencoder/" target="_blank" rel="noopener noreferrer" style="color:cyan;">freedv.org/radio-autoencoder</a>.
-                      <div class="mt-3 flex justify-end">
-                        <button
-                          class="text-xs px-3 py-1 rounded bg-green-700 hover:bg-green-600 text-white transition-colors whitespace-nowrap"
-                          on:click={() => window.open("https://qso.freedv.org/", "_blank")}
-                        >
-                          FreeDV Reporter
-                        </button>
-                      </div>
+                         - 
+                         <a href="https://qso.freedv.org//" target="_blank" rel="noopener noreferrer" style="color:cyan;">FreeDV Reporter</a>.
+                      </p>
                     </div>
                   {/if}
                   <!-- END RADE Panel -->
@@ -10023,10 +10021,10 @@ Click again to de-activate"
                           <span class="text-xs {sstvSoftSync ? 'text-yellow-300' : 'text-gray-400'}">{sstvSoftSync ? 'soft sync hold' : 'hard sync lock'}</span>
                         </div>
                         <div class="flex items-center gap-2">
-                          <button class="text-xs px-3 py-1 rounded bg-teal-700 hover:bg-teal-600 text-white transition-colors whitespace-nowrap" on:click={_sstvStart} disabled={sstvRunning}>▶ Start</button>
-                          <button class="text-xs px-3 py-1 rounded bg-teal-700 hover:bg-teal-600 text-white transition-colors whitespace-nowrap" on:click={_sstvStop} disabled={!sstvRunning}>■ Stop</button>
-                          <button class="text-xs px-3 py-1 rounded bg-teal-700 hover:bg-teal-600 text-white transition-colors whitespace-nowrap" on:click={sstvRefresh} disabled={!sstvRunning}>↺ Reset</button>
-                          <button class="text-xs px-3 py-1 rounded bg-teal-700 hover:bg-teal-600 text-white transition-colors whitespace-nowrap" on:click={sstvSaveImage}>💾 Save</button>
+                          <button class="decoder-btn-secondary" on:click={_sstvStart} disabled={sstvRunning}>▶ Start</button>
+                          <button class="decoder-btn-secondary" on:click={_sstvStop} disabled={!sstvRunning}>■ Stop</button>
+                          <button class="decoder-btn-secondary" on:click={sstvRefresh} disabled={!sstvRunning}>↺ Reset</button>
+                          <button class="decoder-btn-secondary" on:click={sstvSaveImage}>💾 Save</button>
                         </div>
                       </div>
                       <div class="flex flex-wrap items-center gap-3 mb-2 text-xs text-gray-300">
@@ -10210,14 +10208,9 @@ Click again to de-activate"
                         <code class="text-gray-400">lpcnet_demo</code><br>
                         {demodulation === 'RADEL' ? 'LSB — use on 40 m / 80 m / 160 m.' : 'USB — use on 20 m / 17 m / 15 m / 10 m.'}
                         See <a href="https://freedv.org/radio-autoencoder/" target="_blank" rel="noopener noreferrer" style="color:cyan;">freedv.org/radio-autoencoder</a>.
-                      <div class="mt-3 flex justify-end">
-                        <button
-                          class="text-xs px-3 py-1 rounded bg-green-700 hover:bg-green-600 text-white transition-colors whitespace-nowrap"
-                          on:click={() => window.open("https://qso.freedv.org/", "_blank")}
-                        >
-                          FreeDV Reporter
-                        </button>
-                      </div>
+                         - 
+                         <a href="https://qso.freedv.org//" target="_blank" rel="noopener noreferrer" style="color:cyan;">FreeDV Reporter</a>.
+                      </p>
                     </div>
                   {/if}
                   <!-- END RADE Panel -->

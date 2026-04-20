@@ -68,6 +68,13 @@ app.secret_key = SECRET_KEY
 log_buffer = []
 log_lock = threading.Lock()
 
+LOG_FILES = {
+    "logwebsdr.txt": "logwebsdr.txt",
+    "admin.log": "admin.log",
+    "proxy.log": "proxy.log",
+    "rade.log": "rade.log",
+}
+
 # ─── Helpers ───────────────────────────────────────────────────────────────────
 def load_admin_config():
     if ADMIN_CONFIG_FILE.exists():
@@ -344,24 +351,43 @@ def write_file_safe(path, content):
     except Exception as e:
         return False, str(e)
 
-def tail_log(n=100):
+def read_log_lines(log_name, n=100):
+    base = get_sdr_dir()
+    if log_name not in LOG_FILES:
+        return []
+    lf = base / LOG_FILES[log_name]
+    lines = []
+    if lf.exists():
+        try:
+            with open(lf, encoding="utf-8", errors="replace") as f:
+                lines = [l.rstrip() for l in f.readlines()[-n:]]
+        except Exception as e:
+            lines = [f"Error reading {lf.name}: {e}"]
+    if log_name == "admin.log":
+        with log_lock:
+            mem_lines = list(log_buffer[-50:])
+        return mem_lines + lines
+    return lines
+
+def tail_log(n=100, log_name=None):
+    if log_name:
+        return read_log_lines(log_name, n)
+
     base = get_sdr_dir()
     lines = []
-    # Check common log file locations
-    log_candidates = [
-        base / "logwebsdr.txt",
-    ]
-    for lf in log_candidates:
+    for name in LOG_FILES:
+        lf = base / LOG_FILES[name]
         if lf.exists():
             try:
                 with open(lf, encoding="utf-8", errors="replace") as f:
-                    all_lines = f.readlines()
-                if all_lines:
-                    lines = all_lines[-n:]
-                    break
-            except Exception:
-                pass
-    # Fallback: journalctl for spectrumserver
+                    file_lines = [l.rstrip() for l in f.readlines()[-n:]]
+                lines.append(f"===== {lf.name} =====")
+                lines.extend(file_lines)
+            except Exception as e:
+                lines.append(f"===== {lf.name} =====")
+                lines.append(f"Error reading {lf.name}: {e}")
+
+    # Fallback: journalctl only if no log files were found/read
     if not lines:
         try:
             result = subprocess.run(
@@ -369,9 +395,10 @@ def tail_log(n=100):
                 capture_output=True, text=True, timeout=3
             )
             if result.stdout.strip():
-                lines = result.stdout.strip().splitlines(keepends=True)
+                lines = result.stdout.strip().splitlines()
         except Exception:
             pass
+
     # Also try journalctl for spectrumserver process
     if not lines:
         try:
@@ -380,13 +407,13 @@ def tail_log(n=100):
                 capture_output=True, text=True, timeout=3
             )
             if result.stdout.strip():
-                lines = result.stdout.strip().splitlines(keepends=True)
+                lines = result.stdout.strip().splitlines()
         except Exception:
             pass
-    # In-memory buffer (admin actions log)
+
     with log_lock:
         mem_lines = list(log_buffer[-50:])
-    return mem_lines + [l.rstrip() for l in lines]
+    return mem_lines + lines
 
 # ─── HTML Template ─────────────────────────────────────────────────────────────
 LOGIN_HTML = """<!DOCTYPE html>
@@ -982,11 +1009,28 @@ table.markers input:focus{background:#071207;outline:1px solid var(--border);}
       <div class="page" id="page-logs">
         <div class="section-head">LOG VIEWER</div>
         <div style="display:flex;gap:.5rem;margin-bottom:.7rem;flex-wrap:wrap;">
-          <button class="btn btn-blue" onclick="loadLogs()">↻ REFRESH LOGS</button>
+          <button class="btn btn-blue" onclick="loadCurrentLogTab()">↻ REFRESH LOGS</button>
           <button class="btn btn-green" id="auto-refresh-btn" onclick="toggleAutoRefresh()">⏵ AUTO REFRESH</button>
           <button class="btn btn-red" onclick="clearLogView()">✕ CLEAR LOGS</button>
         </div>
-        <div class="log-box" id="main-log" style="height:550px;"></div>
+        <div class="tab-bar" style="margin-bottom:.6rem;">
+          <div class="tab log-tab active" data-log-name="logwebsdr.txt" onclick="switchLogTab('logwebsdr.txt', this)">LOGWEBSDR</div>
+          <div class="tab log-tab" data-log-name="admin.log" onclick="switchLogTab('admin.log', this)">ADMIN</div>
+          <div class="tab log-tab" data-log-name="proxy.log" onclick="switchLogTab('proxy.log', this)">PROXY</div>
+          <div class="tab log-tab" data-log-name="rade.log" onclick="switchLogTab('rade.log', this)">RADE</div>
+        </div>
+        <div class="tab-pane log-tab-pane active" id="log-pane-logwebsdr">
+          <div class="log-box" id="main-log-logwebsdr" style="height:550px;"></div>
+        </div>
+        <div class="tab-pane log-tab-pane" id="log-pane-admin">
+          <div class="log-box" id="main-log-admin" style="height:550px;"></div>
+        </div>
+        <div class="tab-pane log-tab-pane" id="log-pane-proxy">
+          <div class="log-box" id="main-log-proxy" style="height:550px;"></div>
+        </div>
+        <div class="tab-pane log-tab-pane" id="log-pane-rade">
+          <div class="log-box" id="main-log-rade" style="height:550px;"></div>
+        </div>
       </div>
 
       <!-- ══════ CHAT HISTORY PAGE ══════ -->
@@ -1072,6 +1116,21 @@ let currentPage = 'dashboard';
 let autoRefresh = false;
 let autoRefreshTimer = null;
 let statusTimer = null;
+let currentLogTab = 'logwebsdr.txt';
+
+const LOG_TAB_TARGETS = {
+  'logwebsdr.txt': 'main-log-logwebsdr',
+  'admin.log': 'main-log-admin',
+  'proxy.log': 'main-log-proxy',
+  'rade.log': 'main-log-rade',
+};
+
+const LOG_TAB_PANES = {
+  'logwebsdr.txt': 'log-pane-logwebsdr',
+  'admin.log': 'log-pane-admin',
+  'proxy.log': 'log-pane-proxy',
+  'rade.log': 'log-pane-rade',
+};
 
 // ─── Page navigation ────────────────────────────────────────────────────────
 function showPage(name, el) {
@@ -1091,7 +1150,7 @@ function showPage(name, el) {
   if (name === 'config') { loadConfigList(); }
   if (name === 'siteinfo') { loadJsonList(); }
   if (name === 'markers') { loadMarkers(); }
-  if (name === 'logs') { loadLogs(); }
+  if (name === 'logs') { loadCurrentLogTab(); }
   if (name === 'chat') { loadChat(); }
   if (name === 'settings') { loadSettingsPage(); }
   return false;
@@ -1190,10 +1249,10 @@ let _termIdx  = -1;
 
 async function loadDashboard() {
   updateStatus();
-  loadLogs('dash-log');
+  loadLogs('dash-log', 'logwebsdr.txt');
   if (_dashLogTimer) clearInterval(_dashLogTimer);
   _dashLogTimer = setInterval(() => {
-    if (currentPage === 'dashboard') loadLogs('dash-log');
+    if (currentPage === 'dashboard') loadLogs('dash-log', 'logwebsdr.txt');
     else { clearInterval(_dashLogTimer); _dashLogTimer = null; }
   }, 5000);
   // Set terminal cwd to sdr base dir
@@ -1530,9 +1589,14 @@ async function saveMarkers() {
 }
 
 // ─── Logs ────────────────────────────────────────────────────────────────────
-async function loadLogs(targetId) {
-  const id = targetId || 'main-log';
-  const r = await fetch('/admin/api/logs');
+function getLogTargetId(logName) {
+  return LOG_TAB_TARGETS[logName] || 'main-log-logwebsdr';
+}
+
+async function loadLogs(targetId, logName) {
+  const id = targetId || 'dash-log';
+  const name = logName || 'logwebsdr.txt';
+  const r = await fetch('/admin/api/logs?name=' + encodeURIComponent(name));
   const d = await r.json();
   const el = document.getElementById(id);
   if (!el) return;
@@ -1545,19 +1609,36 @@ async function loadLogs(targetId) {
     div.textContent = line;
     el.appendChild(div);
   });
+  if (!(d.lines || []).length) {
+    const div = document.createElement('div');
+    div.textContent = 'No log output found.';
+    el.appendChild(div);
+  }
   el.scrollTop = el.scrollHeight;
 }
 
+function switchLogTab(logName, el) {
+  currentLogTab = logName;
+  document.querySelectorAll('.log-tab').forEach(tab => tab.classList.remove('active'));
+  document.querySelectorAll('.log-tab-pane').forEach(pane => pane.classList.remove('active'));
+  if (el) el.classList.add('active');
+  const paneId = LOG_TAB_PANES[logName];
+  const pane = document.getElementById(paneId);
+  if (pane) pane.classList.add('active');
+  loadLogs(getLogTargetId(logName), logName);
+}
+
+function loadCurrentLogTab() {
+  loadLogs(getLogTargetId(currentLogTab), currentLogTab);
+}
+
 async function clearLogView() {
-  // Stop auto-refresh first
   if (autoRefresh) toggleAutoRefresh();
-  // Clear server-side log buffer + log file
   await fetch('/admin/api/logs/clear', {method: 'POST'});
-  // Clear both UI elements
-  const el = document.getElementById('main-log');
-  if (el) el.innerHTML = '';
-  const dash = document.getElementById('dash-log');
-  if (dash) dash.innerHTML = '';
+  ['dash-log', ...Object.values(LOG_TAB_TARGETS)].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.innerHTML = '';
+  });
   toast('Logs cleared');
 }
 
@@ -1567,7 +1648,7 @@ function toggleAutoRefresh() {
   if (autoRefresh) {
     btn.textContent = '⏸ STOP AUTO';
     btn.className = 'btn btn-red';
-    autoRefreshTimer = setInterval(() => loadLogs('main-log'), 3000);
+    autoRefreshTimer = setInterval(() => loadCurrentLogTab(), 3000);
   } else {
     btn.textContent = '⏵ AUTO REFRESH';
     btn.className = 'btn btn-green';
@@ -1859,8 +1940,11 @@ def api_markers():
 @app.route("/admin/api/logs")
 @login_required
 def api_logs():
-    lines = tail_log(150)
-    return jsonify({"lines": lines})
+    log_name = request.args.get("name", "logwebsdr.txt")
+    if log_name not in LOG_FILES:
+        return jsonify({"ok": False, "msg": "Unknown log", "available": list(LOG_FILES.keys()), "lines": []}), 400
+    lines = tail_log(150, log_name)
+    return jsonify({"ok": True, "name": log_name, "available": list(LOG_FILES.keys()), "lines": lines})
 
 @app.route("/admin/api/logs/clear", methods=["POST"])
 @login_required

@@ -3,7 +3,6 @@
 # It is strongly recommended to keep this admin panel private and to use it inside your home network. Public access to this panel may cause security problems.
 
 ## What you need
-- Ubuntu 22.04
 - PhantomSDR-Plus already installed and working
 - Port open in your firewall (e.g. 3000)
 - Install dependencies (optional. The script will install what needed)

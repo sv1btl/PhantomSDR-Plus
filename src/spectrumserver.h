@@ -59,6 +59,11 @@ class broadcast_server : public PacketSender {
     // Events socket
     std::string get_event_info();
     std::string get_initial_state_info();
+    std::string get_users_json();   // real-time user list as JSON
+    void        write_users_json(); // atomically writes users.json to docroot
+    void        append_user_log(const std::string &event,
+                                const std::string &unique_id,
+                                int l, double audio_mid, int r); // JSONL statistics log
     void on_open_events(connection_hdl hdl);
     void on_message_control(connection_hdl hdl);
     void on_close_events(connection_hdl hdl);

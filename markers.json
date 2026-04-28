@@ -20,7 +20,7 @@
     },
     {
       "frequency": 136000,
-      "name": "WSJT",
+      "name": "WSPR",
       "mode": "USB"
     },
     {
@@ -35,7 +35,7 @@
     },
     {
       "frequency": 474200,
-      "name": "WSJT",
+      "name": "WSPR",
       "mode": "USB"
     },
     {
@@ -55,12 +55,22 @@
     },
     {
       "frequency": 1836600,
-      "name": "WSJT",
+      "name": "WSPR",
       "mode": "USB"
     },
     {
       "frequency": 1840000,
       "name": "FT8",
+      "mode": "USB"
+    },
+    {
+      "frequency": 1870000,
+      "name": "FreeDV",
+      "mode": "LSB"
+    },
+    {
+      "frequency": 1876000,
+      "name": "Volmet",
       "mode": "USB"
     },
     {
@@ -105,7 +115,7 @@
     },
     {
       "frequency": 3568600,
-      "name": "WSJT",
+      "name": "WSPR",
       "mode": "USB"
     },
     {
@@ -117,12 +127,12 @@
       "frequency": 3575000,
       "name": "FT4",
       "mode": "USB"
-    },    
+    },
     {
-      "frequency": 3635000,
+      "frequency": 3625000,
       "name": "FreeDV",
       "mode": "LSB"
-    },    
+    },        
     {
       "frequency": 4209500,
       "name": "NAVTEX Heraklion",
@@ -167,12 +177,22 @@
       "frequency": 4625000,
       "name": "The Buzzer",
       "mode": "USB"
-    },
+    },   
     {
       "frequency": 5357000,
       "name": "FT8",
       "mode": "USB"
     },
+     {
+      "frequency": 5364700,
+      "name": "WSPR",
+      "mode": "USB"
+    },
+    {
+      "frequency": 5366500,
+      "name": "FreeDV",
+      "mode": "USB"
+    },        
     {
       "frequency": 5450000,
       "name": "RAF Volmet (UK)",
@@ -219,6 +239,11 @@
       "mode": "USB"
     },
     {
+      "frequency": 5830000,
+      "name": "Radio Mystery (Pirate)",
+      "mode": "AM"
+    },
+    {
       "frequency": 6250000,
       "name": "Japanese Slot Machine",
       "mode": "USB"
@@ -260,7 +285,7 @@
     },
     {
       "frequency": 7038600,
-      "name": "WSJT",
+      "name": "WSPR",
       "mode": "USB"
     },
     {
@@ -273,6 +298,11 @@
       "name": "FT8",
       "mode": "USB"
     },
+    {
+      "frequency": 7087000,
+      "name": "FreeDV",
+      "mode": "LSB"
+    },    
     {
       "frequency": 7177000,
       "name": "FreeDV",
@@ -340,7 +370,7 @@
     },    
     {
       "frequency": 10138700,
-      "name": "WSJT",
+      "name": "WSPR",
       "mode": "USB"
     },
     {
@@ -375,9 +405,19 @@
     },    
     {
       "frequency": 14095600,
-      "name": "WSJT",
+      "name": "WSPR",
       "mode": "USB"
     },
+    {
+      "frequency": 14230000,
+      "name": "SSTV",
+      "mode": "USB"
+    },
+    {
+      "frequency": 14236000,
+      "name": "FreeDV",
+      "mode": "USB"
+    },    
     {
       "frequency": 15777000,
       "name": "Russian RTTY Mazielka (X06)",
@@ -395,9 +435,14 @@
     },   
     {
       "frequency": 18104600,
-      "name": "WSJT",
+      "name": "WSPR",
       "mode": "USB"
     },
+    {
+      "frequency": 18118000,
+      "name": "FreeDV",
+      "mode": "USB"
+    },    
     {
       "frequency": 21074000,
       "name": "FT8",
@@ -405,14 +450,19 @@
     },    
     {
       "frequency": 21094600,
-      "name": "WSJT",
+      "name": "WSPR",
       "mode": "USB"
     },
     {
       "frequency": 21140000,
       "name": "FT4",
       "mode": "USB"
-    },    
+    },
+    {
+      "frequency": 21313000,
+      "name": "FreeDV",
+      "mode": "USB"
+    },        
     {
       "frequency": 24915000,
       "name": "FT8",
@@ -425,9 +475,14 @@
     },    
     {
       "frequency": 24924600,
-      "name": "WSJT",
+      "name": "WSPR",
       "mode": "USB"
     },
+    {
+      "frequency": 24933000,
+      "name": "FreeDV",
+      "mode": "USB"
+    },   
     {
       "frequency": 26965000,
       "name": "1",
@@ -629,13 +684,28 @@
       "mode": "FM"
     },
     {
+      "frequency": 27665000,
+      "name": "27665",
+      "mode": "USB"
+    },
+    {
       "frequency": 28074000,
       "name": "FT8",
+      "mode": "USB"
+    },
+    {
+      "frequency": 28124600,
+      "name": "WSPR",
       "mode": "USB"
     },
     {
       "frequency": 28180000,
       "name": "FT4",
       "mode": "USB"
-    }
+    },
+    {
+      "frequency": 28330000,
+      "name": "FreeDV",
+      "mode": "USB"
+    }   
 

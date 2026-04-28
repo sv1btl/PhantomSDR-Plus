@@ -1,5 +1,5 @@
 <script>
-  const VERSION = "3.1.1 with mobile support and enhancements";
+  const VERSION = "3.2.0 with mobile support and enhancements";
 
   import { onDestroy, onMount, tick, afterUpdate } from "svelte";
   import { fade, fly, scale } from "svelte/transition";
@@ -659,11 +659,49 @@ function startTopFrequencyBarSync() {
     showShortcuts = false;
   }
 
+  // Window for users
+  let showUsers = false;
+  let closeUsersBtnEl;
+
+  function openUsers() {
+    showUsers = true;
+    tick().then(() => closeUsersBtnEl && closeUsersBtnEl.focus());
+  }
+
+  function closeUsers() {
+    showUsers = false;
+  }
+
+  // Window for stats
+  let showStats = false;
+  let closeStatsBtnEl;
+
+  function openStats() {
+    showStats = true;
+    tick().then(() => closeStatsBtnEl && closeStatsBtnEl.focus());
+  }
+
+  function closeStats() {
+    showStats = false;
+  }
+
   function onGlobalKey(e) {
     // Close shortcuts dialog on Escape when open
     if (showShortcuts && (e.key === "Escape" || e.code === "Escape")) {
       e.preventDefault();
       closeShortcuts();
+      return;
+    }
+    // Close users dialog on Escape when open
+    if (showUsers && (e.key === "Escape" || e.code === "Escape")) {
+      e.preventDefault();
+      closeUsers();
+      return;
+    }
+    // Close stats dialog on Escape when open
+    if (showStats && (e.key === "Escape" || e.code === "Escape")) {
+      e.preventDefault();
+      closeStats();
       return;
     }
 
@@ -852,9 +890,9 @@ function startTopFrequencyBarSync() {
     const canvasY = (event.clientY - rect.top)  * (canvas.height / rect.height);
     const freqHz = waterfall.checkClientClick(canvasX, canvasY);
     if (freqHz !== null) {
-      handleFrequencyChange({ detail: freqHz });
       frequency = Math.max(0, freqHz / 1e3).toFixed(2);
       frequencyInputComponent.setFrequency(freqHz);
+      handleFrequencyChange({ detail: freqHz });
     } else {
       passbandTunerComponent.handlePassbandClick(event);
     }
@@ -1581,6 +1619,25 @@ function startTopFrequencyBarSync() {
     maritime: { center: 500, shift: 170, baud: 100, framing: '7N1', encoding: 'ccir476' },
     weather:  { center: 1000, shift: 450, baud: 50, framing: '5N1.5', encoding: 'ita2' },
     ham:      { center: 1000, shift: 170, baud: 45.45, framing: '5N1.5', encoding: 'ita2' },
+  };
+
+  // Per-variant option lists for Center / Shift / Baud selects.
+  // The first entry in each list matches the variant preset so the
+  // select always shows the correct value after _applyFskVariantDefaults().
+  const FSK_CENTER_OPTIONS = {
+    maritime: [500, 800, 1000, 1200, 1500, 1700, 1800],
+    weather:  [1000, 500, 1200, 1500, 1700, 1800],
+    ham:      [1000, 500, 800, 1200, 1500, 1700, 1800, 2125],
+  };
+  const FSK_SHIFT_OPTIONS = {
+    maritime: [170, 85, 200, 425, 500, 850],
+    weather:  [450, 170, 85, 200, 500, 850],
+    ham:      [170, 85, 200, 425, 450, 500, 850],
+  };
+  const FSK_BAUD_OPTIONS = {
+    maritime: [100, 50, 75, 110, 150, 200, 300],
+    weather:  [50, 45.45, 75, 100, 110, 150],
+    ham:      [45.45, 50, 75, 100, 110, 150],
   };
 
   const FSK_KNOWN_FREQUENCIES = {
@@ -2505,8 +2562,8 @@ function handlePassbandChange(passband) {
   const isWheel = frequencyChange < 1000;
   
   if (!isWheel) {
-    // CLICK - recalculate
-    const clickedFreq = (l + r) / 2;
+    // CLICK - recalculate, snapped to nearest 500 Hz (.00 or .50 kHz)
+    const clickedFreq = Math.round((l + r) / 2 / 500) * 500;
        
     if (demodulation === "USB") {
       l = clickedFreq;
@@ -2552,22 +2609,27 @@ function handlePassbandChange(passband) {
 
   // Entering new frequency into the textbox
   function handleFrequencyChange(event) {
-    const frequency = event.detail;
+    const frequencyHz = event.detail;
     const audioRange = audio.getAudioRange();
+
+    // Keep the shared UI frequency state in sync before any band/mode refresh.
+    // Otherwise clicks on user labels/bookmarks can tune correctly, but the
+    // band selector may still evaluate against the previous frequency.
+    frequency = Math.max(0, frequencyHz / 1e3).toFixed(2);
 
     const [l, m, r] = audioRange.map(FFTOffsetToFrequency);
 
     // Preserve current bandwidth settings
     let audioParameters = [
-      frequency - (m - l),
-      frequency,
-      frequency + (r - m),
+      frequencyHz - (m - l),
+      frequencyHz,
+      frequencyHz + (r - m),
     ].map(frequencyToFFTOffset);
     const newm = audioParameters[1];
 
-    const lOffset = frequency - (m - l) - 200;
-    const mOffset = frequency - 750;
-    const rOffset = frequency + (r - m) - 200;
+    const lOffset = frequencyHz - (m - l) - 200;
+    const mOffset = frequencyHz - 750;
+    const rOffset = frequencyHz + (r - m) - 200;
 
     const audioParametersOffset = [lOffset, mOffset, rOffset].map(
       frequencyToFFTOffset,
@@ -2595,10 +2657,12 @@ function handlePassbandChange(passband) {
     audio.setAudioRange(...audioParameters, ...audioParametersOffset);
     updatePassband();
     updateLink();
-    if (!event.markerclick) {
-      waterfall.checkBandAndSetMode(frequency);
-    }
+    // Always refresh the band selector immediately, including for marker/user-label
+    // clicks. The clicked marker's own SetMode() call can still override mode right
+    // after this, but the band highlight must update on the first click.
+    waterfall.checkBandAndSetMode(frequencyHz);
     frequencyMarkerComponent.updateFrequencyMarkerPositions();
+    syncBandButtonToFrequency(frequencyHz);
     updateBandButton();
 
     // --- CATsync: update shared state mirror and notify external tools ---
@@ -2655,6 +2719,19 @@ function handlePassbandChange(passband) {
     waterfall.setWaterfallRange(l, r);
     frequencyMarkerComponent.updateFrequencyMarkerPositions();
 
+    updatePassband();
+  }
+
+  // Zoom the waterfall to show the full band that the current frequency belongs to.
+  // The tuned frequency is NOT recentered — the view just snaps to the band edges.
+  function handleZoomToBand() {
+    if (currentBand < 0) return;
+    const band = bandArray[currentBand];
+    const hzPerBin = waterfall.sps / waterfall.fftSize;
+    const l = Math.floor(band.startFreq / hzPerBin);
+    const r = Math.ceil(band.endFreq / hzPerBin);
+    waterfall.setWaterfallRange(l, r);
+    frequencyMarkerComponent.updateFrequencyMarkerPositions();
     updatePassband();
   }
 
@@ -3666,29 +3743,34 @@ function _animateNeedle(ts) {
   // adjustments. //
   let prevBand,
     stepi = 0;
-  function updateBandButton() {
+  function syncBandButtonToFrequency(frequencyHz) {
+    const frequencyKhz = Number(frequencyHz) / 1000;
     currentBand = -1;
-    for (var i = 0; i < bandArray.length; i++) {
+    for (let i = 0; i < bandArray.length; i++) {
       if (
-        frequency >= bandArray[i].startFreq / 1000 &&
-        frequency <= bandArray[i].endFreq / 1000 &&
+        frequencyKhz >= bandArray[i].startFreq / 1000 &&
+        frequencyKhz <= bandArray[i].endFreq / 1000 &&
         (bandArray[i].ITU === siteRegion || bandArray[i].ITU === 123)
       ) {
         currentBand = i;
         newStaticBandwidth = 0; // To reset the IF Filter button //
-        /* if (bandArray[i].max < 256) {
-          min_waterfall = bandArray[i].min;
-          max_waterfall = bandArray[i].max;
-          handleMinMove();
-          handleMaxMove();
-        }*/
         if (prevBand != currentBand) {
           currentTuneStep = bandArray[i].stepi;
         }
         bandName = bandArray[i].name;
+        break;
       }
     }
     prevBand = currentBand;
+  }
+
+  function updateBandButton() {
+    const frequencyHz = Number(
+      frequencyInputComponent && frequencyInputComponent.getFrequency
+        ? frequencyInputComponent.getFrequency()
+        : Math.round((Number(frequency) || 0) * 1000),
+    );
+    syncBandButtonToFrequency(frequencyHz);
   }
 
   // Regular updating UI elements:
@@ -3760,21 +3842,35 @@ function _animateNeedle(ts) {
 
   // Tune to the frequency when clicked
   let frequencyMarkerComponent;
-  function handleFrequencyMarkerClick(event) {
+  async function handleFrequencyMarkerClick(event) {
+    const targetHz = Number(event.detail.frequency) || 0;
+
+    // First sync the actual tuned/input frequency so any follow-up logic that
+    // reads frequencyInputComponent sees the NEW dial immediately, not the
+    // previous one.
+    frequencyInputComponent.setFrequency(targetHz);
+
+    // Keep the shared UI frequency state aligned before band refresh.
+    frequency = Math.max(0, targetHz / 1e3).toFixed(2);
+
+    // Force the band button state from the clicked marker frequency itself,
+    // without waiting for any other click path or waterfall-side refresh.
+    syncBandButtonToFrequency(targetHz);
+    await tick();
+
+    // Now retune passband / waterfall / band selector using the new frequency.
     handleFrequencyChange({
-      detail: event.detail.frequency,
+      detail: targetHz,
       markerclick: true,
     });
 
-    // Convert back to kHz and ensure 2 decimal places
-    frequency = (event.detail.frequency / 1e3).toFixed(2);
-
-    // Ensure frequency is not negative
-    frequency = Math.max(0, parseFloat(frequency));
-
-    frequencyInputComponent.setFrequency(event.detail.frequency);
-
+    // Finally apply the marker's requested mode.
     SetMode(event.detail.modulation);
+
+    // Re-assert band selection once more after mode-change side effects.
+    syncBandButtonToFrequency(targetHz);
+    await tick();
+    updateBandButton();
     //demodulation = event.detail.modulation;
     //handleDemodulationChange();
   }
@@ -5457,12 +5553,40 @@ function _animateNeedle(ts) {
                       ⌨️ Keyboard Shortcuts                      
                     </button>
 
+                  &nbsp;&nbsp;
+                  <button
+                    type="button"
+                    class="glass-button text-white py-1 px-3 mb-2 lg:mb-0 rounded-lg text-xs sm:text-sm"
+                    on:click={openUsers}
+                    title="Connected Users"
+                    aria-haspopup="dialog"
+                    aria-expanded={showUsers}
+                    aria-controls="users-dialog"
+                    style="color:rgba(0, 225, 255, 0.993)"
+                  >
+                    📝 Users
+                  </button>
+
+                  &nbsp;&nbsp;
+                  <button
+                    type="button"
+                    class="glass-button text-white py-1 px-3 mb-2 lg:mb-0 rounded-lg text-xs sm:text-sm"
+                    on:click={openStats}
+                    title="User Statistics"
+                    aria-haspopup="dialog"
+                    aria-expanded={showStats}
+                    aria-controls="stats-dialog"
+                    style="color:rgba(0, 225, 255, 0.993)"
+                  >
+                    📊 Stats
+                  </button>
+
                   &nbsp-&nbsp Other:&nbsp;
                   <button
                     class="glass-button text-white py-1 px-3 mb-2 lg:mb-0 rounded-lg text-xs sm:text-sm"
                     style="color:rgba(0, 225, 255, 0.993)"
                     title="Other servers lookup"
-                    onClick="window.open('http://list.novasdr.fun');"
+                    onClick="window.open('https://sdr-list.xyz/');"
                   >
                     <span class="icon">Servers</span>
                   </button>                
@@ -5529,7 +5653,6 @@ function _animateNeedle(ts) {
                       aria-modal="true"
                       aria-labelledby="shortcuts-title"
                       class="modal-right"
-                      on:click|stopPropagation
                     >
                     <div class="modal-header">
                       <h2 id="shortcuts-title">Keyboard Shortcuts</h2>
@@ -5579,6 +5702,74 @@ function _animateNeedle(ts) {
                         </div>
                       </div>
                     {/if}
+
+                    {#if showUsers}
+                      <div class="modal-backdrop" on:click={closeUsers}>
+                        <div
+                          id="users-dialog"
+                          role="dialog"
+                          aria-modal="true"
+                          aria-labelledby="users-title"
+                          class="modal-right"
+                        >
+                          <div class="modal-header">
+                            <h2 id="users-title">👥 Connected Users</h2>
+                            <button
+                              class="close-btn"
+                              on:click={closeUsers}
+                              bind:this={closeUsersBtnEl}
+                              title="Close window"
+                              aria-label="Close"
+                            >×</button>
+                          </div>
+                          <div class="modal-body" style="padding:0; overflow:hidden;">
+                            <iframe
+                              src="{siteIP}/users.html"
+                              title="Connected Users"
+                              style="width:100%; height:420px; border:none; background:#0f172a; display:block;"
+                              loading="lazy"
+                            ></iframe>
+                          </div>
+                          <div class="modal-body" style="padding:4px 10px;">
+                            <p class="hint">Press <kbd>Esc</kbd> or click <b>×</b> to close.</p>
+                          </div>
+                        </div>
+                      </div>
+                    {/if}
+
+                    {#if showStats}
+                      <div class="modal-backdrop" on:click={closeStats}>
+                        <div
+                          id="stats-dialog"
+                          role="dialog"
+                          aria-modal="true"
+                          aria-labelledby="stats-title"
+                          class="modal-right"
+                        >
+                          <div class="modal-header">
+                            <h2 id="stats-title">📊 User Statistics</h2>
+                            <button
+                              class="close-btn"
+                              on:click={closeStats}
+                              bind:this={closeStatsBtnEl}
+                              title="Close window"
+                              aria-label="Close"
+                            >×</button>
+                          </div>
+                          <div class="modal-body" style="padding:0; overflow:hidden;">
+                            <iframe
+                              src="{siteIP}/stats.html"
+                              title="User Statistics"
+                              style="width:100%; height:420px; border:none; background:#050a07; display:block;"
+                              loading="lazy"
+                            ></iframe>
+                          </div>
+                          <div class="modal-body" style="padding:4px 10px;">
+                            <p class="hint">Press <kbd>Esc</kbd> or click <b>×</b> to close.</p>
+                          </div>
+                        </div>
+                      </div>
+                    {/if}
                   </div>
                 
                 <!-- End Frequency & QRZ Lookupp -->
@@ -5601,13 +5792,13 @@ function _animateNeedle(ts) {
                     <ul style="font-size: 0.91rem; text-align: left;">
                     <b>Setup &amp; Configuration:</b>
                       <img
-                        src="https://img.shields.io/badge/version- 3.1.1-cyan?logo=github"
+                        src="https://img.shields.io/badge/version- 3.2.0-blue?logo=github"
                         alt="Version"
                         class="inline-block align-middle ml-2"
                       />
                      with <a href="https://catsyncsdr.wordpress.com/" target="new" style="color:rgba(0, 225, 255, 0.993)">CAT sync ®</a>
                     <br>
-                    <span style="/*text-decoration: line-through*/">PC: <a href="https://amzn.eu/d/jf1j5iG/" target="new" style="color:rgba(0, 225, 255, 0.993)"> {siteHardware} {siteSoftware}</a></span>
+                    <span style="/*text-decoration: line-through*/">PC: {siteHardware} {siteSoftware}</span>
                     
                    <!-- In case you don't want the Stats Button to appear, please comment this button section (12 lines)-->                     
                     <!-- System Stats Button -->
@@ -5621,7 +5812,7 @@ function _animateNeedle(ts) {
                       aria-controls="system-stats-dialog"
                       style="color:rgba(0, 225, 255, 0.993); font-size: 0.75rem;"
                     >
-                      📊 Stats
+                      📊 System Resources
                     </button>
 
                     <!-- System Stats Modal -->
@@ -5633,7 +5824,6 @@ function _animateNeedle(ts) {
                           aria-modal="true"
                           aria-labelledby="system-stats-title"
                           class="modal-right"
-                          on:click|stopPropagation
                         >
                         <div class="modal-header">
                           <h2 id="system-stats-title">System Resources</h2>
@@ -5716,15 +5906,15 @@ function _animateNeedle(ts) {
                     <br> <br>
                     <b>SDR Receivers &amp; Antenna</b>
                     <br>
-                    <span style="/*text-decoration: line-through*/">Receiver: <a href="https://www.rx-888.com/rx/" target="new" style="color:rgba(0, 225, 255, 0.993)">{siteReceiver}</a></span>
+                    <span style="/*text-decoration: line-through*/">Receiver: {siteReceiver}</span>
                     <br>                    
-                    <span style="/*text-decoration: line-through*/">Antenna: <a href="https://hamradioshop.net/en/Antennas/DIY-End-Fed-Antennas/294/End-fed-antenna-building-kit-complete-for-10-12-15-17-20-30-40-80-160-meter-band.-450-watt-PEP" target="new" style="color:rgba(0, 225, 255, 0.993)"> {siteAntenna} </a></span> <br>
+                    <span style="/*text-decoration: line-through*/">Antenna: {siteAntenna}</span> <br>
                     <span>Github: <a href="https://github.com/sv1btl/PhantomSDR-Plus" target="new" style="color:rgba(0, 225, 255, 0.993)"> {siteInformation} </a></span>
                     <br><br>
 
                      <b>Note:</b> <br> 
                      <span style="/*text-decoration: line-through*/">{siteNote} <br>
-                     Alternative <a href="http://web-888.no-ip.org:8073" target="new" style="color:rgba(0, 225, 255, 0.993)">WEB-888 WebSDR</a></span><br> 
+
                      <!-- Any other information here --> 
                      
                      <br>
@@ -5904,14 +6094,6 @@ function _animateNeedle(ts) {
                    </div>
                  </div>
                  <!-- ── End DX Cluster Widget ──────────────────────────────────────────── -->
-                  
-                <!-- you can delete the link above and add anything else you want, which will be appeared in the second column 
-                 e.g links to use 
-                 https://pskreporter.info/pskmap.html?preset&callsign=SV1BTL&txrx=rx&mode=FT8&timerange=900&mapCenter=37.99596100000002,23.803441,1.2 
-                 or 
-                 https://www.dxfuncluster.com/widgets/cluster25.php
-                 or
-                 https://pskreporter.info/pskmap.html?preset&callsign=SV1BTL&txrx=rx&mode=WSPR&timerange=900&mapCenter=37.99596100000002,23.803441,1.2 -->
               </div>     
             </div>
            </div>
@@ -6295,27 +6477,29 @@ Click again to de-activate"
 
                   <div><hr class="border-gray-600 my-2" /></div>
 
+
                   <!-- AGC Selection in Desktop -->
                   <h3 class="text-white text-base font-semibold mb-2">AGC</h3>
                   <div class="w-full mb-6">
                     <div id="moreoptions" class="grid grid-cols-4 gap-2">
                       
-                      {#each [{ option: "Auto", AGCbutton: 0 }, { option: "Fast", AGCbutton: 1 }, { option: "Mid", AGCbutton: 2 }, { option: "Slow", AGCbutton: 3 }] as { option, AGCbutton }}
-                        <button
-                          class="retro-button h-8 text-white font-bold h-8 text-sm rounded-md flex items-center justify-center border border-gray-600 shadow-inner transition-all duration-200 ease-in-out {AGCbutton ==
-                          currentAGC
+                      {#each [
+                      { option: "Auto", AGCbutton: 0 },
+                      { option: "Fast", AGCbutton: 1 },
+                      { option: "Smooth", AGCbutton: 2 },
+                      { option: "Adaptive", AGCbutton: 3 }
+                    ] as { option, AGCbutton }}
+                      <button
+                        class={`retro-button text-white font-bold h-8 text-sm rounded-md flex items-center justify-center border border-gray-600 shadow-inner transition-all duration-200 ease-in-out ${
+                          AGCbutton == currentAGC
                             ? 'bg-blue-600 pressed scale-95'
-                            : 'bg-gray-700 hover:bg-gray-600'}"
-                          on:click={() => {
-                            if (option === "Auto") handleAGCChange(0);
-                            else if (option === "Fast") handleAGCChange(1);
-                            else if (option === "Mid") handleAGCChange(2);
-                            else if (option === "Slow") handleAGCChange(3);
-                          }}
-                        >
-                          <span>{option}</span>
-                        </button>
-                      {/each}
+                            : 'bg-gray-700 hover:bg-gray-600'
+                        }`}
+                        on:click={() => handleAGCChange(AGCbutton)}
+                      >
+                        <span>{option}</span>
+                      </button>
+                    {/each}
                     </div>
                   </div>
                   <!-- End AGC Section in Desktop -->
@@ -7691,15 +7875,27 @@ Click again to de-activate"
                       <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
                         <div>
                           <label class="text-xs text-gray-300 block mb-1">Center audio (Hz)</label>
-                          <input type="number" bind:value={fskCenter} class="w-full bg-gray-900 text-green-300 text-xs px-2 py-1 rounded" on:change={() => fskApplySettings(true)} />
+                          <select bind:value={fskCenter} class="glass-select text-white text-xs px-2 py-1 rounded-md w-full" on:change={() => fskApplySettings(true)}>
+                            {#each (FSK_CENTER_OPTIONS[fskVariant] || []) as v}
+                              <option value={v}>{v} Hz</option>
+                            {/each}
+                          </select>
                         </div>
                         <div>
                           <label class="text-xs text-gray-300 block mb-1">Shift (Hz)</label>
-                          <input type="number" bind:value={fskShift} class="w-full bg-gray-900 text-green-300 text-xs px-2 py-1 rounded" on:change={() => fskApplySettings(true)} />
+                          <select bind:value={fskShift} class="glass-select text-white text-xs px-2 py-1 rounded-md w-full" on:change={() => fskApplySettings(true)}>
+                            {#each (FSK_SHIFT_OPTIONS[fskVariant] || []) as v}
+                              <option value={v}>{v} Hz</option>
+                            {/each}
+                          </select>
                         </div>
                         <div>
                           <label class="text-xs text-gray-300 block mb-1">Baud</label>
-                          <input type="number" bind:value={fskBaud} step="0.01" class="w-full bg-gray-900 text-green-300 text-xs px-2 py-1 rounded" on:change={() => fskApplySettings(false)} />
+                          <select bind:value={fskBaud} class="glass-select text-white text-xs px-2 py-1 rounded-md w-full" on:change={() => fskApplySettings(false)}>
+                            {#each (FSK_BAUD_OPTIONS[fskVariant] || []) as v}
+                              <option value={v}>{v}</option>
+                            {/each}
+                          </select>
                         </div>
                         <div>
                           <label class="text-xs text-gray-300 block mb-1">Framing</label>
@@ -7934,9 +8130,16 @@ Click again to de-activate"
                   </div>
 
                   <div class="w-full mb-6">
-                    <h3 class="text-white text-base font-semibold mb-2">
-                      Zoom
-                    </h3>
+                    <div class="flex items-center justify-center gap-2 mb-2">
+                      <h3 class="text-white text-base font-semibold">
+                        Zoom
+                      </h3>
+                      <button
+                        class="retro-button text-white font-bold h-6 px-2 text-xs rounded-md flex items-center justify-center border border-gray-600 shadow-inner bg-gray-700 hover:bg-gray-600"
+                        on:click={handleZoomToBand}
+                        title="Zoom waterfall to the band of the tuned frequency"
+                      >To Band</button>
+                    </div>
                     <div id="zoom-controls" class="grid grid-cols-4 gap-2">
                       {#each [{ action: "+", title: "Zoom in", icon: "zoom-in", text: "In" }, { action: "-", title: "Zoom out", icon: "zoom-out", text: "Out" }, { action: "max", title: "Zoom to max", icon: "maximize", text: "Max" }, { action: "min", title: "Zoom to min", icon: "minimize", text: "Min" }] as { action, title, icon, text }}
                         <button
@@ -8635,9 +8838,21 @@ Click again to de-activate"
                     >{siteCity}, {siteGridSquare}</a
                   >
                   <br />
+                  <button
+                    type="button"
+                    class="glass-button text-white py-1 px-3 mb-1 rounded-lg text-xs"
+                    on:click={openUsers}
+                    title="Connected Users"
+                    aria-haspopup="dialog"
+                    aria-expanded={showUsers}
+                    style="color:rgba(0, 225, 255, 0.993)"
+                  >
+                    📝 Users
+                  </button>
+                  &nbsp;
                   Other &nbsp;
                   <a
-                    href="http://list.novasdr.fun"
+                    href="https://sdr-list.xyz/"
                     target="new"
                     style="color:rgba(0, 225, 255, 0.993)">Servers</a
                   >
@@ -9365,18 +9580,19 @@ Click again to de-activate"
                           AGC
                         </h3>
                         <div id="moreoptions" class="grid grid-cols-4 gap-2">
-                          {#each [{ option: "Auto", AGCbutton: 0 }, { option: "Fast", AGCbutton: 1 }, { option: "Mid", AGCbutton: 2 }, { option: "Slow", AGCbutton: 3 }] as { option, AGCbutton }}
+                          {#each [
+                            { option: "Auto", AGCbutton: 0 },
+                            { option: "Fast", AGCbutton: 1 },
+                            { option: "Smooth", AGCbutton: 2 },
+                            { option: "Adaptive", AGCbutton: 3 }
+                          ] as { option, AGCbutton }}
                             <button
-                              class="retro-button h-8 text-white font-bold h-8 text-sm rounded-md flex items-center justify-center border border-gray-600 shadow-inner transition-all duration-200 ease-in-out {AGCbutton ==
-                              currentAGC
-                                ? 'bg-blue-600 pressed scale-95'
-                                : 'bg-gray-700 hover:bg-gray-600'}"
-                              on:click={() => {
-                                if (option === "Auto") handleAGCChange(0);
-                                else if (option === "Fast") handleAGCChange(1);
-                                else if (option === "Mid") handleAGCChange(2);
-                                else if (option === "Slow") handleAGCChange(3);
-                              }}
+                              class={`retro-button text-white font-bold h-8 text-sm rounded-md flex items-center justify-center border border-gray-600 shadow-inner transition-all duration-200 ease-in-out ${
+                                AGCbutton == currentAGC
+                                  ? 'bg-blue-600 pressed scale-95'
+                                  : 'bg-gray-700 hover:bg-gray-600'
+                              }`}
+                              on:click={() => handleAGCChange(AGCbutton)}
                             >
                               <span>{option}</span>
                             </button>
@@ -9578,9 +9794,16 @@ Click again to de-activate"
                   </div>
 
                   <div class="w-full mb-6">
-                    <h3 class="text-white text-base font-semibold mb-2">
-                      Zoom
-                    </h3>
+                    <div class="flex items-center justify-center gap-2 mb-2">
+                      <h3 class="text-white text-base font-semibold">
+                        Zoom
+                      </h3>
+                      <button
+                        class="retro-button text-white font-bold h-6 px-2 text-xs rounded-md flex items-center justify-center border border-gray-600 shadow-inner bg-gray-700 hover:bg-gray-600"
+                        on:click={handleZoomToBand}
+                        title="Zoom waterfall to the band of the tuned frequency"
+                      >To Band</button>
+                    </div>
                     <div id="zoom-controls" class="grid grid-cols-4 gap-2">
                       {#each [{ action: "+", title: "Zoom in", icon: "zoom-in", text: "In" }, { action: "-", title: "Zoom out", icon: "zoom-out", text: "Out" }, { action: "max", title: "Zoom to max", icon: "maximize", text: "Max" }, { action: "min", title: "Zoom to min", icon: "minimize", text: "Min" }] as { action, title, icon, text }}
                         <button
@@ -9675,7 +9898,6 @@ Click again to de-activate"
                           Height (+)
                         </button>
                       </div>
-                      <hr class="border-gray-600 my-2" />
                     </div>
                   </div>
                   <!-- END of Waterfall Control Buttons -->
@@ -9720,7 +9942,6 @@ Click again to de-activate"
                         </select>
                       </div>
                     </div>
-                  </div>
 
                   
                   
@@ -10276,15 +10497,27 @@ Click again to de-activate"
                       <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
                         <div>
                           <label class="text-xs text-gray-300 block mb-1">Center audio (Hz)</label>
-                          <input type="number" bind:value={fskCenter} class="w-full bg-gray-900 text-green-300 text-xs px-2 py-1 rounded" on:change={() => fskApplySettings(true)} />
+                          <select bind:value={fskCenter} class="glass-select text-white text-xs px-2 py-1 rounded-md w-full" on:change={() => fskApplySettings(true)}>
+                            {#each (FSK_CENTER_OPTIONS[fskVariant] || []) as v}
+                              <option value={v}>{v} Hz</option>
+                            {/each}
+                          </select>
                         </div>
                         <div>
                           <label class="text-xs text-gray-300 block mb-1">Shift (Hz)</label>
-                          <input type="number" bind:value={fskShift} class="w-full bg-gray-900 text-green-300 text-xs px-2 py-1 rounded" on:change={() => fskApplySettings(true)} />
+                          <select bind:value={fskShift} class="glass-select text-white text-xs px-2 py-1 rounded-md w-full" on:change={() => fskApplySettings(true)}>
+                            {#each (FSK_SHIFT_OPTIONS[fskVariant] || []) as v}
+                              <option value={v}>{v} Hz</option>
+                            {/each}
+                          </select>
                         </div>
                         <div>
                           <label class="text-xs text-gray-300 block mb-1">Baud</label>
-                          <input type="number" bind:value={fskBaud} step="0.01" class="w-full bg-gray-900 text-green-300 text-xs px-2 py-1 rounded" on:change={() => fskApplySettings(false)} />
+                          <select bind:value={fskBaud} class="glass-select text-white text-xs px-2 py-1 rounded-md w-full" on:change={() => fskApplySettings(false)}>
+                            {#each (FSK_BAUD_OPTIONS[fskVariant] || []) as v}
+                              <option value={v}>{v}</option>
+                            {/each}
+                          </select>
                         </div>
                         <div>
                           <label class="text-xs text-gray-300 block mb-1">Framing</label>
@@ -10364,6 +10597,8 @@ Click again to de-activate"
                   <!-- END FSK Panel -->
 
                   <!-- Begin Bookmark Button Area -->
+
+                  <hr class="border-gray-600 my-2" />
                   <button
                     id="bookmark-button"
                     class="glass-button text-white font-bold py-2 px-4 rounded-lg flex items-center w-full justify-center"
@@ -10392,6 +10627,7 @@ Click again to de-activate"
                     >
                       <!-- Content will be populated by JavaScript -->
                     </div>
+                  </div>
                   </div>
 
                   <!-- Bookmark Popup -->
@@ -10826,6 +11062,52 @@ Click again to de-activate"
             <!--  <span class="text-xs text-gray-400">PhantomSDR+ | v{VERSION}</span> -->
           </footer>
         </div>
+
+        <!-- Users modal — mobile (tap anywhere to close) -->
+        {#if showUsers}
+          <div
+            class="modal-backdrop"
+            on:click={closeUsers}
+            style="cursor:pointer;"
+          >
+            <div
+              id="users-dialog-mobile"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="users-title-mobile"
+              class="modal-right"
+            >
+              <div class="modal-header">
+                <h2 id="users-title-mobile">👥 Connected Users</h2>
+                <button
+                  class="close-btn"
+                  on:click={closeUsers}
+                  title="Close window"
+                  aria-label="Close"
+                >×</button>
+              </div>
+              <div class="modal-body" style="padding:0; overflow:hidden; position:relative;">
+                <iframe
+                  src="{siteIP}/users.html"
+                  title="Connected Users"
+                  style="width:100%; height:420px; border:none; background:#0f172a; display:block;"
+                  loading="lazy"
+                ></iframe>
+                <!-- transparent overlay: captures taps inside the iframe and closes the modal -->
+                <div
+                  on:click={closeUsers}
+                  style="position:absolute; inset:0; z-index:10; cursor:pointer;"
+                  title="Tap to close"
+                ></div>
+              </div>
+              <div class="modal-body" style="padding:4px 10px;">
+                <p class="hint">Tap anywhere to close.</p>
+              </div>
+            </div>
+          </div>
+        {/if}
+
+
     {/if}
   </div>
 </main>
@@ -11071,61 +11353,125 @@ Click again to de-activate"
 
 
   .glass-slider:hover::-webkit-slider-thumb {
+    transform: scale(1.10);
     box-shadow:
-      inset 0 2px 3px rgba(255, 255, 255, 0.95),
-      inset 0 -2px 3px rgba(0, 0, 0, 0.38),
-      0 3px 6px rgba(0, 0, 0, 0.95),
-      0 0 0 1px rgba(255, 255, 255, 0.08);
+      inset 0 2px 4px rgba(255, 255, 255, 0.98),
+      inset 0 -3px 5px rgba(0, 0, 0, 0.34),
+      0 6px 12px rgba(0, 0, 0, 0.90),
+      0 2px 4px rgba(0, 0, 0, 0.65),
+      0 0 0 1px rgba(255, 255, 255, 0.14);
   }
 
   .glass-slider:hover::-moz-range-thumb {
+    transform: scale(1.10);
     box-shadow:
-      inset 0 2px 3px rgba(255, 255, 255, 0.95),
-      inset 0 -2px 3px rgba(0, 0, 0, 0.38),
-      0 3px 6px rgba(0, 0, 0, 0.95),
-      0 0 0 1px rgba(255, 255, 255, 0.08);
+      inset 0 2px 4px rgba(255, 255, 255, 0.98),
+      inset 0 -3px 5px rgba(0, 0, 0, 0.34),
+      0 6px 12px rgba(0, 0, 0, 0.90),
+      0 2px 4px rgba(0, 0, 0, 0.65),
+      0 0 0 1px rgba(255, 255, 255, 0.14);
   }
 
   .glass-slider:active::-webkit-slider-thumb {
-    transform: translateY(2px) scale(0.98);
+    transform: translateY(2px) scale(0.95);
     box-shadow:
-      inset 0 1px 2px rgba(255, 255, 255, 0.65),
-      inset 0 -1px 2px rgba(0, 0, 0, 0.45),
-      0 1px 2px rgba(0, 0, 0, 0.95);
+      inset 0 2px 5px rgba(0, 0, 0, 0.40),
+      inset 0 1px 2px rgba(255, 255, 255, 0.55),
+      0 1px 3px rgba(0, 0, 0, 0.90);
   }
 
   .glass-slider:active::-moz-range-thumb {
-    transform: translateY(2px) scale(0.98);
+    transform: translateY(2px) scale(0.95);
     box-shadow:
-      inset 0 1px 2px rgba(255, 255, 255, 0.65),
-      inset 0 -1px 2px rgba(0, 0, 0, 0.45),
-      0 1px 2px rgba(0, 0, 0, 0.95);
+      inset 0 2px 5px rgba(0, 0, 0, 0.40),
+      inset 0 1px 2px rgba(255, 255, 255, 0.55),
+      0 1px 3px rgba(0, 0, 0, 0.90);
   }
 
   .glass-slider:focus-visible::-webkit-slider-thumb {
+    transform: scale(1.08);
     box-shadow:
-      inset 0 2px 3px rgba(255, 255, 255, 0.95),
-      inset 0 -2px 3px rgba(0, 0, 0, 0.38),
-      0 0 0 2px rgba(255, 255, 255, 0.16),
-      0 3px 6px rgba(0, 0, 0, 0.95);
+      inset 0 2px 4px rgba(255, 255, 255, 0.98),
+      inset 0 -3px 5px rgba(0, 0, 0, 0.34),
+      0 0 0 2px rgba(255, 255, 255, 0.18),
+      0 0 0 4px rgba(59, 130, 246, 0.50),
+      0 5px 10px rgba(0, 0, 0, 0.90);
   }
 
   .glass-slider:focus-visible::-moz-range-thumb {
+    transform: scale(1.08);
     box-shadow:
-      inset 0 2px 3px rgba(255, 255, 255, 0.95),
-      inset 0 -2px 3px rgba(0, 0, 0, 0.38),
-      0 0 0 2px rgba(255, 255, 255, 0.16),
-      0 3px 6px rgba(0, 0, 0, 0.95);
+      inset 0 2px 4px rgba(255, 255, 255, 0.98),
+      inset 0 -3px 5px rgba(0, 0, 0, 0.34),
+      0 0 0 2px rgba(255, 255, 255, 0.18),
+      0 0 0 4px rgba(59, 130, 246, 0.50),
+      0 5px 10px rgba(0, 0, 0, 0.90);
   }
 
   .glass-slider::-webkit-slider-thumb {
     -webkit-appearance: none;
     appearance: none;
-    width: 18px;
-    height: 18px;
-    background: rgba(255, 255, 255, 0.8);
-    cursor: pointer;
+    width: 22px;
+    height: 22px;
     border-radius: 50%;
+    cursor: pointer;
+    /* Metallic sphere: dark base → mid grey → bright top */
+    background:
+      radial-gradient(
+        circle at 38% 32%,
+        rgba(255, 255, 255, 0.92) 0%,
+        rgba(220, 220, 220, 0.72) 20%,
+        rgba(160, 160, 160, 0.55) 45%,
+        rgba(90, 90, 90, 0.80) 72%,
+        rgba(30, 30, 30, 0.95) 100%
+      ),
+      linear-gradient(180deg, #e8e8e8 0%, #b0b0b0 48%, #6a6a6a 100%);
+    border: 1px solid rgba(0, 0, 0, 0.45);
+    box-shadow:
+      /* specular rim */
+      inset 0 2px 3px rgba(255, 255, 255, 0.90),
+      /* inner depth */
+      inset 0 -3px 5px rgba(0, 0, 0, 0.30),
+      /* main drop shadow — gives the "lifted off the track" look */
+      0 4px 8px rgba(0, 0, 0, 0.85),
+      /* soft outer glow */
+      0 1px 2px rgba(0, 0, 0, 0.60),
+      /* thin bright ring */
+      0 0 0 1px rgba(255, 255, 255, 0.10);
+    transition:
+      transform 0.10s ease,
+      box-shadow 0.10s ease;
+    margin-top: -6px; /* keep vertically centred on the taller thumb */
+  }
+
+  /* Firefox base thumb */
+  .glass-slider::-moz-range-thumb {
+    -moz-appearance: none;
+    appearance: none;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    cursor: pointer;
+    background:
+      radial-gradient(
+        circle at 38% 32%,
+        rgba(255, 255, 255, 0.92) 0%,
+        rgba(220, 220, 220, 0.72) 20%,
+        rgba(160, 160, 160, 0.55) 45%,
+        rgba(90, 90, 90, 0.80) 72%,
+        rgba(30, 30, 30, 0.95) 100%
+      ),
+      linear-gradient(180deg, #e8e8e8 0%, #b0b0b0 48%, #6a6a6a 100%);
+    border: 1px solid rgba(0, 0, 0, 0.45);
+    box-shadow:
+      inset 0 2px 3px rgba(255, 255, 255, 0.90),
+      inset 0 -3px 5px rgba(0, 0, 0, 0.30),
+      0 4px 8px rgba(0, 0, 0, 0.85),
+      0 1px 2px rgba(0, 0, 0, 0.60),
+      0 0 0 1px rgba(255, 255, 255, 0.10);
+    transition:
+      transform 0.10s ease,
+      box-shadow 0.10s ease;
   }
 
   #sMeter {
@@ -11501,6 +11847,13 @@ Click again to de-activate"
     width: 50%;
     border: 3px solid #111827;
     padding: 10px;
+  }
+  /* --- Users & Stats wider modals --- */
+  #users-dialog .modal-header,
+  #users-dialog .modal-body,
+  #stats-dialog .modal-header,
+  #stats-dialog .modal-body {
+    width: 75%;
   }
   /* --- Table --- */
   .shortcuts-table {

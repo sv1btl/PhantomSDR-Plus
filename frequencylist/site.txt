@@ -1,4 +1,4 @@
-;         27-Jun-2025 SITE.TXT REFERENCE TABLE
+;         21-Jan-2026 SITE.TXT REFERENCE TABLE
 ;
 ;--+------------------------------+---+-----+------
 ;Co Site Name                      ADM Lati  Longi
@@ -492,6 +492,7 @@ POR Pori                           FIN 61N28 021E35
 POT Potosi                         BOL 19S30 065W50
 PPR Pt au Prince                   HTI 18N34 072W20
 PTA Porto Alegre                   B   30S03 051W10
+PTN Putten                         HOL 52N14 005E37
 PTR Putre                          CHL 18S20 069W36
 PTV Porto Velho                    B   08S45 063W54
 PUG Palauig                        PHL 15N28 119E50

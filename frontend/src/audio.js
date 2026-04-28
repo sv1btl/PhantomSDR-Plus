@@ -368,6 +368,33 @@ export default class SpectrumAudio {
     this.dBPower = -130;
     this._dBQueue = [];
     this.ctcss = false
+    this.ctcssToneHz = null;          // null => accept any valid CTCSS tone
+    this.ctcssMute = false;           // true while tone squelch should hold audio closed
+    this._ctcssEnabled = false;
+    this._ctcssDetectThreshold = 0.20;  // confidence = bestPower/sumSq; real tones >> 0.5, noise << 0.05
+    this._ctcssNeighborReject = 2.5;    // separation vs secondPower; at N=4096 legit seps are >> 10
+    this._ctcssMinRms = 0.008;          // raised from 0.003; filters sub-threshold noise frames early
+    this._ctcssHoldMs = 220;
+    this._ctcssLastOpenMs = 0;
+    this._ctcssDetectedToneHz = null;
+    this._ctcssDetectBuffer = new Float32Array(4096); // 341 ms @ 12 kHz — 2.93 Hz/bin resolves all CTCSS pairs
+    this._ctcssDetectFill = 0;
+    this._ctcssHpState = 0;
+    this._ctcssHpPrevIn = 0;
+    this._ctcssLpState = 0;
+    // Consecutive-detection gate: gate opens only after this many back-to-back
+    // window detections (~openCount x 341 ms). A single spurious window
+    // (noise spike, brief interference) cannot open the squelch.
+    this._ctcssConsecutive = 0;
+    this._ctcssOpenCount   = 3;         // ~1 s of sustained tone required
+    this._ctcssStdTones = [
+      67.0, 71.9, 74.4, 77.0, 79.7, 82.5, 85.4, 88.5, 91.5, 94.8,
+      97.4, 100.0, 103.5, 107.2, 110.9, 114.8, 118.8, 123.0, 127.3,
+      131.8, 136.5, 141.3, 146.2, 151.4, 156.7, 159.8, 162.2, 165.5,
+      167.9, 171.3, 173.8, 177.3, 179.9, 183.5, 186.2, 189.9, 192.8,
+      196.6, 199.5, 203.5, 206.5, 210.7, 218.1, 225.7, 229.1, 233.6,
+      241.8, 250.3, 254.1
+    ];
     
     // Spectrogram integration
     this.spectrogramCallback = null
@@ -418,10 +445,20 @@ export default class SpectrumAudio {
     
     // Remove the element with id startaudio from the DOM
 
-    // AGC state variables
+    // Frontend audio-level control state (playback-only; backend AGC stays in charge)
     this.agcGain = 1;
     this.agcEnvelope = 0;
-    this.agcLookaheadBuffer = [];    
+    this.agcLookaheadBuffer = [];
+    this.userGain = 1.0;
+    this.audioLevelGain = 1.0;
+    this.audioLevelEnabled = true;
+    this.audioLevelMode = 0;   // 0=Auto/Bypass, 1=Fast, 2=Smooth, 3=Adaptive
+    this.audioLevelRms = 0.0;
+    this.audioLevelPeak = 0.0;
+    this.audioLevelTarget = 0.22;
+    this.audioLevelMaxBoost = 1.8;
+    this.audioLevelAttack = 0.10;
+    this.audioLevelRelease = 0.03;
 
     // Noise blanker parameters. Profile 1: Maximum Quality (recommended for strong signals)
     this.nbEnabled = false;
@@ -680,147 +717,208 @@ async init() {
   }
 
     applyAGC(pcmArray) {
-
-    const sr = this.audioOutputSps || 12000;
-
-    // Time constants (setAGC() controls these base values)
-    const attackCoeff  = Math.exp(-1 / (this.agcAttackTime  * sr));
-    const releaseCoeff = Math.exp(-1 / (this.agcReleaseTime * sr));
-    const lookaheadSamples = Math.floor(this.agcLookaheadTime * sr);
-
-    const processedArray = new Float32Array(pcmArray.length);
-
-    // Ensure the lookahead buffer is long enough
-    while (this.agcLookaheadBuffer.length < lookaheadSamples) {
-      this.agcLookaheadBuffer.push(0);
-    }
-
-    // Additional state for a hybrid peak/RMS detector
-    if (this.agcPeak === undefined) this.agcPeak = 0;
-    if (this.agcRms === undefined) this.agcRms = 0;
-
-    for (let i = 0; i < pcmArray.length; i++) {
-      // Push into lookahead buffer and pull the delayed sample
-      this.agcLookaheadBuffer.push(pcmArray[i]);
-      const sample = this.agcLookaheadBuffer.shift() ?? 0;
-
-      const absSample = Math.abs(sample);
-
-      // Fast peak envelope
-      const peakAttack = 0.5; // relatively quick (~ms range once scaled)
-      this.agcPeak = Math.max(
-        absSample,
-        this.agcPeak + (absSample - this.agcPeak) * peakAttack
-      );
-
-      // Slower RMS envelope
-      const rmsCoeff = 0.01;
-      const rmsSq =
-        this.agcRms * this.agcRms +
-        (sample * sample - this.agcRms * this.agcRms) * rmsCoeff;
-      this.agcRms = Math.sqrt(Math.max(rmsSq, 0));
-
-      // Hybrid detector: mostly peak, some RMS
-      const detector = 0.7 * this.agcPeak + 0.3 * this.agcRms;
-
-      // Desired gain to reach target level
-      const eps = 1e-6;
-      const desiredGainRaw = this.agcTargetLevel / (detector + eps);
-      const desiredGain = Math.min(desiredGainRaw, this.agcMaxGain);
-
-      // Different time constants when raising vs lowering gain
-      const coeff = desiredGain > this.agcGain ? attackCoeff : releaseCoeff;
-      this.agcGain += (desiredGain - this.agcGain) * coeff;
-
-      // Apply gain
-      let out = sample * this.agcGain;
-
-      // Simple limiter to avoid clipping
-      if (out > 0.95) out = 0.95;
-      else if (out < -0.95) out = -0.95;
-
-      processedArray[i] = out;
-    }
-
-    return processedArray;
+    // Frontend sample-domain AGC is intentionally disabled.
+    // Backend AGC should be the only real AGC in the chain.
+    return pcmArray;
   }
 
+  _resetAudioLevelControl() {
+    this.audioLevelGain = 1.0;
+    this.audioLevelRms = 0.0;
+    this.audioLevelPeak = 0.0;
+    this.agcGain = 1.0;
+    this.agcEnvelope = 0.0;
+    this.agcLookaheadBuffer = [];
+    this._applyOutputGain();
+  }
 
-   // AGC parameters
+  _applyOutputGain() {
+    const finalGain = Math.max(0, (this.userGain ?? 1.0) * (this.audioLevelEnabled ? (this.audioLevelGain ?? 1.0) : 1.0));
+    this.gain = finalGain;
+    if (this.gainNode) {
+      const now = this.audioCtx ? this.audioCtx.currentTime : 0;
+      try {
+        this.gainNode.gain.cancelScheduledValues(now);
+        this.gainNode.gain.setTargetAtTime(finalGain, now, 0.010);
+      } catch (_) {
+        this.gainNode.gain.value = finalGain;
+      }
+    }
+  }
+
+  _configureAudioLevelMode(mode) {
+    this.audioLevelMode = mode;
+    this.audioLevelHoldCounter = 0;
+    this.audioLevelDetectorFast = 0.0;
+    this.audioLevelDetectorSlow = 0.0;
+
+    switch (mode) {
+      case 1: // Fast → Very Fast AGC
+          this.audioLevelEnabled    = true;
+          this.audioLevelTarget     = 0.40;   // ← same
+          this.audioLevelMinGain    = 0.68;   // ← same
+          this.audioLevelMaxBoost   = 1.55;   // ← same
+          this.audioLevelAttack     = 0.65;   // was 0.34 — slams gain down instantly
+          this.audioLevelRelease    = 0.20;   // was 0.085 — recovers in ~5 frames
+          this.audioLevelHoldFrames = 1;      // same — no hold, hair-trigger
+          this.audioLevelPeakWeight = 0.78;   // ← same
+          this.audioLevelFastCoeff  = 0.32;   // was 0.18 — envelope tracks peaks very quickly
+          this.audioLevelSlowCoeff  = 0.065;  // was 0.040 — floor tracker also snappier
+          break;
+
+      case 2: // Smooth → Very Slow AGC
+          this.audioLevelEnabled    = true;
+          this.audioLevelTarget     = 0.40;   // ← same
+          this.audioLevelMinGain    = 0.68;   // ← same
+          this.audioLevelMaxBoost   = 1.55;   // ← same
+          this.audioLevelAttack     = 0.018;  // was 0.050 — barely reacts to peaks
+          this.audioLevelRelease    = 0.005;  // was 0.012 — very slow gain recovery
+          this.audioLevelHoldFrames = 55;     // was 20  — long freeze before any release
+          this.audioLevelPeakWeight = 0.78;   // ← same
+          this.audioLevelFastCoeff  = 0.07;   // was 0.18 — sluggish envelope follower
+          this.audioLevelSlowCoeff  = 0.014;  // was 0.040 — floor barely drifts
+          break;
+
+      case 3: // Adaptive → Medium AGC
+          this.audioLevelEnabled    = true;
+          this.audioLevelTarget     = 0.40;   // ← same
+          this.audioLevelMinGain    = 0.68;   // ← same
+          this.audioLevelMaxBoost   = 1.55;   // ← same
+          this.audioLevelAttack     = 0.13;   // unchanged — balanced response
+          this.audioLevelRelease    = 0.028;  // was 0.026 — negligible tweak
+          this.audioLevelHoldFrames = 10;     // unchanged
+          this.audioLevelPeakWeight = 0.78;   // ← same
+          this.audioLevelFastCoeff  = 0.18;   // unchanged
+          this.audioLevelSlowCoeff  = 0.040;  // unchanged
+          break;
+
+      case 0: // Auto = bypass frontend audio-level
+      default:
+        this.audioLevelEnabled = false;
+        this.audioLevelTarget = 0.20;
+        this.audioLevelMinGain = 1.0;
+        this.audioLevelMaxBoost = 1.0;
+        this.audioLevelAttack = 0.0;
+        this.audioLevelRelease = 0.0;
+        this.audioLevelHoldFrames = 0;
+        this.audioLevelPeakWeight = 0.0;
+        this.audioLevelFastCoeff = 0.0;
+        this.audioLevelSlowCoeff = 0.0;
+        break;
+    }
+  }
+
+  _updateAudioLevelControl(pcmArray) {
+    if (!this.audioLevelEnabled || !pcmArray || !pcmArray.length) {
+      if (!this.audioLevelEnabled && this.audioLevelGain !== 1.0) {
+        this.audioLevelGain = 1.0;
+        this._applyOutputGain();
+      }
+      return;
+    }
+
+    let sumSq = 0.0;
+    let peak = 0.0;
+    for (let i = 0; i < pcmArray.length; i++) {
+      const s = pcmArray[i];
+      const a = Math.abs(s);
+      sumSq += s * s;
+      if (a > peak) peak = a;
+    }
+
+    const rms = Math.sqrt(sumSq / pcmArray.length);
+    this.audioLevelRms = rms;
+    this.audioLevelPeak = peak;
+
+    const fastCoeff = this.audioLevelFastCoeff ?? 0.12;
+    const slowCoeff = this.audioLevelSlowCoeff ?? 0.03;
+    this.audioLevelDetectorFast += (rms - this.audioLevelDetectorFast) * fastCoeff;
+    this.audioLevelDetectorSlow += (rms - this.audioLevelDetectorSlow) * slowCoeff;
+
+    let detector = Math.max(
+      (this.audioLevelDetectorFast * (1.0 - (this.audioLevelPeakWeight ?? 0.75))) + (peak * (this.audioLevelPeakWeight ?? 0.75)),
+      this.audioLevelDetectorSlow * 0.85,
+      1e-4
+    );
+
+    let target = this.audioLevelTarget;
+    let minGain = this.audioLevelMinGain ?? 0.65;
+    let maxBoost = this.audioLevelMaxBoost;
+    let attack = this.audioLevelAttack;
+    let release = this.audioLevelRelease;
+    let holdFrames = this.audioLevelHoldFrames ?? 0;
+
+    if (this.audioLevelMode === 3) {
+      const crest = peak / Math.max(rms, 1e-4);
+      const levelVsSlow = this.audioLevelDetectorFast / Math.max(this.audioLevelDetectorSlow, 1e-4);
+
+      // Keep the same nominal loudness as Fast/Smooth.
+      // Adaptive only changes reaction timing, not the steady-state gain law.
+      if (crest > 3.2) {
+        detector = Math.max(detector, peak * 1.03);
+        attack = 0.26;
+        release = 0.060;
+        holdFrames = 2;
+      } else if (rms < 0.05) {
+        detector = Math.max(detector, this.audioLevelDetectorSlow * 0.98);
+        attack = 0.060;
+        release = 0.012;
+        holdFrames = 8;
+      } else if (levelVsSlow > 1.35) {
+        attack = 0.18;
+        release = 0.040;
+        holdFrames = 3;
+      } else {
+        attack = 0.10;
+        release = 0.020;
+        holdFrames = 6;
+      }
+    }
+
+    let desired = Math.min(maxBoost, Math.max(minGain, target / detector));
+
+    if (desired < this.audioLevelGain) {
+      this.audioLevelHoldCounter = holdFrames;
+      this.audioLevelGain += (desired - this.audioLevelGain) * attack;
+    } else {
+      if ((this.audioLevelHoldCounter ?? 0) > 0) {
+        this.audioLevelHoldCounter--;
+        desired = this.audioLevelGain;
+      } else {
+        this.audioLevelGain += (desired - this.audioLevelGain) * release;
+      }
+    }
+
+    this.audioLevelGain = Math.min(maxBoost, Math.max(minGain, this.audioLevelGain));
+    this._applyOutputGain();
+  }
+
+   // Frontend audio-level parameters (backend AGC remains enabled)
 
 setAGC(newAGCSpeed) {
-  // Always start with baseline gain and enable AGC
-  this.setGain(392); // was 50
-  this.agcEnabled = true;
-
-  switch (newAGCSpeed) {
-
-    case 0: // AGC Auto (adaptive, moderate)
-      // Automatically balances responsiveness and smoothness
-      this.agcAttackTime = 0.03;       // 30 ms: reacts quickly to rising signals
-      this.agcReleaseTime = 0.50;      // 300 ms: gentle recovery to avoid pumping
-      this.agcLookaheadTime = 0.05;    // 50 ms: lookahead for peak anticipation
-      this.agcTargetLevel = 0.9;       // Target around -1 dBFS
-      this.agcMaxGain = 6;             // Allow up to 6× gain
-      this.smoothMaxgain(0.9);         // Slight smoothing for steady gain
-      break;
-
-    case 1: // AGC Speed Fast
-      // Ideal for speech or CW signals where rapid response is needed
-      this.agcAttackTime = 0.005;      // 5 ms: very quick attack for transients
-      this.agcReleaseTime = 0.2;      // 50 ms: quick recovery to new levels
-      this.agcLookaheadTime = 0.02;    // 20 ms: short lookahead to catch peaks
-      this.agcTargetLevel = 0.75;      // Slightly lower target (-2.5 dBFS)
-      this.agcMaxGain = 6;             // Moderate gain limit to avoid overshoot
-      this.smoothMaxgain(0.7);         // Faster smoothing for agility
-      break;
-
-    case 2: // AGC Speed Medium
-      // Balanced mode: good for general music and broadcast audio
-      this.agcAttackTime = 0.02;       // 20 ms: natural attack
-      this.agcReleaseTime = 1.5;       // 1000 ms: slower release to maintain warmth
-      this.agcLookaheadTime = 0.08;    // 80 ms: moderate lookahead
-      this.agcTargetLevel = 1.0;       // Nominal unity (0 dBFS target)
-      this.agcMaxGain = 6;             // Up to 6× gain
-      this.smoothMaxgain(1.0);         // Balanced smoothing factor
-      break;
-
-    case 3: // AGC Speed Slow
-      // Smooth long-term leveling, ideal for wide dynamic range (music, AM/FM)
-      this.agcAttackTime = 0.1;        // 100 ms: slow attack to preserve transients
-      this.agcReleaseTime = 2.5;       // 2.0 s: long release for stable dynamics
-      this.agcLookaheadTime = 0.12;    // 120 ms: slightly longer lookahead
-      this.agcTargetLevel = 1.1;       // Slightly boosted target
-      this.agcMaxGain = 6;             // More headroom for quiet passages
-      this.smoothMaxgain(1.3);         // Slower gain smoothing
-      break;
-
-    case 4: // AGC Off
-      // Manual gain mode: disable AGC entirely
-      this.agcEnabled = false;
-      this.mute = false;
-      this.setGain(392);
-      break;
-
-    default:
-      console.warn("Unknown AGC speed mode: " + newAGCSpeed);
-      break;
+  if (typeof this.decoder?.set_agc_enable === 'function') {
+    this.decoder.set_agc_enable(true);
   }
 
-  console.log("AGC Enabled = " + this.agcEnabled + " | AGC Speed = " + newAGCSpeed);
+  this.mute = false;
+  this._configureAudioLevelMode(newAGCSpeed);
+  this._resetAudioLevelControl();
+
+  const modeNames = {
+    0: 'Audio Level Auto (Bypass)',
+    1: 'Audio Level Fast (Strong Ride)',
+    2: 'Audio Level Smooth (Gentle Ride)',
+    3: 'Audio Level Adaptive (Program Dependent)'
+  };
+
+  console.log('Backend AGC ENABLED | Frontend mode = ' + (modeNames[newAGCSpeed] || ('Unknown ' + newAGCSpeed)));
 }
 
   smoothMaxgain(maxgain) {
-    // FIX: the previous implementation looped 20001 times, ignored the
-    // `maxgain` parameter entirely, and called setGain(50) exactly once on
-    // the very last iteration — every AGC preset got the same result.
-    // Simply apply the requested maxgain to the gain node.
-    if (this.gainNode) {
-      this.setGain(maxgain * 30); // setGain divides by 30 internally
-    }
-    this.agcMaxGain = maxgain;
+    // Legacy helper kept for compatibility. It now only limits
+    // frontend playback-level boost instead of enabling sample AGC.
+    this.audioLevelMaxBoost = Math.max(1.0, Number(maxgain) || 1.0);
   }
-
 
 
   _initAccumulators() {
@@ -1111,32 +1209,36 @@ setAGC(newAGCSpeed) {
       case 'aggressive':
         alphaEnv = 0.0025;          // faster open (prevents clipped consonants)
         alphaNoiseFloor = 0.00008;
-        openFactor = 1.70;          // opens easier
-        closeFactor = 3.50;         // closes gentler
+        // FIX: openFactor/closeFactor were swapped in all presets — see comment below.
+        // Correct invariant: openFactor (HIGH) > closeFactor (LOW).
+        // Gate opens when ratio > openFactor, closes when ratio < closeFactor.
+        // Dead zone [closeFactor, openFactor] prevents chattering.
+        openFactor = 3.50;          // HIGH — opens only on clear signal
+        closeFactor = 1.70;         // LOW  — stays open through normal fades
         floorGain = 0.38;           // avoids black-hole silence
         break;
 
       case 'weak-signal':
         alphaEnv = 0.0022;
         alphaNoiseFloor = 0.00007;
-        openFactor = 1.60;
-        closeFactor = 3.40;
+        openFactor = 3.40;          // FIX: was 1.60 (swapped)
+        closeFactor = 1.60;         // FIX: was 3.40 (swapped)
         floorGain = 0.52;
         break;
 
       case 'smooth':
         alphaEnv = 0.0020;
         alphaNoiseFloor = 0.00006;
-        openFactor = 1.75;
-        closeFactor = 3.60;
+        openFactor = 3.60;          // FIX: was 1.75 (swapped)
+        closeFactor = 1.75;         // FIX: was 3.60 (swapped)
         floorGain = 0.55;
         break;
 
       case 'maximum':
         alphaEnv = 0.0028;
         alphaNoiseFloor = 0.00008;
-        openFactor = 1.65;
-        closeFactor = 3.45;
+        openFactor = 3.45;          // FIX: was 1.65 (swapped)
+        closeFactor = 1.65;         // FIX: was 3.45 (swapped)
         floorGain = 0.32;
         break;
 
@@ -1144,8 +1246,8 @@ setAGC(newAGCSpeed) {
         // CW needs a bit more “shape”, but still avoid clicky gating
         alphaEnv = 0.0035;
         alphaNoiseFloor = 0.00010;
-        openFactor = 1.65;
-        closeFactor = 3.30;
+        openFactor = 3.30;          // FIX: was 1.65 (swapped)
+        closeFactor = 1.65;         // FIX: was 3.30 (swapped)
         floorGain = 0.35;
         break;
 
@@ -1153,8 +1255,8 @@ setAGC(newAGCSpeed) {
         // Mostly-open feel; just gentle quieting
         alphaEnv = 0.0020;
         alphaNoiseFloor = 0.00006;
-        openFactor = 2.00;
-        closeFactor = 3.80;
+        openFactor = 3.80;          // FIX: was 2.00 (swapped)
+        closeFactor = 2.00;         // FIX: was 3.80 (swapped)
         floorGain = 0.62;
         break;
 
@@ -1162,8 +1264,8 @@ setAGC(newAGCSpeed) {
       default:
         alphaEnv = 0.0024;
         alphaNoiseFloor = 0.00008;
-        openFactor = 1.70;
-        closeFactor = 3.50;
+        openFactor = 3.50;          // FIX: was 1.70 (swapped)
+        closeFactor = 1.70;         // FIX: was 3.50 (swapped)
         floorGain = 0.45;
       }
 
@@ -1381,6 +1483,8 @@ setAGC(newAGCSpeed) {
     // Gain node
     this.gainNode = new GainNode(this.audioCtx)
     this.setGain(3.5)
+    this._configureAudioLevelMode(this.audioLevelMode || 0)
+    this._resetAudioLevelControl()
 
     // Add MediaStreamDestination node
     this.destinationNode = new MediaStreamAudioDestinationNode(this.audioCtx);
@@ -1399,7 +1503,7 @@ setAGC(newAGCSpeed) {
     // Change ONLY the next line to trim recorded demodulated RADE audio:
     // lower value = quieter recording, higher value = louder recording.
     this.radeGainNode = new GainNode(this.audioCtx)
-    this.radeGainNode.gain.value = 0.30 // <-- TRIM RADE RECORDED AUDIO LEVEL HERE
+    this.radeGainNode.gain.value = 0.20 // <-- TRIM RADE RECORDED AUDIO LEVEL HERE
     this.radeGainNode.connect(this.gainNode)
 
     this.audioInputNode = this.convolverNode
@@ -1439,7 +1543,7 @@ setAGC(newAGCSpeed) {
         this.bandpass.frequency.value = 2400
         this.bandpass.Q.value = 1
         this.bandpass.gain.value = 2
-        this.highPass.frequency.value = this.ctcss ? 300 : 100
+        this.highPass.frequency.value = this.ctcss ? 35 : 100
         this.presenceBoost.gain.value = 3
         this.setLowpass(4800)
         break
@@ -1773,6 +1877,7 @@ setAGC(newAGCSpeed) {
     }
 
     this.demodulation = demodulation
+    this._resetCTCSSState(this._ctcssEnabled && this.demodulation === 'FM');
     // ANF weights trained for one mode can corrupt another — reset on mode switch
     if (this.anfEnabled) this.resetAutoNotch();
     if (demodulation == "CW") {
@@ -1814,10 +1919,202 @@ setAGC(newAGCSpeed) {
     })
   }
 
+
+_resetCTCSSState(closeGate = false) {
+  this._ctcssDetectFill = 0;
+  this._ctcssHpState = 0;
+  this._ctcssHpPrevIn = 0;
+  this._ctcssLpState = 0;
+  this._ctcssLastOpenMs = 0;
+  this._ctcssDetectedToneHz = null;
+  this._ctcssConsecutive = 0;
+  this.ctcssMute = !!closeGate;
+}
+
+_normalizeCTCSSSelection(ctcss) {
+  if (ctcss === false || ctcss === null || typeof ctcss === 'undefined') {
+    return { enabled: false, toneHz: null };
+  }
+  if (ctcss === true) {
+    return { enabled: true, toneHz: null };
+  }
+  if (typeof ctcss === 'number' && isFinite(ctcss) && ctcss > 0) {
+    return { enabled: true, toneHz: ctcss };
+  }
+  if (typeof ctcss === 'string') {
+    const trimmed = ctcss.trim().toLowerCase();
+    if (!trimmed || trimmed === 'off' || trimmed === 'false' || trimmed === 'none') {
+      return { enabled: false, toneHz: null };
+    }
+    if (trimmed === 'on' || trimmed === 'true' || trimmed === 'any') {
+      return { enabled: true, toneHz: null };
+    }
+    const parsed = parseFloat(trimmed);
+    if (isFinite(parsed) && parsed > 0) {
+      return { enabled: true, toneHz: parsed };
+    }
+  }
+  if (typeof ctcss === 'object') {
+    const enabled = ctcss.enabled !== false;
+    const parsed = parseFloat(ctcss.tone ?? ctcss.toneHz ?? ctcss.frequency ?? ctcss.freq);
+    return { enabled, toneHz: (isFinite(parsed) && parsed > 0) ? parsed : null };
+  }
+  return { enabled: !!ctcss, toneHz: null };
+}
+
+_nearestCTCSSTone(targetHz) {
+  if (!(targetHz > 0)) return null;
+  let best = null;
+  let bestErr = Infinity;
+  for (const tone of this._ctcssStdTones) {
+    const err = Math.abs(tone - targetHz);
+    if (err < bestErr) {
+      bestErr = err;
+      best = tone;
+    }
+  }
+  return best;
+}
+
+_goertzelPower(samples, targetHz, sampleRate) {
+  const n = samples.length;
+  if (!n || !(targetHz > 0) || !(sampleRate > 0)) return 0;
+  const omega = (2 * Math.PI * targetHz) / sampleRate;
+  const coeff = 2 * Math.cos(omega);
+  let s0 = 0, s1 = 0, s2 = 0;
+  for (let i = 0; i < n; i++) {
+    s0 = samples[i] + coeff * s1 - s2;
+    s2 = s1;
+    s1 = s0;
+  }
+  return s1 * s1 + s2 * s2 - coeff * s1 * s2;
+}
+
+_analyzeCTCSSWindow(windowSamples, sampleRate) {
+  const n = windowSamples.length;
+  if (!n || !(sampleRate > 0)) return null;
+
+  const prepared = new Float32Array(n);
+  let mean = 0;
+  for (let i = 0; i < n; i++) mean += windowSamples[i];
+  mean /= n;
+
+  let sumSq = 0;
+  for (let i = 0; i < n; i++) {
+    const w = 0.54 - 0.46 * Math.cos((2 * Math.PI * i) / (n - 1));
+    const v = (windowSamples[i] - mean) * w;
+    prepared[i] = v;
+    sumSq += v * v;
+  }
+
+  const rms = Math.sqrt(sumSq / n);
+  if (!(rms > this._ctcssMinRms)) return null;
+
+  const tones = (this.ctcssToneHz && this.ctcssToneHz > 0)
+    ? [this._nearestCTCSSTone(this.ctcssToneHz)].filter(Boolean)
+    : this._ctcssStdTones;
+
+  let bestTone = null;
+  let bestPower = 0;
+  let secondPower = 0;
+
+  for (const tone of tones) {
+    const power = this._goertzelPower(prepared, tone, sampleRate);
+    if (power > bestPower) {
+      secondPower = bestPower;
+      bestPower = power;
+      bestTone = tone;
+    } else if (power > secondPower) {
+      secondPower = power;
+    }
+  }
+
+  if (!bestTone || !(bestPower > 0)) return null;
+
+  // Separation: compare best CTCSS tone against the second-best standard tone.
+  // ±Hz Goertzel neighbor checks are intentionally omitted: at any realistic
+  // window length they fall inside the Hamming mainlobe (half-width ≈ 2 bins)
+  // and produce near-peak power, making the ratio meaningless and suppressing
+  // every valid detection. secondPower is the correct discriminator — it
+  // measures whether a single tone dominates over all other CTCSS candidates.
+  // Requires _ctcssDetectBuffer ≥ 4096 samples so the 2.93 Hz/bin resolution
+  // can actually distinguish adjacent CTCSS pairs (closest gap: 2.4 Hz).
+  const neighborPower = secondPower;
+
+  const confidence = bestPower / Math.max(sumSq, 1e-12);
+  const separation  = bestPower / Math.max(neighborPower, 1e-12);
+  const toneErr = this.ctcssToneHz ? Math.abs(bestTone - this.ctcssToneHz) : 0;
+  const toneTol = this.ctcssToneHz ? Math.max(1.5, this.ctcssToneHz * 0.015) : Infinity;
+
+  if (confidence < this._ctcssDetectThreshold) return null;
+  if (separation < this._ctcssNeighborReject) return null;
+  if (toneErr > toneTol) return null;
+
+  return { toneHz: bestTone, confidence, separation, rms };
+}
+
+_updateCTCSSGate(rawPcm) {
+  if (!this._ctcssEnabled || this.demodulation !== 'FM' || this.channels !== 1) {
+    this.ctcssMute = false;
+    return;
+  }
+
+  if (!(rawPcm && rawPcm.length)) {
+    const now = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+    this.ctcssMute = (now - this._ctcssLastOpenMs) > this._ctcssHoldMs;
+    return;
+  }
+
+  const sampleRate = this.audioOutputSps || this.trueAudioSps || this.audioMaxSps || 12000;
+  const hpCut = 55;
+  const lpCut = 300;
+  const hpAlpha = sampleRate > 0 ? Math.exp(-2 * Math.PI * hpCut / sampleRate) : 0.97;
+  const lpAlpha = sampleRate > 0 ? Math.exp(-2 * Math.PI * lpCut / sampleRate) : 0.85;
+  const detectBuf = this._ctcssDetectBuffer;
+  let fill = this._ctcssDetectFill;
+  let hpState = this._ctcssHpState;
+  let hpPrevIn = this._ctcssHpPrevIn;
+  let lpState = this._ctcssLpState;
+
+  for (let i = 0; i < rawPcm.length; i++) {
+    const x = rawPcm[i];
+    hpState = hpAlpha * (hpState + x - hpPrevIn);
+    hpPrevIn = x;
+    lpState = lpState + (1 - lpAlpha) * (hpState - lpState);
+    detectBuf[fill++] = lpState;
+
+    if (fill >= detectBuf.length) {
+      const result = this._analyzeCTCSSWindow(detectBuf, sampleRate);
+      if (result) {
+        // Require _ctcssOpenCount consecutive detections before opening the gate.
+        // Prevents a single noise window from briefly unmuting the speaker.
+        this._ctcssConsecutive = (this._ctcssConsecutive || 0) + 1;
+        if (this._ctcssConsecutive >= this._ctcssOpenCount) {
+          const now = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+          this._ctcssLastOpenMs = now;
+          this._ctcssDetectedToneHz = result.toneHz;
+        }
+      } else {
+        // Miss: reset streak. One failed window re-arms the false-positive guard.
+        this._ctcssConsecutive = 0;
+      }
+      fill = 0;
+    }
+  }
+
+  this._ctcssDetectFill = fill;
+  this._ctcssHpState = hpState;
+  this._ctcssHpPrevIn = hpPrevIn;
+  this._ctcssLpState = lpState;
+
+  const now = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+  this.ctcssMute = (now - this._ctcssLastOpenMs) > this._ctcssHoldMs;
+}
+
   setGain(gain) {
     gain /= 30;
-    this.gain = gain
-    this.gainNode.gain.value = gain
+    this.userGain = gain;
+    this._applyOutputGain();
   }
 
   setMute(mute) {
@@ -1832,7 +2129,11 @@ setAGC(newAGCSpeed) {
   }
 
   setCTCSSFilter(ctcss) {
-    this.ctcss = ctcss;
+    const normalized = this._normalizeCTCSSSelection(ctcss);
+    this.ctcss = normalized.enabled;
+    this._ctcssEnabled = normalized.enabled;
+    this.ctcssToneHz = normalized.toneHz;
+    this._resetCTCSSState(normalized.enabled && this.demodulation === 'FM');
     this.updateFilters();
   }
 
@@ -2338,8 +2639,12 @@ async stopFT4Collection() {
       } catch(e) { console.error('[RADE] feed error', e); }
     }
 
+    // Real FM CTCSS tone-squelch:
+    // keep speaker audio closed until a valid subtone is detected.
+    this._updateCTCSSGate(rawPcm);
+
     // Speaker-audio gate starts here. Decoder feeds above must still run.
-    if (this.mute || (this.squelchMute && this.squelch)) {
+    if (this.mute || (this.squelchMute && this.squelch) || this.ctcssMute) {
       return
     }
     if (this.audioCtx.state !== 'running') {
@@ -2394,6 +2699,7 @@ async stopFT4Collection() {
         out[i * 2 + 1] = Rp[i]
       }
       pcmArray = out
+      this._updateAudioLevelControl(pcmArray)
 
     } else {
       // Mono path — full processing as before
@@ -2402,9 +2708,7 @@ async stopFT4Collection() {
         pcmArray = this.applyAutoNotch(pcmArray, false);
       }
       pcmArray = this.applyNoiseCancel(pcmArray);
-      if (this.agcEnabled) {
-        pcmArray = this.applyAGC(pcmArray);
-      }
+      this._updateAudioLevelControl(pcmArray);
     }
 
     // Feed PCM data to spectrogram (after all audio processing)
@@ -3281,8 +3585,7 @@ async stopFT4Collection() {
 
   /** Enable / disable automatic sync-pulse line alignment. */
   setFAXAutoAlign(enabled) {
-    this._faxAutoAlign = !!enabled;
-    this._faxDarkCount = 0;
+    this._faxUsePhasing = !!enabled;
   }
 
   // ── Internal state reset ─────────────────────────────────────────────────────
@@ -3428,20 +3731,28 @@ async stopFT4Collection() {
       energy += v * v;
     }
     const rms = Math.sqrt(energy / Math.max(1, bufferLen)) + 1e-9;
-    const startDet = this._faxFourierTransformSub(centered, sampsPerLine, bufferLen, this._faxStartTone) / bufferLen;
-    const stopDet  = this._faxFourierTransformSub(centered, sampsPerLine, bufferLen, this._faxStopToneHz) / bufferLen;
+    // Use a 1/4-line DFT window instead of the full line.
+    // The full 6000-sample window has 2 Hz bin resolution; Opus codec phase
+    // perturbations shift the FM-discriminated pixel tone by ~1–3 Hz, causing
+    // sinc() attenuation that drops startRatio below the detection threshold
+    // (FLAC is lossless so its tone lands exactly on the bin and is fine).
+    // A 1500-sample window widens each bin to 8 Hz, so a ±4 Hz offset causes
+    // only ~2% attenuation (sinc(0.15) ≈ 0.977) instead of ~50%.
+    // Normalised amplitude A/2 and the startRatio formula are unchanged;
+    // false-positive immunity is preserved (random image content ≈ 0.018).
+    const detLen = Math.max(512, Math.floor(bufferLen / 4));
+    const startDet = this._faxFourierTransformSub(centered, sampsPerLine, detLen, this._faxStartTone) / detLen;
+    const stopDet  = this._faxFourierTransformSub(centered, sampsPerLine, detLen, this._faxStopToneHz) / detLen;
     const startRatio = startDet / rms;
     const stopRatio  = stopDet / rms;
 
     // Threshold derivation: for a perfect 300 Hz square wave (0/255 pixels),
     // startRatio = 4/(π√2) ≈ 0.637.  For a sinusoidal tone it is 1/√2 ≈ 0.707.
-    // The old value of 0.90 exceeds the theoretical maximum for any real-valued
-    // periodic signal, so START/STOP were never detected and phasing alignment
-    // (the skip that removes diagonal shear) was never applied.
-    // 0.40 sits well above image-content noise (≈0.05–0.15) while reliably
-    // catching real phasing tones even under moderate HF noise conditions.
-    if (startRatio > 0.40 && startDet > 12) return 'START';
-    if (stopRatio  > 0.40 && stopDet  > 12) return 'STOP';
+    // Lowered from 0.40 to 0.30 to account for the small residual attenuation
+    // from the shorter window under noisy HF conditions, while remaining well
+    // above image-content noise (≈0.05–0.15).
+    if (startRatio > 0.30 && startDet > 12) return 'START';
+    if (stopRatio  > 0.30 && stopDet  > 12) return 'STOP';
     return 'IMAGE';
   }
 

@@ -1,4 +1,4 @@
-#include <complex.h>
+#include <complex>
 
 #include "fft.h"
 #include "signal.h"
@@ -11,6 +11,8 @@
 #include <iostream>
 #include <unordered_map>
 #include <cmath>
+#include <curl/curl.h>
+#include <nlohmann/json.hpp>
 
 // ---- Synchronous AM (SAM) product detector with simple PI-PLL ----
 namespace {
@@ -20,24 +22,23 @@ struct SAM_PLL {
     double dtheta = 0.0;    // nominal freq offset (rad/sample), keep at 0 for centered carrier
     double ki = 0.0, kp = 0.0;
     double acc = 0.0;       // integrator
-    
-    // FIXED: Separate DC blocker state for each channel
-    float xm1_L = 0.0f, ym1_L = 0.0f;      // Left channel
-    float xm1_R = 0.0f, ym1_R = 0.0f;      // Right channel
+
+    // Separate DC blocker state for each channel
+    float xm1_L = 0.0f, ym1_L = 0.0f;       // Left channel
+    float xm1_R = 0.0f, ym1_R = 0.0f;       // Right channel
     float xm1_mono = 0.0f, ym1_mono = 0.0f; // Mono (legacy SAM)
-    
-    double dc_a_mono = 0.999;   // Gentler for natural bass (was 0.995)
-    double dc_a_stereo = 0.999; // Even gentler for stereo imaging (was 0.995)
-    double dc_a = 0.997;        // Current active coefficient
-    
+
+    double dc_a_mono   = 0.999; // Gentler for natural bass
+    double dc_a_stereo = 0.999; // Even gentler for stereo imaging
+    double dc_a        = 0.997; // Current active coefficient
+
     // Signal magnitude tracking for normalization
-    float mag_avg = 1.0f;
-    float mag_alpha = 0.01f;  // Responsive tracking (was 0.003, too slow)
+    float mag_avg   = 1.0f;
+    float mag_alpha = 0.01f; // Responsive tracking
 
     void setup(double sample_rate, double loop_bw_hz = 50.0) {
         fs = sample_rate > 1.0 ? sample_rate : 48000.0;
-        // convert loop bandwidth to discrete PI gains
-        // Using damping factor of 0.707 (critically damped)
+        // Convert loop bandwidth to discrete PI gains (damping factor 0.707)
         const double damping = 0.707;
         const double wn = 2.0 * M_PI * loop_bw_hz / fs;
         kp = 2.0 * damping * wn;
@@ -50,12 +51,10 @@ struct SAM_PLL {
         mag_avg = 1.0f;
     }
 
-    inline float wrap(float a) {
-        while (a >  M_PI) a -= 2.0f * M_PI;
-        while (a <= -M_PI) a += 2.0f * M_PI;
-        return a;
-    }
-    
+    // FIX: wrap() was defined here but never called — step() and step_cquam()
+    // both do inline phase wrapping with if-statements.  The dead function
+    // produced a -Wunused-function warning and has been removed.
+
     // Set stereo mode (switches DC blocker coefficient)
     inline void set_stereo_mode(bool stereo) {
         dc_a = stereo ? dc_a_stereo : dc_a_mono;
@@ -64,21 +63,21 @@ struct SAM_PLL {
     // Separate DC blocking functions for each channel
     inline float dcblock_L(float x) {
         float y = x - xm1_L + (float)dc_a * ym1_L;
-        xm1_L = x; 
+        xm1_L = x;
         ym1_L = y;
         return y;
     }
-    
+
     inline float dcblock_R(float x) {
         float y = x - xm1_R + (float)dc_a * ym1_R;
-        xm1_R = x; 
+        xm1_R = x;
         ym1_R = y;
         return y;
     }
-    
+
     inline float dcblock_mono(float x) {
         float y = x - xm1_mono + (float)dc_a * ym1_mono;
-        xm1_mono = x; 
+        xm1_mono = x;
         ym1_mono = y;
         return y;
     }
@@ -87,10 +86,10 @@ struct SAM_PLL {
     inline float step(float I, float Q) {
         // Track signal magnitude for normalization
         float mag = sqrtf(I * I + Q * Q);
-        if (mag > 0.0001f) {  // avoid division by zero
+        if (mag > 0.0001f) {
             mag_avg = mag_avg * (1.0f - mag_alpha) + mag * mag_alpha;
         }
-        
+
         // Normalize input to help phase detector
         float norm_factor = (mag_avg > 0.0001f) ? (1.0f / mag_avg) : 1.0f;
         I *= norm_factor;
@@ -102,25 +101,33 @@ struct SAM_PLL {
         float Ir =  I * c + Q * s;
         float Qr = -I * s + Q * c;
 
-        // Phase detector - use atan2 for better acquisition over wide range
+        // Phase detector — atan2 for robust acquisition over wide range
         float e = atan2f(Qr, Ir);
-        
-        // Alternative: For locked condition, Qr alone works better
-        // float e = Qr;
 
         // PI loop filter
         acc += ki * e;
+
+        // FIX: Anti-windup clamp on integrator.
+        // step_cquam() already clamps acc to ±π/4 with an explicit comment
+        // explaining why (prevents wind-up and sudden phase jumps / stuttering).
+        // The identical mono step() was missing this clamp, allowing the
+        // integrator to drift without bound on a sustained off-frequency signal,
+        // causing slow or failed phase re-acquisition.
+        const double max_acc = M_PI / 4.0;
+        if (acc >  max_acc) acc =  max_acc;
+        if (acc < -max_acc) acc = -max_acc;
+
         double u = kp * e + acc;
 
         // Advance NCO with loop correction
         theta += dtheta + u;
-        
+
         // Wrap phase to [-π, π]
         if (theta >  M_PI) theta -= 2.0 * M_PI;
         if (theta <= -M_PI) theta += 2.0 * M_PI;
 
-        // Return the in-phase component (demodulated audio) with DC blocking
-        // Scale back by magnitude for proper amplitude
+        // Return the in-phase component (demodulated audio) with DC blocking.
+        // Scale back by magnitude for proper amplitude.
         return dcblock_mono(Ir * mag_avg);
     }
 
@@ -149,8 +156,8 @@ struct SAM_PLL {
         // PI loop filter with anti-windup
         acc += ki * e;
         // Clamp integrator to prevent wind-up and sudden phase jumps (stuttering)
-        const double max_acc = M_PI / 4.0;  // Limit integrator to ±45 degrees
-        if (acc > max_acc) acc = max_acc;
+        const double max_acc = M_PI / 4.0;
+        if (acc >  max_acc) acc =  max_acc;
         if (acc < -max_acc) acc = -max_acc;
         double u = kp * e + acc;
 
@@ -161,10 +168,10 @@ struct SAM_PLL {
 
         // In C-QUAM, Ir ~ (L+R), Qr ~ (L-R) after proper normalization.
         float sum  = Ir * mag_avg;
-        float diff = -Qr * mag_avg;  // ✅ INVERTED: Fixes rapid gain changes / pumping effect.
-                                      // The quadrature demodulator output (L-R) had opposite
-                                      // polarity, causing L and R to fight each other → volume
-                                      // fluctuations. Inverting restores correct phase relationship.
+        float diff = -Qr * mag_avg; // INVERTED: Fixes rapid gain changes / pumping effect.
+                                    // The quadrature demodulator output (L-R) had opposite
+                                    // polarity, causing L and R to fight each other → volume
+                                    // fluctuations. Inverting restores correct phase relationship.
 
         float L = 0.5f * (sum + diff);
         float R = 0.5f * (sum - diff);
@@ -185,7 +192,7 @@ struct SAM_PLL {
 
 // Keep a per-AudioClient SAM_PLL instance without editing headers
 static std::unordered_map<const void*, std::shared_ptr<SAM_PLL>> g_sam_by_client;
-static std::mutex g_sam_mutex;  // Thread-safe access to prevent crashes on rapid mode switching
+static std::mutex g_sam_mutex; // Thread-safe access to prevent crashes on rapid mode switching
 
 // Helper to get/create SAM for a client pointer.
 // Returns a shared_ptr so the PLL object survives concurrent cleanup_sam()
@@ -199,7 +206,7 @@ static std::shared_ptr<SAM_PLL> get_sam(const void* key, double fs) {
         auto it2 = g_sam_by_client.emplace(key, sam);
         return it2.first->second;
     }
-    // refresh fs if changed
+    // Refresh fs if changed (resets PLL state — acceptable, sample rate changes are rare)
     if (fabs(it->second->fs - fs) > 1.0) {
         it->second->setup(fs, 50.0);
     }
@@ -208,7 +215,7 @@ static std::shared_ptr<SAM_PLL> get_sam(const void* key, double fs) {
 
 // Cleanup SAM instance for a client
 static void cleanup_sam(const void* key) {
-    std::lock_guard<std::mutex> lock(g_sam_mutex);  // Thread-safe cleanup
+    std::lock_guard<std::mutex> lock(g_sam_mutex);
     g_sam_by_client.erase(key);
 }
 
@@ -233,7 +240,8 @@ static void apply_impulse_blanker_complex(std::complex<float>* buf,
                   static_cast<double>(im) * im;
     }
 
-    if (sum_sq <= 0.0 || len <= 0) {
+    // FIX: Removed redundant `|| len <= 0` — already checked and returned above.
+    if (sum_sq <= 0.0) {
         return;
     }
 
@@ -267,18 +275,121 @@ static void apply_impulse_blanker_complex(std::complex<float>* buf,
     }
 }
 
+// ============================================================================
+// GEO-LOCATION LOOKUP — async, one call per user connection
+// Uses ip-api.com (free, no key, 45 req/min).  Private IPs are short-circuited
+// locally and never sent to any external service.
+// ============================================================================
+namespace {
+
+static size_t geo_write_cb(char *ptr, size_t size, size_t nmemb, void *ud) {
+    static_cast<std::string *>(ud)->append(ptr, size * nmemb);
+    return size * nmemb;
+}
+
+// Convert ISO 3166-1 alpha-2 code → flag emoji (UTF-8).
+// Each regional-indicator letter is U+1F1E6..U+1F1FF.
+static std::string country_flag(const std::string &cc) {
+    if (cc.size() != 2) return "";
+    auto encode4 = [](uint32_t cp) -> std::string {
+        std::string s;
+        s += char(0xF0 | (cp >> 18));
+        s += char(0x80 | ((cp >> 12) & 0x3F));
+        s += char(0x80 | ((cp >> 6)  & 0x3F));
+        s += char(0x80 | ( cp        & 0x3F));
+        return s;
+    };
+    return encode4(0x1F1E6u + uint32_t(std::toupper((unsigned char)cc[0]) - 'A'))
+         + encode4(0x1F1E6u + uint32_t(std::toupper((unsigned char)cc[1]) - 'A'));
+}
+
+// Returns true if the IP is RFC-1918 / loopback / link-local — skip API call.
+// Returns only the IP address from a websocketpp remote_endpoint string.
+// websocketpp::get_remote_endpoint() returns "1.2.3.4:56789" for IPv4
+// and "[::1]:56789" for IPv6 — the port must be stripped before passing
+// the address to ip-api.com or any prefix-based private-IP check.
+static std::string strip_port(const std::string &endpoint) {
+    if (endpoint.empty()) return endpoint;
+    // IPv6 bracketed form: [2001:db8::1]:12345
+    if (endpoint.front() == '[') {
+        const auto close = endpoint.find(']');
+        if (close != std::string::npos)
+            return endpoint.substr(1, close - 1);
+        return endpoint; // malformed — return as-is
+    }
+    // IPv4 (or bare IPv6): strip everything after the last colon that is followed
+    // only by digits (i.e. the port), but leave a bare IPv6 address intact.
+    const auto colon = endpoint.rfind(':');
+    if (colon == std::string::npos) return endpoint;
+    const std::string after = endpoint.substr(colon + 1);
+    const bool all_digits = !after.empty() &&
+        std::all_of(after.begin(), after.end(),
+                    [](unsigned char c){ return std::isdigit(c); });
+    return all_digits ? endpoint.substr(0, colon) : endpoint;
+}
+
+static bool is_private_ip(const std::string &ip) {
+    if (ip.empty() || ip == "127.0.0.1" || ip == "::1") return true;
+    // IPv4 private ranges: 10.x, 172.16-31.x, 192.168.x
+    if (ip.rfind("10.",      0) == 0) return true;
+    if (ip.rfind("192.168.", 0) == 0) return true;
+    if (ip.rfind("169.254.", 0) == 0) return true;
+    if (ip.rfind("172.",     0) == 0) {
+        const auto dot2 = ip.find('.', 4);
+        if (dot2 != std::string::npos) {
+            int second = std::stoi(ip.substr(4, dot2 - 4));
+            if (second >= 16 && second <= 31) return true;
+        }
+    }
+    return false;
+}
+
+// Blocking geo lookup — always called from a detached background thread.
+static std::string lookup_geo(const std::string &ip) {
+    if (is_private_ip(ip)) return "Local";
+
+    CURL *curl = curl_easy_init();
+    if (!curl) return "";
+
+    std::string response;
+    const std::string url =
+        "http://ip-api.com/json/" + ip +
+        "?fields=status,city,country,countryCode";
+
+    curl_easy_setopt(curl, CURLOPT_URL,            url.c_str());
+    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION,  geo_write_cb);
+    curl_easy_setopt(curl, CURLOPT_WRITEDATA,      &response);
+    curl_easy_setopt(curl, CURLOPT_TIMEOUT,        5L);
+    curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT, 3L);
+    curl_easy_setopt(curl, CURLOPT_NOSIGNAL,       1L);
+
+    const CURLcode rc = curl_easy_perform(curl);
+    curl_easy_cleanup(curl);
+
+    if (rc != CURLE_OK || response.empty()) return "";
+
+    try {
+        auto j = nlohmann::json::parse(response);
+        if (j.value("status", "") != "success") return "";
+
+        const std::string city = j.value("city",        "");
+        const std::string cc   = j.value("countryCode", "");
+        const std::string flag = country_flag(cc);
+
+        if (city.empty())
+            return flag + " " + j.value("country", cc);
+        return flag + " " + city + ", " + cc;
+    } catch (...) {
+        return "";
+    }
+}
+
+} // namespace
+
+// monitor_audio_thread_running is declared extern in signal.h;
+// total_audio_bits_sent and audio_kbits_per_second are defined below.
 std::atomic<bool> monitor_audio_thread_running{false};
 std::atomic<size_t> total_audio_bits_sent{0};
-
-namespace {
-struct StereoAgcState {
-    float level = 0.1f;
-    float gain = 1.0f;
-};
-
-std::mutex stereo_agc_state_mtx;
-std::unordered_map<AudioClient*, StereoAgcState> stereo_agc_states;
-}
 std::atomic<double> audio_kbits_per_second{0.0};
 
 void monitor_audio_data_rate() {
@@ -290,7 +401,7 @@ void monitor_audio_data_rate() {
     }
 }
 
-// FIX: Use call_once to eliminate the TOCTOU race where multiple audio threads
+// Use call_once to eliminate the TOCTOU race where multiple audio threads
 // could simultaneously observe !monitor_audio_thread_running and each spawn
 // their own monitor thread, corrupting the kbits statistics.
 static std::once_flag audio_monitor_once_flag;
@@ -327,7 +438,7 @@ AudioClient::AudioClient(connection_hdl hdl,
         encoder->set_sample_rate(audio_rate);
         encoder->set_bits_per_sample(16);
         encoder->configure_flac(FlacMode::Balanced); // sets good compression params + streamable_subset(true)
-        encoder->set_streamable_subset(false);        // ✅ CRITICAL: override AFTER configure_flac!
+        encoder->set_streamable_subset(false);        // CRITICAL: override AFTER configure_flac!
                                                       // configure_flac forces streamable_subset=true which only allows
                                                       // specific power-of-2 blocksizes (256,512,1024...). Our frame size
                                                       // (audio_fft_size/2 ≈ 394) is not valid → libFLAC silently ignores
@@ -337,9 +448,9 @@ AudioClient::AudioClient(connection_hdl hdl,
         this->encoder = std::move(encoder);
     }
 #ifdef HAS_LIBOPUS
-else if (audio_compression == AUDIO_OPUS) {    
-    this->encoder = std::make_unique<OpusAudioEncoder>(hdl, sender, audio_max_sps);
-}
+    else if (audio_compression == AUDIO_OPUS) {
+        this->encoder = std::make_unique<OpusAudioEncoder>(hdl, sender, audio_max_sps);
+    }
 #endif
 
 
@@ -360,19 +471,18 @@ else if (audio_compression == AUDIO_OPUS) {
 
     audio_real.resize(audio_fft_size);
     audio_real_prev.resize(audio_fft_size);
-    // FIX: Explicitly allocate 2x for stereo interleaved use (C-QUAM path
-    // writes [L0,R0,L1,R1,...] so needs audio_fft_size elements, not half).
-    // Previously relied on mono size being coincidentally large enough.
+    // Allocate 2x for stereo interleaved use (C-QUAM path writes
+    // [L0,R0,L1,R1,...] so needs audio_fft_size elements, not half).
     audio_real_int16.resize(audio_fft_size * 2);
 
-    dc = DCBlocker<float>(audio_max_sps / 750 * 2);    
+    dc = DCBlocker<float>(audio_max_sps / 750 * 2);
     ma = MovingAverage<float>(10);
     mm = MovingMode<int>(10);
 
     // Initialize noise gate with default preset (disabled by default)
     noise_gate.set_preset("balanced");
-    noise_gate.set_enabled(false);  // Disabled by default, user must enable
-    
+    noise_gate.set_enabled(false); // Disabled by default, user must enable
+
     // AGC enabled by default for backward compatibility
     agc_enabled = true;
 
@@ -396,9 +506,52 @@ else if (audio_compression == AUDIO_OPUS) {
                                        (fftwf_complex *)audio_fft_input.get(),
                                        audio_real.data(), FFTW_MEASURE);
     }
-    
+
     // C-QUAM AM stereo initialization
     am_stereo = false;
+
+    // --- User-tracking fields ---
+    // ip_from_hdl() returns the raw remote endpoint string, e.g. "82.x.x.x:54321".
+    // Strip the port so ip_address holds a plain IP suitable for display,
+    // private-range checks, and geo API lookups.
+    ip_address   = strip_port(sender.ip_from_hdl(hdl));
+    connected_at = std::chrono::steady_clock::now();
+
+    // Geo lookup — run in background so constructor returns immediately.
+    //
+    // FIX (weak_from_this in constructor): enable_shared_from_this only
+    // registers the internal weak reference AFTER the constructor returns,
+    // so weak_from_this() called here always yields an empty weak_ptr and
+    // weak.lock() always returns null — geo_location was never being written.
+    //
+    // Safe fix: capture shared_ptr copies of the two members that the thread
+    // needs to write.  These shared_ptrs are independent of the AudioClient
+    // lifetime so the write is safe even if the client disconnects before
+    // the HTTP lookup completes (typically 1–3 s).
+    {
+        std::string ip_copy = ip_address;
+        auto geo_loc_ptr   = geo_location_ptr;
+        auto geo_mtx_ptr   = geo_mutex_ptr;
+        std::thread([geo_loc_ptr, geo_mtx_ptr, ip_copy]() {
+            std::string result = lookup_geo(ip_copy);
+            std::lock_guard<std::mutex> lk(*geo_mtx_ptr);
+            *geo_loc_ptr = result;
+        }).detach();
+    }
+}
+
+const char *AudioClient::get_mode_str() const {
+    // FIX: load atomics once so switch/comparisons use a consistent snapshot.
+    const auto demod   = demodulation.load(std::memory_order_relaxed);
+    const auto stereo  = am_stereo.load(std::memory_order_relaxed);
+    if (demod == AM && stereo) return "am-s";
+    switch (demod) {
+        case USB: return "usb";
+        case LSB: return "lsb";
+        case AM:  return "am";
+        case FM:  return "fm";
+        default:  return "iq";
+    }
 }
 
 void AudioClient::set_audio_range(int l, double m, int r) {
@@ -421,23 +574,28 @@ void AudioClient::set_audio_demodulation(demodulation_mode demodulation) {
 }
 
 void AudioClient::set_am_stereo(bool enable) {
-    // If switching away from stereo, cleanup SAM PLL and per-client stereo AGC state
+    // If switching away from stereo, cleanup SAM PLL state
     if (!enable && am_stereo) {
         cleanup_sam(this);
-        std::scoped_lock lk(stereo_agc_state_mtx);
-        stereo_agc_states.erase(this);
     }
 
     am_stereo = enable;
+
+    // Keep backend AGC profile aligned with AM mono vs C-QUAM stereo.
+    if (demodulation == AM) {
+        agc.reset();
+        if (am_stereo) {
+            agc.configureForQUAM();
+        } else {
+            agc.configureForAM();
+        }
+    }
 
     // Only create/reset the SAM PLL when enabling stereo.
     if (enable) {
         auto sam = get_sam(this, audio_rate);
         sam->set_stereo_mode(true);
-        sam->reset();  // clears theta, acc, and internal DC blocker state
-
-        std::scoped_lock lk(stereo_agc_state_mtx);
-        stereo_agc_states[this] = StereoAgcState{};
+        sam->reset(); // clears theta, acc, and internal DC blocker state
     }
 
     // Recreate encoder with correct channel count
@@ -472,17 +630,27 @@ void AudioClient::set_am_stereo(bool enable) {
 
 const std::string &AudioClient::get_unique_id() { return unique_id; }
 
-// Does the demodulation and sends the audio to the client
-// buf is given offseted by l
+// Does the demodulation and sends the audio to the client.
+// buf is given offset by l.
 void AudioClient::send_audio(std::complex<float> *buf, size_t frame_num) {
     try {
+        // FIX (data race / consistency): load the two atomic mode flags once
+        // so every branch within this frame sees the same values.  Without a
+        // snapshot a mode change arriving mid-function could, for example,
+        // make the C-QUAM branch write audio_real_prev as the R-channel buffer
+        // while the quantisation block at the bottom treats it as overlap-add
+        // scratch, producing a corrupted frame.
+        const demodulation_mode demod    = demodulation.load(std::memory_order_relaxed);
+        const bool              stereo   = am_stereo.load(std::memory_order_relaxed);
+        const bool              agc_on   = agc_enabled.load(std::memory_order_relaxed);
+
         const int audio_l = l - l;
         const int audio_r = r - l;
         const int audio_m = floor(audio_mid) - l;
         const int audio_m_idx = floor(audio_mid);
 
         int len = audio_r - audio_l;
-        // If the user request for the raw IQ signal, do not demodulate
+        // If the user requested the raw IQ signal, do not demodulate
         if (type == SIGNAL) {
             sender.send_binary_packet(hdl, buf,
                                       sizeof(std::complex<float>) * len);
@@ -494,8 +662,8 @@ void AudioClient::send_audio(std::complex<float> *buf, size_t frame_num) {
             [](float a, std::complex<float> &b) { return a + std::norm(b); });
 
         // Main demodulation logic for the frequency
-        if (demodulation == USB || demodulation == LSB) {
-            if (demodulation == USB) {
+        if (demod == USB || demod == LSB) {
+            if (demod == USB) {
                 // For USB, just copy the bins to the audio frequencies
                 std::fill(audio_fft_input.get(),
                           audio_fft_input.get() + audio_fft_size, 0.0f);
@@ -509,7 +677,7 @@ void AudioClient::send_audio(std::complex<float> *buf, size_t frame_num) {
                             audio_fft_input.get() + copy_l - audio_m);
                 }
                 fftwf_execute(p_real);
-            } else if (demodulation == LSB) {
+            } else if (demod == LSB) {
                 // For LSB, just copy the inverted bins to the audio frequencies
                 std::fill(audio_fft_input.get(),
                           audio_fft_input.get() + audio_fft_size, 0.0f);
@@ -528,13 +696,13 @@ void AudioClient::send_audio(std::complex<float> *buf, size_t frame_num) {
                 std::reverse(audio_real.begin(), audio_real.end());
             }
             // On every other frame, the audio waveform is inverted due to the
-            // 50% overlap This only happens when downconverting by either even
-            // or odd bins, depending on modulation
-            if (demodulation == USB && frame_num % 2 == 1 &&
+            // 50% overlap. This only happens when downconverting by either even
+            // or odd bins, depending on modulation.
+            if (demod == USB && frame_num % 2 == 1 &&
                 ((audio_m_idx % 2 == 0 && !is_real) ||
                  (audio_m_idx % 2 == 1 && is_real))) {
                 dsp_negate_float(audio_real.data(), audio_fft_size);
-            } else if (demodulation == LSB && frame_num % 2 == 1 &&
+            } else if (demod == LSB && frame_num % 2 == 1 &&
                        ((audio_m_idx % 2 == 0 && !is_real) ||
                         (audio_m_idx % 2 == 1 && is_real))) {
                 dsp_negate_float(audio_real.data(), audio_fft_size);
@@ -543,15 +711,15 @@ void AudioClient::send_audio(std::complex<float> *buf, size_t frame_num) {
             // Overlap and add the audio waveform, due to the 50% overlap
             dsp_add_float(audio_real.data(), audio_real_prev.data(),
                           audio_fft_size / 2);
-        } else if (demodulation == AM || demodulation == FM) {
+        } else if (demod == AM || demod == FM) {
             // For AM/SAM/FM, copy the bins to the complex baseband frequencies
             std::fill(audio_fft_input.get(),
                       audio_fft_input.get() + audio_fft_size, 0.0f);
 
             // Bins are [audio_l, audio_r)
             // Positive IFFT bins are [audio_m, audio_m + audio_fft_size / 2)
-            // Negative IFFT bins are [audio_m - audio_fft_size / 2 + 1,
-            // audio_m) intersect and copy
+            // Negative IFFT bins are [audio_m - audio_fft_size / 2 + 1, audio_m)
+            // intersect and copy
             int pos_copy_l = std::max(audio_l, audio_m);
             int pos_copy_r = std::min(audio_r, audio_m + audio_fft_size / 2);
             if (pos_copy_r >= pos_copy_l) {
@@ -575,7 +743,7 @@ void AudioClient::send_audio(std::complex<float> *buf, size_t frame_num) {
                       audio_complex_baseband.get() + audio_fft_size,
                       audio_complex_baseband_prev.get());
 
-            if (demodulation == AM) {
+            if (demod == AM) {
                 // Carrier reconstruction for envelope detection
                 std::copy(audio_complex_baseband_carrier.get() +
                               audio_fft_size / 2,
@@ -586,7 +754,7 @@ void AudioClient::send_audio(std::complex<float> *buf, size_t frame_num) {
             // Copy the bins to the complex baseband frequencies
             fftwf_execute(p_complex);
 
-            if (demodulation == AM) {
+            if (demod == AM) {
                 // Keep only the low frequencies < 500Hz for carrier estimation
                 int cutoff = 500 * audio_fft_size / audio_rate;
                 std::fill(audio_fft_input.get() + cutoff,
@@ -599,10 +767,10 @@ void AudioClient::send_audio(std::complex<float> *buf, size_t frame_num) {
                                        (audio_m_idx % 2 == 1 && is_real))) {
                 // If the center frequency is even and the frame number is odd,
                 // or if the center frequency is odd and the frame number is
-                // even, then the signal is inverted
+                // even, then the signal is inverted.
                 dsp_negate_complex(audio_complex_baseband.get(),
                                    audio_fft_size);
-                if (demodulation == AM) {
+                if (demod == AM) {
                     dsp_negate_complex(audio_complex_baseband_carrier.get(),
                                        audio_fft_size);
                 }
@@ -616,7 +784,7 @@ void AudioClient::send_audio(std::complex<float> *buf, size_t frame_num) {
             apply_impulse_blanker_complex(audio_complex_baseband.get(),
                                           audio_fft_size / 2);
 
-            if (demodulation == AM) {
+            if (demod == AM) {
                 dsp_add_complex(audio_complex_baseband_carrier.get(),
                                 audio_complex_baseband_carrier_prev.get(),
                                 audio_fft_size / 2);
@@ -627,7 +795,7 @@ void AudioClient::send_audio(std::complex<float> *buf, size_t frame_num) {
 
                 // Synchronous AM demodulation with PLL (SAM / C-QUAM)
                 auto sam = get_sam(this, audio_rate);
-                if (am_stereo) {
+                if (stereo) {
                     // C-QUAM: decode true stereo (L/R)
                     for (int i = 0; i < audio_fft_size / 2; i++) {
                         float L, R;
@@ -636,8 +804,8 @@ void AudioClient::send_audio(std::complex<float> *buf, size_t frame_num) {
                             audio_complex_baseband[i].imag(),
                             L, R
                         );
-                        audio_real[i] = L;
-                        audio_real_prev[i] = R;  // Right (temporary buffer in stereo mode)
+                        audio_real[i]      = L;
+                        audio_real_prev[i] = R; // Right (temporary buffer in stereo mode)
                     }
                 } else {
                     // Standard mono SAM
@@ -648,7 +816,7 @@ void AudioClient::send_audio(std::complex<float> *buf, size_t frame_num) {
                         );
                     }
                 }
-            } else if (demodulation == FM) {
+            } else if (demod == FM) {
                 // Polar discriminator for FM
                 polar_discriminator_fm(audio_complex_baseband.get(), prev,
                                        audio_real.data(), audio_fft_size / 2);
@@ -656,9 +824,9 @@ void AudioClient::send_audio(std::complex<float> *buf, size_t frame_num) {
         }
 
         // Decide output channel count (C-QUAM uses true stereo)
-        const int out_channels = (demodulation == AM && am_stereo) ? 2 : 1;
+        const int out_channels = (demod == AM && stereo) ? 2 : 1;
 
-        if (demodulation == AM && am_stereo) {
+        if (demod == AM && stereo) {
             // ===== C-QUAM STEREO PROCESSING =====
             // At this point: audio_real[i] = L, audio_real_prev[i] = R
 
@@ -667,76 +835,23 @@ void AudioClient::send_audio(std::complex<float> *buf, size_t frame_num) {
             std::vector<float, AlignedAllocator<float>> R_channel(audio_fft_size / 2);
 
             // Copy to separate buffers
-            std::copy(audio_real.begin(), audio_real.begin() + audio_fft_size / 2, L_channel.begin());
+            std::copy(audio_real.begin(),      audio_real.begin()      + audio_fft_size / 2, L_channel.begin());
             std::copy(audio_real_prev.begin(), audio_real_prev.begin() + audio_fft_size / 2, R_channel.begin());
 
             // Optional backend noise gate per channel
             noise_gate.process(L_channel.data(), audio_fft_size / 2);
             noise_gate.process(R_channel.data(), audio_fft_size / 2);
 
-            // Stereo-safe AGC:
-            // derive ONE shared gain from combined L+R level,
-            // then apply the same gain to both channels.
-            if (agc_enabled) {
-                const size_t n = audio_fft_size / 2;
-
-                // Measure combined stereo level
-                float avg_abs = 0.0f;
-                for (size_t i = 0; i < n; ++i) {
-                    avg_abs += 0.5f * (std::fabs(L_channel[i]) + std::fabs(R_channel[i]));
-                }
-                avg_abs /= static_cast<float>(n);
-
-                StereoAgcState state;
-                {
-                    std::scoped_lock lk(stereo_agc_state_mtx);
-                    state = stereo_agc_states[this];
-                }
-
-                // Smooth detector
-                const float level_alpha = 0.02f;
-                state.level += level_alpha * (avg_abs - state.level);
-
-                // Gentle target and limits
-                const float target_level = 0.20f;
-                const float min_gain = 0.25f;
-                const float max_gain = 10.0f;
-
-                float target_gain = 1.0f;
-                if (state.level > 1e-6f) {
-                    target_gain = target_level / state.level;
-                    target_gain = std::clamp(target_gain, min_gain, max_gain);
-                }
-
-                // Fast attack, adaptive release
-                const float attack_alpha       = 0.22f;
-                const float release_alpha_fast = 0.006f;
-                const float release_alpha_slow = 0.003f;
-
-                // When already high in gain, rise more slowly to avoid pumping/noise chasing
-                const bool near_max_gain = (state.gain > max_gain * 0.75f);
-                const float release_alpha = near_max_gain ? release_alpha_slow : release_alpha_fast;
-
-                const float alpha = (target_gain < state.gain) ? attack_alpha : release_alpha;
-                state.gain += alpha * (target_gain - state.gain);
-
-                {
-                    std::scoped_lock lk(stereo_agc_state_mtx);
-                    stereo_agc_states[this] = state;
-                }
-
-                // Apply same gain to both channels
-                for (size_t i = 0; i < n; ++i) {
-                    L_channel[i] *= state.gain;
-                    R_channel[i] *= state.gain;
-                }
+            // Stereo-safe AGC: shared gain for both channels to preserve stereo image
+            if (agc_on) {
+                agc.process_stereo(L_channel.data(), R_channel.data(), audio_fft_size / 2);
             }
 
             // Interleave L and R for stereo encoder
             // CORRECTED: Balanced gain so mono AM is louder (as expected)
             const float stereo_gain = 0.5f;
 
-            // ✅ Soft limiter to prevent harsh clipping distortion.
+            // Soft limiter to prevent harsh clipping distortion.
             // threshold 2.0f effectively disables limiting for normal levels.
             auto soft_limit = [](float x, float threshold = 2.0f) -> float {
                 if (x > threshold) {
@@ -763,7 +878,7 @@ void AudioClient::send_audio(std::complex<float> *buf, size_t frame_num) {
                 L_int = std::clamp(L_int, -32768, 32767);
                 R_int = std::clamp(R_int, -32768, 32767);
 
-                audio_real_int16[i * 2] = L_int;
+                audio_real_int16[i * 2]     = L_int;
                 audio_real_int16[i * 2 + 1] = R_int;
             }
 
@@ -771,16 +886,24 @@ void AudioClient::send_audio(std::complex<float> *buf, size_t frame_num) {
             encoder->set_data(frame_num, audio_l, audio_mid, audio_r,
                               average_power, out_channels);
 
-            // Send interleaved stereo audio
-            // size argument is samples-per-channel, not total interleaved samples
+            // Send interleaved stereo audio.
+            // size argument is samples-per-channel, not total interleaved samples.
             encoder->process(audio_real_int16.data(), audio_fft_size / 2);
             } else {
             // ===== MONO PROCESSING (USB, LSB, AM mono, FM, etc.) =====
-            
-            // Check if any audio_real is nan
+
+            // FIX: NaN detection previously threw std::runtime_error, which was
+            // caught by the outer catch(std::exception&) and silently discarded —
+            // making NaN conditions completely invisible in production.
+            // Now: log to stderr and zero the frame, then continue normally.
             for (int i = 0; i < audio_fft_size / 2; i++) {
                 if (std::isnan(audio_real[i])) {
-                    throw std::runtime_error("NaN found in audio_real");
+                    std::cerr << "WARNING: NaN in audio_real[" << i
+                              << "] (demod=" << static_cast<int>(demod) << "), zeroing frame\n";
+                    std::fill(audio_real.begin(),
+                              audio_real.begin() + audio_fft_size / 2,
+                              0.0f);
+                    break;
                 }
             }
 
@@ -794,14 +917,14 @@ void AudioClient::send_audio(std::complex<float> *buf, size_t frame_num) {
             // NOISE GATE - Apply before AGC to work on full dynamic range
             noise_gate.process(audio_real.data(), audio_fft_size / 2);
 
-            // AGC (now conditional - can be disabled)
-            if (agc_enabled) {
+            // AGC (conditional — can be disabled)
+            if (agc_on) {
                 agc.process(audio_real.data(), audio_fft_size / 2);
             }
 
-            // Quantize into 16 bit audio to save bandwidth
-            // Mono boost - mono AM should be louder than stereo (30% boost)
-            const float mono_boost = 1.5f;  // Makes mono 30% louder than stereo
+            // Quantize into 16 bit audio to save bandwidth.
+            // Mono boost — mono AM should be louder than stereo (30% boost).
+            const float mono_boost = 1.5f;
             dsp_float_to_int16(audio_real.data(), audio_real_int16.data(),
                             static_cast<int>(65536 / 2 * mono_boost), audio_fft_size / 2);
 
@@ -815,9 +938,11 @@ void AudioClient::send_audio(std::complex<float> *buf, size_t frame_num) {
 
         // Ensure monitoring thread is running
         ensure_audio_monitor_thread_runs();
-        
+
         // Convert bytes to bits and add to the total_bits_sent
-        size_t bits_sent = static_cast<size_t>(audio_fft_size / 2) * static_cast<size_t>(out_channels) * 16; // frames * channels * 16 bits
+        size_t bits_sent = static_cast<size_t>(audio_fft_size / 2)
+                         * static_cast<size_t>(out_channels)
+                         * 16; // frames * channels * 16 bits
         total_audio_bits_sent.fetch_add(bits_sent, std::memory_order_relaxed);
 
         // Increment the frame number
@@ -844,7 +969,7 @@ void AudioClient::on_window_message(int new_l, std::optional<double> &m,
 }
 
 void AudioClient::on_demodulation_message(std::string &demodulation) {
-    // FIX: debounce_last_change and debounce_mutex were previously static locals,
+    // debounce_last_change and debounce_mutex were previously static locals,
     // meaning they were SHARED across all AudioClient instances. One user changing
     // mode would block all other users from changing mode for 100ms.
     // Now they are per-instance members (added to AudioClient in signal.h).
@@ -858,7 +983,7 @@ void AudioClient::on_demodulation_message(std::string &demodulation) {
         }
         debounce_last_change = now;
     }
-    
+
     // Update the demodulation type, including AM-S (C-QUAM)
     if (demodulation == "USB") {
         this->demodulation = USB;
@@ -883,52 +1008,62 @@ void AudioClient::on_demodulation_message(std::string &demodulation) {
 
     // Mode-dependent AGC profile
     if (this->demodulation == AM) {
-        this->agc.configureForAM();
+        if (am_stereo) {
+            this->agc.configureForQUAM();
+        } else {
+            this->agc.configureForAM();
+        }
     } else {
-        // USB, LSB, CW (if you ever add it) and FM
+        // USB, LSB, CW (if ever added) and FM
         this->agc.configureForSSB();
     }
-    
+
     // Reset SAM PLL when switching to AM mode
     if (this->demodulation == AM) {
         auto sam = get_sam(this, audio_rate);
         sam->reset();
     }
-    
+
     // Reset noise gate when changing modes
     this->noise_gate.reset();
 }
 
 // ============================================================================
-// NEW MESSAGE HANDLERS - Add these function declarations to signal.h
+// MESSAGE HANDLERS
 // ============================================================================
 
 void AudioClient::on_noise_gate_enable_message(bool enabled) {
     noise_gate.set_enabled(enabled);
-    //std::cout << "Noise gate " << (enabled ? "enabled" : "disabled") << std::endl;
 }
 
 void AudioClient::on_noise_gate_preset_message(std::string &preset) {
     noise_gate.set_preset(preset);
-    //std::cout << "Noise gate preset set to: " << preset << std::endl;
 }
 
 void AudioClient::on_agc_enable_message(bool enabled) {
     agc_enabled = enabled;
-    //std::cout << "Backend AGC " << (enabled ? "enabled" : "disabled") << std::endl;
 }
 
 // ============================================================================
 
 void AudioClient::on_close() {
+    // Guard: close and fail handlers can both fire (e.g. websocketpp sends
+    // close then fail on an unclean disconnect).  Only the first call does work.
+    if (closed.exchange(true)) return;
+
+    // FIX: Log BEFORE erasing from signal_slices.
+    // append_user_log looks up the client in signal_slices to fetch ip / geo /
+    // mode / duration_s.  The previous order (erase → broadcast) meant the
+    // lookup always failed → all disconnect events had empty ip/geo and zero
+    // duration.  Reversing the order keeps the client visible for the lookup.
+    sender.broadcast_signal_changes(unique_id, -1, -1, -1);
+
     {
         std::scoped_lock lk(signal_slice_mtx);
         signal_slices.erase(it);
     }
-    sender.broadcast_signal_changes(unique_id, -1, -1, -1);
-    
-    // FIX: Guard cleanup_sam so the destructor doesn't erase an already-absent
-    // key. Set the flag here; destructor checks it before calling cleanup_sam.
+
+    // Guard cleanup_sam so the destructor doesn't erase an already-absent key.
     if (!sam_cleaned.exchange(true)) {
         cleanup_sam(this);
     }
@@ -941,8 +1076,8 @@ AudioClient::~AudioClient() {
 #ifdef HAS_LIQUID
     nco_crcf_destroy(mixer);
 #endif
-    
-    // FIX: Only cleanup if on_close() wasn't already called (e.g. abnormal disconnect)
+
+    // Only cleanup if on_close() wasn't already called (e.g. abnormal disconnect)
     if (!sam_cleaned.exchange(true)) {
         cleanup_sam(this);
     }

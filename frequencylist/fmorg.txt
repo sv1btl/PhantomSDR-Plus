@@ -1,4 +1,4 @@
-;         20-JUN-2025  Reference Table Freq. Management Org.
+;         20-Jan-2026 FMORG.TXT REFERENCE TABLE
 ;
 ;--+--------------------------------------------------+--------------------+-------------+-------------+----------------------------------------+-------------
 ;Co Frequency Management Organisation                  Contact Person       Telephone     Fax           E-mail                                   Notes
@@ -51,6 +51,7 @@ HCJ Voice of the Andes                                 Mr. Douglas Weber    +593
 HFC ABSU/HFCC Regional Coordination Groups                                                                                                       
 HNG National Media and Infocommunications Authority    Mr. Erno Czuprak     +3614577178   +3614577120   czuprak@nmhh.hu                          HFCC
 HRT See OIV                                                                                                                                      
+HVR H. Visser                                          Mr. H.B.H.J. Visser  +31 621585444               herbertvisser@chello.nl                  HFCC
 IBB International Broadcasting Bureau                  Mr. Stephen Bratcher +12026191763  +12026191680  eofsched@ibb.gov                         HFCC
 ICN ICON BV, Netherlands                               Mr. Herbert Visser   +31629621706                herbert.visser@radiocorp.nl              HFCC
 ICP Instituto das Comunicacoes de Portugal                                                                                                       

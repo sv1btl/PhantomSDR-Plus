@@ -469,12 +469,6 @@ A general-purpose FSK (Frequency-Shift Keying) / RTTY decoder supporting three o
 
 ---
 
-### FreeDC RADE
-
-A FreeDC RADE V1 decoder. Tune to a freedv frequency and click RADEL (for LSB 160-40m band)) or EADEU (for USB from 20m to 6m. band). If there is a freedv rade transmittion, it will be decoded, the 'Frame Sync'will be highlighted and 'Synced - SNR' will show the signal-to-noise-ratio
-
----
-
 ## Keyboard Shortcuts
 
 Keyboard shortcuts for faster operation.

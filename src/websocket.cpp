@@ -279,6 +279,20 @@ void broadcast_server::on_open_signal(connection_hdl hdl,
         // AudioClient::on_close() takes no arguments
         try { client->on_close(); } catch (...) {}
     });
+
+    // FIX: Register a per-connection fail handler so ungraceful disconnects
+    // (browser tab closed, network drop, TCP reset) also trigger on_close()
+    // and get logged.  The global fail handler in init_server() never had
+    // access to the per-client shared_ptr so it couldn't call on_close().
+    // on_close() is guarded by an atomic<bool> so double-fire (close + fail)
+    // is safe — only the first call does anything.
+    con->set_fail_handler([client](connection_hdl h) {
+        {
+            std::lock_guard<std::mutex> tlk(g_audio_throttle_mtx);
+            g_audio_throttle.erase(h);
+        }
+        try { client->on_close(); } catch (...) {}
+    });
     con->set_message_handler(std::bind(
         &broadcast_server::on_message, this, std::placeholders::_1,
         std::placeholders::_2, std::static_pointer_cast<Client>(client)));
@@ -322,16 +336,21 @@ std::vector<std::future<void>> broadcast_server::signal_loop() {
                 continue;
             }
 
-            // IMPROVED: Audio-specific adaptive throttling with tighter parameters
-            // base_fps_cap 20ms => ~50Hz minimum cadence under severe pressure
-            // (was 25ms/40Hz - now tighter for better audio continuity)
+            // FIX (dangling pointer): previously a pointer into g_audio_throttle
+            // was taken under the lock and then used *after* the lock was released.
+            // If the close handler ran in that window it would erase the entry,
+            // making the pointer dangle.  Fix: hold the lock for the full call —
+            // should_send_adaptive is pure arithmetic so the added hold time is
+            // negligible.
             const size_t buffered = con->get_buffered_amount();
-            throttle_state *st_ptr;
+            bool do_send_audio;
             {
                 std::lock_guard<std::mutex> tlk(g_audio_throttle_mtx);
-                st_ptr = &g_audio_throttle[data->hdl];
+                do_send_audio = should_send_adaptive(
+                    g_audio_throttle[data->hdl], buffered,
+                    static_cast<uint64_t>(frame_num), 20, true);
             }
-            if (!should_send_adaptive(*st_ptr, buffered, static_cast<uint64_t>(frame_num), 20, true)) {
+            if (!do_send_audio) {
                 continue;
             }
 
@@ -378,9 +397,15 @@ void broadcast_server::on_open_waterfall(connection_hdl hdl) {
 
 std::vector<std::future<void>>
 broadcast_server::waterfall_loop(int8_t *fft_power_quantized) {
-    // Completion futures
+    // FIX: was futures.reserve(signal_slices.size()) — wrong container.
+    // Approximate the total waterfall client count across all downsample levels.
+    // No lock required here; this is only a pre-allocation hint.
     std::vector<std::future<void>> futures;
-    futures.reserve(signal_slices.size());
+    {
+        size_t approx = 0;
+        for (const auto &wf : waterfall_slices) approx += wf.size();
+        futures.reserve(approx);
+    }
 
     auto &io_service = m_server.get_io_service();
     for (int i = 0; i < downsample_levels; i++) {
@@ -399,15 +424,17 @@ broadcast_server::waterfall_loop(int8_t *fft_power_quantized) {
                     continue;
                 }
 
-                // Adaptive throttling: waterfall can be aggressively decimated
-                // under pressure because we only care about the *latest* line.
+                // FIX (dangling pointer): same race as audio throttle — hold the
+                // lock for the full should_send_adaptive call.
                 const size_t buffered = con->get_buffered_amount();
-                throttle_state *wst_ptr;
+                bool do_send_wf;
                 {
                     std::lock_guard<std::mutex> tlk(g_waterfall_throttle_mtx);
-                    wst_ptr = &g_waterfall_throttle[data->hdl];
+                    do_send_wf = should_send_adaptive(
+                        g_waterfall_throttle[data->hdl], buffered,
+                        static_cast<uint64_t>(frame_num), 40, false);
                 }
-                if (!should_send_adaptive(*wst_ptr, buffered, static_cast<uint64_t>(frame_num), 40, false)) {
+                if (!do_send_wf) {
                     continue;
                 }
                 

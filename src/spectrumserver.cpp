@@ -112,7 +112,10 @@ broadcast_server::broadcast_server(
     std::unique_ptr<SampleConverterBase> reader, toml::parse_result &config)
     : reader{std::move(reader)}, frame_num{0}, marker_update_running(false), websdr_running(false) {  // FIXED: Initialize websdr_running
 
-    
+    // Must be called once before any thread calls curl_easy_init().
+    // Without this, curl_easy_init() has undefined behaviour and silently
+    // returns null — all geo lookups fail with no error message.
+    curl_global_init(CURL_GLOBAL_DEFAULT);
 
     server_threads = config["server"]["threads"].value_or(1);
 
@@ -153,8 +156,11 @@ broadcast_server::broadcast_server(
     brightness_offset = config["input"]["brightness_offset"].value_or(0);
     show_other_users = config["server"]["otherusers"].value_or(1) > 0;
 
-    default_frequency =
-        config["input"]["defaults"]["frequency"].value_or(basefreq);
+    // FIX (uninitialized basefreq): default_frequency previously used
+    // value_or(basefreq) at this point, but basefreq was not yet assigned —
+    // it is only set in the is_real block below.  Moved to after that block.
+    int64_t default_frequency_raw =
+        config["input"]["defaults"]["frequency"].value<int64_t>().value_or(-1LL);
     default_mode_str = boost::algorithm::to_upper_copy<std::string>(
         config["input"]["defaults"]["modulation"].value_or("USB"));
 
@@ -180,9 +186,11 @@ broadcast_server::broadcast_server(
         basefreq = frequency.value() - sps / 2;
     }
 
-    if (default_frequency == -1) {
-        default_frequency = basefreq + sps / 2;
-    }
+    // Now basefreq is valid: resolve the default frequency.
+    // -1 (or absent from config) means "use centre of the band".
+    default_frequency = (default_frequency_raw == -1LL)
+                            ? basefreq + sps / 2
+                            : default_frequency_raw;
 
     if (is_real) {
         default_m =
@@ -327,6 +335,15 @@ void broadcast_server::run(uint16_t port) {
     fft_thread = std::thread(&broadcast_server::fft_task, this);
 
     set_event_timer();
+
+    // FIX (async-signal-safety): std::signal() with a handler calling join(),
+    // mutex::lock() etc. is undefined behaviour per POSIX.  Use boost::asio's
+    // signal_set instead: the handler is delivered as a normal asio completion
+    // on the io_service thread pool, where it is safe to call stop().
+    boost::asio::signal_set signals(m_server.get_io_service(), SIGINT, SIGTERM);
+    signals.async_wait([this](const boost::system::error_code &ec, int /*signum*/) {
+        if (!ec) stop();
+    });
     std::vector<std::thread> threads;
     // Spawn one less thread, use main thread as well
     for (int i = 0; i < server_threads - 1; i++) {
@@ -336,7 +353,12 @@ void broadcast_server::run(uint16_t port) {
     for (int i = 0; i < server_threads - 1; i++) {
         threads[i].join();
     }
-    fft_thread.join();
+    // FIX (double join): stop() also joins fft_thread (called from the asio
+    // signal handler).  If stop() runs first, fft_thread is no longer joinable
+    // here and calling join() on it would throw std::system_error / terminate.
+    if (fft_thread.joinable()) {
+        fft_thread.join();
+    }
 }
 
 // FIXED: Added method to start websdr updates thread
@@ -530,6 +552,9 @@ void broadcast_server::stop() {
 
 
 
+// Previously used for the std::signal() SIGINT handler (now replaced by
+// boost::asio::signal_set inside broadcast_server::run()).  Kept to avoid
+// breaking any external debugger scripts that might reference this symbol.
 broadcast_server *g_signal;
 
 int main(int argc, char **argv) {
@@ -609,8 +634,9 @@ int main(int argc, char **argv) {
         server.start_websdr_updates();
     }
     
-    g_signal = &server;
-    std::signal(SIGINT, [](int) { g_signal->stop(); });
+    // FIX: signal handling is now managed inside broadcast_server::run() via
+    // boost::asio::signal_set, which is async-signal-safe.  The old
+    // std::signal(SIGINT, ...) call has been removed.
     server.run(port);
     std::exit(0);
 }

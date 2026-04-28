@@ -65,6 +65,16 @@
       "mode": "USB"
     },
     {
+      "frequency": 1870000,
+      "name": "FreeDV",
+      "mode": "LSB"
+    },
+    {
+      "frequency": 1876000,
+      "name": "Volmet",
+      "mode": "USB"
+    },
+    {
       "frequency": 2182000,
       "name": "Int Rescue",
       "mode": "USB"
@@ -118,12 +128,12 @@
       "frequency": 3575000,
       "name": "FT4",
       "mode": "USB"
-    },    
+    },
     {
-      "frequency": 3635000,
+      "frequency": 3625000,
       "name": "FreeDV",
       "mode": "LSB"
-    },    
+    },        
     {
       "frequency": 4209500,
       "name": "NAVTEX Heraklion",
@@ -168,12 +178,22 @@
       "frequency": 4625000,
       "name": "The Buzzer",
       "mode": "USB"
-    },
+    },   
     {
       "frequency": 5357000,
       "name": "FT8",
       "mode": "USB"
     },
+     {
+      "frequency": 5364700,
+      "name": "WSPR",
+      "mode": "USB"
+    },
+    {
+      "frequency": 5366500,
+      "name": "FreeDV",
+      "mode": "USB"
+    },        
     {
       "frequency": 5450000,
       "name": "RAF Volmet (UK)",
@@ -218,6 +238,11 @@
       "frequency": 5715000,
       "name": "NATO RTTY",
       "mode": "USB"
+    },
+    {
+      "frequency": 5830000,
+      "name": "Radio Mystery (Pirate)",
+      "mode": "AM"
     },
     {
       "frequency": 6250000,
@@ -274,6 +299,11 @@
       "name": "FT8",
       "mode": "USB"
     },
+    {
+      "frequency": 7087000,
+      "name": "FreeDV",
+      "mode": "LSB"
+    },    
     {
       "frequency": 7177000,
       "name": "FreeDV",
@@ -380,6 +410,16 @@
       "mode": "USB"
     },
     {
+      "frequency": 14230000,
+      "name": "SSTV",
+      "mode": "USB"
+    },
+    {
+      "frequency": 14236000,
+      "name": "FreeDV",
+      "mode": "USB"
+    },    
+    {
       "frequency": 15777000,
       "name": "Russian RTTY Mazielka (X06)",
       "mode": "USB"
@@ -400,6 +440,11 @@
       "mode": "USB"
     },
     {
+      "frequency": 18118000,
+      "name": "FreeDV",
+      "mode": "USB"
+    },    
+    {
       "frequency": 21074000,
       "name": "FT8",
       "mode": "USB"
@@ -413,7 +458,12 @@
       "frequency": 21140000,
       "name": "FT4",
       "mode": "USB"
-    },    
+    },
+    {
+      "frequency": 21313000,
+      "name": "FreeDV",
+      "mode": "USB"
+    },        
     {
       "frequency": 24915000,
       "name": "FT8",
@@ -429,6 +479,11 @@
       "name": "WSPR",
       "mode": "USB"
     },
+    {
+      "frequency": 24933000,
+      "name": "FreeDV",
+      "mode": "USB"
+    },   
     {
       "frequency": 26965000,
       "name": "1",
@@ -630,18 +685,28 @@
       "mode": "FM"
     },
     {
+      "frequency": 27665000,
+      "name": "27665",
+      "mode": "USB"
+    },
+    {
       "frequency": 28074000,
       "name": "FT8",
+      "mode": "USB"
+    },
+    {
+      "frequency": 28124600,
+      "name": "WSPR",
       "mode": "USB"
     },
     {
       "frequency": 28180000,
       "name": "FT4",
       "mode": "USB"
-    },    
+    },
     {
-      "frequency": 28585000,
-      "name": "28585",
+      "frequency": 28330000,
+      "name": "FreeDV",
       "mode": "USB"
-    }
+    }   
 ]

@@ -1,4 +1,4 @@
-;         20-Jun-2025 BROADCAS.TXT REFERENCE TABLE
+;         20-Jan-2026 BROADCAS.TXT REFERENCE TABLE
 ;
 ;-- --------------------------------------------------
 ;CO BROADCASTER
@@ -96,6 +96,7 @@ HRA World Harvest Radio
 HRI LeSea Broadcasting Corporation
 HRT Hrvatska Radio - Televizija (Croatian Radio-TV)
 HSW LeSea Broadcasting Corporation
+HVR H. Visser
 IBB International Broadcasting Bureau
 IBR IBRA Radio
 IBT Iraqi Broadcasting Radio & Television Establ.

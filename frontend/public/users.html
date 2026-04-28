@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PhantomSDR-Plus | Live Users</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Barlow+Condensed:wght@300;600&display=swap" rel="stylesheet">
+<!-- Twemoji: renders flag emojis on Chrome/Edge/Opera/Windows -->
+<script src="https://cdn.jsdelivr.net/npm/@twemoji/api@15.1.0/dist/twemoji.min.js" crossorigin="anonymous"></script>
+<style>
+img.emoji {
+  height: 1.1em;
+  width: 1.1em;
+  margin: 0 .05em 0 .1em;
+  vertical-align: -0.15em;
+  display: inline-block;
+}
+  :root {
+    --bg:        #050a07;
+    --bg2:       #0a110c;
+    --bg3:       #0f1a12;
+    --blue:      #00aeff;
+    --green:     #00ff6a;
+    --green-dim: #00c84e;
+    --green-faint:#003d18;
+    --amber:     #ffb700;
+    --red:       #ff3b3b;
+    --text:      #c8e8d0;
+    --muted:     #4a7058;
+    --border:    #0d2016;
+    --glow:      0 0 8px rgba(0,255,106,.35);
+    --glow-sm:   0 0 4px rgba(0,255,106,.2);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Share Tech Mono', monospace;
+    min-height: 100vh;
+  }
+
+  /* --- scanline overlay --- */
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(0,0,0,.08) 2px,
+      rgba(0,0,0,.08) 4px
+    );
+    pointer-events: none;
+    z-index: 999;
+  }
+
+  /* --- header --- */
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 18px 32px 14px;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg2);
+    position: sticky; top: 0; z-index: 10;
+  }
+
+  .logo-block { display: flex; flex-direction: column; gap: 2px; }
+
+  .callsign {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 600;
+    font-size: 1.8rem;
+    color: var(--blue);
+    letter-spacing: .12em;
+    text-shadow: var(--glow);
+  }
+
+  .subtitle {
+	font-family: 'Barlow Condensed', sans-serif;
+	font-weight: bold;
+  font-size: 0.8rem;
+	color: var(--muted);
+	letter-spacing: .18em;
+	text-transform: uppercase;
+  }
+
+  .status-bar {
+    display: flex;
+    align-items: center;
+    gap: 24px;
+    font-size: 0.8rem;
+    color: var(--muted);
+  }
+
+  .pulse {
+    display: inline-block;
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: var(--green);
+    box-shadow: var(--glow);
+    animation: pulse 1.4s ease-in-out infinite;
+    flex-shrink: 0;
+  }
+  .pulse.dead { background: var(--red); box-shadow: 0 0 6px rgba(255,59,59,.5); animation: none; }
+
+  @keyframes pulse {
+    0%,100% { opacity: 1; transform: scale(1); }
+    50%      { opacity: .45; transform: scale(.8); }
+  }
+
+  #last-update { color: var(--green-dim); }
+  #user-count  { color: var(--green); font-size: .9rem; }
+  .count-label { color: var(--muted); font-size: .8rem; }
+
+  /* --- main area --- */
+  main { padding: 28px 32px; }
+
+  /* --- empty state --- */
+  #empty {
+    display: none;
+    text-align: center;
+    padding: 80px 0;
+    color: var(--muted);
+    font-size: 0.8rem;
+    letter-spacing: .1em;
+  }
+  #empty .big { font-size: 2.5rem; opacity: .2; margin-bottom: 16px; }
+
+  /* --- table --- */
+  .table-wrap {
+    overflow-x: auto;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.8rem;
+  }
+
+  thead tr {
+    background: var(--bg3);
+    border-bottom: 1px solid var(--border);
+  }
+
+  th {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 300;
+    font-size: 0.8rem;
+    letter-spacing: .22em;
+    text-transform: uppercase;
+    color: var(--glow);
+    padding: 4px 10px;
+    text-align: left;
+    white-space: nowrap;
+  }
+  th:first-child { padding-left: 20px; }
+
+  tbody tr {
+    border-bottom: 1px solid var(--border);
+    transition: background .15s;
+  }
+  tbody tr:last-child { border-bottom: none; }
+  tbody tr:hover { background: rgba(0,255,106,.03); }
+  tbody tr.new-row { animation: rowIn .4s ease; }
+
+  @keyframes rowIn {
+    from { opacity: 0; transform: translateX(-6px); }
+    to   { opacity: 1; transform: translateX(0); }
+  }
+
+  td {
+    padding: 4px 10px;
+    vertical-align: middle;
+    white-space: nowrap;
+  }
+  td:first-child { padding-left: 20px; }
+
+  /* ID */
+  .td-id { color: var(--muted); font-size: 1.0rem; }
+
+  /* Location (geo) */
+  .td-geo { color: var(--text); font-size: 1.2em; }
+  .td-geo .pending { color: var(--muted); font-size: 1.1rem; font-style: italic; }
+
+  /* Frequency — biggest visual focus */
+  .td-freq {
+    color: var(--green);
+    font-size: 1.2rem;
+    letter-spacing: .04em;
+    text-shadow: var(--glow-sm);
+  }
+  .freq-unit { font-size: 1.0rem; color: var(--muted); margin-left: 2px; }
+
+  /* Mode badge */
+  .mode-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 2px;
+    font-size: .9rem;
+    font-weight: bold;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+  }
+  .mode-usb  { background: rgba(0,150,255,.15);  color: #4ab6ff; }
+  .mode-lsb  { background: rgba(255,120,0,.12);  color: #ffaa44; }
+  .mode-am   { background: rgba(200,0,255,.12);  color: #d966ff; }
+  .mode-am-s { background: rgba(200,0,255,.18);  color: #e680ff; }
+  .mode-fm   { background: rgba(0,255,180,.1);   color: #00ffb3; }
+  .mode-iq   { background: rgba(255,220,0,.1);   color: #ffd800; }
+  .mode-other{ background: rgba(255,255,255,.05); color: var(--muted); }
+
+  /* Connected at:*/
+  .td-conn { color: var(--glow); font-size: .9rem; }
+
+  /* Duration — live ticking */
+  .td-dur { color: var(--amber); font-size: .9rem; font-variant-numeric: tabular-nums; }
+
+  /* footer */
+  footer {
+    margin-top: 10px;
+    padding: 16px 32px;
+    border-top: 1px solid var(--border);
+    font-size: .9rem;
+    color: var(--muted);
+    letter-spacing: .1em;
+    display: flex;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .error-banner {
+    background: rgba(255,59,59,.08);
+    border: 1px solid rgba(255,59,59,.25);
+    border-radius: 3px;
+    color: var(--red);
+    padding: 10px 20px;
+    margin-bottom: 20px;
+    font-size: 1.0rem;
+    display: none;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo-block">
+    <span class="callsign">PhantomSDR-Plus</span>
+    <span class="subtitle">Live Users</span>
+  </div>
+  <div class="status-bar">
+    <span id="pulse" class="pulse"></span>
+    <span>POLLING&nbsp;<span id="last-update">—</span></span>
+    <span><span id="user-count" class="user-count">0</span>&nbsp;<span class="count-label">CONNECTED</span></span>
+  </div>
+</header>
+
+<main>
+  <div id="error-banner" class="error-banner">⚠ Cannot reach /users — server may be down</div>
+
+  <div id="empty">
+    <div class="big">◇</div>
+    NO ACTIVE LISTENERS
+  </div>
+
+  <div id="table-wrap" class="table-wrap" style="display:none">
+    <table>
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Location</th>
+          <th>Frequency</th>
+          <th>Mode</th>
+          <th>Connected</th>
+          <th>Duration</th>
+        </tr>
+      </thead>
+      <tbody id="tbody"></tbody>
+    </table>
+  </div>
+</main>
+
+<footer>
+  <span><b>PhantomSDR-Plus | Real time users list</b></span></footer>
+
+<script>
+// -----------------------------------------------------------------------
+// State: map of id → { connected_at_iso, connected_at_ms (local epoch) }
+// We track local connect time so the duration ticker is smooth between polls.
+// -----------------------------------------------------------------------
+const tracked = new Map(); // id → { connectedAtMs }
+let lastUsers  = [];
+let errorShown = false;
+
+// -----------------------------------------------------------------------
+// Mode badge HTML
+// -----------------------------------------------------------------------
+function modeBadge(mode) {
+  const m = (mode || 'iq').toLowerCase();
+  const cls = ['usb','lsb','am','am-s','fm','iq'].includes(m)
+    ? 'mode-' + m.replace('-','s').replace('am-s','am-s')
+    : 'mode-other';
+  return `<span class="mode-badge ${cls}">${m.toUpperCase()}</span>`;
+}
+
+// -----------------------------------------------------------------------
+// Format duration from seconds
+// -----------------------------------------------------------------------
+function fmtDur(s) {
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  const ss = s % 60;
+  if (h > 0) return `${h}:${String(m).padStart(2,'0')}:${String(ss).padStart(2,'0')}`;
+  return `${m}:${String(ss).padStart(2,'0')}`;
+}
+
+// -----------------------------------------------------------------------
+// Format frequency
+// -----------------------------------------------------------------------
+function fmtFreq(khz) {
+  if (khz >= 50) {
+    return (khz / 1000).toFixed(3) + '<span class="freq-unit">&nbsp;MHz</span>';
+  }
+  return khz.toFixed(3) + '<span class="freq-unit">&nbsp;kHz</span>';
+}
+
+// -----------------------------------------------------------------------
+// Format connected_at ISO → local HH:MM:SS
+// -----------------------------------------------------------------------
+function fmtConnTime(iso) {
+  try {
+    const d = new Date(iso);
+    return d.toLocaleTimeString([], { hour12: false });
+  } catch { return '—'; }
+}
+
+// -----------------------------------------------------------------------
+// Fetch loop
+// -----------------------------------------------------------------------
+async function fetchUsers() {
+  try {
+    const r = await fetch('/users', { cache: 'no-store' });
+    if (!r.ok) throw new Error(r.status);
+    const data = await r.json();
+
+    errorShown = false;
+    document.getElementById('error-banner').style.display = 'none';
+    document.getElementById('pulse').classList.remove('dead');
+
+    // Update tracked map: add new, keep existing (preserve local connect time)
+    const incoming = data.users || [];
+    const incomingIds = new Set(incoming.map(u => u.id));
+
+    // Remove stale
+    for (const [id] of tracked) {
+      if (!incomingIds.has(id)) tracked.delete(id);
+    }
+
+    // Add new entries (record local ms for smooth ticking)
+    for (const u of incoming) {
+      if (!tracked.has(u.id)) {
+        tracked.set(u.id, {
+          connectedAtMs: Date.now() - u.duration_s * 1000
+        });
+      }
+    }
+
+    lastUsers = incoming;
+    renderTable(incoming);
+
+    // Timestamp
+    const now = new Date();
+    document.getElementById('last-update').textContent =
+      now.toLocaleTimeString([], { hour12: false });
+    document.getElementById('user-count').textContent = incoming.length;
+
+  } catch (e) {
+    document.getElementById('pulse').classList.add('dead');
+    if (!errorShown) {
+      document.getElementById('error-banner').style.display = 'block';
+      errorShown = true;
+    }
+  }
+}
+
+// -----------------------------------------------------------------------
+// Render table (called from fetch + ticker)
+// -----------------------------------------------------------------------
+let prevIds = new Set();
+
+function renderTable(users) {
+  const tbody   = document.getElementById('tbody');
+  const wrap    = document.getElementById('table-wrap');
+  const empty   = document.getElementById('empty');
+  const now     = Date.now();
+
+  if (!users.length) {
+    wrap.style.display  = 'none';
+    empty.style.display = 'block';
+    prevIds = new Set();
+    return;
+  }
+
+  wrap.style.display  = '';
+  empty.style.display = 'none';
+
+  const newIds   = new Set(users.map(u => u.id));
+  const freshIds = new Set([...newIds].filter(id => !prevIds.has(id)));
+  prevIds = newIds;
+
+  // Build rows HTML
+  const rows = users.map((u, i) => {
+    const t = tracked.get(u.id);
+    const elapsedS = t ? Math.floor((now - t.connectedAtMs) / 1000) : u.duration_s;
+    const isFresh  = freshIds.has(u.id);
+
+    const geoDisplay = u.geo && u.geo !== u.ip
+      ? `<span title="${u.ip}">${u.geo}</span>`
+      : `<span class="pending" title="${u.ip}">${u.ip}&nbsp;…</span>`;
+
+    return `<tr data-id="${u.id}" class="${isFresh ? 'new-row' : ''}">
+      <td class="td-id">${String(i + 1).padStart(2, '0')}</td>
+      <td class="td-geo">${geoDisplay}</td>
+      <td class="td-freq">
+        ${fmtFreq(u.freq_khz)}
+      </td>
+      <td>${modeBadge(u.mode)}</td>
+      <td class="td-conn">${fmtConnTime(u.connected_at)}</td>
+      <td class="td-dur" data-id="${u.id}" data-start="${t ? t.connectedAtMs : (now - u.duration_s * 1000)}">${fmtDur(elapsedS)}</td>
+    </tr>`;
+  });
+
+  tbody.innerHTML = rows.join('');
+
+  // Re-parse emoji so flags render on Chrome/Edge/Opera/Windows
+  if (typeof twemoji !== 'undefined') {
+    twemoji.parse(tbody);
+  }
+}
+
+// -----------------------------------------------------------------------
+// Smooth duration ticker — runs every second independently of fetch
+// -----------------------------------------------------------------------
+function tickDurations() {
+  const now = Date.now();
+  document.querySelectorAll('td.td-dur[data-start]').forEach(td => {
+    const start = parseInt(td.dataset.start, 10);
+    if (!isNaN(start)) {
+      td.textContent = fmtDur(Math.floor((now - start) / 1000));
+    }
+  });
+}
+
+// -----------------------------------------------------------------------
+// Start
+// -----------------------------------------------------------------------
+fetchUsers();
+setInterval(fetchUsers, 1000);
+setInterval(tickDurations, 1000);
+
+// -----------------------------------------------------------------------
+// Auto-zoom: scale the whole page to fit whatever window width we get.
+// Design reference width is 900px (comfortable for all table columns).
+// -----------------------------------------------------------------------
+const DESIGN_W = 900;
+
+function applyZoom() {
+  const scale = Math.min(1, window.innerWidth / DESIGN_W);
+  document.documentElement.style.zoom = scale;
+}
+
+applyZoom();
+window.addEventListener('resize', applyZoom);
+</script>
+</body>
+</html>

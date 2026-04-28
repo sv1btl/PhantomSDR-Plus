@@ -50,6 +50,18 @@ class AGC {
     size_t hang_counter;
     float hang_threshold;
 
+    // Shared-gain stereo AGC state used by C-QUAM so both channels track
+    // exactly the same gain and the stereo image stays stable.
+    float stereo_level;
+    float stereo_gain;
+    float stereo_min_gain;
+    float stereo_max_gain;
+    float stereo_attack_alpha;
+    float stereo_release_alpha_fast;
+    float stereo_release_alpha_slow;
+    float stereo_level_alpha;
+    float stereo_target_level;
+
     void push(float sample);
     void pop();
     float max();
@@ -78,9 +90,11 @@ public:
     ~AGC();
     
     void process(float *arr, size_t len);
+    void process_stereo(float *left, float *right, size_t len);
     void reset();
     void configureForSSB();
     void configureForAM();
+    void configureForQUAM();
 };
 
 #endif

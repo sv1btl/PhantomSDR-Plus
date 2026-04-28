@@ -1,7 +1,7 @@
 #!/bin/bash
 
 #enter here the full path to your 'frequencylist' folder
-cd $HOME/PhantomSDR-Plus/frequencylist/
+cd /home/sv1btl/PhantomSDR-Plus/frequencylist/
 
 #is the last HFCC DB downloaded?
 curl https://new.hfcc.org/data/ > ./curl-output.txt

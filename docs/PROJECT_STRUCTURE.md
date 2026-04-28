@@ -34,7 +34,6 @@ PhantomSDR-Plus
 │   ├── DECODERS.md
 │   ├── INSTALLATION.md
 │   ├── PROJECT_STRUCTURE.md
-│   ├── RADE_README.md
 │   ├── README.md
 │   ├── sdr-stats
 │   │   ├── install-stats-server.sh
@@ -80,6 +79,9 @@ PhantomSDR-Plus
 │   ├── pnpm-lock.yaml
 │   ├── postcss.config.cjs
 │   ├── public
+│   │   ├── users.html
+│   │   ├── stats.html
+│   │   ├── analyze_users.py
 │   │   └── decoders
 │   │       └── ft8_lib.wasm
 │   ├── README.md
@@ -97,12 +99,10 @@ PhantomSDR-Plus
 │   │   │   ├── shortwavestations.json
 │   │   │   └── svelte.png
 │   │   ├── audio.js
-│   │   ├── audio-stream-worklet.js
 │   │   ├── bands-config.js
 │   │   ├── decoder.worker.js
 │   │   ├── eventBus.js
 │   │   ├── events.js
-│   │   ├── sstv.js
 │   │   ├── fft.js
 │   │   ├── lib
 │   │   │   ├── backend.js
@@ -175,9 +175,7 @@ PhantomSDR-Plus
 ├── install_arc.sh
 ├── install_fedora.sh
 ├── install_opensusse.sh
-├── install_rade.sh
 ├── install.sh
-├── install-stats-server.sh
 ├── instructions-for-airspy
 ├── instructions-for-rsp1a
 ├── jsdsp
@@ -217,8 +215,6 @@ PhantomSDR-Plus
 ├── phantom_fftw_wisdom
 ├── phantomsdr-admin.service
 ├── proxy.py
-├── rade_helper.py
-├── rade.sh
 ├── README.md
 ├── recompile.sh
 ├── setup_admin.sh

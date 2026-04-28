@@ -208,7 +208,10 @@
                   <LI> <A HREF="a25/a25allx2.zip"> A25allx2.zip </A> - A25 Operational Schedule - Last updated on 23-Oct-2025                </UL>
 
                 <UL>
-                  <LI> <A HREF="b25/b25allx2.zip"> B25allx2.zip </A> - B25 Operational Schedule - Last updated on 22-Jan-2026                </UL>
+                  <LI> <A HREF="b25/b25allx2.zip"> B25allx2.zip </A> - B25 Operational Schedule - Last updated on 23-Mar-2026                </UL>
+
+                <UL>
+                  <LI> <A HREF="a26/a26allx2.zip"> A26allx2.zip </A> - A26 Operational Schedule - Last updated on 25-Apr-2026                </UL>
 
                 <P>Note: Starting from B10, the data has been updated during the season.</P>
               </TD></TR>
@@ -220,7 +223,19 @@
 			</DIV>
       <DIV CLASS="whatsnewdiv">
         <H3>What's New</H3>
-                            <P>[16-Dec-2025] - The ITU-BR has published the <A HREF="https://www.itu.int/md/R00-CR-CIR-0525/en">Circular Letter CR/525</A> in application of Article 12 of the Radio Regulations
+                            <P>[17-Mar-2026] - A26 plenary minutes
+                    </P>
+
+                    <P>[9-Feb-2026] - <A HREF="../global/doc/HFCC_GOE_2026-001-GoE_Report_A26.pdf">A26 GoE Report</A>
+                    </P>
+
+                    <P>[30-Jan-2026] - Deadline for A26 Operational Schedule: 9 March 2026
+                    </P>
+
+                    <P>[30-Jan-2026] - ITU <A HREF="https://www.itu.int/itu-r/eterrestrial/ebroadcasting/ehfbc#/reftables/tables/RefTableOverview">Reference Tables</A> updated
+                    </P>
+
+                    <P>[16-Dec-2025] - The ITU-BR has published the <A HREF="https://www.itu.int/md/R00-CR-CIR-0525/en">Circular Letter CR/525</A> in application of Article 12 of the Radio Regulations
                     </P>
 
                     <P>[8-Dec-2025] - A26 upload opened. Please <A HREF="https://new.hfcc.org/global/upload/regform.php">review and confirm your contact details</A> prior to uploading the initial version of your A26 data.

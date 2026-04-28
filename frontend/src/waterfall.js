@@ -246,6 +246,38 @@ export default class SpectrumWaterfall {
     this.wfheight = 200 * window.devicePixelRatio
 
     this.bands = bands;
+
+    // Spectrum rainbow colormap — edit the index numbers to move colours earlier
+    // or later. 0 = noise floor, 255 = strongest signal. boost=60 means the
+    // visible range starts at index 60, so stop [0] is never actually shown.
+    // The last stop MUST be [255] so strong signals don't glitch.
+    var scStops = [
+      [  0,  [  0,   0,  64, 255]],  // dark blue  (below visible range)
+      [ 60,  [  0,   0, 255, 255]],  // blue        ← first visible colour
+      [ 80,  [  0, 255, 255, 255]],  // cyan
+      [ 95,  [  0, 255,   0, 255]],  // green
+      [115,  [255, 255,   0, 255]],  // yellow      
+      [148,  [255, 128,   0, 255]],  // orange      
+      [170,  [255,   0,   0, 255]],  // red         
+      [255,  [255,   0,   0, 255]],  // red cap     ← keeps strong signals red
+    ];
+    this.spectrumColormap = [];
+    for (var sci = 0; sci < 256; sci++) {
+      var sc0 = scStops[0], sc1 = scStops[scStops.length - 1];
+      for (var si = 0; si < scStops.length - 1; si++) {
+        if (sci >= scStops[si][0] && sci <= scStops[si + 1][0]) {
+          sc0 = scStops[si]; sc1 = scStops[si + 1]; break;
+        }
+      }
+      var scSpan = sc1[0] - sc0[0];
+      var scF = scSpan > 0 ? (sci - sc0[0]) / scSpan : 0;
+      this.spectrumColormap.push([
+        Math.round(sc0[1][0] + (sc1[1][0] - sc0[1][0]) * scF),
+        Math.round(sc0[1][1] + (sc1[1][1] - sc0[1][1]) * scF),
+        Math.round(sc0[1][2] + (sc1[1][2] - sc0[1][2]) * scF),
+        255
+      ]);
+    }
   }
 
 
@@ -393,6 +425,8 @@ export default class SpectrumWaterfall {
 
   addMarkersToComponent() {
     if (this.frequencyMarkerComponent && this.pendingMarkers.length > 0) {
+      // Clear existing list before loading a new batch so reconnects don't accumulate entries.
+      this.frequencyMarkerComponent.clearList();
       this.frequencyMarkerComponent.insertAll(this.pendingMarkers);
       this.frequencyMarkerComponent.finalizeList();
       this.pendingMarkers = []; // Clear pending markers
@@ -412,7 +446,11 @@ export default class SpectrumWaterfall {
         try {
           const markersData = JSON.parse(settings.markers);
           if (markersData.markers && Array.isArray(markersData.markers)) {
-            this.pendingMarkers = markersData.markers.map(marker => ({
+            this.pendingMarkers = markersData.markers.filter(function(marker) {
+              // Reject entries with missing, zero, or sub-50 Hz frequency values —
+              // these are either unset database fields or a unit mismatch (e.g. MHz stored as Hz).
+              return marker.frequency != null && isFinite(marker.frequency) && marker.frequency >= 50;
+            }).map(marker => ({
               f: marker.frequency,
               d: marker.name,
               m: marker.mode
@@ -693,76 +731,114 @@ export default class SpectrumWaterfall {
     const pixels = (pxR - pxL) / arr.length;
     const scale = this.canvasScale;
     const height = this.spectrumCanvasElem.height;
+    const width = this.spectrumCanvasElem.width;
+    const ctx = this.spectrumCtx;
 
-    // Normalize the array (invert and scale to canvas height)
+    // Normalize the array — y=0 is top (strong signal), y=height is bottom (noise floor)
     const normalizedArr = arr.map(x => height - (x / 255) * height);
 
-    // Clear the canvas
-    this.spectrumCtx.clearRect(0, 0, this.spectrumCanvasElem.width, height);
+    // ── Background ─────────────────────────────────────────────────────────────
+    ctx.clearRect(0, 0, width, height);
+    ctx.fillStyle = '#000000';
+    ctx.fillRect(0, 0, width, height);
 
-    // Create gradient
-    const gradient = this.spectrumCtx.createLinearGradient(0, 0, 0, height);
-    gradient.addColorStop(0, 'rgba(3, 157, 252, 0.8)');  // Yellow at top
-    gradient.addColorStop(1, 'rgba(3, 157, 252, 0.2)');  // Orange at bottom
+    // ── UberSDR-style rainbow fill ──────────────────────────────────────────────
+    // For every pixel in the filled area the colour is determined by its ABSOLUTE
+    // y-position on the canvas (not relative to the signal peak):
+    //   y = 0        → colormap[255]  (top = strongest = "hot" colour)
+    //   y = height-1 → colormap[0]    (bottom = weakest = "cold" colour)
+    // This is exactly how UberSDR renders it: the fill is a vertical slice of
+    // the waterfall colormap, clipped to the shape of the spectrum curve.
+    const fillW = Math.ceil(pxR - pxL);
+    const specImgData = ctx.createImageData(fillW, height);
+    const sp = specImgData.data;
 
-    // Set up the drawing styles
-    this.spectrumCtx.lineWidth = 2;
-    this.spectrumCtx.strokeStyle = 'rgba(3, 157, 252, 0.8)';
-    this.spectrumCtx.fillStyle = gradient;
-    this.spectrumCtx.shadowColor = 'rgba(3, 157, 252, 0.5)';
-    this.spectrumCtx.shadowBlur = 10;
+    for (let col = 0; col < fillW; col++) {
+      const arrIdx = Math.min(Math.floor(col * arr.length / fillW), arr.length - 1);
+      const signalY = Math.floor(normalizedArr[arrIdx]);
 
-    // Begin the path for filling
-    this.spectrumCtx.beginPath();
-    this.spectrumCtx.moveTo(pxL, height);
+      for (let row = signalY; row < height; row++) {
+        const boost = 60;
+        const t = (height - 1 - row) / (height - 1); // 0 at bottom, 1 at top
+        const rawIdx = boost + (255 - boost) * t;     // float index
 
-    // Draw the smooth curve
-    let prevX = pxL;
-    let prevY = normalizedArr[0];
-    this.spectrumCtx.lineTo(prevX, prevY);
+        // Lerp between adjacent entries for smooth transitions
+        const i0 = Math.max(0, Math.min(255, Math.floor(rawIdx)));
+        const i1 = Math.min(255, i0 + 1);
+        const frac = rawIdx - i0;
+        const c0 = this.spectrumColormap[i0];
+        const c1 = this.spectrumColormap[i1];
+        const base = (row * fillW + col) * 4;
+        sp[base]     = c0[0] + (c1[0] - c0[0]) * frac;
+        sp[base + 1] = c0[1] + (c1[1] - c0[1]) * frac;
+        sp[base + 2] = c0[2] + (c1[2] - c0[2]) * frac;
+        sp[base + 3] = 255;
+      }
+    }
+    ctx.putImageData(specImgData, Math.floor(pxL), 0);
 
-    for (let i = 1; i < normalizedArr.length; i++) {
-      const x = pxL + i * pixels;
-      const y = normalizedArr[i];
+    // ── dB grid lines and axis labels (drawn AFTER fill so never overwritten) ──
+    const dBRange = this.maxWaterfall - this.minWaterfall;
+    const gridStep = 10;
+    const dBStart = Math.ceil(this.minWaterfall / gridStep) * gridStep;
+    const fontSize = Math.max(9, Math.round(9 * scale));
 
-      // Use quadratic curves for smoother lines
-      const midX = (prevX + x) / 2;
-      this.spectrumCtx.quadraticCurveTo(prevX, prevY, midX, (prevY + y) / 2);
+    ctx.font = fontSize + 'px monospace';
+    ctx.textAlign = 'left';
+    ctx.shadowBlur = 0;
 
-      prevX = x;
-      prevY = y;
+    for (let dB = dBStart; dB <= this.maxWaterfall; dB += gridStep) {
+      // y=0 → maxWaterfall (hottest), y=height → minWaterfall (coldest)
+      const y = height - ((dB - this.minWaterfall) / dBRange) * height;
+
+      // Faint horizontal grid line
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.12)';
+      ctx.lineWidth = 1;
+      ctx.setLineDash([2, 6]);
+      ctx.beginPath();
+      ctx.moveTo(0, y);
+      ctx.lineTo(width, y);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      // Label with dark backing for readability
+      const label = dB + ' dB';
+      const tw = ctx.measureText(label).width;
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.55)';
+      ctx.fillRect(2, Math.max(y - fontSize - 1, 0), tw + 4, fontSize + 2);
+      ctx.fillStyle = 'rgba(210, 210, 210, 0.90)';
+      ctx.fillText(label, 4, Math.max(y - 2, fontSize));
     }
 
-    this.spectrumCtx.lineTo(pxR, prevY);
-    this.spectrumCtx.lineTo(pxR, height);
-    this.spectrumCtx.closePath();
+    // ── Spectrum trace (white line on top) ─────────────────────────────────────
+    ctx.beginPath();
+    ctx.moveTo(pxL, normalizedArr[0]);
+    for (let i = 1; i < normalizedArr.length; i++) {
+      ctx.lineTo(pxL + i * pixels, normalizedArr[i]);
+    }
+    ctx.lineTo(pxR, normalizedArr[normalizedArr.length - 1]);
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.90)';
+    ctx.lineWidth = 1.0;
+    ctx.shadowBlur = 0;
+    ctx.stroke();
 
-    // Fill and stroke the path
-    this.spectrumCtx.fill();
-    this.spectrumCtx.stroke();
+    // ── Frequency crosshair on mouse hover ─────────────────────────────────────
+    if (this.spectrumFreq !== undefined) {
+      const labelFontSize = Math.max(10, Math.round(11 * scale));
+      ctx.font = labelFontSize + 'px monospace';
+      ctx.fillStyle = 'rgba(255, 255, 180, 0.95)';
+      ctx.textAlign = 'left';
+      ctx.shadowBlur = 0;
+      ctx.fillText((this.spectrumFreq / 1e6).toFixed(6) + ' MHz', 10, labelFontSize + 4);
 
-
-
-    // Reset shadow for text and frequency line
-    this.spectrumCtx.shadowBlur = 0;
-
-    if (this.spectrumFreq) {
-      // Draw frequency text with a subtle glow
-      this.spectrumCtx.font = '14px Arial';
-      this.spectrumCtx.fillStyle = 'rgba(255, 255, 255, 0.9)';
-      this.spectrumCtx.shadowColor = 'rgba(255, 255, 255, 0.5)';
-      this.spectrumCtx.shadowBlur = 5;
-      this.spectrumCtx.fillText(`${(this.spectrumFreq / 1e6).toFixed(6)} MHz`, 10, 20);
-
-      // Draw vertical frequency line
-      this.spectrumCtx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
-      this.spectrumCtx.lineWidth = 1;
-      this.spectrumCtx.setLineDash([5, 3]);
-      this.spectrumCtx.beginPath();
-      this.spectrumCtx.moveTo(this.spectrumX, 0);
-      this.spectrumCtx.lineTo(this.spectrumX, height);
-      this.spectrumCtx.stroke();
-      this.spectrumCtx.setLineDash([]);
+      ctx.strokeStyle = 'rgba(255, 240, 80, 0.60)';
+      ctx.lineWidth = 1;
+      ctx.setLineDash([4, 3]);
+      ctx.beginPath();
+      ctx.moveTo(this.spectrumX, 0);
+      ctx.lineTo(this.spectrumX, height);
+      ctx.stroke();
+      ctx.setLineDash([]);
     }
   }
   checkBandAndSetMode(frequency) {

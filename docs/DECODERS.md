@@ -12,11 +12,9 @@ This guide covers every built-in decoder available in PhantomSDR-Plus. All decod
 4. [CW — Morse Code](#4-cw--morse-code)
 5. [WSPR](#5-wspr)
 6. [HF FAX / WEFAX](#6-hf-fax--wefax)
-7. [SSTV](#7-sstv)
-8. [NAVTEX](#8-navtex)
-9. [FSK / RTTY](#9-fsk--rtty)
-10. [FreeDV RADE V1](#10-FreeDV--RADE--V1)
-11. [General Tips](#11-general-tips)
+7. [NAVTEX](#7-navtex)
+8. [FSK / RTTY](#8-fsk--rtty)
+9. [General Tips](#9-general-tips)
 
 ---
 
@@ -225,12 +223,7 @@ At the bottom of the image, two tone indicators show:
 
 ---
 
-## 7. SSTV
-Slow Scan TV in all radiamateur's modes. Press start, stop, refresh and save image for a local store of the received image. Auto start maybe would be forced by refreshing the scan.
-
----
-
-## 8. NAVTEX
+## 7. NAVTEX
 
 **What it is:** NAVTEX is the international maritime broadcast system for coastal safety information — navigational warnings, weather forecasts, and search-and-rescue notices. It uses 100-baud FSK (SITOR-B with FEC) and is received on dedicated channels worldwide.
 
@@ -276,7 +269,7 @@ Click **Clear** to erase the message buffer.
 
 ---
 
-## 9. FSK / RTTY
+## 8. FSK / RTTY
 
 **What it is:** A general-purpose FSK (Frequency-Shift Keying) / RTTY decoder supporting three operating variants: Maritime FSK (SITOR), Weather RTTY, and Amateur RTTY. Each variant comes with a preset tuned to its standard parameters.
 
@@ -341,18 +334,7 @@ The status bar shows live measurements:
 
 ---
 
-## 10. FreeDV RADE V1
-- Adds FreeDV RADE V1 support.
-- Please refer to: **[RADE Guide](docs/RADE_README.md)**
-- You have to start/stop/restart the service manually:
-```bash
-./rade.sh start      # start sidecar with self-restarting watchdog
-./rade.sh stop       # stop sidecar + watchdog + lpcnet_demo children
-./rade.sh restart    # stop then start cleanly
-./rade.sh status     # show running / stopped + process info
-```
-
-## 11. General Tips
+## 9. General Tips
 
 **Decoder: ON must be engaged first.** The dropdown is disabled (greyed out) until you click the Decoder button to turn it on.
 

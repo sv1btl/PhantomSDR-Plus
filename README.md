@@ -1,26 +1,19 @@
-# PhantomSDR-Plus WebSDR (version 3.1.1)
+# PhantomSDR-Plus WebSDR (version 3.2.0)
 
-[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-cyan.svg)](https://www.gnu.org/licenses/gpl-3.0)
-[![Version](https://img.shields.io/badge/version-3.1.1-cyan.svg)](https://github.com/sv1btl/PhantomSDR-Plus)
+[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
+[![Version](https://img.shields.io/badge/version-3.2.0-blue.svg)](https://github.com/sv1btl/PhantomSDR-Plus)
 
 ## Note: Tested on Debian 12 (Bookworm), Debian 13 (Trixie), Ubuntu 22.04, Ubuntu 24.04.
 This is a **different Repo than the Official PhantomSDR Repo**
 
-**Fixed bugs and improved functions from v.3.1.0**
-
-New in v. 3.1.1
-- Decoders in mobile version:
-A new button is added in the mobile view and all decoders can be called from a mobile phone.
-- Frequency digit selector:
-Now you can select any digit in frequency and change only this, without affecting the other digits. With right click, you can insert a full desired frequency.
-- AVAST warnings:
-No more fake AVAST warnings about the security of the Website. DX Cluster window is now called from backend.
-- Buffer improvements (thanks to F1NSK - Eric):
-A small but very importand change in buffer (frontend/src/audio.js) which minimize audio brakes, withoud adding latency.
-- Analog smeter calibration from ./toml file:
-In .toml has been added an offset for analog smeter, along with the previous for digital. Now you can adjust the two smeters to show the same. Micro-trimming are also kept in analog smeter files in " function _smeterTick -> const visualGain = ". The smeters are calibrated out of the box now under my conditions using a signal generator, but you maybe want to play with them.
-- Map registration:
-You can now register your WebSDR in both http://list.novasdr.fun/ (or the same http://list.phantomsdr.fun/) AND https://sdr-list.xyz. Changes in .toml file and src/spectrumeserver.cpp (in backend).
+**New in v. 3.2.0**
+- Users list in real time with Geo location, tuned frequency, start connected time, total time connected.
+- Statistic data about visitors, most visited bands and frequencies, hourly visitors data, long term statistics,
+- Minor cosmetic changes in GUI,
+- New AGC approach,
+- New colored spectrum, with waterfall colour scale,
+- CTCSS is now working, tracing subtones and opening the mute when a signal with subtone is received.
+- Total bugs clean for server's stability.
 
 We offer more **features**:
 - **New install.sh** procedure, that simplifies initial setup,
@@ -37,8 +30,9 @@ We offer more **features**:
 - 4 different GUI templates, that can be selected using a popup float menu,
 - Optional monitor tool that adds real-time server monitoring to your PhantomSDR application.
 - On screen audio spectrogram.
+- Users list in real time with Geo location
 - Increased server's stability.
-- WebSDR List (https://sdr-list.xyz),
+- WebSDR List (https://sdr-list.xyz, http://list.phantomsdr.fun, http://list.novasdr.fun/),
 - Supported receivers RX-888, RTL V.4, Airspy Discovery, HackRF, SDRPLAY RSP1A (original and clone) via Soapy and many more to be added,
 - More to come!...
 

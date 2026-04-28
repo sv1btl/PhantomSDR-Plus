@@ -10,6 +10,7 @@
 #include <cctype>
 #include <chrono>
 #include <mutex>
+#include <regex>
 #include <curl/curl.h>
 #include <nlohmann/json.hpp>
 
@@ -378,6 +379,46 @@ void broadcast_server::on_http(connection_hdl hdl) {
     //       per request (was a race condition). Configure logging at startup instead.
     server::connection_ptr con = m_server.get_con_from_hdl(hdl);
     std::string resource = con->get_resource();
+
+    // ── /logs/users_YYYY-MM-DD.jsonl ────────────────────────────────────────
+    // Serve daily JSONL statistics files from logs/ at the project root (CWD).
+    // Only filenames matching the exact pattern are accepted — no path traversal.
+    if (resource.rfind("/logs/", 0) == 0) {
+        const std::string filename = resource.substr(6);
+        static const std::regex log_pattern("^users_\\d{4}-\\d{2}-\\d{2}\\.jsonl$");
+        if (!std::regex_match(filename, log_pattern)) {
+            con->set_status(websocketpp::http::status_code::not_found);
+            con->set_body("Not found");
+            return;
+        }
+        // Logs live at ~/PhantomSDR-Plus/logs/ (project root, never wiped by Vite)
+        const std::string filepath = "logs/" + filename;
+        std::ifstream f(filepath, std::ios::binary);
+        if (!f) {
+            con->set_status(websocketpp::http::status_code::not_found);
+            con->set_body("Not found");
+            return;
+        }
+        std::ostringstream buf;
+        buf << f.rdbuf();
+        con->append_header("Content-Type", "application/x-ndjson");
+        con->append_header("Cache-Control", "no-store");
+        con->append_header("Access-Control-Allow-Origin", "*");
+        con->set_body(buf.str());
+        con->set_status(websocketpp::http::status_code::ok);
+        return;
+    }
+
+    if (resource == "/users" || resource == "/users.json") {
+        // Live user list — always fresh from in-memory state, never from disk.
+        const std::string body = get_users_json();
+        con->append_header("Content-Type", "application/json");
+        con->append_header("Cache-Control", "no-store");
+        con->append_header("Access-Control-Allow-Origin", "*");
+        con->set_body(body);
+        con->set_status(websocketpp::http::status_code::ok);
+        return;
+    }
 
     if (resource.rfind("/api/dxspots", 0) == 0) {
         std::string band = normalize_band(get_query_param(resource, "band"));

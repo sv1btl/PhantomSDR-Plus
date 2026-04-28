@@ -124,7 +124,7 @@
 <div on:click|self on:wheel|self class="w-full h-4 bg-black relative" bind:this={markerDiv} role="button">
   {#each frequencyMarkers as frequencyMarker (frequencyMarker.id)}
   <div class="h-4 absolute p-0 group" style="left: {frequencyMarker.left * 100}%"
-      on:click={() => dispatch('markerclick', frequencyMarker)}>
+      on:click|stopPropagation={() => dispatch('markerclick', frequencyMarker)}>
       <div class="top-0 w-px h-8 z-0 peer bg-yellow-600 absolute">
       </div>
       <div class="outline-1 outline-black outline-offset-0 outline p-px
@@ -140,7 +140,7 @@
 <!-- Bookmark markers with marine blue background and yellow text -->
   {#each bookmarkMarkers as bookmarkMarker (bookmarkMarker.id)}
   <div class="h-4 absolute p-0 group" style="left: {bookmarkMarker.left * 100}%"
-      on:click={() => dispatch('markerclick', bookmarkMarker)}>
+      on:click|stopPropagation={() => dispatch('markerclick', bookmarkMarker)}>
       <div class="top-0 w-px h-8 z-0 peer bg-[#0051FF] absolute">
       </div>
       <div class="outline-1 outline-black outline-offset-0 outline p-px

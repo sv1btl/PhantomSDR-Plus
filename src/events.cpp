@@ -115,8 +115,12 @@ void broadcast_server::write_users_json() {
     // Atomic write: write to a .tmp file then rename so readers never see a
     // partial file (rename is atomic on POSIX when src and dst are on the same
     // filesystem, which they always are here).
-    const std::string tmp  = m_docroot + "/users.json.tmp";
-    const std::string dest = m_docroot + "/users.json";
+    // Strip any trailing slash from docroot before appending to avoid double-slash
+    const std::string docroot = (!m_docroot.empty() && m_docroot.back() == '/')
+                                ? m_docroot.substr(0, m_docroot.size() - 1)
+                                : m_docroot;
+    const std::string tmp  = docroot + "/users.json.tmp";
+    const std::string dest = docroot + "/users.json";
 
     {
         std::ofstream f(tmp, std::ios::trunc);

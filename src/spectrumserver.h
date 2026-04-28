@@ -29,6 +29,20 @@ extern std::shared_mutex markers_mutex;
 typedef std::set<connection_hdl, std::owner_less<connection_hdl>>
     event_con_list;
 
+// WebSDR.org registration shared state
+// Written once by update_websdr_org(), read by the /~~orgstatus HTTP handler.
+struct WebsdrOrgState {
+    bool enabled = false;
+    uint32_t cfg_serial = 0;
+    std::string cookie_id;
+    std::string email_obf;
+    std::string qth;
+    std::string description;
+    std::string logo;
+    struct Band { double center_khz, bw_khz; std::string label; };
+    std::vector<Band> bands;
+};
+
 class broadcast_server : public PacketSender {
   public:
     broadcast_server(std::unique_ptr<SampleConverterBase> reader,
@@ -80,6 +94,9 @@ class broadcast_server : public PacketSender {
     // SDR List - http://sdr-list.xyz
     void update_websdr_list();
     void start_websdr_updates();  // FIXED: Added method to manage websdr thread
+
+    // WebSDR.org registration
+    void update_websdr_org();
 
     // Signal functions, audio demodulation
     void on_open_signal(connection_hdl hdl, conn_type signal_type);
@@ -191,6 +208,13 @@ class broadcast_server : public PacketSender {
     // FIXED: Added websdr thread management
     std::thread websdr_thread;
     std::atomic<bool> websdr_running;
+
+    // WebSDR.org registration
+    WebsdrOrgState    websdr_org_state_;
+    std::mutex        websdr_org_state_mtx_;
+    std::atomic<bool> websdr_org_last_ok_{false};
+    std::thread       websdr_org_thread_;
+    std::atomic<bool> websdr_org_running_{false};
 };
 
 #endif

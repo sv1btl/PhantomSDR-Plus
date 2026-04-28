@@ -13,6 +13,7 @@
 #include <regex>
 #include <curl/curl.h>
 #include <nlohmann/json.hpp>
+#include <sys/socket.h>
 
 #include <boost/algorithm/string.hpp>
 
@@ -379,6 +380,91 @@ void broadcast_server::on_http(connection_hdl hdl) {
     //       per request (was a race condition). Configure logging at startup instead.
     server::connection_ptr con = m_server.get_con_from_hdl(hdl);
     std::string resource = con->get_resource();
+
+    // /~~orgstatus ── WebSDR.org persistent callback
+    // websdr.ewi.utwente.nl connects back here after our registration ping
+    // and keeps the connection alive to poll user counts and config.
+    if (resource.rfind("/~~orgstatus", 0) == 0) {
+        WebsdrOrgState st;
+        {
+            std::scoped_lock lk(websdr_org_state_mtx_);
+            st = websdr_org_state_;
+        }
+        if (!st.enabled) {
+            con->set_status(websocketpp::http::status_code::not_found);
+            con->set_body("Not found");
+            return;
+        }
+
+        con->defer_http_response();
+
+        std::thread([this, con, resource, st]() mutable {
+            int raw_fd = (int)con->get_raw_socket().native_handle();
+
+            struct timeval tv{120, 0};
+            setsockopt(raw_fd, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
+
+            auto get_users = [this]() -> int {
+                std::scoped_lock lg(signal_slice_mtx);
+                return (int)signal_slices.size();
+            };
+
+            auto build_body = [&](int cfg_req) -> std::string {
+                int users = get_users();
+                if (cfg_req != 0 && (uint32_t)cfg_req == st.cfg_serial)
+                    return "Users: " + std::to_string(users) + "\n";
+                std::string body;
+                body  = "Config: " + std::to_string(st.cfg_serial) + "\n";
+                body += "Email: "  + st.email_obf   + "\n";
+                body += "Qth: "    + st.qth         + "\n";
+                body += "Description: " + st.description + "\n";
+                body += "Logo: "   + st.logo        + "\n";
+                body += "Bands: "  + std::to_string(st.bands.size()) + "\n";
+                for (const auto& b : st.bands)
+                    body += std::to_string((long long)b.center_khz) + " " +
+                            std::to_string((long long)b.bw_khz)     + " " +
+                            b.label + "\n";
+                body += "Users: " + std::to_string(users) + "\n";
+                return body;
+            };
+
+            auto send_resp = [&](const std::string& body) -> bool {
+                std::string resp;
+                resp  = "HTTP/1.1 200 OK\r\n";
+                resp += "Server: WebSDR/20140718.1716-64\r\n";
+                resp += "Content-Length: " + std::to_string(body.size()) + "\r\n";
+                resp += "Content-Type: text/plain\r\n";
+                resp += "Cache-control: no-cache\r\n";
+                resp += "Set-Cookie: ID=" + st.cookie_id +
+                        "; expires=Thu, 31-Dec-2099 00:00:00 GMT\r\n";
+                resp += "\r\n" + body;
+                return send(raw_fd, resp.c_str(), resp.size(), MSG_NOSIGNAL) > 0;
+            };
+
+            int req_cfg = 0;
+            {
+                auto cp = resource.find("config=");
+                if (cp != std::string::npos)
+                    try { req_cfg = std::stoi(resource.substr(cp + 7)); } catch (...) {}
+            }
+
+            if (!send_resp(build_body(req_cfg))) { close(raw_fd); return; }
+
+            char rbuf[2048];
+            while (running) {
+                ssize_t n = recv(raw_fd, rbuf, sizeof(rbuf) - 1, 0);
+                if (n <= 0) break;
+                rbuf[n] = '\0';
+                req_cfg = 0;
+                const char* p = strstr(rbuf, "config=");
+                if (p) try { req_cfg = std::stoi(std::string(p + 7)); } catch (...) {}
+                if (!send_resp(build_body(req_cfg))) break;
+            }
+            close(raw_fd);
+        }).detach();
+
+        return;
+    }
 
     // ── /logs/users_YYYY-MM-DD.jsonl ────────────────────────────────────────
     // Serve daily JSONL statistics files from logs/ at the project root (CWD).

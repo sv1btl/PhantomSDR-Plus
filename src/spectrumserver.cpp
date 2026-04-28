@@ -15,6 +15,9 @@
 #include <curl/curl.h> // For cURL functionality
 #include "glaze/glaze.hpp"
 #include <nlohmann/json.hpp>
+#include <sys/socket.h>
+#include <netdb.h>
+#include <unistd.h>
 
 
 toml::table config;
@@ -365,6 +368,13 @@ void broadcast_server::run(uint16_t port) {
 void broadcast_server::start_websdr_updates() {
     websdr_running = true;
     websdr_thread = std::thread(&broadcast_server::update_websdr_list, this);
+
+    // Also start WebSDR.org registration if [websdr.org] enabled = true
+    const auto* org_cfg = config["websdr"]["org"].as_table();
+    if (org_cfg && (*org_cfg)["enabled"].value_or(false)) {
+        websdr_org_running_ = true;
+        websdr_org_thread_ = std::thread(&broadcast_server::update_websdr_org, this);
+    }
 }
 
 // To register on http://sdr-list.xyz
@@ -501,6 +511,7 @@ void broadcast_server::stop() {
     running = false;
     marker_update_running = false;
     websdr_running = false;  // FIXED: Signal websdr thread to stop
+    websdr_org_running_ = false;
     fft_processed.notify_all();
 
     // FIXED: Join fft_thread before cleanup
@@ -511,6 +522,10 @@ void broadcast_server::stop() {
     // FIXED: Join websdr_thread before cleanup
     if (websdr_thread.joinable()) {
         websdr_thread.join();
+    }
+
+    if (websdr_org_thread_.joinable()) {
+        websdr_org_thread_.join();
     }
 
     if (marker_update_thread.joinable()) {
@@ -556,6 +571,174 @@ void broadcast_server::stop() {
 // boost::asio::signal_set inside broadcast_server::run()).  Kept to avoid
 // breaking any external debugger scripts that might reference this symbol.
 broadcast_server *g_signal;
+
+void broadcast_server::update_websdr_org() {
+    const auto* org_cfg_ptr = config["websdr"]["org"].as_table();
+    if (!org_cfg_ptr || !(*org_cfg_ptr)["enabled"].value_or(false))
+        return;
+    const auto& org_cfg = *org_cfg_ptr;
+
+    std::string public_host = org_cfg["public_host"].value_or(
+        config["websdr"]["hostname"].value_or(std::string("")));
+    int public_port = (int)org_cfg["public_port"].value_or(
+        (int64_t)config["server"]["port"].value_or((int64_t)9002));
+    std::string qth = org_cfg["qth"].value_or(
+        config["websdr"]["grid_locator"].value_or(std::string("")));
+    std::string description = org_cfg["description"].value_or(
+        config["websdr"]["name"].value_or(std::string("")));
+    std::string logo  = org_cfg["logo"].value_or(std::string("vlag-gr-48.jpg"));
+    std::string email = org_cfg["email"].value_or(std::string(""));
+
+    if (public_host.empty()) {
+        std::cerr << "[WebSDROrg] public_host not configured — set [websdr.org] public_host" << std::endl;
+        return;
+    }
+
+    // Simple email obfuscation expected by websdr.ewi.utwente.nl
+    std::string email_obf = email;
+    for (size_t i = 0; i < email_obf.size(); ) {
+        if      (email_obf[i] == '@') { email_obf.replace(i, 1, " at ");  i += 4; }
+        else if (email_obf[i] == '.') { email_obf.replace(i, 1, " dot "); i += 5; }
+        else ++i;
+    }
+
+    // Derive band info from input config
+    int64_t bw = config["input"]["sps"].value_or((int64_t)30000000);
+    int64_t cf = config["input"]["frequency"].value_or((int64_t)0);
+    std::string sig = config["input"]["signal"].value_or(std::string("real"));
+    if (sig == "real") bw /= 2;
+    if (cf == 0) cf = bw / 2;
+
+    char cookie_buf[32];
+    snprintf(cookie_buf, sizeof(cookie_buf), "%08x", (unsigned)std::time(nullptr));
+
+    {
+        std::scoped_lock lk(websdr_org_state_mtx_);
+        websdr_org_state_.enabled     = true;
+        websdr_org_state_.cfg_serial  = (uint32_t)std::time(nullptr);
+        websdr_org_state_.cookie_id   = std::string(cookie_buf);
+        websdr_org_state_.email_obf   = email_obf;
+        websdr_org_state_.qth         = qth;
+        websdr_org_state_.description = description;
+        websdr_org_state_.logo        = logo;
+        websdr_org_state_.bands       = {{ (double)cf / 1000.0,
+                                           (double)bw / 1000.0,
+                                           description.empty() ? "HF" : description }};
+    }
+
+    std::cout << "[WebSDROrg] registering " << public_host << ":" << public_port
+              << " with websdr.ewi.utwente.nl" << std::endl;
+
+    const std::string org_host     = "websdr.ewi.utwente.nl";
+    const std::string org_port_str = "80";
+
+    // Registration ping (sent every 60 s on the persistent connection)
+    const std::string reg_req =
+        "GET /~~websdrorg?host=" + public_host +
+        "&port=" + std::to_string(public_port) +
+        " HTTP/1.1\r\nHost: " + org_host + "\r\n\r\n";
+
+    // Deregister request — sent once on shutdown (VertexSDR /~~websdrNOorg pattern)
+    const std::string noreg_req =
+        "GET /~~websdrNOorg?port=" + std::to_string(public_port) +
+        " HTTP/1.1\r\nHost: " + org_host + "\r\n\r\n";
+
+    // Helper: open a fresh TCP connection to websdr.ewi.utwente.nl:80
+    auto do_connect = [&]() -> int {
+        struct addrinfo hints{}, *res = nullptr;
+        hints.ai_family   = AF_UNSPEC;
+        hints.ai_socktype = SOCK_STREAM;
+        int newfd = -1;
+        if (getaddrinfo(org_host.c_str(), org_port_str.c_str(), &hints, &res) == 0) {
+            for (auto* rp = res; rp && newfd < 0; rp = rp->ai_next) {
+                int s = socket(rp->ai_family, rp->ai_socktype, rp->ai_protocol);
+                if (s < 0) continue;
+                struct timeval tv{10, 0};
+                setsockopt(s, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
+                setsockopt(s, SOL_SOCKET, SO_SNDTIMEO, &tv, sizeof(tv));
+                if (connect(s, rp->ai_addr, rp->ai_addrlen) == 0) newfd = s;
+                else close(s);
+            }
+            freeaddrinfo(res);
+        }
+        return newfd;
+    };
+
+    // ── Main registration loop ────────────────────────────────────────────────
+    // The TCP connection to websdr.ewi.utwente.nl is kept alive across pings
+    // (VertexSDR persistent-connection pattern). We only reconnect on error.
+    int fd = -1;
+    while (websdr_org_running_) {
+
+        // Connect only when not already connected
+        if (fd < 0) {
+            fd = do_connect();
+            if (fd < 0) {
+                websdr_org_last_ok_.store(false);
+                std::cerr << "[WebSDROrg] connect failed, retrying in 30s" << std::endl;
+                for (int i = 0; i < 30 && websdr_org_running_; ++i)
+                    std::this_thread::sleep_for(std::chrono::seconds(1));
+                continue;
+            }
+        }
+
+        // Send registration ping on the live connection
+        if (send(fd, reg_req.c_str(), reg_req.size(), MSG_NOSIGNAL)
+                < (ssize_t)reg_req.size()) {
+            std::cerr << "[WebSDROrg] send failed, reconnecting" << std::endl;
+            close(fd); fd = -1;
+            websdr_org_last_ok_.store(false);
+            continue; // skip sleep, reconnect immediately next iteration
+        }
+
+        // Read response:
+        //   n > 0  → success, keep fd alive
+        //   n == 0 → server closed connection, reconnect next iteration
+        //   n < 0, errno == EAGAIN/EWOULDBLOCK → recv timeout, keep fd alive
+        //   n < 0, other → real error, reconnect next iteration
+        char rbuf[512] = {};
+        ssize_t n = recv(fd, rbuf, sizeof(rbuf) - 1, 0);
+        if (n > 0) {
+            websdr_org_last_ok_.store(true);
+            std::cout << "[WebSDROrg] ping OK" << std::endl;
+        } else if (n == 0) {
+            std::cerr << "[WebSDROrg] server closed connection, reconnecting" << std::endl;
+            close(fd); fd = -1;
+            websdr_org_last_ok_.store(false);
+        } else {
+            if (errno == EAGAIN || errno == EWOULDBLOCK) {
+                // Recv timed out but connection may still be valid — keep fd
+                std::cerr << "[WebSDROrg] recv timeout, keeping connection" << std::endl;
+                websdr_org_last_ok_.store(false);
+            } else {
+                std::cerr << "[WebSDROrg] recv error (" << strerror(errno)
+                          << "), reconnecting" << std::endl;
+                close(fd); fd = -1;
+                websdr_org_last_ok_.store(false);
+            }
+        }
+
+        // 60-second interruptible sleep before next ping
+        for (int i = 0; i < 60 && websdr_org_running_; ++i)
+            std::this_thread::sleep_for(std::chrono::seconds(1));
+    }
+
+    // ── Shutdown: send NO-org deregister (VertexSDR /~~websdrNOorg pattern) ──
+    // Reuse the live fd if still open; otherwise open a brief new connection.
+    std::cout << "[WebSDROrg] sending deregister (NO-org)..." << std::endl;
+    int nofd = (fd >= 0) ? fd : do_connect();
+    if (nofd >= 0) {
+        send(nofd, noreg_req.c_str(), noreg_req.size(), MSG_NOSIGNAL);
+        char rbuf[128] = {};
+        recv(nofd, rbuf, sizeof(rbuf) - 1, 0); // drain any response
+        close(nofd);
+        fd = -1;
+    } else {
+        std::cerr << "[WebSDROrg] could not send NO-org (no connection available)" << std::endl;
+    }
+
+    std::cout << "[WebSDROrg] thread stopped" << std::endl;
+}
 
 int main(int argc, char **argv) {
     // Parse the options

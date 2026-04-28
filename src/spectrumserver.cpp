@@ -16,8 +16,14 @@
 #include "glaze/glaze.hpp"
 #include <nlohmann/json.hpp>
 #include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
 #include <netdb.h>
 #include <unistd.h>
+#include <fcntl.h>
+#include <poll.h>
+#include <cerrno>
+#include <cstring>
 
 
 toml::table config;
@@ -302,7 +308,10 @@ broadcast_server::broadcast_server(
 
     // Initialize the websocket server
     m_server.init_asio();
-    
+    // websdr.org may keep inbound callback TCP idle before sending GET /~~orgstatus.
+    // Default websocketpp handshake timeout is too short for that behavior.
+    m_server.set_open_handshake_timeout(600000);
+
     // Suppress noisy EOF and handshake errors globally
     init_server();
     
@@ -573,170 +582,194 @@ void broadcast_server::stop() {
 broadcast_server *g_signal;
 
 void broadcast_server::update_websdr_org() {
-    const auto* org_cfg_ptr = config["websdr"]["org"].as_table();
-    if (!org_cfg_ptr || !(*org_cfg_ptr)["enabled"].value_or(false))
+    const toml::table* org_cfg = nullptr;
+    if (auto ws = config["websdr"].as_table()) {
+        if (auto org = (*ws)["org"].as_table()) {
+            org_cfg = org;
+        }
+    }
+    if (!org_cfg || !(*org_cfg)["enabled"].value_or(false)) {
+        std::cout << "[WebSDROrg] disabled ([websdr.org] enabled=true to enable)" << std::endl;
         return;
-    const auto& org_cfg = *org_cfg_ptr;
+    }
 
-    std::string public_host = org_cfg["public_host"].value_or(
-        config["websdr"]["hostname"].value_or(std::string("")));
-    int public_port = (int)org_cfg["public_port"].value_or(
-        (int64_t)config["server"]["port"].value_or((int64_t)9002));
-    std::string qth = org_cfg["qth"].value_or(
-        config["websdr"]["grid_locator"].value_or(std::string("")));
-    std::string description = org_cfg["description"].value_or(
-        config["websdr"]["name"].value_or(std::string("")));
-    std::string logo  = org_cfg["logo"].value_or(std::string("vlag-gr-48.jpg"));
-    std::string email = org_cfg["email"].value_or(std::string(""));
+    std::string public_host = (*org_cfg)["public_host"].value_or(std::string(""));
+    int public_port         = static_cast<int>((*org_cfg)["public_port"].value_or(int64_t(9002)));
+    std::string qth         = (*org_cfg)["qth"].value_or(std::string(""));
+    std::string description = (*org_cfg)["description"].value_or(std::string(""));
+    std::string logo        = (*org_cfg)["logo"].value_or(std::string("vlag-nl-48.jpg"));
+    std::string email_raw   = (*org_cfg)["email"].value_or(std::string(""));
 
     if (public_host.empty()) {
-        std::cerr << "[WebSDROrg] public_host not configured — set [websdr.org] public_host" << std::endl;
+        std::cerr << "[WebSDROrg] public_host missing in [websdr.org]" << std::endl;
         return;
     }
 
-    // Simple email obfuscation expected by websdr.ewi.utwente.nl
-    std::string email_obf = email;
-    for (size_t i = 0; i < email_obf.size(); ) {
-        if      (email_obf[i] == '@') { email_obf.replace(i, 1, " at ");  i += 4; }
-        else if (email_obf[i] == '.') { email_obf.replace(i, 1, " dot "); i += 5; }
-        else ++i;
-    }
-
-    // Derive band info from input config
-    int64_t bw = config["input"]["sps"].value_or((int64_t)30000000);
-    int64_t cf = config["input"]["frequency"].value_or((int64_t)0);
-    std::string sig = config["input"]["signal"].value_or(std::string("real"));
-    if (sig == "real") bw /= 2;
-    if (cf == 0) cf = bw / 2;
-
+    uint32_t cfg_serial = static_cast<uint32_t>(time(nullptr) & 0x7FFFFFFFu);
     char cookie_buf[32];
-    snprintf(cookie_buf, sizeof(cookie_buf), "%08x", (unsigned)std::time(nullptr));
+    snprintf(cookie_buf, sizeof(cookie_buf), "%08x0000", cfg_serial);
+
+    std::string email_obf;
+    for (unsigned char c : email_raw) email_obf += static_cast<char>(c ^ 1u);
+
+    std::vector<WebsdrOrgState::Band> bands;
+    {
+        int64_t bw_hz = is_real ? (sps / 2) : sps;
+        int64_t center_hz = basefreq + (bw_hz / 2);
+        std::string antenna = config["websdr"]["antenna"].value_or(std::string("N/A"));
+        std::string name = config["websdr"]["name"].value_or(std::string("RX1"));
+        std::string label = antenna.empty() ? name : (antenna + ". " + name);
+        bands.push_back({center_hz / 1000.0, bw_hz / 1000.0, label});
+    }
 
     {
         std::scoped_lock lk(websdr_org_state_mtx_);
         websdr_org_state_.enabled     = true;
-        websdr_org_state_.cfg_serial  = (uint32_t)std::time(nullptr);
+        websdr_org_state_.cfg_serial  = cfg_serial;
         websdr_org_state_.cookie_id   = std::string(cookie_buf);
         websdr_org_state_.email_obf   = email_obf;
         websdr_org_state_.qth         = qth;
         websdr_org_state_.description = description;
         websdr_org_state_.logo        = logo;
-        websdr_org_state_.bands       = {{ (double)cf / 1000.0,
-                                           (double)bw / 1000.0,
-                                           description.empty() ? "HF" : description }};
+        websdr_org_state_.bands       = bands;
     }
 
-    std::cout << "[WebSDROrg] registering " << public_host << ":" << public_port
-              << " with websdr.ewi.utwente.nl" << std::endl;
+    std::cout << "[WebSDROrg] Starting (host=" << public_host
+              << " port=" << public_port
+              << " bands=" << bands.size() << ")" << std::endl;
 
-    const std::string org_host     = "websdr.ewi.utwente.nl";
-    const std::string org_port_str = "80";
+    const std::string org_host = "websdr.ewi.utwente.nl";
+    const std::string req = "GET /~~websdrorg?host=" + public_host +
+                            "&port=" + std::to_string(public_port) +
+                            " HTTP/1.1\r\nHost: " + org_host + "\r\n\r\n";
 
-    // Registration ping (sent every 60 s on the persistent connection)
-    const std::string reg_req =
-        "GET /~~websdrorg?host=" + public_host +
-        "&port=" + std::to_string(public_port) +
-        " HTTP/1.1\r\nHost: " + org_host + "\r\n\r\n";
-
-    // Deregister request — sent once on shutdown (VertexSDR /~~websdrNOorg pattern)
-    const std::string noreg_req =
-        "GET /~~websdrNOorg?port=" + std::to_string(public_port) +
-        " HTTP/1.1\r\nHost: " + org_host + "\r\n\r\n";
-
-    // Helper: open a fresh TCP connection to websdr.ewi.utwente.nl:80
-    auto do_connect = [&]() -> int {
-        struct addrinfo hints{}, *res = nullptr;
-        hints.ai_family   = AF_UNSPEC;
-        hints.ai_socktype = SOCK_STREAM;
-        int newfd = -1;
-        if (getaddrinfo(org_host.c_str(), org_port_str.c_str(), &hints, &res) == 0) {
-            for (auto* rp = res; rp && newfd < 0; rp = rp->ai_next) {
-                int s = socket(rp->ai_family, rp->ai_socktype, rp->ai_protocol);
-                if (s < 0) continue;
-                struct timeval tv{10, 0};
-                setsockopt(s, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
-                setsockopt(s, SOL_SOCKET, SO_SNDTIMEO, &tv, sizeof(tv));
-                if (connect(s, rp->ai_addr, rp->ai_addrlen) == 0) newfd = s;
-                else close(s);
-            }
-            freeaddrinfo(res);
-        }
-        return newfd;
+    auto interruptible_sleep = [&](int seconds) {
+        for (int i = 0; i < seconds && websdr_org_running_; ++i)
+            std::this_thread::sleep_for(std::chrono::seconds(1));
     };
 
-    // ── Main registration loop ────────────────────────────────────────────────
-    // The TCP connection to websdr.ewi.utwente.nl is kept alive across pings
-    // (VertexSDR persistent-connection pattern). We only reconnect on error.
+    int attempt = 0;
     int fd = -1;
     while (websdr_org_running_) {
-
-        // Connect only when not already connected
         if (fd < 0) {
-            fd = do_connect();
+            struct addrinfo hints{}, *res = nullptr;
+            hints.ai_family = AF_UNSPEC;
+            hints.ai_socktype = SOCK_STREAM;
+            if (getaddrinfo(org_host.c_str(), "80", &hints, &res) == 0) {
+                for (auto* rp = res; rp; rp = rp->ai_next) {
+                    char ipbuf[NI_MAXHOST] = {0};
+                    char portbuf[NI_MAXSERV] = {0};
+                    getnameinfo(rp->ai_addr, rp->ai_addrlen, ipbuf, sizeof(ipbuf),
+                                portbuf, sizeof(portbuf), NI_NUMERICHOST | NI_NUMERICSERV);
+                    std::cout << "[WebSDROrg] Connect try -> " << ipbuf << ":" << portbuf << std::endl;
+
+                    fd = socket(rp->ai_family, rp->ai_socktype, rp->ai_protocol);
+                    if (fd < 0) {
+                        std::cerr << "[WebSDROrg] socket() failed: " << strerror(errno) << std::endl;
+                        continue;
+                    }
+
+                    int flags = fcntl(fd, F_GETFL, 0);
+                    if (flags >= 0) {
+                        fcntl(fd, F_SETFL, flags | O_NONBLOCK);
+                    }
+                    struct timeval tv{15, 0};
+                    setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
+                    setsockopt(fd, SOL_SOCKET, SO_SNDTIMEO, &tv, sizeof(tv));
+
+                    if (connect(fd, rp->ai_addr, rp->ai_addrlen) == 0) {
+                        if (flags >= 0) fcntl(fd, F_SETFL, flags);
+                        std::cout << "[WebSDROrg] Connected to " << ipbuf << std::endl;
+                        break;
+                    }
+
+                    if (errno == EINPROGRESS) {
+                        struct pollfd pfd{};
+                        pfd.fd = fd;
+                        pfd.events = POLLOUT;
+                        int pr = poll(&pfd, 1, 15000);
+                        if (pr > 0 && (pfd.revents & POLLOUT)) {
+                            int so_error = 0;
+                            socklen_t slen = sizeof(so_error);
+                            getsockopt(fd, SOL_SOCKET, SO_ERROR, &so_error, &slen);
+                            if (so_error == 0) {
+                                if (flags >= 0) fcntl(fd, F_SETFL, flags);
+                                std::cout << "[WebSDROrg] Connected to " << ipbuf << std::endl;
+                                break;
+                            }
+                            std::cerr << "[WebSDROrg] Connect failed to " << ipbuf
+                                      << ": " << strerror(so_error) << std::endl;
+                        } else if (pr == 0) {
+                            std::cerr << "[WebSDROrg] Connect timeout to " << ipbuf << std::endl;
+                        } else {
+                            std::cerr << "[WebSDROrg] poll() failed while connecting to " << ipbuf
+                                      << ": " << strerror(errno) << std::endl;
+                        }
+                    } else {
+                        std::cerr << "[WebSDROrg] Connect failed to " << ipbuf
+                                  << ": " << strerror(errno) << std::endl;
+                    }
+
+                    close(fd);
+                    fd = -1;
+                }
+                freeaddrinfo(res);
+            } else {
+                std::cerr << "[WebSDROrg] DNS resolve failed for " << org_host << std::endl;
+            }
+
             if (fd < 0) {
                 websdr_org_last_ok_.store(false);
-                std::cerr << "[WebSDROrg] connect failed, retrying in 30s" << std::endl;
-                for (int i = 0; i < 30 && websdr_org_running_; ++i)
-                    std::this_thread::sleep_for(std::chrono::seconds(1));
+                std::cerr << "[WebSDROrg] Connect failed, retry in 30s" << std::endl;
+                interruptible_sleep(30);
                 continue;
             }
+            std::cout << "[WebSDROrg] Connected to " << org_host << std::endl;
         }
 
-        // Send registration ping on the live connection
-        if (send(fd, reg_req.c_str(), reg_req.size(), MSG_NOSIGNAL)
-                < (ssize_t)reg_req.size()) {
-            std::cerr << "[WebSDROrg] send failed, reconnecting" << std::endl;
-            close(fd); fd = -1;
+        std::cout << "[WebSDROrg] Sending registration ping #" << (attempt + 1) << std::endl;
+        if (send(fd, req.c_str(), req.size(), MSG_NOSIGNAL) < 0) {
+            std::cerr << "[WebSDROrg] Send failed, reconnecting: " << strerror(errno) << std::endl;
+            close(fd);
+            fd = -1;
             websdr_org_last_ok_.store(false);
-            continue; // skip sleep, reconnect immediately next iteration
+            interruptible_sleep(30);
+            continue;
         }
+        ++attempt;
+        std::cout << "[WebSDROrg] Waiting response for ping #" << attempt << std::endl;
 
-        // Read response:
-        //   n > 0  → success, keep fd alive
-        //   n == 0 → server closed connection, reconnect next iteration
-        //   n < 0, errno == EAGAIN/EWOULDBLOCK → recv timeout, keep fd alive
-        //   n < 0, other → real error, reconnect next iteration
-        char rbuf[512] = {};
+        char rbuf[256];
+        rbuf[0] = '\0';
         ssize_t n = recv(fd, rbuf, sizeof(rbuf) - 1, 0);
         if (n > 0) {
+            rbuf[n] = '\0';
+            std::string s(rbuf);
+            size_t nl = s.find('\r');
+            std::cout << "[WebSDROrg] #" << attempt
+                      << " OK — " << (nl != std::string::npos ? s.substr(0, nl) : s)
+                      << std::endl;
             websdr_org_last_ok_.store(true);
-            std::cout << "[WebSDROrg] ping OK" << std::endl;
         } else if (n == 0) {
-            std::cerr << "[WebSDROrg] server closed connection, reconnecting" << std::endl;
-            close(fd); fd = -1;
+            std::cerr << "[WebSDROrg] Remote closed connection, reconnecting" << std::endl;
+            close(fd);
+            fd = -1;
             websdr_org_last_ok_.store(false);
+            interruptible_sleep(30);
+            continue;
         } else {
-            if (errno == EAGAIN || errno == EWOULDBLOCK) {
-                // Recv timed out but connection may still be valid — keep fd
-                std::cerr << "[WebSDROrg] recv timeout, keeping connection" << std::endl;
-                websdr_org_last_ok_.store(false);
-            } else {
-                std::cerr << "[WebSDROrg] recv error (" << strerror(errno)
-                          << "), reconnecting" << std::endl;
-                close(fd); fd = -1;
-                websdr_org_last_ok_.store(false);
-            }
+            std::cerr << "[WebSDROrg] Receive failed: " << strerror(errno)
+                      << " (reconnecting)" << std::endl;
+            close(fd);
+            fd = -1;
+            websdr_org_last_ok_.store(false);
+            interruptible_sleep(30);
+            continue;
         }
-
-        // 60-second interruptible sleep before next ping
-        for (int i = 0; i < 60 && websdr_org_running_; ++i)
-            std::this_thread::sleep_for(std::chrono::seconds(1));
+        interruptible_sleep(60);
     }
 
-    // ── Shutdown: send NO-org deregister (VertexSDR /~~websdrNOorg pattern) ──
-    // Reuse the live fd if still open; otherwise open a brief new connection.
-    std::cout << "[WebSDROrg] sending deregister (NO-org)..." << std::endl;
-    int nofd = (fd >= 0) ? fd : do_connect();
-    if (nofd >= 0) {
-        send(nofd, noreg_req.c_str(), noreg_req.size(), MSG_NOSIGNAL);
-        char rbuf[128] = {};
-        recv(nofd, rbuf, sizeof(rbuf) - 1, 0); // drain any response
-        close(nofd);
-        fd = -1;
-    } else {
-        std::cerr << "[WebSDROrg] could not send NO-org (no connection available)" << std::endl;
-    }
-
+    if (fd >= 0) close(fd);
     std::cout << "[WebSDROrg] thread stopped" << std::endl;
 }
 

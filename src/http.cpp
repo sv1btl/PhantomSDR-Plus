@@ -14,6 +14,13 @@
 #include <curl/curl.h>
 #include <nlohmann/json.hpp>
 #include <sys/socket.h>
+#include <unistd.h>
+#include <fcntl.h>
+#include <cerrno>
+#include <cstring>
+#include <cstdio>
+#include <thread>
+#include <iostream>
 
 #include <boost/algorithm/string.hpp>
 
@@ -381,89 +388,149 @@ void broadcast_server::on_http(connection_hdl hdl) {
     server::connection_ptr con = m_server.get_con_from_hdl(hdl);
     std::string resource = con->get_resource();
 
-    // /~~orgstatus ── WebSDR.org persistent callback
+    // websdr.org callback: /~~orgstatus — persistent connection via defer_http_response()
     // websdr.ewi.utwente.nl connects back here after our registration ping
     // and keeps the connection alive to poll user counts and config.
-    if (resource.rfind("/~~orgstatus", 0) == 0) {
-        WebsdrOrgState st;
+    {
+        std::string filename_only = resource;
+        size_t qpos = filename_only.find('?');
+        if (qpos != std::string::npos) filename_only = filename_only.substr(0, qpos);
+
+        bool org_enabled = false;
+        uint32_t    cfg_serial  = 0;
+        std::string cookie_id, email_obf, qth, description, logo;
+        std::vector<WebsdrOrgState::Band> bands;
         {
             std::scoped_lock lk(websdr_org_state_mtx_);
-            st = websdr_org_state_;
+            org_enabled = websdr_org_state_.enabled;
+            cfg_serial  = websdr_org_state_.cfg_serial;
+            cookie_id   = websdr_org_state_.cookie_id;
+            email_obf   = websdr_org_state_.email_obf;
+            qth         = websdr_org_state_.qth;
+            description = websdr_org_state_.description;
+            logo        = websdr_org_state_.logo;
+            bands       = websdr_org_state_.bands;
         }
-        if (!st.enabled) {
-            con->set_status(websocketpp::http::status_code::not_found);
-            con->set_body("Not found");
+
+        if (filename_only == "/~~orgstatus" && org_enabled) {
+            con->defer_http_response();
+
+            int first_cfg = 0;
+            {
+                size_t pos = resource.find("config=");
+                if (pos != std::string::npos) {
+                    try { first_cfg = std::stoi(resource.substr(pos + 7)); } catch (...) {}
+                }
+            }
+
+            int raw_fd = dup(con->get_raw_socket().native_handle());
+            if (raw_fd < 0) {
+                std::cerr << "[WebSDROrg] dup(socket) failed for /~~orgstatus: "
+                          << strerror(errno) << std::endl;
+                return;
+            }
+
+            std::thread([this, raw_fd, first_cfg,
+                         cfg_serial, cookie_id, email_obf,
+                         qth, description, logo, bands]() {
+                int flags = fcntl(raw_fd, F_GETFL, 0);
+                if (flags >= 0) {
+                    fcntl(raw_fd, F_SETFL, flags & ~O_NONBLOCK);
+                }
+                struct timeval tv{60, 0};
+                setsockopt(raw_fd, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
+                setsockopt(raw_fd, SOL_SOCKET, SO_SNDTIMEO, &tv, sizeof(tv));
+
+                auto current_users = [this]() -> int {
+                    std::scoped_lock lg(events_connections_mtx);
+                    return static_cast<int>(events_connections.size());
+                };
+
+                auto build_body = [&](int req_cfg) -> std::string {
+                    int users = current_users();
+                    std::string body;
+                    if (req_cfg != 0 && static_cast<uint32_t>(req_cfg) == cfg_serial) {
+                        body = "Users: " + std::to_string(users) + "\n";
+                    } else {
+                        body  = "Config: " + std::to_string(cfg_serial) + "\n";
+                        body += "Email: "  + email_obf   + "\n";
+                        body += "Qth: "    + qth         + "\n";
+                        body += "Description: " + description + "\n";
+                        body += "Logo: "   + logo        + "\n";
+                        body += "Bands: "  + std::to_string(bands.size()) + "\n";
+                        for (size_t i = 0; i < bands.size(); ++i) {
+                            char b[512];
+                            snprintf(b, sizeof(b), "Band: %zu %f %f %s\n",
+                                     i, bands[i].center_khz, bands[i].bw_khz,
+                                     bands[i].label.c_str());
+                            body += b;
+                        }
+                        body += "Users: " + std::to_string(users) + "\n";
+                    }
+                    return body;
+                };
+
+                auto send_resp = [&](const std::string& body) -> bool {
+                    std::string resp;
+                    resp  = "HTTP/1.1 200 OK\r\n";
+                    resp += "Server: WebSDR/20140718.1716-64\r\n";
+                    resp += "Content-Length: " + std::to_string(body.size()) + "\r\n";
+                    resp += "Content-Type: text/plain\r\n";
+                    resp += "Cache-control: no-cache\r\n";
+                    resp += "Set-Cookie: ID=" + cookie_id +
+                            "; expires=Thu, 31-Dec-2099 00:00:00 GMT\r\n";
+                    resp += "\r\n";
+                    resp += body;
+                    return send(raw_fd, resp.c_str(), resp.size(), 0) > 0;
+                };
+
+                std::string body = build_body(first_cfg);
+                std::cout << "[WebSDROrg] /~~orgstatus config=" << first_cfg
+                          << " users=" << current_users()
+                          << " bytes=" << body.size() << std::endl;
+                if (!send_resp(body)) { close(raw_fd); return; }
+
+                std::string buf;
+                char tmp[2048];
+                bool alive = true;
+                while (running && alive) {
+                    while (buf.find("\r\n\r\n") == std::string::npos) {
+                        ssize_t n = recv(raw_fd, tmp, sizeof(tmp) - 1, 0);
+                        if (n == 0) {
+                            std::cout << "[WebSDROrg] /~~orgstatus peer closed callback connection" << std::endl;
+                            alive = false;
+                            break;
+                        }
+                        if (n < 0) {
+                            if (errno == EINTR) continue;
+                            if (errno == EAGAIN || errno == EWOULDBLOCK) continue;
+                            std::cerr << "[WebSDROrg] recv failed on callback connection: "
+                                      << strerror(errno) << std::endl;
+                            alive = false;
+                            break;
+                        }
+                        buf.append(tmp, static_cast<size_t>(n));
+                    }
+                    if (!alive) break;
+                    size_t he = buf.find("\r\n\r\n");
+                    std::string hdr = buf.substr(0, he);
+                    buf = buf.substr(he + 4);
+                    int req_cfg = 0;
+                    size_t cp = hdr.find("config=");
+                    if (cp != std::string::npos) {
+                        try { req_cfg = std::stoi(hdr.substr(cp + 7)); } catch (...) {}
+                    }
+                    body = build_body(req_cfg);
+                    std::cout << "[WebSDROrg] /~~orgstatus config=" << req_cfg
+                              << " users=" << current_users()
+                              << " bytes=" << body.size() << std::endl;
+                    if (!send_resp(body)) break;
+                }
+                close(raw_fd);
+            }).detach();
+
             return;
         }
-
-        con->defer_http_response();
-
-        std::thread([this, con, resource, st]() mutable {
-            int raw_fd = (int)con->get_raw_socket().native_handle();
-
-            struct timeval tv{120, 0};
-            setsockopt(raw_fd, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
-
-            auto get_users = [this]() -> int {
-                std::scoped_lock lg(signal_slice_mtx);
-                return (int)signal_slices.size();
-            };
-
-            auto build_body = [&](int cfg_req) -> std::string {
-                int users = get_users();
-                if (cfg_req != 0 && (uint32_t)cfg_req == st.cfg_serial)
-                    return "Users: " + std::to_string(users) + "\n";
-                std::string body;
-                body  = "Config: " + std::to_string(st.cfg_serial) + "\n";
-                body += "Email: "  + st.email_obf   + "\n";
-                body += "Qth: "    + st.qth         + "\n";
-                body += "Description: " + st.description + "\n";
-                body += "Logo: "   + st.logo        + "\n";
-                body += "Bands: "  + std::to_string(st.bands.size()) + "\n";
-                for (const auto& b : st.bands)
-                    body += std::to_string((long long)b.center_khz) + " " +
-                            std::to_string((long long)b.bw_khz)     + " " +
-                            b.label + "\n";
-                body += "Users: " + std::to_string(users) + "\n";
-                return body;
-            };
-
-            auto send_resp = [&](const std::string& body) -> bool {
-                std::string resp;
-                resp  = "HTTP/1.1 200 OK\r\n";
-                resp += "Server: WebSDR/20140718.1716-64\r\n";
-                resp += "Content-Length: " + std::to_string(body.size()) + "\r\n";
-                resp += "Content-Type: text/plain\r\n";
-                resp += "Cache-control: no-cache\r\n";
-                resp += "Set-Cookie: ID=" + st.cookie_id +
-                        "; expires=Thu, 31-Dec-2099 00:00:00 GMT\r\n";
-                resp += "\r\n" + body;
-                return send(raw_fd, resp.c_str(), resp.size(), MSG_NOSIGNAL) > 0;
-            };
-
-            int req_cfg = 0;
-            {
-                auto cp = resource.find("config=");
-                if (cp != std::string::npos)
-                    try { req_cfg = std::stoi(resource.substr(cp + 7)); } catch (...) {}
-            }
-
-            if (!send_resp(build_body(req_cfg))) { close(raw_fd); return; }
-
-            char rbuf[2048];
-            while (running) {
-                ssize_t n = recv(raw_fd, rbuf, sizeof(rbuf) - 1, 0);
-                if (n <= 0) break;
-                rbuf[n] = '\0';
-                req_cfg = 0;
-                const char* p = strstr(rbuf, "config=");
-                if (p) try { req_cfg = std::stoi(std::string(p + 7)); } catch (...) {}
-                if (!send_resp(build_body(req_cfg))) break;
-            }
-            close(raw_fd);
-        }).detach();
-
-        return;
     }
 
     // ── /logs/users_YYYY-MM-DD.jsonl ────────────────────────────────────────

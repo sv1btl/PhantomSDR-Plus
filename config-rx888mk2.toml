@@ -8,11 +8,22 @@ threads=4
 register_online=true # Enable directory registration updates
 register_urls=[
   "https://sdr-list.xyz/api/update_websdr",
-  "https://list.websdr.fun/api/update_websdr" ] # One or more directory endpoints that accept the same JSON payload
+  "http://list.phantomsdr.fun/api/update_websdr",
+  ] # One or more directory endpoints that accept the same JSON payload
 name="ChangeThis CATsync PhantomSDR+" # Name that is shown on https://sdr-list.xyz
 antenna="aChangeThis" # Antenna that is shown on https://sdr-list.xyz
 grid_locator="ChangeThis" # 4 or 6 length Grid Locatlr shown on https://sdr-list.xyz and for the Distance of FT8 Signals
 hostname="user.domain.com" # If you use ddns or something to host with a domain enter it here for https://sdr-list.xyzv
+
+# In case you want to register to websdr.org, please uncomment and fill with your data
+# [websdr.org]
+# enabled     = true
+# public_host = "yourIP"
+# public_port = port
+# qth         = "QTH Locator"
+# description = "CallSign PhantomSDR+"
+# email       = "mail@domain.com"
+# ogo        = "logo.jpg" #located in frontend public. Use the same or change it
 
 [limits]
 audio=100

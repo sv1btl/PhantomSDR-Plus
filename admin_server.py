@@ -108,6 +108,7 @@ LOG_FILES = {
     "logwebsdr.txt": "logwebsdr.txt",
     "admin.log": "admin.log",
     "rade.log": "rade.log",
+    "crash.log": "crash.log",
 }
 
 # ─── Helpers ───────────────────────────────────────────────────────────────────
@@ -1277,6 +1278,7 @@ table.markers input:focus{background:#071207;outline:1px solid var(--border);}
           <div class="tab log-tab active" data-log-name="logwebsdr.txt" onclick="switchLogTab('logwebsdr.txt', this)">LOGWEBSDR</div>
           <div class="tab log-tab" data-log-name="admin.log" onclick="switchLogTab('admin.log', this)">ADMIN</div>
           <div class="tab log-tab" data-log-name="rade.log" onclick="switchLogTab('rade.log', this)">RADE</div>
+          <div class="tab log-tab" data-log-name="crash.log" onclick="switchLogTab('crash.log', this)">CRASH</div>
         </div>
         <div class="tab-pane log-tab-pane active" id="log-pane-logwebsdr">
           <div class="log-box" id="main-log-logwebsdr" style="height:550px;"></div>
@@ -1286,6 +1288,9 @@ table.markers input:focus{background:#071207;outline:1px solid var(--border);}
         </div>
         <div class="tab-pane log-tab-pane" id="log-pane-rade">
           <div class="log-box" id="main-log-rade" style="height:550px;"></div>
+        </div>
+        <div class="tab-pane log-tab-pane" id="log-pane-crash">
+          <div class="log-box" id="main-log-crash" style="height:550px;"></div>
         </div>
       </div>
 
@@ -1488,12 +1493,14 @@ const LOG_TAB_TARGETS = {
   'logwebsdr.txt': 'main-log-logwebsdr',
   'admin.log': 'main-log-admin',
   'rade.log': 'main-log-rade',
+  'crash.log': 'main-log-crash',
 };
 
 const LOG_TAB_PANES = {
   'logwebsdr.txt': 'log-pane-logwebsdr',
   'admin.log': 'log-pane-admin',
   'rade.log': 'log-pane-rade',
+  'crash.log': 'log-pane-crash',
 };
 
 // ─── Page navigation ────────────────────────────────────────────────────────

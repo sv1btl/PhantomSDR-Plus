@@ -48,8 +48,9 @@ from flask import (Flask, render_template_string, request, session,
 # ─── Config ────────────────────────────────────────────────────────────────────
 BASE_DIR = Path(__file__).parent.resolve()
 ADMIN_CONFIG_FILE = BASE_DIR / "admin_config.json"
-ADMIN_PORT = int(os.environ.get("ADMIN_PORT", 3000))   # internal only — proxy.py exposes it publicly
-ADMIN_BIND = os.environ.get("ADMIN_BIND", "127.0.0.1") # localhost by default; set "0.0.0.0" for standalone
+ADMIN_PORT = int(os.environ.get("ADMIN_PORT", 3000))    # internal only — proxy.py exposes it publicly
+ADMIN_BIND = os.environ.get("ADMIN_BIND", "127.0.0.1")  # localhost by default; set "0.0.0.0" for standalone
+PUBLIC_PORT = int(os.environ.get("PUBLIC_PORT", 8900))  # display default only — port users actually connect to
 
 def _get_or_create_secret_key():
     """Load secret key from config (persistent across restarts) or create and save one."""
@@ -82,7 +83,7 @@ DEFAULT_CONFIG = {
     "log_lines": 200,
     "start_script": "",
     "stop_script":  "",
-    "public_port":  8900,   # port users connect to (proxy.py / nginx / spectrumserver direct)
+    "public_port":  PUBLIC_PORT   # port users connect to (proxy.py / nginx / spectrumserver direct)
 }
 
 # ─── App setup ─────────────────────────────────────────────────────────────────
@@ -2142,8 +2143,8 @@ function isLocalIp(ip) {
   if (!ip) return false;
   var raw = ip.startsWith('::ffff:') ? ip.slice(7) : ip;
   if (raw === '::1' || raw === 'localhost') return true;
-  return /^127\./.test(raw) || /^10\./.test(raw) || /^192\.168\./.test(raw) ||
-         /^172\.(1[6-9]|2\d|3[01])\./.test(raw) || /^fc/i.test(raw) || /^fd/i.test(raw);
+  return /^127\\./.test(raw) || /^10\\./.test(raw) || /^192\\.168\\./.test(raw) ||
+         /^172\\.(1[6-9]|2\\d|3[01])\\./.test(raw) || /^fc/i.test(raw) || /^fd/i.test(raw);
 }
 
 // ─── Users / Kick ────────────────────────────────────────────────────────────
@@ -2948,16 +2949,18 @@ if __name__ == "__main__":
     cfg = load_admin_config()
     port = cfg.get("port", ADMIN_PORT)
     bind = ADMIN_BIND
+    proxy_port = cfg.get("proxy_port", PUBLIC_PORT)
+    sdr_port = cfg.get("public_port", PUBLIC_PORT)
 
     print("=" * 60)
     print("  PhantomSDR-Plus Admin Panel  [INTERNAL SERVICE]")
     print(f"  Listening : http://{bind}:{port}/admin")
-    print(f"  Public URL: via proxy.py -> http://SERVER_IP:8900/admin")
+    print(f"  Public URL: via proxy.py -> http://SERVER_IP:{proxy_port}/admin")
     print(f"  Password  : admin  (CHANGE THIS IMMEDIATELY)")
     print(f"  Dir       : {BASE_DIR}")
     print("=" * 60)
     print("  NOTE: Run proxy.py separately to share the main SDR port.")
-    print("        spectrumserver must use port 8902 in your .toml")
+    print(f"        spectrumserver must use port {sdr_port} in your .toml")
     print("=" * 60)
 
     if not HAS_PSUTIL:

@@ -1,28 +1,26 @@
-# PhantomSDR-Plus WebSDR (version 3.3.0)
+# PhantomSDR-Plus WebSDR (version 3.3.1)
 
-[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-cyan.svg)](https://www.gnu.org/licenses/gpl-3.0)
-[![Version](https://img.shields.io/badge/version-3.3.0-cyan.svg)](https://github.com/sv1btl/PhantomSDR-Plus)
+[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
+[![Version](https://img.shields.io/badge/version-3.3.1-blue.svg)](https://github.com/sv1btl/PhantomSDR-Plus)
 
 ## Note: Tested on Debian 12 (Bookworm), Debian 13 (Trixie), Ubuntu 22.04, Ubuntu 24.04.
 This is a **different Repo than the Official PhantomSDR Repo**
 
-**New in v. 3.3.0**
+**New in v. 3.3.1**
 
-- FT2 decoder,
-- new admin panel with "kick user" option, delete a message in real time without restarting the server, and push notifications of admin in real time.
-- optimized noise gate filter.
-- new sstv, all decoders are included now with band-pass filter 1100–2400 Hz and improvements to all sstv decoders,
-- optimized color schmes for the waterfall. Useless "Turbo" can now be used efficiently, "SpectraVU" uses darker background and "gqrx" has more vivid colors,
-- users under waterfall are now shown with their geo-ip information and not with random numbers,
+- Chnange the frequency in the GUI with just hover the mouse and drag up/down wheel,
+- Inthe admin panel is added crash.log file, if for any reason spectrumserver failed. You can also read the file from the root directory
+- Optimized mobile Gui
+- Optimized new color schemes for watefall
 - Total bugs clean for server's stability.
 
 We offer more **features**:
 - **New install.sh** procedure, that simplifies initial setup,
 - **recompile.sh** script for fast and simply recostruction of either backend and/or frontend,
-- Futuristic Design, Admin Panel added
+- Futuristic Design, 
 - **CATsync** with the application [CATsync Tool for WebSDRs](https://catsyncsdr.wordpress.com/)
-- Admin Panel, password protected, for remote controlling the server without SSH access.
-- Decoders, **FT8, FT4, FT2, CW, WSPR, HF FAX, SSTV, NAVTEX, FSK/RTTY, FreeDV RADE V1 (please refer here: [Decoders](docs/DECODERS.md) & C-QUAM AM Stereo (best working whem Opus audio_compression is used)**
+- Full advanced Admin Panel, password protected, for remote controlling the server without SSH access. Rich control of many functions as logs, chat control, messages to the users, ability to erase chat message without restarting the server, to kick a user, to run commands, to change all files without a terminal,
+- Decoders, **FT8, FT4, FT2, CW, WSPR, HF FAX, SSTV, NAVTEX, FSK/RTTY, FreeDV RADE V1 (please refer here: [Decoders](docs/DECODERS.md) & C-QUAM AM Stereo** (the C-Quam best working when Opus audio_compression is used)
 - Band Plan in the Waterfall, definition for different brigthness, start frequency and visibility for each band, 
 - Better Custom Colorsmap,
 - Optimized Flac and Opus encoder with balanced latency, both working in 16 bit, Dynamic Range 96 dB ⭐
@@ -31,10 +29,9 @@ We offer more **features**:
 - 4 different GUI templates, that can be selected using a popup float menu,
 - Optional monitor tool that adds real-time server monitoring to your PhantomSDR application.
 - On screen audio spectrogram.
-- Full advanced Admin Panel, with control by the sysop of many functions.
-- Users list in real time with Geo location and maps
-- Increased server's stability.
-- WebSDR List (https://sdr-list.xyz, http://list.phantomsdr.fun, http://list.novasdr.fun/),
+- Users list in real time with Geo location and maps and user statistics for any time period,
+- Increased server's stability. Crash.log is added in case of spectrumserver's dysfunctions,
+- WebSDR List (https://sdr-list.xyz, https://sdr.shbrg.nl/sdr/, http://websdr.org/), now registered to all these lists,
 - Supported receivers RX-888, RTL V.4, Airspy Discovery, HackRF, SDRPLAY RSP1A (original and clone) via Soapy and many more to be added,
 - More to come!...
 

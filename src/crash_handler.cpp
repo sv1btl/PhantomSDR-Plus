@@ -251,6 +251,7 @@ void install_crash_handlers(const char *log_path) {
         } else {
             // Mark the start of this process's session in the log so
             // multiple runs appended to the same file are distinguishable.
+            // Crash.log is also available in Admin panel
             log_printf(
                     "\n----------------------------------------------------------------\n"
                     "[CRASH] crash handler installed, pid=%d, unix_time=%ld, log=%s\n"

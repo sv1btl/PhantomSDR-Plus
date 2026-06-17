@@ -19,6 +19,7 @@
 //
 // Default path is "crash.log" (relative to the process's working directory,
 // i.e. typically the spectrumserver build/run directory).
+//
 void install_crash_handlers(const char *log_path = "crash.log");
 
 #endif // CRASH_HANDLER_H

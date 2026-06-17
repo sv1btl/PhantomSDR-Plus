@@ -1106,7 +1106,7 @@ export default class SpectrumWaterfall {
 
   drawClients() {
     const scale    = this.canvasScale
-    const fontSize = Math.max(8, Math.round(9 * scale))
+    const fontSize = Math.max(10, Math.round(11 * scale))
     const pillH    = fontSize + 4 * scale
     const tickLen  = 15
     const rowStep  = pillH + 3 * scale

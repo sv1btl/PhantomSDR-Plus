@@ -1,5 +1,5 @@
 <script>
-  const VERSION = "3.3.0 with mobile support and enhancements";
+  const VERSION = "3.3.1 with mobile support and enhancements";
 
   import { onDestroy, onMount, tick, afterUpdate } from "svelte";
   import { fade, fly, scale } from "svelte/transition";
@@ -2981,6 +2981,24 @@ function startTopFrequencyBarSync() {
   var DIGIT_POWERS_HZ = [100000000, 10000000, 1000000, 100000, 10000, 1000, 100, 10];
 
   var selectedDigitIdx = -1; // -1 = none selected yet
+  var hoveredDigitIdx = -1; // -1 = none hovered
+  var frameHovered = false; // hovering the frequency frame itself (not a specific digit)
+
+  function handleDigitMouseEnter(idx) {
+    hoveredDigitIdx = idx;
+  }
+
+  function handleDigitMouseLeave() {
+    hoveredDigitIdx = -1;
+  }
+
+  function handleFreqFrameMouseEnter() {
+    frameHovered = true;
+  }
+
+  function handleFreqFrameMouseLeave() {
+    frameHovered = false;
+  }
 
   // FIX [5]: support up to 10 digits (covers up to 9,999 MHz / ~10 GHz)
   // tenHz has up to 10 digits; pad to 10, show right-most 8 in display,
@@ -3102,9 +3120,11 @@ function startTopFrequencyBarSync() {
       var frequencyHz = Math.round(parseFloat(frequency) * 1e3);
       var step; // FIX [4]: declare once, assign in branches
 
-      if (selectedDigitIdx >= 0) {
+      var activeDigitIdx = selectedDigitIdx >= 0 ? selectedDigitIdx : hoveredDigitIdx;
+
+      if (activeDigitIdx >= 0) {
         // Digit-specific tuning: true place-value add/subtract, no snapping
-        step = DIGIT_POWERS_HZ[selectedDigitIdx];
+        step = DIGIT_POWERS_HZ[activeDigitIdx];
         frequencyHz = frequencyHz + delta * step;
       } else {
         // No digit selected — fall back to default step tuning
@@ -5160,6 +5180,15 @@ function startTopFrequencyBarSync() {
                   >
                     <span class="icon">HamDash</span>
                   </button>
+                  &nbsp;&nbsp;&nbsp;
+                  <button
+                    class="glass-button text-white py-1 px-3 mb-2 lg:mb-0 rounded-lg text-sm sm:text-sm"
+                    style="color:rgba(0, 225, 255, 0.993)"
+                    title="PSK Reporter"
+                    onClick="window.open('https://pskreporter.info/pskmap.html','_blank')"
+                  >
+                    <span class="icon">PSK Reporter</span>
+                  </button>
                   &nbsp - &nbsp
                   <form
                     method="get"
@@ -5338,7 +5367,7 @@ function startTopFrequencyBarSync() {
                     <ul style="font-size: 0.91rem; text-align: left;">
                     <b>Setup &amp; Configuration:</b>
                       <img
-                        src="https://img.shields.io/badge/version- 3.3.0-cyan?logo=github"
+                        src="https://img.shields.io/badge/version- 3.3.1-blue?logo=github"
                         alt="Version"
                         class="inline-block align-middle ml-2"
                       />
@@ -5408,7 +5437,7 @@ function startTopFrequencyBarSync() {
                                 {#each systemStats.cpu.topProcesses as process}
                                 <div style="display: flex; justify-content: space-between; margin-bottom: 0.25rem; font-size: 0.85rem;">
                                   <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 70%;">{process.name}</span>
-                                  <span style="color: {process.cpu > 50 ? '#ef4444' : process.cpu > 25 ? '#fbbf24' : '#4ade80'};">{process.cpu}%</span>
+                                  <span style="color: {process.cpu > 60 ? '#ef4444' : process.cpu > 40 ? '#fbbf24' : '#4ade80'};">{process.cpu}%</span>
                                 </div>
                                 {/each}
                               </div>
@@ -6235,17 +6264,18 @@ Click again to de-activate"
                     <!-- Digit-by-digit frequency tuner -->
                     <div class="relative mb-2">
                       <div
-                        class="flex items-center justify-center font-mono select-none rounded-lg px-2 py-1 bg-black border border-gray-700 cursor-default focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                        class="flex items-center justify-center font-mono select-none rounded-lg px-2 py-1 bg-black border cursor-default focus:outline-none focus:ring-2 focus:ring-cyan-500 transition-colors duration-100 {frameHovered ? 'border-cyan-500' : 'border-gray-700'}"
                         use:handleDigitWheel
-                        tabindex="0"
-                        title="Click a digit then scroll / arrow-key to tune · Right-click to type"
-                        on:keydown={handleDigitKeydown}
+                        title="Hover a digit and scroll to tune · Right-click to type"
                         on:contextmenu={handleDigitContextMenu}
+                        on:mouseenter={handleFreqFrameMouseEnter}
+                        on:mouseleave={handleFreqFrameMouseLeave}
                       >
                         {#each freqDigitChars as d}
                           <span
-                            class="text-4xl w-5 text-center rounded transition-colors duration-100 {selectedDigitIdx === d.idx ? 'bg-cyan-600 text-white' : d.dim ? 'text-gray-600 hover:text-gray-400' : 'text-cyan-300 hover:text-cyan-100'}"
-                            on:click={() => handleDigitClick(d.idx)}
+                            class="text-5xl sm:text-4xl w-5 text-center rounded transition-colors duration-100 {hoveredDigitIdx === d.idx ? 'bg-cyan-600 text-white' : d.dim ? 'text-gray-600 hover:text-gray-400' : 'text-cyan-300 hover:text-cyan-100'}"
+                            on:mouseenter={() => handleDigitMouseEnter(d.idx)}
+                            on:mouseleave={handleDigitMouseLeave}
                           >{d.ch}</span>
                           {#if d.idx === 2}
                             <span class="text-gray-500 text-2xl w-3 text-center">,</span>
@@ -6367,7 +6397,7 @@ Click again to de-activate"
                 </div>
               </div>
 
-              <div id="frequencyContainer" class="w-full mt-4">
+              <div id="frequencyContainer" class="w-full mt-8 sm:mt-4">
                 <div class="space-y-11">
                   <!-- Begin Fine Tuning Buttons -->
 
@@ -8540,11 +8570,11 @@ Click again to de-activate"
               <!-- First Column -->
 
               <div
-                class="flex flex-col xl:flex-row rounded p-5 justify-center rounded"
+                class="flex flex-col xl:flex-row rounded sm:p-5 justify-center rounded mt-4 sm:mt-0"
                 id="middle-column"
               >
                 <div
-                  class="p-5 flex flex-col items-center bg-gray-800 lg:border lg:border-gray-700 rounded-none rounded-t-lg lg:rounded-none lg:rounded-l-lg"
+                  class="sm:p-5 flex flex-col items-center bg-gray-800 lg:border lg:border-gray-700 rounded-none rounded-t-lg lg:rounded-none lg:rounded-l-lg"
                 >
                   <div class="control-group" id="volume-slider">
                     <button
@@ -8667,28 +8697,15 @@ Click again to de-activate"
 
                   <!-- Audio Ends -->
                   <span>&nbsp;</span>
-                  <!-- Begin of TOP Fine Tuning Buttons by sv2amk -->
-                  <div class="grid grid-cols-7 sm:grid-cols-7 gap-2">
-                    {#each mobiletopfinetuningsteps as finetuningstep}
-                      <button
-                        id="mobile-fine-tuning-selector"
-                        class="retro-button text-white font-bold h-5 text-sm rounded-md flex items-center justify-center border border-gray-600 shadow-inner transition-all duration-200 ease-in-out bg-gray-700 hover:bg-gray-600"
-                        on:click={() => handleFineTuningStep(finetuningstep)}
-                        title="{finetuningstep} kHz"
-                      >
-                        {finetuningstep}
-                      </button>
-                    {/each}
-                  </div>
                 </div>
 
                 <!-- Second Column -->
 
                 <div
-                  class="flex flex-col items-center bg-gray-800 p-6 border-l-0 border-r-0 border border-gray-700"
+                  class="flex flex-col items-center bg-gray-800 sm:p-6 border-l-0 border-r-0 border border-gray-700"
                 >
                   <div
-                    class="bg-black rounded-lg p-8 min-w-80 lg:min-w-0 lg:p-4 mb-4 w-full"
+                    class="bg-black rounded-lg p-2 sm:p-8 min-w-0 lg:min-w-0 lg:p-4 mb-4 w-full"
                     id="smeter-tut"
                   >
                     <div
@@ -8794,7 +8811,19 @@ Click again to de-activate"
                       </div>
                     </div>
                   </div>
-
+                  <!-- Begin of TOP Fine Tuning Buttons by sv2amk -->
+                  <div class="grid grid-cols-7 sm:grid-cols-7 gap-2">
+                    {#each mobiletopfinetuningsteps as finetuningstep}
+                      <button
+                        id="mobile-fine-tuning-selector"
+                        class="retro-button text-white font-bold h-5 text-sm rounded-md flex items-center justify-center border border-gray-600 shadow-inner transition-all duration-200 ease-in-out bg-gray-700 hover:bg-gray-600"
+                        on:click={() => handleFineTuningStep(finetuningstep)}
+                        title="{finetuningstep} kHz"
+                      >
+                        {finetuningstep}
+                      </button>
+                    {/each}
+                  </div>
                   <div id="frequencyContainer" class="w-full mt-4">
                     <div class="space-y-5">
                       <!-- Phil -->

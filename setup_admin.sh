@@ -151,27 +151,16 @@ with open(cfg_path, 'w') as f:
 print('[OK] admin_config.json saved')
 PYEOF
 
-echo ""
-echo "╔════════════════════════════════════════════════════════╗"
-echo "║  Ready!                                                "
-echo "║                                                        "
-echo "║  Spectrumserver  : port ${SDR_PORT}  (LAN IP: ${SDR_HOST})"
-echo "║  Admin panel     : port ${ADMIN_PORT} (internal)       "
-echo "║  Proxy           : port ${PROXY_PORT} (public)         "
-echo "║                                                        "
-echo "║  1. Start : bash manage_admin.sh start                 "
-echo "║  2. Open  : http://YOUR_IP:${PROXY_PORT}/admin         "
-echo "║  3. Login : password = admin  (change on first login!) "
-echo "╚════════════════════════════════════════════════════════╝"
-echo ""
-
 # ── Systemd service ───────────────────────────────────────────────────────────
+echo ""
 read -p "Install as systemd service (auto-start on boot)? [y/N]: " SVC_CHOICE
+SERVICE_INSTALLED=false
 case "$SVC_CHOICE" in
     [yY]*)
         if ! sudo -n true 2>/dev/null; then
             echo "[*] sudo needed for systemd service..."
         fi
+        PYTHON_BIN="$(command -v python3)"
         sudo tee /etc/systemd/system/phantomsdr-admin.service > /dev/null << UNIT
 [Unit]
 Description=PhantomSDR Admin Panel
@@ -181,7 +170,7 @@ After=network.target
 Type=simple
 User=$(whoami)
 WorkingDirectory=$SCRIPT_DIR
-ExecStart=/usr/bin/python3 $SCRIPT_DIR/admin_server.py
+ExecStart=$PYTHON_BIN $SCRIPT_DIR/admin_server.py
 Restart=always
 RestartSec=5
 Environment=ADMIN_PORT=$ADMIN_PORT
@@ -192,11 +181,43 @@ UNIT
         sudo systemctl daemon-reload
         sudo systemctl enable phantomsdr-admin
         sudo systemctl restart phantomsdr-admin
-        echo "[OK] Service installed and started"
-        echo "     sudo systemctl status phantomsdr-admin"
-        exit 0
+        echo "[OK] Service installed and started (admin panel)"
+        # systemd only manages admin_server.py — bring the proxy up too.
+        # manage_admin.sh's start will correctly see the systemd-managed
+        # admin panel via its pgrep fallback and only start the proxy.
+        chmod +x "$SCRIPT_DIR/manage_admin.sh"
+        bash "$SCRIPT_DIR/manage_admin.sh" start
+        SERVICE_INSTALLED=true
         ;;
 esac
+
+# ── Ready banner ──────────────────────────────────────────────────────────────
+echo ""
+echo "╔════════════════════════════════════════════════════════╗"
+echo "║  Ready!                                                "
+echo "║                                                        "
+echo "║  Spectrumserver  : port ${SDR_PORT}  (LAN IP: ${SDR_HOST})"
+if [ "$SERVICE_INSTALLED" = true ]; then
+echo "║  Admin panel     : port ${ADMIN_PORT} (internal, systemd) "
+else
+echo "║  Admin panel     : port ${ADMIN_PORT} (internal)       "
+fi
+echo "║  Proxy           : port ${PROXY_PORT} (public)         "
+echo "║                                                        "
+if [ "$SERVICE_INSTALLED" = true ]; then
+echo "║  Already running — auto-starts on boot                "
+echo "║  Status : sudo systemctl status phantomsdr-admin       "
+else
+echo "║  1. Start : bash manage_admin.sh start                 "
+fi
+echo "║  2. Open  : http://YOUR_IP:${PROXY_PORT}/admin         "
+echo "║  3. Login : password = admin  (change on first login!) "
+echo "╚════════════════════════════════════════════════════════╝"
+echo ""
+
+if [ "$SERVICE_INSTALLED" = true ]; then
+    exit 0
+fi
 
 # ── Launch now ────────────────────────────────────────────────────────────────
 read -p "Launch admin panel now? [Y/n]: " LAUNCH
@@ -204,6 +225,6 @@ case "$LAUNCH" in
     [nN]*) echo "Start later: bash manage_admin.sh start" ;;
     *)
         chmod +x "$SCRIPT_DIR/manage_admin.sh"
-        bash "$SCRIPT_DIR/manage_admin.sh" start
+        bash "$SCRIPT_DIR/manage_admin.sh" restart
         ;;
 esac

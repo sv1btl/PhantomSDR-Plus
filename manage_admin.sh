@@ -16,10 +16,34 @@ PROXY_PID_FILE="$SCRIPT_DIR/proxy.pid"
 LOG_FILE="$SCRIPT_DIR/admin.log"
 PROXY_LOG_FILE="$SCRIPT_DIR/proxy.log"
 
+# Resolve the PID of an already-running instance, even if it wasn't started
+# by this script (systemd, manual `python3 foo.py &`, a PID file lost to a
+# crash). Falls back to pgrep like cmd_stop/cmd_status already do, and adopts
+# the result into the PID file so subsequent start/stop/status stay in sync.
+# $1 = pidfile  $2 = pgrep pattern
+_find_pid() {
+    local pidfile="$1" pattern="$2" pid
+    if [ -f "$pidfile" ]; then
+        pid=$(cat "$pidfile")
+        if kill -0 "$pid" 2>/dev/null; then
+            echo "$pid"
+            return 0
+        fi
+    fi
+    pid=$(pgrep -f "$pattern" | head -1)
+    if [ -n "$pid" ]; then
+        echo "$pid" > "$pidfile"
+        echo "$pid"
+        return 0
+    fi
+    return 1
+}
+
 cmd_start() {
     # ── Admin panel ───────────────────────────────────────────────────────────
-    if [ -f "$PID_FILE" ] && kill -0 "$(cat "$PID_FILE")" 2>/dev/null; then
-        echo "[!] Admin panel already running (PID=$(cat "$PID_FILE"))"
+    local PID
+    if PID=$(_find_pid "$PID_FILE" "python3.*admin_server.py"); then
+        echo "[!] Admin panel already running (PID=$PID)"
     else
         echo "[*] Starting admin panel..."
         nohup python3 "$PY_SCRIPT" >> "$LOG_FILE" 2>&1 &
@@ -38,8 +62,9 @@ cmd_start() {
         echo "[–] proxy.py not found, skipping"
         return
     fi
-    if [ -f "$PROXY_PID_FILE" ] && kill -0 "$(cat "$PROXY_PID_FILE")" 2>/dev/null; then
-        echo "[!] Proxy already running (PID=$(cat "$PROXY_PID_FILE"))"
+    local PROXY_PID
+    if PROXY_PID=$(_find_pid "$PROXY_PID_FILE" "python3.*proxy.py"); then
+        echo "[!] Proxy already running (PID=$PROXY_PID)"
     else
         # Check proxy dependency before starting
         if ! python3 -c "import aiohttp" 2>/dev/null; then

@@ -925,8 +925,7 @@ input:focus{border-color:var(--green);box-shadow:0 0 6px #00ff4122;}
 .chat-time{color:var(--text3);font-size:.65rem;}
 .chat-del-btn{flex-shrink:0;background:transparent;border:1px solid #ff404044;color:#ff6060;
   font-family:'Share Tech Mono',monospace;font-size:.6rem;padding:.1rem .4rem;border-radius:2px;
-  cursor:pointer;opacity:0;transition:.15s;line-height:1.4;}
-.chat-msg:hover .chat-del-btn{opacity:1;}
+  cursor:pointer;transition:.15s;line-height:1.4;}
 .chat-del-btn:hover{background:rgba(255,64,64,0.15);border-color:#ff404088;}
 
 /* Top processes table */
@@ -1300,7 +1299,6 @@ table.markers input:focus{background:#071207;outline:1px solid var(--border);}
         <div class="section-head">CHAT HISTORY</div>
         <div style="display:flex;gap:.5rem;margin-bottom:.7rem;">
           <button class="btn btn-blue" onclick="loadChat()">↻ REFRESH</button>
-          <button class="btn btn-red" onclick="clearChat()">✕ CLEAR HISTORY</button>
         </div>
         <div class="chat-log" id="chat-log">Loading...</div>
       </div>

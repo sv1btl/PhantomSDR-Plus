@@ -81,41 +81,54 @@ void broadcast_server::check_and_update_markers() {
 // ============================================================================
 
 void broadcast_server::cleanup_dead_connections() {
+    // FIX (SIGSEGV): Previously this function erased iterators directly from
+    // signal_slices and waterfall_slices.  That bypassed the atomic<bool>
+    // closed guard in AudioClient::on_close() and WaterfallClient::on_close(),
+    // so a close/fail handler firing concurrently would erase the same iterator
+    // a second time — corrupting the rb-tree → SIGSEGV in
+    // _Rb_tree_rebalance_for_erase.
+    //
+    // Fix: collect dead client shared_ptrs under the lock (snapshot only),
+    // release the lock, then call on_close() on each.  on_close() owns the
+    // mutex acquisition and the closed-guard check, so concurrent close/fail
+    // handlers and this cleanup path are all mutually exclusive.
+
     // Signal (audio) clients
     {
-        std::scoped_lock lg(signal_slice_mtx);
-        for (auto it = signal_slices.begin(); it != signal_slices.end();) {
-            try {
-                auto con = m_server.get_con_from_hdl(it->second->hdl);
-                if (!con || con->get_state() != websocketpp::session::state::open) {
-                    it = signal_slices.erase(it);
-                    continue;
+        std::vector<std::shared_ptr<AudioClient>> to_close;
+        {
+            std::scoped_lock lg(signal_slice_mtx);
+            for (auto &[slice, client] : signal_slices) {
+                try {
+                    auto con = m_server.get_con_from_hdl(client->hdl);
+                    if (!con || con->get_state() != websocketpp::session::state::open)
+                        to_close.push_back(client);
+                } catch (...) {
+                    to_close.push_back(client);
                 }
-            } catch (...) {
-                it = signal_slices.erase(it);
-                continue;
             }
-            ++it;
         }
+        for (auto &c : to_close)
+            try { c->on_close(); } catch (...) {}
     }
 
     // Waterfall clients (one mutex per downsample level)
     for (int i = 0; i < downsample_levels; i++) {
-        std::scoped_lock lg(waterfall_slice_mtx[i]);
-        for (auto it = waterfall_slices[i].begin();
-             it != waterfall_slices[i].end();) {
-            try {
-                auto con = m_server.get_con_from_hdl(it->second->hdl);
-                if (!con || con->get_state() != websocketpp::session::state::open) {
-                    it = waterfall_slices[i].erase(it);
-                    continue;
+        std::vector<std::shared_ptr<WaterfallClient>> to_close;
+        {
+            std::scoped_lock lg(waterfall_slice_mtx[i]);
+            for (auto &[slice, client] : waterfall_slices[i]) {
+                try {
+                    auto con = m_server.get_con_from_hdl(client->hdl);
+                    if (!con || con->get_state() != websocketpp::session::state::open)
+                        to_close.push_back(client);
+                } catch (...) {
+                    to_close.push_back(client);
                 }
-            } catch (...) {
-                it = waterfall_slices[i].erase(it);
-                continue;
             }
-            ++it;
         }
+        for (auto &c : to_close)
+            try { c->on_close(); } catch (...) {}
     }
 
     // Events clients
@@ -408,19 +421,27 @@ void broadcast_server::run(uint16_t port) {
             if (!ec) stop();
         });
 
-    // Spawn server_threads-1 extra io_service threads; use the main thread too.
-    std::vector<std::thread> threads;
-    threads.reserve(server_threads - 1);
-    for (int i = 0; i < server_threads - 1; i++)
-        threads.emplace_back([this] { m_server.run(); });
-
+    // Run io_context on a single thread only.
+    //
+    // websocketpp's close-handshake timer and connection I/O handlers both
+    // capture shared_ptr copies in bound lambdas.  When the io_context runs
+    // on multiple threads, those lambdas can be destroyed simultaneously on
+    // different threads, causing concurrent shared_ptr refcount decrements
+    // that corrupt the allocator's internal rb-tree and crash inside
+    // _Rb_tree_rebalance_for_erase with SIGSEGV (si_code=SI_KERNEL).
+    //
+    // Confirmed by addr2line — crash call chain:
+    //   handle_close_handshake_timeout()
+    //     → handle_async_shutdown()
+    //       → ~tuple() / ~__shared_count()   ← two threads, same object
+    //         → _Rb_tree_rebalance_for_erase → SIGSEGV
+    //
+    // All CPU-heavy work (FFT, audio, waterfall, geo-IP) already runs on
+    // dedicated std::threads outside this loop, so there is zero throughput
+    // loss from keeping the websocketpp io_context single-threaded.
+    // The server_threads config key is retained for compatibility but
+    // intentionally ignored here.
     m_server.run();  // blocks until stop() calls m_server.stop()
-
-    // ── Join all worker threads ───────────────────────────────────────────
-    // The io_service is now fully drained; no more completion handlers can run.
-    // Joining here is always safe regardless of server_threads.
-    for (auto &t : threads)
-        t.join();
 
     // Background service threads: websdr listing, WebSDR.org, marker updater,
     // and the FFT task.  Each checks its own atomic flag and exits cleanly.

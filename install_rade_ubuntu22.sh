@@ -60,6 +60,83 @@ else
 fi
 
 # =============================================================================
+# VERSION CHECK — PhantomSDR-Plus RADE integration files
+# =============================================================================
+section "Checking PhantomSDR-Plus RADE integration files"
+
+PHANTOM_RADE_FILES=(
+    "rade_helper.py"
+    "rade.sh"
+)
+PHANTOM_FRONTEND_FILES=(
+    "frontend/src/audio.js"
+    "frontend/src/App.svelte"
+    "frontend/src/App__analog_smeter_.svelte"
+    "frontend/src/App__digital_smeter_.svelte"
+    "frontend/src/App__v2_analog_smeter_.svelte"
+    "frontend/src/App__v2_digital_smeter_.svelte"
+)
+
+PHANTOM_FILES_UPDATED=false
+PHANTOM_FRONTEND_UPDATED=false
+
+if [[ -d "$PHANTOM_DIR/.git" ]]; then
+    info "Found PhantomSDR-Plus git repository at $PHANTOM_DIR"
+    cd "$PHANTOM_DIR"
+
+    PHANTOM_LOCAL=$(git rev-parse HEAD 2>/dev/null || echo "unknown")
+    git fetch origin --quiet 2>/dev/null || warn "Could not reach GitHub — skipping PhantomSDR-Plus remote check"
+    PHANTOM_REMOTE=$(git rev-parse origin/main 2>/dev/null \
+                    || git rev-parse origin/master 2>/dev/null \
+                    || echo "unknown")
+
+    if [[ "$PHANTOM_LOCAL" == "$PHANTOM_REMOTE" || "$PHANTOM_REMOTE" == "unknown" ]]; then
+        ok "PhantomSDR-Plus is already up to date (${PHANTOM_LOCAL:0:8})"
+    else
+        warn "PhantomSDR-Plus update available: local=${PHANTOM_LOCAL:0:8}  remote=${PHANTOM_REMOTE:0:8}"
+        info "Pulling latest PhantomSDR-Plus changes…"
+        if ! git pull --ff-only --quiet 2>/dev/null; then
+            warn "Cannot fast-forward PhantomSDR-Plus — local and remote have diverged."
+            warn "Run manually:  cd $PHANTOM_DIR && git pull --rebase"
+            warn "Continuing with current local files…"
+            PHANTOM_FILES_UPDATED=false
+            PHANTOM_FRONTEND_UPDATED=false
+        fi
+
+        # Check if any RADE root files changed in this pull
+        for f in "${PHANTOM_RADE_FILES[@]}"; do
+            if git diff HEAD@{1} HEAD --name-only 2>/dev/null | grep -q "^${f}$"; then
+                ok "  Updated: $f"
+                PHANTOM_FILES_UPDATED=true
+            fi
+        done
+
+        # Check if any frontend RADE files changed
+        for f in "${PHANTOM_FRONTEND_FILES[@]}"; do
+            if git diff HEAD@{1} HEAD --name-only 2>/dev/null | grep -q "^${f}$"; then
+                ok "  Updated: $f"
+                PHANTOM_FRONTEND_UPDATED=true
+            fi
+        done
+
+        if $PHANTOM_FILES_UPDATED; then
+            info "RADE sidecar files updated — will restart rade.sh after install"
+        fi
+        if $PHANTOM_FRONTEND_UPDATED; then
+            info "Frontend RADE files updated — will rebuild frontend"
+        fi
+        if ! $PHANTOM_FILES_UPDATED && ! $PHANTOM_FRONTEND_UPDATED; then
+            ok "No RADE-specific files changed in this PhantomSDR-Plus update"
+        fi
+    fi
+else
+    warn "PhantomSDR-Plus directory ($PHANTOM_DIR) is not a git repository"
+    warn "Cannot check for RADE integration file updates automatically"
+    info "To update manually, copy the latest rade_helper.py and rade.sh from:"
+    info "  https://github.com/sv1btl/PhantomSDR-Plus"
+fi
+
+# =============================================================================
 # STEP 1 — System packages
 # =============================================================================
 section "Step 1 — System requirements"
@@ -176,8 +253,14 @@ elif $NEED_BUILD; then
     # Repo exists and needs a rebuild — pull in case there are new commits
     info "Pulling latest changes…"
     cd "$RADAE_DIR"
-    git pull
-    ok "Repository up to date"
+    if ! git pull --ff-only --quiet 2>/dev/null; then
+        warn "Cannot fast-forward radae — local and remote have diverged."
+        warn "Run manually:  cd $RADAE_DIR && git pull --rebase"
+        warn "Continuing with current local files…"
+        NEED_BUILD=false
+    else
+        ok "Repository up to date"
+    fi
 else
     # Already up to date and binary present — nothing to pull
     ok "radae repository is current — skipping pull"
@@ -221,17 +304,36 @@ ok "Nothing more to do"
 section "Step 5 — Build PhantomSDR-Plus frontend"
 
 if [[ -d "$PHANTOM_DIR" ]]; then
-    if [[ -x "$PHANTOM_DIR/recompile.sh" ]]; then
-        info "Running recompile.sh…"
-        cd "$PHANTOM_DIR"
-        ./recompile.sh
-        ok "Frontend rebuilt"
+    # Rebuild if: fresh install, or frontend RADE files were updated
+    if $PHANTOM_FRONTEND_UPDATED; then
+        info "Frontend RADE files changed — rebuilding…"
+        if [[ -x "$PHANTOM_DIR/recompile.sh" ]]; then
+            cd "$PHANTOM_DIR"
+            ./recompile.sh
+            ok "Frontend rebuilt"
+        elif [[ -d "$PHANTOM_DIR/frontend" ]]; then
+            cd "$PHANTOM_DIR/frontend"
+            npm install --silent
+            npm run build
+            ok "Frontend rebuilt via npm"
+        else
+            warn "Cannot find recompile.sh or frontend/ — skipping rebuild"
+        fi
+    elif [[ -x "$PHANTOM_DIR/recompile.sh" ]]; then
+        if ! $NEED_BUILD && ! $PHANTOM_FILES_UPDATED; then
+            ok "Frontend already up to date — skipping rebuild"
+        else
+            info "Running recompile.sh…"
+            cd "$PHANTOM_DIR"
+            ./recompile.sh
+            ok "Frontend rebuilt"
+        fi
     else
         warn "recompile.sh not found or not executable in $PHANTOM_DIR — skipping"
     fi
 else
     warn "$PHANTOM_DIR not found — skipping frontend build"
-    warn "Make sure PhantomSDR-Plus is installed before running rade.sh"
+    warn "Make sure PhantomSDR-Plus is installed before running this script"
 fi
 
 # =============================================================================
@@ -242,12 +344,25 @@ section "Step 6 — rade.sh setup"
 if [[ -f "$PHANTOM_DIR/rade.sh" ]]; then
     chmod +x "$PHANTOM_DIR/rade.sh"
     ok "rade.sh is now executable"
-    info "Starting RADE sidecar…"
     cd "$PHANTOM_DIR"
-    ./rade.sh start
-    ok "RADE sidecar started"
+
+    # Determine whether to start fresh or restart
+    if pgrep -f "rade_helper.py" > /dev/null 2>&1; then
+        if $PHANTOM_FILES_UPDATED || $NEED_BUILD; then
+            info "RADE sidecar running — restarting to pick up new files…"
+            ./rade.sh restart
+            ok "RADE sidecar restarted"
+        else
+            ok "RADE sidecar already running and up to date — no restart needed"
+        fi
+    else
+        info "Starting RADE sidecar…"
+        ./rade.sh start
+        ok "RADE sidecar started"
+    fi
 else
     warn "rade.sh not found at $PHANTOM_DIR/rade.sh — skipping start"
+    warn "Copy rade.sh from your PhantomSDR-Plus repository first"
 fi
 
 # =============================================================================
@@ -271,6 +386,26 @@ if [[ -f "$RADAE_DIR/$MODEL_CHECKPOINT" ]]; then
 echo -e "  ${GREEN}✔${NC}  Model weights         model19_check3  ✓"
 else
 echo -e "  ${YELLOW}!${NC}  Model weights         NOT FOUND — download manually"
+fi
+
+# PhantomSDR-Plus RADE integration status
+if [[ -d "$PHANTOM_DIR/.git" ]]; then
+    PHANTOM_COMMIT=$(cd "$PHANTOM_DIR" && git rev-parse --short HEAD 2>/dev/null || echo "unknown")
+echo -e "  ${GREEN}✔${NC}  PhantomSDR-Plus       $PHANTOM_DIR  (${PHANTOM_COMMIT})"
+else
+echo -e "  ${YELLOW}!${NC}  PhantomSDR-Plus       not a git repo — manual updates only"
+fi
+
+if [[ -f "$PHANTOM_DIR/rade_helper.py" ]]; then
+echo -e "  ${GREEN}✔${NC}  rade_helper.py        present"
+else
+echo -e "  ${RED}✘${NC}  rade_helper.py        NOT FOUND in $PHANTOM_DIR"
+fi
+
+if [[ -f "$PHANTOM_DIR/rade.sh" ]]; then
+echo -e "  ${GREEN}✔${NC}  rade.sh               present and executable"
+else
+echo -e "  ${RED}✘${NC}  rade.sh               NOT FOUND in $PHANTOM_DIR"
 fi
 echo ""
 

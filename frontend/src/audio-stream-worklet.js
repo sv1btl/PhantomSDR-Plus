@@ -11,7 +11,15 @@ class PhantomSDRAudioStreamProcessor extends AudioWorkletProcessor {
     this.bufferedFrames = 0;
     this.droppedFrames = 0;
     this.underruns = 0;
-    this.minStartFrames = Math.max(256, Math.floor(this.sampleRateHint * 0.06));
+    // FIX: minStartSeconds was being passed in via processorOptions by
+    // audio.js but never read here — the start gate was silently hardcoded
+    // to 0.06s no matter what the caller configured, making that config
+    // value dead code. Honor it now; fall back to the old hardcoded value
+    // only if the caller doesn't supply one.
+    const minStartSeconds = (typeof processorOptions.minStartSeconds === 'number' && processorOptions.minStartSeconds > 0)
+      ? processorOptions.minStartSeconds
+      : 0.06;
+    this.minStartFrames = Math.max(256, Math.floor(this.sampleRateHint * minStartSeconds));
     this.started = false;
     this._lastStatsFrame = 0;
 

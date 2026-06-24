@@ -221,15 +221,40 @@
   function getColorForValue(value) {
     switch (colorScheme) {
       case 'blue':
-        return `hsl(${200 + value * 60}, 100%, ${50 + value * 30}%)`;
+        return `hsl(210, 100%, ${5 + value * 75}%)`;
       case 'green':
-        return `hsl(120, ${50 + value * 50}%, ${30 + value * 50}%)`;
+        return `hsl(120, 100%, ${5 + value * 65}%)`;
       case 'white': {
         const i = Math.floor(value * 255);
         return `rgb(${i}, ${i}, ${i})`;
       }
-      default:
-        return `hsl(${(1 - value) * 255}, 100%, 50%)`;
+      default: {
+        // Enhanced jet: black → dark blue → blue → cyan → yellow → red
+        const v = Math.max(0, Math.min(1, value));
+        const t = Math.pow(v, 0.75);
+        const stops = [
+          [0.00,   0,   0,   0],
+          [0.12,   0,   0,  80],
+          [0.25,   0,   0, 255],
+          [0.45,   0, 255, 255],
+          [0.65, 255, 255,   0],
+          [0.80, 255, 128,   0],
+          [1.00, 200,   0,   0],
+        ];
+        let r = 0, g = 0, b = 0;
+        for (let i = 0; i < stops.length - 1; i++) {
+          const [t0, r0, g0, b0] = stops[i];
+          const [t1, r1, g1, b1] = stops[i + 1];
+          if (t >= t0 && t <= t1) {
+            const f = (t - t0) / (t1 - t0);
+            r = Math.round(r0 + f * (r1 - r0));
+            g = Math.round(g0 + f * (g1 - g0));
+            b = Math.round(b0 + f * (b1 - b0));
+            break;
+          }
+        }
+        return `rgb(${r},${g},${b})`;
+      }
     }
   }
 

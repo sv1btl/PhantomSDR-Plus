@@ -478,6 +478,43 @@ export default class SpectrumAudio {
     this.nbSpectrumHistory = Array(this.nbAverageWindows).fill().map(() => new Float32Array(this.nbFFTSize / 2));
     this.nbHistoryIndex = 0;
 
+    // === Background Noise Measurement & Fixed Suppression ===
+    // Deliberately separate state from the noise blanker/NR above. Those
+    // react in well under a second, which is fast enough to track a QSB
+    // fade (typically 1-10s) — the suppression then audibly "breathes" in
+    // sync with the fade as the floor estimate chases it and overcorrects
+    // on recovery. This tool fixes that by decoupling MEASUREMENT from
+    // SUPPRESSION:
+    //   - the floor is tracked with multi-second time constants (slower
+    //     than any QSB fade), so fades never register as floor movement —
+    //     only genuine longer-term band-noise changes do
+    //   - suppression is a single FIXED dB value applied to bins at/near
+    //     that floor, not a continuously recomputed gain curve, so the
+    //     suppression itself has nothing fast enough left in it to pump
+    this.bnFFTSize         = 2048;
+    this.bnOverlap         = 1536;
+    this.bnBuffer          = new Float32Array(this.bnFFTSize);
+    this.bnNoiseFloor       = new Float32Array(this.bnFFTSize / 2);
+    this.bnDownTimeConstant = 20;     // seconds — floor can fall this slowly to find genuine gaps // 8
+    this.bnUpTimeConstant   = 180;    // seconds — floor rises far slower than that (won't mistake sustained signal for "louder noise") // 90
+    this.bnClassifyRatio    = 1.3;    // bins within this ratio of the floor are classified as noise // 1.5
+    this.bnSuppressionDB    = 3;      // suppression depth at the LOW end of the band — adjustable // 6
+    // Progressive tilt: suppression depth ramps from bnSuppressionDB up to
+    // bnSuppressionDBHigh as frequency rises from bnTiltLowHz to
+    // bnTiltHighHz, like an EQ curve — but unlike a plain EQ shelf, this
+    // only ever deepens the cut on bins ALREADY classified as noise (see
+    // bnClassifyRatio below); bins classified as signal stay untouched
+    // (scale=1) regardless of frequency, so this can't attenuate real
+    // signal content the way the earlier standalone treble-shelf filter
+    // could — it only makes noise-classified high-frequency bins fade out
+    // harder, which is where HF hiss/static energy actually concentrates.
+    this.bnSuppressionDBHigh = 36 // 16
+    this.bnTiltLowHz         = 300 // 300
+    this.bnTiltHighHz        = 2200 // 2800
+    this.bnEnabled          = true;  // always on by default — no UI toggle, scoped to bnModes below
+    this.bnModes            = ['USB', 'LSB', 'AM']; // scope — SSB + AM per the stated goal, nothing else
+    this._bnNeedsSeed       = true;  // forces an immediate seed on first use rather than climbing from zero
+
     // ── Auto Notch Filter (ANF) ──────────────────────────────────────────────
     // NLMS adaptive linear predictor: learns to predict tonal interference
     // (carriers, birdies, heterodynes) and subtracts it in real time.
@@ -1048,6 +1085,115 @@ setAGC(newAGCSpeed) {
     return processedArray;
   }
 
+  // Enable/disable and tune the background-noise tool from outside (UI hook).
+  setBackgroundNoiseSuppression(enabled, depthDB) {
+    this.bnEnabled = !!enabled;
+    if (typeof depthDB === 'number' && depthDB >= 0) {
+      this.bnSuppressionDB = depthDB;
+    }
+    if (this.bnEnabled) this.resetBackgroundNoise();
+    console.log('[BG Noise] ' + (this.bnEnabled ? 'ENABLED' : 'DISABLED') +
+                ' depth=' + this.bnSuppressionDB + 'dB modes=' + this.bnModes.join('/'));
+  }
+
+  // Frequency/mode changes invalidate the floor measurement (it describes
+  // noise character at the OLD tuned spot, not the new one). Rather than
+  // zeroing it and waiting out the slow ~90s upAlpha climb again, seed it
+  // directly from the next block's actual spectrum on the first pass after
+  // a reset — instant reasonable starting point, then refine slowly as usual.
+  resetBackgroundNoise() {
+    this._bnNeedsSeed = true;
+  }
+
+  applyBackgroundNoiseSuppression(pcmArray) {
+    if (!this.bnEnabled) return pcmArray;
+
+    // Scope strictly to SSB/AM per the stated goal — leave CW/FM/digital
+    // modes completely untouched rather than guessing whether this helps
+    // them too.
+    if (!this.bnModes.includes(this.demodulation)) return pcmArray;
+
+    const N   = this.bnFFTSize;
+    const hop = this.bnOverlap;
+    const hopSeconds = hop / (this.audioOutputSps || 12000);
+
+    // Both directions are slow relative to typical QSB fade cycles — that's
+    // what makes this immune to "breathing". downAlpha lets the floor find
+    // genuine quiet periods over several seconds; upAlpha is far slower so a
+    // sustained strong signal can't drag the "noise" reference up to meet it.
+    const downAlpha = 1 - Math.exp(-hopSeconds / this.bnDownTimeConstant);
+    const upAlpha   = 1 - Math.exp(-hopSeconds / this.bnUpTimeConstant);
+
+    // Per-bin suppression-depth curve — ramps from bnSuppressionDB to
+    // bnSuppressionDBHigh between bnTiltLowHz and bnTiltHighHz. Cached and
+    // only rebuilt when something it depends on actually changes, since
+    // recomputing 1024 bins' worth of dB math every block is wasted work
+    // when none of these parameters move between calls.
+    const sps = this.audioOutputSps || 12000;
+    const curveKey = N + ':' + sps + ':' + this.bnSuppressionDB + ':' +
+                     this.bnSuppressionDBHigh + ':' + this.bnTiltLowHz + ':' + this.bnTiltHighHz;
+    if (this._bnGainCurveKey !== curveKey) {
+      this._bnGainCurve = new Float32Array(N / 2);
+      for (let j = 0; j < N / 2; j++) {
+        const freq = j * sps / N;
+        const frac = Math.max(0, Math.min(1,
+          (freq - this.bnTiltLowHz) / (this.bnTiltHighHz - this.bnTiltLowHz)));
+        const depthDB = this.bnSuppressionDB + frac * (this.bnSuppressionDBHigh - this.bnSuppressionDB);
+        this._bnGainCurve[j] = Math.pow(10, -depthDB / 20);
+      }
+      this._bnGainCurveKey = curveKey;
+    }
+    const bnGainCurve = this._bnGainCurve;
+
+    const processedArray = new Float32Array(pcmArray.length);
+    if (!this._bnFFTInput) this._bnFFTInput = new Array(N);
+
+    for (let i = 0; i < pcmArray.length; i += hop) {
+      this.bnBuffer.set(pcmArray.subarray(i, i + N));
+      for (let j = 0; j < N; j++) this._bnFFTInput[j] = this.bnBuffer[j];
+      const phasors = fft(this._bnFFTInput);
+
+      for (let j = 0; j < N / 2; j++) {
+        const mag = Math.sqrt(phasors[j][0] * phasors[j][0] + phasors[j][1] * phasors[j][1]);
+
+        if (this._bnNeedsSeed) {
+          // First block after a retune/mode-change/enable: snap straight to
+          // the current spectrum instead of blending from a stale or zeroed
+          // value, so suppression doesn't take ~90s to become meaningful
+          // again every time you tune somewhere new.
+          this.bnNoiseFloor[j] = mag;
+        } else {
+          const floor = this.bnNoiseFloor[j];
+          if (mag < floor) {
+            this.bnNoiseFloor[j] = floor + downAlpha * (mag - floor);
+          } else {
+            this.bnNoiseFloor[j] = floor + upAlpha * (mag - floor);
+          }
+        }
+
+        // Classification against the (slow, stable) floor is still a fixed
+        // yes/no per bin — not a continuous ratio-scaled curve, so nothing
+        // here can pump. What changed is the DEPTH applied once a bin is
+        // classified as noise: instead of one flat value for the whole
+        // band, it now follows bnGainCurve — deeper at higher frequencies.
+        const ratio = mag / Math.max(this.bnNoiseFloor[j], 1e-9);
+        const scale = ratio <= this.bnClassifyRatio ? bnGainCurve[j] : 1;
+        phasors[j][0] *= scale;
+        phasors[j][1] *= scale;
+      }
+      this._bnNeedsSeed = false;
+
+      const complexSignal = ifft(phasors);
+      for (let j = 0; j < N; j++) {
+        const idx = i + j;
+        if (idx >= pcmArray.length) break;
+        processedArray[idx] = complexSignal[j][0];
+      }
+    }
+
+    return processedArray;
+  }
+
 
   // ═══════════════════════════════════════════════════════════════════════════
   //  AUTO NOTCH FILTER (ANF)
@@ -1222,6 +1368,7 @@ setAGC(newAGCSpeed) {
     let gateOpen   = (this.noiseGateOpen !== undefined)
       ? this.noiseGateOpen
       : true;
+    let gateGain   = this.noiseGateGain ?? 1.0;
 
     // Track gate state changes for debugging
     const previousGateState = gateOpen;
@@ -1252,10 +1399,10 @@ setAGC(newAGCSpeed) {
         break;
 
       case 'smooth':
-        alphaEnv = 0.0020;
+        alphaEnv = 0.0005;          // was 0.0020 — slowest envelope; immune to QSB-rate swings
         alphaNoiseFloor = 0.00006;
         openFactor = 3.60;          // FIX: was 1.75 (swapped)
-        closeFactor = 1.75;         // FIX: was 3.60 (swapped)
+        closeFactor = 1.40;         // was 1.75 — wider hysteresis; stays open through fades
         floorGain = 0.10;           // smooth fade to near-silence; no abrupt cuts
         break;
 
@@ -1287,10 +1434,10 @@ setAGC(newAGCSpeed) {
 
       case 'balanced':
       default:
-        alphaEnv = 0.0024;
+        alphaEnv = 0.0008;          // was 0.0024 — slower envelope; stops tracking QSB fades
         alphaNoiseFloor = 0.00008;
         openFactor = 3.50;          // FIX: was 1.70 (swapped)
-        closeFactor = 1.70;         // FIX: was 3.50 (swapped)
+        closeFactor = 1.50;         // was 1.70 — less hair-trigger on re-close during fades
         floorGain = 0.10;           // much quieter background; signals still open gate cleanly
       }
 
@@ -1322,7 +1469,11 @@ setAGC(newAGCSpeed) {
         }
       }
 
-      out[i] = gateOpen ? s : s * floorGain;
+      // Smooth gain ramp instead of hard binary switch — eliminates breathing/clicks.
+      // Close is slow (~250 ms), open is fast (~20 ms) so signals cut through immediately.
+      const targetGain = gateOpen ? 1.0 : floorGain;
+      gateGain += (targetGain > gateGain ? 0.002 : 0.0003) * (targetGain - gateGain);
+      out[i] = s * gateGain;
     }
 
     // Debug logging (once every 5 seconds)
@@ -1339,6 +1490,7 @@ setAGC(newAGCSpeed) {
     this.noiseEnv      = env;
     this.noiseFloor    = noiseFloor;
     this.noiseGateOpen = gateOpen;
+    this.noiseGateGain = gateGain;
 
     return out;
   }
@@ -1564,7 +1716,15 @@ setAGC(newAGCSpeed) {
         this.setLowpass(4500)
         break
       case 'FM':
-        this.bassBoost.gain.value = 40
+        // Was 40dB — a 100x voltage gain on a lowshelf, with the compressor
+        // downstream only doing a gentle 1.8:1 ratio above -4dB. That's
+        // nowhere near enough to act as a limiter against a boost that
+        // large; any real low-frequency content in FM audio would push the
+        // output well past 0dBFS and hard-clip at the Web Audio
+        // destination. 26dB keeps FM as the most bass-forward of the three
+        // modes (above AM's 23, SSB's 15) while staying inside what this
+        // compressor can actually control without audible clipping.
+        this.bassBoost.gain.value = 26
         this.bandpass.frequency.value = 2400
         this.bandpass.Q.value = 1
         this.bandpass.gain.value = 2
@@ -1582,14 +1742,20 @@ setAGC(newAGCSpeed) {
     this.convolverNode.buffer = firAudioBuffer
   }
 
-  setLowpass(lowpass) {
+  setLowpass(lowpass, transitionWidth = 400) {
     const sampleRate = this.audioOutputSps
     // Bypass the FIR filter if the sample rate is low enough
     if (lowpass >= sampleRate / 2) {
       this.setFIRFilter(Float32Array.of(1))
       return
     }
-    const fir = firdes_kaiser_lowpass(lowpass / sampleRate, 1000 / sampleRate, 0.001)
+    // transitionWidth was hardcoded at 1000 Hz — a gentle roll-off that lets
+    // noise well above the nominal cutoff leak through before being
+    // attenuated. 400 Hz gives a much sharper transition at the SAME
+    // cutoff frequencies already set per mode, purely via a longer linear
+    // FIR filter — no adaptive/gating behavior, so no pumping or musical
+    // noise, just less out-of-band noise getting through to begin with.
+    const fir = firdes_kaiser_lowpass(lowpass / sampleRate, transitionWidth / sampleRate, 0.001)
     this.setFIRFilter(fir)
   }
 
@@ -1933,6 +2099,7 @@ setAGC(newAGCSpeed) {
     this._resetCTCSSState(this._ctcssEnabled && this.demodulation === 'FM');
     // ANF weights trained for one mode can corrupt another — reset on mode switch
     if (this.anfEnabled) this.resetAutoNotch();
+    if (this.bnEnabled) this.resetBackgroundNoise();
     if (demodulation == "CW") {
       demodulation = "USB"
     }
@@ -1944,6 +2111,10 @@ setAGC(newAGCSpeed) {
   }
 
   setAudioRange(audioL, audioM, audioR, audioLOffset, audioMOffset, audioROffset) {
+    // Retuning means the old floor measurement describes noise at a
+    // different frequency — same reasoning as the ANF reset on mode switch
+    // above, just triggered by frequency instead of demodulation.
+    if (this.bnEnabled) this.resetBackgroundNoise();
     this.audioL = Math.floor(audioL);
     this.audioM = audioM;
     this.audioR = Math.ceil(audioR);
@@ -2816,6 +2987,11 @@ async stopFT2Collection() {
       let Lp = this.applyNoiseBlanker(L)
       let Rp = this.applyNoiseBlanker(R)
 
+      // Background noise measurement/suppression — also safe per-channel,
+      // same reasoning as the blanker above.
+      Lp = this.applyBackgroundNoiseSuppression(Lp)
+      Rp = this.applyBackgroundNoiseSuppression(Rp)
+
       // Apply ANF to each channel separately (safe for stereo)
       if (this.anfEnabled) {
         Lp = this.applyAutoNotch(Lp, false)
@@ -2845,6 +3021,7 @@ async stopFT2Collection() {
     } else {
       // Mono path — full processing as before
       pcmArray = this.applyNoiseBlanker(pcmArray);
+      pcmArray = this.applyBackgroundNoiseSuppression(pcmArray);
       if (this.anfEnabled) {
         pcmArray = this.applyAutoNotch(pcmArray, false);
       }
@@ -2932,26 +3109,44 @@ async stopFT2Collection() {
     }
 
     this._streamInitPromise = (async () => {
+      let stage = 'init';
       try {
         if (this.audioCtx.state === 'suspended') {
+          stage = 'resume';
           try { await this.audioCtx.resume(); } catch (_) {}
         }
+        stage = 'capability-check';
         const WorkletCtor = globalThis.AudioWorkletNode || (typeof AudioWorkletNode !== 'undefined' ? AudioWorkletNode : null);
         if (!this.audioCtx.audioWorklet || !WorkletCtor) {
           throw new Error('AudioWorklet not available');
         }
         if (!this._streamWorkletModuleLoaded) {
-          await this.audioCtx.audioWorklet.addModule(new URL('./audio-stream-worklet.js', import.meta.url));
+          stage = 'addModule(URL)';
+          try {
+            await this.audioCtx.audioWorklet.addModule(new URL('./audio-stream-worklet.js', import.meta.url));
+          } catch (urlErr) {
+            // Some bundler/server setups (service worker interception, dev
+            // preview servers, MIME-type quirks) handle a constructed URL
+            // differently from a plain relative string. This is a cheap,
+            // low-risk second attempt rather than giving up immediately —
+            // if THIS also fails, the two errors together tell you whether
+            // it's a path problem (both fail the same way) or specifically
+            // an import.meta.url resolution problem (only the first fails).
+            stage = 'addModule(string, after URL failed)';
+            console.warn('[Audio] addModule via constructed URL failed, retrying with plain path:', urlErr);
+            await this.audioCtx.audioWorklet.addModule('./audio-stream-worklet.js');
+          }
           this._streamWorkletModuleLoaded = true;
         }
+        stage = 'construct-node';
         const node = new WorkletCtor(this.audioCtx, 'phantomsdr-audio-stream', {
           numberOfInputs: 0,
           numberOfOutputs: 1,
           outputChannelCount: [2],
           processorOptions: {
             sampleRate: this.audioOutputSps || this.audioCtx.sampleRate || 12000,
-            maxBufferedSeconds: 3.0,
-            minStartSeconds: 0.16,
+            maxBufferedSeconds: 0.5,
+            minStartSeconds: 0.04,
           }
         });
         node.connect(this.audioInputNode);
@@ -2970,7 +3165,12 @@ async stopFT2Collection() {
         return true;
       } catch (e) {
         if (!this._loggedWorkletFailure) {
-          console.warn('[Audio] AudioWorklet stream unavailable, falling back:', e);
+          // Print stage + name + message explicitly rather than relying on
+          // the console to expand the raw error object usefully — some
+          // browsers collapse DOMException/AbortError objects to something
+          // unhelpful when logged bare.
+          console.warn('[Audio] AudioWorklet stream unavailable at stage "' + stage + '":',
+                       e && e.name, '-', e && e.message, e);
           this._loggedWorkletFailure = true;
         }
         this._streamForceFallback = true;
@@ -3267,15 +3467,37 @@ async stopFT2Collection() {
       ws.binaryType = 'arraybuffer';
 
       ws.onopen = () => {
+        // Report the ACTUAL delivered audio rate, not the nominal configured
+        // one. audioOutputSps == audioMaxSps is fixed regardless of fft_size;
+        // trueAudioSps is the real fft-bin-quantized rate the channelizer
+        // produces and is what actually arrives on this socket. Sending the
+        // nominal value here makes rade_helper.py's resample-to-8000 ratio
+        // wrong whenever fft_size changes, which desyncs RADE's frame sync.
+        //
+        // IMPORTANT: do NOT use `this.trueAudioSps || fallback` — 0 is falsy
+        // in JS, and a degenerate trueAudioSps (0/NaN, meaning the server
+        // couldn't allocate enough bins for the channel at this fft_size)
+        // would silently be replaced by the nominal value, hiding a real
+        // channelizer failure behind what looks like a normal rate.
+        var radeReportedSps;
+        if (Number.isFinite(this.trueAudioSps) && this.trueAudioSps > 0) {
+          radeReportedSps = this.trueAudioSps;
+        } else {
+          radeReportedSps = this.audioOutputSps || 8000;
+          console.warn('[RADE] trueAudioSps is invalid (', this.trueAudioSps,
+                       ') at fft_size=', this.fftSize, 'fft_result_size=', this.audioMaxSize,
+                       '\u2014 falling back to nominal', radeReportedSps,
+                       '\u2014 channelizer likely cannot build a usable channel at this fft_size');
+        }
         ws.send(JSON.stringify({
           type:     'init',
-          sps:      this.audioOutputSps || 8000,
+          sps:      radeReportedSps,
           sideband: this._radeSideband,
         }));
         this._radeReady = true;
         this.decodeRADE = true;
         console.log('[RADE] \u25ba ENABLED', this._radeSideband,
-                    '@', this.audioOutputSps, 'Hz \u2192 helper', helperUri);
+                    '@', radeReportedSps, 'Hz (true) \u2192 helper', helperUri);
         if (this._radeCallback)
           this._radeCallback({ type: 'status', connected: true });
       };

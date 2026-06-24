@@ -419,6 +419,21 @@ void broadcast_server::on_open_waterfall(connection_hdl hdl) {
         }
         try { client->on_close(); } catch (...) {}
     });
+    // FIX (SIGSEGV): Register a per-connection fail handler so ungraceful
+    // disconnects (network drop, TCP reset, browser tab close) also trigger
+    // on_close().  Without this, cleanup_dead_connections() was the only
+    // path that removed dead waterfall clients — but it erased the iterator
+    // directly, bypassing the closed atomic guard, causing double-erase into
+    // the rb-tree → _Rb_tree_rebalance_for_erase → SIGSEGV.
+    // on_close() is guarded by atomic<bool> closed so close+fail double-fire
+    // is safe — only the first call does anything.
+    con->set_fail_handler([client](connection_hdl h) {
+        {
+            std::lock_guard<std::mutex> tlk(g_waterfall_throttle_mtx);
+            g_waterfall_throttle.erase(h);
+        }
+        try { client->on_close(); } catch (...) {}
+    });
     con->set_message_handler(std::bind(
         &broadcast_server::on_message, this, std::placeholders::_1,
         std::placeholders::_2, std::static_pointer_cast<Client>(client)));

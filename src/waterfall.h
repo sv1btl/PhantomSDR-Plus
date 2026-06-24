@@ -3,6 +3,7 @@
 
 #include "client.h"
 #include "waterfallcompression.h"
+#include <atomic>
 
 
 extern std::atomic<size_t> total_bits_sent;
@@ -23,6 +24,10 @@ class WaterfallClient : public Client {
 
     std::multimap<std::pair<int, int>,
                   std::shared_ptr<WaterfallClient>>::iterator it;
+
+    // FIX: guards set_waterfall_range / on_close race (see waterfall.cpp).
+    // close and fail handlers can both fire; only the first call does work.
+    std::atomic<bool> closed{false};
 
   protected:
     int min_waterfall_fft;

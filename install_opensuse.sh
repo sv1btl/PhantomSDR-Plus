@@ -54,7 +54,7 @@ NODE_NEED=22
 install_node_via_nvm() {
     echo "Installing nvm ${NVM_VERSION}..."
     # NOTE: Do NOT use `run` here — run() only guards the left side of a pipe.
-    curl -o- "https://raw.githubusercontent.com/nvm-sh/nvm/${NVM_VERSION}/install.sh" \\
+    curl -o- "https://raw.githubusercontent.com/nvm-sh/nvm/${NVM_VERSION}/install.sh" \
         | bash || die "nvm installation script failed"
     export NVM_DIR="$HOME/.nvm"
     # shellcheck source=/dev/null
@@ -172,7 +172,12 @@ banner "Building PhantomSDR-Plus Backend"
 
 cd "$PHANTOM_DIR"
 echo "Configuring with Meson..."
-run meson setup --wipe build
+if [ -f build/meson-private/build.ninja ]; then
+    run meson setup --wipe build
+else
+    rm -rf build
+    run meson setup build
+fi
 echo "Compiling (2 cores — safe for low-RAM systems)..."
 run meson compile -j2 -C build
 green "✅ Backend compiled: $PHANTOM_DIR/build/"
@@ -201,7 +206,7 @@ case $option in
 
         echo "Installing Rust via rustup..."
         # NOTE: Do NOT use `run` here — run() only guards the left side of a pipe.
-        curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs \\
+        curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs \
             | sh -s -- -y || die "rustup installation script failed"
         # shellcheck source=/dev/null
         source "$HOME/.cargo/env"
@@ -430,6 +435,10 @@ run npm install
 echo ""
 echo "Installing Opus WASM decoder..."
 run npm install @wasm-audio-decoders/opus-ml
+
+echo ""
+echo "Installing emoji picker..."
+run npm install emoji-picker-element
 
 # Run audit fix WITHOUT --force so only safe (non-breaking) patches are
 # applied.  --force can silently pull in Vite 6/7/8 or Svelte 5 and break

@@ -495,6 +495,10 @@ echo ""
 echo "Installing Opus WASM decoder..."
 run npm install @wasm-audio-decoders/opus-ml
 
+echo ""
+echo "Installing emoji picker..."
+run npm install emoji-picker-element
+
 # Run audit fix WITHOUT --force so only safe (non-breaking) patches are
 # applied.  --force can silently pull in Vite 6/7/8 or Svelte 5 and break
 # the build; we deliberately avoid it here.
@@ -761,6 +765,7 @@ esac
 echo ""
 green "✅ Frontend:"
 echo "   • Vite 5.4.16 / Svelte 4"
+echo "   • emoji-picker-element"
 echo "   • Site information: $SITE_INFO_PATH"
 [ -d "$PHANTOM_DIR/frontend/dist" ] \
     && echo "   • Built: $PHANTOM_DIR/frontend/dist/"

@@ -1,17 +1,20 @@
-# PhantomSDR-Plus WebSDR (version 3.3.1)
+# PhantomSDR-Plus WebSDR (version 3.3.3)
 
-[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
-[![Version](https://img.shields.io/badge/version-3.3.1-blue.svg)](https://github.com/sv1btl/PhantomSDR-Plus)
+[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-cyan.svg)](https://www.gnu.org/licenses/gpl-3.0)
+[![Version](https://img.shields.io/badge/version-3.3.3-cyan.svg)](https://github.com/sv1btl/PhantomSDR-Plus)
 
 ## Note: Tested on Debian 12 (Bookworm), Debian 13 (Trixie), Ubuntu 22.04, Ubuntu 24.04.
 This is a **different Repo than the Official PhantomSDR Repo**
 
-**New in v. 3.3.1**
+**New in v. 3.3.3**
 
-- Chnange the frequency in the GUI with just hover the mouse and drag up/down wheel,
-- Inthe admin panel is added crash.log file, if for any reason spectrumserver failed. You can also read the file from the root directory
-- Optimized mobile Gui
-- Optimized new color schemes for watefall
+- All the install scripts are redesigned.
+- Now change the frequency in the GUI with just hover the mouse and drag up/down wheel,
+- In the admin panel is added crash.log file, if for any reason spectrumserver failed. You can also read the file from the root directory
+- Optimized mobile GUI
+- Redesigned all color schemes for the waterfall, new ;PhantomSDR' color scheme is added
+- Audio background noise suppression algorithm is added and Noise Gate presets are redesigned
+- Emoticons are added for use in the chat window
 - Total bugs clean for server's stability.
 
 We offer more **features**:

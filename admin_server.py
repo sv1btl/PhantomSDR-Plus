@@ -1050,7 +1050,7 @@ table.markers input:focus{background:#071207;outline:1px solid var(--border);}
     <div class="sidebar-logo">
       <div class="icon">📡</div>
       <div class="title">PHANTOM<span style="color:var(--amber)">SDR</span></div>
-      <div class="sub">ADMIN v1.0</div>
+      <div class="sub">ADMIN v3.0</div>
     </div>
     <div class="nav-section">
       <div class="nav-label">MAIN</div>

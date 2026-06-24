@@ -1,6 +1,7 @@
 <script>
-  const VERSION = "3.3.1 with mobile support and enhancements";
+  const VERSION = "3.3.3. with mobile support and enhancements";
 
+  import 'emoji-picker-element';
   import { onDestroy, onMount, tick, afterUpdate } from "svelte";
   import { fade, fly, scale } from "svelte/transition";
   import copy from "copy-to-clipboard";
@@ -2154,7 +2155,7 @@ function startTopFrequencyBarSync() {
   let bandwidth;
 
   // Waterfall drawing
-  let currentColormap = "custom"; //select any of "turbo, gqrx, twente, twentev2, SpectraVU, custom"
+  let currentColormap = "PhantomSDR"; //select any of "turbo, gqrx, twente, twentev2, SpectraVU, custom, PhantomSDR"
   let alpha = 0.5;
   let brightness = 130;
   let min_waterfall = -30;
@@ -3459,6 +3460,7 @@ function startTopFrequencyBarSync() {
 
   let messages = writable([]);
   let newMessage = "";
+  let showEmojiPicker = false;
   let socket;
 
   let username = `user${Math.floor(Math.random() * 10000)}`;
@@ -4109,7 +4111,10 @@ function startTopFrequencyBarSync() {
       unsubscribeSetMode,
     ].filter((fn) => typeof fn === "function");
 
+    document.addEventListener('click', handleEmojiOutsideClick);
+
     return () => {
+      document.removeEventListener('click', handleEmojiOutsideClick);
       window.removeEventListener("resize", setWidth);
       eventBusUnsubscribers.forEach((unsubscribe) => {
         try {
@@ -4207,6 +4212,23 @@ function startTopFrequencyBarSync() {
     }
 
   });
+
+  function emojiAction(node) {
+    function onEmojiClick(e) {
+      newMessage += e.detail.unicode;
+      showEmojiPicker = false;
+      const inp = document.getElementById('textInput');
+      if (inp) inp.focus();
+    }
+    node.addEventListener('emoji-click', onEmojiClick);
+    return { destroy() { node.removeEventListener('emoji-click', onEmojiClick); } };
+  }
+
+  function handleEmojiOutsideClick(e) {
+    if (!e.target.closest('.emoji-picker-wrapper') && !e.target.closest('button[title="Emoji"]')) {
+      showEmojiPicker = false;
+    }
+  }
 
   function sendMessage() {
     if (newMessage.trim() && username.trim()) {
@@ -5367,7 +5389,7 @@ function startTopFrequencyBarSync() {
                     <ul style="font-size: 0.91rem; text-align: left;">
                     <b>Setup &amp; Configuration:</b>
                       <img
-                        src="https://img.shields.io/badge/version- 3.3.1-blue?logo=github"
+                        src="https://img.shields.io/badge/version- 3.3.2 (aplha)-red?logo=github"
                         alt="Version"
                         class="inline-block align-middle ml-2"
                       />
@@ -8291,6 +8313,20 @@ Click again to de-activate"
                       placeholder="Type a message..."
                     />
                     <div class="flex space-x-2">
+                      <div class="emoji-btn-container">
+                        <button
+                          class="glass-button text-white font-semibold py-2 px-3 rounded-lg flex items-center justify-center text-xs sm:text-sm"
+                          on:click|stopPropagation={() => showEmojiPicker = !showEmojiPicker}
+                          title="Emoji"
+                        >
+                          😊
+                        </button>
+                        {#if showEmojiPicker}
+                          <div class="emoji-picker-wrapper" on:click|stopPropagation>
+                            <emoji-picker class="dark" use:emojiAction></emoji-picker>
+                          </div>
+                        {/if}
+                      </div>
                       <button
                         class="glass-button text-white font-semibold py-2 px-4 rounded-lg flex items-center justify-center text-xs sm:text-sm flex-grow sm:flex-grow-0"
                         on:click={sendMessage}
@@ -10577,6 +10613,20 @@ Click again to de-activate"
                         placeholder="Type a message..."
                       />
                       <div class="flex space-x-2">
+                        <div class="emoji-btn-container">
+                          <button
+                            class="glass-button text-white font-semibold py-2 px-3 rounded-lg flex items-center justify-center text-xs sm:text-sm"
+                            on:click|stopPropagation={() => showEmojiPicker = !showEmojiPicker}
+                            title="Emoji"
+                          >
+                            😊
+                          </button>
+                          {#if showEmojiPicker}
+                            <div class="emoji-picker-wrapper" on:click|stopPropagation>
+                              <emoji-picker class="dark" use:emojiAction></emoji-picker>
+                            </div>
+                          {/if}
+                        </div>
                         <button
                           class="glass-button text-white font-semibold py-2 px-4 rounded-lg flex items-center justify-center text-xs sm:text-sm flex-grow sm:flex-grow-0"
                           on:click={sendMessage}
@@ -11202,6 +11252,28 @@ Click again to de-activate"
 
   .slide-transition {
     transition: max-height 300ms cubic-bezier(0.23, 1, 0.32, 1);
+    overflow: hidden;
+  }
+
+
+  .emoji-btn-container {
+    position: relative;
+  }
+  .emoji-picker-wrapper {
+    position: absolute;
+    bottom: calc(100% + 8px);
+    right: 0;
+    z-index: 9999;
+  }
+  emoji-picker {
+    --background: #1a1a2e;
+    --border-color: rgba(255,255,255,0.15);
+    --emoji-size: 1.2rem;
+    --num-columns: 8;
+    width: 300px;
+    height: 350px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+    border-radius: 12px;
     overflow: hidden;
   }
 

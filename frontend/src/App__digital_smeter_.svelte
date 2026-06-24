@@ -1,5 +1,5 @@
 <script>
-  const VERSION = "3.3.3. with mobile support and enhancements";
+  const VERSION = "3.3.3 with mobile support and enhancements";
 
   import 'emoji-picker-element';
   import { onDestroy, onMount, tick, afterUpdate } from "svelte";
@@ -5390,7 +5390,7 @@ function startTopFrequencyBarSync() {
                     <ul style="font-size: 0.91rem; text-align: left;">
                     <b>Setup &amp; Configuration:</b>
                       <img
-                        src="https://img.shields.io/badge/version- 3.3.2 (aplha)-red?logo=github"
+                        src="https://img.shields.io/badge/version- 3.3.3-cyan?logo=github"
                         alt="Version"
                         class="inline-block align-middle ml-2"
                       />

@@ -479,38 +479,54 @@ export default class SpectrumAudio {
     this.nbHistoryIndex = 0;
 
     // === Background Noise Measurement & Fixed Suppression ===
-    // Deliberately separate state from the noise blanker/NR above. Those
-    // react in well under a second, which is fast enough to track a QSB
-    // fade (typically 1-10s) — the suppression then audibly "breathes" in
-    // sync with the fade as the floor estimate chases it and overcorrects
-    // on recovery. This tool fixes that by decoupling MEASUREMENT from
-    // SUPPRESSION:
-    //   - the floor is tracked with multi-second time constants (slower
-    //     than any QSB fade), so fades never register as floor movement —
-    //     only genuine longer-term band-noise changes do
-    //   - suppression is a single FIXED dB value applied to bins at/near
-    //     that floor, not a continuously recomputed gain curve, so the
-    //     suppression itself has nothing fast enough left in it to pump
+
+    // The most impactful levers for "breathing" artefacts specifically are bnDownTimeConstant (try 12–20) and bnClassifyRatio (try 1.2). 
+    // The up constant is already very conservative at 90s so there's less to gain there.
+
     this.bnFFTSize         = 2048;
+    // bnFFTSize / bnOverlap (currently 2048 / 1536, i.e. 75% overlap)
+    // 4096 / 3072 — doubles frequency resolution (~3 Hz/bin at 12 kHz), slower floor estimate update rate, better bin classification
+    // 1024 / 768 — coarser bins, updates more frequently; useful if CPU is a concern
+    // 2048 / 1024 — 50% overlap; lighter processing, slightly less smooth suppression    
     this.bnOverlap         = 1536;
     this.bnBuffer          = new Float32Array(this.bnFFTSize);
     this.bnNoiseFloor       = new Float32Array(this.bnFFTSize / 2);
     this.bnDownTimeConstant = 20;     // seconds — floor can fall this slowly to find genuine gaps // 8
-    this.bnUpTimeConstant   = 180;    // seconds — floor rises far slower than that (won't mistake sustained signal for "louder noise") // 90
-    this.bnClassifyRatio    = 1.3;    // bins within this ratio of the floor are classified as noise // 1.5
+    // bnDownTimeConstant (floor fall speed, currently 8s)
+    // 4 — more responsive on bands that genuinely quiet down quickly (e.g. 40m at dawn)
+    // 12 — better on busy HF bands where real gaps are rare
+    // 20 — near-permanent floor; only reacts to band openings/closings
+    // 3 — aggressive, useful if you trust QSB is always faster than this
+    this.bnUpTimeConstant   = 300;    // seconds — floor rises far slower than that (won't mistake sustained signal for "louder noise") // 90
+    // bnUpTimeConstant (floor rise speed, currently 90s)
+    // 45 — half the default; still slower than QSB but adapts to propagation changes faster
+    // 120 — safer on bands with slow S9+ noise that creeps up (low-band evenings)
+    // 180 — essentially "set it once per session" behaviour
+    // 300 — 5 minutes; almost static floor, set-and-forget for stable noise environments
+    this.bnClassifyRatio    = 2.0;    // bins within this ratio of the floor are classified as noise // 1.5
+    // bnClassifyRatio (noise vs signal threshold, currently 1.5×)
+    // 1.2 — tighter; only classifies bins very close to floor as noise — less risk of nibbling signal
+    // 1.8 — wider; catches more noise bins but more likely to clip quiet SSB sidebands
+    // 2.0 — aggressive; useful when noise floor is flat and well-characterised
+    // 1.35 — a conservative middle ground between 1.2 and 1.5    
     this.bnSuppressionDB    = 3;      // suppression depth at the LOW end of the band — adjustable // 6
-    // Progressive tilt: suppression depth ramps from bnSuppressionDB up to
-    // bnSuppressionDBHigh as frequency rises from bnTiltLowHz to
-    // bnTiltHighHz, like an EQ curve — but unlike a plain EQ shelf, this
-    // only ever deepens the cut on bins ALREADY classified as noise (see
-    // bnClassifyRatio below); bins classified as signal stay untouched
-    // (scale=1) regardless of frequency, so this can't attenuate real
-    // signal content the way the earlier standalone treble-shelf filter
-    // could — it only makes noise-classified high-frequency bins fade out
-    // harder, which is where HF hiss/static energy actually concentrates.
-    this.bnSuppressionDBHigh = 36 // 16
+    // bnSuppressionDB (low-end cut depth, currently 6 dB)
+    // 3 — gentle; just takes the edge off without audible effect on band character
+    // 9 — noticeable improvement on a quiet band without killing low-frequency hiss
+    // 12 — strong cut; good if LF band noise dominates
+    // 0 — effectively disables low-end suppression while keeping the tilt active    
+    this.bnSuppressionDBHigh = 18 // 16
+    // bnSuppressionDBHigh (high-end cut depth, currently 24 dB)
+    // 12 — less aggressive HF cut; better if the tilt feels like it's muffling weak signals
+    // 18 — previous tested value, a reasonable midpoint
+    // 30 — maximum useful cut before noise-classified bins become inaudible gaps
+    // 36 — essentially silences HF noise bins; only suitable if bnClassifyRatio is tight (≤1.3)    
     this.bnTiltLowHz         = 300 // 300
-    this.bnTiltHighHz        = 2200 // 2800
+    this.bnTiltHighHz        = 3000 // 2800
+    // bnTiltHighHz (top of tilt ramp, currently 2800 Hz)
+    // 2500 — keeps full suppression away from the upper SSB edge, safer for DX
+    // 3000 — extends into the filter skirt (fine if your BPF rolls off before 3 kHz)
+    // 2200 — a more conservative top-end; leaves 2.2–3 kHz fully unaffected    
     this.bnEnabled          = true;  // always on by default — no UI toggle, scoped to bnModes below
     this.bnModes            = ['USB', 'LSB', 'AM']; // scope — SSB + AM per the stated goal, nothing else
     this._bnNeedsSeed       = true;  // forces an immediate seed on first use rather than climbing from zero

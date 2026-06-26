@@ -35,8 +35,8 @@ AGC::AGC(float desiredLevel, float attackTimeMs, float releaseTimeMs, float look
 
     // Limit how loud AGC can go.
     // Effective max linear gain = max_gain × 0.01f (output scale applied in process()).
-    // 500 × 0.01 = 5× (+14 dB).
-    max_gain = 500.0f;
+    // 500 × 0.01 = 10× (+20 dB).
+    max_gain = 1000.0f;
 
     // Dual time constant (fast branch, common to all modes)
     fast_attack_coeff = 1.0f - std::exp(-1.0f / (0.003f * sample_rate)); // ~3 ms
@@ -344,7 +344,7 @@ void AGC::process(float *arr, size_t len) {
             }
             total_gain = std::min(total_gain, max_gain);
 
-            // 0.01f output scale: max_gain 500 → 5× (+14 dB) effective ceiling
+            // 0.01f output scale: max_gain 1000 → 10× (+20 dB) effective ceiling
             arr[i] = sample * (total_gain * 0.01f);
         }
         return;
@@ -371,7 +371,7 @@ void AGC::process(float *arr, size_t len) {
             }
             total_gain = std::min(total_gain, max_gain);
 
-            // 0.01f output scale: max_gain 500 → 5× (+14 dB) effective ceiling
+            // 0.01f output scale: max_gain 1000 → 10× (+20 dB) effective ceiling
             arr[i] = current_sample * (total_gain * 0.01f);
         } else {
             // Still filling lookahead buffer – mute until full window available

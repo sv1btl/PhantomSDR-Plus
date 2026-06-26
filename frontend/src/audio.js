@@ -479,10 +479,8 @@ export default class SpectrumAudio {
     this.nbHistoryIndex = 0;
 
     // === Background Noise Measurement & Fixed Suppression ===
-
     // The most impactful levers for "breathing" artefacts specifically are bnDownTimeConstant (try 12–20) and bnClassifyRatio (try 1.2). 
     // The up constant is already very conservative at 90s so there's less to gain there.
-
     this.bnFFTSize         = 2048;
     // bnFFTSize / bnOverlap (currently 2048 / 1536, i.e. 75% overlap)
     // 4096 / 3072 — doubles frequency resolution (~3 Hz/bin at 12 kHz), slower floor estimate update rate, better bin classification
@@ -503,13 +501,13 @@ export default class SpectrumAudio {
     // 120 — safer on bands with slow S9+ noise that creeps up (low-band evenings)
     // 180 — essentially "set it once per session" behaviour
     // 300 — 5 minutes; almost static floor, set-and-forget for stable noise environments
-    this.bnClassifyRatio    = 2.0;    // bins within this ratio of the floor are classified as noise // 1.5
+    this.bnClassifyRatio    = 1.2;    // bins within this ratio of the floor are classified as noise // 1.5
     // bnClassifyRatio (noise vs signal threshold, currently 1.5×)
     // 1.2 — tighter; only classifies bins very close to floor as noise — less risk of nibbling signal
     // 1.8 — wider; catches more noise bins but more likely to clip quiet SSB sidebands
     // 2.0 — aggressive; useful when noise floor is flat and well-characterised
     // 1.35 — a conservative middle ground between 1.2 and 1.5    
-    this.bnSuppressionDB    = 3;      // suppression depth at the LOW end of the band — adjustable // 6
+    this.bnSuppressionDB    = 6;      // suppression depth at the LOW end of the band — adjustable // 6
     // bnSuppressionDB (low-end cut depth, currently 6 dB)
     // 3 — gentle; just takes the edge off without audible effect on band character
     // 9 — noticeable improvement on a quiet band without killing low-frequency hiss

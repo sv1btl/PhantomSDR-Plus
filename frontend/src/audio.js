@@ -8,9 +8,9 @@ import { WSPR_TOTAL_SAMPLES, wspr2SlotPosition } from "./modules/wspr.js";
 import { KiwiSSTVDecoder } from './sstv.js';
 
 // All gain sources mapped
-// FLAC decoder output  ×100  (line 2053) const flacGain = 100.0                ─┐
-// Opus decoder output  ×100  (line 152) const gain = 100.0;                    ─┤→ playAudio() → DSP chain → playPCM() → audioInputNode
-// RADE decoded speech  ×0.20 (line 1697) this.radeGainNode.gain.value = 0.20   ─┘ 
+// FLAC decoder output  ×100  (line 2053) const flacGain = 150.0                ─┐
+// Opus decoder output  ×100  (line 152) const gain = 150.0;                    ─┤→ playAudio() → DSP chain → playPCM() → audioInputNode
+// RADE decoded speech  ×0.20 (line 1697) this.radeGainNode.gain.value = 0.30   ─┘ 
 
 // ── Decoder Web Worker ────────────────────────────────────────────────────
 // All heavy decoding (FT8, FT4, WSPR) runs off the main thread so audio
@@ -154,7 +154,7 @@ class OpusMLAdapter {
 
       // Apply a modest gain boost for Opus to bring its level closer to FLAC,
       // and to make even very small decoded values audible for debugging.
-      const gain = 100.0; // Adjust if it sounds too loud/quiet.
+      const gain = 150.0; // Adjust if it sounds too loud/quiet.
 
       const nativeGainOnly = (input) => {
         if (!input || input.length === 0) return new Float32Array(0);
@@ -1699,7 +1699,7 @@ setAGC(newAGCSpeed) {
     // Change ONLY the next line to trim recorded demodulated RADE audio:
     // lower value = quieter recording, higher value = louder recording.
     this.radeGainNode = new GainNode(this.audioCtx)
-    this.radeGainNode.gain.value = 0.20 // <-- TRIM RADE RECORDED AUDIO LEVEL HERE
+    this.radeGainNode.gain.value = 0.30 // <-- TRIM RADE RECORDED AUDIO LEVEL HERE
     this.radeGainNode.connect(this.gainNode)
 
     this.audioInputNode = this.convolverNode
@@ -2055,7 +2055,7 @@ setAGC(newAGCSpeed) {
     // ✅ FLAC 16-bit gain boost: pipeline is calibrated for 8-bit amplitude (~256).
     // 16-bit FLAC decoder outputs amplitude ~1.0 → 256× too quiet → silence.
     if (this.settings && this.settings.audio_compression === 'flac') {
-      const flacGain = 100.0
+      const flacGain = 150.0
       const boosted = new Float32Array(pcmArray.length)
       for (let i = 0; i < pcmArray.length; i++) boosted[i] = pcmArray[i] * flacGain
       pcmArray = boosted

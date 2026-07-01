@@ -8,9 +8,9 @@ import { WSPR_TOTAL_SAMPLES, wspr2SlotPosition } from "./modules/wspr.js";
 import { KiwiSSTVDecoder } from './sstv.js';
 
 // All gain sources mapped
-// FLAC decoder output  ×100  (line 2053) const flacGain = 150.0                ─┐
-// Opus decoder output  ×100  (line 152) const gain = 150.0;                    ─┤→ playAudio() → DSP chain → playPCM() → audioInputNode
-// RADE decoded speech  ×0.20 (line 1697) this.radeGainNode.gain.value = 0.30   ─┘ 
+// FLAC decoder output  ×100  (line 2056) const flacGain = 200.0                ─┐
+// Opus decoder output  ×100  (line 157) const gain = 200.0;                    ─┤→ playAudio() → DSP chain → playPCM() → audioInputNode
+// RADE decoded speech  ×0.30 (line 1700) this.radeGainNode.gain.value = 0.30   ─┘ 
 
 // ── Decoder Web Worker ────────────────────────────────────────────────────
 // All heavy decoding (FT8, FT4, WSPR) runs off the main thread so audio
@@ -154,7 +154,7 @@ class OpusMLAdapter {
 
       // Apply a modest gain boost for Opus to bring its level closer to FLAC,
       // and to make even very small decoded values audible for debugging.
-      const gain = 150.0; // Adjust if it sounds too loud/quiet.
+      const gain = 200.0; // Adjust if it sounds too loud/quiet.
 
       const nativeGainOnly = (input) => {
         if (!input || input.length === 0) return new Float32Array(0);
@@ -484,48 +484,46 @@ export default class SpectrumAudio {
     this.nbHistoryIndex = 0;
 
     // === Background Noise Measurement & Fixed Suppression ===
-    // The most impactful levers for "breathing" artefacts specifically are bnDownTimeConstant (try 12–20) and bnClassifyRatio (try 1.2). 
-    // The up constant is already very conservative at 90s so there's less to gain there.
-    this.bnFFTSize         = 2048;
-    // bnFFTSize / bnOverlap (currently 2048 / 1536, i.e. 75% overlap)
-    // 4096 / 3072 — doubles frequency resolution (~3 Hz/bin at 12 kHz), slower floor estimate update rate, better bin classification
+    this.bnFFTSize         = 4096;
+    // bnFFTSize / bnOverlap (currently 4096 / 3072 — doubles frequency resolution (~3 Hz/bin at 12 kHz), slower floor estimate update rate, better bin classification)
+    // 2048 / 1536, i.e. 75% overlap
     // 1024 / 768 — coarser bins, updates more frequently; useful if CPU is a concern
     // 2048 / 1024 — 50% overlap; lighter processing, slightly less smooth suppression    
-    this.bnOverlap         = 1536;
+    this.bnOverlap         = 3072;
     this.bnBuffer          = new Float32Array(this.bnFFTSize);
     this.bnNoiseFloor       = new Float32Array(this.bnFFTSize / 2);
-    this.bnDownTimeConstant = 20;     // seconds — floor can fall this slowly to find genuine gaps // 8
+    this.bnDownTimeConstant = 16;     // seconds — floor can fall this slowly to find genuine gaps // 8
     // bnDownTimeConstant (floor fall speed, currently 8s)
     // 4 — more responsive on bands that genuinely quiet down quickly (e.g. 40m at dawn)
     // 12 — better on busy HF bands where real gaps are rare
     // 20 — near-permanent floor; only reacts to band openings/closings
     // 3 — aggressive, useful if you trust QSB is always faster than this
-    this.bnUpTimeConstant   = 300;    // seconds — floor rises far slower than that (won't mistake sustained signal for "louder noise") // 90
+    this.bnUpTimeConstant   = 240;    // seconds — floor rises far slower than that (won't mistake sustained signal for "louder noise") // 90
     // bnUpTimeConstant (floor rise speed, currently 90s)
     // 45 — half the default; still slower than QSB but adapts to propagation changes faster
     // 120 — safer on bands with slow S9+ noise that creeps up (low-band evenings)
     // 180 — essentially "set it once per session" behaviour
     // 300 — 5 minutes; almost static floor, set-and-forget for stable noise environments
-    this.bnClassifyRatio    = 1.2;    // bins within this ratio of the floor are classified as noise // 1.5
+    this.bnClassifyRatio    = 1.35;    // bins within this ratio of the floor are classified as noise // 1.5
     // bnClassifyRatio (noise vs signal threshold, currently 1.5×)
     // 1.2 — tighter; only classifies bins very close to floor as noise — less risk of nibbling signal
     // 1.8 — wider; catches more noise bins but more likely to clip quiet SSB sidebands
     // 2.0 — aggressive; useful when noise floor is flat and well-characterised
     // 1.35 — a conservative middle ground between 1.2 and 1.5    
-    this.bnSuppressionDB    = 6;      // suppression depth at the LOW end of the band — adjustable // 6
+    this.bnSuppressionDB    = 10;      // suppression depth at the LOW end of the band — adjustable // 6
     // bnSuppressionDB (low-end cut depth, currently 6 dB)
     // 3 — gentle; just takes the edge off without audible effect on band character
     // 9 — noticeable improvement on a quiet band without killing low-frequency hiss
     // 12 — strong cut; good if LF band noise dominates
     // 0 — effectively disables low-end suppression while keeping the tilt active    
-    this.bnSuppressionDBHigh = 18 // 16
+    this.bnSuppressionDBHigh = 26 // 16
     // bnSuppressionDBHigh (high-end cut depth, currently 24 dB)
     // 12 — less aggressive HF cut; better if the tilt feels like it's muffling weak signals
     // 18 — previous tested value, a reasonable midpoint
     // 30 — maximum useful cut before noise-classified bins become inaudible gaps
     // 36 — essentially silences HF noise bins; only suitable if bnClassifyRatio is tight (≤1.3)    
     this.bnTiltLowHz         = 300 // 300
-    this.bnTiltHighHz        = 3000 // 2800
+    this.bnTiltHighHz        = 2500 // 2800
     // bnTiltHighHz (top of tilt ramp, currently 2800 Hz)
     // 2500 — keeps full suppression away from the upper SSB edge, safer for DX
     // 3000 — extends into the filter skirt (fine if your BPF rolls off before 3 kHz)
@@ -2055,7 +2053,7 @@ setAGC(newAGCSpeed) {
     // ✅ FLAC 16-bit gain boost: pipeline is calibrated for 8-bit amplitude (~256).
     // 16-bit FLAC decoder outputs amplitude ~1.0 → 256× too quiet → silence.
     if (this.settings && this.settings.audio_compression === 'flac') {
-      const flacGain = 150.0
+      const flacGain = 200.0
       const boosted = new Float32Array(pcmArray.length)
       for (let i = 0; i < pcmArray.length; i++) boosted[i] = pcmArray[i] * flacGain
       pcmArray = boosted

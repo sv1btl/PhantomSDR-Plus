@@ -1493,18 +1493,7 @@ setAGC(newAGCSpeed) {
 
   applyAutoNotch(pcmIn, chR = false) {
     const N      = pcmIn.length;
-    // Reuse the per-channel output buffer across calls (out[n] is fully written
-    // for every n below, so there is no stale carry-over). Separate L/R buffers
-    // are required because the stereo path holds both outputs simultaneously
-    // during re-interleave; the mono path only ever uses the chR=false buffer.
-    let out;
-    if (chR) {
-      if (!this._anfOutR || this._anfOutR.length !== N) this._anfOutR = new Float32Array(N);
-      out = this._anfOutR;
-    } else {
-      if (!this._anfOut || this._anfOut.length !== N) this._anfOut = new Float32Array(N);
-      out = this._anfOut;
-    }
+    const out    = new Float32Array(N);
     const taps   = this.anfTaps;
     const D      = this.anfDelay;
     const mu     = this.anfMu;
@@ -1516,10 +1505,8 @@ setAGC(newAGCSpeed) {
     const bufLen = buf.length;         // taps + D  (= taps + D, exactly right)
     let   ptr    = chR ? this._anfBufIdxR : this._anfBufIdx;
 
-    // FIX 3: cache tap vector once per block — collapses two modulo loops into one.
-    // Reused scratch (keyed on taps); fully overwritten each sample before use.
-    if (!this._anfXvec || this._anfXvec.length !== taps) this._anfXvec = new Float32Array(taps);
-    const xvec = this._anfXvec;
+    // FIX 3: cache tap vector once per block — collapses two modulo loops into one
+    const xvec = new Float32Array(taps);
 
     for (let n = 0; n < N; n++) {
       const x = pcmIn[n];

@@ -59,7 +59,7 @@ We also offer many more **features**:
 
 The SV1BTL WebSDR: http://phantomsdr.no-ip.org:8900/
 
-![Screenshot](/docs/websdr.png)
+![Screenshot](/docs/websdr.png) ![Screenshot](/docs/websdr2.png)
 
 (https://sdr-list.xyz)
 

@@ -348,8 +348,10 @@ Troubleshooting below).
    LF/MF bands (2200m, 630m) and an extra 80m EU channel.
 3. **Destinations** — enable **PSK Reporter** and/or **wsprnet** (both off by default).
 4. **Max slots** — a safety cap on how many band/mode slots can run at once.
-5. **Start / Stop** — spawns/kills the daemon (pinned to the E-cores with `taskset`).
-   **Save** / **Reload** persist and re-read the config; **Free All** clears every slot.
+5. **Start / Stop** — spawns/kills the daemon (pinned to the top CPU cores with
+   `taskset`, chosen automatically for the machine — see *Resource requirements &
+   limitations* below). **Save** / **Reload** persist and re-read the config;
+   **Free All** clears every slot.
 
 The status card polls every 5 s and shows running state, decode/upload counts and
 the last upload time. A **📶 REPORTING** badge appears on the main waterfall while
@@ -358,6 +360,53 @@ reporting is active.
 > **"0 sent" for the first few minutes is normal.** PSK Reporter uploads batch
 > every **5 minutes** and wsprnet every **2 minutes** — spots queue until the next
 > flush. The status card shows the pending count and cadence.
+
+### Resource requirements & limitations
+
+The daemon is deliberately lightweight and runs on low-resource hardware (a
+4-core i5 is fine), but there are real limits to be aware of.
+
+**CPU pinning is config-aware.** Both spectrumserver (`xgo.sh`) and the autorun
+daemon (`admin_server.py`) derive their `taskset` core range from the CPU count
+at launch, so neither names a core that doesn't exist. spectrumserver takes the
+lower cores, autorun the top few — they never overlap:
+
+| Logical CPUs | spectrumserver | autorun daemon |
+|---|---|---|
+| ≤ 4 | *unpinned* | *unpinned* |
+| 6 | `0-4` | `5` |
+| 8 | `0-5` | `6-7` |
+| 12 (e.g. i5-12450H, 8P+4E) | `0-7` | `8-11` |
+| 16 | `0-11` | `12-15` |
+
+On a **4-core (or fewer)** machine there is nothing to segregate, so both launch
+*unpinned* and share all cores — correct and safe, but the SDR FFT and the decode
+bursts compete for the same cores.
+
+**Known limitations:**
+
+1. **The real bottleneck is spectrumserver + SDR bandwidth, not the daemon.** An
+   RX888 @ 30 MHz needs OpenCL/GPU; a low-core CPU without a capable GPU cannot
+   sustain that FFT. Pair low-resource hardware with a narrower SDR (RSP1A ≈ 10 MHz,
+   RTL-SDR ≈ 2.4 MHz).
+2. **WSPR is the CPU long pole.** Its Fano decoder is a JS port (~30 s per band,
+   single-threaded). The 4-worker pool runs 4 decodes in parallel; enabling **more
+   than ~4 WSPR bands** at once can queue past the 120 s slot, especially while the
+   SDR is competing for cores. FT8/FT4 decodes are cheap by comparison.
+3. **Slot-count scaling.** The ~2–2.5 cores / 600–700 MB figure is for the full
+   ~28 slots on an 8-core box. On 4 shared cores, keep it to a handful of bands
+   (guideline: ≤ 6 FT8/FT4 + ≤ 3 WSPR) and watch the pool's `queued` stat.
+4. **Pinning assumes Intel hybrid topology** (lower cores = faster P-cores). On
+   AMD or CPUs with interleaved SMT numbering the split is still valid (no overlap,
+   no crash) but "lower cores are faster" may not literally hold, and on a
+   hyperthreaded 4C/8T part the top cores are SMT siblings — confined, not fully
+   isolated. There is currently **no manual core override** — the range is always
+   auto-derived.
+5. **Band coverage is limited by the receiver.** The RX888 config
+   (`sps=60000000` → 30 MHz Nyquist) cannot reach 6 m and above; the band table is
+   160 m–10 m. Other SDRs cover whatever their tuned window allows.
+6. **Reporting cadence.** PSK Reporter flushes every 5 min, wsprnet every 2 min —
+   "0 sent" in the first few minutes is normal, not a fault.
 
 ### Files and endpoints
 
@@ -369,7 +418,7 @@ reporting is active.
 | `autorun.log` | Daemon stdout/stderr. |
 | `GET/POST /admin/api/autorun/config` | Read / write `autorun.json` (validates callsign, grid, band/mode combos, slot cap). |
 | `GET /admin/api/autorun/status` | Running state (`pgrep`) + `autorun-status.json`. |
-| `POST /admin/api/autorun/start` / `stop` | Spawn (`taskset -c 8-11 node autorun/index.js`) / `SIGTERM`. |
+| `POST /admin/api/autorun/start` / `stop` | Spawn (`taskset -c <auto> node autorun/index.js`) / `SIGTERM`. The core range is derived from the CPU (see below). |
 
 > **Note:** after upgrading `admin_server.py` you must `./manage_admin.sh restart`
 > to load new autorun routes or an updated band/mode matrix. The daemon runs as a
@@ -396,4 +445,6 @@ reporting is active.
 | Spot Reporting: daemon runs but `decodes` stays 0 and `autorun.log` shows `504` / `tap closed 1006` | The audio tap can't reach spectrumserver. The daemon auto-detects the port from the **running** server's config; the `[autorun] tap backend: HOST:PORT` log line must match your `[server] port`. If it's wrong (or the server wasn't running at start), pin it in `autorun.json`: `"server": { "host": "127.0.0.1", "port": 9002 }`, then Stop→Start. |
 | Spot Reporting shows "0 sent" | Normal for the first few minutes — PSK Reporter flushes every 5 min, wsprnet every 2 min. Confirm a destination is enabled and the daemon is running. |
 | New bands/modes not showing in the matrix | Restart the admin panel: `./manage_admin.sh restart` (the matrix is loaded at admin start). |
+| `autorun.log` shows `MODULE_TYPELESS_PACKAGE_JSON` / "Reparsing as ES module … performance overhead" | Cosmetic warning (decoding still works). `frontend/src/modules/package.json` is missing `"type": "module"`; add that line near the top, then Stop→Start. No frontend rebuild needed — the daemon imports the source file directly. |
+| Spot Reporting "Start" fails with `taskset: … Invalid argument` on an old/small PC | Should not happen with the config-aware launcher — the core range is derived from the CPU count and goes unpinned on ≤ 4 cores. If seen, `admin_server.py` predates that change; update it (`_autorun_taskset_prefix`) and `./manage_admin.sh restart`. |
 | REPORTING badge not on the waterfall | Reporting must be ON with at least one slot; the badge reads `/autorun-active.json`. Rebuild the frontend if `dist/index.html` predates the badge. |

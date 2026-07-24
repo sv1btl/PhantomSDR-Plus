@@ -13,7 +13,9 @@
  *   reporting  : autorun.json.reporting.{pskreporter,wsprnet} || AUTORUN_REPORT=..
  *   dryRun     : autorun.json.dryRun || AUTORUN_DRYRUN=1  (log spots, don't send)
  *
- * Pin to the E-cores at launch:  taskset -c 8-11 node autorun/index.js
+ * The admin launcher pins the daemon to the top CPU cores (config-aware — the
+ * E-cores on an 8P+4E box, fewer on smaller CPUs, unpinned on <=4 cores). To run
+ * it by hand on such a box:  taskset -c 8-11 node autorun/index.js
  */
 import { readFileSync, existsSync, writeFileSync, unlinkSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';

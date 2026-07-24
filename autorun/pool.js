@@ -11,8 +11,10 @@
  * first (shortest T/R period, would otherwise get lapped), then FT8, then WSPR
  * (its Fano search is the long pole but it tolerates the most delay).
  *
- * Pin the whole daemon to the E-cores (taskset -c 8-11) at launch; the pool
- * threads inherit that affinity, keeping decode bursts off the SDR's P-cores.
+ * The admin launcher pins the whole daemon to the top CPU cores at launch
+ * (config-aware — the E-cores on an 8P+4E box, unpinned on a <=4-core machine);
+ * the pool threads inherit that affinity, keeping decode bursts off the SDR's
+ * lower cores where spectrumserver runs.
  */
 import { Worker } from 'node:worker_threads';
 

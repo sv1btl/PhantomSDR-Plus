@@ -1,5 +1,6 @@
 {
   "name": "phantomsdrdsp",
+  "type": "module",
   "collaborators": [
     "media"
   ],

@@ -2882,6 +2882,27 @@ def api_autorun_status():
             status = {}
     return jsonify({"running": running, "pids": pids, "status": status})
 
+def _autorun_taskset_prefix():
+    """taskset prefix (list) pinning the autorun daemon to the top CPU cores.
+
+    Returns [] (unpinned) when taskset is unavailable or the machine is too
+    small to segregate — a 4-core i5 shares all cores with spectrumserver, and
+    naming cores that don't exist would make taskset fail to launch. Otherwise
+    reserves the top few cores for the daemon: 4 on a >=12-thread CPU (the E-cores
+    on an 8P+4E part -> 8-11, matching the original hardcode), fewer on smaller
+    CPUs. spectrumserver is pinned to 0-7 by xgo.sh, so the top cores stay clear.
+    """
+    import shutil as _sh
+    if not _sh.which("taskset"):
+        return []
+    n = os.cpu_count() or 0
+    if n <= 4:
+        return []  # can't segregate — let the scheduler balance across cores
+    count = 4 if n >= 12 else max(1, n // 4)
+    lo, hi = n - count, n - 1
+    spec = f"{lo}-{hi}" if count > 1 else str(lo)
+    return ["taskset", "-c", spec]
+
 @app.route("/admin/api/autorun/start", methods=["POST"])
 @login_required
 def api_autorun_start():
@@ -2901,9 +2922,12 @@ def api_autorun_start():
     if not index_js.exists():
         return jsonify({"ok": False, "msg": "autorun/index.js missing"})
     node = _resolve_node()
-    # Pin to the E-cores if taskset is present, else launch unpinned.
-    import shutil as _sh
-    cmd = ([ "taskset", "-c", "8-11" ] if _sh.which("taskset") else []) + [node, str(index_js)]
+    # Pin the daemon to the top CPU cores so decode bursts stay off the lower
+    # cores spectrumserver prefers (xgo.sh pins it to 0-7). Config-aware: on an
+    # 8P+4E box this yields the E-cores (8-11), on smaller CPUs it shrinks the
+    # range, and on a 4-core (or fewer) machine it launches unpinned rather than
+    # naming cores that don't exist (which would make taskset fail to start).
+    cmd = _autorun_taskset_prefix() + [node, str(index_js)]
     try:
         logf = open(log_path, "a")
         proc = subprocess.Popen(cmd, cwd=str(base), stdout=logf,

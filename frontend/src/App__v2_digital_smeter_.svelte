@@ -5969,7 +5969,38 @@ function startTopFrequencyBarSync() {
                     <br><br>
 
                      <b>Note:</b> <br> 
-                     <span style="/*text-decoration: line-through*/">{siteNote} <br>
+                     <span style="/*text-decoration: line-through*/"><button
+                       type="button"
+                       class="glass-button text-white py-1 px-2 mr-1 rounded text-xs"
+                       on:click={() => window.open(`https://pskreporter.info/pskmap.html#preset&callsign=${siteSysop}&txrx=rx&mode=FT8&timerange=3600&mapCenter=22.6243,10.9375,2.59`, 'FT8map', 'width=1100,height=750,menubar=no,toolbar=no,location=no,status=no,resizable=yes,scrollbars=yes')}
+                       style="color:rgba(0, 225, 255, 0.993); font-size: 0.75rem;"
+                     >
+                       📡 FT8
+                     </button>
+                     <button
+                       type="button"
+                       class="glass-button text-white py-1 px-2 mr-1 rounded text-xs"
+                       on:click={() => window.open(`https://pskreporter.info/pskmap.html#preset&callsign=${siteSysop}&txrx=rx&mode=FT4&timerange=3600&mapCenter=22.6243,10.9375,2.59`, 'FT4map', 'width=1100,height=750,menubar=no,toolbar=no,location=no,status=no,resizable=yes,scrollbars=yes')}
+                       style="color:rgba(0, 225, 255, 0.993); font-size: 0.75rem;"
+                     >
+                       📡 FT4
+                     </button>
+                     <button
+                       type="button"
+                       class="glass-button text-white py-1 px-2 mr-1 rounded text-xs"
+                       on:click={() => window.open(`https://www.wsprnet.org/olddb?mode=html&band=all&limit=100&findcall=&findreporter=${siteSysop}&sort=date`, 'WSPRlog', 'width=1100,height=750,menubar=no,toolbar=no,location=no,status=no,resizable=yes,scrollbars=yes')}
+                       style="color:rgba(0, 225, 255, 0.993); font-size: 0.75rem;"
+                     >
+                       📋 WSPR log
+                     </button>
+                     <button
+                       type="button"
+                       class="glass-button text-white py-1 px-2 rounded text-xs"
+                       on:click={() => window.open('https://wspr.aprsinfo.com/', 'WSPRmap', 'width=1100,height=750,menubar=no,toolbar=no,location=no,status=no,resizable=yes,scrollbars=yes')}
+                       style="color:rgba(0, 225, 255, 0.993); font-size: 0.75rem;"
+                     >
+                       🗺️ WSPR map
+                     </button> <br>
 
                      <!-- Any other information here --> 
                      

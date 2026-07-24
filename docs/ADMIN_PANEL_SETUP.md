@@ -366,12 +366,25 @@ reporting is active.
 The daemon is deliberately lightweight and runs on low-resource hardware (a
 4-core i5 is fine), but there are real limits to be aware of.
 
-**CPU pinning is config-aware.** Both spectrumserver (`xgo.sh`) and the autorun
-daemon (`admin_server.py`) derive their `taskset` core range from the CPU count
-at launch, so neither names a core that doesn't exist. spectrumserver takes the
-lower cores, autorun the top few — they never overlap:
+**CPU pinning is config-aware — but the two processes are pinned by different
+launchers.**
 
-| Logical CPUs | spectrumserver | autorun daemon |
+- The **autorun daemon** is always launched by the admin panel (`admin_server.py`),
+  so its pin is automatic on every install: it derives a `taskset` core range from
+  the CPU count, or runs unpinned on ≤ 4 cores. Nothing to configure.
+- **spectrumserver is started by whatever script you run it with**, and that
+  varies between sysops — there is no single canonical launcher. Automatic pinning
+  only happens if your start script does it. This project ships one such script
+  (`xgo.sh`, for the RX888) that pins spectrumserver to the lower cores; if you
+  start the server another way (a plain `rx_sdr | ./build/spectrumserver …`
+  pipeline, an RSP1A/RTL script, a systemd unit, etc.), it launches **unpinned**
+  unless you add pinning yourself — see the override section below.
+
+Where both sides are pinned (autorun always, spectrumserver via `xgo.sh` or your
+own `taskset`), spectrumserver takes the lower cores and autorun the top few, so
+they never overlap:
+
+| Logical CPUs | spectrumserver (if pinned) | autorun daemon |
 |---|---|---|
 | ≤ 4 | *unpinned* | *unpinned* |
 | 6 | `0-4` | `5` |
@@ -379,9 +392,11 @@ lower cores, autorun the top few — they never overlap:
 | 12 (e.g. i5-12450H, 8P+4E) | `0-7` | `8-11` |
 | 16 | `0-11` | `12-15` |
 
-On a **4-core (or fewer)** machine there is nothing to segregate, so both launch
+On a **4-core (or fewer)** machine there is nothing to segregate, so both run
 *unpinned* and share all cores — correct and safe, but the SDR FFT and the decode
-bursts compete for the same cores.
+bursts compete for the same cores. If spectrumserver is left unpinned on a larger
+box the OS scheduler still balances it; you just lose the deliberate P-core/E-core
+separation.
 
 **Known limitations:**
 
@@ -438,17 +453,30 @@ the panel (env wins over the `autorun.json` value):
 AUTORUN_CORES=2-3 ./manage_admin.sh restart
 ```
 
-**spectrumserver** — `SPECTRUM_CORES` env var, read by `xgo.sh` at launch:
+**spectrumserver** — how you pin it depends on how you start the server; there is
+no single launcher shared across installs.
 
-```bash
-SPECTRUM_CORES=0-3 ./go.sh      # pin the server to cores 0-3
-SPECTRUM_CORES=none ./go.sh     # launch unpinned
-```
+- *If you use this project's `xgo.sh`* (the RX888 launcher), it reads a
+  `SPECTRUM_CORES` env var. Set it in front of whatever command triggers that
+  script (e.g. `SPECTRUM_CORES=0-3 ./go.sh`, or export it in the environment the
+  launcher/watchdog runs under). `SPECTRUM_CORES=none` forces unpinned.
+- *If you start the server any other way* — a `rx_sdr | ./build/spectrumserver …`
+  pipeline, an RSP1A/RTL script, a systemd unit, etc. — there is no `SPECTRUM_CORES`
+  hook; simply prepend `taskset` to your own launch command:
 
-> ⚠️ If a **watchdog** (`check-go.sh`) auto-restarts spectrumserver, a one-shot
-> `SPECTRUM_CORES=… ./go.sh` won't survive a watchdog restart — the watchdog
-> launches `xgo.sh` without it. To make it permanent, `export SPECTRUM_CORES=0-3`
-> in the watchdog's environment, or add `SPECTRUM_CORES=0-3` near the top of `xgo.sh`.
+  ```bash
+  # generic — works with any start method, pin the server to cores 0-3:
+  taskset -c 0-3 ./build/spectrumserver --config config-rsp1a.toml < your.fifo &
+  # or in a pipeline:
+  rx_sdr … | taskset -c 0-3 ./build/spectrumserver --config config-rsp1a.toml
+  ```
+
+> ⚠️ **Make it survive restarts.** A one-shot env var or inline `taskset` only
+> applies to that launch. If a **watchdog** auto-restarts the server (this project
+> ships `check-go.sh`, but other sysops use systemd, cron, `@reboot`, etc.), bake
+> the pin into the script/unit the watchdog actually invokes — `export
+> SPECTRUM_CORES=…` in its environment, or add the `taskset` prefix to that script —
+> otherwise the restart drops it.
 
 **Verify the pin took** — print the running processes' actual CPU affinity:
 

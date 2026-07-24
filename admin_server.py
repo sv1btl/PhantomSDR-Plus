@@ -2866,6 +2866,23 @@ def api_autorun_config():
         "maxSlots": max_slots,
         "slots": slots,
     }
+    # Optional manual CPU-pin override (advanced; usually absent). Accept a
+    # taskset core list or none/off/unpinned, else drop it. Preserve any value
+    # already in autorun.json when the request doesn't carry one, so hand-edits
+    # and the env/auto paths keep working across a Save.
+    cores = req.get("cores")
+    if cores is None and cfg_path.exists():
+        try:
+            cores = (json.loads(read_file_safe(cfg_path)) or {}).get("cores")
+        except Exception:
+            cores = None
+    if cores is not None:
+        cores = str(cores).strip()
+        if cores.lower() in ("none", "off", "unpinned"):
+            out["cores"] = "none"
+        elif _CORELIST_RE.match(cores):
+            out["cores"] = cores
+        # anything else: silently omit (invalid)
     ok, msg = write_file_safe(cfg_path, json.dumps(out, indent=2))
     return jsonify({"ok": ok, "msg": msg if not ok else "saved"})
 
@@ -2882,10 +2899,38 @@ def api_autorun_status():
             status = {}
     return jsonify({"running": running, "pids": pids, "status": status})
 
+_CORELIST_RE = re.compile(r'^\d+([-,]\d+)*$')  # e.g. "2-3", "0,2,4", "0-2,5"
+
+def _autorun_cores_override():
+    """Manual core override for the autorun pin, or None if not set.
+
+    Precedence: AUTORUN_CORES env var, else the "cores" field in autorun.json.
+    Useful on CPUs where the auto-derived range isn't ideal (AMD CCX/CCD, ARM
+    big.LITTLE, interleaved SMT). Accepts a taskset -c list ("2-3", "0,2,4") or
+    one of none/off/unpinned to force no pinning. Malformed values are ignored
+    (falls back to auto) so a typo can't stop the daemon from launching.
+    """
+    val = os.environ.get("AUTORUN_CORES")
+    if val is None:
+        try:
+            _, cfg_path, _, _ = _autorun_paths()
+            if cfg_path.exists():
+                val = (json.loads(read_file_safe(cfg_path)) or {}).get("cores")
+        except Exception:
+            val = None
+    if val is None:
+        return None
+    val = str(val).strip()
+    if val.lower() in ("none", "off", "unpinned", ""):
+        return ""  # explicit "do not pin"
+    return val if _CORELIST_RE.match(val) else None
+
 def _autorun_taskset_prefix():
     """taskset prefix (list) pinning the autorun daemon to the top CPU cores.
 
-    Returns [] (unpinned) when taskset is unavailable or the machine is too
+    A manual override (see _autorun_cores_override) wins if set: a core list
+    pins there, an empty override forces unpinned. Otherwise auto-derive:
+    returns [] (unpinned) when taskset is unavailable or the machine is too
     small to segregate — a 4-core i5 shares all cores with spectrumserver, and
     naming cores that don't exist would make taskset fail to launch. Otherwise
     reserves the top few cores for the daemon: 4 on a >=12-thread CPU (the E-cores
@@ -2895,6 +2940,9 @@ def _autorun_taskset_prefix():
     import shutil as _sh
     if not _sh.which("taskset"):
         return []
+    override = _autorun_cores_override()
+    if override is not None:
+        return ["taskset", "-c", override] if override else []
     n = os.cpu_count() or 0
     if n <= 4:
         return []  # can't segregate — let the scheduler balance across cores

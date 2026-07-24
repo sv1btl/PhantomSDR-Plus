@@ -397,22 +397,79 @@ bursts compete for the same cores.
    ~28 slots on an 8-core box. On 4 shared cores, keep it to a handful of bands
    (guideline: ≤ 6 FT8/FT4 + ≤ 3 WSPR) and watch the pool's `queued` stat.
 4. **Pinning assumes Intel hybrid topology** (lower cores = faster P-cores). On
-   AMD or CPUs with interleaved SMT numbering the split is still valid (no overlap,
-   no crash) but "lower cores are faster" may not literally hold, and on a
-   hyperthreaded 4C/8T part the top cores are SMT siblings — confined, not fully
-   isolated. There is currently **no manual core override** — the range is always
-   auto-derived.
+   AMD or CPUs with interleaved SMT numbering the auto split is still valid (no
+   overlap, no crash) but "lower cores are faster" may not literally hold, and on
+   a hyperthreaded 4C/8T part the top cores are SMT siblings — confined, not fully
+   isolated. Where the auto range isn't ideal, use the **manual override** below.
 5. **Band coverage is limited by the receiver.** The RX888 config
    (`sps=60000000` → 30 MHz Nyquist) cannot reach 6 m and above; the band table is
    160 m–10 m. Other SDRs cover whatever their tuned window allows.
 6. **Reporting cadence.** PSK Reporter flushes every 5 min, wsprnet every 2 min —
    "0 sent" in the first few minutes is normal, not a fault.
 
+### Manual CPU-pin override (advanced)
+
+The auto-derived core split is right for most machines, but you can force a
+specific pinning where it isn't (AMD CCX/CCD, ARM big.LITTLE, interleaved SMT).
+Two independent overrides, each accepting a `taskset -c` core list (`2-3`,
+`0,2,4`, `0-2,5`) or `none`/`off`/`unpinned` to disable pinning. An invalid value
+is ignored and the auto-derive runs — a typo can never stop a launch.
+
+**Autorun daemon** — `AUTORUN_CORES` env var, or a `"cores"` field in `autorun.json`
+(env wins). The `"cores"` field is preserved across admin-panel **Save**, so a
+hand-edit sticks. Two ways to set it:
+
+*Option A — `autorun.json` (persistent, recommended).* Add a `"cores"` line to the
+config at the repo root, then **Stop → Start** the daemon on the Spot Reporting tab:
+
+```jsonc
+// autorun.json
+{ "identity": { "callsign": "SV1BTL", "grid": "KM17VX" },
+  "reporting": { "pskreporter": true, "wsprnet": false },
+  "slots": [ /* … */ ],
+  "cores": "2-3" }          // or "none" to run unpinned
+```
+
+*Option B — environment variable (one-off).* The daemon is spawned by the admin
+panel, so the var must be in the **admin panel's** environment — set it and restart
+the panel (env wins over the `autorun.json` value):
+
+```bash
+AUTORUN_CORES=2-3 ./manage_admin.sh restart
+```
+
+**spectrumserver** — `SPECTRUM_CORES` env var, read by `xgo.sh` at launch:
+
+```bash
+SPECTRUM_CORES=0-3 ./go.sh      # pin the server to cores 0-3
+SPECTRUM_CORES=none ./go.sh     # launch unpinned
+```
+
+> ⚠️ If a **watchdog** (`check-go.sh`) auto-restarts spectrumserver, a one-shot
+> `SPECTRUM_CORES=… ./go.sh` won't survive a watchdog restart — the watchdog
+> launches `xgo.sh` without it. To make it permanent, `export SPECTRUM_CORES=0-3`
+> in the watchdog's environment, or add `SPECTRUM_CORES=0-3` near the top of `xgo.sh`.
+
+**Verify the pin took** — print the running processes' actual CPU affinity:
+
+```bash
+taskset -cp "$(pgrep -f 'autorun/index.js')"   # autorun daemon
+taskset -cp "$(pgrep -x spectrumserver)"       # spectrumserver
+```
+
+**Accepted values (both overrides):** a `taskset -c` list (`2-3`, `0,2,4`, `0-2,5`),
+or `none`/`off`/`unpinned` for no pinning. Anything malformed is ignored and the
+auto-derive runs, so a typo can never block startup.
+
+> On a Raspberry Pi / any ≤4-core box you normally need neither — the auto path
+> already runs both processes unpinned, which is the correct choice on a small,
+> homogeneous CPU. The override is for larger non-Intel-hybrid machines.
+
 ### Files and endpoints
 
 | Item | Purpose |
 |---|---|
-| `autorun.json` | Saved config (identity, slots, destinations, max slots). Written by the tab; git-ignored. |
+| `autorun.json` | Saved config (identity, slots, destinations, max slots, optional `cores` pin override). Written by the tab; git-ignored. |
 | `autorun-status.json` | Live status the status card reads (pid, counts, last upload). Written every 15 s; removed on stop. |
 | `frontend/dist/autorun-active.json` | Public badge data served at `/autorun-active.json`. Empty when reporting is off. |
 | `autorun.log` | Daemon stdout/stderr. |

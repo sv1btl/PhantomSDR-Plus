@@ -1,0 +1,1152 @@
+# Estructura del proyecto PhantomSDR-Plus
+
+Este documento ofrece una visión general completa de la estructura de directorios de PhantomSDR-Plus, la organización de los archivos y las relaciones entre componentes.
+
+---
+
+## Índice
+
+1. [Árbol de directorios](#árbol-de-directorios)
+2. [Directorio raíz](#directorio-raíz)
+3. [Código fuente (`src/`)](#código-fuente-src)
+4. [Frontend (`frontend/`)](#frontend-frontend)
+5. [Listas de frecuencias (`frequencylist/`)](#listas-de-frecuencias-frequencylist)
+6. [Archivos de configuración](#archivos-de-configuración)
+7. [Sistema de compilación](#sistema-de-compilación)
+
+---
+
+## Árbol de directorios
+```
+PhantomSDR-Plus
+├── admin_server.py
+├── autorun
+│   ├── audiotap.js
+│   ├── bandplan.js
+│   ├── decodeworker.js
+│   ├── index.js
+│   ├── manager.js
+│   ├── pool.js
+│   ├── probe-ft8.js
+│   ├── pskreporter.js
+│   ├── spotparse.js
+│   ├── wasm-shim.js
+│   └── wsprnet.js
+├── chat_history.txt
+├── config-airspyhf.toml
+├── config.example.hackrf.toml
+├── config.example.rtlsdr.toml
+├── config-rsp1a.toml
+├── config-rtl.toml
+├── config-rx888mk2.toml
+├── config.toml
+├── connection_impl.hpp
+├── docs
+│   ├── ADMIN_PANEL_SETUP.md
+│   ├── de
+│   │   ├── ADMIN_PANEL_SETUP.md
+│   │   ├── DECODERS.md
+│   │   ├── EDITING_VARIANTS.md
+│   │   ├── INSTALLATION.md
+│   │   ├── PhantomSDR-Plus-Documentation-DE.pdf
+│   │   ├── PROJECT_STRUCTURE.md
+│   │   ├── RADE_General_INSTALL_MANUAL_LINUX.md
+│   │   ├── RADE_README.md
+│   │   ├── README.md
+│   │   ├── THERMAL_GUARD.md
+│   │   └── USER_GUIDE.md
+│   ├── DECODERS.md
+│   ├── EDITING_VARIANTS.md
+│   ├── el
+│   │   ├── ADMIN_PANEL_SETUP.md
+│   │   ├── DECODERS.md
+│   │   ├── EDITING_VARIANTS.md
+│   │   ├── INSTALLATION.md
+│   │   ├── PhantomSDR-Plus-Documentation-EL.pdf
+│   │   ├── PROJECT_STRUCTURE.md
+│   │   ├── RADE_General_INSTALL_MANUAL_LINUX.md
+│   │   ├── RADE_README.md
+│   │   ├── README.md
+│   │   ├── THERMAL_GUARD.md
+│   │   └── USER_GUIDE.md
+│   ├── es
+│   │   ├── ADMIN_PANEL_SETUP.md
+│   │   ├── DECODERS.md
+│   │   ├── EDITING_VARIANTS.md
+│   │   ├── INSTALLATION.md
+│   │   ├── PhantomSDR-Plus-Documentation-ES.pdf
+│   │   ├── PROJECT_STRUCTURE.md
+│   │   ├── RADE_General_INSTALL_MANUAL_LINUX.md
+│   │   ├── RADE_README.md
+│   │   ├── README.md
+│   │   ├── THERMAL_GUARD.md
+│   │   └── USER_GUIDE.md
+│   ├── fr
+│   │   ├── ADMIN_PANEL_SETUP.md
+│   │   ├── DECODERS.md
+│   │   ├── EDITING_VARIANTS.md
+│   │   ├── INSTALLATION.md
+│   │   ├── PhantomSDR-Plus-Documentation-FR.pdf
+│   │   ├── PROJECT_STRUCTURE.md
+│   │   ├── RADE_General_INSTALL_MANUAL_LINUX.md
+│   │   ├── RADE_README.md
+│   │   ├── README.md
+│   │   ├── THERMAL_GUARD.md
+│   │   └── USER_GUIDE.md
+│   ├── hr
+│   │   ├── ADMIN_PANEL_SETUP.md
+│   │   ├── DECODERS.md
+│   │   ├── EDITING_VARIANTS.md
+│   │   ├── INSTALLATION.md
+│   │   ├── PhantomSDR-Plus-Documentation-HR.pdf
+│   │   ├── PROJECT_STRUCTURE.md
+│   │   ├── RADE_General_INSTALL_MANUAL_LINUX.md
+│   │   ├── RADE_README.md
+│   │   ├── README.md
+│   │   ├── THERMAL_GUARD.md
+│   │   └── USER_GUIDE.md
+│   ├── INSTALLATION.md
+│   ├── PhantomSDR-Plus-Documentation-EN.pdf
+│   ├── PROJECT_STRUCTURE.md
+│   ├── RADE_General_INSTALL_MANUAL_LINUX.md
+│   ├── RADE_README.md
+│   ├── README.md
+│   ├── ru
+│   │   ├── ADMIN_PANEL_SETUP.md
+│   │   ├── DECODERS.md
+│   │   ├── EDITING_VARIANTS.md
+│   │   ├── INSTALLATION.md
+│   │   ├── PhantomSDR-Plus-Documentation-RU.pdf
+│   │   ├── PROJECT_STRUCTURE.md
+│   │   ├── RADE_General_INSTALL_MANUAL_LINUX.md
+│   │   ├── RADE_README.md
+│   │   ├── README.md
+│   │   ├── THERMAL_GUARD.md
+│   │   └── USER_GUIDE.md
+│   ├── sdr-stats
+│   │   ├── package.json
+│   │   ├── README.md
+│   │   ├── readme_de.md
+│   │   ├── readme_el.md
+│   │   ├── readme_es.md
+│   │   ├── readme_fr.md
+│   │   ├── readme_hr.md
+│   │   └── readme_ru.md
+│   ├── THERMAL_GUARD.md
+│   ├── USER_GUIDE.md
+│   ├── websdr.png
+│   ├── websdr2.png
+│   └── websdr3.png
+├── favicon.ico
+├── fftw_wisdom
+├── fix_local_geo.py
+├── frequencylist
+│   ├── 0.TXT
+│   ├── A26all00.TXT           # no está en el repo: lo extrae update-markers.sh de a26allx2.zip
+│   ├── a26allx2.zip
+│   ├── admin.txt
+│   ├── antenna.txt
+│   ├── broadcas.txt
+│   ├── curl-output.txt
+│   ├── currentUpdateFile.txt
+│   ├── fmorg.txt
+│   ├── generate-current-shortwave.py
+│   ├── language.txt
+│   ├── mymarkers.json
+│   ├── README.md
+│   ├── shortwavestations.json
+│   ├── site.txt
+│   └── update-markers.sh
+├── frontend
+│   ├── build-all.sh
+│   ├── build-default.sh
+│   ├── build-mobile.sh
+│   ├── debug-title.sh
+│   ├── favicon.ico
+│   ├── fix-title-python.py
+│   ├── index.html
+│   ├── jsconfig.json
+│   ├── LICENSE
+│   ├── make-redirect-stubs.sh
+│   ├── mobile
+│   │   └── index.html
+│   ├── package.json
+│   ├── package-lock.json
+│   ├── pnpm-lock.yaml
+│   ├── postcss.config.cjs
+│   ├── public
+│   │   ├── analyze_users.py
+│   │   ├── decoders
+│   │   │   └── ft8_lib.wasm
+│   │   ├── logo.jpg
+│   │   ├── stats.html
+│   │   ├── users.html
+│   │   └── wf-message.json
+│   ├── README.md
+│   ├── site_information.json
+│   ├── src
+│   │   ├── app.css
+│   │   ├── App.svelte
+│   │   ├── assets
+│   │   │   ├── amateurfrequencies.json
+│   │   │   ├── background.jpg
+│   │   │   ├── shortwavestations.json
+│   │   │   ├── SSTV.png
+│   │   │   ├── SSTV.svg
+│   │   │   └── svelte.png
+│   │   ├── audio.js
+│   │   ├── audio-stream-worklet.js
+│   │   ├── bands-config.js
+│   │   ├── broadcastSchedules.js
+│   │   ├── cwDecoder.js
+│   │   ├── cw.worker.js
+│   │   ├── cwWorkerProxy.js
+│   │   ├── decoder.worker.js
+│   │   ├── eventBus.js
+│   │   ├── events.js
+│   │   ├── fax.js
+│   │   ├── fax.worker.js
+│   │   ├── faxWorkerProxy.js
+│   │   ├── fft.js
+│   │   ├── fsk.js
+│   │   ├── fsk.worker.js
+│   │   ├── fskWorkerProxy.js
+│   │   ├── lib
+│   │   │   ├── backend.js
+│   │   │   ├── BandSelector.svelte
+│   │   │   ├── CheckButton.svelte
+│   │   │   ├── colormaps.js
+│   │   │   ├── Counter.svelte
+│   │   │   ├── fftRadix2.js
+│   │   │   ├── freedv-reporter.js
+│   │   │   ├── FreeDVReporter.svelte
+│   │   │   ├── FrequencyInput.svelte
+│   │   │   ├── FrequencyMarkers.svelte
+│   │   │   ├── FtxSpectrum.svelte
+│   │   │   ├── hammeractions.js
+│   │   │   ├── LineThroughButton.svelte
+│   │   │   ├── Logger.svelte
+│   │   │   ├── MagicEyeIndicator.svelte
+│   │   │   ├── ModesSelector.svelte
+│   │   │   ├── opusMlDecoder.js
+│   │   │   ├── PassbandTuner.svelte
+│   │   │   ├── Popover.svelte
+│   │   │   ├── QrssPanel.svelte
+│   │   │   ├── SMeterAnalog.svelte
+│   │   │   ├── SMeterDigital.svelte
+│   │   │   ├── Spectrogram.svelte
+│   │   │   ├── StatusIndicators.svelte
+│   │   │   ├── storage.js
+│   │   │   ├── Tooltip.svelte
+│   │   │   ├── VersionSelector.svelte
+│   │   │   ├── VersionSelector.svelte.backup
+│   │   │   ├── VideoAreaSelector.svelte
+│   │   │   └── wrappers.js
+│   │   ├── main.js
+│   │   ├── mobile
+│   │   │   ├── backend.js
+│   │   │   ├── bookmarks.js
+│   │   │   ├── main.js
+│   │   │   ├── Mobile.svelte
+│   │   │   └── tuning.js
+│   │   ├── modules
+│   │   │   ├── decode.wasm
+│   │   │   ├── encode.wasm
+│   │   │   ├── ft4.js
+│   │   │   ├── ft8.js
+│   │   │   ├── js8.js
+│   │   │   ├── js8-decoder.js
+│   │   │   ├── js8-format.js
+│   │   │   ├── js8-reassembler.js
+│   │   │   ├── js8-slots.js
+│   │   │   ├── js8-tables.js
+│   │   │   ├── package.json
+│   │   │   ├── phantomsdrdsp_bg_fallback.js
+│   │   │   ├── phantomsdrdsp_bg.js
+│   │   │   ├── phantomsdrdsp_bg.wasm
+│   │   │   ├── phantomsdrdsp_bg.wasm.d.ts
+│   │   │   ├── phantomsdrdsp.d.ts
+│   │   │   ├── phantomsdrdsp.js
+│   │   │   ├── phantomsdrdsp_router.js
+│   │   │   └── wspr.js
+│   │   ├── olivia.js
+│   │   ├── psk31.js
+│   │   ├── sstv.js
+│   │   ├── sstv.worker.js
+│   │   ├── sstvWorkerProxy.js
+│   │   ├── unused
+│   │   │   ├── AudioProcessor.js
+│   │   │   ├── decoder.js
+│   │   │   ├── decoding.js
+│   │   │   ├── modules-emscripten
+│   │   │   │   ├── dav1d.js
+│   │   │   │   ├── dav1dnoWasm.js
+│   │   │   │   ├── dav1dnoWasm.js.mem
+│   │   │   │   ├── dav1d.wasm
+│   │   │   │   ├── decode_ft8.js
+│   │   │   │   ├── decode_ft8.wasm
+│   │   │   │   ├── FoxenFlac.js
+│   │   │   │   ├── jsDSP.js
+│   │   │   │   ├── jsDSPnoWasm.js
+│   │   │   │   ├── jsDSPnoWasm.js.mem
+│   │   │   │   ├── jsDSPnoWasm.wasm
+│   │   │   │   ├── jsDSP.wasm
+│   │   │   │   ├── libzstd.js
+│   │   │   │   ├── LiquidDSP.js
+│   │   │   │   ├── opus.js
+│   │   │   │   ├── opusnoWasm.js
+│   │   │   │   ├── opusnoWasm.js.mem
+│   │   │   │   ├── opus.wasm
+│   │   │   │   ├── redsea.js
+│   │   │   │   └── redsea.wasm
+│   │   │   ├── unused.js
+│   │   │   └── wrappers.js
+│   │   ├── videoRecorder.js
+│   │   ├── vite-env.d.ts
+│   │   └── waterfall.js
+│   ├── stats.html
+│   ├── svelte.config.js
+│   ├── tailwind.config.cjs
+│   └── vite.config.js
+├── install_arch.sh
+├── install_fedora.sh
+├── install_opensuse.sh
+├── install_rade.sh
+├── install_rade_ubuntu22.sh
+├── install.sh
+├── install-stats-server.sh
+├── instructions-for-airspy
+├── instructions-for-rsp1a
+├── jsdsp
+│   ├── compilejs.sh
+│   ├── configureredsea.sh
+│   ├── extract_EXPORTED_FUNCTIONS.js
+│   ├── ft8_wasm
+│   │   ├── build_ft8_wasm.sh
+│   │   ├── README.md
+│   │   └── wasm_wrapper.c
+│   ├── include
+│   │   ├── avif
+│   │   │   ├── avif.h
+│   │   │   └── internal.h
+│   │   └── liquid
+│   │       └── liquid.h
+│   ├── lib
+│   │   ├── ANR.c
+│   │   ├── arm_funcs.h
+│   │   ├── CMSIS_DSP
+│   │   │   ├── BUILDING.txt
+│   │   │   └── LICENSE.txt
+│   │   ├── dav1d.cpp
+│   │   ├── NB.c
+│   │   ├── NR_spectral.c
+│   │   └── types.h
+│   ├── redsea.js
+│   ├── redsea.wasm
+│   └── src
+│       ├── index.js
+│       ├── libzstd.js
+│       ├── LiquidDSP.js
+│       ├── NoiseProcessing.js
+│       └── wbfmpll.cpp
+├── LICENSE
+├── logproxy
+├── logrotate
+│   └── phantomsdr
+├── manage_admin.sh
+├── markers.json
+├── meson.build
+├── meson_options.txt
+├── phantom_fftw_wisdom
+├── proxy.py
+├── rade_helper.py
+├── rade_loadtest.csv
+├── rade_loadtest.py
+├── rade.sh
+├── README.md
+├── recompile.sh
+├── update.sh
+├── request.hpp
+├── setup_admin.sh
+├── setup-rx888-udev.sh
+├── setup-cpufreq-perms.sh
+├── thermal_guard.py           # Protección contra sobrecalentamiento de la CPU para el panel (también funciona sola)
+├── thermal-guard.service      # unidad systemd de ejemplo para el guardián, sin panel de administración
+├── phantomsdr-admin.service   # unidad systemd de ejemplo para el panel (arranca al inicio, se reinicia tras un fallo)
+├── phantomsdr-proxy.service   # unidad systemd de ejemplo para el proxy, se instala junto con la del panel
+├── smeter_theme.sh
+├── src
+│   ├── audio.cpp
+│   ├── audio.h
+│   ├── chat.cpp
+│   ├── chat.h
+│   ├── client.cpp
+│   ├── client.h
+│   ├── compression.cpp
+│   ├── compression.h
+│   ├── crash_handler.cpp
+│   ├── crash_handler.h
+│   ├── events.cpp
+│   ├── events.h
+│   ├── fft.cpp
+│   ├── fft_cuda.cu
+│   ├── fft.h
+│   ├── fft_impl.cpp
+│   ├── fft_mkl.cpp
+│   ├── http.cpp
+│   ├── listing
+│   │   ├── software_info.cpp
+│   │   └── software_info.h
+│   ├── samplereader.cpp
+│   ├── samplereader.h
+│   ├── signal.cpp
+│   ├── signal.h
+│   ├── spectrumserver.cpp
+│   ├── spectrumserver.h
+│   ├── utils
+│   │   ├── audioprocessing.cpp
+│   │   ├── audioprocessing.h
+│   │   ├── dsp.cpp
+│   │   └── dsp.h
+│   ├── utils.cpp
+│   ├── utils.h
+│   ├── waterfallcompression.cpp
+│   ├── waterfallcompression.h
+│   ├── waterfall.cpp
+│   ├── waterfall.h
+│   ├── websocket.cpp
+│   └── websocket.h
+├── start-airspyhf.sh
+├── start-rsp1a.sh
+├── start-rtl.sh
+├── start-rx888mk2.sh
+├── stop-websdr.sh
+├── subprojects
+    ├── fftw3.wrap
+    ├── flac.wrap
+    ├── glaze.wrap
+    ├── libcds.wrap
+    ├── libflac.wrap
+    ├── libvolk.wrap
+    ├── ogg.wrap
+    ├── opus.wrap
+    ├── tomlplusplus-3.4.0
+    │   ├── CHANGELOG.md
+    │   ├── cmake
+    │   │   ├── install-rules.cmake
+    │   │   ├── project-is-top-level.cmake
+    │   │   ├── tomlplusplusConfig.cmake
+    │   │   ├── tomlplusplusConfig.cmake.meson.in
+    │   │   ├── tomlplusplusConfigVersion.cmake.meson.in
+    │   │   └── variables.cmake
+    │   ├── CMakeLists.txt
+    │   ├── CODE_OF_CONDUCT.md
+    │   ├── CONTRIBUTING.md
+    │   ├── cpp.hint
+    │   ├── docs
+    │   │   ├── images
+    │   │   │   ├── badge-awesome.svg
+    │   │   │   ├── badge-C++17.svg
+    │   │   │   ├── badge-gitter.svg
+    │   │   │   ├── badge-license-MIT.svg
+    │   │   │   ├── badge-TOML.svg
+    │   │   │   ├── banner.ai
+    │   │   │   ├── banner.png
+    │   │   │   ├── banner.svg
+    │   │   │   ├── favicon.ico
+    │   │   │   ├── logo.ai
+    │   │   │   └── logo.svg
+    │   │   ├── pages
+    │   │   │   └── main_page.md
+    │   │   └── poxy.toml
+    │   ├── examples
+    │   │   ├── benchmark_data.toml
+    │   │   ├── CMakeLists.txt
+    │   │   ├── error_printer.cpp
+    │   │   ├── error_printer.vcxproj
+    │   │   ├── examples.hpp
+    │   │   ├── example.toml
+    │   │   ├── merge_base.toml
+    │   │   ├── merge_overrides.toml
+    │   │   ├── meson.build
+    │   │   ├── parse_benchmark.cpp
+    │   │   ├── parse_benchmark.vcxproj
+    │   │   ├── simple_parser.cpp
+    │   │   ├── simple_parser.vcxproj
+    │   │   ├── toml_generator.cpp
+    │   │   ├── toml_generator.vcxproj
+    │   │   ├── toml_merger.cpp
+    │   │   ├── toml_merger.vcxproj
+    │   │   ├── toml_to_json_transcoder.cpp
+    │   │   └── toml_to_json_transcoder.vcxproj
+    │   ├── include
+    │   │   ├── meson.build
+    │   │   └── toml++
+    │   │       ├── impl
+    │   │       │   ├── array.hpp
+    │   │       │   ├── array.inl
+    │   │       │   ├── at_path.hpp
+    │   │       │   ├── at_path.inl
+    │   │       │   ├── date_time.hpp
+    │   │       │   ├── formatter.hpp
+    │   │       │   ├── formatter.inl
+    │   │       │   ├── forward_declarations.hpp
+    │   │       │   ├── header_end.hpp
+    │   │       │   ├── header_start.hpp
+    │   │       │   ├── json_formatter.hpp
+    │   │       │   ├── json_formatter.inl
+    │   │       │   ├── key.hpp
+    │   │       │   ├── make_node.hpp
+    │   │       │   ├── node.hpp
+    │   │       │   ├── node.inl
+    │   │       │   ├── node_view.hpp
+    │   │       │   ├── parse_error.hpp
+    │   │       │   ├── parse_result.hpp
+    │   │       │   ├── parser.hpp
+    │   │       │   ├── parser.inl
+    │   │       │   ├── path.hpp
+    │   │       │   ├── path.inl
+    │   │       │   ├── preprocessor.hpp
+    │   │       │   ├── print_to_stream.hpp
+    │   │       │   ├── print_to_stream.inl
+    │   │       │   ├── simd.hpp
+    │   │       │   ├── source_region.hpp
+    │   │       │   ├── std_except.hpp
+    │   │       │   ├── std_initializer_list.hpp
+    │   │       │   ├── std_map.hpp
+    │   │       │   ├── std_new.hpp
+    │   │       │   ├── std_optional.hpp
+    │   │       │   ├── std_string.hpp
+    │   │       │   ├── std_string.inl
+    │   │       │   ├── std_utility.hpp
+    │   │       │   ├── std_variant.hpp
+    │   │       │   ├── std_vector.hpp
+    │   │       │   ├── table.hpp
+    │   │       │   ├── table.inl
+    │   │       │   ├── toml_formatter.hpp
+    │   │       │   ├── toml_formatter.inl
+    │   │       │   ├── unicode_autogenerated.hpp
+    │   │       │   ├── unicode.hpp
+    │   │       │   ├── unicode.inl
+    │   │       │   ├── value.hpp
+    │   │       │   ├── version.hpp
+    │   │       │   ├── yaml_formatter.hpp
+    │   │       │   └── yaml_formatter.inl
+    │   │       ├── toml.h
+    │   │       └── toml.hpp
+    │   ├── LICENSE
+    │   ├── meson.build
+    │   ├── meson_options.txt
+    │   ├── README.md
+    │   ├── src
+    │   │   ├── meson.build
+    │   │   └── toml.cpp
+    │   ├── tests
+    │   │   ├── at_path.cpp
+    │   │   ├── conformance_burntsushi_invalid.cpp
+    │   │   ├── conformance_burntsushi_valid.cpp
+    │   │   ├── conformance_iarna_invalid.cpp
+    │   │   ├── conformance_iarna_valid.cpp
+    │   │   ├── cpp.hint
+    │   │   ├── for_each.cpp
+    │   │   ├── formatters.cpp
+    │   │   ├── impl_toml.cpp
+    │   │   ├── leakproof.hpp
+    │   │   ├── lib_catch2.hpp
+    │   │   ├── main.cpp
+    │   │   ├── manipulating_arrays.cpp
+    │   │   ├── manipulating_parse_result.cpp
+    │   │   ├── manipulating_tables.cpp
+    │   │   ├── manipulating_values.cpp
+    │   │   ├── meson.build
+    │   │   ├── odr_test_1.cpp
+    │   │   ├── odr_test_2.cpp
+    │   │   ├── parsing_arrays.cpp
+    │   │   ├── parsing_booleans.cpp
+    │   │   ├── parsing_comments.cpp
+    │   │   ├── parsing_dates_and_times.cpp
+    │   │   ├── parsing_floats.cpp
+    │   │   ├── parsing_integers.cpp
+    │   │   ├── parsing_key_value_pairs.cpp
+    │   │   ├── parsing_spec_example.cpp
+    │   │   ├── parsing_strings.cpp
+    │   │   ├── parsing_tables.cpp
+    │   │   ├── path.cpp
+    │   │   ├── settings.hpp
+    │   │   ├── tests.cpp
+    │   │   ├── tests.hpp
+    │   │   ├── user_feedback.cpp
+    │   │   ├── using_iterators.cpp
+    │   │   ├── visit.cpp
+    │   │   ├── vs
+    │   │   │   ├── odr_test.vcxproj
+    │   │   │   ├── test_debug_x64_cpplatest_noexcept_unrel.vcxproj
+    │   │   │   ├── test_debug_x64_cpplatest_noexcept.vcxproj
+    │   │   │   ├── test_debug_x64_cpplatest_unrel.vcxproj
+    │   │   │   ├── test_debug_x64_cpplatest.vcxproj
+    │   │   │   ├── test_debug_x64_noexcept_unrel.vcxproj
+    │   │   │   ├── test_debug_x64_noexcept.vcxproj
+    │   │   │   ├── test_debug_x64_unrel.vcxproj
+    │   │   │   ├── test_debug_x64.vcxproj
+    │   │   │   ├── test_debug_x86_cpplatest_noexcept_unrel.vcxproj
+    │   │   │   ├── test_debug_x86_cpplatest_noexcept.vcxproj
+    │   │   │   ├── test_debug_x86_cpplatest_unrel.vcxproj
+    │   │   │   ├── test_debug_x86_cpplatest.vcxproj
+    │   │   │   ├── test_debug_x86_noexcept_unrel.vcxproj
+    │   │   │   ├── test_debug_x86_noexcept.vcxproj
+    │   │   │   ├── test_debug_x86_unrel.vcxproj
+    │   │   │   ├── test_debug_x86.vcxproj
+    │   │   │   ├── test_release_x64_cpplatest_noexcept_unrel.vcxproj
+    │   │   │   ├── test_release_x64_cpplatest_noexcept.vcxproj
+    │   │   │   ├── test_release_x64_cpplatest_unrel.vcxproj
+    │   │   │   ├── test_release_x64_cpplatest.vcxproj
+    │   │   │   ├── test_release_x64_noexcept_unrel.vcxproj
+    │   │   │   ├── test_release_x64_noexcept.vcxproj
+    │   │   │   ├── test_release_x64_unrel.vcxproj
+    │   │   │   ├── test_release_x64.vcxproj
+    │   │   │   ├── test_release_x86_cpplatest_noexcept_unrel.vcxproj
+    │   │   │   ├── test_release_x86_cpplatest_noexcept.vcxproj
+    │   │   │   ├── test_release_x86_cpplatest_unrel.vcxproj
+    │   │   │   ├── test_release_x86_cpplatest.vcxproj
+    │   │   │   ├── test_release_x86_noexcept_unrel.vcxproj
+    │   │   │   ├── test_release_x86_noexcept.vcxproj
+    │   │   │   ├── test_release_x86_unrel.vcxproj
+    │   │   │   └── test_release_x86.vcxproj
+    │   │   └── windows_compat.cpp
+    │   ├── toml++.code-workspace
+    │   ├── toml.hpp
+    │   ├── toml++.natvis
+    │   ├── toml++.props
+    │   ├── toml++.sln
+    │   ├── toml-test
+    │   │   ├── meson.build
+    │   │   ├── README.md
+    │   │   ├── tt_decoder.cpp
+    │   │   ├── tt_decoder.vcxproj
+    │   │   ├── tt_encoder.cpp
+    │   │   ├── tt_encoder.vcxproj
+    │   │   └── tt.hpp
+    │   ├── toml++.vcxproj
+    │   ├── toml++.vcxproj.filters
+    │   ├── tools
+    │   │   ├── ci_single_header_check.py
+    │   │   ├── clang_format.bat
+    │   │   ├── generate_conformance_tests.py
+    │   │   ├── generate_single_header.bat
+    │   │   ├── generate_single_header.py
+    │   │   ├── generate_windows_test_targets.py
+    │   │   ├── requirements.txt
+    │   │   ├── utils.py
+    │   │   └── version.py
+    │   └── vendor
+    │       ├── catch.hpp
+    │       ├── json.hpp
+    │       └── README.md
+    ├── tomlplusplus.wrap
+    ├── websocketpp.wrap
+    ├── zlib.wrap
+    └── zstd.wrap
+└── waterfall.sh
+├── websocketpp_asio.hpp        # adaptador Boost >= 1.87 para websocketpp (io_context, executor_work_guard)
+├── websocketpp_asio_connection.hpp  # adaptador Boost >= 1.87: ws_post en lugar de io_service::post
+├── websocketpp_asio_endpoint.hpp    # adaptador Boost >= 1.87: ws_work / ws_restart, max_listen_connections
+
+```
+---
+
+## Directorio raíz
+
+### Archivos de configuración
+
+| Archivo | Finalidad | Cuándo modificarlo |
+|---------|-----------|--------------------|
+| `config.toml` | Configuración por defecto | Configuración inicial, pruebas |
+| `config-rtl.toml` | Configuración específica de RTL-SDR | Al usar un RTL-SDR |
+| `config-rsp1a.toml` | Configuración de SDRplay RSP1A | Al usar un RSP1A |
+| `config-airspyhf.toml` | Configuración de Airspy HF+ | Al usar un Airspy |
+| `config-rx888mk2.toml` | Configuración de RX888 MK2 | Al usar un RX888 |
+| `config.example.hackrf.toml` | Ejemplo para HackRF One | Al usar un HackRF |
+
+### Scripts de arranque, parada y mantenimiento
+
+Cada `start-*.sh` de los siguientes es un **lanzador autónomo + watchdog + registrador**: detiene cualquier instancia en marcha, levanta el receptor y `spectrumserver`, pasa a segundo plano, reinicia automáticamente la cadena si se cae y registra en `logwebsdr.txt`. Comparten un único script de parada y un solo bloqueo `flock` (solo funciona un receptor a la vez). Edite únicamente el bloque **RECEIVER CONFIGURATION** de la parte superior de cada uno (argumentos del receptor / configuración / nombre del proceso).
+
+| Script | Finalidad |
+|--------|-----------|
+| `install.sh` | Instalación y compilación automatizadas |
+| `start-rtl.sh` | Arranque + watchdog del servidor con RTL-SDR (`rtl_sdr`) |
+| `start-rsp1a.sh` | Arranque + watchdog del servidor con SDRplay RSP1A (`rx_sdr`) |
+| `start-airspyhf.sh` | Arranque + watchdog del servidor con Airspy HF+ (`rx_sdr`) |
+| `start-rx888mk2.sh` | Arranque + watchdog del servidor con RX888 MK2 (`rx888_stream`) |
+| `stop-websdr.sh` | Detiene el servidor y su watchdog: compartido por todos los receptores |
+| `setup-rx888-udev.sh` | Instala reglas udev para que `rx888_stream` del RX-888 funcione sin sudo |
+| `setup-cpufreq-perms.sh` | Concede a un grupo `cpufreq` permiso de escritura sobre el límite de frecuencia de la CPU, para que la fase throttle del guardián funcione sin root. Instala una regla `tmpfiles.d` para que sobreviva a un reinicio; `--revoke` lo deshace |
+| `update.sh` | Actualizar la instalación desde el árbol publicado sin tocar su configuración, marcadores, lista de frecuencias ni cambios locales — véase la [Guía de instalación](INSTALLATION.md) |
+| `recompile.sh` | Reconstruir el backend o el frontend y elegir la variante servida en `/` |
+| `smeter_theme.sh` | Fijar la esfera por defecto del S-meter analógico (dark / amber / vintage) para todos los usuarios y ofrecer la reconstrucción del frontend — véase [Editar variantes](EDITING_VARIANTS.md) |
+| `waterfall.sh` | Cambia el nivel mínimo de cascada predeterminado (dB) en `waterfall.js` + `App.svelte` — véase [README](README.md) |
+
+### Archivos de datos
+
+| Archivo | Finalidad | Formato |
+|---------|-----------|---------|
+| `markers.json` | Marcadores de frecuencia | JSON |
+| `chat_history.txt` | Mensajes de chat de los usuarios | Texto plano |
+| `favicon.ico` | Icono del sitio web | Imagen ICO |
+| `fftw_wisdom` | Datos de optimización de la FFT | Binario FFTW |
+| `phantom_fftw_wisdom` | Optimización adicional de la FFT | Binario FFTW |
+
+### Panel de administración y reporte de spots
+
+| Archivo | Finalidad |
+|---------|-----------|
+| `admin_server.py` | El propio panel de administración. Además de las páginas de gestión ejecuta el muestreador de la página **Gráficos**: un hilo en segundo plano toma cada 2 segundos la frecuencia de CPU, la carga, la temperatura y los usuarios conectados, y los guarda solo en memoria: 1 hora a resolución completa más 24 horas de promedios de 30 segundos. No se escribe nada en disco, así que el historial se pierde al reiniciar. |
+| `admin_config.json` | Ajustes del panel de administración (hash de contraseña, puertos, opciones, umbrales de la protección térmica) |
+| `thermal_guard.py` | Protección contra sobrecalentamiento de la CPU. Detiene el servidor cuando la CPU se calienta demasiado y lo reinicia una vez fría, derivando sus umbrales del límite crítico que publica su propia CPU en lugar de una cifra fija. Nunca intenta identificar qué supervisa el servidor: mientras hay exceso de temperatura repite la parada cada 2 s, de modo que un watchdog, una unidad de systemd o una tarea cron que lo reviva queda deshecha hasta que la máquina se enfríe. Solo biblioteca estándar; lo importa `admin_server.py` (temporizado por el muestreador de Gráficos) y también se ejecuta por su cuenta en instalaciones sin panel. Por defecto solo registra, así que no actúa sobre nada hasta que se active — véase [Panel de administración]véase el [manual del Thermal Guard](THERMAL_GUARD.md) |
+| `autorun/` | El demonio de reporte de spots — véase [Autorun Spot Reporter](INSTALLATION.md#autorun-spot-reporter-ft8ft4wspr) |
+| `autorun.json` | Bandas y modos a decodificar, identidad y destinos |
+| `autorun-status.json` | Estado en vivo del demonio: alimenta los contadores **de la ejecución actual** (los paneles por decodificador), que se ponen a cero con Stop/Start |
+| `autorun-totals.json` | Spots subidos **históricos** por banda y modo: el número junto a cada casilla; lo escribe el demonio para que sobreviva a los reinicios |
+
+### Archivos del sistema de compilación
+
+| Archivo | Finalidad |
+|---------|-----------|
+| `meson.build` | Configuración principal de compilación |
+| `meson_options.txt` | Opciones de compilación configurables |
+| `.gitattributes` | Atributos del repositorio Git |
+
+---
+
+## Código fuente (`src/`)
+
+El directorio `src/` contiene la implementación del backend en C++.
+
+### Componentes clave
+
+#### 1. Aplicación principal (`main.cpp`)
+- Analiza los argumentos de la línea de órdenes
+- Carga el archivo de configuración
+- Inicializa los componentes del servidor
+- Arranca el bucle de eventos
+
+#### 2. Servidor de espectro (`spectrumserver.cpp`)
+- Coordina todos los componentes
+- Gestiona las conexiones de los usuarios
+- Distribuye los datos de espectro
+- Atiende las peticiones de los usuarios
+
+#### 3. Controladores de SDR (`drivers/`)
+- Interfaz abstracta para el hardware SDR
+- Lectura y formateo de los datos de muestras
+- Manejo de las funciones propias de cada dispositivo
+
+#### 4. Motor de DSP (`dsp/`)
+- Cálculo de la FFT (acelerado por CPU/GPU)
+- Demodulación (AM, FM, SSB, CW, etc.)
+- Filtrado y remuestreo de audio
+- AGC y reducción de ruido
+
+#### 5. Servidor web (`server/`)
+- Comunicación por WebSocket
+- Servicio de archivos estáticos por HTTP
+- Gestión de sesiones de usuario
+- Transmisión de datos en tiempo real
+
+#### 6. Codificación de audio (`audio/`)
+- Compresión FLAC
+- Compresión Opus
+- Optimización de la transmisión
+
+---
+
+## Frontend (`frontend/`)
+
+La interfaz de usuario web construida con Svelte y Vite.
+
+
+#### 1. Aplicación principal (`App.svelte`)
+- Componente de nivel superior
+- Estructura del diseño
+- Orquestación de componentes
+- **Fila de botones de decodificador** — un botón por decodificador en el panel principal, justo debajo del selector de modos; una pulsación inicia el decodificador y abre su ventana, una segunda lo detiene. Sustituyó a la antigua fila de ancho de banda. RADEL/RADEU están en `lib/ModesSelector.svelte`, junto al selector de modos y dentro de las ventanas emergentes **Modes** y **Bands**.
+
+#### 2. Cascada (`waterfall.js` + `lib/`)
+- Representación del espectro y de la cascada en canvas, mapas de color y el ajuste automático adaptativo, todo en `waterfall.js` (JS puro, no un componente)
+- Sintonía interactiva mediante `lib/PassbandTuner.svelte`
+- Superposiciones del plan de bandas y de los marcadores mediante `lib/FrequencyMarkers.svelte`
+- El espectrograma de audio es un componente aparte: `lib/Spectrogram.svelte`
+
+#### 3. Controles (`App.svelte` + `lib/`)
+- Entrada e indicación de frecuencia — `lib/FrequencyInput.svelte`
+- Selección de modo (AM/FM/SSB/CW) — `lib/ModesSelector.svelte`, cambio de banda — `lib/BandSelector.svelte`
+- AGC/NR/NB y el resto de controles están en el propio `App.svelte`; no existe un `Controls.svelte` aparte
+
+#### 4. Sistema de audio (`audio.js`)
+- Flujo de audio por WebSocket
+- Decodificación FLAC/Opus
+- Control de la reproducción de audio
+- Distribuye el PCM en bruto (tomado antes del AGC, la reducción de ruido y el silenciado) a los decodificadores de modo
+
+#### 4a. Decodificadores de modo y sus workers
+
+Cada uno de los decodificadores de modo más pesados se ejecuta en su propio Web Worker, de modo que la decodificación nunca bloquea la reproducción de audio ni la cascada. Todos siguen un mismo patrón: tres archivos por decodificador.
+
+| Decodificador | Motor | Worker | Proxy en el hilo principal |
+|---------------|-------|--------|-----------------------------|
+| SSTV | `sstv.js` | `sstv.worker.js` | `sstvWorkerProxy.js` |
+| FAX de HF | `fax.js` | `fax.worker.js` | `faxWorkerProxy.js` |
+| NAVTEX + FSK/RTTY + PSK31 + Olivia | `fsk.js`, `psk31.js`, `olivia.js` | `fsk.worker.js` | `fskWorkerProxy.js` |
+| CW | `cwDecoder.js` | `cw.worker.js` | `cwWorkerProxy.js` |
+
+- El **motor** es código de DSP puro que desconoce por completo los workers, así que también puede ejecutarse directamente (pruebas unitarias o el modo alternativo en el mismo hilo).
+- El **worker** mantiene una instancia del motor y reenvía sus eventos tal cual.
+- El **proxy** replica la superficie de métodos del motor, de modo que `audio.js` lo llama exactamente igual que llamaría al decodificador. Crea el worker de forma perezosa al activarlo por primera vez y recurre a la ejecución en el hilo principal si no hay workers disponibles.
+
+Dos detalles son fundamentales: el PCM se **copia** en un búfer nuevo antes de transferirlo al worker (transferir una vista del acumulador de audio lo desvincularía y detendría la reproducción), y el mensaje `init` del worker vuelve a aplicar la configuración a un motor ya en marcha en lugar de suponer que es nuevo.
+
+`fsk.js` atiende tanto NAVTEX como FSK/RTTY desde un único motor, seleccionado por instancia mediante un campo `role`; cada instancia tiene su propio estado, así que ambos pueden funcionar de forma independiente.
+
+El rol `fsk` alberga además dos decodificadores que no son FSK en absoluto. Al seleccionar la variante `psk31` u `olivia`, `fsk.js` entrega el audio a `psk31.js` o a `olivia.js` en lugar de a su propia cadena discriminadora, pero sigue aprovechando su configuración, su worker y su gestión de eventos — de modo que `fsk.worker.js`, `fskWorkerProxy.js` y `audio.js` no necesitan saber nada de ninguno de los dos modos, y la interfaz consume en todo momento los mismos eventos `char`/`status`/`metrics`.
+
+- `psk31.js` — BPSK31: banda base compleja, filtro adaptado, detección diferencial y varicode, con una adquisición espectral gruesa más un AFC fino que cubre unos ±25 Hz.
+- `olivia.js` — Olivia MFSK: una adaptación del receptor MFSK de Pawel Jalocha procedente de fldigi (`pj_mfsk.h`, GPL-3, igual que este proyecto), incluida la corrección de errores Walsh/Hadamard y la búsqueda ciega de sincronización sobre la fase de bloque y el desplazamiento de frecuencia.
+
+#### 5. Gestión del estado (`stores/`)
+- Almacenes de datos reactivos
+- Estado compartido de la aplicación
+- Manejo de eventos
+
+---
+
+### Funciones clave
+
+- Procesamiento de audio en tiempo real
+- Decodificación de modos digitales (FT8, RTTY, etc.)
+- Filtrado de audio
+- Análisis de espectro
+
+---
+
+
+## Listas de frecuencias (`frequencylist/`)
+
+Los marcadores de frecuencia sobre la cascada. `mymarkers.json` es la lista que el receptor
+muestra realmente; el resto es la materia prima que `update-markers.sh` convierte en ella,
+actualizada desde las programaciones en línea. El `README.md` de ese directorio explica la
+actualización en los siete idiomas.
+
+```
+frequencylist/
+├── mymarkers.json            # los marcadores que muestra el receptor — editados a mano, sobreviven a una actualización
+├── shortwavestations.json    # emisoras de onda corta, generado por generate-current-shortwave.py
+├── 0.TXT                     # la programación global de HF A26, descomprimida y analizada por update-markers.sh
+├── a26allx2.zip              # archivo de origen descargado por update-markers.sh
+├── admin.txt · antenna.txt · broadcas.txt · fmorg.txt · language.txt · site.txt
+│                             # listas auxiliares de la misma fuente (emplazamientos, idiomas, administradores, antenas)
+├── generate-current-shortwave.py
+├── update-markers.sh         # actualiza todo lo anterior desde las programaciones en línea
+└── README.md
+```
+
+### Formato (`mymarkers.json`, `shortwavestations.json`)
+
+```json
+[
+    { "frequency": 77500,   "name": "DCF77", "mode": "CW" },
+    { "frequency": 2485000, "name": "Vanuatu Broadcasting", "mode": "AM" }
+]
+```
+
+---
+
+## Archivos de configuración
+
+### Configuración del servidor (archivos `.toml`)
+
+Estructura de los archivos de configuración:
+
+```toml
+[server]
+# Web server settings
+port = 9002
+html_root = "frontend/dist/"
+threads = 2
+otherusers = 1
+
+[websdr]
+# Online registration
+register_online = true
+name = "WebSDR Name"
+antenna = "Antenna Type"
+grid_locator = "AB12cd"
+hostname = "domain.com"
+
+[input]
+# SDR input settings
+sps = 2048000           # Sample rate
+fft_size = 131072       # FFT size
+frequency = 145000000   # Base frequency
+signal = "iq"           # Signal type: "iq" or "real"
+audio_sps = 12000       # Audio sample rate
+audio_compression = "opus"  # "flac" or "opus"
+accelerator = "opencl"  # "none", "cuda", "opencl"
+
+[input.driver]
+# Driver settings
+name = "stdin"
+format = "u8"           # Sample format
+
+[input.defaults]
+# User interface defaults
+frequency = 145500000
+modulation = "FM"
+```
+
+### Información del sitio (`site_information.json`)
+
+```json
+{
+  "siteSysop": "Operator Callsign",
+  "siteSysopEmailAddress": "email@example.com",
+  "siteGridSquare": "AB12cd",
+  "siteCity": "City, Country",
+  "siteInformation": "https://github.com/sv1btl/PhantomSDR-Plus",
+  "siteHardware": "Hardware specs",
+  "siteSoftware": "Software version",
+  "siteReceiver": "SDR model",
+  "siteAntenna": "Antenna description",
+  "siteNote": "Additional notes",
+  "siteIP": "http://domain.com:9002",
+  "siteSDRBaseFrequency": 0,
+  "siteSDRBandwidth": 2048000,
+  "siteRegion": 1,
+  "siteChatEnabled": true
+}
+```
+
+---
+
+## Sistema de compilación
+
+### Configuración de compilación con Meson
+
+#### `meson.build` (raíz)
+
+Define:
+- Metadatos del proyecto
+- Dependencias
+- Opciones del compilador
+- Listas de archivos fuente
+- Objetivos de compilación
+
+#### `meson_options.txt`
+
+Opciones disponibles:
+```
+option('opencl', type: 'boolean', value: false, description: 'Enable OpenCL support')
+option('cuda', type: 'boolean', value: false, description: 'Enable CUDA support')
+option('optimization', type: 'string', value: '3', description: 'Optimization level')
+```
+
+---
+
+## Dependencias entre archivos
+
+### Dependencias de compilación del backend
+
+```
+spectrumserver binary depends on:
+├── C++ source files (src/**/*.cpp)
+├── External libraries:
+│   ├── FFTW3
+│   ├── WebSocket++
+│   ├── FLAC
+│   ├── Opus
+│   ├── Liquid-DSP
+│   ├── Boost
+│   ├── zlib
+│   ├── zstd
+│   └── OpenCL/CUDA (optional)
+└── Subproject headers:
+    ├── nlohmann/json
+    └── toml11
+```
+
+### Dependencias de compilación del frontend
+
+```
+frontend/dist/ depends on:
+├── Source files (frontend/src/**)
+├── npm packages (node_modules/):
+│   ├── Svelte
+│   ├── Vite
+│   ├── @wasm-audio-decoders/opus-ml
+│   └── ...
+└── Static assets (frontend/public/)
+```
+
+---
+
+## Flujo de datos
+
+### Flujo de funcionamiento del servidor
+
+```
+1. SDR Hardware → rtl_sdr/hackrf_transfer/etc.
+                ↓
+2. Sample Stream → stdin → spectrumserver
+                ↓
+3. spectrumserver:
+   - FFT calculation (waterfall)
+   - Demodulation (audio)
+   - Compression (FLAC/Opus)
+                ↓
+4. WebSocket → Browser Client
+                ↓
+5. Browser:
+   - Render waterfall
+   - Decode and play audio
+   - Display controls
+```
+
+### Flujo de interacción del usuario
+
+```
+1. User clicks on waterfall
+                ↓
+2. JavaScript sends frequency change request
+                ↓
+3. WebSocket → spectrumserver
+                ↓
+4. spectrumserver:
+   - Updates demodulator frequency
+   - Sends new audio stream
+                ↓
+5. Browser receives and plays new audio
+```
+
+---
+
+## Guía de modificación de archivos
+
+### Cuando modifica el código del backend (`src/**`):
+
+```bash
+cd PhantomSDR-Plus
+meson compile -C build
+# Server restart required
+```
+
+### Cuando modifica el código del frontend (`frontend/src/**`):
+
+```bash
+cd PhantomSDR-Plus/frontend
+npm run build
+cd ..
+# Server restart required (for static files)
+```
+
+### Cuando modifica la configuración (`.toml`, `.json`):
+
+```bash
+# Restart server
+./stop-websdr.sh
+./start-rtl.sh  # (or appropriate start script)
+```
+
+### Cuando modifica los marcadores (`markers.json`):
+
+```bash
+# Reload page in browser
+# No server restart needed
+```
+
+---
+
+## Rutas importantes
+
+### Rutas en ejecución
+
+- **Configuración**: `./config-*.toml`
+- **Raíz HTML**: `./frontend/dist/`
+- **Marcadores**: `./markers.json`
+- **Historial del chat**: `./chat_history.txt`
+- **FFTW wisdom**: `./fftw_wisdom`, `./phantom_fftw_wisdom`
+
+### Rutas de compilación
+
+- **Binario generado**: `./build/spectrumserver`
+- **Salida del frontend**: `./frontend/dist/`
+- **Módulos de Node**: `./frontend/node_modules/`
+
+### Rutas de código fuente
+
+- **Fuente del backend**: `./src/`
+- **Fuente del frontend**: `./frontend/src/`
+- **Bibliotecas de DSP**: `./jsdsp/`
+
+---
+
+## Operaciones habituales con archivos
+
+### Añadir una configuración de SDR nueva
+
+1. Copie una configuración existente: `cp config-rtl.toml config-mydevice.toml`
+2. Edite los parámetros: `nano config-mydevice.toml`
+3. Cree un script de arranque: `cp start-rtl.sh start-mydevice.sh`
+4. Edite el script de arranque: `nano start-mydevice.sh`; cambie únicamente el bloque **RECEIVER CONFIGURATION** de la parte superior (`RX_LABEL`, `RX_COMM` = el nombre del proceso del receptor, `RX_ARGS`, `CONFIG`, `FIFO` y el enganche `prestart` si el dispositivo lo necesita). La lógica de lanzamiento/watchdog/registro que hay debajo es genérica y no requiere cambios.
+5. Hágalo ejecutable: `chmod +x start-mydevice.sh`
+
+> `stop-websdr.sh` ya detiene cualquier `start-*.sh --watchdog`; si su receptor usa un nombre de proceso distinto de `rx888_stream`/`rx_sdr`/`rtl_sdr`, añada también allí una línea `killall -9 <nombre>`.
+
+### Personalizar el frontend
+
+1. Modifique el código fuente: `nano frontend/src/App.svelte`
+2. Recompile: `cd frontend && npm run build && cd ..`
+3. Reinicie el servidor: `./stop-websdr.sh && ./start-rtl.sh`
+
+### Añadir marcadores propios
+
+1. Edite el archivo de marcadores: `nano markers.json`
+2. Formato:
+   ```json
+   {
+     "markers": [
+       {
+         "frequency": 145500000,
+         "label": "2m Calling",
+         "mode": "FM"
+       }
+     ]
+   }
+   ```
+3. Recargue el navegador (no hace falta reiniciar el servidor)
+
+---
+
+## Control de versiones
+
+### Archivos que conviene versionar en Git
+
+- Código fuente (`src/`, `frontend/src/`, `jsdsp/`)
+- Ejemplos de configuración (`config.example.*.toml`)
+- Sistema de compilación (`meson.build`, `meson_options.txt`)
+- Documentación (`*.md`, `docs/`)
+- Scripts (`*.sh`)
+
+### Archivos que conviene ignorar (`.gitignore`)
+
+- Resultados de compilación (`build/`, `frontend/dist/`)
+- Dependencias (`frontend/node_modules/`)
+- Datos de usuario (`chat_history.txt`)
+- Configuraciones personales (`config-rtl.toml` si se ha personalizado)
+- Datos binarios (`*.o`, `*.so`)
+
+---
+
+**Esta documentación de la estructura debería ayudarle a orientarse y a entender el código de PhantomSDR-Plus.**
+
+Para las instrucciones de instalación, consulte [INSTALLATION.md](INSTALLATION.md). Para información sobre el uso, consulte [USER_GUIDE.md](USER_GUIDE.md).
+
+**73 de SV1BTL & SV2AMK**

@@ -1317,10 +1317,12 @@ async function renderStatsMap(geoCount) {
   // Attach a fresh Leaflet instance to the newly created #stats-map element.
   statsMap     = L.map('stats-map', { center: [20, 5], zoom: 2 });
   statsMarkers = L.layerGroup().addTo(statsMap);
-  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
-    subdomains: 'abcd',
+  // CARTO's anonymous basemap tiles now come back stamped "API KEY REQUIRED",
+  // so we use Esri's keyless dark canvas instead (native tiles stop at z16).
+  L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}', {
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; Esri, HERE, Garmin',
     maxZoom: 18,
+    maxNativeZoom: 16,
   }).addTo(statsMap);
 
   // ── Z-order panes ────────────────────────────────────────────────────────

@@ -144,7 +144,7 @@ function _workerDecode(type, pcm, opts = {}) {
 }
 // ── end worker bridge ─────────────────────────────────────────────────────
 
-import { AudioContext, ConvolverNode, IIRFilterNode, GainNode, AudioBuffer, AudioBufferSourceNode, DynamicsCompressorNode, MediaStreamAudioDestinationNode } from 'standardized-audio-context'
+import { AudioContext, AudioWorkletNode, ConvolverNode, IIRFilterNode, GainNode, AudioBuffer, AudioBufferSourceNode, DynamicsCompressorNode, MediaStreamAudioDestinationNode } from 'standardized-audio-context'
 import { BiquadFilterNode } from 'standardized-audio-context';
 
 // PERF (#1): drop-in replacement for `fft-js`. Same { fft, ifft } interface
@@ -4886,7 +4886,15 @@ js8Pending() {
           try { await this.audioCtx.resume(); } catch (_) {}
         }
         stage = 'capability-check';
-        const WorkletCtor = globalThis.AudioWorkletNode || (typeof AudioWorkletNode !== 'undefined' ? AudioWorkletNode : null);
+        // MUST be the standardized-audio-context AudioWorkletNode, not the
+        // native one: this.audioCtx comes from that library (see the import at
+        // the top), and Chromium rejects a native AudioWorkletNode built with
+        // a wrapped context - "parameter 1 is not of type 'BaseAudioContext'".
+        // That threw on every single call, so this whole worklet path fell
+        // through to the AudioBufferSourceNode fallback below for every
+        // listener, in every browser. Audible as constant breakup on Chromium,
+        // which schedules the fallback less forgivingly than Firefox does.
+        const WorkletCtor = AudioWorkletNode;
         if (!this.audioCtx.audioWorklet || !WorkletCtor) {
           throw new Error('AudioWorklet not available');
         }

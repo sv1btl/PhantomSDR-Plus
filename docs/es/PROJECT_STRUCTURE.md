@@ -43,8 +43,10 @@ PhantomSDR-Plus
 ├── connection_impl.hpp
 ├── docs
 │   ├── ADMIN_PANEL_SETUP.md
+│   ├── Aether_config.md
 │   ├── de
 │   │   ├── ADMIN_PANEL_SETUP.md
+│   │   ├── Aether_config.md
 │   │   ├── DECODERS.md
 │   │   ├── EDITING_VARIANTS.md
 │   │   ├── INSTALLATION.md
@@ -59,6 +61,7 @@ PhantomSDR-Plus
 │   ├── EDITING_VARIANTS.md
 │   ├── el
 │   │   ├── ADMIN_PANEL_SETUP.md
+│   │   ├── Aether_config.md
 │   │   ├── DECODERS.md
 │   │   ├── EDITING_VARIANTS.md
 │   │   ├── INSTALLATION.md
@@ -71,6 +74,7 @@ PhantomSDR-Plus
 │   │   └── USER_GUIDE.md
 │   ├── es
 │   │   ├── ADMIN_PANEL_SETUP.md
+│   │   ├── Aether_config.md
 │   │   ├── DECODERS.md
 │   │   ├── EDITING_VARIANTS.md
 │   │   ├── INSTALLATION.md
@@ -83,6 +87,7 @@ PhantomSDR-Plus
 │   │   └── USER_GUIDE.md
 │   ├── fr
 │   │   ├── ADMIN_PANEL_SETUP.md
+│   │   ├── Aether_config.md
 │   │   ├── DECODERS.md
 │   │   ├── EDITING_VARIANTS.md
 │   │   ├── INSTALLATION.md
@@ -95,6 +100,7 @@ PhantomSDR-Plus
 │   │   └── USER_GUIDE.md
 │   ├── hr
 │   │   ├── ADMIN_PANEL_SETUP.md
+│   │   ├── Aether_config.md
 │   │   ├── DECODERS.md
 │   │   ├── EDITING_VARIANTS.md
 │   │   ├── INSTALLATION.md
@@ -113,6 +119,7 @@ PhantomSDR-Plus
 │   ├── README.md
 │   ├── ru
 │   │   ├── ADMIN_PANEL_SETUP.md
+│   │   ├── Aether_config.md
 │   │   ├── DECODERS.md
 │   │   ├── EDITING_VARIANTS.md
 │   │   ├── INSTALLATION.md
@@ -315,6 +322,7 @@ PhantomSDR-Plus
 ├── install_rade_ubuntu22.sh
 ├── install.sh
 ├── install-stats-server.sh
+├── kiwi_install.sh             # instala el puente KiwiSDR en un árbol existente
 ├── instructions-for-airspy
 ├── instructions-for-rsp1a
 ├── jsdsp
@@ -394,6 +402,7 @@ PhantomSDR-Plus
 │   ├── fft_impl.cpp
 │   ├── fft_mkl.cpp
 │   ├── http.cpp
+│   ├── kiwi_bridge.h          # puente del protocolo KiwiSDR — véase docs/Aether_config.md
 │   ├── listing
 │   │   ├── software_info.cpp
 │   │   └── software_info.h
@@ -421,6 +430,13 @@ PhantomSDR-Plus
 ├── start-rtl.sh
 ├── start-rx888mk2.sh
 ├── stop-websdr.sh
+├── go.sh                      # cadena de arranque antigua, sustituida por start-<radio>.sh
+├── xgo.sh                     # antiguo: arranca spectrumserver, lo llama check-go.sh
+├── check-go.sh                # antiguo: watchdog de la cadena go.sh
+├── kill.sh                    # antiguo: mata los procesos del servidor, lo llama go.sh
+├── _relaunch.sh               # antiguo: ayudante de relanzamiento diferido de la cadena go.sh
+├── demo_installer.sh          # ensayo de install.sh — muestra el flujo, no instala nada
+├── logproxy                   # copias rotadas de los registros del panel/proxy/autorun
 ├── subprojects
     ├── fftw3.wrap
     ├── flac.wrap
@@ -685,6 +701,10 @@ Cada `start-*.sh` de los siguientes es un **lanzador autónomo + watchdog + regi
 | `recompile.sh` | Reconstruir el backend o el frontend y elegir la variante servida en `/` |
 | `smeter_theme.sh` | Fijar la esfera por defecto del S-meter analógico (dark / amber / vintage) para todos los usuarios y ofrecer la reconstrucción del frontend — véase [Editar variantes](EDITING_VARIANTS.md) |
 | `waterfall.sh` | Cambia el nivel mínimo de cascada predeterminado (dB) en `waterfall.js` + `App.svelte` — véase [README](README.md) |
+| `kiwi_install.sh` | Instala la emulación de clientes KiwiSDR en un árbol que no la tiene: parchea las fuentes del backend, copia `src/kiwi_bridge.h` y añade un bloque `[kiwi_emulation]` documentado a los archivos de configuración de la raíz. Idempotente, y respalda cada archivo que toca — véase [Emulación de clientes KiwiSDR](Aether_config.md) |
+| `demo_installer.sh` | Ensayo de `install.sh`: muestra todo el flujo y no instala nada |
+
+**Cadena de arranque antigua.** `go.sh`, `xgo.sh`, `check-go.sh`, `kill.sh` y `_relaunch.sh` son la generación anterior de scripts de arranque, vigilancia y parada. Todo lo que hacían está ahora dentro de cada `start-<radio>.sh`, que es lo que debe usar. Se conservan en disco porque las instalaciones existentes los referencian, y no reciben mantenimiento.
 
 ### Archivos de datos
 

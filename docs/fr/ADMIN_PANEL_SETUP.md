@@ -348,12 +348,13 @@ ss -tlnp | grep 3000
 |---|---|
 | `admin.log` | Sortie du panneau d'administration |
 | `proxy.log` | Bannière de démarrage du proxy + une ligne de journal d'accès par requête relayée |
-| `logwebsdr.txt` | Journal principal du serveur SDR |
+| `logwebsdr.txt` | Journal du lanceur et du chien de garde — démarrage/arrêt, pilote du récepteur, enregistrement sur websdr.org |
+| `spectrumserver.log` | La sortie du processus récepteur lui-même — mise en place FFT et OpenCL, connexions de chaque client, erreurs. Le plus gros de ces fichiers ; il est tourné, un `spectrumserver.log.1` peut donc se trouver à côté |
 | `rade.log` | Journal du sidecar RADE/FreeDV |
 | `autorun.log` | Journal du démon de décodage — spots, SNR, dérive |
 | `crash.log` | Rapports de plantage et événements thermiques : traces `[CRASH]` / `[TERMINATE]`, notes `[EXIT]` et lignes `[THERMAL]` de la protection. **Normalement vide** — tout ce qu'il contient mérite d'être lu |
 
-Tous ces fichiers sont consultables depuis les onglets **Log Viewer** du panneau (LOGWEBSDR, ADMIN, RADE, CRASH, AUTORUN, PROXY).
+Tous ces fichiers sont consultables depuis les onglets **Log Viewer** du panneau (LOGWEBSDR, SPECTRUMSERVER, ADMIN, RADE, CRASH, AUTORUN, PROXY). Le visualiseur affiche les 150 dernières lignes de l'onglet choisi et se rafraîchit toutes les 3 secondes quand le rafraîchissement automatique est actif ; il ne lit que la fin du fichier, sa taille est donc sans importance.
 
 ### Rotation de proxy.log et admin.log
 

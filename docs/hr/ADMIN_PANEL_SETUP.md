@@ -348,12 +348,13 @@ ss -tlnp | grep 3000
 |---|---|
 | `admin.log` | Ispis administratorske ploče |
 | `proxy.log` | Natpis pri pokretanju proxyja + jedan redak pristupa po proslijeđenom zahtjevu |
-| `logwebsdr.txt` | Glavni zapisnik SDR poslužitelja |
+| `logwebsdr.txt` | Zapisnik pokretača i nadzornika — pokretanje/zaustavljanje, upravljački program prijamnika, registracija na websdr.org |
+| `spectrumserver.log` | Izlaz samog procesa prijamnika — postavljanje FFT-a i OpenCL-a, veze pojedinih klijenata, pogreške. Najveća od ovih datoteka; rotira se, pa uz nju može stajati `spectrumserver.log.1` |
 | `rade.log` | Zapisnik RADE/FreeDV sidecara |
 | `autorun.log` | Zapisnik dekoderskog daemona — spotovi, SNR, drift |
 | `crash.log` | Izvještaji o rušenju i toplinski događaji: `[CRASH]` / `[TERMINATE]` backtraceovi, `[EXIT]` bilješke i `[THERMAL]` retci zaštite. **Uobičajeno prazan** — sve što se u njemu nađe vrijedi pročitati |
 
-Sve se to može čitati iz kartica **Log Viewer** na ploči (LOGWEBSDR, ADMIN, RADE, CRASH, AUTORUN, PROXY).
+Sve se to može čitati iz kartica **Log Viewer** na ploči (LOGWEBSDR, SPECTRUMSERVER, ADMIN, RADE, CRASH, AUTORUN, PROXY). Preglednik prikazuje zadnjih 150 redaka odabrane kartice i osvježava se svake 3 sekunde kad je uključeno automatsko osvježavanje; čita samo kraj datoteke, pa njezina veličina nije važna.
 
 ### Rotiranje proxy.log i admin.log
 

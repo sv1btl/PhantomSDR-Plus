@@ -1,5 +1,5 @@
 <script>
-  const VERSION = "3.8.0 with mobile support and enhancements";
+  const VERSION = "3.9.0 with mobile support and enhancements";
 
   // ── Variant selection ────────────────────────────────────────────────────
   //
@@ -7851,11 +7851,11 @@
                     <ul style="font-size: 0.91rem; text-align: left;">
                     <b>Setup &amp; Configuration:</b>
                       <img
-                        src="https://img.shields.io/badge/version- 3.8.0-cyan?logo=github"
+                        src="https://img.shields.io/badge/version- 3.9.0-cyan?logo=github"
                         alt="Version"
                         class="inline-block align-middle ml-2"
                       />
-                     with <a href="https://catsyncsdr.wordpress.com/" target="new" style="color:rgba(0, 225, 255, 0.993)">CAT sync ®</a>
+                     with <a href="https://catsyncsdr.wordpress.com/" target="new" style="color:rgba(0, 225, 255, 0.993)">CAT sync ®</a> and <a href="https://www.aethersdr.com/" target="new" style="color:rgba(0, 225, 255, 0.993)">AetherSDR ®</a> ready.
                     <br>
                     <span style="/*text-decoration: line-through*/">PC: {siteHardware} {siteSoftware}</span>                  
                     

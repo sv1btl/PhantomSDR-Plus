@@ -43,8 +43,10 @@ PhantomSDR-Plus
 ├── connection_impl.hpp
 ├── docs
 │   ├── ADMIN_PANEL_SETUP.md
+│   ├── Aether_config.md
 │   ├── de
 │   │   ├── ADMIN_PANEL_SETUP.md
+│   │   ├── Aether_config.md
 │   │   ├── DECODERS.md
 │   │   ├── EDITING_VARIANTS.md
 │   │   ├── INSTALLATION.md
@@ -59,6 +61,7 @@ PhantomSDR-Plus
 │   ├── EDITING_VARIANTS.md
 │   ├── el
 │   │   ├── ADMIN_PANEL_SETUP.md
+│   │   ├── Aether_config.md
 │   │   ├── DECODERS.md
 │   │   ├── EDITING_VARIANTS.md
 │   │   ├── INSTALLATION.md
@@ -71,6 +74,7 @@ PhantomSDR-Plus
 │   │   └── USER_GUIDE.md
 │   ├── es
 │   │   ├── ADMIN_PANEL_SETUP.md
+│   │   ├── Aether_config.md
 │   │   ├── DECODERS.md
 │   │   ├── EDITING_VARIANTS.md
 │   │   ├── INSTALLATION.md
@@ -83,6 +87,7 @@ PhantomSDR-Plus
 │   │   └── USER_GUIDE.md
 │   ├── fr
 │   │   ├── ADMIN_PANEL_SETUP.md
+│   │   ├── Aether_config.md
 │   │   ├── DECODERS.md
 │   │   ├── EDITING_VARIANTS.md
 │   │   ├── INSTALLATION.md
@@ -95,6 +100,7 @@ PhantomSDR-Plus
 │   │   └── USER_GUIDE.md
 │   ├── hr
 │   │   ├── ADMIN_PANEL_SETUP.md
+│   │   ├── Aether_config.md
 │   │   ├── DECODERS.md
 │   │   ├── EDITING_VARIANTS.md
 │   │   ├── INSTALLATION.md
@@ -113,6 +119,7 @@ PhantomSDR-Plus
 │   ├── README.md
 │   ├── ru
 │   │   ├── ADMIN_PANEL_SETUP.md
+│   │   ├── Aether_config.md
 │   │   ├── DECODERS.md
 │   │   ├── EDITING_VARIANTS.md
 │   │   ├── INSTALLATION.md
@@ -315,6 +322,7 @@ PhantomSDR-Plus
 ├── install_rade_ubuntu22.sh
 ├── install.sh
 ├── install-stats-server.sh
+├── kiwi_install.sh             # installe la passerelle KiwiSDR dans une arborescence existante
 ├── instructions-for-airspy
 ├── instructions-for-rsp1a
 ├── jsdsp
@@ -394,6 +402,7 @@ PhantomSDR-Plus
 │   ├── fft_impl.cpp
 │   ├── fft_mkl.cpp
 │   ├── http.cpp
+│   ├── kiwi_bridge.h          # passerelle du protocole KiwiSDR — voir docs/Aether_config.md
 │   ├── listing
 │   │   ├── software_info.cpp
 │   │   └── software_info.h
@@ -421,6 +430,13 @@ PhantomSDR-Plus
 ├── start-rtl.sh
 ├── start-rx888mk2.sh
 ├── stop-websdr.sh
+├── go.sh                      # ancienne chaîne de lancement, remplacée par start-<radio>.sh
+├── xgo.sh                     # ancien : démarre spectrumserver, appelé par check-go.sh
+├── check-go.sh                # ancien : chien de garde de la chaîne go.sh
+├── kill.sh                    # ancien : tue les processus du serveur, appelé par go.sh
+├── _relaunch.sh               # ancien : relance différée de la chaîne go.sh
+├── demo_installer.sh          # essai à blanc d'install.sh — montre le déroulé, n'installe rien
+├── logproxy                   # copies tournantes des journaux panneau/mandataire/autorun
 ├── subprojects
     ├── fftw3.wrap
     ├── flac.wrap
@@ -685,6 +701,10 @@ Chaque `start-*.sh` ci-dessous est un **lanceur autonome + chien de garde + jour
 | `recompile.sh` | Reconstruire le backend et/ou le frontend et choisir la variante servie à `/` |
 | `smeter_theme.sh` | Définir le cadran par défaut du S-mètre analogique (dark / amber / vintage) pour tous les utilisateurs, et proposer la reconstruction du frontend — voir [Modifier les variantes](EDITING_VARIANTS.md) |
 | `waterfall.sh` | Modifie le niveau minimal de cascade par défaut (dB) dans `waterfall.js` + `App.svelte` — voir [README](README.md) |
+| `kiwi_install.sh` | Installe l'émulation des clients KiwiSDR sur une arborescence qui ne l'a pas : corrige les sources du backend, copie `src/kiwi_bridge.h` et ajoute un bloc `[kiwi_emulation]` documenté aux fichiers de configuration de la racine. Idempotent, et sauvegarde chaque fichier qu'il touche — voir [Émulation des clients KiwiSDR](Aether_config.md) |
+| `demo_installer.sh` | Essai à blanc d'`install.sh` : montre tout le déroulé et n'installe rien |
+
+**Ancienne chaîne de lancement.** `go.sh`, `xgo.sh`, `check-go.sh`, `kill.sh` et `_relaunch.sh` sont la génération précédente de scripts de lancement, de surveillance et d'arrêt. Tout ce qu'ils faisaient se trouve désormais dans chaque `start-<radio>.sh`, qui est ce qu'il faut utiliser. Ils restent sur le disque parce que des installations existantes les référencent, et ne sont plus maintenus.
 
 ### Fichiers de données
 

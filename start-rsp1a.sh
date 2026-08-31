@@ -81,6 +81,28 @@ rotate_log() {
     log "(log passed $LOG_MAX bytes — previous log is now $(basename "$LOG").1)"
 }
 
+# ── keep $SRV_LOG bounded while the server is RUNNING ────────────────────────
+# start_spectrumserver() trims this file too, but only at startup: a receiver
+# left running for months therefore had no bound at all. This is the periodic
+# half of it.
+#
+# It cannot rename the file the way rotate_log() does. spectrumserver.log is
+# written by `tee -a`, which holds the fd open for the life of the server, so a
+# rename would leave tee appending to the renamed inode and the live log would
+# stay empty until the next restart — exactly the trap described above. Copy
+# and truncate instead: tee opened with O_APPEND, so its next write lands at
+# offset 0 of the emptied file. Lines written between the copy and the truncate
+# are lost, which is the accepted cost of this approach (logrotate calls it
+# copytruncate and makes the same trade).
+rotate_srv_log() {
+    local sz
+    sz=$(wc -c < "$SRV_LOG" 2>/dev/null || echo 0)
+    [ "$sz" -gt "$SRV_LOG_MAX" ] 2>/dev/null || return 0
+    cp -f "$SRV_LOG" "$SRV_LOG.1" 2>/dev/null || return 0
+    : > "$SRV_LOG"
+    log "($(basename "$SRV_LOG") passed $SRV_LOG_MAX bytes — previous log is now $(basename "$SRV_LOG").1)"
+}
+
 # ── read one key out of one [section] of the TOML config ─────────────────────
 # Deliberately tiny: enough for scalar keys (enabled/public_host/public_port),
 # not a TOML parser. Arrays and multi-line values are not handled — spectrumserver
@@ -342,7 +364,7 @@ watchdog_loop() {
         sleep 5
         # Size-check the log every ~5 min (60 ticks) rather than every tick.
         ticks=$(( ticks + 1 ))
-        [ $(( ticks % 60 )) -eq 0 ] && rotate_log
+        if [ $(( ticks % 60 )) -eq 0 ]; then rotate_log; rotate_srv_log; fi
         reason=""
         is_running spectrumserver || reason="spectrumserver"
         is_running "$RX_COMM"     || reason="${reason:+$reason + }$RX_COMM"

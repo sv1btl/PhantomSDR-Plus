@@ -43,8 +43,10 @@ PhantomSDR-Plus
 ├── connection_impl.hpp
 ├── docs
 │   ├── ADMIN_PANEL_SETUP.md
+│   ├── Aether_config.md
 │   ├── de
 │   │   ├── ADMIN_PANEL_SETUP.md
+│   │   ├── Aether_config.md
 │   │   ├── DECODERS.md
 │   │   ├── EDITING_VARIANTS.md
 │   │   ├── INSTALLATION.md
@@ -59,6 +61,7 @@ PhantomSDR-Plus
 │   ├── EDITING_VARIANTS.md
 │   ├── el
 │   │   ├── ADMIN_PANEL_SETUP.md
+│   │   ├── Aether_config.md
 │   │   ├── DECODERS.md
 │   │   ├── EDITING_VARIANTS.md
 │   │   ├── INSTALLATION.md
@@ -71,6 +74,7 @@ PhantomSDR-Plus
 │   │   └── USER_GUIDE.md
 │   ├── es
 │   │   ├── ADMIN_PANEL_SETUP.md
+│   │   ├── Aether_config.md
 │   │   ├── DECODERS.md
 │   │   ├── EDITING_VARIANTS.md
 │   │   ├── INSTALLATION.md
@@ -83,6 +87,7 @@ PhantomSDR-Plus
 │   │   └── USER_GUIDE.md
 │   ├── fr
 │   │   ├── ADMIN_PANEL_SETUP.md
+│   │   ├── Aether_config.md
 │   │   ├── DECODERS.md
 │   │   ├── EDITING_VARIANTS.md
 │   │   ├── INSTALLATION.md
@@ -95,6 +100,7 @@ PhantomSDR-Plus
 │   │   └── USER_GUIDE.md
 │   ├── hr
 │   │   ├── ADMIN_PANEL_SETUP.md
+│   │   ├── Aether_config.md
 │   │   ├── DECODERS.md
 │   │   ├── EDITING_VARIANTS.md
 │   │   ├── INSTALLATION.md
@@ -113,6 +119,7 @@ PhantomSDR-Plus
 │   ├── README.md
 │   ├── ru
 │   │   ├── ADMIN_PANEL_SETUP.md
+│   │   ├── Aether_config.md
 │   │   ├── DECODERS.md
 │   │   ├── EDITING_VARIANTS.md
 │   │   ├── INSTALLATION.md
@@ -315,6 +322,7 @@ PhantomSDR-Plus
 ├── install_rade_ubuntu22.sh
 ├── install.sh
 ├── install-stats-server.sh
+├── kiwi_install.sh             # εγκαθιστά τη γέφυρα KiwiSDR σε υπάρχον δέντρο
 ├── instructions-for-airspy
 ├── instructions-for-rsp1a
 ├── jsdsp
@@ -394,6 +402,7 @@ PhantomSDR-Plus
 │   ├── fft_impl.cpp
 │   ├── fft_mkl.cpp
 │   ├── http.cpp
+│   ├── kiwi_bridge.h          # γέφυρα πρωτοκόλλου KiwiSDR — βλ. docs/Aether_config.md
 │   ├── listing
 │   │   ├── software_info.cpp
 │   │   └── software_info.h
@@ -421,6 +430,13 @@ PhantomSDR-Plus
 ├── start-rtl.sh
 ├── start-rx888mk2.sh
 ├── stop-websdr.sh
+├── go.sh                      # παλιά αλυσίδα εκκίνησης, αντικαταστάθηκε από τα start-<radio>.sh
+├── xgo.sh                     # παλιό: ξεκινά τον spectrumserver, καλείται από το check-go.sh
+├── check-go.sh                # παλιό: watchdog της αλυσίδας go.sh
+├── kill.sh                    # παλιό: τερματίζει τις διεργασίες, καλείται από το go.sh
+├── _relaunch.sh               # παλιό: βοηθός καθυστερημένης επανεκκίνησης της αλυσίδας go.sh
+├── demo_installer.sh          # δοκιμαστική εκτέλεση του install.sh — δείχνει τη ροή, δεν εγκαθιστά τίποτα
+├── logproxy                   # εναλλασσόμενα αντίγραφα των logs panel/proxy/autorun
 ├── subprojects
     ├── fftw3.wrap
     ├── flac.wrap
@@ -685,6 +701,10 @@ PhantomSDR-Plus
 | `recompile.sh` | Ανακατασκευή backend ή/και frontend, και επιλογή της παραλλαγής που σερβίρεται στο `/` |
 | `smeter_theme.sh` | Ορισμός της προεπιλεγμένης όψης του αναλογικού S-meter (dark / amber / vintage) για όλους τους χρήστες, με προσφορά ανακατασκευής του frontend — δείτε [Επεξεργασία παραλλαγών](EDITING_VARIANTS.md) |
 | `waterfall.sh` | Αλλάζει το προεπιλεγμένο ελάχιστο επίπεδο καταρράκτη (dB) σε `waterfall.js` + `App.svelte` — δείτε το [README](README.md) |
+| `kiwi_install.sh` | Εγκαθιστά την εξομοίωση πελατών KiwiSDR σε δέντρο που δεν την έχει: διορθώνει τις πηγές του backend, αντιγράφει το `src/kiwi_bridge.h` και προσθέτει τεκμηριωμένο μπλοκ `[kiwi_emulation]` στα αρχεία ρυθμίσεων της ρίζας. Ταυτοδύναμο, και κρατά αντίγραφο κάθε αρχείου που αγγίζει — βλ. [Εξομοίωση πελατών KiwiSDR](Aether_config.md) |
+| `demo_installer.sh` | Δοκιμαστική εκτέλεση του `install.sh`: δείχνει όλη τη ροή και δεν εγκαθιστά τίποτα |
+
+**Παλιά αλυσίδα εκκίνησης.** Τα `go.sh`, `xgo.sh`, `check-go.sh`, `kill.sh` και `_relaunch.sh` είναι η προηγούμενη γενιά scripts εκκίνησης, επιτήρησης και τερματισμού. Ό,τι έκαναν βρίσκεται πλέον μέσα σε κάθε `start-<radio>.sh`, και αυτό είναι που πρέπει να χρησιμοποιείτε. Παραμένουν στον δίσκο επειδή υπάρχουσες εγκαταστάσεις τα αναφέρουν, και δεν συντηρούνται.
 
 ### Αρχεία δεδομένων
 

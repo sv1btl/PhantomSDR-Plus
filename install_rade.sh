@@ -51,25 +51,29 @@ fi
 
 case "$PKG_MGR" in
     apt)
-        PKGS_BUILD=(build-essential cmake git python3 python3-pip alsa-utils)
+        PKGS_BUILD=(build-essential autoconf automake libtool
+                    cmake git python3 python3-pip alsa-utils procps)
         PKGS_PY=(python3-numpy python3-scipy python3-matplotlib
                  python3-websockets python3-psutil)
         PKG_PIP="python3-pip"
         ;;
     pacman)
-        PKGS_BUILD=(base-devel cmake git python python-pip alsa-utils)
+        PKGS_BUILD=(base-devel autoconf automake libtool
+                    cmake git python python-pip alsa-utils procps-ng)
         PKGS_PY=(python-numpy python-scipy python-matplotlib
                  python-websockets python-psutil)
         PKG_PIP="python-pip"
         ;;
     dnf)
-        PKGS_BUILD=(gcc gcc-c++ make cmake git python3 python3-pip alsa-utils)
+        PKGS_BUILD=(gcc gcc-c++ make autoconf automake libtool
+                    cmake git python3 python3-pip alsa-utils procps-ng)
         PKGS_PY=(python3-numpy python3-scipy python3-matplotlib
                  python3-websockets python3-psutil)
         PKG_PIP="python3-pip"
         ;;
     zypper)
-        PKGS_BUILD=(gcc gcc-c++ make cmake git python3 python3-pip alsa-utils)
+        PKGS_BUILD=(gcc gcc-c++ make autoconf automake libtool
+                    cmake git python3 python3-pip alsa-utils procps)
         PKGS_PY=(python3-numpy python3-scipy python3-matplotlib
                  python3-websockets python3-psutil)
         PKG_PIP="python3-pip"

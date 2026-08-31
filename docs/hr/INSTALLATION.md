@@ -10,12 +10,13 @@ Ovaj sveobuhvatni vodič vodi vas kroz instalaciju i konfiguraciju PhantomSDR-Pl
 2. [Priprema prije instalacije](#priprema-prije-instalacije)
 3. [Instalacija PhantomSDR-Plusa](#instalacija-phantomsdr-plusa) — skripta i [što radi](#što-instalacijska-skripta-radi)
 4. [Autorun Spot Reporter (FT8/FT4/WSPR)](#autorun-spot-reporter-ft8ft4wspr)
-5. [Konfiguracija](#konfiguracija)
-6. [Postavljanje ovisno o SDR uređaju](#postavljanje-ovisno-o-sdr-uređaju)
-7. [Testiranje i provjera](#testiranje-i-provjera)
-8. [Postavljanje automatskog pokretanja](#postavljanje-automatskog-pokretanja)
-9. [Toplinska zaštita procesora](#toplinska-zaštita-procesora)
-10. [Rješavanje problema](#rješavanje-problema)
+5. [Emulacija KiwiSDR klijenata (neobavezno)](#emulacija-kiwisdr-klijenata-neobavezno)
+6. [Konfiguracija](#konfiguracija)
+7. [Postavljanje ovisno o SDR uređaju](#postavljanje-ovisno-o-sdr-uređaju)
+8. [Testiranje i provjera](#testiranje-i-provjera)
+9. [Postavljanje automatskog pokretanja](#postavljanje-automatskog-pokretanja)
+10. [Toplinska zaštita procesora](#toplinska-zaštita-procesora)
+11. [Rješavanje problema](#rješavanje-problema)
 
 **Samo kao referenca — instalacijska skripta sve ovo već obavlja umjesto vas.**
 Pročitajte ove odjeljke ako ste na distribuciji koju nijedna skripta ne pokriva ili ako trebate ručno popraviti pojedini korak:
@@ -408,20 +409,22 @@ Instalacija teče u 17 jasno numeriranih koraka, a svaka točka na kojoj se ček
 
 ### Što instalacijska skripta radi
 
-Ništa se ne mora pripremati ručno unaprijed — nema popisa paketa za kopiranje, nema Node.js-a za dohvaćanje, nema traženja OpenCL paketa. Teče u 17 numeriranih koraka i zaustavlja se uz sedam pitanja, svako uokvireno natpisom „POTREBAN JE VAŠ UNOS" — pa ili ostanite za tipkovnicom ili postavite `PHANTOM_NONINTERACTIVE=1` i pustite ga da na sve odgovori zadanim vrijednostima (vidi niže), a računajte na dvadesetak minuta do znatno više od sat vremena, ovisno o stroju i o tome koliko dodataka zadržite.
+Ništa se ne mora pripremati ručno unaprijed — nema popisa paketa za kopiranje, nema Node.js-a za dohvaćanje, nema traženja OpenCL paketa. Teče u 19 numeriranih koraka i zaustavlja se uz najviše deset pitanja, svako uokvireno natpisom „POTREBAN JE VAŠ UNOS" — pa ili ostanite za tipkovnicom ili postavite `PHANTOM_NONINTERACTIVE=1` i pustite ga da na sve odgovori zadanim vrijednostima (vidi niže), a računajte na dvadesetak minuta do znatno više od sat vremena, ovisno o stroju i o tome koliko dodataka zadržite.
 
 | # | Korak | Što vas pita |
 |---|---|---|
-| 1–5 | Prepoznaje distribuciju i instalira sve ovisnosti za građenje (prevoditelj, meson/ninja, FFTW, Boost, FLAC, Opus, liquid-dsp, zlib/zstd, libcurl …) | ništa |
-| 3 | Instalira Node.js 22 preko nvm-a ako ga sustav nema ili je prestar | ništa |
-| 6 | Gradi backend pomoću mesona | ništa |
-| 7 | Gradi upravljački program za vaš prijamnik — RX888 MkII / RX888, RTL-SDR (Blog V4 se pita zasebno), SDRplay ili nijedan. Uz RX888 **instalira i udev pravila**, pa poslužitelju nikad ne treba `sudo` za uređaj | koji SDR imate |
-| 8 | Otvara `frontend/site_information.json` u vašem uređivaču | pozivni znak, lokator, oprema, antena — **nemojte preskočiti** |
-| 9–10 | Instalira ovisnosti frontenda i gradi stranice za računalo i `/mobile` | ništa |
-| 11 | Instalira OpenCL i bira pružatelja prema pronađenom hardveru (Intel / AMD / NVIDIA GPU ili x86 CPU runtime). Ako nema uređaja s podrškom, to kaže i nastavlja dalje | potvrda, zadano da |
-| 12–14 | Instalira **administratorsku ploču**, **FreeDV RADE V1 dekoder** i **poslužitelj statistike** — sva tri prema zadanome | potvrda za svaki, zadano da; svaki ima svoja pitanja |
-| 15 | Ponovno primjenjuje pet zakrpanih websocketpp zaglavlja preko meson podprojekta i provjerava da su stigla. Tri od njih su rad na kompatibilnosti s Boostom ≥ 1.87, bez kojega se backend ne prevodi na Boostu 1.90; druga dva su vlastite izmjene projekta, od kojih je jedna ispravak koji treba registracija na websdr.org | ništa |
-| 16 | Kao posljednju radnju pokreće `recompile.sh`, da se sve izgradi iz zakrpanih izvora | `[3] Both backend and frontend` → početna varijanta → `[1] build-all.sh` |
+| 1 | Popisuje PhantomSDR-Plus servise koji su trenutačno pokrenuti — administratorska ploča, obrnuti proxy, poslužitelj statistike, prijamnik — i nudi da ih zaustavi prije nego što išta dirne | potvrda, **zadano da** |
+| 2–6 | Prepoznaje distribuciju i instalira sve ovisnosti za građenje (prevoditelj, meson/ninja, FFTW, Boost, FLAC, Opus, liquid-dsp, zlib/zstd, libcurl …), uz Node.js 22 preko nvm-a ako ga sustav nema ili je prestar | ništa |
+| 7 | Gradi backend pomoću mesona | ništa |
+| 8 | Gradi upravljački program za vaš prijamnik — RX888 MkII / RX888, RTL-SDR (Blog V4 se pita zasebno), SDRplay ili nijedan. Uz RX888 **instalira i udev pravila**, pa poslužitelju nikad ne treba `sudo` za uređaj | koji SDR imate |
+| 9 | Otvara `frontend/site_information.json` u vašem uređivaču | pozivni znak, lokator, oprema, antena — **nemojte preskočiti** |
+| 10–11 | Instalira ovisnosti frontenda i gradi stranice za računalo i `/mobile` | ništa |
+| 12 | Instalira OpenCL i bira pružatelja prema pronađenom hardveru (Intel / AMD / NVIDIA GPU ili x86 CPU runtime). Ako nema uređaja s podrškom, to kaže i nastavlja dalje | potvrda, zadano da |
+| 13–15 | Instalira **administratorsku ploču**, **FreeDV RADE V1 dekoder** i **poslužitelj statistike** — sva tri prema zadanome | potvrda za svaki, zadano da; svaki ima svoja pitanja |
+| 16 | Ponovno primjenjuje pet zakrpanih websocketpp zaglavlja preko meson podprojekta i provjerava da su stigla. Tri od njih su rad na kompatibilnosti s Boostom ≥ 1.87, bez kojega se backend ne prevodi na Boostu 1.90; druga dva su vlastite izmjene projekta, od kojih je jedna ispravak koji treba registracija na websdr.org | ništa |
+| 17 | Instalira **emulaciju KiwiSDR klijenata** pokretanjem `kiwi_install.sh`, kako bi se Kiwi klijenti poput AetherSDR-a mogli spojiti na ovaj prijamnik. Zakrpava izvore i dodaje `[kiwi_emulation]` u konfiguracijske datoteke u korijenu repozitorija — vidi [Emulacija KiwiSDR klijenata](Aether_config.md) | potvrda, zadano da |
+| 18 | Pokreće `recompile.sh`, da se sve izgradi iz zakrpanih izvora | `[3] Both backend and frontend` → početna varijanta → `[1] build-all.sh` |
+| 19 | Ispisuje sažetak: svaki korak s ishodom i svaku komponentu s time što je instalirano | ništa |
 
 #### Instalacija bez nadzora
 
@@ -438,8 +441,10 @@ Svako pitanje ima varijablu okoline koja ga nadjačava, a instalacijski program 
 | `PHANTOM_ADMIN=y\|n` | admin panel (y interactive, n unattended) |
 | `PHANTOM_RADE=y\|n` | RADE / FreeDV (y interactive, n unattended) |
 | `PHANTOM_STATS=y\|n` | statistics server (y interactive, n unattended) |
+| `PHANTOM_KIWI=y\|n` | KiwiSDR client emulation (default y) |
 | `PHANTOM_RECOMPILE=y\|n` | final rebuild (default y) |
 | `PHANTOM_CURLPP=y\|n` | nastavi bez curlpp-a — samo Arch i openSUSE (zadano y) |
+| `PHANTOM_FIX_CLOCK_SKEW=y\|n` | poništi vremenske oznake izvornih datoteka datirane u budućnost, kako bi meson mogao graditi (zadano y) |
 
 Tri pod-instalacijska programa označena s *n bez nadzora* i sami su interaktivni, pa ih izvođenje bez nadzora preskače umjesto da zapne na njihovim pitanjima. Navedite ih izrijekom da bi bili uključeni:
 
@@ -623,6 +628,16 @@ Zatim se prikazuju dva različita brojača koja je lako zamijeniti. Pločice **S
 
 ---
 
+## Emulacija KiwiSDR klijenata (neobavezno)
+
+Od v3.9.0 PhantomSDR-Plus može odgovarati i na **KiwiSDR protokol**, pa se softver pisan za KiwiSDR — **AetherSDR**, `kiwiclient` i ostali — spaja izravno na vaš prijamnik, na istom računalu i portu koje već objavljujete. Isključeno je dok se u konfiguraciju s kojom radi vaš prijamnik ne doda `[kiwi_emulation] enabled = true`.
+
+Instalacijski program to nudi kao korak 17; `./kiwi_install.sh` primjenjuje most na već instalirano stablo.
+
+> **Potpuna dokumentacija: [Emulacija KiwiSDR klijenata](Aether_config.md)** — što most radi, kako ga instalirati, svaki ključ iz `[kiwi_emulation]`, spajanje klijenta, razina zvuka, S-metar, brzina slapa i tablica simptoma.
+
+---
+
 ## Konfiguracija
 
 ### 1. Odaberite konfiguracijsku datoteku
@@ -708,7 +723,7 @@ Uredite sljedeća polja:
   "siteCity": "Your City, Country",
   "siteInformation": "https://github.com/sv1btl/PhantomSDR-Plus",
   "siteHardware": "Computer specifications",
-  "siteSoftware": "PhantomSDR-Plus v3.8.0",
+  "siteSoftware": "PhantomSDR-Plus v3.9.0",
   "siteReceiver": "Your SDR model",
   "siteAntenna": "Antenna description",
   "siteNote": "Additional information",
@@ -1189,6 +1204,59 @@ sudo dnf install <package-name>
 # Clean and reconfigure
 rm -rf build
 meson setup build --buildtype=release
+```
+
+#### `meson setup` puca uz `ModuleNotFoundError: No module named 'mesonbuild'`
+
+```
+Traceback (most recent call last):
+  File "/home/<user>/.local/bin/meson", line 3, in <module>
+    from mesonbuild.mesonmain import main
+ModuleNotFoundError: No module named 'mesonbuild'
+```
+
+Izvorni kod nije kriv. Zaostala instalacija preko `pip install --user meson`
+ostavila je skriptu u `~/.local/bin`, koja na `PATH`-u dolazi prije `/usr/bin` i
+zato zaklanja ispravnu kopiju koju je instalirao upravitelj paketa. Nadogradnja
+distribucije (primjerice Ubuntu 24.04 → 26.04) prebacuje Python na novu verziju,
+stari `site-packages` u kojem je bio `mesonbuild` više nije na putanji uvoza, pa
+skripta pada prije nego išta napravi. Isto se može dogoditi i `ninji`.
+
+Instalacijska skripta to prepoznaje i zaobilazi za vrijeme trajanja instalacije,
+uz upozorenje, ali sustav ipak popravite:
+
+```bash
+rm -f ~/.local/bin/meson
+hash -r
+meson --version        # mora ispisati verziju
+```
+
+Ako radije želite zadržati meson instaliran preko pipa, ponovno ga instalirajte
+za Python koji sustav sada ima:
+
+```bash
+python3 -m pip install --user --force-reinstall --break-system-packages meson
+```
+
+#### `meson setup` staje uz `Clock skew detected`
+
+```
+ERROR: Clock skew detected. File /home/pi/PhantomSDR-Plus/build/../meson.build has a time stamp 10392.2144s in the future.
+```
+
+S izvornim stablom nije ništa u redu: sistemski sat kasni za datotekama. meson i ninja odbijaju graditi kada je ulazna datoteka novija od trenutnog vremena jer ne mogu znati što je zastarjelo. Događa se na Raspberry Piju bez baterije u RTC ležištu — svako pokretanje kreće od zadnjeg poznatog vremena, pa gradnja pokrenuta prije nego se NTP uskladi vidi cijelo stablo datirano u budućnost — kao i na stablu raspakiranom ili kopiranom sa stroja koji žuri.
+
+Najprije ispravite sat:
+
+```bash
+timedatectl                       # je li vrijeme točno? je li NTP usklađen?
+sudo timedatectl set-ntp true
+```
+
+Pričekajte nekoliko sekundi pa ponovno pokrenite instalater. On to provjerava prije poziva mesona i nudi poništavanje spornih vremenskih oznaka (`PHANTOM_FIX_CLOCK_SKEW=y|n`). Ručno, iz izvornog stabla:
+
+```bash
+find . -path ./build -prune -o -path ./.git -prune -o -newermt now -print0 | xargs -0r touch
 ```
 
 #### Pozadinski dio je izgrađen, ali web-stranice nema

@@ -70,7 +70,10 @@ set -euo pipefail
 #   PHANTOM_ADMIN=y|n          admin panel      (default y interactive, n unattended)
 #   PHANTOM_RADE=y|n           RADE / FreeDV    (default y interactive, n unattended)
 #   PHANTOM_STATS=y|n          statistics server(default y interactive, n unattended)
+#   PHANTOM_KIWI=y|n           Kiwi client emulation  (default y interactive, n unattended)
 #   PHANTOM_RECOMPILE=y|n      final rebuild                      (default y)
+#   PHANTOM_FIX_CLOCK_SKEW=y|n reset source timestamps that are dated in
+#                              the future, so meson can build   (default y)
 #
 # The three sub-installers marked above are interactive scripts of their own, so
 # unattended runs skip them by default rather than hang on their prompts.
@@ -79,7 +82,7 @@ set -euo pipefail
 # THE REPORT
 # ------------------------------------------------------------------------------
 # Every run writes install.txt into the PhantomSDR-Plus directory: the result,
-# each of the 18 steps as OK / SKIPPED / PARTIAL / FAILED, what was detected
+# each of the 19 steps as OK / SKIPPED / PARTIAL / FAILED, what was detected
 # (distro, Boost, compiler, Node), what was installed, and every warning that
 # came up. It is written by an EXIT trap, so a run that dies halfway still
 # leaves a report that ends at the step which failed — that file is the first
@@ -98,6 +101,7 @@ NEEDS_REBOOT=false
 RX888_UDEV_DONE=false
 RADE_INSTALLED=false
 STATS_INSTALLED=false
+KIWI_INSTALLED=false
 ADMIN_INSTALLED=false
 WSPP_PATCHED=false
 WSPP_REQUIRED=false
@@ -151,6 +155,106 @@ run_logged() {
         FAILED_CMD_LOG="$log"
         die "Command failed: $*"
     fi
+}
+
+# ------------------------------------------------------------------------------
+# A build tool that is on PATH but cannot run
+# ------------------------------------------------------------------------------
+# The package manager puts meson and ninja in /usr/bin, but a leftover
+# `pip install --user meson` leaves a launcher script in ~/.local/bin that
+# comes first on PATH. After a distribution upgrade moves Python to a new
+# version, the library that launcher imports is in the old version's
+# site-packages and the shim dies before it does anything:
+#
+#   File "/home/<user>/.local/bin/meson", line 3, in <module>
+#     from mesonbuild.mesonmain import main
+#   ModuleNotFoundError: No module named 'mesonbuild'
+#
+# Nothing here is wrong with PhantomSDR-Plus, but the build fails and the
+# traceback names no cause. So: if the copy PATH picks first cannot even print
+# its version, find one that can, put that one in front, and say what happened
+# so the machine actually gets repaired.
+PHANTOM_TOOL_BIN=""
+
+# Create a directory of our own at the front of PATH and leave its path in
+# PHANTOM_TOOL_BIN. Narrow on purpose — prepending /usr/bin instead would
+# shadow everything else the user keeps in ~/.local/bin (pipx, their own
+# scripts), which is not ours to change.
+#
+# The caller reads PHANTOM_TOOL_BIN rather than the output of this function:
+# it exports PATH, and a command substitution would run it in a subshell that
+# throws that export away — the same trap run() documents for nvm.
+phantom_tool_bin() {
+    if [ -z "$PHANTOM_TOOL_BIN" ]; then
+        PHANTOM_TOOL_BIN="$(mktemp -d "${TMPDIR:-/tmp}/phantom-tools-XXXXXX")"
+        PATH="$PHANTOM_TOOL_BIN:$PATH"
+        export PATH
+    fi
+}
+
+# ensure_working_tool <name>   — no-op when the tool is fine or not yet installed
+ensure_working_tool() {
+    local name="$1" first="" working="" old_ifs search dir candidate
+
+    first="$(command -v "$name" 2>/dev/null || true)"
+    # Not installed yet is not this function's business: the package step
+    # installs it, and the build step already fails clearly if it is missing.
+    [ -n "$first" ] || return 0
+    "$name" --version >/dev/null 2>&1 && return 0
+
+    # The whole list has to come from ONE expansion. Word splitting applies to
+    # what an expansion produced, not to literal text typed beside it, so
+    # `for dir in $PATH:/usr/bin` glues the last PATH entry to the literal tail
+    # and searches a directory that cannot exist. On Fedora, whose PATH ends in
+    # /usr/bin, that hid the only working copy on the machine.
+    search="$PATH:/usr/bin:/usr/local/bin:/bin"
+    old_ifs="$IFS"
+    IFS=:
+    for dir in $search; do
+        [ -n "$dir" ] || continue
+        candidate="$dir/$name"
+        [ "$candidate" != "$first" ] || continue
+        [ -x "$candidate" ] || continue
+        if "$candidate" --version >/dev/null 2>&1; then
+            working="$candidate"
+            break
+        fi
+    done
+    IFS="$old_ifs"
+
+    if [ -z "$working" ]; then
+        die "$name is on PATH at $first, but it cannot run:
+       '$name --version' fails, and no working copy exists anywhere else
+       on this system.
+
+       This is almost always a leftover 'pip install --user $name': the
+       launcher script in ~/.local/bin outlived the Python version whose
+       site-packages held its library, so it raises ModuleNotFoundError
+       before doing any work — and it hides the copy the package manager
+       installed.
+
+       Remove it and run this installer again:
+
+           rm -f ~/.local/bin/$name
+           hash -r
+
+       Or reinstall it for the Python this system has now:
+
+           python3 -m pip install --user --force-reinstall --break-system-packages $name"
+    fi
+
+    phantom_tool_bin
+    ln -sf "$working" "$PHANTOM_TOOL_BIN/$name"
+    hash -r 2>/dev/null || true
+
+    warn "$first cannot run — using $working for this installation."
+    echo "   That file is a leftover 'pip install --user $name' whose Python"
+    echo "   library is gone (ModuleNotFoundError), and it shadows the working"
+    echo "   copy on PATH. This run works around it, but repair the system:"
+    echo ""
+    echo "       rm -f ~/.local/bin/$name"
+    echo "       hash -r"
+    echo ""
 }
 
 # ------------------------------------------------------------------------------
@@ -212,7 +316,7 @@ step_state() {
 # sync when adding or removing a step() call.
 
 STEP_NO=0
-STEP_TOTAL=18
+STEP_TOTAL=19
 STEP_T0=0
 
 # Frame drawing. Every framed line is padded to STEP_W visible columns, so the
@@ -659,7 +763,11 @@ stop_running_phantom() {
         return 0
     fi
 
-    warn "${found} PhantomSDR-Plus component(s) are running."
+    # Not warn(): this is the normal path. Everything below either stops them
+    # cleanly -- and step ${STEP_TOTAL} starts them again -- or records its own
+    # warning. Reporting "1 warning" for a run that did exactly what it was
+    # asked to do teaches sysops to ignore the warnings that matter.
+    yellow "⚠️  ${found} PhantomSDR-Plus component(s) are running."
     echo "     Installing over a running receiver overwrites files that are open,"
     echo "     can leave the admin panel serving a frontend that no longer exists,"
     echo "     and lets the watchdog restart a half-written binary mid-compile."
@@ -675,6 +783,8 @@ stop_running_phantom() {
         echo ""
         pause "Press ENTER once they are stopped (Ctrl-C to abort) "
         step_state PARTIAL "stopped by hand — they will NOT be restarted for you"
+        warn "You stopped ${found} component(s) by hand — this installer only starts
+       again what it stopped itself, so start them when the install finishes."
         return 0
     fi
 
@@ -778,6 +888,72 @@ clean_stale_subprojects() {
     done
 }
 
+# ------------------------------------------------------------------------------
+# Clock skew
+# ------------------------------------------------------------------------------
+# meson and ninja refuse to build when a source file is newer than the system
+# clock:
+#
+#   ERROR: Clock skew detected. File .../meson.build has a time stamp
+#   10392.2144s in the future.
+#
+# because they cannot tell which outputs are out of date. Nothing is wrong with
+# the tree: the clock is behind. A Raspberry Pi with no cell in its RTC holder
+# starts every boot from the last time it knew, so a build launched before NTP
+# catches up sees the whole tree dated in the future; a tree unpacked or rsynced
+# from a machine whose clock is ahead looks the same.
+#
+# Say that here, with both cures, instead of letting meson say it hundreds of
+# lines into its output. Correcting the clock is the real fix and is printed
+# first; resetting the timestamps is the local one and is offered because it
+# always works, even on a machine with no network to reach a time server.
+check_clock_skew() {
+    local newest now skew mins synced
+    # Newest modification time in the source tree. build/ is ours to overwrite
+    # and .git/ is large and never compiled, so both are skipped.
+    #
+    # awk, not `sort -rn | head -1`: head closes the pipe as soon as it has its
+    # line, sort dies of SIGPIPE, and under `set -o pipefail` that is a 141 exit
+    # status which takes the whole installer with it. Whether it happens is a
+    # race between the two sides of the pipe — it passed on three distributions
+    # and killed the Arch run at step 7. awk reads its input to the end, so
+    # there is no pipe to break.
+    newest="$(find . -path ./build -prune -o -path ./.git -prune -o \
+                     -type f -printf '%T@\n' 2>/dev/null |
+              awk 'BEGIN { m = 0 } $1 > m { m = $1 } END { printf "%d\n", m }')"
+    [ -n "$newest" ] || return 0
+    now="$(date +%s)"
+    skew=$(( newest - now ))
+    # A second or two is normal rounding on a network filesystem, not skew.
+    [ "$skew" -gt 5 ] || return 0
+
+    mins=$(( (skew + 59) / 60 ))
+    warn "Files in $PWD are up to ${mins} minute(s) newer than the system clock."
+    echo ""
+    echo "   meson and ninja stop with \"Clock skew detected\" when that happens."
+    echo ""
+    echo "   System time : $(date)"
+    if command -v timedatectl >/dev/null 2>&1; then
+        synced="$(timedatectl show -p NTPSynchronized --value 2>/dev/null || true)"
+        echo "   NTP synced  : ${synced:-unknown}"
+    fi
+    echo ""
+    echo "   If the time above is wrong, that is the real cause. Correct it with"
+    echo "      sudo timedatectl set-ntp true"
+    echo "   wait a few seconds for it to settle, then run this installer again."
+    echo ""
+
+    if confirm PHANTOM_FIX_CLOCK_SKEW y y \
+        "Reset those file timestamps to now so the build can go ahead?"; then
+        find . -path ./build -prune -o -path ./.git -prune -o \
+               -newermt "@${now}" -print0 2>/dev/null | xargs -0r touch
+        green "   Timestamps reset to the current time."
+    else
+        die "The source tree is newer than the system clock, so meson cannot build.
+       Correct the clock, or re-run and let the installer reset the timestamps."
+    fi
+}
+
 # Meson fetches glaze and websocketpp over the network during `meson setup`.
 # When the machine cannot reach GitHub, that surfaces as a git clone failing
 # three times inside a CMake trace, hundreds of lines deep. Say it up front
@@ -844,6 +1020,18 @@ check_subproject_network() {
 
        Fix DNS or the proxy on this machine and re-run, or copy the missing
        directories from subprojects/ on a machine that already has them."
+}
+
+# The driver step clones from GitHub too, and a machine with no DNS fails there
+# exactly the same way meson does — so say it in one line before git spends a
+# minute timing out.
+require_github() {
+    # A proxy that answers 401 for a public repo makes git ask for a username,
+    # and on a terminal it sits there waiting forever. Fail instead of hanging.
+    export GIT_TERMINAL_PROMPT=0
+    getent hosts github.com >/dev/null 2>&1 && return 0
+    die "cannot reach github.com — the SDR driver has to be cloned from there.
+       Fix DNS or the proxy on this machine and run this installer again."
 }
 
 # ------------------------------------------------------------------------------
@@ -1160,7 +1348,8 @@ echo "   STEP 12  OpenCL acceleration — yes / no, and which provider"
 echo "   STEP 13  Admin panel         — yes / no  (asks its own questions)"
 echo "   STEP 14  RADE / FreeDV       — yes / no  (asks its own questions)"
 echo "   STEP 15  Statistics server   — yes / no  (asks its own questions)"
-echo "   STEP 17  Final rebuild       — yes / no"
+echo "   STEP 17  Kiwi emulation      — yes / no  (patches source for Kiwi clients)"
+echo "   STEP 18  Final rebuild       — yes / no"
 echo ""
 yellow "Each of those is fenced by a '⌨️  YOUR INPUT IS NEEDED' banner."
 echo "Everything else runs on its own and needs no attention."
@@ -1197,7 +1386,7 @@ run $SUDO apt-get install -y \
     libusb-1.0-0-dev libfftw3-dev libwebsocketpp-dev libflac++-dev \
     zlib1g-dev libzstd-dev libboost-all-dev \
     libopus-dev libliquid-dev \
-    git psmisc python3
+    git psmisc procps python3
 
 green "✅ Prerequisites installed"
 
@@ -1210,6 +1399,10 @@ fact "Boost" "${BOOST_LABEL}$([ "$WSPP_REQUIRED" = true ] \
     && echo '  (>= 1.87 — the websocketpp patch is MANDATORY here)' \
     || echo '  (< 1.87 — the websocketpp patch is applied but optional)')"
 fact "Compiler" "$(gcc --version 2>/dev/null | head -1 || echo 'gcc (version unknown)')"
+# A broken pip --user shim in ~/.local/bin hides the copy just installed, and
+# the failure it causes has nothing to do with PhantomSDR-Plus. Deal with it
+# before the version is recorded, so the report names the copy this run uses.
+ensure_working_tool meson
 fact "meson"    "$(meson --version 2>/dev/null || echo unknown)"
 
 # ------------------------------------------------------------------------------
@@ -1362,6 +1555,14 @@ step "Building the PhantomSDR-Plus backend" "meson setup + compile — takes a f
 
 cd "$PHANTOM_DIR"
 
+# Re-checked here: ninja arrived with the build dependencies (meson calls it
+# by name, so a broken shim would surface as a confusing meson error), and the
+# build tools may have been installed after the earlier check.
+ensure_working_tool meson
+ensure_working_tool ninja
+
+check_clock_skew
+
 echo "Configuring with Meson..."
 clean_stale_subprojects
 check_subproject_network
@@ -1479,7 +1680,8 @@ case $option in
        or delete it and let this installer clone it fresh:
            rm -rf \"$PHANTOM_DIR/rx888_stream\""
         else
-            run git clone https://github.com/rhgndf/rx888_stream
+            require_github
+            run_logged git clone https://github.com/rhgndf/rx888_stream
             cd rx888_stream
         fi
 
@@ -1535,7 +1737,8 @@ case $option in
                 git pull || warn "git pull failed in rtl-sdr-blog — building the existing clone"
                 cd ..
             else
-                run git clone https://github.com/rtlsdrblog/rtl-sdr-blog
+                require_github
+                run_logged git clone https://github.com/rtlsdrblog/rtl-sdr-blog
             fi
 
             cd rtl-sdr-blog
@@ -1565,10 +1768,29 @@ case $option in
     3)  echo ""
         echo "Setting up SDRPlay via libmirisdr-5..."
 
-        if [ -d "libmirisdr-5" ]; then
+        # git and cmake are what this branch stands on. Say so plainly here
+        # rather than letting "Command failed: git clone ..." be the whole
+        # story in install.txt.
+        command -v git >/dev/null 2>&1 || die "git is not installed. Install it and re-run:
+       sudo apt-get install -y git"
+        command -v cmake >/dev/null 2>&1 || die "cmake is not installed. Install it and re-run:
+       sudo apt-get install -y cmake build-essential"
+
+        if [ -d "libmirisdr-5/.git" ]; then
             yellow "libmirisdr-5 already exists — re-using existing clone."
+        elif [ -e "libmirisdr-5" ]; then
+            # A clone that died half way leaves the directory behind, and the
+            # old check happily "re-used" it — the failure then surfaced much
+            # later as a cmake error about a missing CMakeLists.txt.
+            die "'$PWD/libmirisdr-5' exists but is not a git clone
+       (an interrupted download leaves this behind). Delete it and re-run:
+           rm -rf \"$PWD/libmirisdr-5\""
         else
-            run git clone https://github.com/ericek111/libmirisdr-5
+            # run_logged, not run: when this fails the report must quote git's
+            # own words (DNS, proxy, TLS, rate limit) instead of only the
+            # command line.
+            require_github
+            run_logged git clone https://github.com/ericek111/libmirisdr-5
         fi
 
         cd libmirisdr-5 || die "Failed to enter libmirisdr-5 directory"
@@ -2252,7 +2474,112 @@ fi
 echo ""
 
 # ------------------------------------------------------------------------------
-# STEP 16 — Final rebuild
+# STEP 16 — Kiwi client emulation (optional)
+# ------------------------------------------------------------------------------
+# kiwi_install.sh patches client.h, signal.cpp, waterfall.cpp, spectrumserver.h/
+# .cpp, websocket.cpp and http.cpp so PhantomSDR-Plus also answers the KiwiSDR
+# protocol (SND + W/F) — retuning, audio and an S-meter recognised by existing
+# Kiwi clients (AetherSDR, kiwiclient...). It only touches source, so it runs
+# here, one step before the final rebuild that compiles its changes in.
+#
+# kiwi_install.sh insists on finding kiwi_bridge.h in ITS OWN directory — a
+# guard against patching against the wrong header version — and copies it into
+# src/ itself. So the only prerequisite is a kiwi_bridge.h somewhere in the
+# tree: src/ if an earlier run already staged one, otherwise beside this script
+# or at the top of the source tree. Whichever copy is found is placed next to
+# kiwi_install.sh before it runs, so its own check passes.
+#
+# Neither file is part of every snapshot of the tree. Missing both is a normal
+# state, not a fault, so it skips quietly; kiwi_install.sh present WITHOUT the
+# header is a broken pair and does warn.
+
+step "Kiwi client emulation (optional)" "⌨️  YOU WILL BE ASKED — patches source for the KiwiSDR protocol"
+
+KIWI_INSTALL_SRC=""
+for cand in "$SCRIPT_DIR/kiwi_install.sh" "$PHANTOM_DIR/kiwi_install.sh"; do
+    [ -f "$cand" ] && { KIWI_INSTALL_SRC="$cand"; break; }
+done
+
+KIWI_BRIDGE_SRC=""
+for cand in "$PHANTOM_DIR/src/kiwi_bridge.h" "$SCRIPT_DIR/kiwi_bridge.h" \
+            "$PHANTOM_DIR/kiwi_bridge.h"; do
+    [ -f "$cand" ] && { KIWI_BRIDGE_SRC="$cand"; break; }
+done
+
+if [ -n "$KIWI_INSTALL_SRC" ] && [ -n "$KIWI_BRIDGE_SRC" ]; then
+    echo ""
+    echo "Adds a KiwiSDR-protocol bridge (SND + W/F) so Kiwi clients such as"
+    echo "AetherSDR or kiwiclient can connect to this receiver directly —"
+    echo "including retuning and an S-meter."
+    echo ""
+    yellow "   Patches src/client.h, signal.cpp, waterfall.cpp, spectrumserver.*,"
+    yellow "   websocket.cpp and http.cpp; each original file is backed up first."
+    yellow "   Installed by default — answer 'n' to skip it."
+
+    if confirm PHANTOM_KIWI y n "Install Kiwi client emulation now?"; then
+        [ "$KIWI_INSTALL_SRC" -ef "$PHANTOM_DIR/kiwi_install.sh" ] \
+            || cp "$KIWI_INSTALL_SRC" "$PHANTOM_DIR/kiwi_install.sh"
+        chmod +x "$PHANTOM_DIR/kiwi_install.sh" 2>/dev/null || true
+
+        # kiwi_install.sh looks for kiwi_bridge.h beside itself (see above).
+        # Remember whether that copy is ours, so the root of the tree can be
+        # left as it was found.
+        KIWI_STAGED_HDR=false
+        if ! [ "$KIWI_BRIDGE_SRC" -ef "$PHANTOM_DIR/kiwi_bridge.h" ]; then
+            cp "$KIWI_BRIDGE_SRC" "$PHANTOM_DIR/kiwi_bridge.h"
+            KIWI_STAGED_HDR=true
+        fi
+
+        echo ""
+        # Captured, not just run: this step only warns, so without the log the
+        # report said "kiwi_install.sh did not finish" and nothing about why,
+        # while the reason had scrolled off the terminal hours earlier.
+        KIWI_LOG="$(mktemp "${TMPDIR:-/tmp}/phantom-kiwi-XXXXXX.log")"
+        if ( cd "$PHANTOM_DIR" && ./kiwi_install.sh ) 2>&1 | tee "$KIWI_LOG"; then
+            rm -f "$KIWI_LOG"
+            KIWI_INSTALLED=true
+            # Our staged copy has served its purpose; kiwi_install.sh has put
+            # the real one in src/. On failure it is left in place, because the
+            # manual re-run advised below needs it.
+            if [ "$KIWI_STAGED_HDR" = true ]; then
+                rm -f "$PHANTOM_DIR/kiwi_bridge.h"
+            fi
+            green "✅ Kiwi client emulation installed"
+            component "Kiwi client emulation" \
+                "patched, [kiwi_emulation] enabled in the config .toml files — /kiwi/<id>/SND and /kiwi/<id>/W/F"
+        else
+            step_state PARTIAL "kiwi_install.sh did not finish"
+            # kiwi_install.sh patches by exact text match and stops on the first
+            # anchor it cannot find, naming the file — which is the one line
+            # worth carrying into the report.
+            kiwi_tail=""
+            [ -s "$KIWI_LOG" ] && kiwi_tail="
+       Last lines of its output:
+$(tail -n 12 "$KIWI_LOG" | sed 's/^/       | /')"
+            warn "kiwi_install.sh did not finish — run it by hand: cd $PHANTOM_DIR && ./kiwi_install.sh
+       Nothing is half-patched: it stops on the first anchor it cannot find,
+       without touching that file, and the originals are in
+       $PHANTOM_DIR/backup_kiwi_bridge_*/${kiwi_tail}"
+            component "Kiwi client emulation" "FAILED — run ./kiwi_install.sh by hand"
+        fi
+    else
+        echo "Skipping Kiwi client emulation — run ./kiwi_install.sh later if you change your mind."
+        step_state SKIPPED "you declined"
+        component "Kiwi client emulation" "not installed — ./kiwi_install.sh installs it later"
+    fi
+elif [ -n "$KIWI_INSTALL_SRC" ]; then
+    step_state SKIPPED "kiwi_bridge.h not found"
+    warn "kiwi_install.sh is here but kiwi_bridge.h is not — skipping Kiwi client emulation."
+    component "Kiwi client emulation" "not installed — kiwi_bridge.h missing from src/ and the source tree"
+else
+    step_state SKIPPED "kiwi_install.sh not part of this tree"
+    echo "kiwi_install.sh is not part of this tree — nothing to install."
+    component "Kiwi client emulation" "not installed — kiwi_install.sh not shipped with this tree"
+fi
+echo ""
+
+# ------------------------------------------------------------------------------
+# STEP 17 — Final rebuild
 # ------------------------------------------------------------------------------
 # Last build action: one full rebuild, so the backend picks up the patched
 # headers and the frontend is built from whatever RADE and the admin panel just
@@ -2307,7 +2634,7 @@ fi
 echo ""
 
 # ------------------------------------------------------------------------------
-# STEP 17 — Summary
+# STEP 18 — Summary
 # ------------------------------------------------------------------------------
 
 component "Reboot required" "$([ "$NEEDS_REBOOT" = true ] \
@@ -2375,6 +2702,13 @@ if [ "$STATS_INSTALLED" = true ]; then
     echo "   • Installed — see the directory and port it printed above"
 fi
 
+if [ "$KIWI_INSTALLED" = true ]; then
+    echo ""
+    green "✅ Kiwi client emulation:"
+    echo "   • Served at /kiwi/<id>/SND and /kiwi/<id>/W/F, same host/port as usual"
+    echo "   • Debug log: /tmp/kiwi_retune.log"
+fi
+
 if [ "$RX888_UDEV_DONE" = true ]; then
     echo ""
     green "✅ RX888 udev rules:"
@@ -2436,6 +2770,14 @@ if [ "$ADMIN_INSTALLED" = true ]; then
     echo "🛠  4. Open the admin panel (same address, /admin):"
     echo "      http://YOUR_IP:<proxy_port>/admin      password: admin"
     echo "      Start / stop it with:  sudo systemctl start|stop phantomsdr-admin"
+fi
+
+if [ "$KIWI_INSTALLED" = true ]; then
+    KIWI_STEP_NO=4
+    [ "$ADMIN_INSTALLED" = true ] && KIWI_STEP_NO=5
+    echo ""
+    echo "📡 ${KIWI_STEP_NO}. Point a Kiwi client (AetherSDR, kiwiclient...) at this receiver —"
+    echo "      same host/port as above, paths /kiwi/<id>/SND and /kiwi/<id>/W/F."
 fi
 
 echo ""

@@ -191,6 +191,48 @@
 //       12 in a row would have thrown it away mid-image.
 //       Measured after: noise abandoned 10/10 runs at ~20 lines; +6.4/+2.9 dB
 //       10/10 decoded; +0.4 dB 8/10, matching the behaviour before the change.
+//
+//  [21] QSB / QRM SURVIVAL  (proven locks, time-based abandon, draw hold)
+//       Reported symptom: the decoder gave up mid-picture on fades and on short
+//       bursts of interference.  Reproduced with a synthetic generator (Martin
+//       M1 / Robot 36 + AWGN + programmable fade and QRM burst):
+//         • Robot 36, +3 dB, a 3 s fade  → lock abandoned, image restarted
+//         • Robot 36, +6 dB, a 2 s QRM burst → 10/10 runs broke the frame
+//         • Martin M1, 0 dB, a 3 s fade  → abandoned after 11 misses
+//       Three causes, all in the abandon path added by [20]:
+//         a) The hit-RATE rule stayed armed for the whole frame.  It is meant to
+//            ask "was this lock ever real", but a genuine picture at +0.4 dB runs
+//            at an accept rate of 0.11 — only ~5 lines of EMA above the 0.05 bar —
+//            so any ordinary fade crossed it.  The rule is now disarmed once the
+//            lock has produced _provenHits (5) accepted pulses.  On pure noise the
+//            accept rate is 0.000, so a false lock never proves itself and still
+//            dies in ~20 lines: measured 0/10 locks on 30 s of noise, unchanged.
+//         b) The consecutive-miss backstop was a fixed 40 lines, i.e. 2.7 s on
+//            Robot 36 but 8 s on Martin M1 — and the rate rule fired first
+//            anyway, at ~18 misses.  A proven lock is now released only after
+//            _maxLostSeconds (12 s) of continuous absence, converted to lines per
+//            mode.  A fade is dead-reckoned through: the line timing is
+//            free-running, so the picture resumes IN REGISTER, whereas abandoning
+//            re-acquires via AUTO and restarts at line 0, destroying the frame.
+//         c) _lastSyncQuality (the relative bar, quality > last·0.35) was updated
+//            only on hits, so after a fade it stayed anchored to the pre-fade
+//            level and rejected the weaker pulses QSB recovery actually returns.
+//            It now decays 0.93 per missed line.
+//       Holding a lock through a dropout must not mean PAINTING the dropout, so
+//       rows are no longer emitted after _holdSeconds (4 s) without sync — the
+//       line counter and anchor still advance, keeping the geometry.
+//       Measured, 10 runs each (old → new):
+//         pure noise 30 s        0/10 locks  → 0/10 locks   (unchanged)
+//         R36 +6 dB, 2 s QRM     1.0 unlocks/run, longest run 48 lines
+//                                → 0 unlocks, longest run 100 lines
+//         R36 +6 dB, 3 s fade    abandoned   → rides through
+//         M1  +10 dB, 10 s fade  abandoned   → rides through
+//         M1  +10 dB, 18 s fade  abandoned   → still abandoned (signal is gone)
+//         M1 full frames by SNR  0 dB 0/8 → 2/8, +1 dB 1/8 → 3/8,
+//                                +2 dB 3/8 → 5/8, +3 dB 6/8 → 6/8, +5 dB 8/8 → 8/8
+//       Cost of the trade: after a real end of transmission the decoder paints up
+//       to _holdSeconds of dead-reckoned rows before it stops drawing, and holds
+//       the mode badge for up to _maxLostSeconds before releasing it.
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { transformFlat } from './lib/fftRadix2.js';
@@ -406,10 +448,38 @@ export class KiwiSSTVDecoder {
     // signal produces survives, and a lock on nothing dies.  A signal below this
     // is one whose sync is never found at all, which is indistinguishable from
     // noise by any means available here.
+    // The rate rule answers "was this lock ever real at all", so it is armed
+    // only until the lock has PROVEN itself with a handful of accepted pulses.
+    // Measured accept rate on pure noise is 0.000, so a false lock never proves
+    // itself and still dies in ~20 lines; a real picture proves itself within a
+    // few lines at any workable SNR.  Leaving the rate rule armed for the whole
+    // frame was the bug behind "gives up during QSB": at +0.4 dB a genuine
+    // picture runs at an accept rate of 0.11, only ~5 lines of EMA above the
+    // 0.05 bar, so an ordinary fade crossed it and threw the frame away.
     this._syncHitRate     = 1;
     this._syncLines       = 0;
+    this._syncHits        = 0;
     this._minSyncHitRate  = 0.05;
     this._minRateLines    = 20;   // EMA needs ~20 lines to fall from 1 to 0.04
+    this._provenHits      = 5;    // accepted pulses after which the rate rule disarms
+    // Once proven, the only thing that ends a lock is a sustained ABSENCE of
+    // sync, measured in SECONDS rather than lines — the previous fixed 40-line
+    // backstop meant 2.7 s on Robot 36 but 8 s on Martin M1, and the rate rule
+    // fired even sooner.  QSB fades of 3-8 s are ordinary on HF, and the frame
+    // survives them by dead reckoning: the line timing is free-running, so a
+    // faded picture resumes in register while abandoning restarts it at line 0.
+    this._maxLostSeconds  = 12;
+    this._maxLostLinesMin = 25;   // ...but never fewer than this many lines
+    this._maxLostLinesMax = 90;   // ...nor more (Robot 36 would reach 80)
+    // Holding the lock through a fade should not mean PAINTING the fade.  After
+    // this long with no accepted sync there is no picture in the audio either,
+    // so the dead-reckoned rows are noise: keep decoding and keep the line
+    // timing running (that is what lets the picture resume in register), but
+    // stop emitting until sync comes back.  Without this, riding out a 12 s
+    // dropout wrote 12 s of static across the image.
+    this._holdSeconds     = 4;
+    this._holdLinesMin    = 10;
+    this._holdLinesMax    = 40;
     this._gateHold    = Math.round(2.0 * this._decodeSps);   // hangover after signal drops
 
     // ── Lock confirmation (AUTO / FORCED only — VIS is parity-checked) ─────
@@ -1219,6 +1289,7 @@ export class KiwiSSTVDecoder {
     // in one place rather than at each call site.
     this._syncHitRate  = 1;
     this._syncLines    = 0;
+    this._syncHits     = 0;
     this._imageW       = mode.width;
     this._imageH       = mode.height;
     if (!announce) return;
@@ -1894,6 +1965,7 @@ export class KiwiSSTVDecoder {
 
       this._syncLines++;
       this._syncHitRate += 0.15 * ((useFound ? 1 : 0) - this._syncHitRate);
+      if (useFound) this._syncHits++;
 
       if (useFound) {
         // EMA, not "whatever the last line was": a single strong pulse used to
@@ -1905,17 +1977,33 @@ export class KiwiSSTVDecoder {
         this._lostSyncCount   = 0;
       } else {
         this._lostSyncCount++;
-        // FIX [15]: after 12 consecutive sync misses the signal is gone or
-        // severely corrupted.  Abandon the current mode so VIS/auto detection
-        // can restart cleanly, rather than dead-reckoning for 200+ more lines.
-        // The consecutive-miss rule was 12.  That was safe only while the sync
-        // test accepted almost everything; with an honest floor a genuine +0.4 dB
-        // picture misses 89% of its lines and would be thrown away mid-image, even
-        // though dead reckoning decodes it perfectly well.  40 keeps it as a
-        // backstop against a runaway, and the rate rule below is what actually
-        // notices that the signal has gone.
-        if (this._lostSyncCount > 40 ||
-            (this._syncLines >= this._minRateLines &&
+        // The relative bar must FOLLOW the signal down.  _lastSyncQuality is
+        // updated only on hits, so after a fade it stayed anchored to the
+        // pre-fade (strong) pulses: when the signal came back weaker — which is
+        // what QSB recovery looks like — every pulse failed `> last * 0.35`
+        // against a bar built on a signal that no longer exists, and the miss
+        // run continued through the recovery.  Decaying it per missed line lets
+        // the lock re-acquire at whatever level the signal returns at, while
+        // still resisting a single noise spike.
+        this._lastSyncQuality *= 0.93;
+
+        // Two separate questions, and they need separate rules (see [21]).
+        //
+        //   • "Was this lock ever real?"  — a RATE over the opening lines.  On
+        //     pure noise the accept rate is 0.000, so a false lock never reaches
+        //     _provenHits and still dies in ~20 lines, exactly as before.
+        //   • "Has the signal gone away?" — a sustained ABSENCE of sync, in
+        //     seconds.  Once a lock has proven itself this is the only thing
+        //     that ends it, so a fade is dead-reckoned through instead of
+        //     throwing the frame away and restarting it at line 0.
+        const proven  = this._syncHits >= this._provenHits;
+        const lostBar = Math.max(
+          this._maxLostLinesMin,
+          Math.min(this._maxLostLinesMax,
+                   Math.round(this._maxLostSeconds * 1000 / m.lineMs)));
+        if (this._lostSyncCount > lostBar ||
+            (!proven &&
+             this._syncLines >= this._minRateLines &&
              this._syncHitRate < this._minSyncHitRate)) {
           this._emit({ type: 'status', text: `${m.name} — sync lost, resetting` });
           // Clear the UI mode badge — otherwise a transient (e.g. noise-induced)
@@ -1958,7 +2046,16 @@ export class KiwiSSTVDecoder {
         rows = pixels ? [{ pixels, lineNum: this._line }] : [];
       }
 
-      for (const row of rows) {
+      // Suppress dead-reckoned rows once sync has been absent long enough that
+      // they can only be noise (see _holdSeconds).  The line counter and anchor
+      // below still advance, so the frame keeps its geometry across the gap.
+      const holdBar = Math.max(
+        this._holdLinesMin,
+        Math.min(this._holdLinesMax,
+                 Math.round(this._holdSeconds * 1000 / m.lineMs)));
+      const drawing = this._lostSyncCount <= holdBar;
+
+      for (const row of (drawing ? rows : [])) {
         this._emit({
           type:        'line',
           pixels:      row.pixels,
@@ -1995,6 +2092,7 @@ export class KiwiSSTVDecoder {
         this._line            = 0;
         this._syncHitRate     = 1;
         this._syncLines       = 0;
+        this._syncHits        = 0;
         this._r36_pendingY    = null;
         this._r36_pendingCb   = null;
         this._r36_pendingLine = -1;

@@ -10,12 +10,13 @@ Esta guía completa le acompañará en la instalación y configuración de Phant
 2. [Preparación previa a la instalación](#preparación-previa-a-la-instalación)
 3. [Instalación de PhantomSDR-Plus](#instalación-de-phantomsdr-plus) — el script y [qué hace](#qué-hace-el-instalador)
 4. [Autorun Spot Reporter (FT8/FT4/WSPR)](#autorun-spot-reporter-ft8ft4wspr)
-5. [Configuración](#configuración)
-6. [Configuración específica por dispositivo SDR](#configuración-específica-por-dispositivo-sdr)
-7. [Pruebas y verificación](#pruebas-y-verificación)
-8. [Configuración del arranque automático](#configuración-del-arranque-automático)
-9. [Protección térmica de la CPU](#protección-térmica-de-la-cpu)
-10. [Resolución de problemas](#resolución-de-problemas)
+5. [Emulación de clientes KiwiSDR (opcional)](#emulación-de-clientes-kiwisdr-opcional)
+6. [Configuración](#configuración)
+7. [Configuración específica por dispositivo SDR](#configuración-específica-por-dispositivo-sdr)
+8. [Pruebas y verificación](#pruebas-y-verificación)
+9. [Configuración del arranque automático](#configuración-del-arranque-automático)
+10. [Protección térmica de la CPU](#protección-térmica-de-la-cpu)
+11. [Resolución de problemas](#resolución-de-problemas)
 
 **Solo como referencia: el instalador ya hace todo esto por usted.** Lea estas secciones si usa una distribución que ninguno de los scripts cubre, o si necesita reparar un paso a mano:
 
@@ -407,20 +408,22 @@ La instalación transcurre en 17 pasos claramente numerados, y cada punto en el 
 
 ### Qué hace el instalador
 
-No hay que preparar nada a mano de antemano: ninguna lista de paquetes que pegar, ningún Node.js que descargar, ningún paquete de OpenCL que buscar. Transcurre en 17 pasos numerados y se detiene a hacerle siete preguntas, cada una enmarcada por un recuadro «SE NECESITA SU RESPUESTA»: quédese al teclado, o bien ponga `PHANTOM_NONINTERACTIVE=1` y deje que responda todo con sus valores por defecto (véase más abajo), y cuente entre unos veinte minutos y bastante más de una hora según la máquina y según cuántos extras conserve.
+No hay que preparar nada a mano de antemano: ninguna lista de paquetes que pegar, ningún Node.js que descargar, ningún paquete de OpenCL que buscar. Transcurre en 19 pasos numerados y se detiene a hacerle hasta diez preguntas, cada una enmarcada por un recuadro «SE NECESITA SU RESPUESTA»: quédese al teclado, o bien ponga `PHANTOM_NONINTERACTIVE=1` y deje que responda todo con sus valores por defecto (véase más abajo), y cuente entre unos veinte minutos y bastante más de una hora según la máquina y según cuántos extras conserve.
 
 | # | Paso | Qué se le pregunta |
 |---|---|---|
-| 1–5 | Detecta la distribución e instala todas las dependencias de compilación (compilador, meson/ninja, FFTW, Boost, FLAC, Opus, liquid-dsp, zlib/zstd, libcurl …) | nada |
-| 3 | Instala Node.js 22 mediante nvm si el sistema no lo tiene o lo tiene demasiado antiguo | nada |
-| 6 | Compila el backend con meson | nada |
-| 7 | Compila el driver de su receptor — RX888 MkII / RX888, RTL-SDR (el Blog V4 se pregunta aparte), SDRplay o ninguno. Al elegir el RX888 **también instala las reglas udev**, para que el servidor nunca necesite `sudo` para el dispositivo | qué SDR tiene |
-| 8 | Abre `frontend/site_information.json` en su editor | indicativo, locator, hardware, antena — **no se lo salte** |
-| 9–10 | Instala las dependencias del frontend y compila las páginas de escritorio y `/mobile` | nada |
-| 11 | Instala OpenCL eligiendo el proveedor según el hardware que encuentra (GPU Intel / AMD / NVIDIA, o el runtime de CPU x86). Si no hay ningún dispositivo compatible, lo dice y continúa | confirmar, sí por defecto |
-| 12–14 | Instala el **panel de administración**, el **decodificador FreeDV RADE V1** y el **servidor de estadísticas** — los tres por defecto | confirmar cada uno, sí por defecto; cada uno tiene sus preguntas |
-| 15 | Vuelve a aplicar las cinco cabeceras parcheadas de websocketpp sobre el subproyecto de meson y verifica que se copiaron. Tres de ellas son el trabajo de compatibilidad con Boost ≥ 1.87, sin el cual el backend no compila con Boost 1.90; las otras dos son cambios propios del proyecto, uno de ellos la corrección que necesita el registro en websdr.org | nada |
-| 16 | Ejecuta `recompile.sh` como última acción, para que todo se compile a partir de las fuentes parcheadas | `[3] Both backend and frontend` → variante inicial → `[1] build-all.sh` |
+| 1 | Enumera los servicios de PhantomSDR-Plus que están en marcha en ese momento — panel de administración, proxy inverso, servidor de estadísticas, receptor — y ofrece detenerlos antes de tocar nada | confirmar, **sí por defecto** |
+| 2–6 | Detecta la distribución e instala todas las dependencias de compilación (compilador, meson/ninja, FFTW, Boost, FLAC, Opus, liquid-dsp, zlib/zstd, libcurl …), instalando Node.js 22 mediante nvm si el sistema no lo tiene o lo tiene demasiado antiguo | nada |
+| 7 | Compila el backend con meson | nada |
+| 8 | Compila el driver de su receptor — RX888 MkII / RX888, RTL-SDR (el Blog V4 se pregunta aparte), SDRplay o ninguno. Al elegir el RX888 **también instala las reglas udev**, para que el servidor nunca necesite `sudo` para el dispositivo | qué SDR tiene |
+| 9 | Abre `frontend/site_information.json` en su editor | indicativo, locator, hardware, antena — **no se lo salte** |
+| 10–11 | Instala las dependencias del frontend y compila las páginas de escritorio y `/mobile` | nada |
+| 12 | Instala OpenCL eligiendo el proveedor según el hardware que encuentra (GPU Intel / AMD / NVIDIA, o el runtime de CPU x86). Si no hay ningún dispositivo compatible, lo dice y continúa | confirmar, sí por defecto |
+| 13–15 | Instala el **panel de administración**, el **decodificador FreeDV RADE V1** y el **servidor de estadísticas** — los tres por defecto | confirmar cada uno, sí por defecto; cada uno tiene sus preguntas |
+| 16 | Vuelve a aplicar las cinco cabeceras parcheadas de websocketpp sobre el subproyecto de meson y verifica que se copiaron. Tres de ellas son el trabajo de compatibilidad con Boost ≥ 1.87, sin el cual el backend no compila con Boost 1.90; las otras dos son cambios propios del proyecto, uno de ellos la corrección que necesita el registro en websdr.org | nada |
+| 17 | Instala la **emulación de clientes KiwiSDR** ejecutando `kiwi_install.sh`, para que clientes Kiwi como AetherSDR puedan conectarse a este receptor. Parchea las fuentes y añade `[kiwi_emulation]` a los ficheros de configuración de la raíz del repositorio — véase [Emulación de clientes KiwiSDR](Aether_config.md) | confirmar, sí por defecto |
+| 18 | Ejecuta `recompile.sh`, para que todo se compile a partir de las fuentes parcheadas | `[3] Both backend and frontend` → variante inicial → `[1] build-all.sh` |
+| 19 | Imprime el resumen: cada paso con su veredicto y cada componente con lo que se instaló | nada |
 
 #### Instalación desatendida
 
@@ -437,8 +440,10 @@ Cada pregunta tiene una variable de entorno que la sustituye, y el instalador pa
 | `PHANTOM_ADMIN=y\|n` | admin panel (y interactive, n unattended) |
 | `PHANTOM_RADE=y\|n` | RADE / FreeDV (y interactive, n unattended) |
 | `PHANTOM_STATS=y\|n` | statistics server (y interactive, n unattended) |
+| `PHANTOM_KIWI=y\|n` | KiwiSDR client emulation (default y) |
 | `PHANTOM_RECOMPILE=y\|n` | final rebuild (default y) |
 | `PHANTOM_CURLPP=y\|n` | continuar sin curlpp — solo Arch y openSUSE (por defecto y) |
+| `PHANTOM_FIX_CLOCK_SKEW=y\|n` | restablecer las marcas de tiempo de los fuentes fechadas en el futuro, para que meson pueda compilar (por defecto y) |
 
 Los tres sub-instaladores marcados *n desatendido* son guiones interactivos por su cuenta, así que una ejecución desatendida los omite en lugar de quedarse esperando. Nómbrelos explícitamente para incluirlos:
 
@@ -622,6 +627,16 @@ A partir de ahí se muestran dos contadores distintos, fáciles de confundir. Lo
 
 ---
 
+## Emulación de clientes KiwiSDR (opcional)
+
+Desde la v3.9.0 PhantomSDR-Plus también puede responder al **protocolo KiwiSDR**, de modo que el software escrito para un KiwiSDR — **AetherSDR**, `kiwiclient` y los demás — se conecta directamente a su receptor, en el mismo host y puerto que ya publica. Está apagado hasta que se añade `[kiwi_emulation] enabled = true` a la configuración con la que arranca su receptor.
+
+El instalador lo ofrece como paso 17; `./kiwi_install.sh` lo aplica a un árbol ya instalado.
+
+> **Documentación completa: [Emulación de clientes KiwiSDR](Aether_config.md)** — qué hace el puente, cómo instalarlo, cada clave de `[kiwi_emulation]`, conectar un cliente, el nivel de audio, el S-meter, la tasa de la cascada y una tabla de síntomas.
+
+---
+
 ## Configuración
 
 ### 1. Elija su archivo de configuración
@@ -707,7 +722,7 @@ Edite los siguientes campos:
   "siteCity": "Your City, Country",
   "siteInformation": "https://github.com/sv1btl/PhantomSDR-Plus",
   "siteHardware": "Computer specifications",
-  "siteSoftware": "PhantomSDR-Plus v3.8.0",
+  "siteSoftware": "PhantomSDR-Plus v3.9.0",
   "siteReceiver": "Your SDR model",
   "siteAntenna": "Antenna description",
   "siteNote": "Additional information",
@@ -1188,6 +1203,60 @@ sudo dnf install <package-name>
 # Clean and reconfigure
 rm -rf build
 meson setup build --buildtype=release
+```
+
+#### `meson setup` termina con `ModuleNotFoundError: No module named 'mesonbuild'`
+
+```
+Traceback (most recent call last):
+  File "/home/<user>/.local/bin/meson", line 3, in <module>
+    from mesonbuild.mesonmain import main
+ModuleNotFoundError: No module named 'mesonbuild'
+```
+
+El árbol de fuentes no tiene ningún problema. Una instalación antigua con
+`pip install --user meson` dejó un script de arranque en `~/.local/bin`, que en el
+`PATH` va antes que `/usr/bin` y oculta la copia que instaló el gestor de paquetes.
+Una actualización de la distribución (por ejemplo Ubuntu 24.04 → 26.04) cambia
+Python a una versión nueva, el antiguo `site-packages` que contenía `mesonbuild`
+ya no está en la ruta de importación, y el script muere antes de hacer nada. Lo
+mismo le puede ocurrir a `ninja`.
+
+El instalador lo detecta y lo esquiva durante la ejecución, avisándole, pero
+repare el sistema:
+
+```bash
+rm -f ~/.local/bin/meson
+hash -r
+meson --version        # debe imprimir una versión
+```
+
+Si prefiere conservar meson instalado con pip, reinstálelo para el Python que
+tiene ahora este sistema:
+
+```bash
+python3 -m pip install --user --force-reinstall --break-system-packages meson
+```
+
+#### `meson setup` se detiene con `Clock skew detected`
+
+```
+ERROR: Clock skew detected. File /home/pi/PhantomSDR-Plus/build/../meson.build has a time stamp 10392.2144s in the future.
+```
+
+El árbol de fuentes no tiene ningún problema: es el reloj del sistema el que va por detrás de los archivos. meson y ninja se niegan a compilar cuando una entrada es más reciente que la hora actual, porque no pueden saber qué está obsoleto. Ocurre en una Raspberry Pi sin pila en su soporte RTC — cada arranque parte de la última hora conocida, y una compilación lanzada antes de que NTP se sincronice ve todo el árbol fechado en el futuro — y en cualquier árbol descomprimido o copiado desde una máquina adelantada.
+
+Corrija primero el reloj:
+
+```bash
+timedatectl                       # ¿la hora es correcta? ¿NTP está sincronizado?
+sudo timedatectl set-ntp true
+```
+
+Espere unos segundos y vuelva a ejecutar el instalador. Comprueba esto antes de llamar a meson y ofrece restablecer las marcas de tiempo afectadas (`PHANTOM_FIX_CLOCK_SKEW=y|n`). A mano, desde el árbol de fuentes:
+
+```bash
+find . -path ./build -prune -o -path ./.git -prune -o -newermt now -print0 | xargs -0r touch
 ```
 
 #### El backend se compiló pero no hay página web

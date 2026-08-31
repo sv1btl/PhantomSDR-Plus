@@ -1,4 +1,5 @@
 #include "spectrumserver.h"
+#include "kiwi_bridge.h"
 #include "chat.h"
 #include "samplereader.h"
 #include "crash_handler.h"
@@ -203,6 +204,26 @@ broadcast_server::broadcast_server(
     min_waterfall_fft = config["input"]["waterfall_size"].value_or(1024);
     brightness_offset = config["input"]["brightness_offset"].value_or(0);
     show_other_users  = config["server"]["otherusers"].value_or(1) > 0;
+    kiwi_emulation_enabled = config["kiwi_emulation"]["enabled"].value_or(false);
+    // Kiwi S-meter calibration. Defaults to the offset the web UI is
+    // already calibrated with, so both meters read the same; set
+    // [kiwi_emulation] smeter_offset only to make Kiwi differ.
+    // Defaults to analog_smeter_offset because that is the offset the web
+    // page's own display chain applies before its visual expansion -- see the
+    // S-meter note in kiwi_bridge.h. smeter_offset (the digital-only one) is
+    // NOT the right default here: it never reaches the number on the page.
+    kiwi_smeter_offset_db =
+        config["kiwi_emulation"]["smeter_offset"].value_or(
+            config["input"]["analog_smeter_offset"].value_or(0.0));
+    // Kiwi output gain. The bridge sends the same PCM the browser gets, but
+    // a Kiwi client has none of the browser's EQ/compressor chain, so it
+    // sounds thin by comparison. 0 dB leaves the stream untouched.
+    kiwi_wf_cal_db = config["kiwi_emulation"]["wf_cal"].value_or(0.0);
+    kiwi_wf_size_log2 =
+        (int)std::lround(std::log2((double)fft_size)) + brightness_offset;
+    kiwi_wf_fps_cap = config["kiwi_emulation"]["wf_fps_max"].value_or(23.0);
+    kiwi_audio_gain_db = config["kiwi_emulation"]["audio_gain"].value_or(0.0);
+    kiwi_audio_gain_lin = std::pow(10.0, kiwi_audio_gain_db / 20.0);
 
     // FIX: default_frequency previously used value_or(basefreq) before basefreq
     // was assigned.  Read as a raw value here; resolve against basefreq below.
@@ -866,8 +887,11 @@ void broadcast_server::update_websdr_org() {
             std::cout << "[WebSDROrg] Connected to " << org_host << std::endl;
         }
 
-        std::cout << "[WebSDROrg] Sending registration ping #"
-                  << (attempt + 1) << std::endl;
+        // The ping used to print three lines every 60 s -- sending, waiting,
+        // and the reply -- which is 4320 lines a day saying the registration is
+        // still fine. Only the reply is logged now, and only when it is worth
+        // reading: see below. Every failure path still reports, on cerr.
+        const bool prev_ok = websdr_org_last_ok_.load();
         if (send(fd, req.c_str(), req.size(), MSG_NOSIGNAL) < 0) {
             std::cerr << "[WebSDROrg] Send failed, reconnecting: "
                       << strerror(errno) << std::endl;
@@ -878,8 +902,6 @@ void broadcast_server::update_websdr_org() {
             continue;
         }
         ++attempt;
-        std::cout << "[WebSDROrg] Waiting response for ping #"
-                  << attempt << std::endl;
 
         char rbuf[256];
         rbuf[0] = '\0';
@@ -888,9 +910,12 @@ void broadcast_server::update_websdr_org() {
             rbuf[n] = '\0';
             std::string s(rbuf);
             size_t nl = s.find('\r');
-            std::cout << "[WebSDROrg] #" << attempt << " OK — "
-                      << (nl != std::string::npos ? s.substr(0, nl) : s)
-                      << std::endl;
+            // First ping, a recovery after any failure, and one an hour.
+            if (attempt == 1 || !prev_ok || attempt % 60 == 0) {
+                std::cout << "[WebSDROrg] ping #" << attempt << " OK — "
+                          << (nl != std::string::npos ? s.substr(0, nl) : s)
+                          << std::endl;
+            }
             websdr_org_last_ok_.store(true);
         } else if (n == 0) {
             std::cerr << "[WebSDROrg] Remote closed connection, reconnecting"

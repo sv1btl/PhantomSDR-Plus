@@ -3,6 +3,7 @@
 #include "fft.h"
 #include "signal.h"
 #include "utils/dsp.h"
+#include "kiwi_bridge.h"
 
 #include <atomic>
 #include <chrono>
@@ -607,6 +608,33 @@ void AudioClient::set_audio_range(int l, double m, int r) {
 
 void AudioClient::set_audio_demodulation(demodulation_mode demodulation) {
     this->demodulation = demodulation;
+
+    // Mode-dependent AGC profile, mirroring what on_demodulation_message()
+    // does for browser clients. Every Kiwi client reaches the demodulator ONLY
+    // through here -- "SET mod=" is translated into this call -- so without
+    // this it kept whatever profile the AGC was constructed with (SSB, see
+    // AGC::AGC) no matter what it tuned to, and AM ran with SSB hang and
+    // release timing.
+    //
+    // Deliberately NOT calling set_am_stereo(): that rebuilds the encoder as
+    // Opus or FLAC, which for a Kiwi client would throw away the KiwiSndEncoder
+    // mid-session and break the bridge. am_stereo and sam_enabled both default
+    // to false, so a Kiwi client gets the envelope detector on AM -- which is
+    // what "SET mod=am" means to a Kiwi client anyway. C-QUAM stays reachable
+    // only through the browser path, which owns the encoder swap.
+    {
+        std::scoped_lock lk(agc_mtx_);
+        agc.reset();
+        if (demodulation == AM) {
+            if (am_stereo.load(std::memory_order_relaxed)) {
+                agc.configureForQUAM();
+            } else {
+                agc.configureForAM();
+            }
+        } else {
+            agc.configureForSSB();
+        }
+    }
 }
 
 std::unique_ptr<AudioEncoder>
@@ -615,6 +643,9 @@ AudioClient::make_audio_encoder(audio_compressor codec, int channels) {
         // Raw PCM needs no configuration — no sample rate, blocksize or channel
         // setup. The autorun loopback client is mono; PcmEncoder ships int16 LE.
         return std::make_unique<PcmEncoder>(hdl, sender);
+    }
+    if (codec == AUDIO_KIWI_PCM) {
+        return std::make_unique<KiwiSndEncoder>(hdl, sender);
     }
 #ifdef HAS_LIBOPUS
     if (codec == AUDIO_OPUS) {

@@ -104,6 +104,10 @@ class broadcast_server : public PacketSender {
 
     // Signal functions, audio demodulation
     void on_open_signal(connection_hdl hdl, conn_type signal_type);
+
+    // Kiwi protocol bridge (leurre KiwiSDR)
+    void on_open_kiwi_snd(connection_hdl hdl);
+    void on_open_kiwi_wf(connection_hdl hdl);
     void on_close_signal(connection_hdl hdl, std::shared_ptr<AudioClient> &d);
     std::vector<std::future<void>> signal_loop();
 
@@ -111,7 +115,9 @@ class broadcast_server : public PacketSender {
     void on_open_waterfall(connection_hdl hdl);
     void on_close_waterfall(connection_hdl hdl,
                             std::shared_ptr<WaterfallClient> &d);
-    std::vector<std::future<void>> waterfall_loop(int8_t *fft_power_quantized);
+    std::vector<std::future<void>> waterfall_loop(int8_t *fft_power_quantized,
+                                                  bool kiwi_only,
+                                                  double source_fps);
 
     virtual void send_binary_packet(
         connection_hdl hdl,
@@ -162,6 +168,7 @@ class broadcast_server : public PacketSender {
     std::string tap_token;
     std::atomic<bool> running{false};
     bool show_other_users;
+    bool kiwi_emulation_enabled;
     int server_threads;
     int frame_num;
     waterfall_compressor waterfall_compression;

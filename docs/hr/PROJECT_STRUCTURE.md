@@ -43,8 +43,10 @@ PhantomSDR-Plus
 ├── connection_impl.hpp
 ├── docs
 │   ├── ADMIN_PANEL_SETUP.md
+│   ├── Aether_config.md
 │   ├── de
 │   │   ├── ADMIN_PANEL_SETUP.md
+│   │   ├── Aether_config.md
 │   │   ├── DECODERS.md
 │   │   ├── EDITING_VARIANTS.md
 │   │   ├── INSTALLATION.md
@@ -59,6 +61,7 @@ PhantomSDR-Plus
 │   ├── EDITING_VARIANTS.md
 │   ├── el
 │   │   ├── ADMIN_PANEL_SETUP.md
+│   │   ├── Aether_config.md
 │   │   ├── DECODERS.md
 │   │   ├── EDITING_VARIANTS.md
 │   │   ├── INSTALLATION.md
@@ -71,6 +74,7 @@ PhantomSDR-Plus
 │   │   └── USER_GUIDE.md
 │   ├── es
 │   │   ├── ADMIN_PANEL_SETUP.md
+│   │   ├── Aether_config.md
 │   │   ├── DECODERS.md
 │   │   ├── EDITING_VARIANTS.md
 │   │   ├── INSTALLATION.md
@@ -83,6 +87,7 @@ PhantomSDR-Plus
 │   │   └── USER_GUIDE.md
 │   ├── fr
 │   │   ├── ADMIN_PANEL_SETUP.md
+│   │   ├── Aether_config.md
 │   │   ├── DECODERS.md
 │   │   ├── EDITING_VARIANTS.md
 │   │   ├── INSTALLATION.md
@@ -95,6 +100,7 @@ PhantomSDR-Plus
 │   │   └── USER_GUIDE.md
 │   ├── hr
 │   │   ├── ADMIN_PANEL_SETUP.md
+│   │   ├── Aether_config.md
 │   │   ├── DECODERS.md
 │   │   ├── EDITING_VARIANTS.md
 │   │   ├── INSTALLATION.md
@@ -113,6 +119,7 @@ PhantomSDR-Plus
 │   ├── README.md
 │   ├── ru
 │   │   ├── ADMIN_PANEL_SETUP.md
+│   │   ├── Aether_config.md
 │   │   ├── DECODERS.md
 │   │   ├── EDITING_VARIANTS.md
 │   │   ├── INSTALLATION.md
@@ -315,6 +322,7 @@ PhantomSDR-Plus
 ├── install_rade_ubuntu22.sh
 ├── install.sh
 ├── install-stats-server.sh
+├── kiwi_install.sh             # instalira KiwiSDR most u postojeće stablo
 ├── instructions-for-airspy
 ├── instructions-for-rsp1a
 ├── jsdsp
@@ -394,6 +402,7 @@ PhantomSDR-Plus
 │   ├── fft_impl.cpp
 │   ├── fft_mkl.cpp
 │   ├── http.cpp
+│   ├── kiwi_bridge.h          # most KiwiSDR protokola — vidi docs/Aether_config.md
 │   ├── listing
 │   │   ├── software_info.cpp
 │   │   └── software_info.h
@@ -421,6 +430,13 @@ PhantomSDR-Plus
 ├── start-rtl.sh
 ├── start-rx888mk2.sh
 ├── stop-websdr.sh
+├── go.sh                      # stari lanac pokretanja, zamijenjen s start-<radio>.sh
+├── xgo.sh                     # staro: pokreće spectrumserver, poziva ga check-go.sh
+├── check-go.sh                # staro: nadzornik lanca go.sh
+├── kill.sh                    # staro: gasi procese poslužitelja, poziva ga go.sh
+├── _relaunch.sh               # staro: pomoćnik odgođenog ponovnog pokretanja lanca go.sh
+├── demo_installer.sh          # probni rad install.sh — prikazuje tijek, ništa ne instalira
+├── logproxy                   # rotirane kopije zapisnika ploče/posrednika/autoruna
 ├── subprojects
     ├── fftw3.wrap
     ├── flac.wrap
@@ -686,6 +702,10 @@ Svaka od donjih `start-*.sh` skripti samostalan je **pokretač + watchdog + zapi
 | `recompile.sh` | Ponovna izgradnja backenda i/ili frontenda te odabir varijante koja se poslužuje na `/` |
 | `smeter_theme.sh` | Postavi zadani izgled analognog S-metra (dark / amber / vintage) za sve korisnike i ponudi ponovnu izgradnju frontenda — vidi [Uređivanje varijanti](EDITING_VARIANTS.md) |
 | `waterfall.sh` | Mijenja zadanu minimalnu razinu slapa (dB) u `waterfall.js` + `App.svelte` — vidi [README](README.md) |
+| `kiwi_install.sh` | Instalira emulaciju KiwiSDR klijenata na stablo koje je nema: zakrpava izvorni kod pozadinskog dijela, kopira `src/kiwi_bridge.h` i dodaje dokumentirani `[kiwi_emulation]` blok u konfiguracijske datoteke u korijenu. Idempotentan je i sprema kopiju svake datoteke koje se dotakne — vidi [Emulacija KiwiSDR klijenata](Aether_config.md) |
+| `demo_installer.sh` | Probni rad `install.sh`: prikazuje cijeli tijek i ništa ne instalira |
+
+**Stari lanac pokretanja.** `go.sh`, `xgo.sh`, `check-go.sh`, `kill.sh` i `_relaunch.sh` prethodni su naraštaj skripti za pokretanje, nadzor i zaustavljanje. Sve što su radile sada je unutar svakog `start-<radio>.sh`, i to je ono što treba koristiti. Ostaju na disku jer ih postojeće instalacije referenciraju i više se ne održavaju.
 
 ### Podatkovne datoteke
 

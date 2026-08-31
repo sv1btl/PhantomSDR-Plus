@@ -90,6 +90,65 @@ ask_text() {
     eval "$varname=\"\${ans:-$default}\""
 }
 
+# Running as root
+#
+# This script used to refuse root outright. That was wrong in both directions:
+# it contradicted the sudo shim above, and it made "sudo ./install.sh" fail at
+# step 15 every single time — install.sh itself supports root (it sets SUDO=""
+# when it is already uid 0), so the parent installer ran happily as root and
+# then handed over to a child that would not. On a root-only box (a VPS image,
+# a container) there was no way past it at all.
+#
+# Everything below assumes one consistent identity: $HOME for the install
+# directory and the nvm tree, and that same user in the systemd unit. So there
+# are exactly two sane answers, not one.
+#
+#   sudo ./install-stats-server.sh  — SUDO_USER names a real invoking user.
+#       Drop back to them and re-exec. Every assumption downstream then holds
+#       unchanged, and the stats server does not end up running as root for no
+#       reason. sudo is obviously available: we got here through it.
+#
+#   a genuine root session (root login, container, cloud image with no
+#   unprivileged user) — SUDO_USER is unset or is root itself. Proceed as root.
+#       $HOME is /root, nvm goes to /root/.nvm and the unit says User=root:
+#       inconsistent with nothing, and it is the only identity that exists.
+#
+# PHANTOM_STATS_REEXEC guards the hand-back so a sudo that somehow lands us
+# back at uid 0 cannot loop.
+if [ "$(id -u)" -eq 0 ] && [ "${PHANTOM_STATS_REEXEC:-0}" != "1" ] \
+   && [ -n "${SUDO_USER:-}" ] && [ "$SUDO_USER" != "root" ]; then
+    echo -e "${BLUE}ℹ Running under sudo — continuing as $SUDO_USER, not root.${NC}"
+    echo "  The stats server is a user service: it needs no privileges of its"
+    echo "  own, and installing it as root would put it in /root and run it"
+    echo "  as root. Only the few steps that truly need it re-acquire sudo."
+    echo ""
+    # sudo scrubs the environment, so carry the installer's own answers across
+    # by hand — without them the re-exec would stop and ask questions that the
+    # parent install.sh already answered.
+    reexec_env=()
+    while IFS= read -r kv; do
+        reexec_env+=("$kv")
+    done < <(env | grep -E '^(PHANTOM_|DEBIAN_FRONTEND=|TZ=|NO_COLOR=)' || true)
+    reexec_env+=("PHANTOM_STATS_REEXEC=1")
+    exec sudo -u "$SUDO_USER" -H env "${reexec_env[@]}" \
+         bash "$0" "$@"
+fi
+
+if [ "$(id -u)" -eq 0 ]; then
+    echo -e "${YELLOW}⚠ Running as root — the stats server will be installed under${NC}"
+    echo "  $HOME and its systemd unit will run as root. That is expected on a"
+    echo "  root-only machine. On a normal desktop, prefer running this script"
+    echo "  as your own user."
+    echo ""
+fi
+
+# The identity the service will run as. $USER is not reliable here: sudo, su
+# and most container images leave it unset or pointing at the wrong account,
+# and an empty "User=" makes systemd reject the unit outright. id -un is the
+# user that is actually running this script, which after the block above is
+# always the user we want in the unit.
+SVC_USER="$(id -un)"
+
 echo -e "${BLUE}╔════════════════════════════════════════════════╗${NC}"
 echo -e "${BLUE}║   SDR System Stats Server - Installation       ║${NC}"
 echo -e "${BLUE}╚════════════════════════════════════════════════╝${NC}"
@@ -111,13 +170,6 @@ print_warning() {
 print_info() {
     echo -e "${BLUE}ℹ $1${NC}"
 }
-
-# Check if running as root
-if [ "$EUID" -eq 0 ]; then 
-    print_error "Please do not run this script as root or with sudo"
-    echo "Run it as a regular user: ./install-stats-server.sh"
-    exit 1
-fi
 
 echo -e "${BLUE}Step 1:${NC} Checking prerequisites..."
 echo ""
@@ -745,8 +797,8 @@ After=network.target
 
 [Service]
 Type=simple
-User=$USER
-Group=$USER
+User=$SVC_USER
+Group=$SVC_USER
 WorkingDirectory=$INSTALL_DIR
 ExecStart=$NODE_LAUNCHER $INSTALL_DIR/system-stats-server.js
 Restart=always

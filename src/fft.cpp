@@ -49,9 +49,18 @@ void broadcast_server::fft_task() {
     MovingAverage<double> sps_measured(60);
     auto prev_data = std::chrono::steady_clock::now();
 
+    // Rate at which this loop produces a new spectrum: one hop is half an FFT
+    // window (50% overlap is hardcoded above), so sps/(fft_size/2).  Kiwi
+    // clients are paced against it -- see WaterfallClient::kiwi_take_frame().
+    const double waterfall_source_fps = 2.0 * (double)sps / (double)fft_size;
+
     auto signal_loop_fn = std::bind(&broadcast_server::signal_loop, this);
-    auto waterfall_loop_fn = std::bind(&broadcast_server::waterfall_loop, this,
-                                       fft->get_quantized_buffer());
+    int8_t *quantized_buffer = fft->get_quantized_buffer();
+    auto waterfall_loop_fn = [this, quantized_buffer,
+                              waterfall_source_fps](bool kiwi_only) {
+        return waterfall_loop(quantized_buffer, kiwi_only,
+                              waterfall_source_fps);
+    };
 
     std::future<void> buffer_read = std::async(std::launch::async, [] {});
     std::vector<std::future<void>> signal_futures;
@@ -160,9 +169,10 @@ void broadcast_server::fft_task() {
 
         // Enqueue tasks once the fft is ready
         signal_futures = signal_loop_fn();
-        if (frame_num % skip_num == 0) {
-            waterfall_futures = waterfall_loop_fn();
-        }
+        // Run every frame now: browser clients still only get served on the
+        // skip_num boundary, but Kiwi clients need the frames in between to
+        // reach the ~23 fps their protocol asks for.
+        waterfall_futures = waterfall_loop_fn(frame_num % skip_num != 0);
         frame_num++;
 
         /*auto cur_data = std::chrono::steady_clock::now();

@@ -45,8 +45,10 @@ PhantomSDR-Plus
 ├── connection_impl.hpp
 ├── docs
 │   ├── ADMIN_PANEL_SETUP.md
+│   ├── Aether_config.md
 │   ├── de
 │   │   ├── ADMIN_PANEL_SETUP.md
+│   │   ├── Aether_config.md
 │   │   ├── DECODERS.md
 │   │   ├── EDITING_VARIANTS.md
 │   │   ├── INSTALLATION.md
@@ -61,6 +63,7 @@ PhantomSDR-Plus
 │   ├── EDITING_VARIANTS.md
 │   ├── el
 │   │   ├── ADMIN_PANEL_SETUP.md
+│   │   ├── Aether_config.md
 │   │   ├── DECODERS.md
 │   │   ├── EDITING_VARIANTS.md
 │   │   ├── INSTALLATION.md
@@ -73,6 +76,7 @@ PhantomSDR-Plus
 │   │   └── USER_GUIDE.md
 │   ├── es
 │   │   ├── ADMIN_PANEL_SETUP.md
+│   │   ├── Aether_config.md
 │   │   ├── DECODERS.md
 │   │   ├── EDITING_VARIANTS.md
 │   │   ├── INSTALLATION.md
@@ -85,6 +89,7 @@ PhantomSDR-Plus
 │   │   └── USER_GUIDE.md
 │   ├── fr
 │   │   ├── ADMIN_PANEL_SETUP.md
+│   │   ├── Aether_config.md
 │   │   ├── DECODERS.md
 │   │   ├── EDITING_VARIANTS.md
 │   │   ├── INSTALLATION.md
@@ -97,6 +102,7 @@ PhantomSDR-Plus
 │   │   └── USER_GUIDE.md
 │   ├── hr
 │   │   ├── ADMIN_PANEL_SETUP.md
+│   │   ├── Aether_config.md
 │   │   ├── DECODERS.md
 │   │   ├── EDITING_VARIANTS.md
 │   │   ├── INSTALLATION.md
@@ -115,6 +121,7 @@ PhantomSDR-Plus
 │   ├── README.md
 │   ├── ru
 │   │   ├── ADMIN_PANEL_SETUP.md
+│   │   ├── Aether_config.md
 │   │   ├── DECODERS.md
 │   │   ├── EDITING_VARIANTS.md
 │   │   ├── INSTALLATION.md
@@ -306,6 +313,7 @@ PhantomSDR-Plus
 ├── install_rade_ubuntu22.sh
 ├── install.sh
 ├── install-stats-server.sh
+├── kiwi_install.sh             # installs the KiwiSDR bridge into an existing tree
 ├── instructions-for-airspy
 ├── instructions-for-rsp1a
 ├── jsdsp
@@ -374,6 +382,7 @@ PhantomSDR-Plus
 │   ├── fft_impl.cpp
 │   ├── fft_mkl.cpp
 │   ├── http.cpp
+│   ├── kiwi_bridge.h          # KiwiSDR protocol bridge — see docs/Aether_config.md
 │   ├── listing
 │   │   ├── software_info.cpp
 │   │   └── software_info.h
@@ -401,6 +410,13 @@ PhantomSDR-Plus
 ├── start-rtl.sh
 ├── start-rx888mk2.sh
 ├── stop-websdr.sh
+├── go.sh                      # legacy launcher chain, superseded by start-<radio>.sh
+├── xgo.sh                     # legacy: starts spectrumserver, called by check-go.sh
+├── check-go.sh                # legacy: watchdog for the go.sh chain
+├── kill.sh                    # legacy: kills the server processes, called by go.sh
+├── _relaunch.sh               # legacy: delayed re-launch helper for the go.sh chain
+├── demo_installer.sh          # dry run of install.sh — shows the flow, installs nothing
+├── logproxy                   # rotated copies of the panel / proxy / autorun logs
 ├── setup-rx888-udev.sh
 ├── setup-cpufreq-perms.sh     # grants group write on scaling_max_freq so the guard can throttle without root
 ├── thermal_guard.py           # CPU over-temperature guard used by the admin panel (also runs standalone)
@@ -672,6 +688,10 @@ Each `start-*.sh` below is a **self-contained launcher + watchdog + logger**: it
 | `recompile.sh` | Rebuild the backend and/or the frontend, and pick the variant served at `/` |
 | `smeter_theme.sh` | Set the default analog S-meter face (dark / amber / vintage) for all users, and offer the frontend rebuild — see [Editing Variants](EDITING_VARIANTS.md) |
 | `waterfall.sh` | Change the default minimum waterfall level (dB) in `waterfall.js` + `App.svelte` — see [README](README.md) |
+| `kiwi_install.sh` | Install the KiwiSDR client-emulation bridge into a tree that has not got it: patches the backend sources, copies `src/kiwi_bridge.h`, and adds a documented `[kiwi_emulation]` block to the config files in the repository root. Idempotent, and backs up every file it touches — see [KiwiSDR Client Emulation](Aether_config.md) |
+| `demo_installer.sh` | Dry run of `install.sh`: shows the whole flow and installs nothing |
+
+**Legacy launcher chain.** `go.sh`, `xgo.sh`, `check-go.sh`, `kill.sh` and `_relaunch.sh` are the previous generation of launcher, watchdog and stop scripts. Everything they did is now inside each `start-<radio>.sh`, which is what you should use. They are kept on disk because existing installations still reference them, and are not maintained.
 
 ### Data Files
 
@@ -1134,6 +1154,6 @@ cd ..
 
 **This structure documentation should help you navigate and understand the PhantomSDR-Plus codebase.**
 
-For setup instructions, see [INSTALLATION.md](INSTALLATION.md). For usage information, see [USER_GUIDE.md](USER_GUIDE.md).
+For setup instructions, see [INSTALLATION.md](INSTALLATION.md). For usage information, see [USER_GUIDE.md](USER_GUIDE.md). For the KiwiSDR client bridge, see [Aether_config.md](Aether_config.md).
 
 **73 de SV1BTL & SV2AMK**

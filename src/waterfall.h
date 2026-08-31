@@ -17,6 +17,21 @@ class WaterfallClient : public Client {
                     int min_waterfall_fft);
     void set_waterfall_range(int level, int l, int r);
     void send_waterfall(int8_t *buf, size_t frame_num);
+
+    // ---- Kiwi waterfall pacing -------------------------------------------
+    // Browser clients are served every `skip_num` FFT frames (~14 fps on a
+    // 4M-point FFT at 60 Msps).  A Kiwi client asks for 23 fps with
+    // "SET wf_speed=4" and paces its own scroll from what it was told, so
+    // feeding it the browser cadence makes its waterfall and spectrum look
+    // sluggish.  Kiwi clients are therefore offered EVERY FFT frame (~28.6
+    // fps) and thinned back down here to the rate they actually asked for.
+    // The accumulator is touched only from the FFT thread; the target can be
+    // changed from the io thread by a wf_speed message, hence the atomic.
+    bool is_kiwi{false};
+    void set_kiwi_target_fps(double fps) {
+        kiwi_target_fps.store(fps, std::memory_order_relaxed);
+    }
+    bool kiwi_take_frame(double source_fps);
     virtual void on_window_message(int l, std::optional<double> &m, int r,
                                    std::optional<int> &level);
     void on_close();
@@ -41,6 +56,9 @@ class WaterfallClient : public Client {
 
     std::chrono::steady_clock::time_point last_send_time;
     int data_points_sent_in_current_second;
+
+    std::atomic<double> kiwi_target_fps{0.0};
+    double kiwi_frame_accum{0.0}; // FFT thread only
 };
 
 #endif

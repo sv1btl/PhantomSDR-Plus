@@ -19,7 +19,9 @@ enum conn_type {
     CHAT,
     WATERFALL_RAW,
     SIGNAL_RAW,
-    UNKNOWN
+    UNKNOWN,
+    KIWI_SND,
+    KIWI_WF
 };
 
 constexpr const char *type_to_name(conn_type type) {
@@ -38,6 +40,10 @@ constexpr const char *type_to_name(conn_type type) {
         return "Signal Raw";
     case CHAT:
         return "Chat";
+    case KIWI_SND:
+        return "Kiwi SND";
+    case KIWI_WF:
+        return "Kiwi W/F";
     default:
         return "Unknown";
     }
@@ -45,13 +51,13 @@ constexpr const char *type_to_name(conn_type type) {
 
 enum demodulation_mode { USB, LSB, AM, FM };
 
-enum waterfall_compressor { WATERFALL_ZSTD, WATERFALL_AV1 };
+enum waterfall_compressor { WATERFALL_ZSTD, WATERFALL_AV1, WATERFALL_KIWI };
 
 // AUDIO_PCM: raw little-endian int16 samples, no encoding. Never selected by
 // config or the browser; only an internal loopback client (the autorun spot
 // decoder) opts into it at runtime via the "set_codec" command, so it pays no
 // FLAC/Opus encode cost on the P-cores. See PcmEncoder in audio.h.
-enum audio_compressor { AUDIO_FLAC, AUDIO_OPUS, AUDIO_PCM };
+enum audio_compressor { AUDIO_FLAC, AUDIO_OPUS, AUDIO_PCM, AUDIO_KIWI_PCM };
 
 class WaterfallClient;
 class AudioClient;

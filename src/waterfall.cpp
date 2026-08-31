@@ -2,6 +2,7 @@
 
 #include "waterfall.h"
 #include "waterfallcompression.h"
+#include "kiwi_bridge.h"
 #include <atomic>
 #include <chrono>
 #include <thread>
@@ -39,6 +40,9 @@ WaterfallClient::WaterfallClient(
     if (waterfall_compression == WATERFALL_ZSTD) {
         waterfall_encoder =
             std::make_unique<ZstdEncoder>(hdl, sender, min_waterfall_fft);
+    } else if (waterfall_compression == WATERFALL_KIWI) {
+        waterfall_encoder = std::make_unique<KiwiWfEncoder>(hdl, sender);
+        is_kiwi = true;
     }
 #ifdef HAS_LIBAOM
     else if (waterfall_compression == WATERFALL_AV1) {
@@ -46,6 +50,23 @@ WaterfallClient::WaterfallClient(
             std::make_unique<AV1Encoder>(hdl, sender, min_waterfall_fft);
     }
 #endif
+}
+
+// Rate matching for Kiwi clients.  Called once per FFT frame (the source
+// cadence) and returns true for as many of them as the requested fps needs.
+// The fractional accumulator keeps the long-run average exact instead of
+// rounding the ratio down to an integer frame skip -- 23 fps out of a 28.6 fps
+// source is 4 frames in every 5, which no modulo can express.
+bool WaterfallClient::kiwi_take_frame(double source_fps) {
+    const double target = kiwi_target_fps.load(std::memory_order_relaxed);
+    if (target <= 0.0) return false;              // SET wf_speed=0 -> off
+    if (target >= source_fps || source_fps <= 0.0) return true;
+    kiwi_frame_accum += target / source_fps;
+    if (kiwi_frame_accum >= 1.0) {
+        kiwi_frame_accum -= 1.0;
+        return true;
+    }
+    return false;
 }
 
 void WaterfallClient::set_waterfall_range(int level, int l, int r) {

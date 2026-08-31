@@ -1,40 +1,46 @@
 #!/bin/bash
 # ─────────────────────────────────────────────────────────────────────────────
-#  PhantomSDR-Plus  –  start-airspyhf.sh
-#  Universal launcher + watchdog for an Airspy HF+ front end (via SoapySDR rx_sdr).
+#  PhantomSDR-Plus  –  start-rsp1a.sh
+#  Universal launcher + watchdog for an SDRplay RSP1A front end (via SoapySDR rx_sdr).
 #
 #  Same self-contained design as start-rx888mk2.sh: one script that STARTS,
 #  RESTARTS, WATCHDOGS (auto-restarts on failure) and LOGS the server. Derives
 #  its own directory — no hard-coded or user-specific paths. Shares stop-websdr.sh.
 #
 #  Usage:
-#    ./start-airspyhf.sh           start (or restart) the server in the background
+#    ./start-rsp1a.sh              start (or restart) the server in the background
 #    ./stop-websdr.sh              stop the server + watchdog (separate script)
 #  Add -q to the start command for two-line output instead of the live log.
 #
 #  Env overrides (optional):
 #    SPECTRUM_CORES=0-3            pin spectrumserver to these CPUs (taskset list)
 #    SPECTRUM_CORES=none          do not pin at all
-#    RADE_ENABLED=0               do not run the RADE sidecar at all
+    RADE_ENABLED=0               do not run the RADE sidecar at all
 #    RX_ARGS="…"                  override the rx_sdr argument string
 #
-#  NOTE: not tested on Airspy hardware — it reuses the exact control/watchdog
-#  logic validated on RX-888; only the receiver command/config differ.
+#  NOTE: not tested on RSP1A hardware — it reuses the exact control/watchdog
+#  logic validated on RX-888; only the receiver command/config differ. The
+#  sdrplay service restart in prestart() needs root / passwordless sudo.
 # ─────────────────────────────────────────────────────────────────────────────
 
 PHANTOMDIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SELF="$PHANTOMDIR/$(basename "${BASH_SOURCE[0]}")"
 
 # ═══ RECEIVER CONFIGURATION (the only receiver-specific part) ═════════════════
-RX_LABEL="Airspy HF+"
+RX_LABEL="SDRplay RSP1A"
 RX_COMM="rx_sdr"                                   # process name to monitor/kill
-CONFIG="$PHANTOMDIR/config-airspyhf.toml"
-FIFO="$PHANTOMDIR/airspy.fifo"
-RX_ARGS="${RX_ARGS:--f 6956000 -s 912000 -d driver=airspyhf -F CS16 -}"
+CONFIG="$PHANTOMDIR/config-rsp1a.toml"
+FIFO="$PHANTOMDIR/rsp1a.fifo"
+#rx_sdr -f 25000000 -s 10000000  -g RFGR=1 -t rfnotch_ctrl=false -F CS16  - 
+RX_ARGS="${RX_ARGS:--f 25000000 -s 10000000 -d driver=sdrplay -g RFGR=1 -t rfnotch_ctrl=false -F CS16 -}"
 RX_CMD=(rx_sdr)                                    # binary; args come from RX_ARGS
 prestart() {
-    # Turn USB power-saving off (best-effort; needs root / passwordless sudo).
-    echo on | sudo tee /sys/bus/usb/devices/*/power/control >/dev/null 2>&1 || true
+    # SDRplay needs its API service running. Best-effort; needs root/passwordless
+    # sudo (a password prompt here would hang the watchdog, so it's suppressed).
+    service sdrplay restart >/dev/null 2>&1 \
+        || sudo -n service sdrplay restart >/dev/null 2>&1 \
+        || true
+    sleep 2
 }
 # ═════════════════════════════════════════════════════════════════════════════
 
@@ -143,8 +149,6 @@ is_running() {
 }
 
 # ── kill only the receiver/server processes (never the watchdog) ─────────────
-# Writer first, then reader (spectrumserver): killing the reader first would
-# hand the writer a Broken-Pipe panic on the FIFO.
 kill_receivers() {
     killall -KILL "$RX_COMM" 2>/dev/null
     sleep 1
@@ -185,9 +189,6 @@ compute_taskset() {
 }
 
 # ── start the receiver (FIFO pre-open + retry) ───────────────────────────────
-# Pre-opening the FIFO O_RDWR on fd 8 provides a reader so the receiver's
-# write-open doesn't block; kill -0 then tests the real process. fd 8 is closed
-# once spectrumserver holds the read end. Returns 0 if the receiver stays up.
 start_receiver() {
     if ! command -v "${RX_CMD[0]}" >/dev/null 2>&1; then
         log "ERROR: receiver binary '${RX_CMD[0]}' not found in PATH"

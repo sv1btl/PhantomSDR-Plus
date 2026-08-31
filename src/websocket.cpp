@@ -3,6 +3,8 @@
 #include "spectrumserver.h"
 #include "waterfall.h"
 #include "chat.h"
+#include "kiwi_bridge.h"
+#include <algorithm>
 
 #include "glaze/glaze.hpp"
 
@@ -478,7 +480,8 @@ void broadcast_server::on_open_waterfall(connection_hdl hdl) {
 }
 
 std::vector<std::future<void>>
-broadcast_server::waterfall_loop(int8_t *fft_power_quantized) {
+broadcast_server::waterfall_loop(int8_t *fft_power_quantized, bool kiwi_only,
+                                 double source_fps) {
     // FIX: was futures.reserve(signal_slices.size()) — wrong container.
     // Approximate the total waterfall client count across all downsample levels.
     // No lock required here; this is only a pre-allocation hint.
@@ -495,6 +498,19 @@ broadcast_server::waterfall_loop(int8_t *fft_power_quantized) {
         std::scoped_lock lg(waterfall_slice_mtx[i]);
         for (auto &[slice, data] : waterfall_slices[i]) {
             auto &[l_idx, r_idx] = slice;
+
+            // Kiwi clients are offered every FFT frame and thinned to the fps
+            // they asked for; everyone else keeps the browser cadence, so on
+            // the frames the browser waterfall skips there is nothing to do
+            // for them.  See WaterfallClient::kiwi_take_frame().
+            if (data->is_kiwi) {
+                if (!data->kiwi_take_frame(source_fps)) {
+                    continue;
+                }
+            } else if (kiwi_only) {
+                continue;
+            }
+
             // If the client is slow, avoid unnecessary buffering and
             // drop the packet - changed from 50000 to 100000
             
@@ -618,6 +634,29 @@ void broadcast_server::on_open(connection_hdl hdl) {
         // Ignore errors setting keep-alive
     }
 
+    // Disable Nagle. Every socket this server owns carries a real-time stream
+    // of frames well under one MSS -- a 1040-byte waterfall line, a 1034-byte
+    // audio frame -- and Nagle holds a small segment back until the previous
+    // one is acknowledged. Paired with the peer's delayed ACK that is up to
+    // 40 ms of pure queueing delay added to a frame that was ready to leave,
+    // and it lands hardest on exactly the traffic that cannot afford it. There
+    // is nothing here for Nagle to coalesce: the frames are already whole
+    // messages, produced one per FFT hop, so switching it off costs no extra
+    // packets in the normal case.
+    try {
+        auto socket_ptr = con->get_socket().lowest_layer().native_handle();
+        int nodelay = 1;
+        #ifdef _WIN32
+        setsockopt(socket_ptr, IPPROTO_TCP, TCP_NODELAY,
+                   (const char *)&nodelay, sizeof(nodelay));
+        #else
+        setsockopt(socket_ptr, IPPROTO_TCP, TCP_NODELAY, &nodelay,
+                   sizeof(nodelay));
+        #endif
+    } catch (...) {
+        // Ignore errors setting TCP_NODELAY
+    }
+
     // Per-connection pong timeout (10s) to detect dead peers.
     try { con->set_pong_timeout(30000); } catch (...) {}
 
@@ -661,9 +700,209 @@ void broadcast_server::on_open(connection_hdl hdl) {
         on_open_events(hdl);
     } else if (path == "/chat") {
         on_open_chat(hdl);
+    } else if (kiwi_emulation_enabled && is_kiwi_snd_path(path)) {
+        on_open_kiwi_snd(hdl);
+    } else if (kiwi_emulation_enabled && is_kiwi_wf_path(path)) {
+        on_open_kiwi_wf(hdl);
     } else {
         on_open_unknown(hdl);
     }
+}
+
+// ----------------------------------------------------------------------------
+// Kiwi protocol bridge (leurre KiwiSDR) — voir kiwi_bridge.h
+// ----------------------------------------------------------------------------
+
+void broadcast_server::on_open_kiwi_snd(connection_hdl hdl) {
+    // Pas de send_basic_info() : un client Kiwi n'attend rien avant d'avoir
+    // lui-même envoyé "SET auth ...".
+    int kiwi_audio_fft_size =
+        ceil((double)audio_max_sps * fft_size / sps / 4.) * 4;
+    std::shared_ptr<AudioClient> client = std::make_shared<AudioClient>(
+        hdl, *this, AUDIO_KIWI_PCM, is_real, kiwi_audio_fft_size, audio_max_sps,
+        fft_result_size);
+    client->unique_id = generate_unique_id();
+    client->set_audio_demodulation(default_mode);
+    {
+        std::scoped_lock lg(signal_slice_mtx);
+        auto it = signal_slices.insert({{0, 0}, client});
+        client->it = it;
+    }
+    client->set_audio_range(default_l, default_m, default_r);
+
+    server::connection_ptr con = m_server.get_con_from_hdl(hdl);
+    con->set_close_handler([client](connection_hdl) {
+        try { client->on_close(); } catch (...) {}
+    });
+    con->set_fail_handler([client](connection_hdl) {
+        try { client->on_close(); } catch (...) {}
+    });
+
+    // Réaccordage : traduit "SET mod=... freq=..." en indices de bin FFT.
+    // UNIQUEMENT pour une entrée réelle (is_real) — voir TODO_KIWI_RETUNE_IQ
+    // dans kiwi_bridge.h pour le cas IQ, non implémenté. Journalisé dans
+    // /tmp/kiwi_retune.log à chaque étape.
+    //
+    // IMPORTANT : audio_mid (le paramètre "m" de set_audio_range) doit être
+    // exprimé en INDICE DE BIN, comme l/r — PAS en Hz. C'est le point qui a
+    // fait échouer la première tentative (silence total, quelle que soit la
+    // fréquence) : on passait la fréquence en Hz directement, ce qui rendait
+    // audio_m totalement hors de portée dans AudioClient::send_audio() et
+    // empêchait toute copie de données vers le buffer de démodulation.
+    auto retune_cb = [this, client, kiwi_audio_fft_size](const std::string &mode_str,
+                                    double low_cut_hz, double high_cut_hz,
+                                    double freq_khz) {
+        if (!is_real) {
+            kiwi_debug_log("REJETE: entree non reelle (IQ), reaccordage non supporte");
+            return;
+        }
+        double bin_hz = (double)sps / (double)fft_size;
+        double freq_hz = freq_khz * 1000.0;
+        double lo = freq_hz + low_cut_hz - (double)basefreq;
+        double hi = freq_hz + high_cut_hz - (double)basefreq;
+        if (lo > hi) std::swap(lo, hi);
+
+        int l_bin = static_cast<int>(std::floor(lo / bin_hz));
+        int r_bin = static_cast<int>(std::ceil(hi / bin_hz));
+        l_bin = std::clamp(l_bin, 0, fft_result_size - 1);
+        r_bin = std::clamp(r_bin, 0, fft_result_size - 1);
+        kiwi_debug_log("is_real=" + std::to_string(is_real) +
+                       " bin_hz=" + std::to_string(bin_hz) +
+                       " l_bin=" + std::to_string(l_bin) +
+                       " r_bin=" + std::to_string(r_bin) +
+                       " fft_result_size=" + std::to_string(fft_result_size) +
+                       " kiwi_audio_fft_size=" + std::to_string(kiwi_audio_fft_size));
+        if (l_bin >= r_bin) {
+            kiwi_debug_log("REJETE: l_bin >= r_bin");
+            return;
+        }
+        if (r_bin - l_bin > kiwi_audio_fft_size) {
+            kiwi_debug_log("REJETE: intervalle trop large");
+            return;
+        }
+
+        bool recognized = false;
+        demodulation_mode dmod = kiwi_mode_to_demod(mode_str, recognized);
+        if (recognized) client->set_audio_demodulation(dmod);
+
+        double m_bin = (freq_hz - (double)basefreq) / bin_hz;
+        kiwi_debug_log("set_audio_range(l=" + std::to_string(l_bin) +
+                       ", m_bin=" + std::to_string(m_bin) +
+                       ", r=" + std::to_string(r_bin) +
+                       ") mode_recognized=" + std::to_string(recognized));
+        client->set_audio_range(l_bin, m_bin, r_bin);
+    };
+
+    auto auth_acked = std::make_shared<bool>(false);
+    con->set_message_handler(
+        [this, auth_acked, retune_cb](connection_hdl h, server::message_ptr msg) {
+            KiwiCommandParser::handle_snd_message(
+                msg->get_payload(), *auth_acked,
+                [this, h](const std::string &s) {
+                    send_binary_packet(h, s.data(), s.size());
+                },
+                retune_cb, (double)sps / 2.0,
+                (double)basefreq + (double)sps / 4.0, (double)sps);
+        });
+}
+
+void broadcast_server::on_open_kiwi_wf(connection_hdl hdl) {
+    std::shared_ptr<WaterfallClient> client = std::make_shared<WaterfallClient>(
+        hdl, *this, WATERFALL_KIWI, min_waterfall_fft);
+    {
+        std::scoped_lock lk(waterfall_slice_mtx[0]);
+        auto it = waterfall_slices[0].insert({{0, min_waterfall_fft}, client});
+        client->it = it;
+    }
+    client->set_waterfall_range(downsample_levels - 1, 0, min_waterfall_fft);
+
+    // The FFT loop produces 2*sps/fft_size spectra per second. A Kiwi client
+    // asks for at most 23 fps, so that is the ceiling we advertise and the
+    // default a client gets until it says otherwise with SET wf_speed.
+    const double kiwi_wf_max_fps =
+        std::min(2.0 * (double)sps / (double)fft_size, kiwi_wf_fps_cap);
+    client->set_kiwi_target_fps(kiwi_wf_max_fps);
+
+    server::connection_ptr con = m_server.get_con_from_hdl(hdl);
+    con->set_close_handler([client](connection_hdl) {
+        try { client->on_close(); } catch (...) {}
+    });
+    con->set_fail_handler([client](connection_hdl) {
+        try { client->on_close(); } catch (...) {}
+    });
+
+    // Réaccordage waterfall : traduit "SET zoom=.../cf=..." ou
+    // "SET zoom=.../start=..." en WaterfallClient::on_window_message(),
+    // qui réutilise la logique existante de sélection du niveau de
+    // sous-échantillonnage — pas besoin de la réimplémenter.
+    //
+    // MAX_FREQ_KHZ est calculé depuis notre propre sps (pas figé à 30 MHz)
+    // pour rester correct quel que soit le débit d'échantillonnage —
+    // annoncé au client via "MSG bandwidth=..." côté SND.
+    auto retune_wf_cb = [this, client](int zoom, double value, bool is_cf) {
+        constexpr int MAX_ZOOM = 14;
+        constexpr int WF_BINS = 1024;
+        double max_freq_khz = (double)sps / 2.0 / 1000.0;
+
+        double span_khz = max_freq_khz / (double)(1LL << zoom);
+        double start_freq_khz;
+        if (is_cf) {
+            start_freq_khz = value - span_khz / 2.0;
+        } else {
+            double counter = value;
+            start_freq_khz =
+                counter * max_freq_khz / ((double)WF_BINS * (double)(1LL << MAX_ZOOM));
+        }
+        double end_freq_khz = start_freq_khz + span_khz;
+
+        double bin_hz = (double)sps / (double)fft_size;
+        double lo_hz = start_freq_khz * 1000.0 - (double)basefreq;
+        double hi_hz = end_freq_khz * 1000.0 - (double)basefreq;
+
+        // Une trame W/F Kiwi fait TOUJOURS 1024 bins. Si la fenetre
+        // demandee deborde de notre spectre (0 .. sps/2), il ne faut donc
+        // pas rogner les bords — cela produisait des trames courtes (770,
+        // 1133, 1161 bins mesures) que le client redimensionne de travers.
+        // On fait glisser la fenetre en conservant sa largeur, et on ne la
+        // reduit que si elle est plus large que le spectre entier.
+        int width = static_cast<int>(std::lround((hi_hz - lo_hz) / bin_hz));
+        width = std::clamp(width, 1, fft_result_size);
+        int l_bin = static_cast<int>(std::floor(lo_hz / bin_hz));
+        l_bin = std::clamp(l_bin, 0, fft_result_size - width);
+        int r_bin = l_bin + width;
+
+        kiwi_debug_log("[WF] zoom=" + std::to_string(zoom) +
+                       " is_cf=" + std::to_string(is_cf) +
+                       " start_freq_khz=" + std::to_string(start_freq_khz) +
+                       " span_khz=" + std::to_string(span_khz) +
+                       " l_bin=" + std::to_string(l_bin) +
+                       " r_bin=" + std::to_string(r_bin));
+
+        if (l_bin >= r_bin) {
+            kiwi_debug_log("[WF] REJETE: l_bin >= r_bin");
+            return;
+        }
+
+        std::optional<double> dummy_m;
+        std::optional<int> dummy_level;
+        client->on_window_message(l_bin, dummy_m, r_bin, dummy_level);
+        kiwi_debug_log("[WF] on_window_message applique");
+    };
+
+    auto auth_acked_wf = std::make_shared<bool>(false);
+    auto wf_speed_cb = [client](double fps) {
+        client->set_kiwi_target_fps(fps);
+    };
+    con->set_message_handler(
+        [this, auth_acked_wf, retune_wf_cb, wf_speed_cb,
+         kiwi_wf_max_fps](connection_hdl h, server::message_ptr msg) {
+            KiwiCommandParser::handle_wf_message(
+                msg->get_payload(), *auth_acked_wf,
+                [this, h](const std::string &s) {
+                    send_binary_packet(h, s.data(), s.size());
+                },
+                retune_wf_cb, kiwi_wf_max_fps, wf_speed_cb);
+        });
 }
 
 void broadcast_server::send_text_packet(

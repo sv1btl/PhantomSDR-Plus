@@ -10,10 +10,10 @@ register_urls=[
   "https://sdr-list.xyz/api/update_websdr",
   "https://sdr.shbrg.nl/api/update_websdr"
   ] # One or more directory endpoints that accept the same JSON payload
-name="Name" # Name that is shown on https://sdr-list.xyz
-antenna="Whip" # Antenna that is shown on https://sdr-list.xyz
+name="USER PhantomSDR+" # Name that is shown on https://sdr-list.xyz and/or https://sdr.shbrg.nl/sdr/
+antenna="Antenna." # Antenna that is shown on https://sdr-list.xyz
 grid_locator="QTH Locator" # 4 or 6 length Grid Locatlr shown on https://sdr-list.xyz and for the Distance of FT8 Signals
-hostname="your IP, or ddns, or no-ip" # If you use ddns or something to host with a domain enter it here for https://sdr-list.xyzv
+hostname="your IP, or ddns, or no-ip" # If you use ddns or something to host with a domain enter it here for https://sdr-list.xyz
 
 # In case you want to register to websdr.org, please uncomment and fill with your data
 # [websdr.org]
@@ -44,5 +44,12 @@ name="stdin" # Driver name
 format="u8" # Sample format: u8, s8, u16, s16, u32, s32, f32, f64
 
 [input.defaults]
-frequency=1170000 # Default frequency to show user
+frequency=1530000 # Default frequency to show user
 modulation="AM" # Default modulation
+
+[kiwi_emulation]
+enabled       = false
+audio_gain    = 60.0    # dB, Kiwi clients only. 0 = untouched.
+wf_cal        = 0.0   # dB, display taste. 0 = agrees with the S-meter.
+wf_fps_max    = 23      # frames/s. 23 is the protocol maximum.
+# smeter_offset = 5.0   # dB. Defaults to input.analog_smeter_offset.

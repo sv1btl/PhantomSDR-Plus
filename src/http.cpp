@@ -574,8 +574,11 @@ void broadcast_server::on_http(connection_hdl hdl) {
                 };
 
                 std::string body = build_body(first_cfg);
+                int  last_users = current_users();
+                int  last_cfg   = first_cfg;
+                unsigned polls  = 0;
                 std::cout << "[WebSDROrg] /~~orgstatus config=" << first_cfg
-                          << " users=" << current_users()
+                          << " users=" << last_users
                           << " bytes=" << body.size() << std::endl;
                 if (!send_resp(body)) { close(raw_fd); return; }
 
@@ -610,9 +613,22 @@ void broadcast_server::on_http(connection_hdl hdl) {
                         try { req_cfg = std::stoi(hdr.substr(cp + 7)); } catch (...) {}
                     }
                     body = build_body(req_cfg);
-                    std::cout << "[WebSDROrg] /~~orgstatus config=" << req_cfg
-                              << " users=" << current_users()
-                              << " bytes=" << body.size() << std::endl;
+
+                    // websdr.org polls this callback continuously, and logging
+                    // every poll made it the single biggest thing in
+                    // spectrumserver.log -- 57% of the file, all of it saying
+                    // nothing had changed. Report the first poll (above), then
+                    // only a change in listeners or config, plus one line every
+                    // 120 polls so a quiet log still shows the callback alive.
+                    const int users_now = current_users();
+                    if (users_now != last_users || req_cfg != last_cfg ||
+                        ++polls % 120 == 0) {
+                        std::cout << "[WebSDROrg] /~~orgstatus config=" << req_cfg
+                                  << " users=" << users_now
+                                  << " bytes=" << body.size() << std::endl;
+                        last_users = users_now;
+                        last_cfg   = req_cfg;
+                    }
                     if (!send_resp(body)) break;
                 }
                 close(raw_fd);
@@ -620,6 +636,17 @@ void broadcast_server::on_http(connection_hdl hdl) {
 
             return;
         }
+    }
+
+    if (kiwi_emulation_enabled && resource.rfind("/status", 0) == 0) {
+        // Un client Kiwi (AetherSDR, kiwiclient...) exige un 200 OK sur
+        // /status avant de tenter l'upgrade WebSocket. Le contenu exact
+        // importe peu — valide empiriquement contre un stub minimal avant
+        // cette integration.
+        con->append_header("Content-Type", "text/html");
+        con->set_body("<html><body>Kiwi bridge OK</body></html>");
+        con->set_status(websocketpp::http::status_code::ok);
+        return;
     }
 
     // ── /logs/users_YYYY-MM-DD.jsonl ────────────────────────────────────────

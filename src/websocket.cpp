@@ -802,7 +802,8 @@ void broadcast_server::on_open_kiwi_snd(connection_hdl hdl) {
                     send_binary_packet(h, s.data(), s.size());
                 },
                 retune_cb, (double)sps / 2.0,
-                (double)basefreq + (double)sps / 4.0, (double)sps);
+                (double)basefreq + (double)sps / 4.0, (double)sps,
+                (double)audio_max_sps);
         });
 }
 
@@ -822,6 +823,18 @@ void broadcast_server::on_open_kiwi_wf(connection_hdl hdl) {
     const double kiwi_wf_max_fps =
         std::min(2.0 * (double)sps / (double)fft_size, kiwi_wf_fps_cap);
     client->set_kiwi_target_fps(kiwi_wf_max_fps);
+
+    // Deepest zoom at which every pixel of a 1024-bin W/F frame is still a
+    // real FFT bin: our spectrum is fft_result_size bins wide and a Kiwi zoom
+    // z shows fft_result_size >> z of them. Beyond this the encoder is
+    // interpolating. Capped at 14, the deepest zoom the protocol defines.
+    // See the long note in KiwiCommandParser::handle_wf_message.
+    int kiwi_zoom_max = 0;
+    for (int bins = fft_result_size;
+         bins > (int)KiwiWfEncoder::kKiwiWfBins && kiwi_zoom_max < 14;
+         bins /= 2) {
+        kiwi_zoom_max++;
+    }
 
     server::connection_ptr con = m_server.get_con_from_hdl(hdl);
     con->set_close_handler([client](connection_hdl) {
@@ -894,14 +907,14 @@ void broadcast_server::on_open_kiwi_wf(connection_hdl hdl) {
         client->set_kiwi_target_fps(fps);
     };
     con->set_message_handler(
-        [this, auth_acked_wf, retune_wf_cb, wf_speed_cb,
-         kiwi_wf_max_fps](connection_hdl h, server::message_ptr msg) {
+        [this, auth_acked_wf, retune_wf_cb, wf_speed_cb, kiwi_wf_max_fps,
+         kiwi_zoom_max](connection_hdl h, server::message_ptr msg) {
             KiwiCommandParser::handle_wf_message(
                 msg->get_payload(), *auth_acked_wf,
                 [this, h](const std::string &s) {
                     send_binary_packet(h, s.data(), s.size());
                 },
-                retune_wf_cb, kiwi_wf_max_fps, wf_speed_cb);
+                retune_wf_cb, kiwi_wf_max_fps, kiwi_zoom_max, wf_speed_cb);
         });
 }
 

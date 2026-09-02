@@ -2,28 +2,28 @@
 #define KIWI_BRIDGE_H
 
 // ============================================================================
-// kiwi_bridge.h — VERSION AVEC RÉACCORDAGE + JOURNALISATION
+// kiwi_bridge.h — WITH RETUNING + LOGGING
 //
-// Leurre protocolaire KiwiSDR pour PhantomSDR-Plus. Format des trames
-// validé octet par octet contre un vrai KiwiSDR et re-vérifié avec un
-// client tiers réel (AetherSDR) — connexion, handshake, audio, waterfall
-// confirmés fonctionnels sur une base 3.8.0 vierge.
+// A KiwiSDR protocol shim for PhantomSDR-Plus. The frame format was validated
+// byte by byte against a real KiwiSDR and re-checked with a real third-party
+// client (AetherSDR) — connection, handshake, audio and waterfall all
+// confirmed working on a clean 3.8.0 base.
 //
-// RÉACCORDABILITÉ (SND) : "SET mod=<mode> low_cut=<lc> high_cut=<hc>
-// freq=<khz>" est traduit en set_audio_range()/set_audio_demodulation(),
-// UNIQUEMENT pour une entrée réelle (is_real == true, signal="real" dans
-// config.toml). Pour une entrée IQ, la formule bin<->fréquence diffère et
-// n'est pas implémentée ici — voir TODO_KIWI_RETUNE_IQ.
+// RETUNING (SND): "SET mod=<mode> low_cut=<lc> high_cut=<hc> freq=<khz>" is
+// translated into set_audio_range()/set_audio_demodulation(), for a REAL input
+// only (is_real == true, signal="real" in config.toml). For an IQ input the
+// bin<->frequency formula differs and is not implemented here — see
+// TODO_KIWI_RETUNE_IQ.
 //
-// JOURNALISATION : chaque étape du réaccordage est tracée dans
-// /tmp/kiwi_retune.log via kiwi_debug_log(), sans besoin de terminal
-// visible — consultez le fichier après coup avec `cat /tmp/kiwi_retune.log`.
-// Coût négligeable, peut rester en place en permanence.
+// LOGGING: every step of a retune is traced to /tmp/kiwi_retune.log through
+// kiwi_debug_log(), so no terminal has to be watching — read the file
+// afterwards with `cat /tmp/kiwi_retune.log`. The cost is negligible and it
+// can be left in place permanently.
 //
-// RÉACCORDAGE WATERFALL : "SET zoom=<z> cf=<khz>" ou "SET zoom=<z>
-// start=<compteur>" (les deux formats du protocole Kiwi réel sont gérés)
-// sont traduits en WaterfallClient::on_window_message(), qui réutilise la
-// logique existante de sélection de niveau de sous-échantillonnage.
+// WATERFALL RETUNING: "SET zoom=<z> cf=<khz>" and "SET zoom=<z>
+// start=<counter>" (both forms of the real Kiwi protocol are handled) are
+// translated into WaterfallClient::on_window_message(), which reuses the
+// existing decimation-level selection logic.
 // ============================================================================
 
 #include "audio.h"
@@ -40,11 +40,13 @@
 #include <iomanip>
 #include <sstream>
 #include <string>
+#include <mutex>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 // ----------------------------------------------------------------------------
-// Journalisation de debug — /tmp/kiwi_retune.log
+// Debug logging — /tmp/kiwi_retune.log
 // ----------------------------------------------------------------------------
 
 inline void kiwi_debug_log(const std::string &msg) {
@@ -53,8 +55,39 @@ inline void kiwi_debug_log(const std::string &msg) {
     auto now = std::chrono::system_clock::now();
     std::time_t t = std::chrono::system_clock::to_time_t(now);
     char buf[32];
-    std::strftime(buf, sizeof(buf), "%H:%M:%S", std::localtime(&t));
+    // localtime_r, not localtime: the SND and W/F encoders log from different
+    // threads and localtime returns a shared static buffer.
+    std::tm tm{};
+    localtime_r(&t, &tm);
+    std::strftime(buf, sizeof(buf), "%H:%M:%S", &tm);
     log << "[" << buf << "] " << msg << std::endl;
+}
+
+// Log an unrecognised command ONCE per distinct command word.
+//
+// The catch-all below used to write a line every time. A Kiwi client repeats a
+// small set of commands forever -- AetherSDR sends "SET keepalive" every few
+// seconds on both sockets and "SET maxdb=.. mindb=.." on every drag of its
+// contrast slider -- so a single client added tens of thousands of lines a day
+// to a file that nothing ever rotates. Measured on one 9-minute session: 43 kB,
+// of which 98 lines were keepalives and 75 were maxdb/mindb.
+//
+// None of those repeats carried information. The point of the catch-all is to
+// reveal WHICH commands a client sends that we do not handle, and the first
+// sighting says that completely. So the command word is the key -- everything
+// before the first '=', which turns "SET maxdb=-10 mindb=-143" into
+// "SET maxdb" -- and only its first occurrence is written.
+inline void kiwi_log_unhandled(const char *side, const std::string &msg) {
+    std::string key = msg.substr(0, msg.find('='));
+    if (key.size() > 64) key.resize(64);
+
+    static std::mutex mtx;
+    static std::unordered_set<std::string> seen;
+    {
+        std::scoped_lock lk(mtx);
+        if (!seen.insert(std::string(side) + key).second) return;
+    }
+    kiwi_debug_log(std::string(side) + " commande non geree (1re fois): " + msg);
 }
 
 // ----------------------------------------------------------------------------
@@ -101,25 +134,13 @@ inline constexpr double kKiwiSmeterSlope    = 1.1;     // App.svelte visualGain
 inline constexpr double kKiwiSmeterVisualDb = 5.0;     // SMeterDigital.svelte
 
 // ----------------------------------------------------------------------------
-// Output gain, for Kiwi clients only
-//
-// The demodulator hands every encoder the same buffer, so a Kiwi client gets
-// exactly the PCM a browser gets — measured identical, 57 counts peak on both
-// paths at the same frequency and passband. What a browser then does with it,
-// and a Kiwi client cannot, is audio.js's whole chain: bass boost, bandpass,
-// presence, a compressor with makeup gain and the volume slider. That is the
-// entire reason the web page sounds loud and a raw Kiwi stream sounds thin.
-//
-// This gain closes that gap for Kiwi clients without touching the web path.
-// It is applied before the int16 clamp, so it uses the real headroom rather
-// than amplifying an already-clamped value; peaks sit around -55 dBFS, so
-// there is plenty. 0 dB (no change) unless [kiwi_emulation] audio_gain is set.
-// Echelle dB du waterfall Kiwi.
-//   kiwi_wf_size_log2 = log2(fft_size) + brightness_offset, c.-a-d. exactement
-//   le "power_offset" que power_and_quantize() ajoute au log2 de la puissance.
-//   Il faut le retrancher pour retrouver une puissance absolue.
-//   kiwi_wf_cal_db est la calibration finale, mesuree contre le S-metre du GUI
-//   (deja calibre) — voir la note dans KiwiWfEncoder::send().
+// Kiwi waterfall dB scale
+// ----------------------------------------------------------------------------
+//   kiwi_wf_size_log2 = log2(fft_size) + brightness_offset, i.e. exactly the
+//   "power_offset" that power_and_quantize() adds to the log2 of the power.
+//   It has to be subtracted again to recover an absolute power.
+//   kiwi_wf_cal_db is the final calibration, measured against the GUI's
+//   (already calibrated) S-meter — see the note in KiwiWfEncoder::send().
 inline int    kiwi_wf_size_log2 = 0;
 inline double kiwi_wf_cal_db    = 0.0;
 
@@ -132,11 +153,54 @@ inline double kiwi_wf_cal_db    = 0.0;
 // whether that helps or just fills its buffer.
 inline double kiwi_wf_fps_cap = 23.0;
 
+// ----------------------------------------------------------------------------
+// Output gain, for Kiwi clients only
+// ----------------------------------------------------------------------------
+// The demodulator hands every encoder the same buffer, so a Kiwi client gets
+// exactly the PCM a browser gets — measured identical, 57 counts peak on both
+// paths at the same frequency and passband. What a browser then does with it,
+// and a Kiwi client cannot, is audio.js's whole chain: bass boost, bandpass,
+// presence, a compressor with makeup gain and the volume slider. That is the
+// entire reason the web page sounds loud and a raw Kiwi stream sounds thin.
+//
+// This gain closes that gap for Kiwi clients without touching the web path.
+// It is applied before the int16 clamp, so it uses the real headroom rather
+// than amplifying an already-clamped value. 0 dB (no change) unless
+// [kiwi_emulation] audio_gain is set.
+//
+// HOW FAR IT CAN BE PUSHED, and where it stops paying. Peaks off the
+// demodulator sit around -55 dBFS (57 counts), so the first ~55 dB is pure
+// level with the limiter idle. Past that the limiter starts working, which
+// is the point of it: every further 6 dB lifts everything below the
+// threshold while the peaks stay pinned at -0.55 dBFS, the same trade the
+// browser's compressor makes.
+//
+// But it does NOT go on forever. Once the limiter is riding continuously it
+// is normalising the envelope to the threshold, so the output settles at
+// threshold / crest-factor regardless of the gain in front of it. Simulated
+// against speech-shaped audio at the 57-count peak above (output RMS, dBFS):
+//
+//     55 dB -> -17.6    60 dB -> -14.5    66 dB -> -12.8
+//     70 dB -> -12.1    75 dB -> -12.0    80 dB -> -12.0
+//
+// i.e. it is flat from about 70 dB up. Setting audio_gain higher than that
+// buys no loudness at all, only compression. 66 keeps most of the available
+// level with the limiter working less of the time; 70 is the ceiling. If a
+// Kiwi client still sounds quieter than the web page at 70, the difference
+// is no longer gain -- it is audio.js's EQ and compressor, neither of which
+// has an equivalent here, and a bigger number will not stand in for them.
+//
+// THE S-METER DOES NOT FOLLOW THIS. The meter is computed in emit_frame()
+// from packet["pwr"], the demodulator's own power for the block, which is
+// set before process() ever sees the samples and is never touched by the
+// gain. Changing audio_gain moves the audio and nothing else. (The one place
+// the two meet is the fallback meter used when "pwr" is absent, and that
+// path subtracts kiwi_audio_gain_db back out for precisely this reason.)
 inline double kiwi_audio_gain_db = 0.0;
 inline double kiwi_audio_gain_lin = 1.0;   // derived from the dB at startup
 
 // ----------------------------------------------------------------------------
-// Reconnaissance de chemin d'URL
+// URL path recognition
 // ----------------------------------------------------------------------------
 
 inline bool kiwi_path_ends_with(const std::string &path,
@@ -202,16 +266,14 @@ class KiwiPeakLimiter {
     }
 
   private:
-    // 4 ms at the 12 kHz the bridge announces. The attack constant converges to
-    // ~98% of the target within that window, so overshoot stays well inside the
-    // headroom the threshold leaves.
-    // 4 ms at the 12 kHz the bridge announces.
+    // kLookahead is 4 ms at the 12 kHz the bridge announces.
     //
     // kAttack matters more than it looks: the gain moves toward its target by
     // that fraction per sample, so it must converge within the 48-sample window
     // or a loud sample is emitted before the gain has come down to meet it. At
     // 0.08 a 4x overshoot still arrived ~5% high and hit the clamp. At 0.20 the
-    // residual after 48 samples is 0.8^48, about one part in 70000.
+    // residual after 48 samples is 0.8^48, about one part in 70000 -- overshoot
+    // stays well inside the headroom the threshold leaves.
     static constexpr size_t kLookahead = 48;
     static constexpr double kThreshold = 30800.0;    // -0.55 dBFS
     static constexpr double kAttack    = 0.20;
@@ -225,7 +287,7 @@ class KiwiPeakLimiter {
 };
 
 // ----------------------------------------------------------------------------
-// KiwiSndEncoder — emballe le PCM démodulé au format de trame "SND" Kiwi
+// KiwiSndEncoder — packs demodulated PCM into the Kiwi "SND" frame format
 // ----------------------------------------------------------------------------
 
 class KiwiSndEncoder : public AudioEncoder {
@@ -239,10 +301,10 @@ class KiwiSndEncoder : public AudioEncoder {
   protected:
     int process(int32_t *data, size_t size) override {
         // ------------------------------------------------------------------
-        // TAILLE DE TRAME FIXE POUR LE S-METRE
+        // FIXED FRAME SIZE, FOR THE S-METER
         //
-        // Trouve en lisant le vrai code source d'AetherSDR
-        // (src/core/KiwiSdrProtocol.cpp, classifySoundFrame()) :
+        // Found by reading AetherSDR's own source
+        // (src/core/KiwiSdrProtocol.cpp, classifySoundFrame()):
         //
         //   constexpr int kObservedExtendedSoundFrameBytes = 1034;
         //   constexpr int kServerSoundHeaderBytes = 10;
@@ -251,16 +313,16 @@ class KiwiSndEncoder : public AudioEncoder {
         //       ? FrameLayout::SndObservedPcm16WithMeter
         //       : FrameLayout::SndPcm16;
         //
-        // Autrement dit : AetherSDR n'affiche "observed"/"meter" QUE si la
-        // trame SND fait EXACTEMENT 1034 octets (10 octets d'en-tete + 512
-        // echantillons 16 bits = 1024 octets de PCM). Toute autre taille est
-        // toujours parfaitement lue et jouee (d'ou l'audio impeccable), mais
-        // n'est jamais etiquetee comme ayant un S-metre.
+        // In other words: AetherSDR shows "observed"/"meter" ONLY if the SND
+        // frame is EXACTLY 1034 bytes (a 10-byte header + 512 16-bit samples
+        // = 1024 bytes of PCM). Any other size is still read and played
+        // perfectly -- hence the flawless audio -- but is never tagged as
+        // carrying an S-meter.
         //
-        // On accumule donc les echantillons recus (taille variable selon le
-        // pipeline PhantomSDR) dans un tampon interne, et on n'emet une trame
-        // SND que lorsqu'on a exactement 512 echantillons prets a partir —
-        // le format de la trame elle-meme ne change pas du tout.
+        // So the samples we receive (a size that varies with the PhantomSDR
+        // pipeline) are accumulated in an internal buffer, and an SND frame is
+        // emitted only once exactly 512 samples are ready to go -- the format
+        // of the frame itself does not change at all.
         // ------------------------------------------------------------------
         for (size_t i = 0; i < size; i++) {
             // Gain first, clamp second: clamping and then amplifying would
@@ -306,7 +368,10 @@ class KiwiSndEncoder : public AudioEncoder {
             // limiter, so the gain has to come back off or this reads as much
             // too high as the operator has turned the audio up. It is an
             // estimate either way -- limiting is not undone -- but a wrong
-            // meter is worse than a rough one.
+            // meter is worse than a rough one. The main path never comes here:
+            // `pwr` is set by set_data() before every process() call, so the
+            // meter proper is driven from the demodulator's own power and
+            // nothing in the audio chain can move it.
             double sum_sq = 0.0;
             for (size_t i = 0; i < n; i++) {
                 sum_sq += double(pending_samples[i]) * double(pending_samples[i]);
@@ -324,11 +389,11 @@ class KiwiSndEncoder : public AudioEncoder {
                 kKiwiSmeterSlope +
             kKiwiSmeterVisualDb;
 
-        // Lissage du S-metre (ballistique façon AGC materiel) — deja en
-        // place avant la decouverte de la taille fixe, laisse actif : il
-        // n'a rien a voir avec le probleme "observed/meter" (qui ne tenait
-        // qu'a la taille de trame) mais reste une amelioration valable en
-        // lui-meme, et il est sans risque.
+        // S-meter smoothing (hardware-AGC-like ballistics) -- already in
+        // place before the fixed frame size was discovered, and left active:
+        // it has nothing to do with the "observed/meter" problem (which was
+        // purely a matter of frame size), but it is a worthwhile improvement
+        // in its own right and carries no risk.
         static constexpr double METER_SMOOTHING_ALPHA = 0.85;
         if (!meter_initialized) {
             smoothed_dbfs = approx_dbfs;
@@ -342,7 +407,12 @@ class KiwiSndEncoder : public AudioEncoder {
             std::clamp((smoothed_dbfs + 127.0) * 10.0, 0.0, 65535.0));
 
         call_count++;
-        if (call_count % 200 == 0) {
+        // Every 200 frames (~8.5 s) while a client settles in, then one line
+        // per 2000 (~85 s) for the rest of the session. The frequent lines are
+        // what you want when checking a meter against the web UI; keeping that
+        // cadence forever just fills the file.
+        const uint64_t meter_log_every = call_count <= 2000 ? 200 : 2000;
+        if (call_count % meter_log_every == 0) {
             kiwi_debug_log("KiwiSndEncoder::process appele #" +
                            std::to_string(call_count) +
                            " n=" + std::to_string(n) +
@@ -409,8 +479,8 @@ class KiwiSndEncoder : public AudioEncoder {
 
         sender.send_binary_packet(hdl, frame.data(), frame.size());
 
-        // Retire les n echantillons qu'on vient d'envoyer, garde le reste
-        // (le "reliquat" sous 512 echantillons) pour le prochain appel.
+        // Drop the n samples just sent and keep the remainder (the tail of
+        // fewer than 512 samples) for the next call.
         pending_samples.erase(pending_samples.begin(),
                                pending_samples.begin() + static_cast<long>(n));
     }
@@ -425,7 +495,7 @@ class KiwiSndEncoder : public AudioEncoder {
 };
 
 // ----------------------------------------------------------------------------
-// KiwiWfEncoder — emballe les magnitudes de waterfall au format "W/F" Kiwi
+// KiwiWfEncoder — packs waterfall magnitudes into the Kiwi "W/F" format
 // ----------------------------------------------------------------------------
 
 class KiwiWfEncoder : public WaterfallEncoder {
@@ -434,10 +504,14 @@ class KiwiWfEncoder : public WaterfallEncoder {
         : WaterfallEncoder(hdl, sender) {}
     ~KiwiWfEncoder() override = default;
 
+    // A Kiwi W/F frame ALWAYS carries this many samples: it is the
+    // wf_fft_size we advertise ourselves in "MSG wf_setup".
+    static constexpr size_t kKiwiWfBins = 1024;
+
     int send(const void *buffer, size_t bytes, uint64_t frame_num, int start,
              int stop) override {
         std::vector<uint8_t> frame;
-        frame.reserve(16 + bytes);
+        frame.reserve(16 + kKiwiWfBins);
 
         frame.push_back('W');
         frame.push_back('/');
@@ -455,23 +529,23 @@ class KiwiWfEncoder : public WaterfallEncoder {
         push_u32le(static_cast<uint32_t>(frame_num));
 
         // --------------------------------------------------------------
-        // Conversion vers l'echelle dB du Kiwi.
+        // Conversion to the Kiwi dB scale.
         //
-        // PhantomSDR stocke chaque bin en int8 :
+        // PhantomSDR stores each bin as an int8:
         //     v = 20*log10(P) + 6.0206*power_offset + 127
-        // (power_and_quantize() dans fft_impl.cpp — noter le 20*log10 d'une
-        // PUISSANCE, soit le double des dB usuels), avec
-        //     power_offset = kiwi_wf_size_log2 - niveau_de_decimation.
+        // (power_and_quantize() in fft_impl.cpp -- note the 20*log10 of a
+        // POWER, i.e. twice the usual dB), where
+        //     power_offset = kiwi_wf_size_log2 - decimation_level.
         //
-        // Un client Kiwi lit un OCTET NON SIGNE et affiche (b - 255) dBm.
-        // On recopiait v tel quel : le cast int8 -> uint8 repliait l'echelle
-        // (v=-20 devenait 236, soit -19 dBm, tandis qu'un vrai porteur a
-        // v=77 restait 77, soit -178 dBm). L'affichage etait donc a la fois
-        // sature et inverse. On refait ici le calcul complet :
-        //   1. retirer le +127 et le facteur 2 des dB       -> v/2 - 63.5
-        //   2. retirer le power_offset, dependant du zoom   -> echelle absolue
-        //   3. appliquer la meme calibration que le S-metre -> dBm affichables
-        //   4. encoder en b = dBm + 255, borne a [0, 255]   -> monotone
+        // A Kiwi client reads an UNSIGNED BYTE and displays (b - 255) dBm.
+        // We used to copy v straight across: the int8 -> uint8 cast wrapped
+        // the scale (v=-20 became 236, i.e. -19 dBm, while a real carrier at
+        // v=77 stayed 77, i.e. -178 dBm). The display was therefore both
+        // saturated and inverted. The full calculation is redone here:
+        //   1. remove the +127 and the factor of two    -> v/2 - 63.5
+        //   2. remove the zoom-dependent power_offset   -> absolute scale
+        //   3. apply the same calibration as the S-meter-> displayable dBm
+        //   4. encode as b = dBm + 255, clamped [0, 255]-> monotonic
         // --------------------------------------------------------------
         double level = 0.0;
         const double full_span = static_cast<double>(stop - start);
@@ -481,21 +555,69 @@ class KiwiWfEncoder : public WaterfallEncoder {
             3.0103 * (static_cast<double>(kiwi_wf_size_log2) - level);
 
         const int8_t *src = static_cast<const int8_t *>(buffer);
+        dbm_scratch_.resize(bytes);
         for (size_t i = 0; i < bytes; i++) {
-            const double dbm = static_cast<double>(src[i]) * 0.5 - 63.5 -
-                               power_offset_db - 6.0206 +
-                               kiwi_smeter_offset_db + kiwi_wf_cal_db;
-            const long b = std::lround(dbm) + 255;
+            dbm_scratch_[i] = static_cast<double>(src[i]) * 0.5 - 63.5 -
+                              power_offset_db - 6.0206 +
+                              kiwi_smeter_offset_db + kiwi_wf_cal_db;
+        }
+
+        // --------------------------------------------------------------
+        // Resampling to a fixed size (kKiwiWfBins).
+        //
+        // "bytes" is the number of NATIVE bins the requested zoom window
+        // covers (websocket.cpp, retune_wf_cb: width = (hi_hz - lo_hz) /
+        // bin_hz). At low zoom the window is wide and "bytes" is at or
+        // above 1024. But the further in the client zooms the narrower the
+        // window gets: past zoom 11 it falls below 1024 bins (512 at zoom
+        // 12, 128 at zoom 14 with fft_size=4194304). We then sent a short
+        // frame, which a strict Kiwi client -- one that ALWAYS expects 1024
+        // samples per line -- stretches in raw blocks, hence the blocky
+        // look at deep zoom in AetherSDR. The native web display showed
+        // nothing wrong because its canvas smooths the same sparse data
+        // instead of stretching it. Raising fft_size does not help: a finer
+        // FFT needs FEWER native bins to cover the same narrow window.
+        //
+        // The fix in commit 2ef1b5b addressed only the other cause of short
+        // frames (clamping at the edges of the spectrum). So exactly
+        // kKiwiWfBins values are reconstructed here by linear
+        // interpolation, on the dBm rather than on the raw bytes so the
+        // result stays consistent whatever the scale, whether "bytes" is
+        // smaller (deep zoom, the common case) or larger than kKiwiWfBins.
+        // --------------------------------------------------------------
+        for (size_t i = 0; i < kKiwiWfBins; i++) {
+            double value;
+            if (bytes == 0) {
+                value = -255.0;  // no data: silence (degenerate case)
+            } else if (bytes == 1) {
+                value = dbm_scratch_[0];
+            } else {
+                // Fractional position in the source, over [0, bytes-1].
+                const double pos = static_cast<double>(i) *
+                                   static_cast<double>(bytes - 1) /
+                                   static_cast<double>(kKiwiWfBins - 1);
+                const size_t i0 = static_cast<size_t>(pos);
+                const size_t i1 = std::min(i0 + 1, bytes - 1);
+                const double frac = pos - static_cast<double>(i0);
+                value = dbm_scratch_[i0] * (1.0 - frac) +
+                        dbm_scratch_[i1] * frac;
+            }
+            const long b = std::lround(value) + 255;
             frame.push_back(static_cast<uint8_t>(std::clamp(b, 0L, 255L)));
         }
 
         sender.send_binary_packet(hdl, frame.data(), frame.size());
         return 0;
     }
+
+  private:
+    // Reused from one frame to the next: send() is on the waterfall's hot
+    // path, and an allocation per frame has no business being there.
+    std::vector<double> dbm_scratch_;
 };
 
 // ----------------------------------------------------------------------------
-// Utilitaires de parsing des commandes Kiwi et de correspondance de mode
+// Kiwi command parsing helpers and mode mapping
 // ----------------------------------------------------------------------------
 
 inline std::unordered_map<std::string, std::string>
@@ -536,20 +658,35 @@ class KiwiCommandParser {
         const std::string &msg, bool &auth_acked,
         const std::function<void(const std::string &)> &send_binary_text,
         const RetuneCallback &on_retune, double bandwidth_hz,
-        double center_freq_hz, double adc_clk_hz) {
+        double center_freq_hz, double adc_clk_hz, double audio_rate_hz) {
         if (msg.rfind("SET auth", 0) == 0) {
             if (auth_acked) return;
             auth_acked = true;
-            send_binary_text("MSG sample_rate=11998.992747");
-            send_binary_text("MSG audio_rate=12000");
-            // Un vrai KiwiSDR annonce les trois champs sur la MEME ligne :
+            // Both fields come from input.audio_sps, the rate the rest of the
+            // pipeline is built on: AudioClient stores it as audio_rate and
+            // hands it to every encoder (FLAC set_sample_rate, Opus), so it is
+            // the rate the PCM in an SND frame actually carries. They used to
+            // be hardcoded ("sample_rate=11998.992747", a figure copied from a
+            // real KiwiSDR, and "audio_rate=12000"), which was silently
+            // correct only for a 12 kHz receiver -- with input.audio_sps at
+            // 192000 a Kiwi client was told 12 kHz and played the stream 16x
+            // too slow. A Kiwi announces sample_rate with decimals because it
+            // measures its own clock drift; we resample to an exact rate, so
+            // the two fields are simply the same number.
+            std::ostringstream srate;
+            srate << std::fixed << std::setprecision(6) << audio_rate_hz;
+            send_binary_text("MSG sample_rate=" + srate.str());
+            send_binary_text(
+                "MSG audio_rate=" +
+                std::to_string(static_cast<long long>(std::llround(audio_rate_hz))));
+            // A real KiwiSDR advertises all three fields on the SAME line:
             //   MSG center_freq=15000000 bandwidth=30000000 adc_clk_nom=66666600
-            // "bandwidth" seul dit au client quelle LARGEUR on couvre mais
-            // pas OU elle se trouve ; un client qui construit sa plage de
-            // dezoom a partir de "center_freq" n'a alors aucun point
-            // d'ancrage et se limite a une fenetre etroite autour de la
-            // frequence courante (symptome observe avec AetherSDR, qui ne
-            // demandait jamais un zoom < 5, soit 937 kHz sur 30 MHz).
+            // "bandwidth" alone tells the client how WIDE we are but not
+            // WHERE that width sits; a client that builds its zoom-out range
+            // from "center_freq" then has nothing to anchor on and confines
+            // itself to a narrow window around the current frequency (the
+            // symptom seen with AetherSDR, which never once asked for a zoom
+            // below 5, i.e. 937 kHz out of 30 MHz).
             auto as_int = [](double v) {
                 return std::to_string(static_cast<long long>(std::llround(v)));
             };
@@ -589,18 +726,18 @@ class KiwiCommandParser {
         }
 
         // ------------------------------------------------------------------
-        // CAPTURE DE TOUTE COMMANDE NON RECONNUE (SND)
+        // CATCH EVERY UNRECOGNISED COMMAND (SND)
         //
-        // On ne gérait jusqu'ici que "SET auth" et "SET mod=". Un vrai
-        // KiwiSDR exige par exemple "SET agc=..." avant de servir l'audio
-        // (confirmé par le développeur du KiwiSDR sur le forum officiel) ;
-        // un client comme AetherSDR peut envoyer cette commande, ou
-        // d'autres, sans qu'on le sache puisqu'on les ignorait en silence.
-        // On les journalise ici pour voir la séquence complète, sans rien
-        // changer au comportement (on ne fait toujours qu'ignorer ce qu'on
-        // ne traite pas).
+        // Only "SET auth" and "SET mod=" were handled until now. A real
+        // KiwiSDR requires "SET agc=..." before it will serve audio, for
+        // instance (confirmed by the KiwiSDR developer on the official
+        // forum); a client such as AetherSDR may send that command, or
+        // others, without us ever knowing, since they were silently
+        // dropped. They are logged here so the full sequence is visible,
+        // without changing any behaviour -- what we do not handle is still
+        // simply ignored.
         // ------------------------------------------------------------------
-        kiwi_debug_log("[SND] commande non geree: " + msg);
+        kiwi_log_unhandled("[SND]", msg);
     }
 
     // wf_speed -> frames per second, following the KiwiSDR menu
@@ -622,7 +759,7 @@ class KiwiCommandParser {
         const std::string &msg, bool &auth_acked,
         const std::function<void(const std::string &)> &send_binary_text,
         const std::function<void(int, double, bool)> &on_retune_wf,
-        double max_fps,
+        double max_fps, int max_zoom,
         const std::function<void(double)> &on_wf_speed) {
         if (msg.rfind("SET auth", 0) == 0) {
             if (auth_acked) return;
@@ -633,10 +770,39 @@ class KiwiCommandParser {
             // out of lines and stalls between them.
             const std::string fps =
                 std::to_string(static_cast<int>(std::floor(max_fps)));
+            // ----------------------------------------------------------
+            // ZOOM CEILING -- why this is computed and not the flat 14 a
+            // real KiwiSDR sends.
+            //
+            // A Kiwi runs a downconverter and a fresh FFT per zoom level,
+            // so all 1024 bins of a W/F frame are real at every zoom, right
+            // down to zoom 14. PhantomSDR has ONE FFT across the whole
+            // band: at zoom z a client sees fft_result_size >> z of our
+            // native bins, so the count falls as it zooms in. Once it drops
+            // below 1024 the encoder is interpolating (see the resampling
+            // note in KiwiWfEncoder::send) and the client is drawing a
+            // smooth curve through data that is not there -- the "no real
+            // waveform at high zoom" seen in AetherSDR.
+            //
+            // On a 60 MHz / 4194304-bin receiver that boundary lands exactly
+            // at zoom 11: 2097152 >> 11 == 1024. We used to advertise
+            // zoom_max=14 anyway (with zoom_cap=11 alongside it, which
+            // clients ignore), inviting three zoom steps of invented
+            // detail. Both fields now carry the honest figure, so a client
+            // stops where the last real bin is. Raising input.fft_size is
+            // what buys a deeper zoom -- one step per doubling -- and this
+            // figure follows it automatically.
+            //
+            // Note this does NOT change the "SET zoom= start=" counter
+            // scale: that counter is defined against the protocol's fixed
+            // 14 zoom levels and clients hardcode it, so retune_wf_cb keeps
+            // MAX_ZOOM = 14 for the conversion.
+            // ----------------------------------------------------------
+            const std::string zoom = std::to_string(max_zoom);
             send_binary_text(
                 "MSG wf_fft_size=1024 wf_fps=" + fps + " wf_fps_max=" + fps +
-                " zoom_max=14 "
-                "zoom_cap=11 rx_chans=8 wf_chans=3 wf_chans_real=3 "
+                " zoom_max=" + zoom + " zoom_cap=" + zoom +
+                " rx_chans=8 wf_chans=3 wf_chans_real=3 "
                 "wf_share=1 wf_cal=0 wf_setup");
             return;
         }
@@ -668,12 +834,12 @@ class KiwiCommandParser {
             }
             try {
                 int zoom = std::stoi(it_zoom->second);
-                // Deux formats possibles selon la version Kiwi que le
-                // client suppose (on n'annonce pas de version nous-mêmes,
-                // donc on gère les deux et on journalise lequel arrive) :
-                //   - "cf=<kHz>"      : fréquence centrale, format récent
-                //   - "start=<compteur>" : ancien format, nécessite une
-                //     conversion via MAX_FREQ/MAX_ZOOM/WF_BINS
+                // Two possible forms, depending on the Kiwi version the
+                // client assumes (we advertise no version ourselves, so
+                // both are handled and the one that arrives is logged):
+                //   - "cf=<kHz>"        : centre frequency, the recent form
+                //   - "start=<counter>" : the older form, which needs a
+                //     conversion through MAX_FREQ/MAX_ZOOM/WF_BINS
                 if (params.count("cf")) {
                     double cf_khz = std::stod(params.at("cf"));
                     kiwi_debug_log("[WF] format cf: zoom=" +
@@ -696,9 +862,9 @@ class KiwiCommandParser {
             return;
         }
 
-        // Meme capture que cote SND : voir le commentaire au-dessus de
-        // "[SND] commande non geree" pour le pourquoi.
-        kiwi_debug_log("[WF] commande non geree: " + msg);
+        // Same catch-all as on the SND side: see the comment above
+        // "[SND] commande non geree" for why.
+        kiwi_log_unhandled("[WF]", msg);
     }
 };
 

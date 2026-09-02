@@ -18,13 +18,29 @@ PROXY_PID_FILE="$SCRIPT_DIR/proxy.pid"
 LOG_FILE="$SCRIPT_DIR/admin.log"
 PROXY_LOG_FILE="$SCRIPT_DIR/proxy.log"
 
-# Match the EXACT launch command (absolute path). A bare pattern like
-# 'python3.*admin_server.py' makes 'pgrep -f' also match unrelated command
-# lines that merely mention the script — this manager itself, or a terminal
-# running a diagnostic — which caused false "already running" and skipped
-# starts. The full path only appears in the real 'python3 /abs/path.py' process.
-ADMIN_PAT="python3 $PY_SCRIPT"
-PROXY_PAT="python3 $PROXY_SCRIPT"
+# Match the launch command by its absolute script path, anchored to the start
+# of the command line. A bare pattern like 'python3.*admin_server.py' makes
+# 'pgrep -f' also match unrelated command lines that merely mention the script —
+# this manager itself, or a terminal running a diagnostic — which caused false
+# "already running" and skipped starts. Anchoring keeps that out while still
+# accepting every spelling of the interpreter actually in use:
+#
+#     python3 /abs/path.py                 <- this script's own nohup line
+#     /usr/bin/python3 -u /abs/path.py     <- the systemd units' ExecStart
+#
+# Without the interpreter and -u wildcards, 'status' reported "not running"
+# for a panel systemd had happily been running for weeks.
+# $1 = absolute script path -> an anchored ERE for 'pgrep -f'
+_cmd_pat() {
+    # Escape the regex metacharacters a filesystem path can legally contain,
+    # so '.' in '.py' (and a '+' or '(' in a directory name) match literally.
+    local esc
+    esc=$(printf '%s' "$1" | sed 's/[].[^$()*+?{|\\]/\\&/g')
+    printf '^[^ ]*python3[^ ]* (-[^ ]+ )*%s($| )' "$esc"
+}
+
+ADMIN_PAT=$(_cmd_pat "$PY_SCRIPT")
+PROXY_PAT=$(_cmd_pat "$PROXY_SCRIPT")
 
 # Resolve the PID of an already-running instance, even if it wasn't started
 # by this script (systemd, manual `python3 foo.py &`, a PID file lost to a

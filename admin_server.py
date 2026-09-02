@@ -1069,11 +1069,16 @@ body{background-image:repeating-linear-gradient(0deg,transparent,transparent 2px
 .stat-label{font-size:.65rem;color:var(--text3);margin-top:.2rem;letter-spacing:.1em;}
 .stat-sub{font-size:.7rem;color:var(--text2);margin-top:.3rem;}
 
+/* Load/temperature thresholds. These are NOT the terminal palette above: they
+   are the web UI's colours (App.svelte), so the same reading looks the same in
+   both places.  The chrome stays green; only the numbers that mean "hot" move. */
+:root{--stat-ok:#4ade80;--stat-warn:#fbbf24;--stat-bad:#ef4444;}
+
 /* Progress bars */
 .bar-wrap{background:#071207;border-radius:2px;height:6px;margin-top:.5rem;overflow:hidden;}
-.bar-fill{height:100%;border-radius:2px;transition:.5s;background:var(--green);}
-.bar-fill.warn{background:var(--amber);}
-.bar-fill.danger{background:var(--red);}
+.bar-fill{height:100%;border-radius:2px;transition:.5s;background:var(--stat-ok);}
+.bar-fill.warn{background:var(--stat-warn);}
+.bar-fill.danger{background:var(--stat-bad);}
 
 /* Buttons */
 .btn{display:inline-flex;align-items:center;gap:.4rem;padding:.5rem .9rem;
@@ -1219,9 +1224,9 @@ table.top-procs th{color:var(--text3);font-weight:normal;letter-spacing:.1em;
 table.top-procs td{padding:.3rem .5rem;border-bottom:1px solid #0a1a0a;
   white-space:nowrap;overflow:hidden;max-width:200px;text-overflow:ellipsis;}
 table.top-procs tr:hover td{background:rgba(0,255,65,0.04);}
-table.top-procs .cpu-hi{color:var(--red);}
-table.top-procs .cpu-med{color:var(--amber);}
-table.top-procs .cpu-ok{color:var(--green);}
+table.top-procs .cpu-hi{color:var(--stat-bad);}
+table.top-procs .cpu-med{color:var(--stat-warn);}
+table.top-procs .cpu-ok{color:var(--stat-ok);}
 table.top-procs .mem-col{color:var(--blue);}
 
 /* ── Mobile Bottom Nav Bar ──────────────────────────────────── */
@@ -1433,7 +1438,7 @@ table.markers input:focus{background:#071207;outline:1px solid var(--border);}
             <div class="card-header"><div class="dot" style="background:#ff4444;box-shadow:0 0 6px #ff4444"></div>TEMPERATURE</div>
             <div class="stat-val" id="stat-temp">--&#176;C</div>
             <div class="stat-label">CPU TEMP</div>
-            <div class="bar-wrap"><div class="bar-fill" id="bar-temp" style="width:0%;background:linear-gradient(90deg,#00ff41,#ffb000,#ff3333)"></div></div>
+            <div class="bar-wrap"><div class="bar-fill" id="bar-temp" style="width:0%;background:linear-gradient(90deg,#4ade80,#fbbf24,#ef4444)"></div></div>
             <div class="stat-sub" id="stat-temp-guard" style="margin-top:.3rem;">GUARD: --</div>
           </div>
         </div>
@@ -2102,7 +2107,9 @@ async function updateStatus() {
     if (s && s.cpu !== undefined && s.cpu !== 'N/A') {
       document.getElementById('stat-cpu').textContent  = s.cpu + '%';
       setBar('bar-cpu', s.cpu);
-      document.getElementById('stat-mem').textContent  = s.mem_used + ' / ' + s.mem_total + ' GB';
+      const memEl = document.getElementById('stat-mem');
+      memEl.textContent = s.mem_used + ' / ' + s.mem_total + ' GB';
+      memEl.style.color = s.mem_pct > 80 ? 'var(--stat-bad)' : '';
       setBar('bar-mem', s.mem_pct);
       document.getElementById('stat-disk').textContent = s.disk_used + ' / ' + s.disk_total + ' GB';
       setBar('bar-disk', s.disk_pct);
@@ -2110,8 +2117,10 @@ async function updateStatus() {
       if (tempEl) {
         if (s.temp !== null && s.temp !== undefined) {
           tempEl.textContent = s.temp + '\u00b0C';
+          tempEl.style.color = s.temp >= 80 ? 'var(--stat-bad)'
+                             : s.temp >= 70 ? 'var(--stat-warn)' : '';
           setBar('bar-temp', Math.min(100, Math.max(0, (s.temp - 20) / 80 * 100)));
-        } else { tempEl.textContent = 'N/A'; }
+        } else { tempEl.textContent = 'N/A'; tempEl.style.color = ''; }
       }
     }
     const tbody = document.getElementById('top-procs-tbody');
@@ -2119,7 +2128,7 @@ async function updateStatus() {
       if (d.top_procs && d.top_procs.length > 0) {
         tbody.innerHTML = '';
         d.top_procs.forEach(proc => {
-          const cc = proc.cpu > 50 ? 'cpu-hi' : proc.cpu > 20 ? 'cpu-med' : 'cpu-ok';
+          const cc = proc.cpu > 80 ? 'cpu-hi' : proc.cpu > 50 ? 'cpu-med' : 'cpu-ok';
           const tr = document.createElement('tr');
           tr.innerHTML =
             `<td style="color:var(--text3)">${proc.pid}</td>` +
@@ -2195,7 +2204,7 @@ function setBar(id, pct) {
   const el = document.getElementById(id);
   if (!el) return;
   el.style.width = pct + '%';
-  el.className = 'bar-fill' + (pct>85?' danger':pct>65?' warn':'');
+  el.className = 'bar-fill' + (pct>80?' danger':pct>50?' warn':'');
 }
 
 statusTimer = setInterval(updateStatus, 3000);

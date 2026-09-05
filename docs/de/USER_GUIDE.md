@@ -200,6 +200,54 @@ Beispiele:
    - **SSB**: Schritte von 100 Hz
    - **CW**: Schritte von 10 Hz
 
+### Scanner
+
+Der Scanner führt den Empfänger über einen Bereich von Kanälen und hält beim
+ersten an, auf dem ein Signal liegt. Er sitzt in der Zeile **Fine Tuning (kHz)**
+ganz rechts:
+
+```
+7 152.0   ◀  ■  ▶  ⊘   30 dB · 4 ▾
+```
+
+| Bedienelement | Funktion |
+|---------------|----------|
+| **◀ ▶** | Abwärts / aufwärts suchen. Steht der Scanner auf einem Signal, setzt ein Pfeil den Suchlauf fort. |
+| **■** | Anhalten. |
+| **⊘** | Diesen Kanal vom Suchlauf ausschließen — für Pfeifstellen oder Dauerträger. |
+| **30 dB · 4 ▾** | Die Schwelle, daneben der gerade gemessene Pegel. Öffnet die Einstellungen. |
+
+Der Text links zeigt, was der Scanner tut: `Scanner` im Ruhezustand, die
+erreichte Frequenz während des Suchlaufs, `◉ 3s` während des Rücklaufzählers,
+`◉ 30·22s` solange der Kanal noch belegt ist, `◉ hold`, wenn er stehen bleibt.
+
+**Einstellungen**
+
+- **Range** — *Scan Band* durchsucht das Band, in dem der Suchlauf beginnt;
+  *Scan Visible* durchsucht genau den sichtbaren Wasserfall und folgt ihm beim
+  Zoomen und Verschieben.
+- **Scan** — *Every channel* stimmt jeden Kanal der Reihe nach ab und hört hinein;
+  *Skip empty* liest das Spektrum und springt direkt zu den Signalen.
+- **Stop at** — wie weit über dem Grundrauschen des Bandes ein Kanal liegen muss,
+  damit der Suchlauf anhält, in dB. Das Rauschen wird laufend nachgeführt, eine
+  Einstellung passt daher tags wie nachts. Ein leerer Kanal zeigt nicht 0 dB —
+  beobachten Sie den Live-Wert auf der Schaltfläche und wählen Sie die Schwelle
+  darüber.
+- **Resume after** — wie lange ein Kanal ruhig bleiben muss, bevor der Suchlauf
+  weiterläuft. Sprechpausen starten ihn nicht neu. *Hold* bleibt stehen, bis Sie
+  eine Taste drücken.
+- **Max stay** — läuft nach dieser Zeit weiter, auch wenn das Signal noch da ist,
+  damit ein Dauerträger den Suchlauf nicht dauerhaft festhält.
+
+Die Schrittweite richtet sich nach der Betriebsart — 1 kHz in SSB, 0,1 kHz in CW,
+5 kHz in AM, 9 oder 10 kHz auf Mittelwelle und 9 kHz auf Langwelle — und die
+Haltepunkte liegen im Kanalraster. Der Suchlauf bleibt in seinem Bereich und
+innerhalb dessen, was der Empfänger abstimmen kann; an einer Grenze läuft er am
+anderen Ende weiter.
+
+Einstellungen und ausgeschlossene Kanäle merkt sich Ihr Browser.
+
+
 ### Demodulationsart auswählen
 
 Wählen Sie die zum Signal passende Betriebsart:

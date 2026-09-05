@@ -282,7 +282,9 @@ recompile_frontend() {
     # Run npm install to ensure dependencies are up to date
     echo ""
     echo "Updating npm dependencies..."
-    npm install
+    # --no-audit/--no-fund: the registry audit call can stall for minutes even
+    # when every package is already up to date (4m vs 0.7s on this box)
+    npm install --no-audit --no-fund
     
     if [ $? -ne 0 ]; then
         echo "⚠️  Warning: npm install had issues, but continuing..."

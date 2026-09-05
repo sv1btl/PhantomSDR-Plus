@@ -200,6 +200,53 @@ Exemples :
    - **BLU** : pas de 100 Hz
    - **CW** : pas de 10 Hz
 
+### Scanner
+
+Le scanner promène le récepteur sur une plage de canaux et s'arrête sur le
+premier qui porte un signal. Il se trouve sur la ligne **Fine Tuning (kHz)**,
+tout à droite :
+
+```
+7 152.0   ◀  ■  ▶  ⊘   30 dB · 4 ▾
+```
+
+| Commande | Rôle |
+|----------|------|
+| **◀ ▶** | Balayer vers le bas / le haut. À l'arrêt sur un signal, une flèche relance le balayage. |
+| **■** | Arrêter. |
+| **⊘** | Exclure ce canal du balayage — pour une porteuse permanente ou un birdie. |
+| **30 dB · 4 ▾** | Le seuil, et à côté le niveau mesuré à l'instant. Ouvre les réglages. |
+
+Le texte à gauche indique ce que fait le scanner : `Scanner` au repos, la
+fréquence atteinte pendant le balayage, `◉ 3s` pendant le décompte avant
+reprise, `◉ 30·22s` tant que le canal est encore occupé, `◉ hold` quand il
+reste en place.
+
+**Réglages**
+
+- **Range** — *Scan Band* balaie la bande où commence le balayage ;
+  *Scan Visible* balaie exactement ce que montre la cascade et la suit si vous
+  zoomez ou la déplacez.
+- **Scan** — *Every channel* accorde et écoute chaque canal à son tour ;
+  *Skip empty* lit le spectre et saute directement aux signaux.
+- **Stop at** — de combien un canal doit dépasser le bruit de fond de la bande
+  pour arrêter le balayage, en dB. Le bruit est suivi en continu : le même
+  réglage convient de jour comme de nuit. Un canal vide n'affiche pas 0 dB —
+  regardez un instant la valeur sur le bouton et placez le seuil au-dessus.
+- **Resume after** — combien de temps un canal doit rester calme avant que le
+  balayage reparte. Les pauses de la parole ne le relancent pas. *Hold* reste en
+  place jusqu'à ce que vous appuyiez sur un bouton.
+- **Max stay** — repart au bout de ce temps même si le signal est toujours là,
+  pour qu'une porteuse permanente ne bloque pas le balayage indéfiniment.
+
+Le pas suit le mode — 1 kHz en BLU, 0,1 kHz en CW, 5 kHz en AM, 9 ou 10 kHz en
+ondes moyennes et 9 kHz en grandes ondes — et les arrêts tombent sur la grille
+des canaux. Le balayage reste dans sa plage et dans ce que le récepteur peut
+accorder ; à une extrémité il reprend à l'autre.
+
+Les réglages et les canaux exclus sont mémorisés dans votre navigateur.
+
+
 ### Choisir le mode de démodulation
 
 Choisissez le mode adapté au signal :

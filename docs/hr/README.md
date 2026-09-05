@@ -21,6 +21,7 @@ PhantomSDR-Plus je fork projekta PhantomSDR koji pruža web-poslužitelj softver
 - **Prilagodljive palete boja**: više shema boja za slap
 - **Dvostruki S-metar**: izbor između analognog i digitalnog prikaza signala
 - **Tipke dekodera na jedan pritisak**: red Decoders na glavnoj ploči, odmah ispod izbornika načina rada (FT8, FT4, FT2, JS8, CW, WSPR, FAX, SSTV, NAVTX, RTTY), uz RADEL i RADEU pokraj samog izbornika načina rada te ponovljene u skočnim prozorima načina rada i pojaseva. Jedan pritisak pokreće dekoder i otvara njegov prozor, drugi ga zaustavlja. Dosadašnji red za širinu pojasa je uklonjen.
+- **Skener kanala**: pretražuje pojas, ili točno ono što prikazuje slap, i zaustavlja se na prvom kanalu koji se izabranim brojem dB uzdigne iznad šuma samoga pojasa, a zatim nastavlja sam čim taj kanal utihne. Korak prati način rada, a zaustavljanja padaju na mrežu kanala (1 kHz SSB, 100 Hz CW, 5 kHz kratkovalni AM, 9/10 kHz srednji val, 9 kHz dugi val). Način *Preskoči prazne* čita spektar slapa i skoči ravno na signale, a tipka za zaključavanje izbacuje stalno zauzet kanal iz pretraživanja. Sve se odvija lokalno u pregledniku slušatelja, pa pretraživanje nikome drugom ne pomiče prijamnik (vidi [Korisnički priručnik](USER_GUIDE.md))
 
 ### Obrada signala
 - **Više načina demodulacije**: AM, FM, USB, LSB, CW i drugi. Također je implementiran RADE dekoder verzije 1.

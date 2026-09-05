@@ -190,10 +190,10 @@ fi
 section "Step 1 — System requirements"
 
 info "Running apt update…"
-sudo apt-get update -qq
+sudo env DEBIAN_FRONTEND=noninteractive apt-get update -qq
 
 info "Installing build tools and system dependencies…"
-sudo apt-get install -y \
+sudo env DEBIAN_FRONTEND=noninteractive apt-get install -y \
     build-essential cmake git \
     python3 python3-pip \
     alsa-utils
@@ -252,7 +252,7 @@ command -v node &>/dev/null && command -v npm &>/dev/null \
 section "Step 2 — Python packages"
 
 info "Installing numpy, scipy, matplotlib, psutil via apt…"
-sudo apt-get install -y \
+sudo env DEBIAN_FRONTEND=noninteractive apt-get install -y \
     python3-numpy \
     python3-scipy \
     python3-matplotlib \
@@ -394,7 +394,7 @@ elif [[ -d "$PHANTOM_DIR" ]]; then
             ok "Frontend rebuilt"
         elif [[ -d "$PHANTOM_DIR/frontend" ]]; then
             cd "$PHANTOM_DIR/frontend"
-            npm install --silent
+            npm install --silent --no-audit --no-fund
             npm run build
             ok "Frontend rebuilt via npm"
         else
@@ -477,7 +477,7 @@ elif [[ -f "$PHANTOM_DIR/setup_admin.sh" ]]; then
     if [[ ${install_admin:-n} =~ ^[Yy]$ ]]; then
         if ! command -v pip3 >/dev/null 2>&1; then
             info "Installing pip..."
-            sudo apt-get install -y python3-pip \
+            sudo env DEBIAN_FRONTEND=noninteractive apt-get install -y python3-pip \
                 || warn "Could not install pip — setup will tell you what to run"
         fi
         chmod +x "$PHANTOM_DIR/setup_admin.sh" "$PHANTOM_DIR/manage_admin.sh" 2>/dev/null || true

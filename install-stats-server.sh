@@ -245,8 +245,8 @@ if ! command -v sensors &> /dev/null; then
         
         if [ -f /etc/debian_version ]; then
             # Debian/Ubuntu
-            sudo apt-get update
-            sudo apt-get install -y lm-sensors
+            sudo env DEBIAN_FRONTEND=noninteractive apt-get update
+            sudo env DEBIAN_FRONTEND=noninteractive apt-get install -y lm-sensors
         elif [ -f /etc/redhat-release ]; then
             # RedHat/CentOS
             sudo yum install -y lm_sensors
@@ -724,7 +724,7 @@ echo ""
 echo -e "${BLUE}Step 5:${NC} Installing dependencies..."
 echo ""
 
-npm install
+npm install --no-audit --no-fund
 if [ $? -eq 0 ]; then
     print_success "Dependencies installed successfully"
 else
@@ -877,7 +877,7 @@ elif [ -f "$PHANTOM_DIR/setup_admin.sh" ]; then
     if [[ ${install_admin:-n} =~ ^[Yy]$ ]]; then
         if ! command -v pip3 >/dev/null 2>&1; then
             print_info "Installing pip..."
-            sudo apt-get install -y python3-pip \
+            sudo env DEBIAN_FRONTEND=noninteractive apt-get install -y python3-pip \
                 || print_warning "Could not install pip — setup will tell you what to run"
         fi
         chmod +x "$PHANTOM_DIR/setup_admin.sh" "$PHANTOM_DIR/manage_admin.sh" 2>/dev/null

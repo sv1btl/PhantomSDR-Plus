@@ -200,6 +200,49 @@ Examples:
    - **SSB**: 100 Hz steps
    - **CW**: 10 Hz steps
 
+### Scanner
+
+The scanner walks the receiver across a range of channels and stops on the first
+one carrying a signal. It sits on the **Fine Tuning (kHz)** row, hard right:
+
+```
+7 152.0   ◀  ■  ▶  ⊘   30 dB · 4 ▾
+```
+
+| Control | What it does |
+|---------|--------------|
+| **◀ ▶** | Scan down / up. While parked on a signal, an arrow resumes the scan. |
+| **■** | Stop. |
+| **⊘** | Lock this channel out of the scan — for a birdie or a permanent carrier. |
+| **30 dB · 4 ▾** | The threshold, with the level being measured right now beside it. Opens the settings. |
+
+The text to the left shows what the scanner is doing: `Scanner` when idle, the
+frequency it has reached while scanning, `◉ 3s` while counting down to resume,
+`◉ 30·22s` while the channel is still busy, `◉ hold` when it will stay put.
+
+**Settings**
+
+- **Range** — *Scan Band* sweeps the band the scan starts in; *Scan Visible*
+  sweeps exactly what the waterfall shows, and follows it if you zoom or drag.
+- **Scan** — *Every channel* tunes and listens to every channel in turn;
+  *Skip empty* reads the spectrum and jumps straight to the signals.
+- **Stop at** — how far above the band noise floor a channel must be to stop the
+  scan, in dB. The floor is tracked continuously, so one setting works by day and
+  by night. An empty channel does not read 0 dB — watch the live figure on the
+  button for a moment and set the threshold above it.
+- **Resume after** — how long a channel must stay quiet before the scan moves on.
+  Pauses in speech do not restart it. *Hold* stays until you press a button.
+- **Max stay** — moves on after this long even if the signal is still there, so a
+  permanent carrier cannot hold the scan for ever.
+
+The step follows the mode — 1 kHz in SSB, 0.1 kHz in CW, 5 kHz in AM, 9 or 10 kHz
+on medium wave and 9 kHz on long wave — and stops land on the channel grid. The
+scan stays inside its range and inside what the receiver can tune; at an edge it
+wraps round and carries on.
+
+Settings and the locked-out channels are remembered in your browser.
+
+
 ### Selecting Demodulation Mode
 
 Choose the appropriate mode for the signal:

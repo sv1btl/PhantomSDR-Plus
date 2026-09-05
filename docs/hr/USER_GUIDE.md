@@ -200,6 +200,51 @@ Primjeri:
    - **SSB**: koraci od 100 Hz
    - **CW**: koraci od 10 Hz
 
+### Skener
+
+Skener vodi prijemnik preko raspona kanala i zaustavlja se na prvom na kojem
+ima signala. Nalazi se u retku **Fine Tuning (kHz)**, skroz desno:
+
+```
+7 152.0   ◀  ■  ▶  ⊘   30 dB · 4 ▾
+```
+
+| Kontrola | Što radi |
+|----------|-----------|
+| **◀ ▶** | Pretraga dolje / gore. Dok stoji na signalu, strelica nastavlja pretragu. |
+| **■** | Zaustavljanje. |
+| **⊘** | Isključi ovaj kanal iz pretrage — za trajni nosilac ili smetnju. |
+| **30 dB · 4 ▾** | Prag, a pokraj njega razina koja se upravo mjeri. Otvara postavke. |
+
+Tekst lijevo pokazuje što skener radi: `Scanner` u mirovanju, frekvenciju do
+koje je došao tijekom pretrage, `◉ 3s` dok odbrojava do nastavka, `◉ 30·22s`
+dok je kanal još zauzet, `◉ hold` kad ostaje na mjestu.
+
+**Postavke**
+
+- **Range** — *Scan Band* pretražuje pojas u kojem pretraga počinje;
+  *Scan Visible* pretražuje točno ono što slap prikazuje i prati ga ako
+  zumirate ili ga pomaknete.
+- **Scan** — *Every channel* ugađa i sluša svaki kanal redom;
+  *Skip empty* čita spektar i skoči ravno na signale.
+- **Stop at** — koliko iznad šuma pojasa kanal mora biti da bi zaustavio
+  pretragu, u dB. Šum se prati neprekidno pa ista postavka vrijedi danju i noću.
+  Prazan kanal ne pokazuje 0 dB — pogledajte na trenutak vrijednost na gumbu i
+  postavite prag iznad nje.
+- **Resume after** — koliko dugo kanal mora biti tih prije nego što pretraga
+  krene dalje. Stanke u govoru je ne pokreću ponovno. *Hold* ostaje dok ne
+  pritisnete gumb.
+- **Max stay** — kreće dalje nakon ovog vremena i ako je signal još tu, da
+  trajni nosilac ne bi zadržao pretragu zauvijek.
+
+Korak prati način rada — 1 kHz u SSB, 0,1 kHz u CW, 5 kHz u AM, 9 ili 10 kHz na
+srednjim valovima i 9 kHz na dugim — a zaustavljanja padaju na mrežu kanala.
+Pretraga ostaje unutar svojeg raspona i unutar onoga što prijemnik može ugoditi;
+na rubu se vraća na drugi kraj i nastavlja.
+
+Postavke i isključeni kanali pamte se u vašem pregledniku.
+
+
 ### Odabir načina demodulacije
 
 Odaberite način prikladan signalu:

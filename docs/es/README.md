@@ -21,6 +21,7 @@ PhantomSDR-Plus es un fork de PhantomSDR que ofrece un servidor web de radio def
 - **Mapas de color personalizables**: varios esquemas de color para la cascada
 - **S-metro doble**: a elegir entre indicación de señal analógica o digital
 - **Botones de decodificador de una pulsación**: una fila de decodificadores en el panel principal, justo debajo del selector de modos (FT8, FT4, FT2, JS8, CW, WSPR, FAX, SSTV, NAVTX, RTTY), con RADEL y RADEU junto al propio selector de modos y repetidos en las ventanas emergentes de modos y bandas. Una pulsación inicia el decodificador y abre su ventana; una segunda lo detiene. La antigua fila de ancho de banda se ha eliminado.
+- **Escáner de canales**: recorre la banda, o exactamente lo que muestra la cascada, y se detiene en el primer canal que supere en los dB elegidos el propio suelo de ruido de la banda; continúa solo en cuanto ese canal queda en silencio. El paso sigue al modo y las paradas caen en la rejilla de canales (1 kHz SSB, 100 Hz CW, 5 kHz AM de onda corta, 9/10 kHz onda media, 9 kHz onda larga). Un modo *Saltar vacíos* lee el espectro de la cascada y salta directamente a las señales, y un botón de bloqueo saca del barrido un canal siempre ocupado. Todo es local al navegador del oyente, de modo que explorar no mueve el receptor para nadie más (véase la [Guía del usuario](USER_GUIDE.md))
 
 ### Procesamiento de señal
 - **Múltiples modos de demodulación**: AM, FM, USB, LSB, CW y más. También se ha implementado un decodificador RADE versión 1.

@@ -278,6 +278,7 @@ PhantomSDR-Plus
 │   │   │   └── wspr.js
 │   │   ├── olivia.js
 │   │   ├── psk31.js
+│   │   ├── scanner.js
 │   │   ├── sstv.js
 │   │   ├── sstv.worker.js
 │   │   ├── sstvWorkerProxy.js
@@ -801,6 +802,12 @@ La interfaz de usuario web construida con Svelte y Vite.
 - Entrada e indicación de frecuencia — `lib/FrequencyInput.svelte`
 - Selección de modo (AM/FM/SSB/CW) — `lib/ModesSelector.svelte`, cambio de banda — `lib/BandSelector.svelte`
 - AGC/NR/NB y el resto de controles están en el propio `App.svelte`; no existe un `Controls.svelte` aparte
+
+#### 3a. Escáner (`scanner.js`)
+- Explorador de canales: recorre el receptor por un margen y se detiene en el primer canal con señal. JS puro, no un componente — `App.svelte` aporta el VFO, el modo, el plan de bandas y la llamada de sintonía, y recibe de vuelta el estado de la interfaz por una sola función de retorno
+- El umbral es en dB sobre el ruido de fondo de la banda en vez de un nivel absoluto, reutilizando el ruido que `waterfall.js` ya sigue (`snrNoiseDb`), así que no necesita calibración propia
+- Dos maneras de recorrer la banda: sintonizar y escuchar cada canal, o examinar antes el espectro y sintonizar sólo lo que no pueda descartarse. El espectro puede saltarse un canal pero nunca detenerse en uno — toda parada procede de una escucha real
+- El margen es la banda del plan de bandas o exactamente lo que muestra la cascada; la reanudación automática, el tiempo máximo de permanencia y la lista de exclusión también viven aquí, guardados en `localStorage`
 
 #### 4. Sistema de audio (`audio.js`)
 - Flujo de audio por WebSocket

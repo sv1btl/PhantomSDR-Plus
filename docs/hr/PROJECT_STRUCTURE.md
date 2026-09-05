@@ -278,6 +278,7 @@ PhantomSDR-Plus
 │   │   │   └── wspr.js
 │   │   ├── olivia.js
 │   │   ├── psk31.js
+│   │   ├── scanner.js
 │   │   ├── sstv.js
 │   │   ├── sstv.worker.js
 │   │   ├── sstvWorkerProxy.js
@@ -802,6 +803,12 @@ Web-sučelje izgrađeno pomoću Sveltea i Vitea.
 - Unos i prikaz frekvencije — `lib/FrequencyInput.svelte`
 - Odabir načina rada (AM/FM/SSB/CW) — `lib/ModesSelector.svelte`, promjena pojasa — `lib/BandSelector.svelte`
 - AGC/NR/NB i ostale kontrole nalaze se u samom `App.svelte`; zasebna `Controls.svelte` ne postoji
+
+#### 3a. Skener (`scanner.js`)
+- Pretraga kanala: vodi prijemnik preko raspona i zaustavlja se na prvom kanalu sa signalom. Čisti JS, ne komponenta — `App.svelte` daje VFO, način rada, plan pojaseva i poziv za ugađanje, a natrag prima stanje sučelja kroz jedan povratni poziv
+- Prag je u dB iznad šuma pojasa umjesto apsolutne razine i koristi šum koji `waterfall.js` ionako prati (`snrNoiseDb`), pa mu ne treba vlastita kalibracija
+- Dva načina prelaska pojasa: ugoditi i poslušati svaki kanal, ili najprije pregledati spektar i ugoditi samo ono što se ne može isključiti. Spektar smije preskočiti kanal, ali nikada stati na njemu — svako zaustavljanje dolazi iz stvarnog slušanja
+- Raspon je ili pojas iz plana pojaseva ili točno ono što slap prikazuje; automatski nastavak, najdulje zadržavanje i popis isključenih kanala također su ovdje i čuvaju se u `localStorage`
 
 #### 4. Audiosustav (`audio.js`)
 - Audiotok putem WebSocketa

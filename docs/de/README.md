@@ -21,6 +21,7 @@ PhantomSDR-Plus ist ein Fork von PhantomSDR und stellt einen leistungsstarken So
 - **Anpassbare Farbpaletten**: mehrere Farbschemata für den Wasserfall
 - **Doppeltes S-Meter**: wahlweise analoge oder digitale Signalanzeige
 - **Decoder-Tasten mit einem Druck**: eine Decoder-Reihe im Hauptfeld direkt unter der Modus-Auswahl (FT8, FT4, FT2, JS8, CW, WSPR, FAX, SSTV, NAVTX, RTTY), dazu RADEL und RADEU neben der Modus-Auswahl selbst sowie in den Pop-ups für Modi und Bänder. Ein Druck startet den Decoder und öffnet sein Fenster, ein zweiter beendet ihn. Die bisherige Bandbreiten-Reihe ist entfallen.
+- **Kanalsuchlauf**: durchsucht das Band oder genau den sichtbaren Wasserfallausschnitt und hält beim ersten Kanal an, der eine wählbare Anzahl dB über dem Rauschflur des Bandes liegt; sobald der Kanal wieder still ist, läuft er von selbst weiter. Die Schrittweite folgt der Betriebsart, und die Stopps liegen auf dem Kanalraster (1 kHz SSB, 100 Hz CW, 5 kHz Kurzwellen-AM, 9/10 kHz Mittelwelle, 9 kHz Langwelle). Ein Modus *Leere überspringen* liest das Wasserfallspektrum und springt direkt zu den Signalen, und eine Sperrtaste nimmt einen dauerbelegten Kanal aus dem Suchlauf. Alles läuft lokal im Browser des Hörers, der Suchlauf verstellt den Empfänger für niemanden sonst (siehe [Benutzerhandbuch](USER_GUIDE.md))
 
 ### Signalverarbeitung
 - **Mehrere Demodulationsarten**: AM, FM, USB, LSB, CW und mehr. Ein RADE-Decoder der Version 1 wurde ebenfalls implementiert.

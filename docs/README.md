@@ -21,6 +21,7 @@ PhantomSDR-Plus is a fork of PhantomSDR that provides a high-performance Softwar
 - **Customizable colormaps**: Multiple waterfall color schemes
 - **Dual S-meter**: Choice between analog or digital signal meter display
 - **One-touch decoder buttons**: A Decoders row sits on the main panel directly under the Modes selector (FT8, FT4, FT2, CW, WSPR, FAX, SSTV, NAVTEX, RTTY), with RADEL and RADEU beside the Modes selector itself and repeated in the Modes and Bands pop-ups. One press starts the decoder and opens its window, a second press stops it. The old Bandwidth row has been removed.
+- **Channel scanner**: sweeps the band, or exactly what the waterfall is showing, and stops on the first channel rising a chosen number of dB above the band's own noise floor, then carries on by itself once that channel goes quiet. The step follows the mode and stops land on the channel grid (1 kHz SSB, 100 Hz CW, 5 kHz shortwave AM, 9/10 kHz medium wave, 9 kHz long wave); a *Skip empty* mode reads the waterfall spectrum and jumps straight to the signals; a lockout button drops an always-busy channel out of the sweep. Everything is local to the listener's browser, so scanning never moves the receiver for anyone else (see [User Guide](USER_GUIDE.md))
 
 ### Signal Processing
 - **Multiple demodulation modes**: AM, FM, USB, LSB, CW, and more. A version 1 RADE decoder has also been implemented.

@@ -87,7 +87,7 @@ esac
 
 pkg_refresh() {
     case "$PKG_MGR" in
-        apt)    sudo apt-get update -qq ;;
+        apt)    sudo env DEBIAN_FRONTEND=noninteractive apt-get update -qq ;;
         # -Sy alone can leave Arch in a partial-upgrade state, so sync + upgrade.
         pacman) sudo pacman -Syu --noconfirm ;;
         dnf)    sudo dnf makecache -q || true ;;
@@ -98,7 +98,7 @@ pkg_refresh() {
 
 pkg_install() {
     case "$PKG_MGR" in
-        apt)    sudo apt-get install -y "$@" ;;
+        apt)    sudo env DEBIAN_FRONTEND=noninteractive apt-get install -y "$@" ;;
         pacman) sudo pacman -S --needed --noconfirm "$@" ;;
         dnf)    sudo dnf install -y "$@" ;;
         zypper) sudo zypper --non-interactive install "$@" ;;
@@ -507,7 +507,7 @@ elif [[ -d "$PHANTOM_DIR" ]]; then
             ok "Frontend rebuilt"
         elif [[ -d "$PHANTOM_DIR/frontend" ]]; then
             cd "$PHANTOM_DIR/frontend"
-            npm install --silent
+            npm install --silent --no-audit --no-fund
             npm run build
             ok "Frontend rebuilt via npm"
         else

@@ -1172,7 +1172,9 @@ fi
 # matters: nvm fetches Node.js with curl, and the RX888 / RTL-SDR driver builds
 # need libusb — both used to be pulled in later on, so a bare minimal image
 # could fail partway through. psmisc provides fuser/killall, which the
-# start/stop scripts use.
+# start/stop scripts use, and findutils provides find/xargs, which nvm's
+# "nvm use" needs and which recompile.sh and update.sh call directly.
+# openSUSE Tumbleweed's base image is the one that ships without it.
 #
 # The package manager is idempotent, so the fuller "Installing System
 # Dependencies" step further down simply confirms these and adds the rest.
@@ -1252,7 +1254,7 @@ run $SUDO zypper install -y \
     "pkgconfig(zlib)" libzstd-devel \
     boost-devel libboost_iostreams-devel \
     libopus-devel liquid-dsp-devel \
-    git psmisc procps
+    git psmisc procps findutils
 
 green "✅ Prerequisites installed"
 
@@ -1748,7 +1750,7 @@ echo "Installing pinned Vite / Svelte packages..."
 # esbuild: NOT pinned here — Vite 5 has a strict peer range (^0.21.x);
 # let npm resolve it automatically from Vite's peer dep.
 # ─────────────────────────────────────────────────────────────────────────────
-run npm install --save-dev \
+run npm install --no-audit --no-fund --save-dev \
     vite@5.4.16 \
     "@sveltejs/vite-plugin-svelte@^3.1.2" \
     "@vitejs/plugin-legacy@^5.4.2" \
@@ -1756,19 +1758,19 @@ run npm install --save-dev \
 
 echo ""
 echo "Installing remaining dependencies from package.json..."
-run npm install
+run npm install --no-audit --no-fund
 
 echo ""
 echo "Installing Opus WASM decoder..."
-run npm install @wasm-audio-decoders/opus-ml
+run npm install --no-audit --no-fund @wasm-audio-decoders/opus-ml
 
 echo ""
 echo "Installing emoji picker..."
-run npm install emoji-picker-element
+run npm install --no-audit --no-fund emoji-picker-element
 
 echo ""
 echo "Installing Socket.IO client (FreeDV Reporter live feed)..."
-run npm install socket.io-client
+run npm install --no-audit --no-fund socket.io-client
 
 # Run audit fix WITHOUT --force so only safe (non-breaking) patches are
 # applied.  --force can silently pull in Vite 6/7/8 or Svelte 5 and break
@@ -1777,7 +1779,7 @@ echo ""
 echo "Running safe audit fix..."
 npm audit fix 2>/dev/null || true
 # Re-install after audit fix to ensure the lock file is consistent.
-run npm install
+run npm install --no-audit --no-fund
 
 green "✅ npm dependencies installed"
 

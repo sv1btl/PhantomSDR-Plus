@@ -267,7 +267,7 @@ if [ "$DO_BUILD" = yes ]; then
   cd "$ROOT/frontend"
   echo
   echo "Updating npm dependencies..."
-  npm install || echo "⚠️  npm install had issues, but continuing..."
+  npm install --no-audit --no-fund || echo "⚠️  npm install had issues, but continuing..."
   echo
   echo "=========================================="
   echo "Running $BUILDER"

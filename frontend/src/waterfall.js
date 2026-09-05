@@ -585,6 +585,8 @@ export default class SpectrumWaterfall {
 
     // Decode and extract header
     this.waterfallDecoder.decode(array).forEach((waterfallArray) => {
+      // Kept so getPeakFreq() can look at the current spectrum on demand.
+      this._lastFrame = waterfallArray
       this._updateSnr(waterfallArray)
       this.waterfallQueue.unshift(waterfallArray)
     })
@@ -717,6 +719,37 @@ export default class SpectrumWaterfall {
 
   getSnrEstimate() {
     return { snrDb: this.snrDb, noiseDb: this.snrNoiseDb }
+  }
+
+  // Frequency of the strongest bin within +/-halfSpanHz of centerHz, from the
+  // last frame, or null when the frame is too coarse there to mean anything.
+  // This is a POSITIONING aid only — it says where a signal sits, never how
+  // strong it is, so it needs no calibration against any other measurement.
+  getPeakFreq(centerHz, halfSpanHz) {
+    try {
+      const frame = this._lastFrame
+      if (!frame || !frame.data) return null
+      const { data, l } = frame
+      const n = data.length
+      const span = frame.r - l
+      if (n < 8 || !(span > 0)) return null
+      const toDataIdx = (hz) => Math.round((this.freqToIdx(hz) - l) / span * n)
+
+      let a = toDataIdx(centerHz - halfSpanHz)
+      let b = toDataIdx(centerHz + halfSpanHz)
+      if (b < a) { const t = a; a = b; b = t }
+      a = Math.max(0, Math.min(n - 1, a))
+      b = Math.max(0, Math.min(n - 1, b))
+      if (b - a < 2) return null // fewer than 3 bins across: nothing to resolve
+
+      let best = -Infinity, bestI = -1
+      for (let i = a; i <= b; i++) {
+        const v = data[i]
+        if (Number.isFinite(v) && v > best) { best = v; bestI = i }
+      }
+      if (bestI < 0) return null
+      return this.idxToFreq(l + (bestI / n) * span)
+    } catch (e) { return null }
   }
 
   _updateSnr(frame) {

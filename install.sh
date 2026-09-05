@@ -89,8 +89,12 @@ set -euo pipefail
 # thing to look at, and the first thing to attach to a bug report.
 # ==============================================================================
 
-# Set before the first apt-get, and exported so setup_admin.sh, install_rade*.sh
-# and install-stats-server.sh inherit it. See note 4 in the header.
+# Set before the first apt-get. Exporting it is NOT enough on its own: every
+# apt-get below runs through sudo, and sudo's default "Defaults env_reset"
+# throws the variable away before apt-get ever sees it. So each elevated apt
+# call also carries it explicitly as "$SUDO env DEBIAN_FRONTEND=noninteractive
+# apt-get ...", and so do the sub-installers. The export still covers the
+# root/no-sudo path and anything apt-get spawns. See note 4 in the header.
 export DEBIAN_FRONTEND=noninteractive
 
 # ------------------------------------------------------------------------------
@@ -1370,7 +1374,8 @@ fi
 # system. Order matters: nvm fetches Node.js with curl, and the RX888 / RTL-SDR
 # driver builds need libusb — both used to be pulled in later on, so a bare
 # minimal image could fail partway through. psmisc provides fuser/killall, which
-# the start/stop scripts use.
+# the start/stop scripts use, and findutils provides find/xargs, which nvm's
+# "nvm use" needs and which recompile.sh and update.sh call directly.
 #
 # apt-get is idempotent, so the fuller "Build dependencies" step further down
 # simply confirms these and adds the rest.
@@ -1378,15 +1383,15 @@ fi
 step "Prerequisites" "base apt packages — no input needed"
 
 echo "Updating package lists..."
-run $SUDO apt-get update -qq
+run $SUDO env DEBIAN_FRONTEND=noninteractive apt-get update -qq
 
 echo "Installing the Debian/Ubuntu prerequisites..."
-run $SUDO apt-get install -y \
+run $SUDO env DEBIAN_FRONTEND=noninteractive apt-get install -y \
     curl build-essential cmake pkg-config meson \
     libusb-1.0-0-dev libfftw3-dev libwebsocketpp-dev libflac++-dev \
     zlib1g-dev libzstd-dev libboost-all-dev \
     libopus-dev libliquid-dev \
-    git psmisc procps python3
+    git psmisc procps findutils python3
 
 green "✅ Prerequisites installed"
 
@@ -1530,10 +1535,10 @@ echo ""
 step "Installing build dependencies" "the rest of the apt packages — no input needed"
 
 echo "Updating package lists..."
-run $SUDO apt-get update -qq
+run $SUDO env DEBIAN_FRONTEND=noninteractive apt-get update -qq
 
 echo "Installing build tools and libraries..."
-run $SUDO apt-get install -y \
+run $SUDO env DEBIAN_FRONTEND=noninteractive apt-get install -y \
     build-essential cmake pkg-config meson ninja-build \
     libfftw3-dev libwebsocketpp-dev libflac++-dev \
     zlib1g-dev libzstd-dev libboost-all-dev \
@@ -1655,7 +1660,7 @@ case $option in
         echo "Setting up RX888 MkII / RX888..."
 
         # Remove any system-packaged Rust that might conflict.
-        $SUDO apt-get remove --purge -y rustc cargo 2>/dev/null || true
+        $SUDO env DEBIAN_FRONTEND=noninteractive apt-get remove --purge -y rustc cargo 2>/dev/null || true
 
         echo "Installing Rust via rustup..."
         # NOTE: Do NOT use `run` here — run() only guards the left side of a pipe.
@@ -1719,7 +1724,7 @@ case $option in
             echo "Setting up RTL-SDR Blog V4..."
 
             # Remove conflicting upstream packages.
-            $SUDO apt-get purge -y "^librtlsdr" 2>/dev/null || true
+            $SUDO env DEBIAN_FRONTEND=noninteractive apt-get purge -y "^librtlsdr" 2>/dev/null || true
             $SUDO rm -f \
                 /usr/lib/librtlsdr* \
                 /usr/include/rtl-sdr* \
@@ -1728,7 +1733,7 @@ case $option in
                 /usr/local/include/rtl_* \
                 /usr/local/bin/rtl_*
 
-            run $SUDO apt-get install -y libusb-1.0-0-dev git cmake pkg-config
+            run $SUDO env DEBIAN_FRONTEND=noninteractive apt-get install -y libusb-1.0-0-dev git cmake pkg-config
 
             if [ -d "rtl-sdr-blog" ]; then
                 yellow "rtl-sdr-blog already exists — pulling latest..."
@@ -1758,7 +1763,7 @@ case $option in
 
         else
             echo "Setting up standard RTL-SDR..."
-            run $SUDO apt-get install -y \
+            run $SUDO env DEBIAN_FRONTEND=noninteractive apt-get install -y \
                 libusb-1.0-0-dev librtlsdr0 librtlsdr-dev rtl-sdr
             green "✅ Standard RTL-SDR drivers installed"
         fi
@@ -1857,7 +1862,7 @@ if confirm PHANTOM_SITE_EDIT y n "Open it in an editor now?"; then
         VISUAL_EDITOR="vi"
     else
         echo "No editor found — installing nano..."
-        run $SUDO apt-get install -y nano
+        run $SUDO env DEBIAN_FRONTEND=noninteractive apt-get install -y nano
         VISUAL_EDITOR="nano"
     fi
 
@@ -1994,7 +1999,7 @@ echo "Installing pinned Vite / Svelte packages..."
 # esbuild: NOT pinned here — Vite 5 has a strict peer range (^0.21.x);
 # let npm resolve it automatically from Vite's peer dep.
 # ─────────────────────────────────────────────────────────────────────────────
-run npm install --save-dev \
+run npm install --no-audit --no-fund --save-dev \
     vite@5.4.16 \
     "@sveltejs/vite-plugin-svelte@^3.1.2" \
     "@vitejs/plugin-legacy@^5.4.2" \
@@ -2002,19 +2007,19 @@ run npm install --save-dev \
 
 echo ""
 echo "Installing remaining dependencies from package.json..."
-run npm install
+run npm install --no-audit --no-fund
 
 echo ""
 echo "Installing Opus WASM decoder..."
-run npm install @wasm-audio-decoders/opus-ml
+run npm install --no-audit --no-fund @wasm-audio-decoders/opus-ml
 
 echo ""
 echo "Installing emoji picker..."
-run npm install emoji-picker-element
+run npm install --no-audit --no-fund emoji-picker-element
 
 echo ""
 echo "Installing Socket.IO client (FreeDV Reporter live feed)..."
-run npm install socket.io-client
+run npm install --no-audit --no-fund socket.io-client
 
 # Run audit fix WITHOUT --force so only safe (non-breaking) patches are
 # applied.  --force can silently pull in Vite 6/7/8 or Svelte 5 and break
@@ -2023,7 +2028,7 @@ echo ""
 echo "Running safe audit fix..."
 npm audit fix 2>/dev/null || true
 # Re-install after audit fix to ensure the lock file is consistent.
-run npm install
+run npm install --no-audit --no-fund
 
 green "✅ npm dependencies installed"
 
@@ -2130,14 +2135,14 @@ opencl_auto_choice() {
 install_intel_opencl_from_repo() {
     local codename="$1"   # noble | jammy
     echo "Adding Intel graphics repository (${codename})..."
-    run $SUDO apt-get install -y wget gpg
+    run $SUDO env DEBIAN_FRONTEND=noninteractive apt-get install -y wget gpg
     wget -qO - https://repositories.intel.com/gpu/intel-graphics.key \
         | $SUDO gpg --dearmor --yes -o /usr/share/keyrings/intel-graphics.gpg
     echo "deb [arch=amd64 signed-by=/usr/share/keyrings/intel-graphics.gpg] \
 https://repositories.intel.com/gpu/ubuntu ${codename} unified" \
         | $SUDO tee /etc/apt/sources.list.d/intel-gpu.list > /dev/null
-    run $SUDO apt-get update -qq
-    run $SUDO apt-get install -y intel-opencl-icd ocl-icd-opencl-dev libclfft-dev clinfo
+    run $SUDO env DEBIAN_FRONTEND=noninteractive apt-get update -qq
+    run $SUDO env DEBIAN_FRONTEND=noninteractive apt-get install -y intel-opencl-icd ocl-icd-opencl-dev libclfft-dev clinfo
 }
 
 # The one place the five releases differ: where intel-opencl-icd comes from.
@@ -2147,7 +2152,7 @@ opencl_install_intel() {
         ubuntu:jammy)
             # In Jammy's own repos.
             echo "Ubuntu 22.04: intel-opencl-icd is in the Jammy repo."
-            $SUDO apt-get install -y \
+            $SUDO env DEBIAN_FRONTEND=noninteractive apt-get install -y \
                 ocl-icd-opencl-dev intel-opencl-icd libclfft-dev clinfo \
                 && { opencl_ok=true; opencl_provider="intel-opencl-icd"; }
             ;;
@@ -2160,7 +2165,7 @@ opencl_install_intel() {
         ubuntu:resolute)
             # Back in the distro repo on 26.04 — no third-party repository.
             echo "Ubuntu 26.04: intel-opencl-icd is in the Resolute repo."
-            $SUDO apt-get install -y \
+            $SUDO env DEBIAN_FRONTEND=noninteractive apt-get install -y \
                 ocl-icd-opencl-dev intel-opencl-icd libclfft-dev clinfo \
                 && { opencl_ok=true; opencl_provider="intel-opencl-icd"; }
             ;;
@@ -2179,8 +2184,8 @@ opencl_install_intel() {
                 $SUDO sed -i \
                     '/^Components:/ { /\bnon-free\b/! s/$/ non-free/ }' "$f" || true
             done
-            run $SUDO apt-get update -qq
-            $SUDO apt-get install -y \
+            run $SUDO env DEBIAN_FRONTEND=noninteractive apt-get update -qq
+            $SUDO env DEBIAN_FRONTEND=noninteractive apt-get install -y \
                 ocl-icd-opencl-dev intel-opencl-icd libclfft-dev clinfo \
                 && { opencl_ok=true; opencl_provider="intel-opencl-icd (non-free)"; }
             ;;
@@ -2193,7 +2198,7 @@ opencl_install_intel() {
             ;;
         *)
             warn "Unknown distro — trying a plain apt install of intel-opencl-icd..."
-            $SUDO apt-get install -y \
+            $SUDO env DEBIAN_FRONTEND=noninteractive apt-get install -y \
                 ocl-icd-opencl-dev intel-opencl-icd libclfft-dev clinfo \
                 && { opencl_ok=true; opencl_provider="intel-opencl-icd"; }
             ;;
@@ -2201,13 +2206,13 @@ opencl_install_intel() {
 }
 
 opencl_install_mesa() {
-    $SUDO apt-get install -y \
+    $SUDO env DEBIAN_FRONTEND=noninteractive apt-get install -y \
         mesa-opencl-icd ocl-icd-opencl-dev libclfft-dev clinfo \
         && { opencl_ok=true; opencl_provider="mesa-opencl-icd (Rusticl)"; }
 }
 
 opencl_install_pocl() {
-    $SUDO apt-get install -y \
+    $SUDO env DEBIAN_FRONTEND=noninteractive apt-get install -y \
         pocl-opencl-icd ocl-icd-opencl-dev libclfft-dev clinfo \
         && { opencl_ok=true; opencl_provider="pocl-opencl-icd (CPU)"; }
 }
@@ -2313,7 +2318,7 @@ if [ -f "$PHANTOM_DIR/setup_admin.sh" ]; then
         if ! command -v pip3 >/dev/null 2>&1; then
             echo ""
             echo "[*] Installing pip..."
-            $SUDO apt-get install -y python3-pip || yellow "   ⚠️  Could not install pip — setup will tell you what to run"
+            $SUDO env DEBIAN_FRONTEND=noninteractive apt-get install -y python3-pip || yellow "   ⚠️  Could not install pip — setup will tell you what to run"
         fi
         chmod +x "$PHANTOM_DIR/setup_admin.sh" "$PHANTOM_DIR/manage_admin.sh" 2>/dev/null || true
         echo ""

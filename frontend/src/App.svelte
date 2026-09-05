@@ -92,6 +92,14 @@
 
   import { eventBus } from "./eventBus";
   import {
+    createScanner,
+    THRESHOLDS_DB,
+    RESUME_CHOICES_MS,
+    MAX_STAY_CHOICES_MS,
+    SWEEP_MODES,
+    RANGE_MODES,
+  } from "./scanner.js";
+  import {
     FAX_SCHEDULE,
     NAVTEX_DB,
     RTTY_SCHEDULE,
@@ -7118,6 +7126,171 @@
   }
   // End Fine Tuning Steps Function //
 
+  // Begin Scanner Function
+  //
+  // The logic lives in scanner.js; this is only the wiring and the UI state it
+  // publishes.  See that file for why the threshold is dB over the band noise
+  // floor and why empty channels are screened out of the spectrum rather than
+  // dwelt on.
+  const scannerThresholds = THRESHOLDS_DB;
+  const scannerResumeChoices = RESUME_CHOICES_MS;
+  const scannerMaxStayChoices = MAX_STAY_CHOICES_MS;
+  const scannerStayLabel = (ms) =>
+    ms === 0 ? "Off" : ms >= 60000 ? `${ms / 60000} min` : `${ms / 1000} s`;
+  const scannerSweepModes = SWEEP_MODES;
+  const scannerRangeModes = RANGE_MODES;
+  const scannerRangeLabel = { band: "Scan Band", visible: "Scan Visible" };
+  const scannerRangeHint = {
+    band: "Sweep the band the scan starts in, from the band plan",
+    visible: "Sweep exactly what the waterfall is showing — zoom or drag it and the scan follows",
+  };
+  const scannerSweepLabel = { sweep: "Every channel", fast: "Skip empty" };
+  const scannerSweepHint = {
+    sweep: "The classic scan: every channel is tuned and listened to, so you see and hear it cross the band",
+    fast: "Channels the spectrum places below the threshold are skipped without tuning — much faster, but the scan jumps signal to signal",
+  };
+  let showScannerThreshold = false;
+  // Everything the scanner tells the UI, in one object so a single assignment
+  // re-renders the row.
+  let scan = {
+    running: false,
+    parked: false,
+    dir: 1,
+    cursorHz: null,
+    sweepMode: "sweep",
+    rangeMode: "band",
+    loHz: null,
+    hiHz: null,
+    thresholdDb: 30,
+    resumeMs: 3000,
+    resumeInMs: null,
+    maxStayMs: 0,
+    stayLeftMs: null,
+    snrDb: null,
+    lockCount: 0,
+    locked: false,
+  };
+
+  const scanner = createScanner({
+    getFrequencyHz: () => Math.round((Number(frequency) || 0) * 1e3),
+    getMode: () => demodulation,
+    getRegion: () => siteRegion,
+    getBands: () => bandArray,
+    getAudio: () => audio,
+    getWaterfall: () => waterfall,
+    tune: (hz) => {
+      try {
+        if (frequencyInputComponent && frequencyInputComponent.setFrequency)
+          frequencyInputComponent.setFrequency(hz);
+      } catch (e) {}
+      handleFrequencyChange({ detail: hz });
+      updatePassband();
+    },
+    onState: (s) => {
+      scan = s;
+    },
+  });
+
+  // Shown in the arrow tooltips; re-read whenever the VFO or the mode moves.
+  $: scannerStepKHz =
+    scanner.stepAt(Math.round((Number(frequency) || 0) * 1e3), demodulation)
+      .stepHz / 1000;
+
+  const scannerResumeLabel = (ms) => (ms === 0 ? "Hold" : `${ms / 1000} s`);
+
+  // Keep a popup panel on screen wherever its button happens to sit.  Anchored
+  // absolutely it opened downwards from the Fine Tuning row and, on a short
+  // window or with the row scrolled low, the bottom of it was simply off the
+  // screen with no way to reach the entries.  Going `fixed` also frees it from
+  // being clipped by any scrolling ancestor.  It is placed against the button,
+  // flipped above when there is no room below, slid back inside when it would
+  // run off an edge, and only then, as a last resort on a very short window,
+  // allowed to scroll inside itself.
+  function keepInView(node, opts) {
+    const anchorSelector = opts.anchor;
+    const onOutside = opts.onOutside;
+    const GAP = 4;
+    const MARGIN = 8;
+    let frame = null;
+    const place = () => {
+      frame = null;
+      const anchor =
+        (node.parentElement &&
+          node.parentElement.querySelector(anchorSelector)) ||
+        node.parentElement;
+      if (!anchor) return;
+      const a = anchor.getBoundingClientRect();
+      const vw = window.innerWidth;
+      const vh = window.innerHeight;
+      node.style.position = "fixed";
+      node.style.maxHeight = "";
+      const w = node.offsetWidth;
+      let h = node.offsetHeight;
+      const below = vh - a.bottom - GAP - MARGIN;
+      const above = a.top - GAP - MARGIN;
+      let top;
+      if (h <= below || below >= above) {
+        top = a.bottom + GAP;
+        if (h > below) {
+          node.style.maxHeight = Math.max(80, below) + "px";
+          node.style.overflowY = "auto";
+          h = node.offsetHeight;
+        }
+      } else {
+        if (h > above) {
+          node.style.maxHeight = Math.max(80, above) + "px";
+          node.style.overflowY = "auto";
+          h = node.offsetHeight;
+        }
+        top = a.top - h - GAP;
+      }
+      node.style.top =
+        Math.min(Math.max(MARGIN, top), Math.max(MARGIN, vh - h - MARGIN)) +
+        "px";
+      // Right-aligned with the button, like the absolute version was.
+      const left = a.right - w;
+      node.style.left =
+        Math.min(Math.max(MARGIN, left), Math.max(MARGIN, vw - w - MARGIN)) +
+        "px";
+      node.style.right = "auto";
+    };
+    const schedule = () => {
+      if (frame == null) frame = requestAnimationFrame(place);
+    };
+    // Closing on an outside click is done with a document listener rather than
+    // a full-screen catcher div.  The catcher swallowed the wheel: it is fixed,
+    // so its scroll chain is the document, and this UI scrolls an inner
+    // container — pointing at the catcher meant nothing scrolled at all while
+    // the panel was open.  A listener blocks nothing.
+    const outside = (e) => {
+      if (node.contains(e.target)) return;
+      const anchor =
+        node.parentElement && node.parentElement.querySelector(anchorSelector);
+      if (anchor && anchor.contains(e.target)) return; // its own toggle
+      if (onOutside) onOutside();
+    };
+    const onKey = (e) => {
+      if (e.key === "Escape" && onOutside) onOutside();
+    };
+    schedule();
+    window.addEventListener("resize", schedule);
+    window.addEventListener("scroll", schedule, true);
+    document.addEventListener("pointerdown", outside, true);
+    document.addEventListener("keydown", onKey);
+    return {
+      destroy() {
+        if (frame != null) cancelAnimationFrame(frame);
+        window.removeEventListener("resize", schedule);
+        window.removeEventListener("scroll", schedule, true);
+        document.removeEventListener("pointerdown", outside, true);
+        document.removeEventListener("keydown", onKey);
+      },
+    };
+  }
+
+  onDestroy(() => scanner.destroy());
+  // End Scanner Function //
+
   // Begin Tuning Steps Function
   function handleTuningStep(tuningstep) {
     //parseFloat(tuningstep);
@@ -9337,9 +9510,269 @@ Click again to de-activate"
                       <!-- Begin Fine Tuning Buttons -->
 
                       <div class={isAnalog ? "w-full mt-2" : "w-full mt-4"}>
-                        <h3 class="text-white text-base font-semibold mb-2">
-                          Fine Tuning (kHz)
-                        </h3>
+                        <!-- Label hard left, scanner hard right, one line -->
+                        <div
+                          class="flex items-center justify-between gap-2 mb-2"
+                        >
+                          <h3 class="text-white text-base font-semibold">
+                            Fine Tuning (kHz)
+                          </h3>
+                          <div class="flex items-center gap-1 relative">
+                            <!-- Status, fixed width so the row never jitters:
+                                 idle = the word, scanning = where the scan has
+                                 got to, parked = the countdown to resume. -->
+                            <span
+                              class="text-white text-sm font-semibold mr-1 text-right tabular-nums min-w-[5.5rem]"
+                              title={scan.running
+                                ? `Scanning ${scan.dir > 0 ? "up" : "down"} — threshold ${scan.thresholdDb} dB over the noise floor`
+                                : "Channel scanner"}
+                            >
+                              {#if scan.parked}
+                                <!-- Three different states used to read "hold",
+                                     which made a channel that is simply still
+                                     busy look like the Hold setting. -->
+                                ◉ {scan.resumeInMs != null
+                                  ? `${Math.ceil(scan.resumeInMs / 1000)}s`
+                                  : scan.stayLeftMs != null
+                                    ? `${scan.snrDb == null ? "" : Math.round(scan.snrDb)}·${Math.ceil(scan.stayLeftMs / 1000)}s`
+                                    : scan.resumeMs === 0
+                                      ? "hold"
+                                      : `busy ${scan.snrDb == null ? "" : Math.round(scan.snrDb)}`}
+                              {:else if scan.running}
+                                {((scan.cursorHz || 0) / 1e3).toFixed(1)}
+                              {:else}
+                                Scanner
+                              {/if}
+                            </span>
+                            <button
+                              id="scanner-down"
+                              class="retro-button text-white h-7 w-7 rounded-md flex items-center justify-center border border-gray-600 shadow-inner transition-all duration-200 ease-in-out {scan.running &&
+                              scan.dir === -1
+                                ? scan.parked
+                                  ? 'bg-amber-600 pressed scale-95'
+                                  : 'bg-green-600 pressed scale-95'
+                                : 'bg-gray-700 hover:bg-gray-600'}"
+                              on:click={() => scanner.start(-1)}
+                              title="Scan down in {scannerStepKHz} kHz steps — resumes when parked"
+                            >
+                              <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                class="h-4 w-4"
+                                viewBox="0 0 20 20"
+                                fill="currentColor"
+                              >
+                                <path
+                                  fill-rule="evenodd"
+                                  d="M12.707 15.707a1 1 0 01-1.414 0l-5-5a1 1 0 010-1.414l5-5a1 1 0 111.414 1.414L8.414 10l4.293 4.293a1 1 0 010 1.414z"
+                                  clip-rule="evenodd"
+                                />
+                              </svg>
+                            </button>
+                            <button
+                              id="scanner-stop"
+                              class="retro-button text-white h-7 w-7 rounded-md flex items-center justify-center border border-gray-600 shadow-inner transition-all duration-200 ease-in-out {scan.running
+                                ? 'bg-red-700 hover:bg-red-600'
+                                : 'bg-gray-700 opacity-40'}"
+                              on:click={() => scanner.stop()}
+                              title="Stop the scan"
+                            >
+                              <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                class="h-3 w-3"
+                                viewBox="0 0 20 20"
+                                fill="currentColor"
+                              >
+                                <rect x="3" y="3" width="14" height="14" rx="2" />
+                              </svg>
+                            </button>
+                            <button
+                              id="scanner-up"
+                              class="retro-button text-white h-7 w-7 rounded-md flex items-center justify-center border border-gray-600 shadow-inner transition-all duration-200 ease-in-out {scan.running &&
+                              scan.dir === 1
+                                ? scan.parked
+                                  ? 'bg-amber-600 pressed scale-95'
+                                  : 'bg-green-600 pressed scale-95'
+                                : 'bg-gray-700 hover:bg-gray-600'}"
+                              on:click={() => scanner.start(1)}
+                              title="Scan up in {scannerStepKHz} kHz steps — resumes when parked"
+                            >
+                              <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                class="h-4 w-4"
+                                viewBox="0 0 20 20"
+                                fill="currentColor"
+                              >
+                                <path
+                                  fill-rule="evenodd"
+                                  d="M7.293 15.707a1 1 0 010-1.414L11.586 10 7.293 5.707a1 1 0 011.414-1.414l5 5a1 1 0 010 1.414l-5 5a1 1 0 01-1.414 0z"
+                                  clip-rule="evenodd"
+                                />
+                              </svg>
+                            </button>
+                            <button
+                              id="scanner-lock"
+                              class="retro-button text-white h-7 w-7 rounded-md flex items-center justify-center border border-gray-600 shadow-inner transition-all duration-200 ease-in-out {scan.locked
+                                ? 'bg-red-700'
+                                : 'bg-gray-700 hover:bg-gray-600'} {scan.parked
+                                ? ''
+                                : 'opacity-40'}"
+                              on:click={() => scanner.lockCurrent()}
+                              title="Lock this channel out of the scan and carry on — for a birdie or a permanent carrier"
+                            >
+                              <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                class="h-4 w-4"
+                                viewBox="0 0 20 20"
+                                fill="currentColor"
+                              >
+                                <path
+                                  fill-rule="evenodd"
+                                  d="M10 18a8 8 0 100-16 8 8 0 000 16zM5.05 5.05a7 7 0 019.9 9.9l-9.9-9.9z"
+                                  clip-rule="evenodd"
+                                />
+                              </svg>
+                            </button>
+                            <button
+                              id="scanner-threshold"
+                              class="retro-button text-white font-bold h-7 px-2 text-xs rounded-md flex items-center justify-center border border-gray-600 shadow-inner transition-all duration-200 ease-in-out bg-gray-700 hover:bg-gray-600"
+                              on:click={() =>
+                                (showScannerThreshold = !showScannerThreshold)}
+                              title="Scanner threshold — the scan stops on the first channel this far above the band noise floor"
+                            >
+                              {scan.thresholdDb} dB{scan.running &&
+                              scan.snrDb != null
+                                ? ` · ${Math.round(scan.snrDb)}`
+                                : ""} ▾
+                            </button>
+                            {#if showScannerThreshold}
+                              <!-- Laid out in rows of small cells rather than
+                                   one long list: fifteen full-width entries ran
+                                   off the bottom of the page and made the user
+                                   scroll to reach the threshold. -->
+                              <div
+                                class="z-50 p-2 rounded-md decoder-window popup-panel w-64"
+                                use:keepInView={{
+                                  anchor: "#scanner-threshold",
+                                  onOutside: () =>
+                                    (showScannerThreshold = false),
+                                }}
+                              >
+                                <div
+                                  class="text-[10px] uppercase tracking-wide text-gray-400 mb-1"
+                                >
+                                  Range{scan.loHz == null
+                                    ? ""
+                                    : ` · ${(scan.loHz / 1e3).toFixed(0)}–${(scan.hiHz / 1e3).toFixed(0)} kHz`}
+                                </div>
+                                <div class="grid grid-cols-2 gap-1">
+                                  {#each scannerRangeModes as m}
+                                    <button
+                                      class="px-2 py-1 text-xs rounded text-center {m ===
+                                      scan.rangeMode
+                                        ? 'bg-green-600 text-white'
+                                        : 'text-gray-200 bg-gray-700 hover:bg-gray-600'}"
+                                      on:click={() => scanner.setRangeMode(m)}
+                                      title={scannerRangeHint[m]}
+                                    >
+                                      {scannerRangeLabel[m]}
+                                    </button>
+                                  {/each}
+                                </div>
+                                <div
+                                  class="text-[10px] uppercase tracking-wide text-gray-400 mt-2 mb-1"
+                                >
+                                  Scan
+                                </div>
+                                <div class="grid grid-cols-2 gap-1">
+                                  {#each scannerSweepModes as m}
+                                    <button
+                                      class="px-2 py-1 text-xs rounded text-center {m ===
+                                      scan.sweepMode
+                                        ? 'bg-green-600 text-white'
+                                        : 'text-gray-200 bg-gray-700 hover:bg-gray-600'}"
+                                      on:click={() => scanner.setSweepMode(m)}
+                                      title={scannerSweepHint[m]}
+                                    >
+                                      {scannerSweepLabel[m]}
+                                    </button>
+                                  {/each}
+                                </div>
+                                <div
+                                  class="text-[10px] uppercase tracking-wide text-gray-400 mt-2 mb-1"
+                                >
+                                  Stop at (dB over noise)
+                                </div>
+                                <div class="grid grid-cols-3 gap-1">
+                                  {#each scannerThresholds as t}
+                                    <button
+                                      class="px-2 py-1 text-xs font-mono rounded text-center {t ===
+                                      scan.thresholdDb
+                                        ? 'bg-green-600 text-white'
+                                        : 'text-gray-200 bg-gray-700 hover:bg-gray-600'}"
+                                      on:click={() => scanner.setThreshold(t)}
+                                      title="{t} dB over the band noise floor, which the waterfall tracks continuously"
+                                    >
+                                      +{t}
+                                    </button>
+                                  {/each}
+                                </div>
+                                <div
+                                  class="text-[10px] uppercase tracking-wide text-gray-400 mt-2 mb-1"
+                                >
+                                  Resume after
+                                </div>
+                                <div class="grid grid-cols-4 gap-1">
+                                  {#each scannerResumeChoices as ms}
+                                    <button
+                                      class="px-1 py-1 text-xs font-mono rounded text-center {ms ===
+                                      scan.resumeMs
+                                        ? 'bg-green-600 text-white'
+                                        : 'text-gray-200 bg-gray-700 hover:bg-gray-600'}"
+                                      on:click={() => scanner.setResume(ms)}
+                                      title={ms === 0
+                                        ? "Stay on the channel until an arrow is pressed"
+                                        : `Carry on once the channel has been quiet for ${ms / 1000} seconds`}
+                                    >
+                                      {scannerResumeLabel(ms)}
+                                    </button>
+                                  {/each}
+                                </div>
+                                <div
+                                  class="text-[10px] uppercase tracking-wide text-gray-400 mt-2 mb-1"
+                                >
+                                  Max stay
+                                </div>
+                                <div class="grid grid-cols-4 gap-1">
+                                  {#each scannerMaxStayChoices as ms}
+                                    <button
+                                      class="px-1 py-1 text-xs font-mono rounded text-center {ms ===
+                                      scan.maxStayMs
+                                        ? 'bg-green-600 text-white'
+                                        : 'text-gray-200 bg-gray-700 hover:bg-gray-600'}"
+                                      on:click={() => scanner.setMaxStay(ms)}
+                                      title={ms === 0
+                                        ? "Stay as long as the signal lasts — a permanent carrier will hold the scan"
+                                        : `Move on after ${scannerStayLabel(ms)} even if the signal is still there`}
+                                    >
+                                      {scannerStayLabel(ms)}
+                                    </button>
+                                  {/each}
+                                </div>
+                                {#if scan.lockCount > 0}
+                                  <button
+                                    class="mt-2 w-full px-2 py-1 text-xs font-mono rounded text-gray-200 bg-gray-700 hover:bg-gray-600"
+                                    on:click={() => {
+                                      scanner.clearLocks();
+                                      showScannerThreshold = false;
+                                    }}
+                                  >
+                                    Clear {scan.lockCount} locked
+                                  </button>
+                                {/if}
+                              </div>
+                            {/if}
+                          </div>
+                        </div>
                         <div class="grid grid-cols-5 sm:grid-cols-11 gap-2">
                           {#each finetuningsteps as finetuningstep}
                             <button

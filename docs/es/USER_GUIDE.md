@@ -200,6 +200,52 @@ Ejemplos:
    - **SSB**: pasos de 100 Hz
    - **CW**: pasos de 10 Hz
 
+### Escáner
+
+El escáner recorre el receptor por un margen de canales y se detiene en el
+primero que lleva señal. Está en la fila **Fine Tuning (kHz)**, a la derecha
+del todo:
+
+```
+7 152.0   ◀  ■  ▶  ⊘   30 dB · 4 ▾
+```
+
+| Control | Qué hace |
+|---------|----------|
+| **◀ ▶** | Explorar hacia abajo / arriba. Detenido sobre una señal, una flecha reanuda la exploración. |
+| **■** | Detener. |
+| **⊘** | Excluir este canal de la exploración — para una portadora fija o un espurio. |
+| **30 dB · 4 ▾** | El umbral, y a su lado el nivel que se mide en este momento. Abre los ajustes. |
+
+El texto de la izquierda indica qué hace el escáner: `Scanner` en reposo, la
+frecuencia alcanzada mientras explora, `◉ 3s` mientras cuenta para reanudar,
+`◉ 30·22s` mientras el canal sigue ocupado, `◉ hold` cuando se quedará ahí.
+
+**Ajustes**
+
+- **Range** — *Scan Band* recorre la banda donde empieza la exploración;
+  *Scan Visible* recorre exactamente lo que muestra la cascada y la sigue si
+  hace zoom o la arrastra.
+- **Scan** — *Every channel* sintoniza y escucha cada canal por turno;
+  *Skip empty* lee el espectro y salta directamente a las señales.
+- **Stop at** — cuánto por encima del ruido de fondo de la banda debe estar un
+  canal para detener la exploración, en dB. El ruido se sigue de forma continua,
+  así que el mismo ajuste vale de día y de noche. Un canal vacío no marca 0 dB —
+  observe un momento la cifra en el botón y ponga el umbral por encima.
+- **Resume after** — cuánto tiempo debe permanecer en silencio un canal antes de
+  seguir. Las pausas del habla no lo reinician. *Hold* se queda hasta que pulse
+  un botón.
+- **Max stay** — sigue adelante pasado este tiempo aunque la señal continúe, para
+  que una portadora permanente no retenga la exploración indefinidamente.
+
+El paso sigue al modo — 1 kHz en SSB, 0,1 kHz en CW, 5 kHz en AM, 9 o 10 kHz en
+onda media y 9 kHz en onda larga — y las paradas caen en la retícula de canales.
+La exploración se mantiene dentro de su margen y de lo que el receptor puede
+sintonizar; en un extremo continúa por el otro.
+
+Los ajustes y los canales excluidos se recuerdan en su navegador.
+
+
 ### Seleccionar el modo de demodulación
 
 Elija el modo adecuado para la señal:

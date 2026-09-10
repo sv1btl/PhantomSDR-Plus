@@ -2,7 +2,12 @@
 set -euo pipefail
 
 # ==============================================================================
-# PhantomSDR-Plus Installer — openSUSE (Leap / Tumbleweed)
+# PhantomSDR-Plus Installer — openSUSE Tumbleweed
+# ------------------------------------------------------------------------------
+# Tumbleweed only. Leap is NOT supported: 15.6 still defaults to GCC 7.5, which
+# rejects the -std=c++23 this codebase is built with, so the backend build dies
+# even when every package installs cleanly. Running Leap means installing a
+# newer toolchain (gcc13-c++ or later) and pointing meson at it yourself.
 # ------------------------------------------------------------------------------
 # UNATTENDED USE
 # ------------------------------------------------------------------------------
@@ -20,6 +25,7 @@ set -euo pipefail
 #   PHANTOM_SITE_EDIT=y|n      open site_information.json in an editor
 #   PHANTOM_OPENCL=y|n         install OpenCL                     (default y)
 #   PHANTOM_ADMIN=y|n          admin panel      (y interactive, n unattended)
+#   PHANTOM_WEBSDR_RELAY=y|n   WebSDR diversity relay (y interactive, n unattended)
 #   PHANTOM_RADE=y|n           RADE / FreeDV    (y interactive, n unattended)
 #   PHANTOM_STATS=y|n          statistics server(y interactive, n unattended)
 #   PHANTOM_KIWI=y|n           Kiwi client emulation  (default y interactive, n unattended)
@@ -50,6 +56,7 @@ RX888_UDEV_DONE=false
 RADE_INSTALLED=false
 STATS_INSTALLED=false
 KIWI_INSTALLED=false
+RELAY_INSTALLED=false
 WSPP_PATCHED=false
 WSPP_REQUIRED=false
 
@@ -602,7 +609,7 @@ step_state() {
 # sync when adding or removing a step() call.
 
 STEP_NO=0
-STEP_TOTAL=19
+STEP_TOTAL=20
 STEP_T0=0
 
 # Frame drawing. Every framed line is padded to STEP_W visible columns, so the
@@ -1220,10 +1227,11 @@ echo "   STEP  8  Which SDR to set up (RX888 / RTL-SDR / SDRPlay / skip)"
 echo "   STEP  9  Your site information — opens an editor (callsign, QTH, …)"
 echo "   STEP 12  OpenCL acceleration — yes / no"
 echo "   STEP 13  Admin panel         — yes / no  (asks its own questions)"
-echo "   STEP 14  RADE / FreeDV       — yes / no  (asks its own questions)"
-echo "   STEP 15  Statistics server   — yes / no  (asks its own questions)"
-echo "   STEP 17  Kiwi emulation      — yes / no  (patches source for Kiwi clients)"
-echo "   STEP 18  Final rebuild       — yes / no"
+echo "   STEP 14  WebSDR relay        — yes / no  (asks its own questions)"
+echo "   STEP 15  RADE / FreeDV       — yes / no  (asks its own questions)"
+echo "   STEP 16  Statistics server   — yes / no  (asks its own questions)"
+echo "   STEP 18  Kiwi emulation      — yes / no  (patches source for Kiwi clients)"
+echo "   STEP 19  Final rebuild       — yes / no"
 echo ""
 yellow "Each of those is fenced by a '⌨️  YOUR INPUT IS NEEDED' banner."
 echo "Everything else runs on its own and needs no attention."
@@ -1253,8 +1261,20 @@ run $SUDO zypper install -y \
     websocketpp-devel flac-devel \
     "pkgconfig(zlib)" libzstd-devel \
     boost-devel libboost_iostreams-devel \
-    libopus-devel liquid-dsp-devel \
+    libopus-devel \
     git psmisc procps findutils
+
+# liquid-dsp is OPTIONAL — meson treats it as a disabler and the backend
+# builds without it (see "liquid-dsp: DISABLED (not found)" in the meson
+# output). Tumbleweed, which this installer targets, does have the package,
+# so this is not about a missing dependency: it is about not letting one
+# absent OPTIONAL package abort the whole run at step 3, as happens on Leap
+# and would happen on any Tumbleweed snapshot where the package is briefly
+# unavailable. install_fedora.sh already treats the same package this way.
+if ! rpm -q liquid-dsp-devel >/dev/null 2>&1; then
+    $SUDO zypper install -y liquid-dsp-devel >/dev/null 2>&1 \
+        || yellow "⚠️  liquid-dsp-devel not available on this openSUSE — continuing without it (optional; build from https://github.com/jgaeddert/liquid-dsp if you want it)"
+fi
 
 green "✅ Prerequisites installed"
 
@@ -1387,7 +1407,7 @@ run $SUDO zypper install -y \
     websocketpp-devel flac-devel \
     "pkgconfig(zlib)" libzstd-devel \
     boost-devel libboost_iostreams-devel \
-    libopus-devel liquid-dsp-devel \
+    libopus-devel \
     libcurl-devel curl \
     nlohmann_json-devel \
     git cargo util-linux
@@ -1997,6 +2017,45 @@ if [ -f "$PHANTOM_DIR/setup_admin.sh" ]; then
 fi
 
 # ------------------------------------------------------------------------------
+# WebSDR diversity relay
+# ------------------------------------------------------------------------------
+
+if [ -f "$PHANTOM_DIR/setup_websdr_relay.sh" ]; then
+    step "WebSDR diversity relay (optional)" "⌨️  YOU WILL BE ASKED — and setup asks its own questions"
+    echo ""
+    echo "Receive diversity combines this receiver with a second one to ride"
+    echo "through fading. PhantomSDR+, KiwiSDR and UberSDR partners work"
+    echo "straight from the browser. A WebSDR (websdr.org software) does not:"
+    echo "it refuses connections whose Origin header is not its own site, and"
+    echo "no browser lets a script change that header."
+    echo ""
+    echo "This small relay makes those connections from the server instead."
+    echo "It names your station to the WebSDR operator and caps how many"
+    echo "sessions it will open to any one site."
+    echo ""
+    yellow "   Setup asks for a port and for your callsign, and can install a"
+    yellow "   systemd service. That port must be forwarded on your router, or"
+    yellow "   only listeners on your own network will be able to use it."
+    yellow "   Answer 'n' to skip — ./setup_websdr_relay.sh works any time."
+    echo ""
+    if confirm PHANTOM_WEBSDR_RELAY y n "Install the WebSDR diversity relay now?"; then install_relay=y; else install_relay=n; fi
+
+    if [[ ! ${install_relay:-y} =~ ^[Nn] ]]; then
+        chmod +x "$PHANTOM_DIR/setup_websdr_relay.sh" 2>/dev/null || true
+        echo ""
+        if ( cd "$PHANTOM_DIR" && ./setup_websdr_relay.sh ); then
+            RELAY_INSTALLED=true
+            component "WebSDR relay" "installed"
+        else
+            yellow "⚠️  Relay setup did not finish — run ./setup_websdr_relay.sh again later"
+        fi
+    else
+        echo "Skipping the WebSDR relay — the other three diversity partners work without it."
+    fi
+    echo ""
+fi
+
+# ------------------------------------------------------------------------------
 # RADE / FreeDV sidecar
 # ------------------------------------------------------------------------------
 
@@ -2311,6 +2370,16 @@ if [ "$ADMIN_INSTALLED" = true ]; then
     green "✅ Admin panel:"
     echo "   • Configured — password is 'admin', change it on first login"
     echo "   • Manual: docs/ADMIN_PANEL_SETUP.md"
+fi
+
+if [ "$RELAY_INSTALLED" = true ]; then
+    echo ""
+    green "✅ WebSDR diversity relay:"
+    echo "   • Settings in websdr_relay.json — port, caps, and who you identify as"
+    echo "   • FORWARD ITS TCP PORT on your router, or only listeners on your own"
+    echo "     network can use it: browsers reach the relay directly, not through"
+    echo "     the receiver"
+    echo "   • Manual: docs/RECEIVE_DIVERSITY.md"
 fi
 
 if [ "$RADE_INSTALLED" = true ]; then

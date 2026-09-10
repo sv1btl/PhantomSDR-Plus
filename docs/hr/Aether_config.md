@@ -2,7 +2,7 @@
 
 **Povezivanje AetherSDR-a, kiwiclienta i drugog KiwiSDR softvera na PhantomSDR-Plus**
 
-Od v3.9.0 PhantomSDR-Plus može odgovarati i na **KiwiSDR protokol**, pa se softver pisan za KiwiSDR — **AetherSDR**, `kiwiclient` i ostali — spaja izravno na vaš prijamnik. Riječ je o mostu unutar istog poslužiteljskog procesa, na istom računalu i istom portu koji već objavljujete: bez drugog servisa, bez drugog porta, bez posrednika.
+Od v4.0.0 PhantomSDR-Plus može odgovarati i na **KiwiSDR protokol**, pa se softver pisan za KiwiSDR — **AetherSDR**, `kiwiclient` i ostali — spaja izravno na vaš prijamnik. Riječ je o mostu unutar istog poslužiteljskog procesa, na istom računalu i istom portu koji već objavljujete: bez drugog servisa, bez drugog porta, bez posrednika.
 
 **Isključen je dok ga ne uključite.** Ništa od mosta ne radi — ni utičnica, ni provjera — dok `[kiwi_emulation]` nedostaje ili je `false`, a to je stanje svježe instaliranog stabla.
 

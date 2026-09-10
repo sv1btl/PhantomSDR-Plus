@@ -68,6 +68,8 @@ set -euo pipefail
 #   PHANTOM_OPENCL=y|n         install OpenCL                     (default y)
 #   PHANTOM_OPENCL_PROVIDER=1|2|3   Intel | Mesa/Rusticl | POCL   (default: auto)
 #   PHANTOM_ADMIN=y|n          admin panel      (default y interactive, n unattended)
+#   PHANTOM_WEBSDR_RELAY=y|n   WebSDR diversity relay
+#                              (default y interactive, n unattended)
 #   PHANTOM_RADE=y|n           RADE / FreeDV    (default y interactive, n unattended)
 #   PHANTOM_STATS=y|n          statistics server(default y interactive, n unattended)
 #   PHANTOM_KIWI=y|n           Kiwi client emulation  (default y interactive, n unattended)
@@ -106,6 +108,7 @@ RX888_UDEV_DONE=false
 RADE_INSTALLED=false
 STATS_INSTALLED=false
 KIWI_INSTALLED=false
+RELAY_INSTALLED=false
 ADMIN_INSTALLED=false
 WSPP_PATCHED=false
 WSPP_REQUIRED=false
@@ -320,7 +323,7 @@ step_state() {
 # sync when adding or removing a step() call.
 
 STEP_NO=0
-STEP_TOTAL=19
+STEP_TOTAL=20
 STEP_T0=0
 
 # Frame drawing. Every framed line is padded to STEP_W visible columns, so the
@@ -1350,10 +1353,11 @@ echo "   STEP  8  Which SDR to set up (RX888 / RTL-SDR / SDRPlay / skip)"
 echo "   STEP  9  Your site information — opens an editor (callsign, QTH, …)"
 echo "   STEP 12  OpenCL acceleration — yes / no, and which provider"
 echo "   STEP 13  Admin panel         — yes / no  (asks its own questions)"
-echo "   STEP 14  RADE / FreeDV       — yes / no  (asks its own questions)"
-echo "   STEP 15  Statistics server   — yes / no  (asks its own questions)"
-echo "   STEP 17  Kiwi emulation      — yes / no  (patches source for Kiwi clients)"
-echo "   STEP 18  Final rebuild       — yes / no"
+echo "   STEP 14  WebSDR relay        — yes / no  (asks its own questions)"
+echo "   STEP 15  RADE / FreeDV       — yes / no  (asks its own questions)"
+echo "   STEP 16  Statistics server   — yes / no  (asks its own questions)"
+echo "   STEP 18  Kiwi emulation      — yes / no  (patches source for Kiwi clients)"
+echo "   STEP 19  Final rebuild       — yes / no"
 echo ""
 yellow "Each of those is fenced by a '⌨️  YOUR INPUT IS NEEDED' banner."
 echo "Everything else runs on its own and needs no attention."
@@ -2340,10 +2344,49 @@ else
     warn "setup_admin.sh not found in $PHANTOM_DIR — skipping."
     component "Admin panel" "not installed — setup_admin.sh missing from the tree"
 fi
+
+# ------------------------------------------------------------------------------
+# STEP 13 — WebSDR diversity relay (optional)
+# ------------------------------------------------------------------------------
+
+if [ -f "$PHANTOM_DIR/setup_websdr_relay.sh" ]; then
+    step "WebSDR diversity relay (optional)" "⌨️  YOU WILL BE ASKED — and setup asks its own questions"
+    echo ""
+    echo "Receive diversity combines this receiver with a second one to ride"
+    echo "through fading. PhantomSDR+, KiwiSDR and UberSDR partners work"
+    echo "straight from the browser. A WebSDR (websdr.org software) does not:"
+    echo "it refuses connections whose Origin header is not its own site, and"
+    echo "no browser lets a script change that header."
+    echo ""
+    echo "This small relay makes those connections from the server instead."
+    echo "It names your station to the WebSDR operator and caps how many"
+    echo "sessions it will open to any one site."
+    echo ""
+    yellow "   Setup asks for a port and for your callsign, and can install a"
+    yellow "   systemd service. That port must be forwarded on your router, or"
+    yellow "   only listeners on your own network will be able to use it."
+    yellow "   Answer 'n' to skip — ./setup_websdr_relay.sh works any time."
+    echo ""
+    if confirm PHANTOM_WEBSDR_RELAY y n "Install the WebSDR diversity relay now?"; then install_relay=y; else install_relay=n; fi
+
+    if [[ ! ${install_relay:-y} =~ ^[Nn] ]]; then
+        chmod +x "$PHANTOM_DIR/setup_websdr_relay.sh" 2>/dev/null || true
+        echo ""
+        if ( cd "$PHANTOM_DIR" && ./setup_websdr_relay.sh ); then
+            RELAY_INSTALLED=true
+            component "WebSDR relay" "installed"
+        else
+            yellow "⚠️  Relay setup did not finish — run ./setup_websdr_relay.sh again later"
+        fi
+    else
+        echo "Skipping the WebSDR relay — the other three diversity partners work without it."
+    fi
+    echo ""
+fi
 echo ""
 
 # ------------------------------------------------------------------------------
-# STEP 13 — RADE / FreeDV sidecar
+# STEP 14 — RADE / FreeDV sidecar
 # ------------------------------------------------------------------------------
 # Ubuntu 22.04 needs install_rade_ubuntu22.sh, not install_rade.sh: the apt
 # python3-websockets on Jammy is 10.1 and rade_helper.py needs >= 11.0, so the
@@ -2406,7 +2449,7 @@ fi
 echo ""
 
 # ------------------------------------------------------------------------------
-# STEP 14 — Statistics server
+# STEP 15 — Statistics server
 # ------------------------------------------------------------------------------
 
 step "System statistics server (optional)" "⌨️  YOU WILL BE ASKED — and setup asks its own questions"
@@ -2446,7 +2489,7 @@ fi
 echo ""
 
 # ------------------------------------------------------------------------------
-# STEP 15 — websocketpp re-patch + frequency markers
+# STEP 16 — websocketpp re-patch + frequency markers
 # ------------------------------------------------------------------------------
 # The headers were already applied before the backend build; re-apply as a
 # safety net for the final rebuild, because meson may have re-fetched the
@@ -2479,7 +2522,7 @@ fi
 echo ""
 
 # ------------------------------------------------------------------------------
-# STEP 16 — Kiwi client emulation (optional)
+# STEP 17 — Kiwi client emulation (optional)
 # ------------------------------------------------------------------------------
 # kiwi_install.sh patches client.h, signal.cpp, waterfall.cpp, spectrumserver.h/
 # .cpp, websocket.cpp and http.cpp so PhantomSDR-Plus also answers the KiwiSDR
@@ -2584,7 +2627,7 @@ fi
 echo ""
 
 # ------------------------------------------------------------------------------
-# STEP 17 — Final rebuild
+# STEP 18 — Final rebuild
 # ------------------------------------------------------------------------------
 # Last build action: one full rebuild, so the backend picks up the patched
 # headers and the frontend is built from whatever RADE and the admin panel just
@@ -2639,7 +2682,7 @@ fi
 echo ""
 
 # ------------------------------------------------------------------------------
-# STEP 18 — Summary
+# STEP 19 — Summary
 # ------------------------------------------------------------------------------
 
 component "Reboot required" "$([ "$NEEDS_REBOOT" = true ] \
@@ -2692,6 +2735,16 @@ if [ "$ADMIN_INSTALLED" = true ]; then
     green "✅ Admin panel:"
     echo "   • Configured — password is 'admin', change it on first login"
     echo "   • Manual: docs/ADMIN_PANEL_SETUP.md"
+fi
+
+if [ "$RELAY_INSTALLED" = true ]; then
+    echo ""
+    green "✅ WebSDR diversity relay:"
+    echo "   • Settings in websdr_relay.json — port, caps, and who you identify as"
+    echo "   • FORWARD ITS TCP PORT on your router, or only listeners on your own"
+    echo "     network can use it: browsers reach the relay directly, not through"
+    echo "     the receiver"
+    echo "   • Manual: docs/RECEIVE_DIVERSITY.md"
 fi
 
 if [ "$RADE_INSTALLED" = true ]; then

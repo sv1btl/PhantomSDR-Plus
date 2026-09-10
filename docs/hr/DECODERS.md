@@ -703,13 +703,7 @@ Budući da Force preskače svaku sigurnosnu provjeru, rado će nacrtati šum ako
 **Točnost sata sustava je važna.** FT8, FT4 i WSPR vremenski su kritični. Dekodiraju u fiksnim prozorima usklađenima s UTC-om. Ako sat vašeg računala odstupa više od 1–2 sekunde, stopa dekodiranja znatno će pasti. Koristite NTP klijent kako bi sat bio točan.
 
 **Filtri šuma ne dopiru do dekodera.** NR, NB, NS i AN pomagala su za slušanje,
-namijenjena samo vašim ušima. Svaki dekoder — FT8, FT4/FT2, CW, WSPR, FAX,
-NAVTEX, FSK/RTTY/PSK31/Olivia, SSTV i QRSS grabber — uzima zvuk *prije* tih
-filtara, pa ih slobodno namjestite kako najbolje zvuči, bez brige za kvalitetu
-dekodiranja. Iz istog razloga dekoderi rade i dok je prijamnik utišan ili pod
-squelchom: možete ugasiti zvučnik i pustiti da dekoder, ili noćno QRSS snimanje,
-nastavi prikupljati. Jedino što doista prati ono što čujete jest audio
-spektrogram, koji namjerno prikazuje filtrirani zvuk.
+namijenjena samo vašim ušima. Svaki dekoder — FT8, FT4/FT2, CW, WSPR, FAX, NAVTEX, FSK/RTTY/PSK31/Olivia, SSTV i QRSS grabber — uzima zvuk *prije* tih filtara, pa ih slobodno namjestite kako najbolje zvuči, bez brige za kvalitetu dekodiranja. Iz istog razloga dekoderi rade i dok je prijamnik utišan ili pod squelchom: možete ugasiti zvučnik i pustiti da dekoder, ili noćno QRSS snimanje, nastavi prikupljati. Jedino što doista prati ono što čujete jest audio spektrogram, koji namjerno prikazuje filtrirani zvuk.
 
 **Kvaliteta signala važnija je od njegove jakosti.** Većina je ovih dekodera namijenjena slabim signalima. Mirniji pojas s manje šuma često je plodonosniji od glasnog signala punog smetnji. Prije uključivanja dekodera koristite slap i kontrole propusnog pojasa kako biste prepoznali i izbjegli QRM.
 

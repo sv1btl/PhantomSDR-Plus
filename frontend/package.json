@@ -31,7 +31,6 @@
     "eslint-plugin-svelte": "^2.35.1",
     "fzstd": "^0.1.1",
     "is-number": "^7.0.0",
-    "live-moving-average": "^1.1.0",
     "nanoid": "^5.0.6",
     "postcss": "^8.4.38",
     "postcss-load-config": "^5.0.3",

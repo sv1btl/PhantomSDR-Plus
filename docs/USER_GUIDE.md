@@ -202,8 +202,7 @@ Examples:
 
 ### Scanner
 
-The scanner walks the receiver across a range of channels and stops on the first
-one carrying a signal. It sits on the **Fine Tuning (kHz)** row, hard right:
+The scanner walks the receiver across a range of channels and stops on the first one carrying a signal. It sits on the **Fine Tuning (kHz)** row, hard right:
 
 ```
 7 152.0   ◀  ■  ▶  ⊘   30 dB · 4 ▾
@@ -216,29 +215,23 @@ one carrying a signal. It sits on the **Fine Tuning (kHz)** row, hard right:
 | **⊘** | Lock this channel out of the scan — for a birdie or a permanent carrier. |
 | **30 dB · 4 ▾** | The threshold, with the level being measured right now beside it. Opens the settings. |
 
-The text to the left shows what the scanner is doing: `Scanner` when idle, the
-frequency it has reached while scanning, `◉ 3s` while counting down to resume,
+The text to the left shows what the scanner is doing: `Scanner` when idle, the frequency it has reached while scanning, `◉ 3s` while counting down to resume,
 `◉ 30·22s` while the channel is still busy, `◉ hold` when it will stay put.
 
 **Settings**
 
 - **Range** — *Scan Band* sweeps the band the scan starts in; *Scan Visible*
-  sweeps exactly what the waterfall shows, and follows it if you zoom or drag.
+sweeps exactly what the waterfall shows, and follows it if you zoom or drag.
 - **Scan** — *Every channel* tunes and listens to every channel in turn;
   *Skip empty* reads the spectrum and jumps straight to the signals.
 - **Stop at** — how far above the band noise floor a channel must be to stop the
-  scan, in dB. The floor is tracked continuously, so one setting works by day and
-  by night. An empty channel does not read 0 dB — watch the live figure on the
-  button for a moment and set the threshold above it.
+scan, in dB. The floor is tracked continuously, so one setting works by day and by night. An empty channel does not read 0 dB — watch the live figure on the button for a moment and set the threshold above it.
 - **Resume after** — how long a channel must stay quiet before the scan moves on.
-  Pauses in speech do not restart it. *Hold* stays until you press a button.
+Pauses in speech do not restart it. *Hold* stays until you press a button.
 - **Max stay** — moves on after this long even if the signal is still there, so a
-  permanent carrier cannot hold the scan for ever.
+permanent carrier cannot hold the scan for ever.
 
-The step follows the mode — 1 kHz in SSB, 0.1 kHz in CW, 5 kHz in AM, 9 or 10 kHz
-on medium wave and 9 kHz on long wave — and stops land on the channel grid. The
-scan stays inside its range and inside what the receiver can tune; at an edge it
-wraps round and carries on.
+The step follows the mode — 1 kHz in SSB, 0.1 kHz in CW, 5 kHz in AM, 9 or 10 kHz on medium wave and 9 kHz on long wave — and stops land on the channel grid. The scan stays inside its range and inside what the receiver can tune; at an edge it wraps round and carries on.
 
 Settings and the locked-out channels are remembered in your browser.
 
@@ -297,33 +290,22 @@ AGC automatically adjusts audio levels:
 
 ### The four noise controls
 
-NR, NB, NS and AN are separate on/off buttons that each attack a different kind
-of noise. They are independent — switching one on does not switch on another —
-and they can be combined freely.
+NR, NB, NS and AN are separate on/off buttons that each attack a different kind of noise. They are independent — switching one on does not switch on another — and they can be combined freely.
 
-None of them reach the decoders: FT8, CW, WSPR, SSTV, FAX, NAVTEX, RTTY/PSK31/
-Olivia and the QRSS grabber all read the audio *before* these filters, so you
-can set them purely by ear without affecting what decodes. See the
+None of them reach the decoders: FT8, CW, WSPR, SSTV, FAX, NAVTEX, RTTY/PSK31/ Olivia and the QRSS grabber all read the audio *before* these filters, so you can set them purely by ear without affecting what decodes. See the
 [Decoder manual](DECODERS.md#12-general-tips).
 
 ### Noise Reduction (NR)
 
-Spectral noise reduction. It estimates the noise level in each part of the audio
-spectrum and turns those parts down, leaving what stands above the noise alone.
+Spectral noise reduction. It estimates the noise level in each part of the audio spectrum and turns those parts down, leaving what stands above the noise alone.
 
 **Use when**: You hear steady hiss or white noise behind the signal.
 
-Steady tones — a CW note, a carrier — are recognised as signal and protected, so
-NR does not eat a CW signal the way a naive filter would. Typical effect is a
-10 dB drop in the noise between speech, for a few tenths of a dB off the speech
-itself.
+Steady tones — a CW note, a carrier — are recognised as signal and protected, so NR does not eat a CW signal the way a naive filter would. Typical effect is a 10 dB drop in the noise between speech, for a few tenths of a dB off the speech itself.
 
 ### Noise Blanker (NB)
 
-Removes impulse noise: clicks, pops, static crashes, ignition and power-line
-noise. It watches the audio envelope and silences only the samples that spike
-far above it — about a millisecond per crash, ramped in and out so the blanking
-does not itself click.
+Removes impulse noise: clicks, pops, static crashes, ignition and power-line noise. It watches the audio envelope and silences only the samples that spike far above it — about a millisecond per crash, ramped in and out so the blanking does not itself click.
 
 **Use when**: You hear clicks or crashes from power lines, motors, thunderstorms
 or vehicle ignition.
@@ -332,31 +314,23 @@ The 50 Hz and 60 Hz mains hum notches follow this button.
 
 ### Background Noise Suppression (NS)
 
-Measures the band's own noise floor over several seconds and applies a fixed cut
-to whatever sits at that floor, deeper at high audio frequencies than low. Where
-NR reacts moment to moment, NS is a slow, steady hand: it lowers the band hiss
-without changing how the signal itself sounds.
+Measures the band's own noise floor over several seconds and applies a fixed cut to whatever sits at that floor, deeper at high audio frequencies than low. Where NR reacts moment to moment, NS is a slow, steady hand: it lowers the band hiss without changing how the signal itself sounds.
 
 **Use when**: The band is quiet but hissy and you want the noise pushed down
 without the "underwater" quality of aggressive NR.
 
-Active in USB, LSB and AM only — CW, FM and digital modes are left untouched. It
-re-measures the floor whenever you retune or change mode, and settles within a
-few seconds.
+Active in USB, LSB and AM only — CW, FM and digital modes are left untouched. It re-measures the floor whenever you retune or change mode, and settles within a few seconds.
 
 ### Auto Notch (AN)
 
-Automatically finds and removes steady interfering tones — heterodynes, carriers,
-birdies — without you having to place a notch by hand. It adapts continuously, so
-several tones can be removed at once and a drifting one stays notched.
+Automatically finds and removes steady interfering tones — heterodynes, carriers, birdies — without you having to place a notch by hand. It adapts continuously, so several tones can be removed at once and a drifting one stays notched.
 
 **Use when**: You hear a whistle or tone on top of the signal you want.
 
 Bypassed in CW, where the wanted signal *is* a steady tone.
 
 **Delay note**: NR and NS each add about 40 ms of audio delay while switched on
-(both together, about 80 ms). NB and AN add none. This affects listening only,
-never the decoders.
+(both together, about 80 ms). NB and AN add none. This affects listening only, never the decoders.
 
 ### Auto Squelch (SQL)
 
@@ -590,8 +564,7 @@ The SSTV, HF FAX, NAVTEX, FSK/RTTY and CW decoders each run on their own backgro
 - 12m: 24.922 MHz
 - 10m: 28.078 MHz
 
-JS8 is far quieter than FT8 — one transmission every few minutes is normal, and
-quiet spells are not a fault. See [Decoders](DECODERS.md) for the full guide.
+JS8 is far quieter than FT8 — one transmission every few minutes is normal, and quiet spells are not a fault. See [Decoders](DECODERS.md) for the full guide.
 
 ---
 
@@ -675,8 +648,7 @@ Save your favorite frequencies for quick access. You can also export the list of
 
 When bookmarks and markers overlap:
 
-🔵 Blue bookmarks appear on top <br />
-🟡 Yellow markers appear underneath <br />
+🔵 Blue bookmarks appear on top <br /> 🟡 Yellow markers appear underneath <br />
 ✅ Bookmark clicks take priority <br />
 
 

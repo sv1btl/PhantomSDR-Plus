@@ -78,15 +78,13 @@ Le script va :
 2. Vérifier la présence de `admin_server.py` et `manage_admin.sh`
 3. Enregistrer `127.0.0.1` comme `sdr_host` dans la configuration (voir [Le réglage `sdr_host`](#le-réglage-sdr_host))
 4. Demander trois numéros de port. Chaque invite propose une valeur par défaut entre crochets
-   qu'une simple touche Entrée accepte, si bien qu'une installation normale tient en trois frappes :
+qu'une simple touche Entrée accepte, si bien qu'une installation normale tient en trois frappes :
    - **Port de spectrumserver** — le port sur lequel votre serveur SDR écoute (par défaut `8900`,
      c'est-à-dire celui que livre chaque `config-*.toml` du dépôt)
    - **Port interne du panneau d'administration** — là où `admin_server.py` se lie localement (par défaut `3000`)
    - **Port public du proxy** — l'unique port externe combinant SDR + administration (par défaut `8902`)
 
-   Les réponses invalides sont rejetées et redemandées, mais cinq fois seulement — ensuite la
-   valeur par défaut est retenue. Une exécution dont l'entrée n'est pas un terminal (tube, cron,
-   sans surveillance) prend aussitôt les valeurs par défaut au lieu d'attendre une saisie qui ne viendra jamais.
+Les réponses invalides sont rejetées et redemandées, mais cinq fois seulement — ensuite la valeur par défaut est retenue. Une exécution dont l'entrée n'est pas un terminal (tube, cron, sans surveillance) prend aussitôt les valeurs par défaut au lieu d'attendre une saisie qui ne viendra jamais.
 5. Installer `flask`, `psutil`, `aiohttp` et `tomli-w` via pip
 6. Accorder à `ss` la capacité `cap_net_admin` (voie de repli de l'éjection d'utilisateurs, utile seulement si le panneau tourne sans le proxy)
 7. Demander quel script démarre et quel script arrête le récepteur — c'est par eux que le panneau pilote le serveur, et la protection thermique aussi
@@ -175,7 +173,7 @@ sudo systemctl restart phantomsdr-admin phantomsdr-proxy
 
 L'unité fournit `KillMode=process`, et cette ligne est déterminante. Si vous démarrez le SDR depuis le panneau, le récepteur est un fils de l'unité d'administration et hérite de son cgroup. Avec la valeur par défaut de systemd, `KillMode=control-group`, redémarrer le panneau emporterait spectrumserver, son chien de garde et le démon autorun — après avoir bloqué les 90 secondes entières du délai d'arrêt. Avec `KillMode=process`, systemd ne signale que le panneau, si bien que `sudo systemctl restart phantomsdr-admin` laisse à l'antenne un récepteur occupé.
 
-**Mettre à niveau une unité installée avant la v3.8.0.** Les anciens fichiers d'unité ne comportent pas cette ligne, et redémarrer le panneau ne l'ajoute pas : `systemctl restart` relance le programme, il ne modifie pas sa configuration. Modifiez la copie *installée* — celle du dépôt n'est qu'un modèle que systemd ne lit jamais :
+**Mettre à niveau une unité installée avant la v4.0.0.** Les anciens fichiers d'unité ne comportent pas cette ligne, et redémarrer le panneau ne l'ajoute pas : `systemctl restart` relance le programme, il ne modifie pas sa configuration. Modifiez la copie *installée* — celle du dépôt n'est qu'un modèle que systemd ne lit jamais :
 
 ```bash
 sudo nano /etc/systemd/system/phantomsdr-admin.service

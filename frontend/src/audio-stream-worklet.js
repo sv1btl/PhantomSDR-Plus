@@ -4,36 +4,45 @@ class PhantomSDRAudioStreamProcessor extends AudioWorkletProcessor {
     const processorOptions = (options && options.processorOptions) || {};
     this.sampleRateHint = processorOptions.sampleRate || sampleRate || 12000;
     // ── Audio buffer latency tuning ─────────────────────────────────────────
-    // These two lines control the worklet ring buffer size and startup gate.
-    // Both have hard floors enforced by Math.max() — values passed from
-    // audio.js below these floors are silently clamped and have no effect.
+    // This worklet holds the ring buffer that actually decides what a listener
+    // hears: playPCM() in audio.js hands PCM over and returns immediately, so
+    // its own bufferLimit/bufferThreshold reach only the fallback scheduler.
+    // The two dimensions below are the real ones, and both have hard floors
+    // enforced by Math.max() — values below those floors are silently clamped.
     //
-    //   maxBufferedFrames  — ring buffer ceiling in samples. When the queue
-    //                        exceeds this, the oldest chunks are dropped until
-    //                        it fits. The Math.max(1024,...) floor = 85ms at
-    //                        12kHz — do not lower the floor below 512 or the
-    //                        worklet will drop frames faster than it can fill.
-    //                        Controlled via processorOptions.maxBufferedSeconds
-    //                        in audio.js (search "processorOptions").
+    //   maxBufferedFrames  — ring buffer ceiling in samples. A chunk that will
+    //                        not fit is dropped on arrival (see _pushChunk).
+    //                        The Math.max(1024,...) floor = 85ms at 12kHz — do
+    //                        not lower the floor below 512 or the worklet will
+    //                        drop frames faster than it can fill.
+    //                        Fed by processorOptions.maxBufferedSeconds, which
+    //                        audio.js derives from bufferLimit — the buffer
+    //                        preset a listener picks in the UI.
     //                        Current floor: 1024 frames = 85ms @ 12kHz
-    //                        Current ceiling from audio.js: 0.25s = 3000 frames
     //
     //   minStartFrames     — frames that must be buffered before playback
     //                        starts (or restarts after underrun). The
     //                        Math.max(256,...) floor = 21ms at 12kHz, which is
     //                        2 AudioWorklet quanta — the practical minimum to
     //                        avoid an immediate underrun on start.
-    //                        Controlled via processorOptions.minStartSeconds
-    //                        in audio.js (search "processorOptions").
+    //                        Fed by processorOptions.minStartSeconds, which
+    //                        audio.js derives from bufferThreshold.
     //                        Current floor: 256 frames = 21ms @ 12kHz
     //
-    // If raising maxBufferedSeconds in audio.js has no effect on choppy audio,
-    // check whether the value × sampleRate is still hitting the floor here.
+    // Neither is fixed for the life of the node: a 'config' message re-runs
+    // _applyConfig(), which is how a mid-session buffer change is heard.
+    //
+    // If raising the preset has no effect on choppy audio, check whether the
+    // value × sampleRate is still hitting the floor here.
     // Formula: effective ceiling = Math.max(1024, maxBufferedSeconds × 12000)
-    // At 0.15s: max(1024, 1800) = 1800 ✓ (floor not active)
-    // At 0.08s: max(1024,  960) = 1024 ✗ (clamped — audio.js change wasted)
+    // At 0.25s: max(1024, 3000) = 3000 ✓ (floor not active)
+    // At 0.08s: max(1024,  960) = 1024 ✗ (clamped — the change is wasted)
     // ────────────────────────────────────────────────────────────────────────
-    this.maxBufferedFrames = Math.max(1024, Math.floor((processorOptions.maxBufferedSeconds || 1.5) * this.sampleRateHint));
+    // Both are computed in _applyConfig() below, which also runs for every
+    // 'config' message so a listener changing the buffer preset mid-session
+    // is heard immediately instead of on the next page load.
+    this.maxBufferedFrames = 0;
+    this.minStartFrames = 0;
 
     this.queue = [];
     this.current = null;
@@ -41,15 +50,7 @@ class PhantomSDRAudioStreamProcessor extends AudioWorkletProcessor {
     this.bufferedFrames = 0;
     this.droppedFrames = 0;
     this.underruns = 0;
-    // FIX: minStartSeconds was being passed in via processorOptions by
-    // audio.js but never read here — the start gate was silently hardcoded
-    // to 0.06s no matter what the caller configured, making that config
-    // value dead code. Honor it now; fall back to the old hardcoded value
-    // only if the caller doesn't supply one.
-    const minStartSeconds = (typeof processorOptions.minStartSeconds === 'number' && processorOptions.minStartSeconds > 0)
-      ? processorOptions.minStartSeconds
-      : 0.06;
-    this.minStartFrames = Math.max(256, Math.floor(this.sampleRateHint * minStartSeconds));
+    this._applyConfig(processorOptions);
     this.started = false;
     this._lastStatsFrame = 0;
 
@@ -57,6 +58,8 @@ class PhantomSDRAudioStreamProcessor extends AudioWorkletProcessor {
       const data = event.data || {};
       if (data.type === 'push' && data.pcm) {
         this._pushChunk(data.pcm, data.channels || 1);
+      } else if (data.type === 'config') {
+        this._applyConfig(data);
       } else if (data.type === 'reset') {
         this.queue = [];
         this.current = null;
@@ -67,6 +70,31 @@ class PhantomSDRAudioStreamProcessor extends AudioWorkletProcessor {
         this.started = false;
       }
     };
+  }
+
+  /**
+   * (Re)compute the ring buffer geometry from maxBufferedSeconds /
+   * minStartSeconds. Called once from the constructor and again for every
+   * 'config' message — see setAudioBufferDelay() in audio.js. The Math.max()
+   * floors documented in the constructor still apply, and an absent or
+   * nonsensical value leaves that dimension at whatever it already was
+   * (falling back to the historical default on the constructor's first call).
+   */
+  _applyConfig(opts) {
+    const o = opts || {};
+    if (typeof o.maxBufferedSeconds === 'number' && o.maxBufferedSeconds > 0) {
+      this.maxBufferedFrames = Math.max(1024, Math.floor(o.maxBufferedSeconds * this.sampleRateHint));
+    } else if (!this.maxBufferedFrames) {
+      this.maxBufferedFrames = Math.max(1024, Math.floor(1.5 * this.sampleRateHint));
+    }
+    if (typeof o.minStartSeconds === 'number' && o.minStartSeconds > 0) {
+      this.minStartFrames = Math.max(256, Math.floor(o.minStartSeconds * this.sampleRateHint));
+    } else if (!this.minStartFrames) {
+      this.minStartFrames = Math.max(256, Math.floor(0.06 * this.sampleRateHint));
+    }
+    // A shrunken ceiling is not enforced retroactively here: the queue drains
+    // at real time and the next _pushChunk() trims it, so there is no need to
+    // throw away audio that is already buffered and about to be played.
   }
 
   _pushChunk(pcm, channels) {
@@ -80,15 +108,24 @@ class PhantomSDRAudioStreamProcessor extends AudioWorkletProcessor {
     // remaining frames from the in-progress chunk (this.current).  Adding
     // currentRemaining on top double-counts those frames, making the buffer
     // look ~2× fuller than it is and causing premature drops.
-    let totalBuffered = this.bufferedFrames;
+    const totalBuffered = this.bufferedFrames;
 
-    // Drop oldest queued audio if buffering runs too deep.
-    while (totalBuffered + frames > this.maxBufferedFrames && this.queue.length > 0) {
-      const old = this.queue.shift();
-      this.droppedFrames += old.frames;
-      this.bufferedFrames -= old.frames;
-      if (this.bufferedFrames < 0) this.bufferedFrames = 0;
-      totalBuffered = this.bufferedFrames;
+    // Overflow: drop the INCOMING chunk, not the oldest queued one.
+    //
+    // Either choice discards the same amount of audio and leaves the same
+    // steady-state latency, but dropping the oldest splices the waveform right
+    // where the reader is about to arrive — a discontinuity in the middle of
+    // whatever the listener is hearing this instant, and it moves the whole
+    // buffered timeline forward under a reader that is already mid-chunk.
+    // Dropping the newest puts the splice at the write end instead and leaves
+    // everything already buffered contiguous with what is playing.
+    //
+    // The queue.length guard is the safety valve: a single chunk larger than
+    // the whole ceiling would otherwise be refused forever and nothing would
+    // ever play. An empty queue always accepts, whatever the size.
+    if (totalBuffered + frames > this.maxBufferedFrames && this.queue.length > 0) {
+      this.droppedFrames += frames;
+      return;
     }
 
     this.queue.push({ samples, channels: ch, frames });

@@ -169,7 +169,6 @@ export default defineConfig({
       dsp: [
         'fft-js',
         'standardized-audio-context',
-        'live-moving-average',
         'cbor-x'
         // add other big DSP/libs here
       ],

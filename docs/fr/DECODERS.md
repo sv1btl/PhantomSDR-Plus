@@ -703,14 +703,7 @@ Comme Force contourne toutes les vérifications de sécurité, il peindra volont
 **La précision de l'horloge système compte.** FT8, FT4 et WSPR sont critiques en temps. Ils décodent dans des fenêtres fixes alignées sur l'UTC. Si l'horloge de votre ordinateur est décalée de plus de 1 à 2 secondes, les taux de décodage chuteront nettement. Utilisez un client NTP pour garder votre horloge précise.
 
 **Les filtres de bruit n'atteignent pas les décodeurs.** NR, NB, NS et AN sont
-des aides à l'écoute, pour vos oreilles seulement. Tous les décodeurs — FT8,
-FT4/FT2, CW, WSPR, FAX, NAVTEX, FSK/RTTY/PSK31/Olivia, SSTV et le grabber QRSS —
-prennent l'audio *avant* ces filtres : réglez-les donc comme cela sonne le mieux,
-sans vous soucier de la qualité de décodage. Pour la même raison, les décodeurs
-continuent de tourner pendant que le récepteur est coupé ou silencé : vous pouvez
-éteindre le haut-parleur et laisser un décodeur, ou une capture QRSS nocturne,
-poursuivre. La seule chose qui suive réellement ce que vous entendez est le
-spectrogramme audio, qui est fait pour montrer l'audio filtré.
+des aides à l'écoute, pour vos oreilles seulement. Tous les décodeurs — FT8, FT4/FT2, CW, WSPR, FAX, NAVTEX, FSK/RTTY/PSK31/Olivia, SSTV et le grabber QRSS — prennent l'audio *avant* ces filtres : réglez-les donc comme cela sonne le mieux, sans vous soucier de la qualité de décodage. Pour la même raison, les décodeurs continuent de tourner pendant que le récepteur est coupé ou silencé : vous pouvez éteindre le haut-parleur et laisser un décodeur, ou une capture QRSS nocturne, poursuivre. La seule chose qui suive réellement ce que vous entendez est le spectrogramme audio, qui est fait pour montrer l'audio filtré.
 
 **La qualité du signal prime sur sa force.** La plupart de ces décodeurs sont conçus pour les signaux faibles. Une bande plus calme avec moins de bruit est souvent plus productive qu'un signal fort noyé dans les interférences. Utilisez la cascade et les commandes de bande passante pour repérer et éviter le QRM avant d'activer un décodeur.
 

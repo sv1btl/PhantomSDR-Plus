@@ -74,15 +74,13 @@ The script will:
 2. Verify `admin_server.py` and `manage_admin.sh` are present
 3. Record `127.0.0.1` as `sdr_host` in config (see [The `sdr_host` setting](#the-sdr_host-setting))
 4. Ask for three port numbers. Each offers a default in brackets that a bare Enter
-   accepts, so a normal setup is three keystrokes:
+accepts, so a normal setup is three keystrokes:
    - **Spectrumserver port** — the port your SDR server listens on (default `8900`,
      which is what every `config-*.toml` in the repository ships with)
    - **Admin panel internal port** — where `admin_server.py` binds locally (default `3000`)
    - **Proxy public port** — the single external port that combines SDR + admin (default `8902`)
 
-   Invalid answers are rejected and re-asked, but only five times — after that the
-   default is used. A run whose input is not a terminal (piped, cron, unattended)
-   takes the defaults straight away instead of waiting for input that never comes.
+Invalid answers are rejected and re-asked, but only five times — after that the default is used. A run whose input is not a terminal (piped, cron, unattended) takes the defaults straight away instead of waiting for input that never comes.
 5. Install `flask`, `psutil`, `aiohttp` and `tomli-w` via pip
 6. Grant `ss` the `cap_net_admin` capability (fallback path of Kick Users, used only when the panel runs without the proxy)
 7. Ask which script starts and which stops the receiver — the panel drives the server through these, and so does the thermal guard
@@ -171,7 +169,7 @@ sudo systemctl restart phantomsdr-admin phantomsdr-proxy
 
 The unit ships with `KillMode=process`, and that line is load-bearing. If you start the SDR from the panel, the receiver is a child of the admin unit and inherits its cgroup. Under systemd's default `KillMode=control-group`, restarting the panel would take spectrumserver, its watchdog and the autorun daemon down with it, and stall for the full 90-second stop timeout first. With `KillMode=process` systemd signals only the panel, so `sudo systemctl restart phantomsdr-admin` leaves a busy receiver on air.
 
-**Upgrading a unit installed before v3.8.0.** Older unit files have no such line, and restarting the panel will not add one: `systemctl restart` re-runs the program, it does not change the program's configuration. Edit the *installed* copy — the one in the repository is only a template systemd never reads:
+**Upgrading a unit installed before v4.0.0.** Older unit files have no such line, and restarting the panel will not add one: `systemctl restart` re-runs the program, it does not change the program's configuration. Edit the *installed* copy — the one in the repository is only a template systemd never reads:
 
 ```bash
 sudo nano /etc/systemd/system/phantomsdr-admin.service

@@ -630,7 +630,7 @@ Two different counters are then shown, and it is easy to mistake one for the oth
 
 ## KiwiSDR Client Emulation (optional)
 
-Since v3.9.0 PhantomSDR-Plus can also answer the **KiwiSDR protocol**, so software written for a KiwiSDR — **AetherSDR**, `kiwiclient` and the rest — connects to your receiver directly, on the same host and port you already publish. It is off until `[kiwi_emulation] enabled = true` is added to the config your receiver runs with.
+Since v4.0.0 PhantomSDR-Plus can also answer the **KiwiSDR protocol**, so software written for a KiwiSDR — **AetherSDR**, `kiwiclient` and the rest — connects to your receiver directly, on the same host and port you already publish. It is off until `[kiwi_emulation] enabled = true` is added to the config your receiver runs with.
 
 The installer offers it as step 17, or `./kiwi_install.sh` applies it to a tree that is already installed.
 
@@ -723,7 +723,7 @@ Edit the following fields:
   "siteCity": "Your City, Country",
   "siteInformation": "https://github.com/sv1btl/PhantomSDR-Plus",
   "siteHardware": "Computer specifications",
-  "siteSoftware": "PhantomSDR-Plus v3.9.0",
+  "siteSoftware": "PhantomSDR-Plus v4.0.0",
   "siteReceiver": "Your SDR model",
   "siteAntenna": "Antenna description",
   "siteNote": "Additional information",
@@ -1215,16 +1215,11 @@ Traceback (most recent call last):
 ModuleNotFoundError: No module named 'mesonbuild'
 ```
 
-Nothing is wrong with the source tree. A leftover `pip install --user meson`
-left a launcher script in `~/.local/bin`, which comes before `/usr/bin` on
+Nothing is wrong with the source tree. A leftover `pip install --user meson` left a launcher script in `~/.local/bin`, which comes before `/usr/bin` on
 `PATH` and therefore hides the working copy the package manager installed. A
-distribution upgrade (Ubuntu 24.04 → 26.04, for example) moves Python to a new
-version, the old `site-packages` that held `mesonbuild` is no longer on the
-import path, and the script dies before it does any work. The same thing can
-happen to `ninja`.
+distribution upgrade (Ubuntu 24.04 → 26.04, for example) moves Python to a new version, the old `site-packages` that held `mesonbuild` is no longer on the import path, and the script dies before it does any work. The same thing can happen to `ninja`.
 
-The installer detects this and works around it for the duration of the run,
-warning you in the process, but repair the system:
+The installer detects this and works around it for the duration of the run, warning you in the process, but repair the system:
 
 ```bash
 rm -f ~/.local/bin/meson
@@ -1232,8 +1227,7 @@ hash -r
 meson --version        # must print a version
 ```
 
-Keep a pip-installed meson instead if you prefer, by reinstalling it for the
-Python this system has now:
+Keep a pip-installed meson instead if you prefer, by reinstalling it for the Python this system has now:
 
 ```bash
 python3 -m pip install --user --force-reinstall --break-system-packages meson
@@ -1441,17 +1435,11 @@ waterfall_compression = "zstd"  # Efficient compression
 
 ## Updating PhantomSDR-Plus
 
-Since version 3.8.0 the repository ships **`update.sh`**, an updater that brings an installed
-receiver up to date with the published tree **without touching the files that make it your
-site**. It replaces the hand-written `git pull` script that earlier editions of this guide asked
-you to create, and it does not need git at all: the published tree is downloaded as a tarball
-and compared with yours file by file, so it works the same whether you cloned the repository,
-unpacked an `update.zip`, or copied the tree off a USB stick.
+Since version 4.0.0 the repository ships **`update.sh`**, an updater that brings an installed receiver up to date with the published tree **without touching the files that make it your site**. It replaces the hand-written `git pull` script that earlier editions of this guide asked you to create, and it does not need git at all: the published tree is downloaded as a tarball and compared with yours file by file, so it works the same whether you cloned the repository, unpacked an `update.zip`, or copied the tree off a USB stick.
 
 ### If your installation does not have update.sh yet
 
-An older tree will not contain the script. Fetch it once — it is the only step of this whole
-procedure you ever do by hand:
+An older tree will not contain the script. Fetch it once — it is the only step of this whole procedure you ever do by hand:
 
 ```bash
 cd ~/PhantomSDR-Plus
@@ -1459,8 +1447,7 @@ curl -fLO https://raw.githubusercontent.com/sv1btl/PhantomSDR-Plus/main/update.s
 chmod +x update.sh
 ```
 
-From then on everything — sources, frontend, documentation, installers, and `update.sh`
-itself — is brought in by the tool.
+From then on everything — sources, frontend, documentation, installers, and `update.sh` itself — is brought in by the tool.
 
 ### Step 1 — see what would change (this writes nothing)
 
@@ -1469,10 +1456,7 @@ cd ~/PhantomSDR-Plus
 ./update.sh
 ```
 
-It downloads the published tree, compares it with yours and prints a report. It writes nothing
-at all, so it is safe to run at any time, including on a receiver that is on the air. The exit
-status is `0` when you are already up to date and `10` when an update is waiting, so a cron job
-can tell you when there is something to do.
+It downloads the published tree, compares it with yours and prints a report. It writes nothing at all, so it is safe to run at any time, including on a receiver that is on the air. The exit status is `0` when you are already up to date and `10` when an update is waiting, so a cron job can tell you when there is something to do.
 
 ### Step 2 — apply it
 
@@ -1497,11 +1481,10 @@ For each file in the middle group you are shown the differences and given three 
 * **Keep mine** — your file is left exactly as it is.
 * **upstream** — the new version is installed, and your file is backed up first.
 * **both** — the new version is written beside yours as `start-rx888mk2.sh.new`, so you can
-  merge your own changes into it in your own time.
+merge your own changes into it in your own time.
 
 **What a first run feels like.** The first time you run it there is no record of which
-version your files came from, so every file in the middle group above is put to you: about
-ten questions. Answer them like this:
+version your files came from, so every file in the middle group above is put to you: about ten questions. Answer them like this:
 
 | Your situation | Answer |
 |---|---|
@@ -1509,19 +1492,12 @@ ten questions. Answer them like this:
 | You edited it (your own `RX888_ARGS`, CPU pinning, a tweaked unit) | `b` — yours is kept, and the new one lands beside it as `<file>.new` to merge later. |
 | You are not sure | ENTER — yours is kept, nothing is lost, and you can compare afterwards. |
 
-Your configuration is never part of this: the questions are only ever about scripts and
-service units.
+Your configuration is never part of this: the questions are only ever about scripts and service units.
 
 `update.sh` records the version of every file it installs in `.update-state/`. From the second
-run on it can therefore tell a file **you** edited from a file that is merely old, and it only
-stops to ask about the ones you actually changed.
+run on it can therefore tell a file **you** edited from a file that is merely old, and it only stops to ask about the ones you actually changed.
 
-Before writing anything it stops the receiver, the admin panel and the reverse proxy **of the
-installation it is updating** — a component serving another directory is listed and left running,
-so a second clone can be updated while the first one stays on the air — and when it has finished
-it starts back exactly what it stopped. If source or
-frontend files changed, it offers to run `recompile.sh` for you. Nothing is ever deleted: files
-that have gone from the repository are reported, and removed only if you ask with `--prune`.
+Before writing anything it stops the receiver, the admin panel and the reverse proxy **of the installation it is updating** — a component serving another directory is listed and left running, so a second clone can be updated while the first one stays on the air — and when it has finished it starts back exactly what it stopped. If source or frontend files changed, it offers to run `recompile.sh` for you. Nothing is ever deleted: files that have gone from the repository are reported, and removed only if you ask with `--prune`.
 
 ### Undoing an update
 
@@ -1529,33 +1505,29 @@ that have gone from the repository are reported, and removed only if you ask wit
 ./update.sh --restore LAST
 ```
 
-Every overwritten file is kept in `.update-backups/<timestamp>/` with its own `restore.sh`, and
-the last three runs are retained.
+Every overwritten file is kept in `.update-backups/<timestamp>/` with its own `restore.sh`, and the last three runs are retained.
 
 ### Other options
 
 ```bash
 ./update.sh --apply --yes     # never asks; every file you edited is KEPT
-./update.sh --ref v3.8.0      # a tag, branch or commit instead of the current tree
+./update.sh --ref v4.0.0      # a tag, branch or commit instead of the current tree
 ./update.sh --list-excludes   # print the never-touch rules as they resolve here
 ./update.sh --verbose         # list every file, not only the first 40
 ```
 
-You can add your own never-touch rules by putting one glob per line in `update-exclude.txt` in
-the root folder of the installation.
+You can add your own never-touch rules by putting one glob per line in `update-exclude.txt` in the root folder of the installation.
 
 ### If the rebuild fails on a very old installation
 
 `update.sh` updates files, not system packages. If your tree is old enough that the build
-now needs libraries you do not have, `recompile.sh` will stop with a compiler or meson
-error. That is not a broken update — you need the dependencies:
+now needs libraries you do not have, `recompile.sh` will stop with a compiler or meson error. That is not a broken update — you need the dependencies:
 
 ```bash
 ./install.sh
 ```
 
-The installer is itself brought up to date by the same run, and your configuration survives
-it too.
+The installer is itself brought up to date by the same run, and your configuration survives it too.
 
 ### Updating by hand
 

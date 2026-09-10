@@ -703,14 +703,7 @@ Como Force omite todas las comprobaciones de seguridad, pintará ruido sin más 
 **La precisión del reloj del sistema importa.** FT8, FT4 y WSPR son críticos en el tiempo. Decodifican en ventanas fijas alineadas con UTC. Si el reloj del ordenador se desvía más de 1 o 2 segundos, la tasa de decodificación caerá notablemente. Use un cliente NTP para mantenerlo preciso.
 
 **Los filtros de ruido no llegan a los decodificadores.** NR, NB, NS y AN son
-ayudas de escucha, solo para sus oídos. Todos los decodificadores — FT8, FT4/FT2,
-CW, WSPR, FAX, NAVTEX, FSK/RTTY/PSK31/Olivia, SSTV y el grabber QRSS — toman el
-audio *antes* de esos filtros, así que ajústelos como mejor suene, sin
-preocuparse por la calidad de la decodificación. Por la misma razón los
-decodificadores siguen funcionando con el receptor silenciado o con el squelch
-cerrado: puede apagar el altavoz y dejar un decodificador, o una captura QRSS
-nocturna, recogiendo datos. Lo único que sí sigue lo que usted oye es el
-Espectrograma de Audio, pensado para mostrar el audio filtrado.
+ayudas de escucha, solo para sus oídos. Todos los decodificadores — FT8, FT4/FT2, CW, WSPR, FAX, NAVTEX, FSK/RTTY/PSK31/Olivia, SSTV y el grabber QRSS — toman el audio *antes* de esos filtros, así que ajústelos como mejor suene, sin preocuparse por la calidad de la decodificación. Por la misma razón los decodificadores siguen funcionando con el receptor silenciado o con el squelch cerrado: puede apagar el altavoz y dejar un decodificador, o una captura QRSS nocturna, recogiendo datos. Lo único que sí sigue lo que usted oye es el Espectrograma de Audio, pensado para mostrar el audio filtrado.
 
 **La calidad de la señal importa más que su fuerza.** La mayoría de estos decodificadores están pensados para señales débiles. Una banda más tranquila y con menos ruido suele ser más productiva que una señal fuerte llena de interferencias. Use la cascada y los controles de paso de banda para identificar y evitar el QRM antes de activar un decodificador.
 

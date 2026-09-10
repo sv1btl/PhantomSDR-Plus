@@ -703,14 +703,7 @@ Da Force sämtliche Sicherheitsprüfungen überspringt, malt es bereitwillig Rau
 **Die Genauigkeit der Systemuhr zählt.** FT8, FT4 und WSPR sind zeitkritisch. Sie dekodieren in festen, an UTC ausgerichteten Fenstern. Weicht Ihre Rechneruhr um mehr als 1–2 Sekunden ab, sinken die Dekodierraten deutlich. Halten Sie Ihre Uhr mit einem NTP-Client genau.
 
 **Die Rauschfilter erreichen die Decoder nicht.** NR, NB, NS und AN sind
-Hörhilfen, ausschließlich für Ihre Ohren. Jeder Decoder — FT8, FT4/FT2, CW,
-WSPR, FAX, NAVTEX, FSK/RTTY/PSK31/Olivia, SSTV und der QRSS-Grabber — greift das
-Audio *vor* diesen Filtern ab; stellen Sie sie also so ein, wie es am besten
-klingt, ohne sich um die Decodierqualität zu sorgen. Aus demselben Grund laufen
-die Decoder weiter, während der Empfänger stummgeschaltet oder zugerauscht ist:
-Sie können den Lautsprecher abschalten und einen Decoder oder eine
-Nacht-QRSS-Aufzeichnung weiterlaufen lassen. Was dem Gehörten tatsächlich folgt,
-ist allein das Audio-Spektrogramm, das bewusst das gefilterte Audio zeigt.
+Hörhilfen, ausschließlich für Ihre Ohren. Jeder Decoder — FT8, FT4/FT2, CW, WSPR, FAX, NAVTEX, FSK/RTTY/PSK31/Olivia, SSTV und der QRSS-Grabber — greift das Audio *vor* diesen Filtern ab; stellen Sie sie also so ein, wie es am besten klingt, ohne sich um die Decodierqualität zu sorgen. Aus demselben Grund laufen die Decoder weiter, während der Empfänger stummgeschaltet oder zugerauscht ist: Sie können den Lautsprecher abschalten und einen Decoder oder eine Nacht-QRSS-Aufzeichnung weiterlaufen lassen. Was dem Gehörten tatsächlich folgt, ist allein das Audio-Spektrogramm, das bewusst das gefilterte Audio zeigt.
 
 **Signalqualität schlägt Signalstärke.** Die meisten dieser Decoder sind für schwache Signale ausgelegt. Ein ruhigeres Band mit geringerem Rauschen ist oft ergiebiger als ein lautes, störungsreiches Signal. Nutzen Sie Wasserfall und Durchlassbereichseinstellungen, um QRM zu erkennen und zu meiden, bevor Sie einen Decoder aktivieren.
 

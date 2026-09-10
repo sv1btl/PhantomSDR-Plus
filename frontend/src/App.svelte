@@ -1,5 +1,5 @@
 <script>
-  const VERSION = "3.9.0 with mobile support and enhancements";
+  const VERSION = "4.0.0 with mobile support and enhancements";
 
   // ── Variant selection ────────────────────────────────────────────────────
   //
@@ -122,6 +122,7 @@
   // PNG, not the SVG master: this server labels every asset text/plain, and
   // browsers sniff raster formats but never SVG -- an <img> would refuse it.
   import sstvSplashUrl from "./assets/SSTV.png";
+  import DiversityPanel from "./lib/DiversityPanel.svelte";
   import {
     init,
     audio,
@@ -635,7 +636,11 @@
   // Added to allow an adjustment of the dynamic audio //
   // buffer function inside audio.js //
   let audioBufferDelayEnabled = false;
-  let audioBufferDelay = 1;
+  // x1 is the engine's own default and suits a wired connection. A phone needs
+  // more than a 20 ms cushion, so handsets start at x2 (0.5 s / 0.1 s) — the
+  // same value /mobile defaults to. The ladder itself is identical on both, so
+  // a listener can still move anywhere on it.
+  let audioBufferDelay = Device.isMobile ? 2 : 1;
 
   // by sv2amkzoom
   // Added to allow adjustment of the zoom //
@@ -1805,6 +1810,9 @@
   // buffer depth, so the capture window has to open that much later. 0.8 s is
   // ft8_lib's own default; trim it if decodes are weak or absent.
   let ftxTimeShift = 0.8;
+  // The slider's range is the active mode's slot period, not a constant: the
+  // shift is a phase within the slot, and FT2's is 3.75 s.
+  let ftxShiftMax = 3.75;
   let ftxAutoSync = true;
   function handleFtxTimeShift() {
     ftxAutoSync = false; // touching the slider means manual control
@@ -1819,9 +1827,14 @@
     if (!audio) return;
     if (typeof audio.getFTxTimeShift === "function")
       ftxTimeShift = audio.getFTxTimeShift();
+    if (typeof audio.getFTxShiftRange === "function")
+      ftxShiftMax = audio.getFTxShiftRange();
     if (typeof audio.ftxAutoSync === "boolean") ftxAutoSync = audio.ftxAutoSync;
     audio.onFTxTimeShiftChange = (v) => {
       ftxTimeShift = v;
+      // Fires on a mode switch too, so the range follows the mode.
+      if (typeof audio.getFTxShiftRange === "function")
+        ftxShiftMax = audio.getFTxShiftRange();
     };
   }
   let ft2Enabled = false;
@@ -5736,10 +5749,13 @@
     // Begin code to store and restore additional //
     // WebSDR settings.
     // Set Audio Buffer
-    audioBufferDelayEnabled = false;
+    // Applying, not just displaying: this used to set the variable and stop,
+    // so the slider jumped to the bookmarked value while the engine carried on
+    // with whatever it had. handleAudioBufferDelayMove sets both fields itself.
     if (bookmark.audioBufferDelayEnabled) {
-      audioBufferDelay = bookmark.audioBufferDelay;
-      audioBufferDelayEnabled = bookmark.audioBufferDelayEnabled;
+      handleAudioBufferDelayMove(bookmark.audioBufferDelay);
+    } else {
+      handleAudioBufferDelayMove(1);
     }
 
     // Set Noise Reduction
@@ -6222,6 +6238,10 @@
     waterfall.setSpectrum(spectrumDisplay, Device.isMobile);
     waterfallReverse = spectrumDisplay;
     handleVolumeChange();
+    // Push the buffer setting into the engine too. Without this the control
+    // showed a value that had never been applied, and on a handset the x2
+    // default above would not have taken effect at all.
+    handleAudioBufferDelayMove(audioBufferDelay);
     updateLink();
     userId = generateUniqueId();
     let [l, m, r] = audio.getAudioRange().map(FFTOffsetToFrequency);
@@ -6766,42 +6786,58 @@
   // audio.js - the variables inside audio.js to allow this adjustment //
   // are bufferLimit = 0.5 and bufferThreshold = 0.1 //
   function handleAudioBufferDelayMove(newAudioBufferDelay) {
-    if (newAudioBufferDelay > 5) {
+    if (newAudioBufferDelay > 6) {
       newAudioBufferDelay = 1;
     }
 
     audioBufferDelay = newAudioBufferDelay;
 
+    // The ladder starts at audio.js's own constructor defaults, so x1 means
+    // exactly what the engine already does. It used to start at 0.5/0.1 while
+    // nothing applied it at startup, so the control read x1 while the engine
+    // sat at 0.25/0.01 — the display and the audio disagreed until the slider
+    // was touched. Matching the two here is what makes applying it at startup
+    // free of any latency cost.
+    //
+    // The second number is the cushion, and it is the whole margin the
+    // playback path has against a late packet. 0.01 clamps up to 0.02 inside
+    // setAudioBufferDelay, and 20 ms is fine on a cable and much too little on
+    // a phone — which is why handsets start at x2, not x1. See the initial
+    // value of audioBufferDelay.
     switch (audioBufferDelay) {
       case 1:
-        // Default/Off: Tight latency (100ms target)
+        // Tightest: the engine's own default. Wired connections.
         audioBufferDelayEnabled = false;
-        audio.setAudioBufferDelay(0.5, 0.1);
+        audio.setAudioBufferDelay(0.25, 0.01);
         break;
       case 2:
-        // Low: Good for fast connections (200ms target)
+        // Default for handsets. Rides out ordinary mobile jitter.
+        audioBufferDelayEnabled = true;
+        audio.setAudioBufferDelay(0.5, 0.1);
+        break;
+      case 3:
+        // Low: good for fast but variable connections.
         audioBufferDelayEnabled = true;
         audio.setAudioBufferDelay(1.0, 0.2);
         break;
-      case 3:
-        // Medium: Balanced (300ms target)
+      case 4:
+        // Medium: balanced.
         audioBufferDelayEnabled = true;
         audio.setAudioBufferDelay(1.5, 0.3);
         break;
-      case 4:
-        // High: Poor connections (400ms target)
+      case 5:
+        // High: poor connections.
         audioBufferDelayEnabled = true;
         audio.setAudioBufferDelay(2.0, 0.4);
         break;
-      case 5:
-        // Maximum: Very unstable connections (500ms target)
+      case 6:
+        // Maximum: very unstable connections.
         audioBufferDelayEnabled = true;
         audio.setAudioBufferDelay(2.5, 0.5);
         break;
       default:
-        // Fallback to default
         audioBufferDelayEnabled = false;
-        audio.setAudioBufferDelay(0.5, 0.1);
+        audio.setAudioBufferDelay(0.25, 0.01);
     }
   }
 
@@ -8024,7 +8060,7 @@
                     <ul style="font-size: 0.91rem; text-align: left;">
                     <b>Setup &amp; Configuration:</b>
                       <img
-                        src="https://img.shields.io/badge/version- 3.9.0-cyan?logo=github"
+                        src="https://img.shields.io/badge/version- 4.0.0-cyan?logo=github"
                         alt="Version"
                         class="inline-block align-middle ml-2"
                       />
@@ -8863,11 +8899,11 @@ Click again to de-activate"
                       <input
                         type="range"
                         bind:value={audioBufferDelay}
-                        on:input={handleAudioBufferDelayMove(audioBufferDelay)}
+                        on:input={() => handleAudioBufferDelayMove(audioBufferDelay)}
                         title="Buffer slider"
                         class="glass-slider"
                         min="1"
-                        max="5"
+                        max="6"
                         step="1"
                       />
                     </div>
@@ -9505,11 +9541,11 @@ Click again to de-activate"
                     </div>
                   </div>
 
-                  <div id="frequencyContainer" class="w-full mt-8 sm:mt-4">
+                  <div id="frequencyContainer" class="w-full mt-1 sm:mt-1">
                     <div class={isAnalog ? "space-y-5" : "space-y-8"}>
                       <!-- Begin Fine Tuning Buttons -->
 
-                      <div class={isAnalog ? "w-full mt-2" : "w-full mt-4"}>
+                      <div class={isAnalog ? "w-full mt-0" : "w-full mt-1"}>
                         <!-- Label hard left, scanner hard right, one line -->
                         <div
                           class="flex items-center justify-between gap-2 mb-2"
@@ -10169,7 +10205,7 @@ Click again to de-activate"
                       <!-- Wheel Tuning Steps — took over the row the Bandwidth
                            offset selector used to occupy -->
 
-                      <div class="w-full mt-4">
+                      <div class="w-full mt-1">
                         <h3 class="text-white text-base font-semibold mb-2">
                           Wheel Tuning Steps
                         </h3>
@@ -10206,7 +10242,7 @@ Click again to de-activate"
                       <!-- Begin Decoders Selection Area — one-touch buttons for
                            the dropdown's decoders (RADEL/RADEU excluded: they
                            have their own buttons in the Modes selector) -->
-                      <div class="w-full mt-4">
+                      <div class="w-full mt-1">
                         <!-- w-full: the parent is inside screw-col-2, so the
                              frame can never outgrow that column. -->
                         <div class="w-full min-w-0 mb-2">
@@ -10243,8 +10279,6 @@ Click again to de-activate"
                     </div>
                   </div>
 
-                  <div><hr class="border-gray-600 my-2" /></div>
-
                   <!-- Spectrogram / QRSS / Decoders — one row when collapsed -->
                   <div class="flex flex-col sm:flex-row sm:flex-wrap items-start gap-x-12 gap-y-4">
                     <!-- Audio Spectrogram Section -->
@@ -10256,7 +10290,7 @@ Click again to de-activate"
                       </h3>
                       <div class="flex items-center gap-3 flex-wrap">
                         <button
-                          class="retro-button px-4 py-2 text-white text-sm rounded-md border border-gray-600 shadow-inner transition-all duration-200 ease-in-out {spectrogramEnabled
+                          class="retro-button px-4 h-7 inline-flex items-center justify-center text-white text-sm rounded-md border border-gray-600 shadow-inner transition-all duration-200 ease-in-out {spectrogramEnabled
                             ? 'bg-blue-600 pressed scale-95'
                             : 'bg-gray-700 hover:bg-gray-600'}"
                           on:click={toggleSpectrogram}
@@ -10314,7 +10348,7 @@ Click again to de-activate"
                       </h3>
                       <div class="flex items-center gap-3 flex-wrap">
                         <button
-                          class="retro-button px-4 py-2 text-white text-sm rounded-md border border-gray-600 shadow-inner transition-all duration-200 ease-in-out {qrssEnabled
+                          class="retro-button px-4 h-7 inline-flex items-center justify-center text-white text-sm rounded-md border border-gray-600 shadow-inner transition-all duration-200 ease-in-out {qrssEnabled
                             ? 'bg-blue-600 pressed scale-95'
                             : 'bg-gray-700 hover:bg-gray-600'}"
                           on:click={toggleQrss}
@@ -10475,6 +10509,9 @@ Click again to de-activate"
                     </div>
                   </div>
 
+                  <!-- Receive diversity (second receiver) -->
+                  <DiversityPanel />
+
                   <!-- FT8 / FT4 Messages List -->
                   {#if decoderOn && (ft8Enabled || ft4Enabled || ft2Enabled)}
                     <div class="w-full rounded-lg p-6 mt-6 decoder-window decoder-panel">
@@ -10501,7 +10538,7 @@ Click again to de-activate"
                         <input
                           type="range"
                           min="0"
-                          max="3"
+                          max={ftxShiftMax}
                           step="0.05"
                           bind:value={ftxTimeShift}
                           on:input={handleFtxTimeShift}
@@ -10613,7 +10650,7 @@ Click again to de-activate"
                         <input
                           type="range"
                           min="0"
-                          max="3"
+                          max={ftxShiftMax}
                           step="0.05"
                           bind:value={ftxTimeShift}
                           on:input={handleFtxTimeShift}
@@ -14401,12 +14438,10 @@ Click again to de-activate"
                         <input
                           type="range"
                           bind:value={audioBufferDelay}
-                          on:input={handleAudioBufferDelayMove(
-                            audioBufferDelay,
-                          )}
+                          on:input={() => handleAudioBufferDelayMove(audioBufferDelay)}
                           class="glass-slider"
                           min="1"
-                          max="5"
+                          max="6"
                           step="1"
                         />
                       </div>
@@ -14594,6 +14629,9 @@ Click again to de-activate"
                     </div>
                   </div>
 
+                  <!-- Receive diversity (second receiver) -->
+                  <DiversityPanel />
+
                   <!-- FT8 / FT4 Messages List -->
                   {#if decoderOn && (ft8Enabled || ft4Enabled || ft2Enabled)}
                     <div class="w-full rounded-lg p-6 mt-6 decoder-window decoder-panel">
@@ -14620,7 +14658,7 @@ Click again to de-activate"
                         <input
                           type="range"
                           min="0"
-                          max="3"
+                          max={ftxShiftMax}
                           step="0.05"
                           bind:value={ftxTimeShift}
                           on:input={handleFtxTimeShift}
@@ -14732,7 +14770,7 @@ Click again to de-activate"
                         <input
                           type="range"
                           min="0"
-                          max="3"
+                          max={ftxShiftMax}
                           step="0.05"
                           bind:value={ftxTimeShift}
                           on:input={handleFtxTimeShift}

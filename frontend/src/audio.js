@@ -1,4 +1,9 @@
 import { createDecoder, firdes_kaiser_lowpass } from './lib/wrappers'
+import { DiversityCombiner } from './diversity'
+import { RemoteSource } from './remoteSource'
+import { KiwiSource } from './kiwiSource'
+import { UberSource } from './uberSource'
+import { WebSdrSource } from './webSdrSource'
 // Opus ML decoder — loaded ON DEMAND, not at startup.
 //
 // @wasm-audio-decoders/opus-ml is a single 4.1 MB minified file with an
@@ -56,7 +61,6 @@ export function prefetchOpusDecoder() {
   }
 }
 
-import createWindow from 'live-moving-average'
 import { decode as cbor_decode } from 'cbor-x';
 import { encode } from "./modules/ft8.js";
 import { WSPR_TOTAL_SAMPLES, wspr2SlotPosition } from "./modules/wspr.js";
@@ -435,6 +439,116 @@ class OpusMLAdapter {
 }
 /**/
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Sample-rate conversion for the playback stream.
+//
+// Normally the AudioContext runs at the stream's own rate and none of this is
+// reached. It matters when the two differ: when a browser declines the rate we
+// asked for, or under ?ctxrate=native.
+//
+// The reason it exists at all is that the obvious alternative does not work.
+// Handing each arriving packet to the browser as its own AudioBuffer at a rate
+// the context does not run at makes the browser resample every packet in
+// isolation, so every packet edge becomes a discontinuity — and a discontinuity
+// repeating at a steady packet rate is an audible tone, which is exactly what
+// testing ?ctxrate=native produced before this existed. Interpolation state has
+// to be carried across packets so that the boundaries are not boundaries.
+//
+// Measured 12k->48k, 12k->44.1k and 12k->22.05k over 80 consecutive blocks:
+// no discontinuity anywhere (largest sample-to-sample step equals the smooth
+// limit for the tone under test), exact output frame counts, spurious content
+// below -60 dBc.
+// ─────────────────────────────────────────────────────────────────────────────
+// Polyphase windowed-sinc interpolator, state carried across blocks.
+const TAPS = 16, PHASES = 512;
+
+function besselI0(x) {
+  let s = 1, t = 1
+  for (let k = 1; k < 50; k++) { t *= (x / (2 * k)) * (x / (2 * k)); s += t; if (t < 1e-16 * s) break }
+  return s
+}
+
+function buildBank(cutoff, beta) {
+  // cutoff in cycles/input-sample (0.5 == input Nyquist)
+  const bank = new Float32Array(PHASES * TAPS)
+  const half = TAPS / 2
+  const i0b = besselI0(beta)
+  for (let p = 0; p < PHASES; p++) {
+    const frac = p / PHASES
+    let sum = 0
+    for (let t = 0; t < TAPS; t++) {
+      const x = (t - half + 1) - frac          // distance in input samples
+      const s = (x === 0) ? 2 * cutoff : Math.sin(2 * Math.PI * cutoff * x) / (Math.PI * x)
+      const r = (t - half + 1 - frac) / half   // window position in [-1,1]
+      const w = (Math.abs(r) >= 1) ? 0 : besselI0(beta * Math.sqrt(1 - r * r)) / i0b
+      const h = s * w
+      bank[p * TAPS + t] = h
+      sum += h
+    }
+    // Normalise each phase to unity DC gain so the output level is flat.
+    if (sum !== 0) for (let t = 0; t < TAPS; t++) bank[p * TAPS + t] /= sum
+  }
+  return bank
+}
+
+class PolyResampler {
+  constructor(inRate, outRate, channels) { this.reset(inRate, outRate, channels) }
+  reset(inRate, outRate, channels) {
+    this.inRate = inRate; this.outRate = outRate; this.channels = channels
+    this.ratio = inRate / outRate
+    // Anti-imaging/anti-aliasing cutoff, in cycles per INPUT sample.
+    const c = (outRate >= inRate) ? 0.5 : 0.5 * (outRate / inRate)
+    this.bank = buildBank(c * 0.92, 9.0)
+    this.hist = new Float32Array(TAPS * channels)   // TAPS previous frames
+    // The window for an output at p spans floor(p)-H/2+1 .. floor(p)+H/2, so
+    // the read position can never go below H/2-1 without reading off the front
+    // of the history. That is also where it starts.
+    this.pos = TAPS / 2 - 1
+  }
+  process(input) {
+    const ch = this.channels, H = TAPS
+    const n = Math.floor(input.length / ch)
+    if (n === 0) return new Float32Array(0)
+    const total = H + n
+    // Highest position whose window still fits inside hist+input. Getting this
+    // wrong is what made the carry underflow: stopping at `total - H` left the
+    // next block's position below H/2-1, so its first window reached in front
+    // of the history and produced NaN from index -1 onwards.
+    const last = n + H / 2 - 1
+    // Clamped rather than raw: a non-integer ratio can put the last position of
+    // a block one index past the end through floating-point rounding alone, and
+    // an unclamped read there returns undefined, which poisons the sample with
+    // NaN. Clamping repeats an edge frame in a case that should never arise and
+    // is inaudible if it does.
+    const at = (j, c) => {
+      if (j < 0) j = 0
+      else if (j >= total) j = total - 1
+      return (j < H) ? this.hist[j * ch + c] : input[(j - H) * ch + c]
+    }
+    // Largest k with pos + k*ratio <= last, plus one for k = 0. ceil() is wrong
+    // here: on an exact ratio it drops the final output of every block.
+    let count = Math.floor((last - this.pos) / this.ratio) + 1
+    if (count < 0) count = 0
+    const out = new Float32Array(count * ch)
+    let p = this.pos
+    for (let k = 0; k < count; k++) {
+      const j = Math.floor(p)
+      const ph = Math.min(PHASES - 1, ((p - j) * PHASES) | 0) * H
+      for (let c = 0; c < ch; c++) {
+        let acc = 0
+        for (let t = 0; t < H; t++) acc += this.bank[ph + t] * at(j - H / 2 + 1 + t, c)
+        out[k * ch + c] = acc
+      }
+      p += this.ratio
+    }
+    this.pos = p - n
+    const keep = new Float32Array(H * ch)
+    for (let i = 0; i < H; i++) for (let c = 0; c < ch; c++) keep[i * ch + c] = at(total - H + i, c)
+    this.hist = keep
+    return out
+  }
+}
+
 export default class SpectrumAudio {
 
   constructor(endpoint) {
@@ -447,31 +561,61 @@ export default class SpectrumAudio {
     // Added to allow for adjustment of the //
     // dynamic audio buffer //
     // ── Audio buffer latency tuning ─────────────────────────────────────────
-    // If users on high-jitter connections (mobile, VPN, satellite) report
-    // choppy audio or frequent dropouts, raise these two values together:
+    // These are the two knobs behind the buffer presets in the UI, and they
+    // drive BOTH playback paths — do not raise one without the other:
     //
-    //   bufferLimit      — overrun ceiling (seconds). When playTime drifts
-    //                      more than this ahead of currentTime, the scheduler
-    //                      resets to bufferThreshold. Also must match
-    //                      maxBufferedSeconds in the worklet constructor below
-    //                      (search "processorOptions"). Raise both together.
-    //                      Current: 0.15s  Safe range: 0.15 – 0.50s
+    //   bufferLimit      — how much audio may sit buffered ahead of the
+    //                      listener (seconds). On the worklet path (everyone,
+    //                      since the AudioWorklet fix) this becomes the ring
+    //                      buffer ceiling via _workletBufferOptions(); on the
+    //                      fallback path it is the point at which playTime is
+    //                      judged to have drifted too far ahead and is reset.
+    //                      Current: 0.25s  Safe range: 0.15 – 2.50s
     //
-    //   bufferThreshold  — underrun recovery point (seconds). After a dropout
-    //                      playTime is reset to currentTime + bufferThreshold.
+    //   bufferThreshold  — underrun recovery point (seconds): how much audio
+    //                      must be buffered before playback (re)starts, and
+    //                      where playTime is reset to after a dropout.
     //                      Raising this adds steady-state latency directly.
-    //                      Current: 0.01s  Safe range: 0.01 – 0.10s
+    //                      Current: 0.01s  Safe range: 0.01 – 0.50s
     //
-    // Typical fix for jitter problems: raise bufferLimit 0.15→0.25, raise
-    // maxBufferedSeconds (worklet) 0.15→0.25. Leave bufferThreshold alone
-    // unless you still hear underrun clicks after raising bufferLimit.
+    // Both reach the worklet through _workletBufferOptions() — at construction
+    // and again on every setAudioBufferDelay() call, so a listener on a jittery
+    // mobile link can raise the buffer mid-session and hear it take effect.
+    // Note that the worklet applies its own hard floors (see that file), so a
+    // very small value here may be clamped rather than honoured.
     // Note: RADE decoding has its own ~260ms pipeline latency and is not
     // affected by any of these values.
     // ────────────────────────────────────────────────────────────────────────
-    this.bufferLimit = 0.25;     // matches worklet maxBufferedSeconds
+    this.bufferLimit = 0.25;      // ring buffer ceiling / overrun ceiling
     this.bufferThreshold = 0.01;  // 10ms underrun recovery point
 
+    // ── Reconnect ───────────────────────────────────────────────────────────
+    // The /audio socket dropping used to be terminal: the handlers were
+    // stripped, the socket nulled, and nothing ever reopened it. Audio simply
+    // stopped for good while the rest of the page carried on looking healthy —
+    // the users poll kept updating, the UI stayed responsive, only the S-meter
+    // froze. A phone hits this constantly (screen lock, WiFi/cellular handover)
+    // and the only cure was a manual reload.
+    //
+    // autoReconnect can be set false by a caller that wants to own the socket
+    // lifecycle itself. onConnectionChange, if set, is called with one of
+    // 'connected' | 'lost' | 'reconnecting' | 'failed' so a page can say so.
+    this.autoReconnect = true;
+    this.onConnectionChange = null;
+    // Set by the page before init(); see _wantsNativeContextRate().
+    this.preferNativeContextRate = false;
+    this._stopped = false;
+    this._reconnectAttempt = 0;
+    this._reconnectTimer = null;
+    this._everConnected = false;
+    // Successful reconnects this session. A reconnect can be over in about a
+    // second, which is too quick to catch on screen — this is what makes it
+    // checkable after the fact rather than a matter of watching at the right
+    // moment. Surfaced by getPlaybackDiagnostics().
+    this._reconnectCount = 0;
+
     // AudioWorklet / fallback diagnostics and hardening
+    this._streamForceFallback = false;
     this._loggedWorkletPlayback = false;
     this._loggedFallbackPlayback = false;
     this._loggedWorkletFailure = false;
@@ -487,6 +631,11 @@ export default class SpectrumAudio {
 
     this.demodulation = 'USB'
     this.channels = 1  // ✅ ADDED: Track mono/stereo (1 or 2) for C-QUAM
+
+    // Receive diversity (see diversity.js).  Both stay null until
+    // startDiversity() is called; every path below is a no-op while they are.
+    this.diversity = null
+    this.diversityRemote = null
 
     // Decoders
     //
@@ -520,6 +669,17 @@ export default class SpectrumAudio {
     // single slot makes auto-sync useless on sparse modes — an FT2 band may
     // carry exactly one signal, so a per-slot threshold never fires.
     this._ftxDtHistory = { FT8: [], FT4: [], FT2: [] };
+
+    // Consecutive slots that decoded nothing, per mode. Drives the bootstrap
+    // sweep in _ftxBootstrapShift() — see why the loop cannot self-recover
+    // without it.
+    this._ftxDrySlots = { FT8: 0, FT4: 0, FT2: 0 };
+
+    // Whether this mode's shift has been proved by an actual decode in this
+    // session. Until it has, a long silence may mean the stored shift is wrong
+    // and the sweep may look for a better one; afterwards a silence is just a
+    // quiet band, and the shift is left alone.
+    this._ftxShiftProved = { FT8: false, FT4: false, FT2: false };
 
     // ── JS8 state ───────────────────────────────────────────────────────
     // One submode is active at a time (0=Normal 1=Fast 2=Turbo 3=Slow
@@ -918,12 +1078,6 @@ export default class SpectrumAudio {
     }
 
 
-    this.mode = 0
-    this.d = 10
-    this.v = 10
-    this.n2 = 10
-    this.n1 = 10
-    this.var = 10
     this.highThres = 1
 
     this.initTimer(); // Start the timing mechanism
@@ -988,12 +1142,64 @@ _handleSocketTerminal(kind, evt) {
   this._resetInitPromise(hadPendingInit ? err : null)
 
   this.audioSocket = null
+
+  this._notifyConnection(this._everConnected ? 'lost' : 'failed');
+  this._scheduleReconnect(kind);
+}
+
+/**
+ * Reopen the audio socket after a drop, with backoff.
+ *
+ * Deliberately does NOT rebuild the audio graph: initAudio() reuses a live
+ * AudioContext (see the guard there), so a reconnect keeps the listener's
+ * gain, filters and — on mobile, where this matters most — the user gesture
+ * that unlocked audio in the first place. Losing that would mean a phone
+ * showing "Tap to start" every time it changed network.
+ */
+_scheduleReconnect(reason) {
+  if (this._stopped || !this.autoReconnect) return;
+  if (this._reconnectTimer || this.audioSocket) return;
+
+  const attempt = this._reconnectAttempt++;
+  // 1, 2, 4, 8, 16 then hold at 30 s, each with ±15% jitter so that a server
+  // restart does not bring every listener back in the same instant.
+  const base  = Math.min(30000, 1000 * Math.pow(2, Math.min(attempt, 5)));
+  const delay = Math.round(base * (0.85 + Math.random() * 0.3));
+
+  console.warn(`[Audio] socket ${reason}; reconnecting in ${(delay / 1000).toFixed(1)}s (attempt ${attempt + 1})`);
+  this._notifyConnection('reconnecting');
+
+  this._reconnectTimer = setTimeout(() => {
+    this._reconnectTimer = null;
+    if (this._stopped || this.audioSocket) return;
+    // init() rejects on failure and _handleSocketTerminal schedules the next
+    // attempt, so the catch here only stops an unhandled rejection.
+    this.init().catch(() => {});
+  }, delay);
+}
+
+_clearReconnect() {
+  if (this._reconnectTimer) {
+    clearTimeout(this._reconnectTimer);
+    this._reconnectTimer = null;
+  }
+}
+
+_notifyConnection(state) {
+  if (typeof this.onConnectionChange !== 'function') return;
+  try { this.onConnectionChange(state); }
+  catch (e) { console.warn('[Audio] onConnectionChange threw:', e); }
 }
 
 async init() {
   if (this.promise) {
     return this.promise
   }
+
+  // An explicit init() is also the way to revive an instance after stop(),
+  // so clear the latch and any reconnect already queued.
+  this._stopped = false
+  this._clearReconnect()
 
   this.promise = new Promise((resolve, reject) => {
     this.resolvePromise = resolve
@@ -1023,9 +1229,20 @@ async init() {
 }
 
   stop() {
+    // Latch reconnect off BEFORE the socket is closed below: that close fires
+    // _handleSocketTerminal, which would otherwise queue a reconnect for a
+    // page that is being torn down.
+    this._stopped = true;
+    this._clearReconnect();
     this._clearInitTimeout();
     this._resetInitPromise();
     try { _workerPending.clear(); } catch (_) {}
+
+    // Close the second receiver before the audio graph goes: its socket is
+    // independent of ours and would otherwise keep reconnecting forever.
+    try { this.stopDiversity(); } catch (e) {
+      console.warn('[Diversity] stop error', e);
+    }
 
     // Stop the compositor before the audio graph below is torn down, otherwise
     // its rAF loop keeps running against a closed context and holds the encoder
@@ -1103,6 +1320,13 @@ async init() {
       }
       this.audioCtx = null;
     }
+
+    // The worklet belongs to the context that has just gone. Clearing this is
+    // what makes a later init() on the same instance work at all — see
+    // _resetWorkletState() for the silent failure it prevents.
+    this._resetWorkletState();
+    this._dBQueue = [];
+    this._everConnected = false;
     
     // ✅ FIXED: Clear accumulator and recording data
     this.accumulatorLen     = 0;
@@ -2525,16 +2749,92 @@ setAGC(newAGCSpeed) {
 
   initAudio(settings) {
     const sampleRate = this.audioOutputSps
+    const nativeRate = this._wantsNativeContextRate()
+
+    // ── Reconnect: reuse the graph that is already there ──────────────────
+    // Rebuilding would leak the old context and, worse, hand the listener a
+    // brand-new suspended one — which on a phone means "Tap to start" every
+    // time the network changed, because the gesture that unlocked audio
+    // belongs to the context it unlocked. Everything the listener has set
+    // (gain, filters, EQ, compressor) already lives on these nodes, so
+    // reusing them keeps all of it across a drop.
+    //
+    // Only the per-stream state is reset: a fresh decoder, since the old one
+    // holds partly-consumed frames from a stream that has ended, and the
+    // playback timeline, since audioCtx.currentTime has run on throughout.
+    // Under ?ctxrate=native the context's rate is whatever the device chose and
+    // will not change between connections, so any live context is reusable.
+    if (this.audioCtx && this.audioCtx.state !== 'closed' &&
+        (nativeRate || this.audioCtx.sampleRate === sampleRate)) {
+      this.audioStartTime = this.audioCtx.currentTime
+      this.playTime       = this.audioCtx.currentTime + this.bufferThreshold
+      this.playStartTime  = this.audioCtx.currentTime
+      this._buildDecoder(settings.audio_compression)
+      this._resetPlaybackQueues()
+      this._clearInitTimeout()
+      if (this.resolvePromise) this.resolvePromise(settings)
+      this._resetInitPromise()
+      return
+    }
+
+    // Not reusable — a context at a different sample rate, or a closed one.
+    // Close it explicitly; letting it drop out of scope leaks a live audio
+    // device on every reconnect.
+    if (this.audioCtx) {
+      try { if (this.audioCtx.state !== 'closed') this.audioCtx.close() } catch (_) {}
+      this._resetWorkletState()
+      this.audioCtx = null
+    }
+
+    // ── Which rate to run the context at ──────────────────────────────────
+    // Normally we ask for audioOutputSps (12 kHz here), which keeps the graph
+    // at the stream's own rate and lets the worklet copy samples straight
+    // through. The browser then resamples the whole 12 kHz context up to the
+    // device's hardware rate, once, on the way out.
+    //
+    // That last step is not equally good everywhere. A desktop resamples it
+    // cleanly; a phone reportedly does not, which would explain audio that is
+    // clean on a PC and distorted on a handset over the identical code path —
+    // headphones and all, so not the speaker.
+    //
+    // ?ctxrate=native runs the context at whatever the device wants instead,
+    // leaving the 12 kHz → hardware conversion to the AudioBufferSourceNode
+    // resampler, which is a different implementation. The sample-rate guard
+    // below then forces the fallback path automatically, because the worklet
+    // cannot resample. Opt-in: this is a comparison, not a default.
     try {
-      this.audioCtx = new AudioContext({
-        sampleRate: sampleRate
-      })
+      this.audioCtx = nativeRate
+        ? new AudioContext()
+        : new AudioContext({ sampleRate: sampleRate })
     } catch {
       this._clearInitTimeout()
       if (this.resolvePromise) this.resolvePromise()
       this._resetInitPromise()
       return
     }
+
+    // ── The worklet cannot resample, so it must not run at the wrong rate ──
+    // process() copies samples 1:1 into the output; sampleRateHint sizes the
+    // ring buffer and nothing else. A browser that declines the rate we asked
+    // for and hands back its hardware rate instead would therefore play
+    // everything at the wrong pitch, with nothing in the console to say so.
+    //
+    // The AudioBufferSourceNode fallback is immune — its AudioBuffer carries
+    // its own sampleRate and the browser resamples on playback — so the right
+    // response is to force that path. It is a slightly worse scheduler playing
+    // the correct audio, rather than a better one playing nonsense.
+    //
+    // Unreachable while the station is plain http, where the only listener on
+    // the worklet is localhost. It becomes reachable the moment the page is
+    // served over https and every listener moves onto the worklet.
+    if (this.audioCtx.sampleRate !== sampleRate) {
+      console.warn(
+        `[Audio] AudioContext runs at ${this.audioCtx.sampleRate} Hz, not the ` +
+        `${sampleRate} Hz requested; resampling the stream to match.`
+      );
+    }
+    // Any carried resampler state belongs to the old context's rate.
+    this._resampler = null;
 
     this.audioStartTime = this.audioCtx.currentTime
     this.playTime       = this.audioCtx.currentTime + this.bufferThreshold;
@@ -2745,14 +3045,41 @@ setAGC(newAGCSpeed) {
   }
 
 
+  /**
+   * The rate the Web Audio graph itself runs at.
+   *
+   * Almost always audioOutputSps, because that is what we ask the context for.
+   * It differs when the browser declines that rate, or under ?ctxrate=native —
+   * and anything that builds an AudioBuffer for a node in the graph has to
+   * follow the graph, not the stream.
+   */
+  _graphSampleRate() {
+    return (this.audioCtx && this.audioCtx.sampleRate) || this.audioOutputSps || 12000
+  }
+
   setFIRFilter(fir) {
-    const firAudioBuffer = new AudioBuffer({ length: fir.length, numberOfChannels: 1, sampleRate: this.audioOutputSps })
+    // A ConvolverNode requires its buffer to be at the context's sample rate
+    // and throws NotSupportedError otherwise. This used to build the buffer at
+    // audioOutputSps unconditionally, which is the same thing only while the
+    // context is running at the stream's rate. When it is not, this threw from
+    // inside initAudio, nothing caught it, the init promise never settled and
+    // the page simply never started — so a browser that declined 12 kHz did
+    // not fall back gracefully, it failed to load at all.
+    const firAudioBuffer = new AudioBuffer({
+      length: fir.length,
+      numberOfChannels: 1,
+      sampleRate: this._graphSampleRate()
+    })
     firAudioBuffer.copyToChannel(fir, 0, 0)
     this.convolverNode.buffer = firAudioBuffer
   }
 
   setLowpass(lowpass, transitionWidth = 400) {
-    const sampleRate = this.audioOutputSps
+    // Designed against the GRAPH's rate, not the stream's: the convolver sits
+    // after the source node, so it sees audio already converted to the context
+    // rate. Designing at the stream rate would put the cutoff in the wrong
+    // place by exactly the ratio between the two.
+    const sampleRate = this._graphSampleRate()
     // Bypass the FIR filter if the sample rate is low enough
     if (lowpass >= sampleRate / 2) {
       this.setFIRFilter(Float32Array.of(1))
@@ -2775,8 +3102,9 @@ setAGC(newAGCSpeed) {
   // Validate inputs
   if (typeof newAudioBufferLimit !== 'number' || typeof newAudioBufferThreshold !== 'number') {
     console.warn('Invalid buffer delay parameters, using defaults');
-    this.bufferLimit = 0.15;
+    this.bufferLimit = 0.25;      // the constructor default, not 0.15
     this.bufferThreshold = 0.01;
+    this._pushWorkletBufferConfig();
     return;
   }
   
@@ -2791,7 +3119,185 @@ setAGC(newAGCSpeed) {
   this.bufferLimit = Math.max(0.02, Math.min(5.0, newAudioBufferLimit));
   
   console.log(`Audio buffer delay updated: threshold=${this.bufferThreshold.toFixed(3)}s, limit=${this.bufferLimit.toFixed(3)}s`);
+
+  // The two fields above are read only by the fallback scheduler in decode().
+  // On the worklet path — which is every listener since the AudioWorklet fix —
+  // the ring buffer inside the worklet is what decides whether audio breaks up,
+  // and it does not see them unless we say so. Without this line the buffer
+  // presets are inert: a listener on a jittery mobile link can drag the setting
+  // to its maximum and not one millisecond of buffering changes.
+  this._pushWorkletBufferConfig();
 }
+
+  /**
+   * Ring buffer geometry for the streaming worklet, derived from the same two
+   * fields the buffer presets set. Kept in one place so the node's constructor
+   * options and any later 'config' message can never disagree.
+   *
+   * minStartSeconds keeps a 0.03 s floor of its own: bufferThreshold defaults
+   * to 0.01 s, and starting playback on 10 ms of audio underruns on the next
+   * render quantum. It is also held below half the ceiling, so a preset can
+   * never ask the worklet to wait for more audio than it is allowed to hold.
+   */
+  _workletBufferOptions() {
+    const limit = (typeof this.bufferLimit === 'number' && this.bufferLimit > 0)
+      ? this.bufferLimit : 0.25;
+    const threshold = (typeof this.bufferThreshold === 'number' && this.bufferThreshold > 0)
+      ? this.bufferThreshold : 0.03;
+    return {
+      maxBufferedSeconds: limit,
+      minStartSeconds: Math.min(Math.max(0.03, threshold), limit * 0.5),
+    };
+  }
+
+  /**
+   * Whether to run the AudioContext at the device's own sample rate rather
+   * than at the stream's, resampling to match.
+   *
+   * Handsets default to the device's rate. Asking a phone for a 12 kHz context
+   * makes it stretch that to its hardware rate on the way out, and at least on
+   * Android that conversion is audibly poor — the same receiver over the same
+   * code path is clean on a desktop and distorted on a phone, on headphones as
+   * well as the speaker. Running at the rate the device actually wants and
+   * doing the conversion ourselves, once and continuously, is measurably
+   * better there. Desktops are left alone: their own conversion is clean and
+   * there is nothing to gain by changing a path that works.
+   *
+   * A page says which it is by setting preferNativeContextRate before init;
+   * ?ctxrate=native and ?ctxrate=stream override it either way, so the
+   * comparison stays available on any device without a rebuild.
+   */
+  _wantsNativeContextRate() {
+    try {
+      const forced = new URLSearchParams(window.location.search).get('ctxrate')
+      if (forced === 'native') return true
+      if (forced === 'stream') return false
+    } catch (e) { /* no URL to read; fall through to the page's preference */ }
+    return !!this.preferNativeContextRate
+  }
+
+  /**
+   * What the playback path is actually doing right now.
+   *
+   * The worklet path and the AudioBufferSourceNode fallback sound very
+   * different, and which one you get depends on things a listener cannot see —
+   * chiefly whether the page is a secure context, since BaseAudioContext's
+   * audioWorklet attribute is [SecureContext] and is therefore undefined on a
+   * plain-http origin that is not localhost. Over http a desktop on localhost
+   * gets the worklet while a phone on the LAN address silently does not, so
+   * "it is fine here and broken there" has a cause that no amount of buffer
+   * tuning will reach. There is no way to see that from a phone without a USB
+   * cable, hence this readout — see the mobile page's audio diagnostic line.
+   */
+  getPlaybackDiagnostics() {
+    const ctx = this.audioCtx;
+    return {
+      path: this._streamWorkletNode
+        ? 'worklet'
+        : (this._streamForceFallback ? 'fallback' : 'starting'),
+      secureContext: (typeof isSecureContext !== 'undefined') ? !!isSecureContext : null,
+      workletAvailable: !!(ctx && ctx.audioWorklet),
+      contextState: ctx ? ctx.state : null,
+      contextSampleRate: ctx ? ctx.sampleRate : null,
+      outputSampleRate: this.audioOutputSps || null,
+      bufferLimit: this.bufferLimit,
+      bufferThreshold: this.bufferThreshold,
+      stats: this._streamStats || null,
+      // Fallback-path health: restarts are underruns (a clean gap), drops are
+      // chunks shed because the link ran too far ahead. Both climbing means the
+      // cushion is too small for the link — raise the buffer preset.
+      fallbackRestarts: this._fallbackRestarts || 0,
+      fallbackDrops: this._fallbackDrops || 0,
+      reconnects: this._reconnectCount || 0,
+      socketOpen: this._isSocketOpen(),
+      framesPerPacket: this._pktFrames || 0,
+      packetsPerSec: this._pktRate || 0,
+      resampling: !!this._resampler,
+      // Latency, in seconds, split by who is responsible for it.
+      //   packet   — one server audio block; nothing can be played before a
+      //              whole one has arrived, so it is a floor, not a setting.
+      //   buffered — how far ahead of the clock we are actually scheduled.
+      //              This is the part the buffer presets move.
+      //   output   — the browser's own graph and device latency, which no
+      //              setting here can touch and which differs hugely between
+      //              a desktop and a phone.
+      latency: (() => {
+        const ctx = this.audioCtx
+        const packet = (this._pktFrames || 0) / (this.audioOutputSps || 12000)
+        const buffered = (ctx && this.playTime)
+          ? Math.max(0, this.playTime - ctx.currentTime)
+          : 0
+        const base = (ctx && Number.isFinite(ctx.baseLatency)) ? ctx.baseLatency : 0
+        const out = (ctx && Number.isFinite(ctx.outputLatency)) ? ctx.outputLatency : 0
+        return { packet, buffered, base, output: out, total: packet + buffered + base + out }
+      })(),
+      // The rest of the chain, so a clean timeline with dirty audio can be
+      // narrowed down without a cable: which codec the server actually settled
+      // on for this client, how many channels are being decoded, and the
+      // decoder object in use.
+      codec: (this.settings && this.settings.audio_compression) || null,
+      channels: this.channels || null,
+      decoder: (this.decoder && this.decoder.constructor && this.decoder.constructor.name) || null,
+    };
+  }
+
+  /**
+   * Drop everything queued for playback, without touching the audio graph.
+   *
+   * Used on reconnect: the worklet's ring buffer and the S-meter queue both
+   * hold audio from a stream that has ended, and playing it out after the gap
+   * would be worse than the gap.
+   */
+  _resetPlaybackQueues() {
+    if (this._streamWorkletNode) {
+      try { this._streamWorkletNode.port.postMessage({ type: 'reset' }) }
+      catch (e) { console.warn('[Audio] worklet reset failed:', e) }
+    }
+    this._dBQueue = [];
+    this._fallbackRestarts = 0;
+    this._fallbackDrops = 0;
+    // Its history is the tail of a stream that has ended.
+    this._resampler = null;
+  }
+
+  /**
+   * Forget the streaming worklet entirely.
+   *
+   * Must run whenever the AudioContext goes, because every one of these is
+   * tied to that context. A node left behind here is the quiet failure mode:
+   * playPCM() finds _streamWorkletNode truthy, posts PCM to the port of a
+   * processor whose context is closed, gets no error back, reports success and
+   * returns the frame duration — so audio is silently dead with nothing in the
+   * console. _streamWorkletModuleLoaded is per-context too, so leaving it set
+   * makes the next node construction skip addModule() and fail.
+   */
+  _resetWorkletState() {
+    if (this._streamWorkletNode) {
+      try { this._streamWorkletNode.port.onmessage = null } catch (_) {}
+      try { this._streamWorkletNode.disconnect() } catch (_) {}
+    }
+    this._streamWorkletNode = null;
+    this._streamConnectedNode = null;
+    this._streamInitPromise = null;
+    this._streamWorkletModuleLoaded = false;
+    this._streamForceFallback = false;
+    this._streamStats = null;
+    this._loggedWorkletPlayback = false;
+    this._loggedFallbackPlayback = false;
+    this._loggedWorkletFailure = false;
+  }
+
+  /** Send the current buffer geometry to a live worklet node, if there is one. */
+  _pushWorkletBufferConfig() {
+    if (!this._streamWorkletNode) return;
+    try {
+      this._streamWorkletNode.port.postMessage(
+        Object.assign({ type: 'config' }, this._workletBufferOptions())
+      );
+    } catch (e) {
+      console.warn('[Audio] Worklet buffer reconfigure failed:', e);
+    }
+  }
 
   setFT8Decoding(value) {
     this.decodeFT8 = value;
@@ -2916,9 +3422,15 @@ setAGC(newAGCSpeed) {
     // identify its own waterfall pill exactly instead of guessing by frequency.
     this.clientId = settings.client_id ?? null
 
-    this.audioL = settings.defaults.l
-    this.audioM = settings.defaults.m
-    this.audioR = settings.defaults.r
+    // On a FIRST connection the server's defaults are where we start. On a
+    // reconnect the listener is still tuned where they were, so taking the
+    // defaults here would clobber the local range and leave getAudioRange()
+    // disagreeing with what _restoreServerState() is about to re-send.
+    if (!this._everConnected) {
+      this.audioL = settings.defaults.l
+      this.audioM = settings.defaults.m
+      this.audioR = settings.defaults.r
+    }
 
     const targetFFTBins = Math.ceil(this.audioMaxSps * this.audioMaxSize / this.sps / 4) * 4
 
@@ -2931,12 +3443,42 @@ setAGC(newAGCSpeed) {
     // hold a full slot_period - 0.4 s or the slot never reaches decode).
     this._initAccumulators();
 
+    // Settings received, so this attempt succeeded: drop the backoff back to
+    // its shortest delay for the next drop.
+    this._reconnectAttempt = 0
+    const reconnected = this._everConnected
+    this._everConnected = true
+
     this._clearInitTimeout()
     this.audioSocket.onmessage = this.socketMessage.bind(this)
     this.audioSocket.onerror = (evt) => this._handleSocketTerminal('error', evt)
     this.audioSocket.onclose = (evt) => this._handleSocketTerminal('close', evt)
 
-    this.initAudio(settings)
+    try {
+      this.initAudio(settings)
+    } catch (e) {
+      // initAudio builds the entire Web Audio graph. Anything that threw in
+      // there escaped past socketMessageInitial into the WebSocket event
+      // handler, so the init promise was never settled and the page sat
+      // waiting for its own 20 s budget to expire — reporting a timeout for
+      // what was actually an exception on the first line it touched. Settle it
+      // with the real error instead.
+      console.error('[Audio] initAudio failed:', e)
+      this._clearInitTimeout()
+      this._resetInitPromise(e instanceof Error ? e : new Error(String(e)))
+      return
+    }
+
+    // Order matters: the socket handlers above are live by now, and initAudio
+    // has the decoder ready, so anything the server sends in reply to these
+    // will be decodable.
+    if (reconnected) {
+      this._reconnectCount++
+      this._restoreServerState()
+      console.log(`[Audio] reconnected (${this._reconnectCount} this session)`)
+    }
+
+    this._notifyConnection('connected')
 
     console.log('Audio Samplerate: ', this.trueAudioSps)
   }
@@ -2972,8 +3514,19 @@ setAGC(newAGCSpeed) {
         this.decoder.setChannels(this.channels);
       }
       
-      const receivedPower = packet.pwr;
-      this.power = 0.5 * this.power + 0.5 * receivedPower || 1;
+      // Exponential smoothing of the reported power. The guard belongs on the
+      // INPUT, not on the result. This used to read
+      //     this.power = 0.5 * this.power + 0.5 * receivedPower || 1
+      // and || binds looser than +, so the whole smoothed value — not the
+      // missing term — fell back to 1 whenever it reached zero or went NaN on
+      // a packet carrying no pwr field. 1 is -6.02 dB, not silence, and it
+      // feeds the squelch comparison below: a zero-power packet OPENED the
+      // squelch instead of closing it.
+      const receivedPower = Number.isFinite(packet.pwr) ? packet.pwr : 0;
+      // The floor keeps the dB conversion finite. log10(0) is -Infinity, which
+      // would propagate into the S-meter and into that same squelch test;
+      // 1e-15 lands near -156 dB, below anything a real signal reaches.
+      this.power = Math.max(1e-15, 0.5 * this.power + 0.5 * receivedPower);
       const dBpower = 20 * Math.log10(Math.sqrt(this.power) / 2);
       if (this.squelch && dBpower < this.squelchThreshold) {
         this.squelchMute = true;
@@ -3026,46 +3579,30 @@ setAGC(newAGCSpeed) {
       if (!this._flacStereoLogged) { console.log('[FLAC Stereo] Interleaved channelData:', len, 'frames'); this._flacStereoLogged = true; }
     }
 
-    this.intervals = this.intervals || createWindow(10000, 0)
-    this.lens = this.lens || createWindow(10000, 0)
-    this.lastReceived = this.lastReceived || 0
-    // For checking sample rate
-    if (this.lastReceived === 0) {
-      this.lastReceived = performance.now()
-    } else {
-      const curReceived = performance.now()
-      const delay = curReceived - this.lastReceived
-      this.intervals.push(delay)
-      this.lastReceived = curReceived
-      this.lens.push(pcmArray.length)
-
-      let updatedv = true
-
-      if (this.mode === 0) {
-        if (Math.abs(delay - this.n1) > Math.abs(this.v) * 2 + 800) {
-          this.var = 0
-          this.mode = 1
-        }
-      } else {
-        this.var = this.var / 2 + Math.abs((2 * delay - this.n1 - this.n2) / 8)
-        if (this.var <= 63) {
-          this.mode = 0
-          updatedv = false
-        }
+    // Packet geometry, for the ?diag=1 line. On the fallback path every packet
+    // becomes its own scheduled AudioBufferSourceNode, so the rate here is the
+    // number of separate nodes per second the browser has to join seamlessly —
+    // the one number that says how hard that path is being asked to work.
+    this._pktFrames = (this.channels === 2) ? Math.floor(pcmArray.length / 2) : pcmArray.length;
+    this._pktCount = (this._pktCount || 0) + 1;
+    {
+      const nowMs = performance.now();
+      if (!this._pktWindowStart) this._pktWindowStart = nowMs;
+      const span = nowMs - this._pktWindowStart;
+      if (span >= 1000) {
+        this._pktRate = Math.round((this._pktCount * 1000) / span);
+        this._pktCount = 0;
+        this._pktWindowStart = nowMs;
       }
-
-      if (updatedv) {
-        if (this.mode === 0) {
-          this.d = 0.125 * delay + 0.875 * this.d
-        } else {
-          this.d = this.d + delay - this.n1
-        }
-        this.v = 0.125 * Math.abs(delay - this.d) + 0.875 * this.v
-      }
-
-      this.n2 = this.n1
-      this.n1 = delay
     }
+
+    // An RFC 3550-style inter-arrival jitter estimator used to run here, over
+    // two 10000-sample sliding windows of packet intervals and lengths. Every
+    // value it produced (d, v, var, mode, n1, n2, intervals, lens) was written
+    // per packet and read nowhere in the codebase — arithmetic and 20000
+    // retained numbers per session, on a phone CPU, for a figure nobody
+    // consumed. Removed rather than wired up: the playback scheduler measures
+    // what it needs directly, and the ?diag=1 counters report the result.
 
     this.pcmArray = pcmArray
 
@@ -3104,7 +3641,26 @@ setAGC(newAGCSpeed) {
     // regardless of codec.  The old Opus native-PCM override (48 kHz without
     // anti-aliasing) corrupted the FM phase discriminator and prevented phasing
     // calibration.  FLAC and Opus now follow the identical path here.
-    this.playAudio(pcmArray, pcmArrayPreBoost)
+    // ── Receive diversity ────────────────────────────────────────────────
+    // The combiner returns its own buffer unchanged whenever it cannot
+    // help (not locked, remote stalled, stereo), so the inactive and
+    // degraded paths are both byte-identical to the single-receiver one.
+    //
+    // The LOCAL stream is still what reaches the decoders: FT8, JS8, WSPR
+    // and RADE integrate coherently across a whole slot, and a site switch
+    // mid-slot is a phase discontinuity that can cost the very decode
+    // diversity was meant to save.  Diversity serves the speaker; the
+    // decoders keep the continuous local stream.
+    let speakerPcm = pcmArray
+    if (this.diversity && this.diversity.active) {
+      try {
+        speakerPcm = this.diversity.pushLocal(pcmArray, this.channels)
+      } catch (e) {
+        console.error('[Diversity] combiner threw, falling back to local:', e)
+        speakerPcm = pcmArray
+      }
+    }
+    this.playAudio(speakerPcm, pcmArrayPreBoost, pcmArray)
   }
 
   // True while a C-QUAM 25 Hz stereo pilot is being detected on the current
@@ -3169,22 +3725,15 @@ setAGC(newAGCSpeed) {
   }
 
   updateAudioParams() {
-    if (this.demodulation == "CW") {
-      this._safeSend({
-        cmd: 'window',
-        l: this.audioLOffset,
-        m: this.audioMOffset,
-        r: this.audioROffset
-      })
-    } else {
-      this._safeSend({
-        cmd: 'window',
-        l: this.audioL,
-        m: this.audioM,
-        r: this.audioR
-      })
-    }
+    // Kept so a reconnect can replay the exact window this listener is on —
+    // see _restoreServerState(). Storing the command rather than re-deriving
+    // it is what keeps the CW offset window from coming back as the plain one.
+    this._lastWindowCmd = (this.demodulation == "CW")
+      ? { cmd: 'window', l: this.audioLOffset, m: this.audioMOffset, r: this.audioROffset }
+      : { cmd: 'window', l: this.audioL, m: this.audioM, r: this.audioR }
+    this._safeSend(this._lastWindowCmd)
 
+    this._diversityRetune()
   }
 
   setAudioDemodulation(demodulation) {
@@ -3226,10 +3775,14 @@ setAGC(newAGCSpeed) {
       demodulation = "USB"
     }
     this.updateFilters()
+    // Remembered for reconnect: this is the wire value, so AM-ENV comes back as
+    // AM-ENV rather than as the plain AM it is normalised to internally.
+    this._lastDemodCmd = backendDemod || demodulation
     this._safeSend({
       cmd: 'demodulation',
-      demodulation: backendDemod || demodulation
+      demodulation: this._lastDemodCmd
     })
+    this._diversityRetune()
   }
 
   setAudioRange(audioL, audioM, audioR, audioLOffset, audioMOffset, audioROffset) {
@@ -3257,6 +3810,162 @@ setAGC(newAGCSpeed) {
 
   getAudioRange() {
     return [this.actualL, this.audioM, this.actualR]
+  }
+
+  // ── Receive diversity control ───────────────────────────────────────────
+  // See diversity.js for what the combiner does and why it switches rather
+  // than sums.  Everything here is inert until startDiversity() is called.
+
+  /**
+   * Bring up a second receiver and start combining.
+   * @param {string} endpoint   ws://host:port/audio of the remote instance
+   * @param {number} remoteCalibDb  offset applied to the remote's SNR before
+   *   comparison — needed when the remote's codec floors its noise (a classic
+   *   WebSDR sends 8-bit aLaw); 0 for another PhantomSDR-Plus.
+   * @param {string} type  'phantom' (default), 'kiwi', 'uber' or 'websdr'.
+   *   Each speaks a completely different protocol; all four implement the
+   *   same source contract, so nothing below this line changes.  'websdr'
+   *   additionally needs websdr_relay.py running on this server — WebSDR
+   *   rejects a browser's Origin and no script can change that header.
+   */
+  startDiversity(endpoint, { remoteCalibDb = 0, type = 'phantom' } = {}) {
+    if (!this.audioOutputSps) {
+      console.warn('[Diversity] not connected yet — no sample rate to combine at')
+      return false
+    }
+    this.stopDiversity()
+
+    this.diversity = new DiversityCombiner({
+      sampleRate: this.audioOutputSps,
+      remoteCalibDb
+    })
+    this.diversityEndpoint = endpoint
+    this.diversityType = type
+    const Source = type === 'kiwi' ? KiwiSource
+                 : type === 'uber' ? UberSource
+                 : type === 'websdr' ? WebSdrSource
+                 : RemoteSource
+    this.diversityRemote = new Source(endpoint, {
+      onPcm: (pcm, sr) => {
+        if (this.diversity) this.diversity.pushRemote(pcm, sr)
+      },
+      onState: (state, detail) => {
+        this.diversityState = state
+        // A WebSocket close carries a code and reason that say a great deal
+        // about WHY a remote refused us — 1006 (abnormal) for a handshake
+        // the server dropped, 1002/1008 for a policy rejection such as an
+        // Origin check. Without surfacing it, every failure looks alike.
+        if (detail && typeof detail.code === 'number') {
+          this.diversityCloseCode = detail.code
+          this.diversityCloseReason = detail.reason || ''
+        }
+        // Sources report a refusal as text the server actually sent — the
+        // JSON {"error":...} of a rejected session, or the reason field of a
+        // failed admission check. Showing "error" alone told nobody anything.
+        if (state === 'error' && detail) {
+          // A source may report its reason as a plain string rather than as
+          // an object — WebSDR's does, since most of its failures are our
+          // own message ("the relay is not running") and not a server's.
+          // Missing this case showed a bare "error" and lost the one line
+          // that said what to fix.
+          this.diversityErrorText = typeof detail === 'string'
+            ? detail
+            : String(detail.error || detail.reason || detail.message || '') || ''
+        } else if (state === 'ready') {
+          // A close code from a previous attempt is not news once the link
+          // is up again; leaving it on screen read as "ready (1006)".
+          this.diversityErrorText = ''
+          this.diversityCloseCode = null
+          this.diversityCloseReason = ''
+        }
+        // The remote comes up untuned; point it at whatever we are on now.
+        if (state === 'ready') this._diversityRetune()
+        // A dropped remote invalidates the alignment — the reconnected
+        // stream starts at a different point in the content.
+        if ((state === 'closed' || state === 'error') && this.diversity) {
+          this.diversity.reset()
+        }
+        if (typeof this.onDiversityState === 'function') {
+          try { this.onDiversityState(state, detail) } catch (_) {}
+        }
+      }
+    })
+
+    this.diversity.active = true
+
+    // Tune BEFORE connecting.  UberSDR carries the frequency in the connect
+    // URL, so a source that has never been tuned has nothing to open; it sat
+    // at 'idle' waiting for a retune that only fires on 'ready', which could
+    // never arrive.  The other two sources hold an early tune as pending and
+    // replay it once their handshake completes, so this is safe for all
+    // three — and it also means no source ever starts on the wrong frequency.
+    this._diversityRetune()
+    this.diversityRemote.connect()
+    return true
+  }
+
+  stopDiversity() {
+    if (this.diversityRemote) {
+      this.diversityRemote.close()
+      this.diversityRemote = null
+    }
+    if (this.diversity) {
+      this.diversity.active = false
+      this.diversity.reset()
+      this.diversity = null
+    }
+    this.diversityState = 'idle'
+    this.diversityEndpoint = null
+    this.diversityType = null
+    this.diversityCloseCode = null
+    this.diversityCloseReason = ''
+    this.diversityErrorText = ''
+  }
+
+  isDiversityActive() {
+    return !!(this.diversity && this.diversity.active)
+  }
+
+  setDiversityCalib(db) {
+    if (this.diversity) this.diversity.remoteCalibDb = Number(db) || 0
+  }
+
+  getDiversityStatus() {
+    const base = {
+      state: this.diversityState || 'idle',
+      endpoint: this.diversityEndpoint || null,
+      type: this.diversityType || null,
+      closeCode: this.diversityCloseCode ?? null,
+      closeReason: this.diversityCloseReason || '',
+      errorText: this.diversityErrorText || '',
+      inRange: null
+    }
+    if (!this.diversity) return { ...base, active: false, locked: false }
+    if (this.diversityRemote && this.audioMaxSize) {
+      base.inRange = this.diversityRemote.canReceive(this._binToHz(this.audioM))
+    }
+    return { ...base, ...this.diversity.getStatus() }
+  }
+
+  _binToHz(offset) {
+    if (!this.audioMaxSize) return 0
+    return offset / this.audioMaxSize * this.totalBandwidth + this.baseFreq
+  }
+
+  // Keep the second receiver on the same signal as this one.  Called from
+  // updateAudioParams() and setAudioDemodulation(), i.e. from every path
+  // that retunes the local receiver, so the UI never has to think about it.
+  _diversityRetune() {
+    const r = this.diversityRemote
+    if (!r || !this.audioMaxSize) return
+    // Mirror updateAudioParams()'s choice: CW is tuned by the offset
+    // triplet, everything else by the plain one.
+    const cw = this.demodulation === 'CW'
+    const l = cw ? this.audioLOffset : this.audioL
+    const m = cw ? this.audioMOffset : this.audioM
+    const rr = cw ? this.audioROffset : this.audioR
+    if (l == null || m == null || rr == null) return
+    r.tune(this._binToHz(l), this._binToHz(m), this._binToHz(rr), this.demodulation)
   }
 
   // Our own signal-protocol UUID, sent by the server in the initial settings.
@@ -3753,10 +4462,32 @@ _updateCTCSSGate(rawPcm) {
   }
 
   setUserID(userID) {
+    this._userID = userID
     this._safeSend({
       cmd: 'userid',
       userid: userID
     })
+  }
+
+  /**
+   * Push this listener's state back onto a freshly reconnected socket.
+   *
+   * A new connection gets the server's defaults, but the listener has not
+   * moved: without this a reconnect silently jumps them to the default
+   * frequency and mode, unmutes them, and drops their name from /users —
+   * which would be a worse failure than the dropout it is recovering from.
+   *
+   * Demodulation goes first: the server may reset the window when the mode
+   * changes, so the window has to land after it.
+   */
+  _restoreServerState() {
+    if (this._lastDemodCmd) {
+      this._safeSend({ cmd: 'demodulation', demodulation: this._lastDemodCmd })
+    }
+    if (this._lastWindowCmd) this._safeSend(this._lastWindowCmd)
+    if (this.audioOptions) this._safeSend({ cmd: 'options', options: this.audioOptions })
+    if (this.mute) this._safeSend({ cmd: 'mute', mute: true })
+    if (this._userID != null) this._safeSend({ cmd: 'userid', userid: this._userID })
   }
 
   setSignalDecoder(decoder) {
@@ -3883,6 +4614,11 @@ _updateCTCSSGate(rawPcm) {
 
   /** Append one slot's spots and keep the list scrolled to the newest. */
   _ftxRenderSpots(mode, decodedMessages) {
+    // Calibrate FIRST, and on every slot: an empty slot is exactly the signal
+    // the bootstrap sweep counts, so it must not be lost to the render bail-out
+    // below.
+    this._ftxAutoCalibrate(mode, decodedMessages || []);
+
     const list = document.getElementById('ft8MessagesList');
     if (!list || !decodedMessages || decodedMessages.length === 0) return;
 
@@ -3897,8 +4633,6 @@ _updateCTCSSGate(rawPcm) {
       .filter(m => Number.isFinite(m.freq))
       .map(m => ({ hz: m.freq, snr: m.snr, text: m.text }));
     this._ftxSpec.seq++;
-
-    this._ftxAutoCalibrate(mode, decodedMessages);
   }
 
   // For FT8
@@ -4149,12 +4883,21 @@ _updateCTCSSGate(rawPcm) {
     return this.ftxShift[mode || this.ftxActiveMode] ?? 0.8;
   }
 
+  /**
+   * Largest lead-in the slider offers. 3 s everywhere, as it has always been,
+   * except FT2: its shift is a phase within a 3.75 s slot, and a 3 s maximum
+   * could not show the top of that range.
+   */
+  getFTxShiftRange(mode) {
+    return (mode || this.ftxActiveMode) === 'FT2' ? 3.75 : 3;
+  }
+
   /** Adjust the lead-in for the active mode. Manual override; clears history. */
   setFTxTimeShift(seconds, mode) {
     const v = Number(seconds);
     if (!Number.isFinite(v)) return;
     const m = mode || this.ftxActiveMode;
-    this.ftxShift[m] = Math.max(0, Math.min(3, v));
+    this.ftxShift[m] = Math.max(0, Math.min(this.getFTxShiftRange(m), v));
     this._ftxSavePref(`ftxShift.${m}`, this.ftxShift[m].toFixed(3));
     this._ftxDtHistory[m] = [];        // stale relative to the new shift
     console.log(`[FTx] ${m} time shift = ${this.ftxShift[m].toFixed(2)} s`);
@@ -4180,10 +4923,36 @@ _updateCTCSSGate(rawPcm) {
   }
 
   /**
-   * Ideal DT for a protocol: half the slack between the capture window and the
-   * transmission. Centring the signal leaves the most room for residual error
-   * on both sides, and keeps us well inside find_sync's search range (which is
-   * only -0.48..+0.91 s for FT4, versus -1.6..+3.0 s for FT8).
+   * Ideal DT for a protocol: centre the transmission in the capture window —
+   * but never past what the decoder can still find.
+   *
+   * ft8_lib searches time_offset over [-10, +19] BLOCKS (decode.c:205), so the
+   * reachable DT ceiling is 19 symbol periods, not the width of the capture
+   * window. Measured against the wasm with a synthesised frame swept across the
+   * window: FT8 decodes throughout, FT4 up to DT 0.936, FT2 up to 0.468.
+   *
+   * FT2 is the one that matters. Its centring target (0.415 s) sits 0.04 s under
+   * a 0.456 s ceiling, so any extra path latency or a slightly late station puts
+   * DT over the edge — and since DT is measured FROM a decode, once decodes stop
+   * the loop has nothing left to steer with and the mode stays dead. So FT2, and
+   * only FT2, aims at half its ceiling instead: dead centre of the range the
+   * decoder can actually search. (FT2 is an FT4 decode on a 2x time-stretched
+   * buffer, so its blocks are FT4's halved — hence the 0.024 s symbol period.)
+   *
+   * FT4 needs the same clamp for the same reason, and the numbers are stark:
+   * swept across the window, with and without noise, it decodes on EVERY trial
+   * from DT 0.048 to 0.936 and on none at all from 0.984 up. Its centring target
+   * of 1.03 s is past that cliff, so the loop pushed the shift down until the
+   * stations piled up against the edge and only those whose clocks ran early
+   * still got under it — strong signals, few decodes.
+   *
+   * (An earlier revision reverted FT4 to plain centring after FT4 decodes fell
+   * off. That fall was caused by the bootstrap sweep below stepping FT4's shift
+   * on a quiet band, not by this target; the sweep is now FT2-only and the
+   * clamp is back.)
+   *
+   * FT8 keeps the plain centring target: its 3.04 s ceiling is far beyond the
+   * 0.98 s it aims at, so there is nothing to clamp.
    */
   _ftxDtTarget(mode) {
     // JS8 submodes: the capture window is driven by the transmit duration, and
@@ -4197,12 +4966,69 @@ _updateCTCSSGate(rawPcm) {
       return Math.max(0, (capture - 79 * (nsps / 12000)) / 2);
     }
     const spec = {
-      FT8: { slot: 15.0,  tx: 79  * 0.160 },
-      FT4: { slot: 7.5,   tx: 105 * 0.048 },
-      FT2: { slot: 3.75,  tx: 105 * 0.024 },
+      FT8: { slot: 15.0,  sym: 0.160, n: 79  },
+      FT4: { slot: 7.5,   sym: 0.048, n: 105 },
+      FT2: { slot: 3.75,  sym: 0.024, n: 105 },
     }[mode];
     if (!spec) return 0;
-    return Math.max(0, ((spec.slot - 0.4) - spec.tx) / 2);
+    const centring = ((spec.slot - 0.4) - spec.n * spec.sym) / 2;
+    if (mode === 'FT8') return Math.max(0, centring);
+    const searchMid = (19 * spec.sym) / 2;   // middle of ft8_lib's offset search
+    return Math.max(0, Math.min(centring, searchMid));
+  }
+
+  /**
+   * Break the shift out of a dead spot after a long silence.
+   *
+   * Auto-sync can only steer while decodes are arriving: DT is measured FROM a
+   * decode. If the shift ever drifts so far that DT leaves the decoder's search
+   * range, decodes stop, no DT is measured, and the shift stays wrong forever —
+   * the mode is dead until someone resets it by hand. The shift is persisted,
+   * so that dead state survives a reload too.
+   *
+   * After a long dry spell, therefore, step the shift across the slot instead
+   * of sitting still. The step is 0.75x the width of the decoder's DT search,
+   * so no reachable position is skipped, and the whole slot is covered in a
+   * bounded number of steps (11 for FT2, ~41 s of a quiet band). A single
+   * decode ends the sweep and hands control back to the calibration loop.
+   *
+   * Deliberately narrow, because a silence usually just means a quiet band, and
+   * stepping the shift of a mode that is merely waiting for a signal causes the
+   * exact fault this is here to cure:
+   *
+   *   - FT2 only. It is the one mode whose target sits near its ceiling, so it
+   *     is the only one that can be trapped. Sweeping FT4 as well measurably
+   *     cost decodes on a quiet band, and FT8 has metres of margin.
+   *   - never once a decode has proved the shift in this session. From then on
+   *     silence is the band, not the timing.
+   *   - never while auto-sync is off: a hand-set shift is the user's business.
+   */
+  _ftxBootstrapShift(mode) {
+    if (mode !== 'FT2' || this._ftxShiftProved[mode]) return false;
+    const spec = { slot: 3.75, sym: 0.024 };
+
+    const dry = (this._ftxDrySlots[mode] = (this._ftxDrySlots[mode] || 0) + 1);
+    // Long enough that an ordinarily quiet band does not trigger it: 8 FT2
+    // slots is 30 s.
+    if (dry < 8) return false;
+    this._ftxDrySlots[mode] = 0;
+
+    const step = 0.75 * (19 * spec.sym);
+    const cur  = this.ftxShift[mode] ?? 0.8;
+    let next = (cur + step) % spec.slot;
+    if (next < 0) next += spec.slot;
+
+    this.ftxShift[mode] = next;
+    this._ftxSavePref(`ftxShift.${mode}`, next.toFixed(3));
+    (this._ftxDtHistory[mode] || []).length = 0;
+    console.log(`[FTx] ${mode}: no decodes in ${dry} slots — sweeping shift ` +
+                `${cur.toFixed(2)}s → ${next.toFixed(2)}s`);
+
+    if (mode === this.ftxActiveMode &&
+        typeof this.onFTxTimeShiftChange === 'function') {
+      this.onFTxTimeShiftChange(next);
+    }
+    return true;
   }
 
   /**
@@ -4219,6 +5045,11 @@ _updateCTCSSGate(rawPcm) {
    */
   _ftxAutoCalibrate(mode, decodedMessages) {
     if (!this.ftxAutoSync) return;
+
+    if (decodedMessages.length) {
+      this._ftxDrySlots[mode] = 0;
+      this._ftxShiftProved[mode] = true;   // this shift works; stop searching
+    } else if (this._ftxBootstrapShift(mode)) return;
 
     // Accumulate across slots rather than requiring several in one. A band may
     // carry a single signal — FT2 typically does — and a per-slot threshold
@@ -4240,7 +5071,17 @@ _updateCTCSSGate(rawPcm) {
 
     const GAIN = 0.5;                    // damped, so it settles instead of ringing
     const cur  = this.ftxShift[mode] ?? 0.8;
-    const next = Math.max(0, Math.min(3, cur + GAIN * error));
+    // FT2's shift is a phase within a 3.75 s slot, so wrap it there: the old
+    // hard 0..3 s clamp cut off the top of a legitimate range and pinned the
+    // value at the limit. Every other mode keeps that clamp — their shifts have
+    // never needed more than 3 s, and widening the range is not this fix's job.
+    let next;
+    if (mode === 'FT2') {
+      next = (cur + GAIN * error) % 3.75;
+      if (next < 0) next += 3.75;
+    } else {
+      next = Math.max(0, Math.min(3, cur + GAIN * error));
+    }
     if (Math.abs(next - cur) < 0.01) return;
 
     this.ftxShift[mode] = next;
@@ -4599,14 +5440,17 @@ js8Pending() {
   // FT8 END
 
 
-  playAudio(pcmArray, pcmArrayPreBoost) {
+  playAudio(pcmArray, pcmArrayPreBoost, decoderPcm) {
     // ── Tap raw PCM for digital decoders BEFORE mute/squelch/DSP ──────────
     // Every decoder taps here: NB, NR, NS and ANF are listening aids, and none
     // of them must be in the path of a decoder. They must also keep collecting
     // when speaker audio is muted or squelched, which is why this sits above
     // that gate.
-    // rawPcm = pcmArray = post-FLAC-boost version, which all decoders expect.
-    const rawPcm = pcmArray;
+    // rawPcm = post-FLAC-boost version, which all decoders expect.  When
+    // diversity is running, `decoderPcm` is the undelayed LOCAL stream and
+    // pcmArray is the combined one destined for the speaker; otherwise the
+    // two are the same object and this is exactly what it always was.
+    const rawPcm = decoderPcm || pcmArray;
 
     // Open any FTx capture window whose slot boundary has arrived, before the
     // appends below — so the block that crosses the boundary is captured too.
@@ -4815,23 +5659,75 @@ js8Pending() {
       }
     }
 
-    const curPlayTime = this.playPCM(pcmArray, this.playTime, this.audioOutputSps, 1, this.channels)  // ✅ ADDED: Pass channels parameter
-
-    // Dynamic adjustment of play time
     const currentTime = this.audioCtx.currentTime;
-    // The line below was commented out by NY4Q to allow for a mod to //
-    // adjust the dynamic limits of this function. //
-    //const bufferThreshold = 0.1; // 100ms buffer //
-    if ((this.playTime - currentTime) <= this.bufferThreshold) {
-      // Underrun: increase buffer
-      this.playTime = (currentTime + this.bufferThreshold + curPlayTime);
-      // removed 0.5 and placed bufferLimit in its place - NY4Q //
-    } else if ((this.playTime - currentTime) > this.bufferLimit) { // Originally at 0.5
-      // Overrun: decrease buffer
-      this.playTime = (currentTime + this.bufferThreshold);
+    let shedFromPlayback = false;
+
+    if (this._streamForceFallback) {
+      // ── Fallback path scheduling (AudioBufferSourceNode) ──────────────────
+      //
+      // This is the path taken by every listener whose page is not a secure
+      // context, because BaseAudioContext's audioWorklet attribute is
+      // [SecureContext] and is simply undefined on a plain-http origin that is
+      // not localhost. A phone on the LAN address lands here while a desktop
+      // on localhost does not — which is why the same receiver can sound clean
+      // on one and break up on the other.
+      //
+      // Here each chunk is its own scheduled source node, so the ONE rule that
+      // matters is: playTime must never move backwards while sources are still
+      // queued to play. The previous overrun branch did exactly that, resetting
+      // playTime to currentTime + bufferThreshold — so the next chunk started
+      // on top of audio that was still sounding. Overlapping source nodes SUM
+      // rather than replace, which is heard as distortion rather than as a
+      // dropout, and on a jittery link it happened over and over.
+      //
+      // Decisions are also made BEFORE scheduling, not after. The old code
+      // scheduled at the stale playTime and corrected afterwards, so every
+      // correction landed one chunk late and playPCM needed a Math.max() clamp
+      // to avoid scheduling in the past.
+      //
+      // The cushion this path runs on is exactly `prebuffer`: playTime advances
+      // by each chunk's own duration, so in steady state it stays however far
+      // ahead the last restart left it. That makes bufferThreshold — the second
+      // half of each UI buffer preset — the value that decides how much jitter
+      // a listener can absorb here, and raising the preset now genuinely helps.
+      const prebuffer = Math.max(this.bufferThreshold, 0.02);
+
+      if (!(this.playTime > currentTime)) {
+        // Underrun: everything scheduled has already played out, so there is
+        // nothing to overlap and we can safely restart the timeline ahead of
+        // the clock. This is still a gap, but a clean silent one.
+        this.playTime = currentTime + prebuffer;
+        this._fallbackRestarts = (this._fallbackRestarts || 0) + 1;
+      } else if ((this.playTime - currentTime) > (this.bufferLimit + prebuffer)) {
+        // Overrun: the producer is outrunning playback. Shed THIS chunk and
+        // leave the timeline untouched — the backlog drains by one chunk and
+        // what is already scheduled stays continuous. Dropping one chunk is a
+        // splice; rescheduling backwards was a collision.
+        // Shed from PLAYBACK only: fall through to the recording block below,
+        // so a running recording still captures a complete stream even when
+        // the link is too far ahead to play everything.
+        this._fallbackDrops = (this._fallbackDrops || 0) + 1;
+        shedFromPlayback = true;
+      }
+
+      if (!shedFromPlayback) {
+        const curPlayTime = this.playPCM(pcmArray, this.playTime, this.audioOutputSps, 1, this.channels)
+        this.playTime += curPlayTime;
+      }
     } else {
-      // Normal operation: advance play time
-      this.playTime += curPlayTime;
+      // ── Worklet path ──────────────────────────────────────────────────────
+      // playPCM() hands the chunk straight to the worklet's ring buffer, which
+      // does its own underrun and overflow handling. playTime is not driving
+      // playback here at all; it is kept advancing only so the S-meter's
+      // _dBQueue has a play-out time to align against.
+      const curPlayTime = this.playPCM(pcmArray, this.playTime, this.audioOutputSps, 1, this.channels)
+      if ((this.playTime - currentTime) <= this.bufferThreshold) {
+        this.playTime = (currentTime + this.bufferThreshold + curPlayTime);
+      } else if ((this.playTime - currentTime) > this.bufferLimit) {
+        this.playTime = (currentTime + this.bufferThreshold);
+      } else {
+        this.playTime += curPlayTime;
+      }
     }
 
     if (this.isRecording) {
@@ -4921,11 +5817,17 @@ js8Pending() {
           numberOfInputs: 0,
           numberOfOutputs: 1,
           outputChannelCount: [2],
-          processorOptions: {
-            sampleRate: this.audioOutputSps || this.audioCtx.sampleRate || 12000,
-            maxBufferedSeconds: 0.25,  // was 0.5 — 150ms ceiling; worklet floor now 1024 (85ms) not 4096
-            minStartSeconds: 0.03,     // was 0.04 — 20ms prebuffer; worklet floor is 256 frames (21ms)
-          }
+          // Geometry comes from _workletBufferOptions() rather than literals,
+          // so a buffer preset chosen before the worklet was built (the usual
+          // order — the node is created lazily on the first PCM frame) is
+          // honoured instead of being overwritten by a hardcoded default.
+          processorOptions: Object.assign(
+            // The graph's rate, because playPCM converts to it before enqueuing.
+            // This only sizes the ring buffer, so it must match the frames that
+            // actually arrive, not the rate they were transmitted at.
+            { sampleRate: this._graphSampleRate() },
+            this._workletBufferOptions()
+          )
         });
         node.connect(this.audioInputNode);
         this._streamConnectedNode = this.audioInputNode;
@@ -4985,14 +5887,39 @@ js8Pending() {
     }
   }
 
+  /**
+   * Convert a block to the graph's sample rate, carrying filter state across
+   * blocks. Returns the input untouched when the rates already agree, which is
+   * the normal case and costs one comparison.
+   */
+  _toGraphRate(buffer, channels, inRate, outRate) {
+    if (inRate === outRate) return buffer;
+    const r = this._resampler;
+    if (!r || r.inRate !== inRate || r.outRate !== outRate || r.channels !== channels) {
+      this._resampler = new PolyResampler(inRate, outRate, channels);
+    }
+    return this._resampler.process(buffer);
+  }
+
   playPCM(buffer, playTime, sampleRate, scale, channels = 1) {  // ✅ ADDED: channels parameter
     if (!this.audioInputNode) {
       console.warn('Audio not initialized');
       return 0;
     }
 
+    const inFrames = (channels === 2) ? Math.floor(buffer.length / 2) : buffer.length;
+    if (inFrames <= 0) return 0;
+
+    // Duration is a property of the stream, not of the representation:
+    // resampling changes the frame count and never the seconds. The scheduler
+    // above is driven by this, so it must be computed from the stream rate.
+    const streamRate = this.audioOutputSps || sampleRate || 12000;
+    const blockSeconds = inFrames / streamRate;
+
+    const graphRate = this._graphSampleRate();
+    buffer = this._toGraphRate(buffer, channels, streamRate, graphRate);
     const frames = (channels === 2) ? Math.floor(buffer.length / 2) : buffer.length;
-    if (frames <= 0) return 0;
+    if (frames <= 0) return blockSeconds;
 
     if (!this._streamForceFallback) {
       if (this._streamWorkletNode) {
@@ -5004,7 +5931,7 @@ js8Pending() {
         // That halved the effective maxBufferedSeconds, causing the ring buffer
         // to overflow in ~1.5 s and backing up the WebSocket receive queue.
         if (this._enqueuePCMToStreamingWorklet(buffer, channels)) {
-          return frames / (this.audioOutputSps || sampleRate || this.audioCtx.sampleRate || 12000);
+          return blockSeconds;
         }
         // Enqueue failed — fall through to AudioBufferSourceNode fallback.
         this._streamForceFallback = true;
@@ -5020,17 +5947,21 @@ js8Pending() {
           this._streamWorkletNode = null;
         });
         // Advance playTime correctly even though we dropped the frame.
-        return frames / (this.audioOutputSps || sampleRate || this.audioCtx.sampleRate || 12000);
+        return blockSeconds;
       }
     }
 
     this._logFallbackPlaybackOnce();
     
     const source = new AudioBufferSourceNode(this.audioCtx);
+    // Built at the GRAPH's rate because _toGraphRate has already converted the
+    // samples. Declaring the stream rate here instead would ask the browser to
+    // resample each buffer a second time, in isolation — the per-packet
+    // resampling whose boundary artefacts this whole path exists to avoid.
     const audioBuffer = new AudioBuffer({
       length: frames,
       numberOfChannels: channels,
-      sampleRate: this.audioOutputSps
+      sampleRate: graphRate
     });
 
     if (channels === 2) {
@@ -5049,6 +5980,10 @@ js8Pending() {
     source.buffer = audioBuffer;
     source.connect(this.audioInputNode);
 
+    // Safety net only. decode() now guarantees playTime is ahead of the clock
+    // on this path, but a caller that scheduled into the past would otherwise
+    // get its chunk silently collapsed onto "now" — and several of those in a
+    // row is the overlap that used to make this path sound distorted.
     const scheduledTime = Math.max(playTime, this.audioCtx.currentTime);
     let safetyTimerId = null;
     let disconnected = false;
@@ -5075,7 +6010,20 @@ js8Pending() {
       return 0;
     }
 
-    return audioBuffer.duration;
+    // The duration actually scheduled, not the stream-domain one.
+    //
+    // On this path each block is its own source node and the next is scheduled
+    // at playTime + this value, so the two must butt together to the sample. A
+    // resampler emits a whole number of frames, so with a non-integer rate
+    // ratio the block length alternates — 882 frames then 883 at 44.1 kHz —
+    // while the stream-domain duration stays fixed. Advancing by the fixed
+    // value would leave a fraction of a frame of gap or overlap at every
+    // boundary, and a defect repeating at the packet rate is a buzz.
+    //
+    // There is no drift in doing this: the resampler's output rate tracks the
+    // input exactly over time, so these durations sum to the true one. Where
+    // no resampling happens they are identical anyway.
+    return frames / graphRate;
   }
 
   startRecording() {

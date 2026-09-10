@@ -205,10 +205,13 @@ PhantomSDR-Plus
 │   │   ├── audio-stream-worklet.js
 │   │   ├── bands-config.js
 │   │   ├── broadcastSchedules.js
+│   │   ├── broadcastSchedules.js
 │   │   ├── cwDecoder.js
 │   │   ├── cw.worker.js
 │   │   ├── cwWorkerProxy.js
 │   │   ├── decoder.worker.js
+│   │   ├── diversity.js
+│   │   ├── diversityList.js
 │   │   ├── eventBus.js
 │   │   ├── events.js
 │   │   ├── fax.js
@@ -218,12 +221,14 @@ PhantomSDR-Plus
 │   │   ├── fsk.js
 │   │   ├── fsk.worker.js
 │   │   ├── fskWorkerProxy.js
+│   │   ├── kiwiSource.js
 │   │   ├── lib
 │   │   │   ├── backend.js
 │   │   │   ├── BandSelector.svelte
 │   │   │   ├── CheckButton.svelte
 │   │   │   ├── colormaps.js
 │   │   │   ├── Counter.svelte
+│   │   │   ├── DiversityPanel.svelte
 │   │   │   ├── fftRadix2.js
 │   │   │   ├── freedv-reporter.js
 │   │   │   ├── FreeDVReporter.svelte
@@ -234,6 +239,7 @@ PhantomSDR-Plus
 │   │   │   ├── LineThroughButton.svelte
 │   │   │   ├── Logger.svelte
 │   │   │   ├── MagicEyeIndicator.svelte
+│   │   │   ├── ModeIdChip.svelte
 │   │   │   ├── ModesSelector.svelte
 │   │   │   ├── opusMlDecoder.js
 │   │   │   ├── PassbandTuner.svelte
@@ -246,10 +252,13 @@ PhantomSDR-Plus
 │   │   │   ├── storage.js
 │   │   │   ├── Tooltip.svelte
 │   │   │   ├── VersionSelector.svelte
-│   │   │   ├── VersionSelector.svelte.backup
 │   │   │   ├── VideoAreaSelector.svelte
 │   │   │   └── wrappers.js
 │   │   ├── main.js
+│   │   ├── modeId.js
+│   │   ├── modeId.worker.js
+│   │   ├── modeIdWorkerProxy.js
+│   │   ├── modePriors.js
 │   │   ├── mobile
 │   │   │   ├── backend.js
 │   │   │   ├── bookmarks.js
@@ -278,10 +287,12 @@ PhantomSDR-Plus
 │   │   │   └── wspr.js
 │   │   ├── olivia.js
 │   │   ├── psk31.js
+│   │   ├── remoteSource.js
 │   │   ├── scanner.js
 │   │   ├── sstv.js
 │   │   ├── sstv.worker.js
 │   │   ├── sstvWorkerProxy.js
+│   │   ├── uberSource.js
 │   │   ├── unused
 │   │   │   ├── AudioProcessor.js
 │   │   │   ├── decoder.js
@@ -311,7 +322,9 @@ PhantomSDR-Plus
 │   │   │   └── wrappers.js
 │   │   ├── videoRecorder.js
 │   │   ├── vite-env.d.ts
-│   │   └── waterfall.js
+│   │   ├── waterfall.js
+│   │   ├── webSdrCodec.js
+│   │   └── webSdrSource.js
 │   ├── stats.html
 │   ├── svelte.config.js
 │   ├── tailwind.config.cjs
@@ -377,12 +390,16 @@ PhantomSDR-Plus
 ├── update.sh
 ├── request.hpp
 ├── setup_admin.sh
+├── setup_websdr_relay.sh      # instalira WebSDR diverziti relej (port, identitet, systemd)
+├── websdr_relay.py            # sam relej — vidi docs/RECEIVE_DIVERSITY.md
+├── websdr_relay.json.example  # predložak konfiguracije (port, ograničenja, identitet stanice)
 ├── setup-rx888-udev.sh
 ├── setup-cpufreq-perms.sh
 ├── thermal_guard.py           # Zaštita od pregrijavanja procesora za administratorsku ploču (radi i samostalno)
 ├── thermal-guard.service      # primjer systemd jedinice za čuvara, bez administratorske ploče
 ├── phantomsdr-admin.service   # ogledna systemd jedinica za ploču (pokreće se pri dizanju sustava, ponovno nakon pada)
 ├── phantomsdr-proxy.service   # ogledna systemd jedinica za proxy, instalira se zajedno s jedinicom ploče
+├── phantomsdr-websdr-relay.service  # primjer systemd unita za WebSDR diverziti relej
 ├── smeter_theme.sh
 ├── src
 │   ├── audio.cpp
@@ -436,7 +453,6 @@ PhantomSDR-Plus
 ├── check-go.sh                # staro: nadzornik lanca go.sh
 ├── kill.sh                    # staro: gasi procese poslužitelja, poziva ga go.sh
 ├── _relaunch.sh               # staro: pomoćnik odgođenog ponovnog pokretanja lanca go.sh
-├── demo_installer.sh          # probni rad install.sh — prikazuje tijek, ništa ne instalira
 ├── logproxy                   # rotirane kopije zapisnika ploče/posrednika/autoruna
 ├── subprojects
     ├── fftw3.wrap
@@ -704,7 +720,6 @@ Svaka od donjih `start-*.sh` skripti samostalan je **pokretač + watchdog + zapi
 | `smeter_theme.sh` | Postavi zadani izgled analognog S-metra (dark / amber / vintage) za sve korisnike i ponudi ponovnu izgradnju frontenda — vidi [Uređivanje varijanti](EDITING_VARIANTS.md) |
 | `waterfall.sh` | Mijenja zadanu minimalnu razinu slapa (dB) u `waterfall.js` + `App.svelte` — vidi [README](README.md) |
 | `kiwi_install.sh` | Instalira emulaciju KiwiSDR klijenata na stablo koje je nema: zakrpava izvorni kod pozadinskog dijela, kopira `src/kiwi_bridge.h` i dodaje dokumentirani `[kiwi_emulation]` blok u konfiguracijske datoteke u korijenu. Idempotentan je i sprema kopiju svake datoteke koje se dotakne — vidi [Emulacija KiwiSDR klijenata](Aether_config.md) |
-| `demo_installer.sh` | Probni rad `install.sh`: prikazuje cijeli tijek i ništa ne instalira |
 
 **Stari lanac pokretanja.** `go.sh`, `xgo.sh`, `check-go.sh`, `kill.sh` i `_relaunch.sh` prethodni su naraštaj skripti za pokretanje, nadzor i zaustavljanje. Sve što su radile sada je unutar svakog `start-<radio>.sh`, i to je ono što treba koristiti. Ostaju na disku jer ih postojeće instalacije referenciraju i više se ne održavaju.
 
@@ -839,6 +854,33 @@ Uloga `fsk` dodatno ugošćuje dva dekodera koji uopće nisu FSK. Odabirom inač
 
 - `psk31.js` — BPSK31: kompleksni osnovni pojas, prilagođeni filtar, diferencijalna detekcija i varicode, uz spektralno grubo hvatanje i fini AFC raspona približno ±25 Hz.
 - `olivia.js` — Olivia MFSK: prijenos MFSK prijamnika Pawela Jaloche iz fldigija (`pj_mfsk.h`, GPL-3, kao i ovaj projekt), uključujući Walsh/Hadamard korekciju pogrešaka i slijepo traženje sinkronizacije po fazi bloka i frekvencijskom pomaku.
+- `broadcastSchedules.js` — UTC rasporedi koje FAX, NAVTEX i RTTY dekoderi nude kao pripremljene postavke, iz NOAA/NWS rasporeda pomorskog faksimila i objavljenih popisa NAVTEX postaja
+
+#### 4b. Diverziti prijam (`diversity.js`)
+- Povezuje lokalni prijamnik s drugim na drugoj lokaciji i prati onu koja trenutačno ima bolji signal. Običan JS, ne komponenta — oslanja se na jedno mjesto u `audio.js`, koje mu predaje lokalni PCM i reproducira ono što vrati
+- **Odabir, ne zbrajanje.** Dvije lokacije čuju isti prijenos preko različitih ionosferskih putova, pa im valni oblici imaju nepovezanu fazu; zbrajanje zvuči češljasto filtrirano. Koherentno spajanje tražilo bi zajednički takt, koji dva prijamnika preko interneta ne dijele. Miješa se samo tijekom preklapanja od 30 ms
+- Poravnanje korelira dvije **zvučne ovojnice** (logaritamska snaga na 100 Hz), nikad valne oblike — ovojnica preživljava i put i bilo koji kodek. Zaključavanje se prihvaća tek kad se druga, neovisna pretraga složi, čime se odbacuje uvjerljivo ali pogrešno kašnjenje koje bi dale dvije lokacije koje blijede u protufazi
+- Udaljeni tok se najprije **zaključava po brzini** na lokalni. Dva prijamnika znače dva takta i dva lanca decimacije, pa im zvuk stiže i do 2% razmaknuto čak i kad oba prijavljuju 12 kHz — 240 uzoraka u sekundi klizanja, što nijedna korelacija ne zadržava. Omjer se mjeri iz toga koliko uzoraka svaka strana stvarno isporuči, a primjenjuje ga preuzorkivač koji nosi svoju razlomljenu fazu preko granica blokova, pa proizvoljan omjer drži neograničeno
+- Odabir lokacije koristi percentilni SNR mjeren na **sadržajno poravnatim** uzorcima, uz histerezu, mjerač zadržavanja i brzi izlaz ako aktivna lokacija propadne. Razine se usklađuju šum na šum, pa promjena ne mijenja pozadinski šum
+- Dekoderi zadržavaju **lokalni** tok: FT8, JS8, WSPR i RADE integriraju koherentno kroz odsječak, a promjena usred njega prekid je faze koji može stajati dekodiranja
+
+#### 4c. Izvori diverzitija (`remoteSource.js`, `kiwiSource.js`, `uberSource.js`, `webSdrSource.js`)
+- Jedan ugovor — `onPcm` / `onState` / `tune` / `canReceive` — tako da `diversity.js` nikad ne saznaje što je s druge strane. Dodavanje vrste prijamnika je jedna nova datoteka
+- `remoteSource.js` — još jedan PhantomSDR-Plus preko `/audio` (cbor + FLAC), uz ponovnu upotrebu `createDecoder()` iz `lib/wrappers.js`
+- `kiwiSource.js` — KiwiSDR: `SND` okviri, big-endian PCM, s 10-bajtnim GPS vremenskim žigom koji stereo paket umeće ispred zvuka
+- `uberSource.js` — UberSDR preko vlastitog `/ws`: Opus iza 21-bajtnog zaglavlja, ugađanje preko otvorene veze. Identifikator sesije mora se prije prijaviti s `POST /connection` i mora biti UUID
+- `webSdrSource.js` — WebSDR, kroz `websdr_relay.py` na ovom poslužitelju: preglednik se ne može spojiti izravno jer WebSDR provjerava zaglavlje `Origin`, a nijedna skripta ga ne smije mijenjati. Ugađanje ide kao tekstni okvir istom vezom; pokrivenost opsega daje relej
+- `webSdrCodec.js` — WebSDR-ov audio format: bajtno označen tok čiji komprimirani blokovi pogone leaky-LMS prediktor s 20 odvoda. Prenesen iz WebSDR klijenta i provjeren uzorak po uzorak
+- `diversityList.js` — popis spremljenih prijamnika i pravila adresa za četiri vrste, zajednički stolnoj ploči i mobilnoj stranici, tako da jedan format služi objema. Uz to i prijenos — kompaktan blob, njegov QR kod i parser koji prihvaća svaki oblik koji su dvije stranice ikad zapisale — te `browseUrl()`, koja pozvanu adresu vraća u onu koju preglednik može otvoriti
+- `lib/DiversityPanel.svelte` — sučelje: adresa, vrsta izvora, SNR trim i stanje uživo, uz spremljene prijamnike — imenovane, slobodnog redoslijeda, s izvozom i uvozom u JSON datoteku, po vrsti izvora u `localStorage`. Sve se uređuje unutar ploče: `prompt()` i `confirm()` blokiraju glavnu dretvu, a upravo se preko nje zvuk gura u playback worklet. Gumb **▦ QR** crta popis kao kod za skeniranje, jer `localStorage` pripada jednom pregledniku, a mobitel počinje prazan. `mobile/Mobile.svelte` nosi istu funkciju u kartici **Div**, u vlastitom jednostavnom CSS-u te stranice. Vidi [Diverziti prijam](RECEIVE_DIVERSITY.md)
+
+#### 4d. Prepoznavanje načina rada (`modeId.js`, `modePriors.js`)
+- Odgovara na pitanje „što slušam?". Čita isti sirovi PCM odvod kao i dekoderi te rangira vjerojatne načine rada, kako bi operator odabrao pravi dekoder umjesto da isproba svih deset. Nikada ne dekodira: mjeri fizikalna svojstva signala i boduje ih prema tablici poznatih načina
+- Zauzeta širina je povezana širina na −15 dB oko vrha, namjerno ne vrijednost od 99 % snage: klikovi manipulacije ostavljaju duge repove na integralu snage i činili su da svaki uski način izgleda višestruko preširok. Brzina simbola dolazi iz **trenutne frekvencije**, a ne iz energija tonova, jer nijedno vrijeme integracije ne razlučuje istodobno pomak od 170 Hz i simbol od 100 Bd. Brzina manipulacije dolazi iz on/off ovojnice i ujedno služi kao očitanje brzine CW-a
+- `modePriors.js` dodaje jedini trag koji zvuk ne može nositi: gdje ste ugođeni. Signal 100 Bd / 170 Hz na 518 kHz je NAVTEX; isti signal na 14,070 MHz nije. Samo preteže ono što je signal već podupirao i nikada ne izmišlja kandidata
+- FT8, JS8 i FT2 namjerno se prijavljuju kao jedna skupina: ne razdvajaju se samo po širini i razmaku tonova, a tvrditi suprotno bilo bi samouvjereno pogrešan odgovor
+- Ispod otprilike 10 dB SNR-a šuti umjesto da nagađa
+- Radi u vlastitom Web Workeru (`modeId.worker.js` + `modeIdWorkerProxy.js`), po istom obrascu engine/worker/proxy kao i dekoderi iznad; rezultat je oznaka u `lib/ModeIdChip.svelte`
 
 #### 5. Upravljanje stanjem (`stores/`)
 - Reaktivne pohrane podataka
@@ -859,8 +901,7 @@ Uloga `fsk` dodatno ugošćuje dva dekodera koji uopće nisu FSK. Odabirom inač
 
 ## Popisi frekvencija (`frequencylist/`)
 
-Oznake frekvencija na slapu. `mymarkers.json` je popis koji prijamnik doista prikazuje;
-ostalo je sirovina koju `update-markers.sh` pretvara u njega, osvježena iz mrežnih rasporeda.
+Oznake frekvencija na slapu. `mymarkers.json` je popis koji prijamnik doista prikazuje; ostalo je sirovina koju `update-markers.sh` pretvara u njega, osvježena iz mrežnih rasporeda.
 `README.md` u toj mapi objašnjava ažuriranje na svih sedam jezika.
 
 ```

@@ -202,9 +202,7 @@ Exemples :
 
 ### Scanner
 
-Le scanner promène le récepteur sur une plage de canaux et s'arrête sur le
-premier qui porte un signal. Il se trouve sur la ligne **Fine Tuning (kHz)**,
-tout à droite :
+Le scanner promène le récepteur sur une plage de canaux et s'arrête sur le premier qui porte un signal. Il se trouve sur la ligne **Fine Tuning (kHz)**, tout à droite :
 
 ```
 7 152.0   ◀  ■  ▶  ⊘   30 dB · 4 ▾
@@ -217,32 +215,23 @@ tout à droite :
 | **⊘** | Exclure ce canal du balayage — pour une porteuse permanente ou un birdie. |
 | **30 dB · 4 ▾** | Le seuil, et à côté le niveau mesuré à l'instant. Ouvre les réglages. |
 
-Le texte à gauche indique ce que fait le scanner : `Scanner` au repos, la
-fréquence atteinte pendant le balayage, `◉ 3s` pendant le décompte avant
-reprise, `◉ 30·22s` tant que le canal est encore occupé, `◉ hold` quand il
-reste en place.
+Le texte à gauche indique ce que fait le scanner : `Scanner` au repos, la fréquence atteinte pendant le balayage, `◉ 3s` pendant le décompte avant reprise, `◉ 30·22s` tant que le canal est encore occupé, `◉ hold` quand il reste en place.
 
 **Réglages**
 
 - **Range** — *Scan Band* balaie la bande où commence le balayage ;
   *Scan Visible* balaie exactement ce que montre la cascade et la suit si vous
-  zoomez ou la déplacez.
+zoomez ou la déplacez.
 - **Scan** — *Every channel* accorde et écoute chaque canal à son tour ;
   *Skip empty* lit le spectre et saute directement aux signaux.
 - **Stop at** — de combien un canal doit dépasser le bruit de fond de la bande
-  pour arrêter le balayage, en dB. Le bruit est suivi en continu : le même
-  réglage convient de jour comme de nuit. Un canal vide n'affiche pas 0 dB —
-  regardez un instant la valeur sur le bouton et placez le seuil au-dessus.
+pour arrêter le balayage, en dB. Le bruit est suivi en continu : le même réglage convient de jour comme de nuit. Un canal vide n'affiche pas 0 dB — regardez un instant la valeur sur le bouton et placez le seuil au-dessus.
 - **Resume after** — combien de temps un canal doit rester calme avant que le
-  balayage reparte. Les pauses de la parole ne le relancent pas. *Hold* reste en
-  place jusqu'à ce que vous appuyiez sur un bouton.
+balayage reparte. Les pauses de la parole ne le relancent pas. *Hold* reste en place jusqu'à ce que vous appuyiez sur un bouton.
 - **Max stay** — repart au bout de ce temps même si le signal est toujours là,
-  pour qu'une porteuse permanente ne bloque pas le balayage indéfiniment.
+pour qu'une porteuse permanente ne bloque pas le balayage indéfiniment.
 
-Le pas suit le mode — 1 kHz en BLU, 0,1 kHz en CW, 5 kHz en AM, 9 ou 10 kHz en
-ondes moyennes et 9 kHz en grandes ondes — et les arrêts tombent sur la grille
-des canaux. Le balayage reste dans sa plage et dans ce que le récepteur peut
-accorder ; à une extrémité il reprend à l'autre.
+Le pas suit le mode — 1 kHz en BLU, 0,1 kHz en CW, 5 kHz en AM, 9 ou 10 kHz en ondes moyennes et 9 kHz en grandes ondes — et les arrêts tombent sur la grille des canaux. Le balayage reste dans sa plage et dans ce que le récepteur peut accorder ; à une extrémité il reprend à l'autre.
 
 Les réglages et les canaux exclus sont mémorisés dans votre navigateur.
 
@@ -301,36 +290,22 @@ L'AGC ajuste automatiquement les niveaux audio :
 
 ### Les quatre commandes de bruit
 
-NR, NB, NS et AN sont des boutons marche/arrêt distincts, chacun s'attaquant à un
-type de bruit différent. Ils sont indépendants — en activer un n'en active aucun
-autre — et se combinent librement.
+NR, NB, NS et AN sont des boutons marche/arrêt distincts, chacun s'attaquant à un type de bruit différent. Ils sont indépendants — en activer un n'en active aucun autre — et se combinent librement.
 
-Aucun n'atteint les décodeurs : FT8, CW, WSPR, SSTV, FAX, NAVTEX,
-RTTY/PSK31/Olivia et le grabber QRSS lisent l'audio *avant* ces filtres. Vous
-pouvez donc les régler purement à l'oreille sans influer sur ce qui est décodé.
-Voir le [manuel des décodeurs](DECODERS.md#12-conseils-généraux).
+Aucun n'atteint les décodeurs : FT8, CW, WSPR, SSTV, FAX, NAVTEX, RTTY/PSK31/Olivia et le grabber QRSS lisent l'audio *avant* ces filtres. Vous pouvez donc les régler purement à l'oreille sans influer sur ce qui est décodé. Voir le [manuel des décodeurs](DECODERS.md#12-conseils-généraux).
 
 ### Réduction de bruit (NR)
 
-Réduction de bruit spectrale. Elle estime le niveau de bruit dans chaque partie
-du spectre audio et baisse ces parties, en laissant tranquille ce qui dépasse du
-bruit.
+Réduction de bruit spectrale. Elle estime le niveau de bruit dans chaque partie du spectre audio et baisse ces parties, en laissant tranquille ce qui dépasse du bruit.
 
 **À utiliser quand** : vous entendez un souffle régulier ou un bruit blanc
 derrière le signal.
 
-Les tonalités continues — une note CW, une porteuse — sont reconnues comme du
-signal et protégées : NR ne mange donc pas un signal CW comme le ferait un filtre
-naïf. Effet typique : 10 dB de bruit en moins entre les mots, pour quelques
-dixièmes de dB perdus sur la parole elle-même.
+Les tonalités continues — une note CW, une porteuse — sont reconnues comme du signal et protégées : NR ne mange donc pas un signal CW comme le ferait un filtre naïf. Effet typique : 10 dB de bruit en moins entre les mots, pour quelques dixièmes de dB perdus sur la parole elle-même.
 
 ### Silencieux d'impulsions (NB)
 
-Supprime le bruit impulsionnel : clics, claquements, parasites atmosphériques,
-allumage et bruit de ligne électrique. Il surveille l'enveloppe audio et ne
-silence que les échantillons qui la dépassent largement — environ une
-milliseconde par parasite, avec des rampes d'entrée et de sortie pour que le
-blanking ne claque pas lui-même.
+Supprime le bruit impulsionnel : clics, claquements, parasites atmosphériques, allumage et bruit de ligne électrique. Il surveille l'enveloppe audio et ne silence que les échantillons qui la dépassent largement — environ une milliseconde par parasite, avec des rampes d'entrée et de sortie pour que le blanking ne claque pas lui-même.
 
 **À utiliser quand** : vous entendez des clics ou des claquements dus aux lignes
 électriques, aux moteurs, aux orages ou à l'allumage des véhicules.
@@ -339,24 +314,16 @@ Les notchs de ronflement secteur 50 Hz et 60 Hz suivent ce bouton.
 
 ### Suppression du bruit de fond (NS)
 
-Mesure sur plusieurs secondes le plancher de bruit propre à la bande et applique
-une atténuation fixe à ce qui s'y trouve, plus profonde dans l'aigu que dans le
-grave. Là où NR réagit d'instant en instant, NS est la main lente et sûre : elle
-abaisse le souffle de la bande sans changer la sonorité du signal.
+Mesure sur plusieurs secondes le plancher de bruit propre à la bande et applique une atténuation fixe à ce qui s'y trouve, plus profonde dans l'aigu que dans le grave. Là où NR réagit d'instant en instant, NS est la main lente et sûre : elle abaisse le souffle de la bande sans changer la sonorité du signal.
 
 **À utiliser quand** : la bande est calme mais soufflante et vous voulez faire
 descendre le bruit sans la sonorité « sous-marine » d'une NR agressive.
 
-Active seulement en USB, LSB et AM — CW, FM et les modes numériques restent
-intacts. Elle remesure le plancher à chaque changement de fréquence ou de mode et
-se stabilise en quelques secondes.
+Active seulement en USB, LSB et AM — CW, FM et les modes numériques restent intacts. Elle remesure le plancher à chaque changement de fréquence ou de mode et se stabilise en quelques secondes.
 
 ### Notch automatique (AN)
 
-Trouve et supprime automatiquement les tonalités parasites continues —
-hétérodynes, porteuses, sifflements — sans que vous ayez à placer un notch à la
-main. Il s'adapte en continu : plusieurs tonalités peuvent être supprimées à la
-fois, et une tonalité qui dérive reste notchée.
+Trouve et supprime automatiquement les tonalités parasites continues — hétérodynes, porteuses, sifflements — sans que vous ayez à placer un notch à la main. Il s'adapte en continu : plusieurs tonalités peuvent être supprimées à la fois, et une tonalité qui dérive reste notchée.
 
 **À utiliser quand** : vous entendez un sifflement ou une tonalité par-dessus le
 signal voulu.
@@ -364,8 +331,7 @@ signal voulu.
 Contourné en CW, où le signal utile *est* une tonalité continue.
 
 **Note sur le retard** : NR et NS ajoutent chacun environ 40 ms de retard audio
-lorsqu'ils sont activés (les deux ensemble, environ 80 ms). NB et AN n'en
-ajoutent aucun. Cela ne concerne que l'écoute, jamais les décodeurs.
+lorsqu'ils sont activés (les deux ensemble, environ 80 ms). NB et AN n'en ajoutent aucun. Cela ne concerne que l'écoute, jamais les décodeurs.
 
 ### Squelch automatique (SQL)
 
@@ -683,8 +649,7 @@ Enregistrez vos fréquences préférées pour y accéder rapidement. Vous pouvez
 
 Lorsque favoris et marqueurs se chevauchent :
 
-🔵 Les favoris bleus apparaissent au-dessus <br />
-🟡 Les marqueurs jaunes apparaissent en dessous <br />
+🔵 Les favoris bleus apparaissent au-dessus <br /> 🟡 Les marqueurs jaunes apparaissent en dessous <br />
 ✅ Les clics sur les favoris sont prioritaires <br />
 
 

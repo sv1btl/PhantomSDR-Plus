@@ -629,7 +629,7 @@ A partir de ahí se muestran dos contadores distintos, fáciles de confundir. Lo
 
 ## Emulación de clientes KiwiSDR (opcional)
 
-Desde la v3.9.0 PhantomSDR-Plus también puede responder al **protocolo KiwiSDR**, de modo que el software escrito para un KiwiSDR — **AetherSDR**, `kiwiclient` y los demás — se conecta directamente a su receptor, en el mismo host y puerto que ya publica. Está apagado hasta que se añade `[kiwi_emulation] enabled = true` a la configuración con la que arranca su receptor.
+Desde la v4.0.0 PhantomSDR-Plus también puede responder al **protocolo KiwiSDR**, de modo que el software escrito para un KiwiSDR — **AetherSDR**, `kiwiclient` y los demás — se conecta directamente a su receptor, en el mismo host y puerto que ya publica. Está apagado hasta que se añade `[kiwi_emulation] enabled = true` a la configuración con la que arranca su receptor.
 
 El instalador lo ofrece como paso 17; `./kiwi_install.sh` lo aplica a un árbol ya instalado.
 
@@ -722,7 +722,7 @@ Edite los siguientes campos:
   "siteCity": "Your City, Country",
   "siteInformation": "https://github.com/sv1btl/PhantomSDR-Plus",
   "siteHardware": "Computer specifications",
-  "siteSoftware": "PhantomSDR-Plus v3.9.0",
+  "siteSoftware": "PhantomSDR-Plus v4.0.0",
   "siteReceiver": "Your SDR model",
   "siteAntenna": "Antenna description",
   "siteNote": "Additional information",
@@ -1217,13 +1217,9 @@ ModuleNotFoundError: No module named 'mesonbuild'
 El árbol de fuentes no tiene ningún problema. Una instalación antigua con
 `pip install --user meson` dejó un script de arranque en `~/.local/bin`, que en el
 `PATH` va antes que `/usr/bin` y oculta la copia que instaló el gestor de paquetes.
-Una actualización de la distribución (por ejemplo Ubuntu 24.04 → 26.04) cambia
-Python a una versión nueva, el antiguo `site-packages` que contenía `mesonbuild`
-ya no está en la ruta de importación, y el script muere antes de hacer nada. Lo
-mismo le puede ocurrir a `ninja`.
+Una actualización de la distribución (por ejemplo Ubuntu 24.04 → 26.04) cambia Python a una versión nueva, el antiguo `site-packages` que contenía `mesonbuild` ya no está en la ruta de importación, y el script muere antes de hacer nada. Lo mismo le puede ocurrir a `ninja`.
 
-El instalador lo detecta y lo esquiva durante la ejecución, avisándole, pero
-repare el sistema:
+El instalador lo detecta y lo esquiva durante la ejecución, avisándole, pero repare el sistema:
 
 ```bash
 rm -f ~/.local/bin/meson
@@ -1231,8 +1227,7 @@ hash -r
 meson --version        # debe imprimir una versión
 ```
 
-Si prefiere conservar meson instalado con pip, reinstálelo para el Python que
-tiene ahora este sistema:
+Si prefiere conservar meson instalado con pip, reinstálelo para el Python que tiene ahora este sistema:
 
 ```bash
 python3 -m pip install --user --force-reinstall --break-system-packages meson
@@ -1440,17 +1435,11 @@ waterfall_compression = "zstd"  # Efficient compression
 
 ## Actualización de PhantomSDR-Plus
 
-Desde la versión 3.8.0 el repositorio incluye **`update.sh`**, una herramienta que pone al día
-una instalación con el árbol publicado **sin tocar los archivos que la hacen ser su estación**.
-Sustituye al script `git pull` que las ediciones anteriores de esta guía le pedían escribir, y
-no necesita git en absoluto: el árbol publicado se descarga como tarball y se compara con el
-suyo archivo por archivo, de modo que funciona igual tanto si clonó el repositorio como si
-descomprimió un `update.zip` o copió el árbol desde una memoria USB.
+Desde la versión 4.0.0 el repositorio incluye **`update.sh`**, una herramienta que pone al día una instalación con el árbol publicado **sin tocar los archivos que la hacen ser su estación**. Sustituye al script `git pull` que las ediciones anteriores de esta guía le pedían escribir, y no necesita git en absoluto: el árbol publicado se descarga como tarball y se compara con el suyo archivo por archivo, de modo que funciona igual tanto si clonó el repositorio como si descomprimió un `update.zip` o copió el árbol desde una memoria USB.
 
 ### Si su instalación aún no tiene update.sh
 
-Un árbol antiguo no contiene el script. Descárguelo una vez: es el único paso de todo este
-procedimiento que hará a mano:
+Un árbol antiguo no contiene el script. Descárguelo una vez: es el único paso de todo este procedimiento que hará a mano:
 
 ```bash
 cd ~/PhantomSDR-Plus
@@ -1468,10 +1457,7 @@ cd ~/PhantomSDR-Plus
 ./update.sh
 ```
 
-Descarga el árbol publicado, lo compara con el suyo e imprime un informe. No escribe
-absolutamente nada, así que puede ejecutarlo en cualquier momento, incluso con el receptor en
-el aire. El código de salida es `0` si ya está al día y `10` si hay una actualización
-esperando, de forma que una tarea de cron puede avisarle cuando haya algo que hacer.
+Descarga el árbol publicado, lo compara con el suyo e imprime un informe. No escribe absolutamente nada, así que puede ejecutarlo en cualquier momento, incluso con el receptor en el aire. El código de salida es `0` si ya está al día y `10` si hay una actualización esperando, de forma que una tarea de cron puede avisarle cuando haya algo que hacer.
 
 ### Paso 2 — aplicarla
 
@@ -1496,11 +1482,10 @@ Para cada archivo del grupo intermedio se muestran las diferencias y se ofrecen 
 * **Keep mine** — su archivo se deja exactamente como está.
 * **upstream** — se instala la versión nueva, después de respaldar la suya.
 * **both** — la versión nueva se escribe junto a la suya como `start-rx888mk2.sh.new`, para que
-  incorpore sus propios cambios cuando quiera.
+incorpore sus propios cambios cuando quiera.
 
 **Cómo es la primera ejecución.** La primera vez no hay registro de qué versión tenían sus
-archivos, así que se le presenta cada archivo del grupo intermedio: unas diez preguntas.
-Respóndalas así:
+archivos, así que se le presenta cada archivo del grupo intermedio: unas diez preguntas. Respóndalas así:
 
 | Su situación | Respuesta |
 |---|---|
@@ -1508,20 +1493,12 @@ Respóndalas así:
 | Lo modificó (sus `RX888_ARGS`, fijación de CPU, una unidad ajustada) | `b` — se conserva el suyo y el nuevo queda al lado como `<archivo>.new`. |
 | No está seguro | ENTER — se conserva el suyo, no se pierde nada y podrá comparar después. |
 
-Su configuración nunca entra en esto: las preguntas son siempre sobre scripts y unidades de
-servicio.
+Su configuración nunca entra en esto: las preguntas son siempre sobre scripts y unidades de servicio.
 
 `update.sh` anota en `.update-state/` la versión de cada archivo que instala. Por eso, a partir
-de la segunda ejecución distingue un archivo que **usted** editó de otro que simplemente es
-antiguo, y sólo se detiene a preguntar por los que realmente tocó.
+de la segunda ejecución distingue un archivo que **usted** editó de otro que simplemente es antiguo, y sólo se detiene a preguntar por los que realmente tocó.
 
-Antes de escribir nada detiene el receptor, el panel de administración y el proxy inverso **de la
-instalación que está actualizando**: lo que sirve a otro directorio se enumera y se deja en
-marcha, de modo que un segundo clon puede actualizarse mientras el primero sigue en el aire. Al
-terminar vuelve a arrancar exactamente lo que detuvo. Si han
-cambiado archivos de código o del frontend, le ofrece ejecutar `recompile.sh`. Nunca borra
-nada: los archivos que han desaparecido del repositorio se comunican y sólo se eliminan si lo
-pide con `--prune`.
+Antes de escribir nada detiene el receptor, el panel de administración y el proxy inverso **de la instalación que está actualizando**: lo que sirve a otro directorio se enumera y se deja en marcha, de modo que un segundo clon puede actualizarse mientras el primero sigue en el aire. Al terminar vuelve a arrancar exactamente lo que detuvo. Si han cambiado archivos de código o del frontend, le ofrece ejecutar `recompile.sh`. Nunca borra nada: los archivos que han desaparecido del repositorio se comunican y sólo se eliminan si lo pide con `--prune`.
 
 ### Deshacer una actualización
 
@@ -1536,7 +1513,7 @@ Cada archivo sobrescrito queda en `.update-backups/<marca de tiempo>/` con su pr
 
 ```bash
 ./update.sh --apply --yes     # no pregunta nunca; TODO lo que usted editó se CONSERVA
-./update.sh --ref v3.8.0      # una etiqueta, rama o commit en lugar del árbol actual
+./update.sh --ref v4.0.0      # una etiqueta, rama o commit en lugar del árbol actual
 ./update.sh --list-excludes   # imprime las reglas de "no tocar" tal como se aplican aquí
 ./update.sh --verbose         # lista todos los archivos, no sólo los 40 primeros
 ```
@@ -1547,8 +1524,7 @@ Puede añadir sus propias reglas de "no tocar" escribiendo un patrón por línea
 ### Si la reconstrucción falla en una instalación muy antigua
 
 `update.sh` actualiza archivos, no paquetes del sistema. Si su árbol es tan antiguo que la
-compilación necesita bibliotecas que no tiene, `recompile.sh` se detendrá con un error del
-compilador o de meson. No es una actualización rota: faltan las dependencias:
+compilación necesita bibliotecas que no tiene, `recompile.sh` se detendrá con un error del compilador o de meson. No es una actualización rota: faltan las dependencias:
 
 ```bash
 ./install.sh

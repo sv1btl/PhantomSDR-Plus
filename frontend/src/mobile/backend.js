@@ -17,6 +17,13 @@ const baseUri = `${loc.protocol.replace('http', 'ws')}//${loc.host}`
 
 export const audio = new SpectrumAudio(baseUri + '/audio')
 
+// This page only exists for handsets, so it always asks for the device's own
+// sample rate and lets audio.js resample the 12 kHz stream up to it. Asking a
+// phone for a 12 kHz AudioContext leaves the stretch to its hardware rate to
+// the platform, which on Android is audibly poor. ?ctxrate=stream still forces
+// the old behaviour for comparison.
+audio.preferNativeContextRate = true
+
 // Expose for browser-console debugging, same convention as lib/backend.js
 try { window.audio = audio } catch (e) {}
 

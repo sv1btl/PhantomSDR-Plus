@@ -205,10 +205,13 @@ PhantomSDR-Plus
 │   │   ├── audio-stream-worklet.js
 │   │   ├── bands-config.js
 │   │   ├── broadcastSchedules.js
+│   │   ├── broadcastSchedules.js
 │   │   ├── cwDecoder.js
 │   │   ├── cw.worker.js
 │   │   ├── cwWorkerProxy.js
 │   │   ├── decoder.worker.js
+│   │   ├── diversity.js
+│   │   ├── diversityList.js
 │   │   ├── eventBus.js
 │   │   ├── events.js
 │   │   ├── fax.js
@@ -218,12 +221,14 @@ PhantomSDR-Plus
 │   │   ├── fsk.js
 │   │   ├── fsk.worker.js
 │   │   ├── fskWorkerProxy.js
+│   │   ├── kiwiSource.js
 │   │   ├── lib
 │   │   │   ├── backend.js
 │   │   │   ├── BandSelector.svelte
 │   │   │   ├── CheckButton.svelte
 │   │   │   ├── colormaps.js
 │   │   │   ├── Counter.svelte
+│   │   │   ├── DiversityPanel.svelte
 │   │   │   ├── fftRadix2.js
 │   │   │   ├── freedv-reporter.js
 │   │   │   ├── FreeDVReporter.svelte
@@ -234,6 +239,7 @@ PhantomSDR-Plus
 │   │   │   ├── LineThroughButton.svelte
 │   │   │   ├── Logger.svelte
 │   │   │   ├── MagicEyeIndicator.svelte
+│   │   │   ├── ModeIdChip.svelte
 │   │   │   ├── ModesSelector.svelte
 │   │   │   ├── opusMlDecoder.js
 │   │   │   ├── PassbandTuner.svelte
@@ -246,10 +252,13 @@ PhantomSDR-Plus
 │   │   │   ├── storage.js
 │   │   │   ├── Tooltip.svelte
 │   │   │   ├── VersionSelector.svelte
-│   │   │   ├── VersionSelector.svelte.backup
 │   │   │   ├── VideoAreaSelector.svelte
 │   │   │   └── wrappers.js
 │   │   ├── main.js
+│   │   ├── modeId.js
+│   │   ├── modeId.worker.js
+│   │   ├── modeIdWorkerProxy.js
+│   │   ├── modePriors.js
 │   │   ├── mobile
 │   │   │   ├── backend.js
 │   │   │   ├── bookmarks.js
@@ -278,10 +287,12 @@ PhantomSDR-Plus
 │   │   │   └── wspr.js
 │   │   ├── olivia.js
 │   │   ├── psk31.js
+│   │   ├── remoteSource.js
 │   │   ├── scanner.js
 │   │   ├── sstv.js
 │   │   ├── sstv.worker.js
 │   │   ├── sstvWorkerProxy.js
+│   │   ├── uberSource.js
 │   │   ├── unused
 │   │   │   ├── AudioProcessor.js
 │   │   │   ├── decoder.js
@@ -311,7 +322,9 @@ PhantomSDR-Plus
 │   │   │   └── wrappers.js
 │   │   ├── videoRecorder.js
 │   │   ├── vite-env.d.ts
-│   │   └── waterfall.js
+│   │   ├── waterfall.js
+│   │   ├── webSdrCodec.js
+│   │   └── webSdrSource.js
 │   ├── stats.html
 │   ├── svelte.config.js
 │   ├── tailwind.config.cjs
@@ -377,12 +390,16 @@ PhantomSDR-Plus
 ├── update.sh
 ├── request.hpp
 ├── setup_admin.sh
+├── setup_websdr_relay.sh      # installiert das WebSDR-Diversity-Relay (Port, Identität, systemd)
+├── websdr_relay.py            # das Relay selbst — siehe docs/RECEIVE_DIVERSITY.md
+├── websdr_relay.json.example  # Konfigurationsvorlage (Port, Limits, Stationskennung)
 ├── setup-rx888-udev.sh
 ├── setup-cpufreq-perms.sh
 ├── thermal_guard.py           # CPU-Überhitzungsschutz für das Admin-Panel (läuft auch eigenständig)
 ├── thermal-guard.service      # Beispiel-systemd-Unit für den Wächter, für Installationen ohne Admin-Panel
 ├── phantomsdr-admin.service   # Beispiel-systemd-Unit für das Admin-Panel (Start beim Booten, Neustart nach Absturz)
 ├── phantomsdr-proxy.service   # Beispiel-systemd-Unit für den Proxy, zusammen mit der Panel-Unit zu installieren
+├── phantomsdr-websdr-relay.service  # Beispiel-systemd-Unit für das WebSDR-Diversity-Relay
 ├── smeter_theme.sh
 ├── src
 │   ├── audio.cpp
@@ -436,7 +453,6 @@ PhantomSDR-Plus
 ├── check-go.sh                # alt: Watchdog der go.sh-Kette
 ├── kill.sh                    # alt: beendet die Serverprozesse, von go.sh aufgerufen
 ├── _relaunch.sh               # alt: verzögerter Neustart-Helfer der go.sh-Kette
-├── demo_installer.sh          # Trockenlauf von install.sh — zeigt den Ablauf, installiert nichts
 ├── logproxy                   # rotierte Kopien der Panel-/Proxy-/Autorun-Logs
 ├── subprojects
     ├── fftw3.wrap
@@ -703,7 +719,6 @@ Jedes `start-*.sh` unten ist ein **eigenständiger Starter + Watchdog + Protokol
 | `smeter_theme.sh` | Standard-Skalenbild des analogen S-Meters (dark / amber / vintage) für alle Nutzer setzen und den Frontend-Neubau anbieten — siehe [Varianten bearbeiten](EDITING_VARIANTS.md) |
 | `waterfall.sh` | Ändert die voreingestellte minimale Wasserfall-Ebene (dB) in `waterfall.js` + `App.svelte` — siehe [README](README.md) |
 | `kiwi_install.sh` | Installiert die KiwiSDR-Client-Emulation in einen Baum, der sie noch nicht hat: patcht die Backend-Quellen, kopiert `src/kiwi_bridge.h` und fügt einen dokumentierten `[kiwi_emulation]`-Block in die Konfigurationsdateien im Wurzelverzeichnis ein. Idempotent, und sichert jede Datei, die es anfasst — siehe [Emulation von KiwiSDR-Clients](Aether_config.md) |
-| `demo_installer.sh` | Trockenlauf von `install.sh`: zeigt den gesamten Ablauf und installiert nichts |
 
 **Alte Startkette.** `go.sh`, `xgo.sh`, `check-go.sh`, `kill.sh` und `_relaunch.sh` sind die vorige Generation von Start-, Watchdog- und Stoppskripten. Alles, was sie taten, steckt heute in jedem `start-<radio>.sh`, und das ist das, was Sie benutzen sollten. Sie liegen noch auf der Platte, weil bestehende Installationen sie referenzieren, und werden nicht mehr gepflegt.
 
@@ -838,6 +853,33 @@ Die Rolle `fsk` beherbergt zusätzlich zwei Decoder, die überhaupt kein FSK sin
 
 - `psk31.js` — BPSK31: komplexes Basisband, angepasstes Filter, Differenzdemodulation und Varicode, mit spektraler Grobsuche und einer Feinregelung über etwa ±25 Hz.
 - `olivia.js` — Olivia MFSK: eine Portierung des MFSK-Empfängers von Pawel Jalocha aus fldigi (`pj_mfsk.h`, GPL-3, wie auch dieses Projekt), einschließlich der Walsh/Hadamard-Fehlerkorrektur und der blinden Synchronisationssuche über Blockphase und Frequenzversatz.
+- `broadcastSchedules.js` — die UTC-Sendepläne, die FAX-, NAVTEX- und RTTY-Decoder als Voreinstellungen anbieten, aus den NOAA/NWS-Marine-Faxplänen und den veröffentlichten NAVTEX-Stationslisten
+
+#### 4b. Empfangsdiversität (`diversity.js`)
+- Verbindet den lokalen Empfänger mit einem zweiten anderswo und folgt dem Standort, der gerade das bessere Signal hat. Reines JS, keine Komponente — es sitzt an einer Nahtstelle in `audio.js`, die ihm das lokale PCM übergibt und wiedergibt, was zurückkommt
+- **Auswahl, nicht Addition.** Zwei Standorte hören dieselbe Aussendung über verschiedene ionosphärische Wege, ihre Signalverläufe haben also unabhängige Phase; addiert klingt das kammgefiltert. Kohärentes Zusammenführen bräuchte einen gemeinsamen Takt, den zwei Empfänger über das Internet nicht teilen. Gemischt wird nur während einer 30-ms-Überblendung
+- Die Ausrichtung korreliert die beiden **Audio-Hüllkurven** (logarithmische Leistung bei 100 Hz), nie die Signalverläufe — die Hüllkurve übersteht sowohl den Weg als auch jeden Codec. Eine Ausrichtung gilt erst, wenn eine zweite, unabhängige Suche zustimmt; das weist die überzeugte, aber falsche Verzögerung zurück, die zwei gegenphasig schwindende Standorte sonst liefern
+- Der entfernte Strom wird zuerst auf die lokale Rate **eingerastet**. Zwei Empfänger sind zwei Takte und zwei Dezimierungsketten, ihr Audio trifft also bis zu 2% auseinander ein, selbst wenn beide 12 kHz melden — 240 Abtastwerte pro Sekunde Drift, die keine Korrelation hält. Das Verhältnis wird daraus gemessen, wie viele Abtastwerte jede Seite tatsächlich liefert, und von einem Resampler angewandt, der seine gebrochene Phase über Blockgrenzen mitführt, sodass ein beliebiges Verhältnis dauerhaft hält
+- Die Standortwahl nutzt ein Perzentil-SNR, gemessen an **inhaltlich ausgerichteten** Abtastwerten, mit Hysterese, Haltezeit und einem schnellen Notausgang, wenn der aktive Standort zusammenbricht. Die Pegel werden Rauschen-zu-Rauschen angeglichen, damit ein Wechsel das Grundrauschen nicht verändert
+- Die Decoder behalten den **lokalen** Datenstrom: FT8, JS8, WSPR und RADE integrieren kohärent über einen Zeitschlitz, und ein Wechsel mittendrin ist eine Phasenunstetigkeit, die die Dekodierung kosten kann
+
+#### 4c. Diversitätsquellen (`remoteSource.js`, `kiwiSource.js`, `uberSource.js`, `webSdrSource.js`)
+- Ein Vertrag — `onPcm` / `onState` / `tune` / `canReceive` — sodass `diversity.js` nie erfährt, was am anderen Ende hängt. Ein weiterer Empfängertyp ist eine neue Datei
+- `remoteSource.js` — ein weiterer PhantomSDR-Plus über `/audio` (cbor + FLAC), nutzt `createDecoder()` aus `lib/wrappers.js`
+- `kiwiSource.js` — ein KiwiSDR: `SND`-Rahmen, Big-Endian-PCM, samt dem 10-Byte-GPS-Zeitstempel, den ein Stereopaket vor das Audio setzt
+- `uberSource.js` — ein UberSDR über sein eigenes `/ws`: Opus in einem 21-Byte-Kopf, Abstimmen über die offene Verbindung. Die Sitzungs-ID muss zuvor per `POST /connection` angemeldet werden und muss eine UUID sein
+- `webSdrSource.js` — ein WebSDR, über `websdr_relay.py` auf diesem Server: der Browser kann sich nicht direkt verbinden, weil WebSDR den `Origin`-Header prüft und kein Skript ihn ändern darf. Abgestimmt wird per Textrahmen auf derselben Verbindung; die Bandabdeckung liefert das Relay
+- `webSdrCodec.js` — das WebSDR-Audioformat: ein byteweise getaggter Strom, dessen komprimierte Blöcke einen 20-stufigen Leaky-LMS-Prädiktor speisen. Aus dem WebSDR-Client portiert und Sample für Sample dagegen geprüft
+- `diversityList.js` — die Liste gespeicherter Empfänger und die Adressregeln der vier Typen, gemeinsam genutzt von der Desktop-Oberfläche und der Mobilseite, damit ein Format beiden dient. Dazu die Übertragung — ein kompakter Blob, sein QR-Code und ein Parser, der jede Form annimmt, die die beiden Seiten je geschrieben haben — sowie `browseUrl()`, das eine angewählte Adresse in eine zurückverwandelt, die ein Browser öffnen kann
+- `lib/DiversityPanel.svelte` — die Oberfläche: Adresse, Quellentyp, SNR-Trim und Live-Status, dazu die gespeicherten Empfänger — benannt, frei sortierbar und als JSON-Datei exportier- und importierbar, je Quellentyp im `localStorage`. Bearbeitet wird alles innerhalb des Feldes: `prompt()` und `confirm()` blockieren den Main-Thread, über den die Audioblöcke in das Playback-Worklet geschoben werden. Eine Schaltfläche **▦ QR** zeichnet die Liste als scannbaren Code, denn `localStorage` gehört zu einem Browser und ein Telefon beginnt leer. `mobile/Mobile.svelte` bietet dieselbe Funktion in einem Reiter **Div**, im eigenen einfachen CSS jener Seite. Siehe [Empfangsdiversität](RECEIVE_DIVERSITY.md)
+
+#### 4d. Modus-Erkennung (`modeId.js`, `modePriors.js`)
+- Beantwortet „was höre ich da?". Sie liest denselben rohen PCM-Abgriff wie die Decoder und listet die wahrscheinlichen Betriebsarten nach Rang, damit man den richtigen Decoder wählt, statt alle zehn durchzuprobieren. Sie decodiert nie: sie misst physikalische Eigenschaften des Signals und bewertet sie gegen eine Tabelle bekannter Betriebsarten
+- Die belegte Bandbreite ist die zusammenhängende −15-dB-Breite um die Spitze, bewusst kein 99-%-Leistungswert: Tastklicks legen lange Ausläufer auf das Leistungsintegral und ließen jede schmale Betriebsart um ein Vielfaches zu breit erscheinen. Die Symbolrate kommt aus der **Momentanfrequenz** statt aus Tonenergien, weil keine Integrationszeit zugleich einen 170-Hz-Hub und ein 100-Bd-Symbol auflösen kann. Die Tastrate kommt aus der Ein/Aus-Hüllkurve und dient zugleich als CW-Tempoanzeige
+- `modePriors.js` bringt den einen Hinweis ein, den das Audio nicht tragen kann: wo Sie abgestimmt sind. Ein 100-Bd-/170-Hz-Signal auf 518 kHz ist NAVTEX; dasselbe Signal auf 14,070 MHz ist es nicht. Es gewichtet nur um, was das Signal ohnehin hergab, und erfindet nie einen Kandidaten
+- FT8, JS8 und FT2 werden absichtlich als eine Gruppe gemeldet: an Bandbreite und Tonabstand allein sind sie nicht zu trennen, und etwas anderes zu behaupten wäre eine selbstbewusst falsche Antwort
+- Unterhalb von etwa 10 dB SNR schweigt sie, statt zu raten
+- Läuft in einem eigenen Web Worker (`modeId.worker.js` + `modeIdWorkerProxy.js`) nach demselben Engine/Worker/Proxy-Muster wie die Decoder oben; das Ergebnis ist der Chip in `lib/ModeIdChip.svelte`
 
 #### 5. Zustandsverwaltung (`stores/`)
 - Reaktive Datenspeicher
@@ -858,10 +900,7 @@ Die Rolle `fsk` beherbergt zusätzlich zwei Decoder, die überhaupt kein FSK sin
 
 ## Frequenzlisten (`frequencylist/`)
 
-Die Frequenzmarken auf dem Wasserfall. `mymarkers.json` ist die Liste, die der Empfänger
-tatsächlich anzeigt; der Rest ist das Rohmaterial, das `update-markers.sh` daraus macht,
-aufgefrischt aus den Online-Sendeplänen. `README.md` in diesem Verzeichnis erklärt die
-Aktualisierung in allen sieben Sprachen.
+Die Frequenzmarken auf dem Wasserfall. `mymarkers.json` ist die Liste, die der Empfänger tatsächlich anzeigt; der Rest ist das Rohmaterial, das `update-markers.sh` daraus macht, aufgefrischt aus den Online-Sendeplänen. `README.md` in diesem Verzeichnis erklärt die Aktualisierung in allen sieben Sprachen.
 
 ```
 frequencylist/

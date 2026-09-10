@@ -630,7 +630,7 @@ Zatim se prikazuju dva različita brojača koja je lako zamijeniti. Pločice **S
 
 ## Emulacija KiwiSDR klijenata (neobavezno)
 
-Od v3.9.0 PhantomSDR-Plus može odgovarati i na **KiwiSDR protokol**, pa se softver pisan za KiwiSDR — **AetherSDR**, `kiwiclient` i ostali — spaja izravno na vaš prijamnik, na istom računalu i portu koje već objavljujete. Isključeno je dok se u konfiguraciju s kojom radi vaš prijamnik ne doda `[kiwi_emulation] enabled = true`.
+Od v4.0.0 PhantomSDR-Plus može odgovarati i na **KiwiSDR protokol**, pa se softver pisan za KiwiSDR — **AetherSDR**, `kiwiclient` i ostali — spaja izravno na vaš prijamnik, na istom računalu i portu koje već objavljujete. Isključeno je dok se u konfiguraciju s kojom radi vaš prijamnik ne doda `[kiwi_emulation] enabled = true`.
 
 Instalacijski program to nudi kao korak 17; `./kiwi_install.sh` primjenjuje most na već instalirano stablo.
 
@@ -723,7 +723,7 @@ Uredite sljedeća polja:
   "siteCity": "Your City, Country",
   "siteInformation": "https://github.com/sv1btl/PhantomSDR-Plus",
   "siteHardware": "Computer specifications",
-  "siteSoftware": "PhantomSDR-Plus v3.9.0",
+  "siteSoftware": "PhantomSDR-Plus v4.0.0",
   "siteReceiver": "Your SDR model",
   "siteAntenna": "Antenna description",
   "siteNote": "Additional information",
@@ -1215,15 +1215,9 @@ Traceback (most recent call last):
 ModuleNotFoundError: No module named 'mesonbuild'
 ```
 
-Izvorni kod nije kriv. Zaostala instalacija preko `pip install --user meson`
-ostavila je skriptu u `~/.local/bin`, koja na `PATH`-u dolazi prije `/usr/bin` i
-zato zaklanja ispravnu kopiju koju je instalirao upravitelj paketa. Nadogradnja
-distribucije (primjerice Ubuntu 24.04 → 26.04) prebacuje Python na novu verziju,
-stari `site-packages` u kojem je bio `mesonbuild` više nije na putanji uvoza, pa
-skripta pada prije nego išta napravi. Isto se može dogoditi i `ninji`.
+Izvorni kod nije kriv. Zaostala instalacija preko `pip install --user meson` ostavila je skriptu u `~/.local/bin`, koja na `PATH`-u dolazi prije `/usr/bin` i zato zaklanja ispravnu kopiju koju je instalirao upravitelj paketa. Nadogradnja distribucije (primjerice Ubuntu 24.04 → 26.04) prebacuje Python na novu verziju, stari `site-packages` u kojem je bio `mesonbuild` više nije na putanji uvoza, pa skripta pada prije nego išta napravi. Isto se može dogoditi i `ninji`.
 
-Instalacijska skripta to prepoznaje i zaobilazi za vrijeme trajanja instalacije,
-uz upozorenje, ali sustav ipak popravite:
+Instalacijska skripta to prepoznaje i zaobilazi za vrijeme trajanja instalacije, uz upozorenje, ali sustav ipak popravite:
 
 ```bash
 rm -f ~/.local/bin/meson
@@ -1231,8 +1225,7 @@ hash -r
 meson --version        # mora ispisati verziju
 ```
 
-Ako radije želite zadržati meson instaliran preko pipa, ponovno ga instalirajte
-za Python koji sustav sada ima:
+Ako radije želite zadržati meson instaliran preko pipa, ponovno ga instalirajte za Python koji sustav sada ima:
 
 ```bash
 python3 -m pip install --user --force-reinstall --break-system-packages meson
@@ -1440,17 +1433,12 @@ waterfall_compression = "zstd"  # Efficient compression
 
 ## Ažuriranje PhantomSDR-Plusa
 
-Od verzije 3.8.0 repozitorij donosi **`update.sh`**, alat koji instalirani prijamnik dovodi u
-skladu s objavljenim stablom **bez diranja datoteka koje ga čine vašom postajom**. Zamjenjuje
-ručno pisanu `git pull` skriptu koju su ranija izdanja ovog priručnika tražila da napišete i
-git mu uopće nije potreban: objavljeno stablo preuzima se kao tarball i uspoređuje s vašim
-datoteku po datoteku, pa radi jednako bilo da ste repozitorij klonirali, raspakirali
+Od verzije 4.0.0 repozitorij donosi **`update.sh`**, alat koji instalirani prijamnik dovodi u skladu s objavljenim stablom **bez diranja datoteka koje ga čine vašom postajom**. Zamjenjuje ručno pisanu `git pull` skriptu koju su ranija izdanja ovog priručnika tražila da napišete i git mu uopće nije potreban: objavljeno stablo preuzima se kao tarball i uspoređuje s vašim datoteku po datoteku, pa radi jednako bilo da ste repozitorij klonirali, raspakirali
 `update.zip` ili stablo prekopirali s USB stika.
 
 ### Ako vaša instalacija još nema update.sh
 
-Starije stablo ne sadrži skriptu. Dohvatite je jednom — to je jedini korak cijelog ovog
-postupka koji ćete ikada obaviti ručno:
+Starije stablo ne sadrži skriptu. Dohvatite je jednom — to je jedini korak cijelog ovog postupka koji ćete ikada obaviti ručno:
 
 ```bash
 cd ~/PhantomSDR-Plus
@@ -1458,8 +1446,7 @@ curl -fLO https://raw.githubusercontent.com/sv1btl/PhantomSDR-Plus/main/update.s
 chmod +x update.sh
 ```
 
-Od tada sve — izvorni kod, frontend, dokumentacija, instalacijske skripte i sam `update.sh` —
-dolazi preko alata.
+Od tada sve — izvorni kod, frontend, dokumentacija, instalacijske skripte i sam `update.sh` — dolazi preko alata.
 
 ### Korak 1 — pogledajte što bi se promijenilo (ništa se ne zapisuje)
 
@@ -1468,8 +1455,7 @@ cd ~/PhantomSDR-Plus
 ./update.sh
 ```
 
-Preuzima objavljeno stablo, uspoređuje ga s vašim i ispisuje izvještaj. Ne zapisuje baš ništa,
-pa ga je sigurno pokrenuti u bilo kojem trenutku, i dok je prijamnik u eteru. Izlazni je kod
+Preuzima objavljeno stablo, uspoređuje ga s vašim i ispisuje izvještaj. Ne zapisuje baš ništa, pa ga je sigurno pokrenuti u bilo kojem trenutku, i dok je prijamnik u eteru. Izlazni je kod
 `0` kada ste ažurni i `10` kada ažuriranje čeka, pa vas cron posao može obavijestiti kada ima
 posla.
 
@@ -1496,11 +1482,10 @@ Za svaku datoteku iz srednje skupine prikazuju se razlike i nude tri izbora:
 * **Keep mine** — vaša datoteka ostaje točno onakva kakva jest.
 * **upstream** — instalira se nova inačica, a vaša se prethodno sigurnosno pohranjuje.
 * **both** — nova se inačica zapisuje uz vašu kao `start-rx888mk2.sh.new`, da svoje izmjene
-  prenesete kada vam odgovara.
+prenesete kada vam odgovara.
 
 **Kako izgleda prvo pokretanje.** Prvi put ne postoji zapis o tome iz koje inačice potječu
-vaše datoteke, pa vam se predočava svaka datoteka iz srednje skupine — desetak pitanja.
-Odgovarajte ovako:
+vaše datoteke, pa vam se predočava svaka datoteka iz srednje skupine — desetak pitanja. Odgovarajte ovako:
 
 | Vaša situacija | Odgovor |
 |---|---|
@@ -1508,19 +1493,12 @@ Odgovarajte ovako:
 | Mijenjali ste je (vlastiti `RX888_ARGS`, prikvačivanje na jezgre, prilagođena jedinica) | `b` — vaša ostaje, a nova dolazi uz nju kao `<datoteka>.new`. |
 | Niste sigurni | ENTER — vaša ostaje, ništa se ne gubi, usporedit ćete poslije. |
 
-Vaša konfiguracija u tome nikada ne sudjeluje: pitanja se uvijek tiču samo skripti i
-uslužnih jedinica.
+Vaša konfiguracija u tome nikada ne sudjeluje: pitanja se uvijek tiču samo skripti i uslužnih jedinica.
 
 `update.sh` u `.update-state/` bilježi inačicu svake datoteke koju instalira. Već od drugog
-pokretanja zato razlikuje datoteku koju ste **vi** mijenjali od one koja je naprosto stara, i
-zaustavlja se samo kod onih kojih ste se doista dotakli.
+pokretanja zato razlikuje datoteku koju ste **vi** mijenjali od one koja je naprosto stara, i zaustavlja se samo kod onih kojih ste se doista dotakli.
 
-Prije nego išta zapiše zaustavlja prijamnik, administratorsku ploču i obrnuti proxy **instalacije
-koju ažurira** — ono što poslužuje drugi direktorij navodi se i ostavlja raditi, pa se drugi klon
-može ažurirati dok prvi ostaje u eteru — a na kraju pokreće natrag točno ono što je zaustavio. Ako su se promijenile izvorne
-ili frontend datoteke, ponudit će da za vas pokrene `recompile.sh`. Ništa se nikada ne briše:
-datoteke kojih više nema u repozitoriju samo se prijavljuju, a uklanjaju se jedino ako to
-zatražite s `--prune`.
+Prije nego išta zapiše zaustavlja prijamnik, administratorsku ploču i obrnuti proxy **instalacije koju ažurira** — ono što poslužuje drugi direktorij navodi se i ostavlja raditi, pa se drugi klon može ažurirati dok prvi ostaje u eteru — a na kraju pokreće natrag točno ono što je zaustavio. Ako su se promijenile izvorne ili frontend datoteke, ponudit će da za vas pokrene `recompile.sh`. Ništa se nikada ne briše: datoteke kojih više nema u repozitoriju samo se prijavljuju, a uklanjaju se jedino ako to zatražite s `--prune`.
 
 ### Poništavanje ažuriranja
 
@@ -1535,26 +1513,23 @@ Svaka prepisana datoteka čuva se u `.update-backups/<vremenska oznaka>/` s vlas
 
 ```bash
 ./update.sh --apply --yes     # nikada ne pita; svaka vaša izmijenjena datoteka OSTAJE
-./update.sh --ref v3.8.0      # oznaka, grana ili commit umjesto trenutnog stabla
+./update.sh --ref v4.0.0      # oznaka, grana ili commit umjesto trenutnog stabla
 ./update.sh --list-excludes   # ispisuje pravila "ne diraj" kako vrijede ovdje
 ./update.sh --verbose         # nabraja sve datoteke, ne samo prvih 40
 ```
 
-Vlastita pravila "ne diraj" dodajete tako da u `update-exclude.txt` u korijenskoj mapi
-instalacije upišete jedan uzorak po retku.
+Vlastita pravila "ne diraj" dodajete tako da u `update-exclude.txt` u korijenskoj mapi instalacije upišete jedan uzorak po retku.
 
 ### Ako izgradnja padne na vrlo staroj instalaciji
 
 `update.sh` ažurira datoteke, a ne sistemske pakete. Ako je vaše stablo toliko staro da
-izgradnja sada traži biblioteke kojih nemate, `recompile.sh` će stati s greškom prevoditelja
-ili mesona. To nije pokvareno ažuriranje — nedostaju ovisnosti:
+izgradnja sada traži biblioteke kojih nemate, `recompile.sh` će stati s greškom prevoditelja ili mesona. To nije pokvareno ažuriranje — nedostaju ovisnosti:
 
 ```bash
 ./install.sh
 ```
 
-Instalacijska skripta i sama se ažurira istim pokretanjem, a vaša konfiguracija preživljava
-i nju.
+Instalacijska skripta i sama se ažurira istim pokretanjem, a vaša konfiguracija preživljava i nju.
 
 ### Ručno ažuriranje
 

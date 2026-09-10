@@ -703,13 +703,7 @@ Because Force skips every safety check, it will happily paint noise if you press
 **System clock accuracy matters.** FT8, FT4, and WSPR are time-critical. They decode in fixed UTC-aligned windows. If your computer clock is off by more than 1–2 seconds, decode rates will drop significantly. Use an NTP client to keep your clock accurate.
 
 **The noise filters do not reach the decoders.** NR, NB, NS and AN are listening
-aids for your ears only. Every decoder — FT8, FT4/FT2, CW, WSPR, FAX, NAVTEX,
-FSK/RTTY/PSK31/Olivia, SSTV and the QRSS grabber — taps the audio *before* those
-filters, so set them however sounds best without worrying about decode quality.
-For the same reason the decoders keep running while the receiver is muted or
-squelched: you can silence the speaker and leave a decoder or an overnight QRSS
-grab collecting. The one thing that does follow what you hear is the Audio
-Spectrogram, which is meant to show the filtered audio.
+aids for your ears only. Every decoder — FT8, FT4/FT2, CW, WSPR, FAX, NAVTEX, FSK/RTTY/PSK31/Olivia, SSTV and the QRSS grabber — taps the audio *before* those filters, so set them however sounds best without worrying about decode quality. For the same reason the decoders keep running while the receiver is muted or squelched: you can silence the speaker and leave a decoder or an overnight QRSS grab collecting. The one thing that does follow what you hear is the Audio Spectrogram, which is meant to show the filtered audio.
 
 **Signal quality beats signal strength.** Most of these decoders are designed for weak signals. A quieter band with lower noise is often more productive than a loud, interference-filled signal. Use the waterfall and passband controls to identify and avoid QRM before enabling a decoder.
 

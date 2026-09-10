@@ -5,6 +5,26 @@
   import { bands as ALL_BANDS } from '../bands-config.js'
   import * as BM from './bookmarks.js'
   import siteInfo from '../../site_information.json'
+  import copy from 'copy-to-clipboard'
+  import {
+    LS_URL as DIV_LS_URL,
+    LS_TYPE as DIV_LS_TYPE,
+    LS_CAL as DIV_LS_CAL,
+    TYPES as DIV_TYPES,
+    typeLabel as divTypeLabel,
+    hintFor as divHint,
+    emptyHistory,
+    loadHistory,
+    saveHistory as persistDivHistory,
+    remembered,
+    normalise as divNormalise,
+    exportBlob as divExportBlob,
+    parseBlob as divParseBlob,
+    mergeHistories as divMergeHistories,
+    qrTooLarge as divQrTooLarge,
+    qrDataUrl as divQrDataUrl,
+    browseUrl as divBrowseUrl
+  } from '../diversityList.js'
 
   // ── Header ───────────────────────────────────────────────────────────────
   // Plain text, no links — same source the desktop App.svelte imports.
@@ -36,14 +56,28 @@
   let muted = false
   let squelchEnable = false
   let squelch = -50
-  let bufferStep = 0
-  // (bufferLimit, bufferThreshold) pairs. Step 0 mirrors audio.js's constructor
-  // default (its 0.01 threshold is clamped up to 0.02 by setAudioBufferDelay,
-  // which is why onMount leaves the buffer untouched entirely). The higher
-  // steps are the desktop's presets, for listeners on jittery mobile links.
+  // The desktop's six buffer presets, exactly — same values, same order. See
+  // handleAudioBufferDelayMove() in App.svelte, which is now the same ladder
+  // starting at audio.js's own constructor defaults so that x1 means what the
+  // engine already does.
+  //
+  // Index here is the desktop's step minus one, which is what lets a bookmark
+  // saved on either page restore the same setting on the other.
+  //
+  // The default is index 1, not 0: the second number is the cushion, the whole
+  // margin the playback path has against a late packet, and index 0's 0.01 s
+  // clamps up to 0.02 s. Twenty milliseconds is fine on a cable and far too
+  // little on a phone. It stays on the ladder because the two pages offer the
+  // same choices, but it is not what a handset starts on.
+  //
+  // (bufferLimit, bufferThreshold) pairs. Both halves reach the playback path
+  // live — the worklet's ring buffer via _workletBufferOptions(), and the
+  // scheduled-buffer path's cushion directly — so moving this is heard at
+  // once, mid-session.
   const BUFFER_PRESETS = [
     [0.25, 0.01], [0.5, 0.1], [1.0, 0.2], [1.5, 0.3], [2.0, 0.4], [2.5, 0.5]
   ]
+  let bufferStep = 1        // the desktop's x2 — the handset default
 
   // ── Recording ────────────────────────────────────────────────────────────
   let isRecording = false
@@ -55,6 +89,163 @@
   let radeSynced = false
   let radeSnr = null
 
+  // ── Receive diversity ────────────────────────────────────────────────────
+  // The engine is already in this bundle — audio.js imports the combiner and
+  // all four source adapters — and tuning.js already goes through
+  // audio.setAudioRange/setAudioDemodulation, both of which retune the remote.
+  // So only the controls were missing, and nothing here needs the waterfall
+  // (this page has none): the combiner measures both SNRs from audio alone.
+  //
+  // The saved list is the SAME localStorage list the desktop page keeps, in
+  // the same format — see diversityList.js. A receiver added on the desktop
+  // is offered here, and the other way round.
+  let divType = 'phantom'
+  let divEndpoint = ''
+  let divCalib = 0
+  let divRunning = false
+  let divStatus = { active: false, state: 'idle', locked: false }
+  let divHistory = emptyHistory()
+  let divPoller = null
+
+  try {
+    divEndpoint = localStorage.getItem(DIV_LS_URL) || ''
+    divType = localStorage.getItem(DIV_LS_TYPE) || 'phantom'
+    divCalib = Number(localStorage.getItem(DIV_LS_CAL) || 0) || 0
+  } catch (e) {}
+  divHistory = loadHistory()
+
+  $: divSaved = divHistory[divType] || []
+  $: divAnySaved = DIV_TYPES.some((t) => (divHistory[t] || []).length > 0)
+  // The entry actually on air, matched on the address: neither the box nor
+  // the type selector can move while a session is up, so it cannot go stale.
+  $: divLiveAddr = divRunning ? (divEndpoint || '').trim() : ''
+  // Two states are what matters at a glance — still working on it, or good.
+  $: divWaiting = divRunning && (divStatus.state !== 'ready' || !divStatus.locked)
+
+  function divStartPoll () {
+    if (divPoller) return
+    // The combiner reports in stream time and updates a few times a second;
+    // 500 ms is plenty, and it only runs while a session is up so an idle
+    // phone is not woken for nothing.
+    divPoller = setInterval(() => {
+      try {
+        divStatus = audio.getDiversityStatus()
+        divRunning = !!divStatus.active
+      } catch (e) {}
+    }, 500)
+  }
+
+  function divStopPoll () {
+    if (divPoller) clearInterval(divPoller)
+    divPoller = null
+  }
+
+  function divToggle () {
+    if (divRunning) {
+      try { audio.stopDiversity() } catch (e) {}
+      divStopPoll()
+      divRunning = false
+      divStatus = { active: false, state: 'idle', locked: false }
+      return
+    }
+    const url = divNormalise(divEndpoint, divType)
+    if (!url) return
+    try {
+      localStorage.setItem(DIV_LS_URL, divEndpoint)
+      localStorage.setItem(DIV_LS_TYPE, divType)
+      localStorage.setItem(DIV_LS_CAL, String(divCalib))
+    } catch (e) {}
+    if (audio.startDiversity(url, { remoteCalibDb: divCalib, type: divType })) {
+      // Only on a start that was accepted: a rejected address is not one
+      // worth offering again.
+      divHistory[divType] = remembered(divHistory, divType, divEndpoint)
+      divHistory = divHistory
+      persistDivHistory(divHistory)
+      divRunning = true
+      divStartPoll()
+    }
+  }
+
+  function divSetCalib () {
+    try { audio.setDiversityCalib(divCalib) } catch (e) {}
+    try { localStorage.setItem(DIV_LS_CAL, String(divCalib)) } catch (e) {}
+  }
+
+  // Switching type swaps in that type's most recent address, but only when the
+  // box is empty or still holds one belonging to the type being left — never
+  // overwrite something half-typed. divPrevType is tracked by hand because
+  // bind:value has already written the new type by the time change fires.
+  // ── Carrying the list between browsers ───────────────────────────────────
+  // This phone is a different browser from the desktop, so it starts with an
+  // empty list however many receivers are saved there. The desktop panel can
+  // draw its list as a QR code; scan it and paste the text here. Same shape as
+  // the bookmarks transfer above, on purpose.
+  let divTransfer = null       // null | 'export' | 'import'
+  let divBlob = ''
+  let divQr = ''
+  let divQrError = ''
+  let divPaste = ''
+  let divPending = null        // parsed text waiting for merge-or-replace
+  let divResult = ''
+
+  async function divShowExport () {
+    divTransfer = 'export'
+    divResult = ''
+    divPending = null
+    divQr = ''
+    divQrError = ''
+    divBlob = divExportBlob(divHistory)
+    if (divQrTooLarge(divBlob)) {
+      divQrError = 'Too many receivers for a scannable QR code — use the text below.'
+      return
+    }
+    try {
+      divQr = await divQrDataUrl(divBlob)
+    } catch (e) {
+      divQrError = 'Could not draw the QR code — use the text below.'
+    }
+  }
+
+  // See copyExport() below for why this is not navigator.clipboard.
+  function divCopyExport () {
+    divResult = copy(divBlob)
+      ? 'Copied to the clipboard.'
+      : 'Copy failed — select the text and copy it by hand.'
+  }
+
+  function divDoImport () {
+    const parsed = divParseBlob(divPaste)
+    if (!parsed.ok) { divResult = parsed.error; divPending = null; return }
+    divPending = parsed
+    divResult = ''
+  }
+
+  function divApplyImport (merge) {
+    if (!divPending) return
+    divHistory = divMergeHistories(divHistory, divPending.history, merge)
+    persistDivHistory(divHistory)
+    if (!(divEndpoint || '').trim()) {
+      const first = (divHistory[divType] || [])[0]
+      divEndpoint = first ? first.addr : ''
+    }
+    divResult = (merge ? 'Merged ' : 'Replaced with ') + divPending.count +
+      (divPending.count === 1 ? ' receiver.' : ' receivers.')
+    divPending = null
+    divPaste = ''
+    divTransfer = null
+  }
+
+  let divPrevType = divType
+  function divOnTypeChange () {
+    const leaving = divHistory[divPrevType] || []
+    const current = (divEndpoint || '').trim()
+    if (current === '' || leaving.some((e) => e.addr === current)) {
+      const first = (divHistory[divType] || [])[0]
+      divEndpoint = first ? first.addr : ''
+    }
+    divPrevType = divType
+  }
+
   // ── Tabs ─────────────────────────────────────────────────────────────────
   let tab = 'audio'
 
@@ -62,6 +253,31 @@
   let users = []
   let usersError = ''
   let usersTimer = null
+
+  // ── Audio path diagnostic ────────────────────────────────────────────────
+  // Which playback path this phone actually got, shown on the page because it
+  // cannot be read any other way without plugging the phone into a computer.
+  // The distinction matters: over plain http a desktop on localhost is a
+  // secure context and gets the AudioWorklet, while a phone on the LAN address
+  // is not and silently falls back to scheduled AudioBufferSourceNodes, which
+  // sound far worse. That difference is invisible and no buffer setting
+  // touches it.
+  // Opt-in with ?diag=1 — a listener cannot act on "you are on the degraded
+  // path", so it is not worth a line of permanent UI, but it is exactly what
+  // is needed when someone reports bad audio and the only machine that can
+  // reproduce it is a phone somewhere else.
+  const DIAG_ON = (() => {
+    try { return new URLSearchParams(window.location.search).has('diag') } catch (e) { return false }
+  })()
+  let diag = null
+  let diagTimer = null
+
+  // Connection banner. The audio socket dropping is routine on a phone —
+  // screen lock, WiFi to cellular — and the engine now reconnects by itself.
+  // This exists so the gap is visible while it happens, instead of the page
+  // looking perfectly healthy with no sound coming out of it.
+  let audioLink = 'connected'   // connected | reconnecting | lost | restored
+  let audioLinkTimer = null
 
   // ── Chat ─────────────────────────────────────────────────────────────────
   let chatSocket = null
@@ -148,15 +364,37 @@
     watchAudioState()
 
     applyVolume()
-    // Deliberately NOT calling applyBuffer() here. audio.js's constructor
-    // already sets bufferLimit 0.25 / bufferThreshold 0.01, and
-    // setAudioBufferDelay() clamps the threshold to a 20 ms minimum — so
-    // applying step 0 at startup would actually ADD 10 ms of latency versus
-    // leaving it alone. The desktop treats the buffer control as opt-in for
-    // the same reason; the slider only takes effect once the user moves it.
+    // Applied at startup so the control and the engine agree from the first
+    // frame. The default is preset 1 while audio.js's constructor sits at
+    // preset 0, so leaving this unsent would show "0.5 s" on a page actually
+    // running at 0.25 s. Ordering is not delicate — the worklet node is built
+    // lazily on the first PCM frame and reads these values then, and a later
+    // change is posted to it as a 'config' message, so either side of
+    // retune() works.
+    applyBuffer()
     retune()
 
+    audio.onConnectionChange = (state) => {
+      if (audioLinkTimer) { clearTimeout(audioLinkTimer); audioLinkTimer = null }
+      if (state === 'connected') {
+        // A reconnect can be over in about a second, so going straight back to
+        // "connected" leaves nothing on screen long enough to notice and the
+        // listener is left wondering what the gap was. Hold a confirmation for
+        // a few seconds instead. Skipped on the first connect of the session,
+        // when there was no gap to explain.
+        if (audioLink === 'connected') return
+        audioLink = 'restored'
+        audioLinkTimer = setTimeout(() => { audioLink = 'connected'; audioLinkTimer = null }, 4000)
+      } else {
+        audioLink = (state === 'reconnecting') ? 'reconnecting' : 'lost'
+      }
+      // A reconnect builds a fresh decoder and timeline but keeps the same
+      // AudioContext, so the meter loop and the gesture that unlocked audio
+      // both survive — there is nothing to restart here.
+    }
+
     startUsersPoll()
+    startDiagPoll()
     connectChat()
     openWhoAmIChannel()
     await tick()
@@ -165,9 +403,14 @@
 
   onDestroy(() => {
     if (usersTimer) clearInterval(usersTimer)
+    if (diagTimer) clearInterval(diagTimer)
+    if (audioLinkTimer) clearTimeout(audioLinkTimer)
     if (smeterRaf) cancelAnimationFrame(smeterRaf)
     try { chatSocket && chatSocket.close() } catch (e) {}
     try { whoChannel && whoChannel.close() } catch (e) {}
+    divStopPoll()
+    try { audio.onConnectionChange = null } catch (e) {}
+    try { audio.stopDiversity() } catch (e) {}
     try { audio.stop() } catch (e) {}
   })
 
@@ -555,6 +798,19 @@
     applySquelch()
   }
 
+  function startDiagPoll () {
+    if (!DIAG_ON) return
+    const read = () => {
+      try {
+        diag = audio.getPlaybackDiagnostics ? audio.getPlaybackDiagnostics() : null
+      } catch (e) {
+        diag = null
+      }
+    }
+    read()
+    diagTimer = setInterval(read, 1000)
+  }
+
   function stepBuffer () {
     // Desktop's button walks one preset up per tap and wraps at the top.
     bufferStep = (bufferStep + 1) % BUFFER_PRESETS.length
@@ -748,7 +1004,10 @@
       volume,
       squelch,
       squelchEnable,
-      audioBufferDelay: bufferStep
+      // Stored on the desktop's 1..5 scale, which is what App.svelte reads back
+      // from a shared bookmark — bufferStep is the 0-based index into the same
+      // five presets.
+      audioBufferDelay: bufferStep + 1
     })
     BM.save(bookmarks)
     newBookmarkName = ''
@@ -789,13 +1048,14 @@
     }
   }
 
-  async function copyExport () {
-    try {
-      await navigator.clipboard.writeText(exportText)
-      importResult = 'Copied to clipboard.'
-    } catch (e) {
-      importResult = 'Copy failed — select the text and copy it manually.'
-    }
+  // navigator.clipboard exists only in a SECURE CONTEXT. This page is served
+  // over plain http, so on a phone it is undefined and the write throws —
+  // which is why this reported a failure every time. copy-to-clipboard falls
+  // back to a hidden selection plus document.execCommand("copy").
+  function copyExport () {
+    importResult = copy(exportText)
+      ? 'Copied to clipboard.'
+      : 'Copy failed — select the text and copy it manually.'
   }
 
   function doImport () {
@@ -968,6 +1228,16 @@
       <button class="tap-start" on:click={handleStart}>Tap to start audio</button>
     {/if}
 
+    {#if audioLink !== 'connected'}
+      <div class="link-banner" class:ok={audioLink === 'restored'}>
+        {audioLink === 'reconnecting'
+          ? 'Audio connection lost — reconnecting…'
+          : audioLink === 'restored'
+            ? 'Audio reconnected.'
+            : 'Audio connection lost.'}
+      </div>
+    {/if}
+
     <main class="panes">
       <!-- ── Always-visible tuning column ──────────────────────────────── -->
       <section class="pane pane-primary">
@@ -1040,7 +1310,7 @@
       <!-- ── Tabbed column ─────────────────────────────────────────────── -->
       <section class="pane pane-secondary">
         <nav class="tabs">
-          {#each [['audio','Audio'],['bands','Bands'],['marks','Marks'],['users','Users'],['chat','Chat']] as [id, label]}
+          {#each [['audio','Audio'],['bands','Bands'],['marks','Marks'],['div','Div'],['users','Users'],['chat','Chat']] as [id, label]}
             <button class="tab" class:active={tab === id} on:click={() => (tab = id)}>{label}</button>
           {/each}
         </nav>
@@ -1172,7 +1442,7 @@
                 Buffer<em>{BUFFER_PRESETS[bufferStep][0].toFixed(1)} s</em>
               </span>
               <div class="slider-inline">
-                <button class="sq-btn buf" class:active={bufferStep >= 2} on:click={stepBuffer}
+                <button class="sq-btn buf" class:active={bufferStep > 0} on:click={stepBuffer}
                         title="Step the buffer up — more delay rides out a slow link; wraps back to the shortest">
                   BUF
                 </button>
@@ -1181,12 +1451,181 @@
               </div>
             </div>
 
+            {#if DIAG_ON && diag}
+              <div class="muted diag">
+                audio: <b>{diag.path}</b>
+                · {diag.secureContext ? 'secure' : 'INSECURE'}
+                · worklet {diag.workletAvailable ? 'yes' : 'NO'}
+                · ctx {diag.contextSampleRate}/{diag.outputSampleRate} {diag.contextState}
+                {#if diag.stats}
+                  · buf {diag.stats.bufferedFrames}f drop {diag.stats.droppedFrames} under {diag.stats.underruns}
+                {:else if diag.path === 'fallback'}
+                  · gaps {diag.fallbackRestarts} drop {diag.fallbackDrops}
+                {/if}
+                · {diag.codec} {diag.channels}ch {diag.decoder}
+                · socket {diag.socketOpen ? 'up' : 'DOWN'} · reconnects {diag.reconnects}
+                · {diag.framesPerPacket}f/pkt {diag.packetsPerSec}/s{diag.resampling ? ' · resampling' : ''}
+                {#if diag.latency}
+                  <br />latency: pkt {Math.round(diag.latency.packet * 1000)}
+                  + buf {Math.round(diag.latency.buffered * 1000)}
+                  + out {Math.round((diag.latency.base + diag.latency.output) * 1000)}
+                  = <b>{Math.round(diag.latency.total * 1000)} ms</b>
+                {/if}
+              </div>
+            {/if}
+
             <div class="transfer-actions">
               <button class="btn" class:rec={isRecording} on:click={toggleRecording}>
                 {isRecording ? 'Stop & save' : 'Record audio'}
               </button>
             </div>
             {#if recordError}<div class="muted">{recordError}</div>{/if}
+
+          {:else if tab === 'div'}
+            <!-- Receive diversity. The second receiver follows this page's
+                 tuning by itself; there is no separate tuning control. -->
+            <div class="div-head">
+              <span class="dot" class:ok={divRunning && divStatus.locked && divStatus.live !== 'remote'}
+                    class:warn={divWaiting}
+                    class:bad={divRunning && divStatus.state === 'error'}
+                    class:remote={divRunning && divStatus.locked && divStatus.live === 'remote'}></span>
+              <span class="div-state">
+                {#if !divRunning}off
+                {:else if divStatus.state === 'error'}{divStatus.errorText || 'link failed'}
+                {:else if divWaiting}Please wait…
+                {:else}Ready{/if}
+              </span>
+            </div>
+
+            <div class="add-row">
+              <select class="text-input div-type" bind:value={divType}
+                      on:change={divOnTypeChange} disabled={divRunning}>
+                {#each DIV_TYPES as t}<option value={t}>{divTypeLabel(t)}</option>{/each}
+              </select>
+              <button class="btn" class:rec={divRunning} on:click={divToggle}>
+                {divRunning ? 'Stop' : 'Start'}
+              </button>
+            </div>
+
+            <div class="add-row">
+              <input class="text-input" type="text" inputmode="url"
+                     autocapitalize="off" autocorrect="off" spellcheck="false"
+                     bind:value={divEndpoint} disabled={divRunning}
+                     placeholder={divHint(divType)} />
+            </div>
+
+            {#if divSaved.length}
+              <!-- The same saved receivers the desktop page keeps. Tap one to
+                   put it in the box; the running one is bold and blinking. -->
+              <ul class="list">
+                {#each divSaved as e}
+                  <li class="row">
+                    <button class="row-main" disabled={divRunning}
+                            on:click={() => (divEndpoint = e.addr)}>
+                      <span class="row-title div-name"
+                            class:unnamed={!e.name}
+                            class:on-air={e.addr === divLiveAddr}>{e.name || 'unnamed'}</span>
+                      <span class="row-sub">{e.addr}</span>
+                    </button>
+                    <!-- An anchor, not a button: long-press to open in the
+                         background is exactly what a phone user expects. -->
+                    <a class="row-open"
+                       href={divBrowseUrl(e.addr)}
+                       target="_blank" rel="noopener noreferrer"
+                       title="Open this receiver's own page">🌍</a>
+                  </li>
+                {/each}
+              </ul>
+            {:else}
+              <div class="muted">
+                No saved receivers on this phone yet. Type an address and press
+                Start to remember it, or bring the list over from the desktop
+                page with Import below.
+              </div>
+            {/if}
+
+            <!-- The list lives in THIS browser, so the desktop's receivers are
+                 not here until they are carried over. Same transfer shape as
+                 the bookmarks tab. -->
+            <div class="transfer-actions">
+              <button class="btn small" on:click={divShowExport}
+                      disabled={!divAnySaved}>Export</button>
+              <button class="btn small"
+                      on:click={() => { divTransfer = 'import'; divResult = ''; divPending = null }}>Import</button>
+            </div>
+
+            {#if divTransfer === 'export'}
+              <div class="transfer">
+                {#if divQr}
+                  <img class="qr" src={divQr} alt="Saved receivers as a QR code" />
+                {/if}
+                {#if divQrError}<div class="muted">{divQrError}</div>{/if}
+                <textarea class="blob" rows="3" readonly value={divBlob}></textarea>
+                <div class="transfer-actions">
+                  <button class="btn small" on:click={divCopyExport}>Copy</button>
+                  <button class="btn small ghost" on:click={() => (divTransfer = null)}>Close</button>
+                </div>
+              </div>
+            {:else if divTransfer === 'import'}
+              <div class="transfer">
+                <div class="muted">
+                  On the desktop page open the diversity panel, press ☰ then ▦ QR,
+                  and scan it with this phone — then paste the text here.
+                </div>
+                <textarea class="blob" rows="4" bind:value={divPaste}
+                          placeholder="Paste the text from the desktop's QR code"></textarea>
+                {#if divPending}
+                  <div class="muted">
+                    {divPending.count}
+                    {divPending.count === 1 ? 'receiver' : 'receivers'} in that text.
+                  </div>
+                  <div class="transfer-actions">
+                    <button class="btn small" on:click={() => divApplyImport(true)}>Merge</button>
+                    <button class="btn small" on:click={() => divApplyImport(false)}>Replace</button>
+                    <button class="btn small ghost" on:click={() => { divPending = null }}>Cancel</button>
+                  </div>
+                {:else}
+                  <div class="transfer-actions">
+                    <button class="btn small" on:click={divDoImport} disabled={!divPaste.trim()}>Read it</button>
+                    <button class="btn small ghost" on:click={() => (divTransfer = null)}>Close</button>
+                  </div>
+                {/if}
+              </div>
+            {/if}
+            {#if divResult}<div class="muted">{divResult}</div>{/if}
+
+            {#if divRunning}
+              <div class="div-stats">
+                <span>link</span><span>{divStatus.state}</span>
+                <span>aligned</span>
+                <span>{divStatus.locked ? (divStatus.delayMs / 1000).toFixed(2) + ' s' : 'searching'}</span>
+                <span>remote audio</span>
+                <span class:warn-text={!divStatus.remoteSamples}>
+                  {divStatus.remoteSamples
+                    ? (divStatus.remoteSamples / 1000).toFixed(0) + 'k'
+                    : 'none'}
+                </span>
+                <span>SNR local</span><span>{(divStatus.snrLocalDb ?? 0).toFixed(1)} dB</span>
+                <span>SNR remote</span><span>{(divStatus.snrRemoteDb ?? 0).toFixed(1)} dB</span>
+                <span>switches</span><span>{divStatus.switches ?? 0}</span>
+              </div>
+              {#if divStatus.inRange === false && divStatus.state === 'ready'}
+                <div class="muted">The remote does not cover this frequency.</div>
+              {/if}
+            {/if}
+
+            <div class="slider-row">
+              <span class="slider-label">
+                Remote SNR trim<em>{divCalib.toFixed(1)} dB</em>
+              </span>
+              <input type="range" min="-15" max="15" step="0.5"
+                     bind:value={divCalib} on:input={divSetCalib} />
+            </div>
+            <div class="muted">
+              Added to the remote's SNR before the two are compared. +15 forces
+              the remote live, −15 forces this receiver — the only way to hear
+              each site on its own.
+            </div>
           {/if}
         </div>
       </section>
@@ -1505,6 +1944,20 @@
   .dot { width: 8px; height: 8px; border-radius: 50%; background: #666; flex: none; }
   .dot.ok { background: #4ade80; } .dot.warn { background: #fbbf24; } .dot.bad { background: #ef4444; }
   .muted { font-size: 0.75rem; color: #6b8299; padding: 2px 4px; }
+  /* Diagnostic readout: deliberately small and plain — it is here to be read
+     off a phone screen and reported, not to be part of the UI. */
+  /* Connection banner — sits where "Tap to start" does, same weight, so a
+     listener notices it without it taking over the page. */
+  .link-banner {
+    background: #4a3410; border: 1px solid #d1741f; border-radius: 9px;
+    color: #ffe6cc; flex: none; font-size: 0.85rem; margin: 6px;
+    padding: 10px; text-align: center;
+  }
+  /* The all-clear reads green rather than orange — it is reporting that the
+     gap is over, not that something is still wrong. */
+  .link-banner.ok { background: #10361f; border-color: #1f6b3a; color: #b8ecc8; }
+  .diag { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 0.68rem; line-height: 1.5; word-break: break-word; }
+  .diag b { color: #9fd0ee; }
 
   /* ── View switcher ───────────────────────────────────────────────────── */
   .view-switch {
@@ -1548,6 +2001,52 @@
     border-radius: 50%; animation: spin 0.9s linear infinite;
   }
   @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── Receive diversity ───────────────────────────────────────────────── */
+  .div-head { display: flex; align-items: center; gap: 7px; padding: 2px 2px 0; }
+  .div-state { font-size: 0.8rem; color: #cfe3ff; overflow-wrap: anywhere; }
+  /* The remote site currently live, matching the desktop panel's cyan. */
+  .dot.remote { background: #22d3ee; }
+  /* The type selector shares the address box's look but must not stretch:
+     the Start button and it split the row. */
+  .div-type { flex: 0 1 auto; }
+
+  /* A named receiver is green, as on the desktop; an unnamed one is dimmed so
+     the address below it carries the identity instead. */
+  .div-name { color: #4ade80; }
+  .div-name.unnamed { color: #6b8299; font-style: italic; }
+  /* The one on air. A fade rather than a hard blink — it has to be catchable
+     out of the corner of the eye without demanding attention. */
+  .div-name.on-air { font-weight: 700; animation: on-air-blink 1.4s ease-in-out infinite; }
+  @keyframes on-air-blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+  /* Blinking text is the classic reason someone turns this setting on; the
+     bold weight alone still says which receiver is running. */
+  @media (prefers-reduced-motion: reduce) {
+    .div-name.on-air { animation: none; }
+  }
+
+  /* The same shape and touch target as .row-del, in the link colour so it
+     does not read as another destructive control. */
+  .row-open {
+    flex: none;
+    width: 34px; height: 34px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.05rem; line-height: 1; text-decoration: none;
+    background: transparent;
+    border: 1px solid #234050; border-radius: 7px;
+  }
+  .row-open:active { background: #16202c; }
+
+  .div-stats {
+    display: grid; grid-template-columns: auto 1fr; gap: 2px 10px;
+    padding: 7px 9px;
+    font-family: ui-monospace, Menlo, monospace; font-size: 0.72rem;
+    color: #cfe3ff; background: #0e141c;
+    border: 1px solid #1c2836; border-radius: 7px;
+    overflow-wrap: anywhere;
+  }
+  .div-stats span:nth-child(odd) { color: #8ba7bf; }
+  .div-stats .warn-text { color: #fbbf24; }
 
   button { font-family: inherit; cursor: pointer; -webkit-tap-highlight-color: transparent; }
 </style>

@@ -202,9 +202,7 @@ Beispiele:
 
 ### Scanner
 
-Der Scanner führt den Empfänger über einen Bereich von Kanälen und hält beim
-ersten an, auf dem ein Signal liegt. Er sitzt in der Zeile **Fine Tuning (kHz)**
-ganz rechts:
+Der Scanner führt den Empfänger über einen Bereich von Kanälen und hält beim ersten an, auf dem ein Signal liegt. Er sitzt in der Zeile **Fine Tuning (kHz)** ganz rechts:
 
 ```
 7 152.0   ◀  ■  ▶  ⊘   30 dB · 4 ▾
@@ -217,33 +215,24 @@ ganz rechts:
 | **⊘** | Diesen Kanal vom Suchlauf ausschließen — für Pfeifstellen oder Dauerträger. |
 | **30 dB · 4 ▾** | Die Schwelle, daneben der gerade gemessene Pegel. Öffnet die Einstellungen. |
 
-Der Text links zeigt, was der Scanner tut: `Scanner` im Ruhezustand, die
-erreichte Frequenz während des Suchlaufs, `◉ 3s` während des Rücklaufzählers,
+Der Text links zeigt, was der Scanner tut: `Scanner` im Ruhezustand, die erreichte Frequenz während des Suchlaufs, `◉ 3s` während des Rücklaufzählers,
 `◉ 30·22s` solange der Kanal noch belegt ist, `◉ hold`, wenn er stehen bleibt.
 
 **Einstellungen**
 
 - **Range** — *Scan Band* durchsucht das Band, in dem der Suchlauf beginnt;
   *Scan Visible* durchsucht genau den sichtbaren Wasserfall und folgt ihm beim
-  Zoomen und Verschieben.
+Zoomen und Verschieben.
 - **Scan** — *Every channel* stimmt jeden Kanal der Reihe nach ab und hört hinein;
   *Skip empty* liest das Spektrum und springt direkt zu den Signalen.
 - **Stop at** — wie weit über dem Grundrauschen des Bandes ein Kanal liegen muss,
-  damit der Suchlauf anhält, in dB. Das Rauschen wird laufend nachgeführt, eine
-  Einstellung passt daher tags wie nachts. Ein leerer Kanal zeigt nicht 0 dB —
-  beobachten Sie den Live-Wert auf der Schaltfläche und wählen Sie die Schwelle
-  darüber.
+damit der Suchlauf anhält, in dB. Das Rauschen wird laufend nachgeführt, eine Einstellung passt daher tags wie nachts. Ein leerer Kanal zeigt nicht 0 dB — beobachten Sie den Live-Wert auf der Schaltfläche und wählen Sie die Schwelle darüber.
 - **Resume after** — wie lange ein Kanal ruhig bleiben muss, bevor der Suchlauf
-  weiterläuft. Sprechpausen starten ihn nicht neu. *Hold* bleibt stehen, bis Sie
-  eine Taste drücken.
+weiterläuft. Sprechpausen starten ihn nicht neu. *Hold* bleibt stehen, bis Sie eine Taste drücken.
 - **Max stay** — läuft nach dieser Zeit weiter, auch wenn das Signal noch da ist,
-  damit ein Dauerträger den Suchlauf nicht dauerhaft festhält.
+damit ein Dauerträger den Suchlauf nicht dauerhaft festhält.
 
-Die Schrittweite richtet sich nach der Betriebsart — 1 kHz in SSB, 0,1 kHz in CW,
-5 kHz in AM, 9 oder 10 kHz auf Mittelwelle und 9 kHz auf Langwelle — und die
-Haltepunkte liegen im Kanalraster. Der Suchlauf bleibt in seinem Bereich und
-innerhalb dessen, was der Empfänger abstimmen kann; an einer Grenze läuft er am
-anderen Ende weiter.
+Die Schrittweite richtet sich nach der Betriebsart — 1 kHz in SSB, 0,1 kHz in CW, 5 kHz in AM, 9 oder 10 kHz auf Mittelwelle und 9 kHz auf Langwelle — und die Haltepunkte liegen im Kanalraster. Der Suchlauf bleibt in seinem Bereich und innerhalb dessen, was der Empfänger abstimmen kann; an einer Grenze läuft er am anderen Ende weiter.
 
 Einstellungen und ausgeschlossene Kanäle merkt sich Ihr Browser.
 
@@ -302,35 +291,22 @@ Die AGC passt die Audiopegel automatisch an:
 
 ### Die vier Rauschregler
 
-NR, NB, NS und AN sind getrennte Ein/Aus-Schalter, die jeweils eine andere Art
-von Störung angehen. Sie sind unabhängig voneinander — einer schaltet keinen
-anderen mit ein — und lassen sich beliebig kombinieren.
+NR, NB, NS und AN sind getrennte Ein/Aus-Schalter, die jeweils eine andere Art von Störung angehen. Sie sind unabhängig voneinander — einer schaltet keinen anderen mit ein — und lassen sich beliebig kombinieren.
 
-Keiner von ihnen erreicht die Decoder: FT8, CW, WSPR, SSTV, FAX, NAVTEX,
-RTTY/PSK31/Olivia und der QRSS-Grabber lesen das Audio *vor* diesen Filtern. Sie
-können sie also rein nach Gehör einstellen, ohne zu beeinflussen, was decodiert
-wird. Siehe das [Decoder-Handbuch](DECODERS.md#12-allgemeine-tipps).
+Keiner von ihnen erreicht die Decoder: FT8, CW, WSPR, SSTV, FAX, NAVTEX, RTTY/PSK31/Olivia und der QRSS-Grabber lesen das Audio *vor* diesen Filtern. Sie können sie also rein nach Gehör einstellen, ohne zu beeinflussen, was decodiert wird. Siehe das [Decoder-Handbuch](DECODERS.md#12-allgemeine-tipps).
 
 ### Rauschminderung (NR)
 
-Spektrale Rauschminderung. Sie schätzt den Rauschpegel in jedem Teil des
-Audiospektrums und dreht diese Anteile herunter; was über dem Rauschen steht,
-bleibt unangetastet.
+Spektrale Rauschminderung. Sie schätzt den Rauschpegel in jedem Teil des Audiospektrums und dreht diese Anteile herunter; was über dem Rauschen steht, bleibt unangetastet.
 
 **Verwenden, wenn**: Sie gleichmäßiges Zischen oder weißes Rauschen hinter dem
 Signal hören.
 
-Dauertöne — eine CW-Note, ein Träger — werden als Signal erkannt und geschützt.
-NR frisst also kein CW-Signal, wie es ein naives Filter täte. Typische Wirkung:
-10 dB weniger Rauschen in den Sprechpausen, für ein paar Zehntel dB Verlust an
-der Sprache selbst.
+Dauertöne — eine CW-Note, ein Träger — werden als Signal erkannt und geschützt. NR frisst also kein CW-Signal, wie es ein naives Filter täte. Typische Wirkung: 10 dB weniger Rauschen in den Sprechpausen, für ein paar Zehntel dB Verlust an der Sprache selbst.
 
 ### Störaustaster (NB)
 
-Entfernt Impulsstörungen: Knacken, Knallen, atmosphärische Entladungen, Zünd- und
-Netzstörungen. Er beobachtet die Audio-Hüllkurve und schweigt nur die Abtastwerte
-still, die weit darüber ausschlagen — etwa eine Millisekunde je Knall, mit
-weichen Flanken, damit die Austastung nicht selbst knackt.
+Entfernt Impulsstörungen: Knacken, Knallen, atmosphärische Entladungen, Zünd- und Netzstörungen. Er beobachtet die Audio-Hüllkurve und schweigt nur die Abtastwerte still, die weit darüber ausschlagen — etwa eine Millisekunde je Knall, mit weichen Flanken, damit die Austastung nicht selbst knackt.
 
 **Verwenden, wenn**: Sie Knacken von Stromleitungen, Motoren, Gewittern oder
 Fahrzeugzündungen hören.
@@ -339,32 +315,23 @@ Die Netzbrumm-Notches bei 50 Hz und 60 Hz folgen dieser Taste.
 
 ### Grundrauschunterdrückung (NS)
 
-Misst über mehrere Sekunden das Grundrauschen des Bandes und senkt alles ab, was
-auf diesem Pegel liegt — bei hohen Tonfrequenzen stärker als bei tiefen. Wo NR
-von Moment zu Moment reagiert, ist NS die langsame, ruhige Hand: Sie senkt das
-Bandrauschen, ohne den Klang des Signals selbst zu verändern.
+Misst über mehrere Sekunden das Grundrauschen des Bandes und senkt alles ab, was auf diesem Pegel liegt — bei hohen Tonfrequenzen stärker als bei tiefen. Wo NR von Moment zu Moment reagiert, ist NS die langsame, ruhige Hand: Sie senkt das Bandrauschen, ohne den Klang des Signals selbst zu verändern.
 
 **Verwenden, wenn**: Das Band ruhig, aber zischig ist und Sie das Rauschen
 absenken wollen, ohne den „Unterwasser"-Klang aggressiver NR.
 
-Nur in USB, LSB und AM aktiv — CW, FM und die digitalen Betriebsarten bleiben
-unberührt. Bei jedem Frequenz- oder Modewechsel wird neu gemessen; das ist nach
-wenigen Sekunden eingeschwungen.
+Nur in USB, LSB und AM aktiv — CW, FM und die digitalen Betriebsarten bleiben unberührt. Bei jedem Frequenz- oder Modewechsel wird neu gemessen; das ist nach wenigen Sekunden eingeschwungen.
 
 ### Automatische Notch (AN)
 
-Findet und entfernt selbsttätig Dauertöne — Heterodyne, Träger, Pfeifstellen —
-ohne dass Sie ein Notchfilter von Hand setzen müssen. Sie passt sich laufend an,
-kann also mehrere Töne gleichzeitig entfernen und bleibt auch an einem
-driftenden Ton hängen.
+Findet und entfernt selbsttätig Dauertöne — Heterodyne, Träger, Pfeifstellen — ohne dass Sie ein Notchfilter von Hand setzen müssen. Sie passt sich laufend an, kann also mehrere Töne gleichzeitig entfernen und bleibt auch an einem driftenden Ton hängen.
 
 **Verwenden, wenn**: Sie einen Pfeifton über dem gewünschten Signal hören.
 
 In CW abgeschaltet, denn dort *ist* das Nutzsignal ein Dauerton.
 
 **Hinweis zur Verzögerung**: NR und NS fügen im eingeschalteten Zustand je rund
-40 ms Audioverzögerung hinzu (beide zusammen etwa 80 ms). NB und AN fügen keine
-hinzu. Das betrifft nur das Hören, nie die Decoder.
+40 ms Audioverzögerung hinzu (beide zusammen etwa 80 ms). NB und AN fügen keine hinzu. Das betrifft nur das Hören, nie die Decoder.
 
 ### Automatische Rauschsperre (SQL)
 
@@ -682,8 +649,7 @@ Speichern Sie Ihre Lieblingsfrequenzen für den schnellen Zugriff. Sie können d
 
 Wenn sich Lesezeichen und Marker überlappen:
 
-🔵 Blaue Lesezeichen erscheinen oben <br />
-🟡 Gelbe Marker erscheinen darunter <br />
+🔵 Blaue Lesezeichen erscheinen oben <br /> 🟡 Gelbe Marker erscheinen darunter <br />
 ✅ Klicks auf Lesezeichen haben Vorrang <br />
 
 

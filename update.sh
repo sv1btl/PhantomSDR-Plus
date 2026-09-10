@@ -14,7 +14,7 @@
 #    ./update.sh                   report what would change; writes NOTHING
 #    ./update.sh --apply           actually update, asking about your own edits
 #    ./update.sh --apply --yes     unattended; anything you edited is KEPT
-#    ./update.sh --ref v2.1        a tag, branch or commit instead of main
+#    ./update.sh --ref v4.0.0      a tag, branch or commit instead of main
 #    ./update.sh --apply --prune   also offer to delete files GitHub removed
 #    ./update.sh --list-excludes   print the exclusion rules as resolved here
 #    ./update.sh --restore LAST    put back the files the last run overwrote
@@ -249,8 +249,9 @@ TIER_B=(
     'kill.sh' 'check-go.sh' 'waterfall.sh' 'smeter_theme.sh'
     '*.service' 'logrotate/*'
     'install.sh' 'install_*.sh' 'install-*.sh' 'recompile.sh'
-    'setup_admin.sh' 'setup-*.sh' 'manage_admin.sh' 'demo_installer.sh'
+    'setup_admin.sh' 'setup-*.sh' 'manage_admin.sh' 'setup_websdr_relay.sh'
     'proxy.py' 'admin_server.py' 'thermal_guard.py' 'rade_helper.py'
+    'websdr_relay.py'
     # The band-plan overlay: shipped with sensible defaults, but the bands a
     # site shows, and their colours and limits, are a matter of where it is
     # and what it is for. Improvements upstream are worth having, so it is

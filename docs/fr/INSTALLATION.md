@@ -629,7 +629,7 @@ Deux compteurs différents sont ensuite affichés, et il est facile de les confo
 
 ## Émulation des clients KiwiSDR (facultatif)
 
-Depuis la v3.9.0, PhantomSDR-Plus sait aussi répondre au **protocole KiwiSDR**, si bien qu'un logiciel écrit pour un KiwiSDR — **AetherSDR**, `kiwiclient` et les autres — se connecte directement à votre récepteur, sur le même hôte et le même port que vous publiez déjà. C'est désactivé tant que `[kiwi_emulation] enabled = true` n'est pas ajouté à la configuration avec laquelle tourne votre récepteur.
+Depuis la v4.0.0, PhantomSDR-Plus sait aussi répondre au **protocole KiwiSDR**, si bien qu'un logiciel écrit pour un KiwiSDR — **AetherSDR**, `kiwiclient` et les autres — se connecte directement à votre récepteur, sur le même hôte et le même port que vous publiez déjà. C'est désactivé tant que `[kiwi_emulation] enabled = true` n'est pas ajouté à la configuration avec laquelle tourne votre récepteur.
 
 L'installateur le propose à l'étape 17 ; `./kiwi_install.sh` l'applique à une arborescence déjà installée.
 
@@ -722,7 +722,7 @@ Modifiez les champs suivants :
   "siteCity": "Your City, Country",
   "siteInformation": "https://github.com/sv1btl/PhantomSDR-Plus",
   "siteHardware": "Computer specifications",
-  "siteSoftware": "PhantomSDR-Plus v3.9.0",
+  "siteSoftware": "PhantomSDR-Plus v4.0.0",
   "siteReceiver": "Your SDR model",
   "siteAntenna": "Antenna description",
   "siteNote": "Additional information",
@@ -1216,14 +1216,11 @@ ModuleNotFoundError: No module named 'mesonbuild'
 
 L'arborescence des sources n'est pas en cause. Une ancienne installation par
 `pip install --user meson` a laissé un script de lancement dans `~/.local/bin`,
-qui passe avant `/usr/bin` dans le `PATH` et masque donc la copie installée par le
-gestionnaire de paquets. Une montée de version de la distribution (Ubuntu 24.04 →
-26.04, par exemple) fait passer Python à une nouvelle version, l'ancien
+qui passe avant `/usr/bin` dans le `PATH` et masque donc la copie installée par le gestionnaire de paquets. Une montée de version de la distribution (Ubuntu 24.04 → 26.04, par exemple) fait passer Python à une nouvelle version, l'ancien
 `site-packages` qui contenait `mesonbuild` n'est plus dans le chemin d'import, et
 le script meurt sans avoir rien fait. La même chose peut arriver à `ninja`.
 
-L'installateur détecte ce cas et le contourne le temps de l'exécution, en vous
-avertissant, mais réparez tout de même le système :
+L'installateur détecte ce cas et le contourne le temps de l'exécution, en vous avertissant, mais réparez tout de même le système :
 
 ```bash
 rm -f ~/.local/bin/meson
@@ -1231,8 +1228,7 @@ hash -r
 meson --version        # doit afficher une version
 ```
 
-Si vous préférez garder meson installé via pip, réinstallez-le pour le Python
-dont dispose maintenant ce système :
+Si vous préférez garder meson installé via pip, réinstallez-le pour le Python dont dispose maintenant ce système :
 
 ```bash
 python3 -m pip install --user --force-reinstall --break-system-packages meson
@@ -1440,18 +1436,11 @@ waterfall_compression = "zstd"  # Efficient compression
 
 ## Mise à jour de PhantomSDR-Plus
 
-Depuis la version 3.8.0, le dépôt fournit **`update.sh`**, un outil qui met une installation à
-jour à partir de l'arborescence publiée **sans toucher aux fichiers qui font qu'elle est votre
-station**. Il remplace le script `git pull` que les éditions précédentes de ce guide vous
-demandaient d'écrire, et il n'a pas besoin de git du tout : l'arborescence publiée est
-téléchargée sous forme d'archive tar et comparée à la vôtre fichier par fichier. Il fonctionne
-donc de la même façon que vous ayez cloné le dépôt, décompressé un `update.zip` ou copié
-l'arborescence depuis une clé USB.
+Depuis la version 4.0.0, le dépôt fournit **`update.sh`**, un outil qui met une installation à jour à partir de l'arborescence publiée **sans toucher aux fichiers qui font qu'elle est votre station**. Il remplace le script `git pull` que les éditions précédentes de ce guide vous demandaient d'écrire, et il n'a pas besoin de git du tout : l'arborescence publiée est téléchargée sous forme d'archive tar et comparée à la vôtre fichier par fichier. Il fonctionne donc de la même façon que vous ayez cloné le dépôt, décompressé un `update.zip` ou copié l'arborescence depuis une clé USB.
 
 ### Si votre installation n'a pas encore update.sh
 
-Une arborescence ancienne ne contient pas le script. Récupérez-le une fois : c'est la seule
-étape de toute cette procédure que vous ferez à la main :
+Une arborescence ancienne ne contient pas le script. Récupérez-le une fois : c'est la seule étape de toute cette procédure que vous ferez à la main :
 
 ```bash
 cd ~/PhantomSDR-Plus
@@ -1459,8 +1448,7 @@ curl -fLO https://raw.githubusercontent.com/sv1btl/PhantomSDR-Plus/main/update.s
 chmod +x update.sh
 ```
 
-Ensuite tout — sources, frontend, documentation, installateurs et `update.sh` lui-même —
-arrive par l'outil.
+Ensuite tout — sources, frontend, documentation, installateurs et `update.sh` lui-même — arrive par l'outil.
 
 ### Étape 1 — voir ce qui changerait (rien n'est écrit)
 
@@ -1469,10 +1457,7 @@ cd ~/PhantomSDR-Plus
 ./update.sh
 ```
 
-L'arborescence publiée est téléchargée, comparée à la vôtre, et un rapport est affiché. Rien
-n'est écrit, l'appel est donc sans danger à tout moment, y compris sur un récepteur en service.
-Le code de retour vaut `0` si vous êtes à jour et `10` si une mise à jour attend : une tâche
-cron peut ainsi vous prévenir lorsqu'il y a quelque chose à faire.
+L'arborescence publiée est téléchargée, comparée à la vôtre, et un rapport est affiché. Rien n'est écrit, l'appel est donc sans danger à tout moment, y compris sur un récepteur en service. Le code de retour vaut `0` si vous êtes à jour et `10` si une mise à jour attend : une tâche cron peut ainsi vous prévenir lorsqu'il y a quelque chose à faire.
 
 ### Étape 2 — l'appliquer
 
@@ -1488,8 +1473,7 @@ Trois catégories de fichiers sont traitées différemment, et c'est tout l'int�
 | `start-*.sh`, `stop-websdr.sh`, les unités `*.service`, `install*.sh`, `recompile.sh`, `setup_admin.sh`, `smeter_theme.sh`, `proxy.py`, `admin_server.py`, `thermal_guard.py`, `frontend/src/bands-config.js` | **Toujours soumis à une question**, car ce sont les fichiers qu'un sysop a de bonnes raisons d'avoir modifiés. |
 | Tout le reste | Mis à jour, après copie de l'ancien fichier dans `.update-backups/`. |
 
-Pour chaque fichier du groupe du milieu, les différences sont affichées et trois choix sont
-proposés :
+Pour chaque fichier du groupe du milieu, les différences sont affichées et trois choix sont proposés :
 
 ```
   ❓ start-rx888mk2.sh  [K]eep mine / [u]pstream / [b]oth  (ENTER = Keep mine)
@@ -1501,8 +1485,7 @@ proposés :
   `start-rx888mk2.sh.new`, pour que vous y reportiez vos modifications à votre rythme.
 
 **À quoi ressemble une première exécution.** La première fois, rien n'indique de quelle
-version viennent vos fichiers : chaque fichier du groupe du milieu vous est donc soumis, soit
-une dizaine de questions. Répondez ainsi :
+version viennent vos fichiers : chaque fichier du groupe du milieu vous est donc soumis, soit une dizaine de questions. Répondez ainsi :
 
 | Votre situation | Réponse |
 |---|---|
@@ -1510,20 +1493,12 @@ une dizaine de questions. Répondez ainsi :
 | Vous l'avez modifié (vos `RX888_ARGS`, l'épinglage CPU, une unité ajustée) | `b` — le vôtre est conservé et le nouveau arrive à côté sous `<fichier>.new`. |
 | Vous n'êtes pas sûr | ENTRÉE — le vôtre est conservé, rien n'est perdu, vous comparerez plus tard. |
 
-Votre configuration n'entre jamais là-dedans : les questions ne portent que sur des scripts
-et des unités de service.
+Votre configuration n'entre jamais là-dedans : les questions ne portent que sur des scripts et des unités de service.
 
 `update.sh` note dans `.update-state/` la version de chaque fichier qu'il installe. Dès la
-deuxième exécution, il distingue donc un fichier que **vous** avez modifié d'un fichier
-simplement ancien, et ne s'arrête que sur ceux auxquels vous avez réellement touché.
+deuxième exécution, il distingue donc un fichier que **vous** avez modifié d'un fichier simplement ancien, et ne s'arrête que sur ceux auxquels vous avez réellement touché.
 
-Avant d'écrire quoi que ce soit, il arrête le récepteur, le panneau d'administration et le proxy
-inverse **de l'installation qu'il met à jour** — ce qui dessert un autre répertoire est signalé et
-laissé en marche, de sorte qu'un second clone peut être mis à jour pendant que le premier reste
-en service — puis redémarre à la fin exactement ce qu'il a arrêté. Si
-des fichiers source ou du frontend ont changé, il propose de lancer `recompile.sh` pour vous.
-Rien n'est jamais supprimé : les fichiers disparus du dépôt sont signalés et ne sont retirés que
-si vous le demandez avec `--prune`.
+Avant d'écrire quoi que ce soit, il arrête le récepteur, le panneau d'administration et le proxy inverse **de l'installation qu'il met à jour** — ce qui dessert un autre répertoire est signalé et laissé en marche, de sorte qu'un second clone peut être mis à jour pendant que le premier reste en service — puis redémarre à la fin exactement ce qu'il a arrêté. Si des fichiers source ou du frontend ont changé, il propose de lancer `recompile.sh` pour vous. Rien n'est jamais supprimé : les fichiers disparus du dépôt sont signalés et ne sont retirés que si vous le demandez avec `--prune`.
 
 ### Annuler une mise à jour
 
@@ -1538,7 +1513,7 @@ Chaque fichier écrasé est conservé dans `.update-backups/<horodatage>/` avec 
 
 ```bash
 ./update.sh --apply --yes     # ne demande jamais rien ; tout fichier modifié est CONSERVÉ
-./update.sh --ref v3.8.0      # une étiquette, une branche ou un commit précis
+./update.sh --ref v4.0.0      # une étiquette, une branche ou un commit précis
 ./update.sh --list-excludes   # affiche les règles « ne pas toucher » telles qu'appliquées ici
 ./update.sh --verbose         # liste tous les fichiers, pas seulement les 40 premiers
 ```
@@ -1557,8 +1532,7 @@ jour cassée : il manque les dépendances :
 ./install.sh
 ```
 
-L'installateur est lui-même mis à jour par la même exécution, et votre configuration y
-survit également.
+L'installateur est lui-même mis à jour par la même exécution, et votre configuration y survit également.
 
 ### Mettre à jour à la main
 
@@ -1577,8 +1551,7 @@ chmod +x *.sh
 
 Sauvegardez d'abord votre configuration — `config-*.toml`, `frontend/site_information.json`,
 `admin_config.json` et `markers.json` — car un lot de fichiers ne peut pas distinguer vos
-modifications de celles de la version publiée. C'est exactement le problème que `update.sh`
-résout.
+modifications de celles de la version publiée. C'est exactement le problème que `update.sh` résout.
 
 ---
 

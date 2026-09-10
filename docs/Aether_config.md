@@ -2,7 +2,7 @@
 
 **Connecting AetherSDR, kiwiclient and other KiwiSDR software to PhantomSDR-Plus**
 
-Since v3.9.0 PhantomSDR-Plus can also answer the **KiwiSDR protocol**, so software written for a KiwiSDR — **AetherSDR**, `kiwiclient` and the rest — connects to your receiver directly. It is a bridge inside the same server process, on the same host and the same port you already publish: no second daemon, no second port, no proxy.
+Since v4.0.0 PhantomSDR-Plus can also answer the **KiwiSDR protocol**, so software written for a KiwiSDR — **AetherSDR**, `kiwiclient` and the rest — connects to your receiver directly. It is a bridge inside the same server process, on the same host and the same port you already publish: no second daemon, no second port, no proxy.
 
 **It is off until you enable it.** Nothing about the bridge runs — not a socket, not a check — while `[kiwi_emulation]` is missing or `false`, which is the state a fresh tree is in.
 

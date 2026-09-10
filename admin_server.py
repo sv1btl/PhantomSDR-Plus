@@ -1339,7 +1339,7 @@ table.markers input:focus{background:#071207;outline:1px solid var(--border);}
     <div class="sidebar-logo">
       <div class="icon">📡</div>
       <div class="title">PHANTOM<span style="color:var(--amber)">SDR</span></div>
-      <div class="sub">ADMIN v3.8</div>
+      <div class="sub">ADMIN v4.0.0</div>
     </div>
     <div class="nav-section">
       <div class="nav-label">MAIN</div>
@@ -1441,6 +1441,27 @@ table.markers input:focus{background:#071207;outline:1px solid var(--border);}
             <div class="bar-wrap"><div class="bar-fill" id="bar-temp" style="width:0%;background:linear-gradient(90deg,#4ade80,#fbbf24,#ef4444)"></div></div>
             <div class="stat-sub" id="stat-temp-guard" style="margin-top:.3rem;">GUARD: --</div>
           </div>
+        </div>
+
+        <!-- ══════ WEBSDR DIVERSITY RELAY ══════ -->
+        <div class="card" id="relay-card" style="margin-bottom:1rem;display:none;">
+          <div class="card-header">
+            <div class="dot" id="rl-dot" style="background:var(--text3);box-shadow:none"></div>
+            WEBSDR DIVERSITY RELAY
+            <span style="margin-left:auto;font-size:.6rem;color:var(--text3);" id="rl-ua"></span>
+          </div>
+          <div class="grid grid-4" style="gap:.6rem;margin-bottom:.6rem;">
+            <div><div style="font-size:.6rem;color:var(--text3);">STATE</div>
+                 <div id="rl-state" style="font-size:.9rem;color:var(--green);">--</div></div>
+            <div><div style="font-size:.6rem;color:var(--text3);">PORT</div>
+                 <div id="rl-port" style="font-size:.9rem;color:var(--text);">--</div></div>
+            <div><div style="font-size:.6rem;color:var(--text3);">SESSIONS</div>
+                 <div id="rl-sessions" style="font-size:.9rem;color:var(--amber);">--</div></div>
+            <div><div style="font-size:.6rem;color:var(--text3);">CAP PER SITE</div>
+                 <div id="rl-cap" style="font-size:.9rem;color:var(--text);">--</div></div>
+          </div>
+          <div id="rl-hosts" style="font-size:.7rem;color:var(--text2);"></div>
+          <div id="rl-reason" style="font-size:.65rem;color:var(--text3);margin-top:.3rem;"></div>
         </div>
 
         <!-- ══════ THERMAL GUARD ══════ -->
@@ -2200,6 +2221,50 @@ async function thermalReset() {
   updateThermal();
 }
 
+// ─── WebSDR diversity relay ──────────────────────────────────────────────────
+async function updateRelay() {
+  try {
+    const d = await fetch('/admin/api/websdr-relay').then(r => r.json());
+    const card = document.getElementById('relay-card');
+    if (!card) return;
+    // Not set up at all: say nothing rather than show a permanently red card
+    // on the many receivers that will never use this.
+    if (!d.configured) { card.style.display = 'none'; return; }
+    card.style.display = '';
+
+    const set = (id, txt) => { const e = document.getElementById(id); if (e) e.textContent = txt; };
+    const state = d.running ? 'RUNNING' : 'STOPPED';
+    const color = d.running ? 'var(--green)' : 'var(--red)';
+    set('rl-state', state);
+    const st = document.getElementById('rl-state'); if (st) st.style.color = color;
+    const dot = document.getElementById('rl-dot');
+    if (dot) { dot.style.background = color; dot.style.boxShadow = '0 0 6px ' + color; }
+
+    set('rl-port', d.port !== undefined ? String(d.port) : '--');
+    set('rl-cap', (d.max_per_host !== undefined && d.max_per_host !== null)
+                  ? d.max_per_host + ' / site' : '--');
+
+    const sess = (d.sessions && d.sessions.hosts) ? d.sessions.hosts : {};
+    const total = (d.sessions && d.sessions.total !== undefined) ? d.sessions.total : 0;
+    set('rl-sessions', d.running ? (total + (d.max_total ? ' / ' + d.max_total : '')) : '--');
+
+    // Which WebSDRs this station is currently relaying to, and how many
+    // listeners on each. Empty is the normal resting state.
+    const names = Object.keys(sess);
+    const hosts = document.getElementById('rl-hosts');
+    if (hosts) {
+      if (!d.running) hosts.textContent = '';
+      else if (!names.length) hosts.textContent = 'No active sessions.';
+      else hosts.textContent = names.map(h => h + '  \u00d7' + sess[h]).join('     ');
+    }
+
+    // The User-Agent is what WebSDR operators see. Showing it here is the
+    // quickest way to notice it still says "your-receiver.example".
+    set('rl-ua', d.user_agent || d.site || '');
+    set('rl-reason', d.running ? '' : (d.reason || ''));
+  } catch(e) { console.error('updateRelay:', e); }
+}
+
 function setBar(id, pct) {
   const el = document.getElementById(id);
   if (!el) return;
@@ -2211,6 +2276,8 @@ statusTimer = setInterval(updateStatus, 3000);
 updateStatus();
 setInterval(updateThermal, 5000);
 updateThermal();
+setInterval(updateRelay, 10000);
+updateRelay();
 
 // ─── Dashboard & Terminal ────────────────────────────────────────────────────
 let _dashLogTimer = null;
@@ -4435,6 +4502,54 @@ def api_settings():
             pass
     save_admin_config(cfg)
     return jsonify({"ok": True})
+
+# ── API: WebSDR diversity relay ──────────────────────────────────────────────
+# The relay is a separate process (websdr_relay.py) that lets receive diversity
+# use a WebSDR as the second receiver. It is optional and often not installed,
+# so every failure here is reported as a state to show, never as an error: a
+# missing config file means "not set up", a refused connection means "not
+# running", and both are normal.
+@app.route("/admin/api/websdr-relay")
+@login_required
+def api_websdr_relay():
+    import urllib.request
+    import urllib.error
+
+    cfg_path = BASE_DIR / "websdr_relay.json"
+    if not cfg_path.exists():
+        return jsonify({"configured": False,
+                        "reason": "websdr_relay.json not found — "
+                                  "run ./setup_websdr_relay.sh"})
+    try:
+        with open(cfg_path) as f:
+            cfg = json.load(f)
+    except (json.JSONDecodeError, OSError) as e:
+        return jsonify({"configured": False, "reason": f"websdr_relay.json: {e}"})
+
+    port = int(cfg.get("port", 8898))
+    out = {"configured": True, "port": port, "running": False,
+           "site": cfg.get("site", ""), "operator": cfg.get("operator", ""),
+           "max_per_host": cfg.get("max_per_host"), "max_total": cfg.get("max_total")}
+
+    # Always loopback: the relay binds every interface, but asking it through
+    # the public address would depend on the router's hairpin NAT and could
+    # report "down" for a relay that is perfectly healthy.
+    try:
+        with urllib.request.urlopen(f"http://127.0.0.1:{port}/status", timeout=2) as r:
+            live = json.loads(r.read().decode("utf-8"))
+        out["running"] = True
+        out["user_agent"] = live.get("user_agent", "")
+        out["sessions"] = live.get("sessions", {})
+        # The live values win: someone may have edited the config without
+        # restarting, and what the relay is actually enforcing is what matters.
+        for k in ("max_per_host", "max_total"):
+            if live.get(k) is not None:
+                out[k] = live[k]
+    except (urllib.error.URLError, OSError, ValueError, json.JSONDecodeError) as e:
+        out["reason"] = str(getattr(e, "reason", e))
+
+    return jsonify(out)
+
 
 @app.route("/admin/api/thermal", methods=["GET", "POST"])
 @login_required

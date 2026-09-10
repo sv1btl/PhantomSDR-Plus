@@ -78,15 +78,13 @@ Skripta će:
 2. Provjeriti postoje li `admin_server.py` i `manage_admin.sh`
 3. Zabilježiti `127.0.0.1` kao `sdr_host` u konfiguraciji (vidi [Postavka `sdr_host`](#postavka-sdr_host))
 4. Zatražiti tri broja porta. Svaki upit nudi zadanu vrijednost u uglatim zagradama koju
-   prihvaća običan Enter, pa je uobičajeno postavljanje pitanje triju pritisaka tipke:
+prihvaća običan Enter, pa je uobičajeno postavljanje pitanje triju pritisaka tipke:
    - **Port spectrumservera** — port na kojem sluša vaš SDR poslužitelj (zadano `8900`,
      upravo ono što donosi svaki `config-*.toml` u repozitoriju)
    - **Interni port administratorske ploče** — gdje se `admin_server.py` lokalno veže (zadano `3000`)
    - **Javni port proxyja** — jedini vanjski port koji objedinjuje SDR + administraciju (zadano `8902`)
 
-   Neispravni odgovori odbijaju se i pitanje se ponavlja, ali samo pet puta — nakon toga
-   uzima se zadana vrijednost. Izvođenje čiji ulaz nije terminal (kroz cijev, cron, bez nadzora)
-   odmah uzima zadane vrijednosti umjesto da čeka unos koji nikad neće stići.
+Neispravni odgovori odbijaju se i pitanje se ponavlja, ali samo pet puta — nakon toga uzima se zadana vrijednost. Izvođenje čiji ulaz nije terminal (kroz cijev, cron, bez nadzora) odmah uzima zadane vrijednosti umjesto da čeka unos koji nikad neće stići.
 5. Instalirati `flask`, `psutil`, `aiohttp` i `tomli-w` putem pipa
 6. Dodijeliti naredbi `ss` mogućnost `cap_net_admin` (pomoćni put značajke Kick Users, potreban samo ako ploča radi bez proxyja)
 7. Pitati koja skripta pokreće, a koja zaustavlja prijamnik — preko njih ploča upravlja poslužiteljem, a jednako tako i toplinska zaštita
@@ -175,7 +173,7 @@ sudo systemctl restart phantomsdr-admin phantomsdr-proxy
 
 Jedinica dolazi s `KillMode=process` i ta je linija ključna. Ako SDR pokrećete iz ploče, prijamnik je dijete administratorske jedinice i nasljeđuje njezinu cgroup. Uz systemdovu zadanu vrijednost `KillMode=control-group`, ponovno pokretanje ploče povuklo bi sa sobom spectrumserver, njegov watchdog i autorun demon — nakon što bi prethodno stalo punih 90 sekundi vremena čekanja na zaustavljanje. Uz `KillMode=process` systemd signalizira samo ploči, pa `sudo systemctl restart phantomsdr-admin` ostavlja zauzet prijamnik na eteru.
 
-**Nadogradnja jedinice instalirane prije v3.8.0.** Starije datoteke jedinice nemaju tu liniju, a ponovno pokretanje ploče je neće dodati: `systemctl restart` ponovno pokreće program, ali ne mijenja njegovu konfiguraciju. Uredite *instaliranu* kopiju — ona u repozitoriju samo je predložak koji systemd nikada ne čita:
+**Nadogradnja jedinice instalirane prije v4.0.0.** Starije datoteke jedinice nemaju tu liniju, a ponovno pokretanje ploče je neće dodati: `systemctl restart` ponovno pokreće program, ali ne mijenja njegovu konfiguraciju. Uredite *instaliranu* kopiju — ona u repozitoriju samo je predložak koji systemd nikada ne čita:
 
 ```bash
 sudo nano /etc/systemd/system/phantomsdr-admin.service

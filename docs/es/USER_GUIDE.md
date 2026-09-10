@@ -202,9 +202,7 @@ Ejemplos:
 
 ### Escáner
 
-El escáner recorre el receptor por un margen de canales y se detiene en el
-primero que lleva señal. Está en la fila **Fine Tuning (kHz)**, a la derecha
-del todo:
+El escáner recorre el receptor por un margen de canales y se detiene en el primero que lleva señal. Está en la fila **Fine Tuning (kHz)**, a la derecha del todo:
 
 ```
 7 152.0   ◀  ■  ▶  ⊘   30 dB · 4 ▾
@@ -217,31 +215,24 @@ del todo:
 | **⊘** | Excluir este canal de la exploración — para una portadora fija o un espurio. |
 | **30 dB · 4 ▾** | El umbral, y a su lado el nivel que se mide en este momento. Abre los ajustes. |
 
-El texto de la izquierda indica qué hace el escáner: `Scanner` en reposo, la
-frecuencia alcanzada mientras explora, `◉ 3s` mientras cuenta para reanudar,
+El texto de la izquierda indica qué hace el escáner: `Scanner` en reposo, la frecuencia alcanzada mientras explora, `◉ 3s` mientras cuenta para reanudar,
 `◉ 30·22s` mientras el canal sigue ocupado, `◉ hold` cuando se quedará ahí.
 
 **Ajustes**
 
 - **Range** — *Scan Band* recorre la banda donde empieza la exploración;
   *Scan Visible* recorre exactamente lo que muestra la cascada y la sigue si
-  hace zoom o la arrastra.
+hace zoom o la arrastra.
 - **Scan** — *Every channel* sintoniza y escucha cada canal por turno;
   *Skip empty* lee el espectro y salta directamente a las señales.
 - **Stop at** — cuánto por encima del ruido de fondo de la banda debe estar un
-  canal para detener la exploración, en dB. El ruido se sigue de forma continua,
-  así que el mismo ajuste vale de día y de noche. Un canal vacío no marca 0 dB —
-  observe un momento la cifra en el botón y ponga el umbral por encima.
+canal para detener la exploración, en dB. El ruido se sigue de forma continua, así que el mismo ajuste vale de día y de noche. Un canal vacío no marca 0 dB — observe un momento la cifra en el botón y ponga el umbral por encima.
 - **Resume after** — cuánto tiempo debe permanecer en silencio un canal antes de
-  seguir. Las pausas del habla no lo reinician. *Hold* se queda hasta que pulse
-  un botón.
+seguir. Las pausas del habla no lo reinician. *Hold* se queda hasta que pulse un botón.
 - **Max stay** — sigue adelante pasado este tiempo aunque la señal continúe, para
-  que una portadora permanente no retenga la exploración indefinidamente.
+que una portadora permanente no retenga la exploración indefinidamente.
 
-El paso sigue al modo — 1 kHz en SSB, 0,1 kHz en CW, 5 kHz en AM, 9 o 10 kHz en
-onda media y 9 kHz en onda larga — y las paradas caen en la retícula de canales.
-La exploración se mantiene dentro de su margen y de lo que el receptor puede
-sintonizar; en un extremo continúa por el otro.
+El paso sigue al modo — 1 kHz en SSB, 0,1 kHz en CW, 5 kHz en AM, 9 o 10 kHz en onda media y 9 kHz en onda larga — y las paradas caen en la retícula de canales. La exploración se mantiene dentro de su margen y de lo que el receptor puede sintonizar; en un extremo continúa por el otro.
 
 Los ajustes y los canales excluidos se recuerdan en su navegador.
 
@@ -300,34 +291,21 @@ El AGC ajusta automáticamente los niveles de audio:
 
 ### Los cuatro controles de ruido
 
-NR, NB, NS y AN son botones de encendido/apagado independientes, cada uno contra
-un tipo distinto de ruido. Son independientes entre sí — encender uno no enciende
-otro — y se pueden combinar libremente.
+NR, NB, NS y AN son botones de encendido/apagado independientes, cada uno contra un tipo distinto de ruido. Son independientes entre sí — encender uno no enciende otro — y se pueden combinar libremente.
 
-Ninguno llega a los decodificadores: FT8, CW, WSPR, SSTV, FAX, NAVTEX,
-RTTY/PSK31/Olivia y el grabber QRSS leen el audio *antes* de estos filtros, así
-que puede ajustarlos puramente de oído sin afectar a lo que se decodifica. Véase
-el [manual de decodificadores](DECODERS.md#12-consejos-generales).
+Ninguno llega a los decodificadores: FT8, CW, WSPR, SSTV, FAX, NAVTEX, RTTY/PSK31/Olivia y el grabber QRSS leen el audio *antes* de estos filtros, así que puede ajustarlos puramente de oído sin afectar a lo que se decodifica. Véase el [manual de decodificadores](DECODERS.md#12-consejos-generales).
 
 ### Reducción de ruido (NR)
 
-Reducción de ruido espectral. Estima el nivel de ruido en cada parte del espectro
-de audio y baja esas partes, dejando en paz lo que sobresale del ruido.
+Reducción de ruido espectral. Estima el nivel de ruido en cada parte del espectro de audio y baja esas partes, dejando en paz lo que sobresale del ruido.
 
 **Úselo cuando**: oiga un siseo constante o ruido blanco detrás de la señal.
 
-Los tonos constantes — una nota de CW, una portadora — se reconocen como señal y
-quedan protegidos, de modo que NR no se come una señal de CW como haría un filtro
-ingenuo. Efecto típico: 10 dB menos de ruido entre las palabras, a cambio de unas
-décimas de dB de la voz misma.
+Los tonos constantes — una nota de CW, una portadora — se reconocen como señal y quedan protegidos, de modo que NR no se come una señal de CW como haría un filtro ingenuo. Efecto típico: 10 dB menos de ruido entre las palabras, a cambio de unas décimas de dB de la voz misma.
 
 ### Supresor de impulsos (NB)
 
-Elimina el ruido impulsivo: clics, chasquidos, descargas atmosféricas, encendido
-de motores y ruido de la red eléctrica. Vigila la envolvente del audio y silencia
-solo las muestras que se disparan muy por encima de ella — alrededor de un
-milisegundo por descarga, con entrada y salida suavizadas para que el propio
-recorte no produzca un clic.
+Elimina el ruido impulsivo: clics, chasquidos, descargas atmosféricas, encendido de motores y ruido de la red eléctrica. Vigila la envolvente del audio y silencia solo las muestras que se disparan muy por encima de ella — alrededor de un milisegundo por descarga, con entrada y salida suavizadas para que el propio recorte no produzca un clic.
 
 **Úselo cuando**: oiga clics o chasquidos de líneas eléctricas, motores,
 tormentas o encendido de vehículos.
@@ -336,32 +314,23 @@ Los notch de zumbido de red de 50 Hz y 60 Hz siguen a este botón.
 
 ### Supresión del ruido de fondo (NS)
 
-Mide durante varios segundos el propio suelo de ruido de la banda y aplica un
-corte fijo a lo que se sitúa en él, más profundo en las frecuencias de audio
-altas que en las bajas. Donde NR reacciona instante a instante, NS es la mano
-lenta y firme: baja el siseo de la banda sin cambiar cómo suena la señal.
+Mide durante varios segundos el propio suelo de ruido de la banda y aplica un corte fijo a lo que se sitúa en él, más profundo en las frecuencias de audio altas que en las bajas. Donde NR reacciona instante a instante, NS es la mano lenta y firme: baja el siseo de la banda sin cambiar cómo suena la señal.
 
 **Úselo cuando**: la banda esté tranquila pero siseante y quiera bajar el ruido
 sin la calidad "submarina" de una NR agresiva.
 
-Activo solo en USB, LSB y AM: CW, FM y los modos digitales quedan intactos.
-Vuelve a medir el suelo cada vez que cambia de frecuencia o de modo, y se asienta
-en pocos segundos.
+Activo solo en USB, LSB y AM: CW, FM y los modos digitales quedan intactos. Vuelve a medir el suelo cada vez que cambia de frecuencia o de modo, y se asienta en pocos segundos.
 
 ### Notch automático (AN)
 
-Encuentra y elimina automáticamente tonos interferentes constantes — heterodinos,
-portadoras, silbidos — sin que usted tenga que colocar un notch a mano. Se adapta
-de forma continua, así que puede quitar varios tonos a la vez y mantener notchado
-uno que derive.
+Encuentra y elimina automáticamente tonos interferentes constantes — heterodinos, portadoras, silbidos — sin que usted tenga que colocar un notch a mano. Se adapta de forma continua, así que puede quitar varios tonos a la vez y mantener notchado uno que derive.
 
 **Úselo cuando**: oiga un silbido o tono encima de la señal que quiere.
 
 Se desactiva en CW, donde la señal deseada *es* un tono constante.
 
 **Nota sobre el retardo**: NR y NS añaden cada uno unos 40 ms de retardo de audio
-mientras están activos (los dos juntos, unos 80 ms). NB y AN no añaden ninguno.
-Esto afecta solo a la escucha, nunca a los decodificadores.
+mientras están activos (los dos juntos, unos 80 ms). NB y AN no añaden ninguno. Esto afecta solo a la escucha, nunca a los decodificadores.
 
 ### Silenciador automático (SQL)
 
@@ -679,8 +648,7 @@ Guarde sus frecuencias favoritas para acceder a ellas rápidamente. También pue
 
 Cuando los marcadores propios y los del plan de bandas se solapan:
 
-🔵 Los marcadores azules aparecen encima <br />
-🟡 Los marcadores amarillos, debajo <br />
+🔵 Los marcadores azules aparecen encima <br /> 🟡 Los marcadores amarillos, debajo <br />
 ✅ Los clics en los marcadores azules tienen prioridad <br />
 
 

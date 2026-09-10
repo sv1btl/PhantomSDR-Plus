@@ -629,7 +629,7 @@ Danach werden zwei verschiedene Zähler angezeigt, die leicht zu verwechseln sin
 
 ## Emulation von KiwiSDR-Clients (optional)
 
-Seit v3.9.0 kann PhantomSDR-Plus auch das **KiwiSDR-Protokoll** beantworten, sodass Software, die für einen KiwiSDR geschrieben wurde — **AetherSDR**, `kiwiclient` und die übrigen — sich direkt mit Ihrem Empfänger verbindet, auf demselben Host und Port, den Sie ohnehin veröffentlichen. Sie ist aus, bis `[kiwi_emulation] enabled = true` in der Konfiguration steht, mit der Ihr Empfänger läuft.
+Seit v4.0.0 kann PhantomSDR-Plus auch das **KiwiSDR-Protokoll** beantworten, sodass Software, die für einen KiwiSDR geschrieben wurde — **AetherSDR**, `kiwiclient` und die übrigen — sich direkt mit Ihrem Empfänger verbindet, auf demselben Host und Port, den Sie ohnehin veröffentlichen. Sie ist aus, bis `[kiwi_emulation] enabled = true` in der Konfiguration steht, mit der Ihr Empfänger läuft.
 
 Das Installationsprogramm bietet sie als Schritt 17 an; `./kiwi_install.sh` spielt sie auf einem bereits installierten Baum ein.
 
@@ -722,7 +722,7 @@ Bearbeiten Sie die folgenden Felder:
   "siteCity": "Your City, Country",
   "siteInformation": "https://github.com/sv1btl/PhantomSDR-Plus",
   "siteHardware": "Computer specifications",
-  "siteSoftware": "PhantomSDR-Plus v3.9.0",
+  "siteSoftware": "PhantomSDR-Plus v4.0.0",
   "siteReceiver": "Your SDR model",
   "siteAntenna": "Antenna description",
   "siteNote": "Additional information",
@@ -1216,14 +1216,11 @@ ModuleNotFoundError: No module named 'mesonbuild'
 
 Am Quellbaum ist nichts falsch. Eine übrig gebliebene Installation per
 `pip install --user meson` hat ein Startskript in `~/.local/bin` hinterlassen,
-das im `PATH` vor `/usr/bin` steht und damit die funktionierende Kopie der
-Paketverwaltung verdeckt. Ein Distributions-Upgrade (etwa Ubuntu 24.04 → 26.04)
-stellt Python auf eine neue Version um, das alte `site-packages` mit
+das im `PATH` vor `/usr/bin` steht und damit die funktionierende Kopie der Paketverwaltung verdeckt. Ein Distributions-Upgrade (etwa Ubuntu 24.04 → 26.04) stellt Python auf eine neue Version um, das alte `site-packages` mit
 `mesonbuild` liegt nicht mehr im Importpfad, und das Skript stirbt, bevor es
 irgendetwas tut. Dasselbe kann `ninja` passieren.
 
-Das Installationsprogramm erkennt das, umgeht es für die Dauer des Laufs und
-warnt Sie dabei — reparieren Sie das System dennoch:
+Das Installationsprogramm erkennt das, umgeht es für die Dauer des Laufs und warnt Sie dabei — reparieren Sie das System dennoch:
 
 ```bash
 rm -f ~/.local/bin/meson
@@ -1231,8 +1228,7 @@ hash -r
 meson --version        # muss eine Version ausgeben
 ```
 
-Wenn Sie meson lieber weiterhin über pip installiert lassen möchten,
-installieren Sie es für das Python neu, das dieses System jetzt hat:
+Wenn Sie meson lieber weiterhin über pip installiert lassen möchten, installieren Sie es für das Python neu, das dieses System jetzt hat:
 
 ```bash
 python3 -m pip install --user --force-reinstall --break-system-packages meson
@@ -1440,18 +1436,11 @@ waterfall_compression = "zstd"  # Efficient compression
 
 ## PhantomSDR-Plus aktualisieren
 
-Seit Version 3.8.0 enthält das Repository **`update.sh`** — ein Update-Werkzeug, das eine
-installierte Station auf den veröffentlichten Stand bringt, **ohne die Dateien anzurühren, die
-sie zu Ihrer Station machen**. Es ersetzt das handgeschriebene `git pull`-Skript, das frühere
-Ausgaben dieser Anleitung anzulegen empfahlen, und benötigt git überhaupt nicht: der
-veröffentlichte Baum wird als Tarball geladen und Datei für Datei mit Ihrem verglichen. Es
-funktioniert also gleich, ob Sie das Repository geklont, ein `update.zip` entpackt oder den
-Baum von einem USB-Stick kopiert haben.
+Seit Version 4.0.0 enthält das Repository **`update.sh`** — ein Update-Werkzeug, das eine installierte Station auf den veröffentlichten Stand bringt, **ohne die Dateien anzurühren, die sie zu Ihrer Station machen**. Es ersetzt das handgeschriebene `git pull`-Skript, das frühere Ausgaben dieser Anleitung anzulegen empfahlen, und benötigt git überhaupt nicht: der veröffentlichte Baum wird als Tarball geladen und Datei für Datei mit Ihrem verglichen. Es funktioniert also gleich, ob Sie das Repository geklont, ein `update.zip` entpackt oder den Baum von einem USB-Stick kopiert haben.
 
 ### Wenn Ihre Installation update.sh noch nicht hat
 
-Ein älterer Baum enthält das Skript nicht. Holen Sie es einmal — es ist der einzige Schritt
-dieses ganzen Verfahrens, den Sie je von Hand tun:
+Ein älterer Baum enthält das Skript nicht. Holen Sie es einmal — es ist der einzige Schritt dieses ganzen Verfahrens, den Sie je von Hand tun:
 
 ```bash
 cd ~/PhantomSDR-Plus
@@ -1459,8 +1448,7 @@ curl -fLO https://raw.githubusercontent.com/sv1btl/PhantomSDR-Plus/main/update.s
 chmod +x update.sh
 ```
 
-Von da an wird alles — Quellen, Frontend, Dokumentation, Installer und `update.sh` selbst —
-vom Werkzeug geholt.
+Von da an wird alles — Quellen, Frontend, Dokumentation, Installer und `update.sh` selbst — vom Werkzeug geholt.
 
 ### Schritt 1 — ansehen, was sich ändern würde (es wird nichts geschrieben)
 
@@ -1469,10 +1457,7 @@ cd ~/PhantomSDR-Plus
 ./update.sh
 ```
 
-Der veröffentlichte Baum wird geladen, mit Ihrem verglichen und ein Bericht ausgegeben.
-Geschrieben wird dabei nichts, der Aufruf ist also jederzeit gefahrlos — auch auf einer Station,
-die gerade auf Sendung ist. Der Rückgabewert ist `0`, wenn alles aktuell ist, und `10`, wenn ein
-Update bereitliegt; so kann ein Cron-Job Sie benachrichtigen, wenn es etwas zu tun gibt.
+Der veröffentlichte Baum wird geladen, mit Ihrem verglichen und ein Bericht ausgegeben. Geschrieben wird dabei nichts, der Aufruf ist also jederzeit gefahrlos — auch auf einer Station, die gerade auf Sendung ist. Der Rückgabewert ist `0`, wenn alles aktuell ist, und `10`, wenn ein Update bereitliegt; so kann ein Cron-Job Sie benachrichtigen, wenn es etwas zu tun gibt.
 
 ### Schritt 2 — anwenden
 
@@ -1488,8 +1473,7 @@ Drei Arten von Dateien werden unterschiedlich behandelt, und genau darauf kommt 
 | `start-*.sh`, `stop-websdr.sh`, die `*.service`-Units, `install*.sh`, `recompile.sh`, `setup_admin.sh`, `smeter_theme.sh`, `proxy.py`, `admin_server.py`, `thermal_guard.py`, `frontend/src/bands-config.js` | **Es wird immer nachgefragt**, denn das sind die Dateien, die ein Betreiber aus gutem Grund geändert haben kann. |
 | Alles Übrige | Wird aktualisiert, nachdem eine Kopie der alten Datei in `.update-backups/` gesichert wurde. |
 
-Für jede Datei der mittleren Gruppe werden die Unterschiede angezeigt und drei Möglichkeiten
-angeboten:
+Für jede Datei der mittleren Gruppe werden die Unterschiede angezeigt und drei Möglichkeiten angeboten:
 
 ```
   ❓ start-rx888mk2.sh  [K]eep mine / [u]pstream / [b]oth  (ENTER = Keep mine)
@@ -1498,11 +1482,10 @@ angeboten:
 * **Keep mine** — Ihre Datei bleibt genau so, wie sie ist.
 * **upstream** — die neue Fassung wird eingespielt, Ihre wird vorher gesichert.
 * **both** — die neue Fassung wird als `start-rx888mk2.sh.new` daneben abgelegt, damit Sie Ihre
-  eigenen Änderungen in Ruhe übernehmen können.
+eigenen Änderungen in Ruhe übernehmen können.
 
 **Wie sich der erste Lauf anfühlt.** Beim ersten Mal gibt es keine Aufzeichnung darüber,
-aus welcher Fassung Ihre Dateien stammen, also wird jede Datei der mittleren Gruppe Ihnen
-vorgelegt — etwa zehn Fragen. Antworten Sie so:
+aus welcher Fassung Ihre Dateien stammen, also wird jede Datei der mittleren Gruppe Ihnen vorgelegt — etwa zehn Fragen. Antworten Sie so:
 
 | Ihre Lage | Antwort |
 |---|---|
@@ -1513,16 +1496,9 @@ vorgelegt — etwa zehn Fragen. Antworten Sie so:
 Ihre Konfiguration ist davon nie betroffen: gefragt wird nur nach Skripten und Service-Units.
 
 `update.sh` merkt sich in `.update-state/` die Fassung jeder eingespielten Datei. Ab dem zweiten
-Lauf kann es daher eine Datei, die **Sie** geändert haben, von einer bloß alten unterscheiden
-und fragt nur noch bei denen nach, die Sie wirklich angefasst haben.
+Lauf kann es daher eine Datei, die **Sie** geändert haben, von einer bloß alten unterscheiden und fragt nur noch bei denen nach, die Sie wirklich angefasst haben.
 
-Bevor irgendetwas geschrieben wird, hält es Empfänger, Admin-Panel und Reverse-Proxy **der
-Installation an, die es aktualisiert** — was zu einem anderen Verzeichnis gehört, wird aufgeführt
-und weiterlaufen gelassen, sodass ein zweiter Klon aktualisiert werden kann, während der erste
-auf Sendung bleibt — und startet am Ende genau das wieder, was es angehalten hat. Haben
-sich Quell- oder Frontend-Dateien geändert, bietet es an, `recompile.sh` für Sie auszuführen.
-Gelöscht wird nie etwas: Dateien, die aus dem Repository verschwunden sind, werden gemeldet und
-nur auf ausdrückliche Anforderung mit `--prune` entfernt.
+Bevor irgendetwas geschrieben wird, hält es Empfänger, Admin-Panel und Reverse-Proxy **der Installation an, die es aktualisiert** — was zu einem anderen Verzeichnis gehört, wird aufgeführt und weiterlaufen gelassen, sodass ein zweiter Klon aktualisiert werden kann, während der erste auf Sendung bleibt — und startet am Ende genau das wieder, was es angehalten hat. Haben sich Quell- oder Frontend-Dateien geändert, bietet es an, `recompile.sh` für Sie auszuführen. Gelöscht wird nie etwas: Dateien, die aus dem Repository verschwunden sind, werden gemeldet und nur auf ausdrückliche Anforderung mit `--prune` entfernt.
 
 ### Ein Update rückgängig machen
 
@@ -1537,26 +1513,23 @@ Jede überschriebene Datei liegt in `.update-backups/<Zeitstempel>/` mit einem e
 
 ```bash
 ./update.sh --apply --yes     # fragt nie; jede von Ihnen geänderte Datei BLEIBT
-./update.sh --ref v3.8.0      # ein Tag, Branch oder Commit statt des aktuellen Standes
+./update.sh --ref v4.0.0      # ein Tag, Branch oder Commit statt des aktuellen Standes
 ./update.sh --list-excludes   # zeigt die Nie-anrühren-Regeln, wie sie hier gelten
 ./update.sh --verbose         # listet jede Datei, nicht nur die ersten 40
 ```
 
-Eigene Nie-anrühren-Regeln tragen Sie zeilenweise als Glob-Muster in `update-exclude.txt` im
-Wurzelverzeichnis der Installation ein.
+Eigene Nie-anrühren-Regeln tragen Sie zeilenweise als Glob-Muster in `update-exclude.txt` im Wurzelverzeichnis der Installation ein.
 
 ### Wenn der Neubau auf einer sehr alten Installation scheitert
 
 `update.sh` aktualisiert Dateien, keine Systempakete. Ist Ihr Baum so alt, dass der Bau
-inzwischen Bibliotheken braucht, die Sie nicht haben, bricht `recompile.sh` mit einem
-Compiler- oder meson-Fehler ab. Das ist kein kaputtes Update — es fehlen die Abhängigkeiten:
+inzwischen Bibliotheken braucht, die Sie nicht haben, bricht `recompile.sh` mit einem Compiler- oder meson-Fehler ab. Das ist kein kaputtes Update — es fehlen die Abhängigkeiten:
 
 ```bash
 ./install.sh
 ```
 
-Der Installer wird vom selben Lauf mit aktualisiert, und Ihre Konfiguration übersteht auch
-ihn.
+Der Installer wird vom selben Lauf mit aktualisiert, und Ihre Konfiguration übersteht auch ihn.
 
 ### Von Hand aktualisieren
 

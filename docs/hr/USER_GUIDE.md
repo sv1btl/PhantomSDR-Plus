@@ -202,8 +202,7 @@ Primjeri:
 
 ### Skener
 
-Skener vodi prijemnik preko raspona kanala i zaustavlja se na prvom na kojem
-ima signala. Nalazi se u retku **Fine Tuning (kHz)**, skroz desno:
+Skener vodi prijemnik preko raspona kanala i zaustavlja se na prvom na kojem ima signala. Nalazi se u retku **Fine Tuning (kHz)**, skroz desno:
 
 ```
 7 152.0   ◀  ■  ▶  ⊘   30 dB · 4 ▾
@@ -216,31 +215,23 @@ ima signala. Nalazi se u retku **Fine Tuning (kHz)**, skroz desno:
 | **⊘** | Isključi ovaj kanal iz pretrage — za trajni nosilac ili smetnju. |
 | **30 dB · 4 ▾** | Prag, a pokraj njega razina koja se upravo mjeri. Otvara postavke. |
 
-Tekst lijevo pokazuje što skener radi: `Scanner` u mirovanju, frekvenciju do
-koje je došao tijekom pretrage, `◉ 3s` dok odbrojava do nastavka, `◉ 30·22s`
-dok je kanal još zauzet, `◉ hold` kad ostaje na mjestu.
+Tekst lijevo pokazuje što skener radi: `Scanner` u mirovanju, frekvenciju do koje je došao tijekom pretrage, `◉ 3s` dok odbrojava do nastavka, `◉ 30·22s` dok je kanal još zauzet, `◉ hold` kad ostaje na mjestu.
 
 **Postavke**
 
 - **Range** — *Scan Band* pretražuje pojas u kojem pretraga počinje;
   *Scan Visible* pretražuje točno ono što slap prikazuje i prati ga ako
-  zumirate ili ga pomaknete.
+zumirate ili ga pomaknete.
 - **Scan** — *Every channel* ugađa i sluša svaki kanal redom;
   *Skip empty* čita spektar i skoči ravno na signale.
 - **Stop at** — koliko iznad šuma pojasa kanal mora biti da bi zaustavio
-  pretragu, u dB. Šum se prati neprekidno pa ista postavka vrijedi danju i noću.
-  Prazan kanal ne pokazuje 0 dB — pogledajte na trenutak vrijednost na gumbu i
-  postavite prag iznad nje.
+pretragu, u dB. Šum se prati neprekidno pa ista postavka vrijedi danju i noću. Prazan kanal ne pokazuje 0 dB — pogledajte na trenutak vrijednost na gumbu i postavite prag iznad nje.
 - **Resume after** — koliko dugo kanal mora biti tih prije nego što pretraga
-  krene dalje. Stanke u govoru je ne pokreću ponovno. *Hold* ostaje dok ne
-  pritisnete gumb.
+krene dalje. Stanke u govoru je ne pokreću ponovno. *Hold* ostaje dok ne pritisnete gumb.
 - **Max stay** — kreće dalje nakon ovog vremena i ako je signal još tu, da
-  trajni nosilac ne bi zadržao pretragu zauvijek.
+trajni nosilac ne bi zadržao pretragu zauvijek.
 
-Korak prati način rada — 1 kHz u SSB, 0,1 kHz u CW, 5 kHz u AM, 9 ili 10 kHz na
-srednjim valovima i 9 kHz na dugim — a zaustavljanja padaju na mrežu kanala.
-Pretraga ostaje unutar svojeg raspona i unutar onoga što prijemnik može ugoditi;
-na rubu se vraća na drugi kraj i nastavlja.
+Korak prati način rada — 1 kHz u SSB, 0,1 kHz u CW, 5 kHz u AM, 9 ili 10 kHz na srednjim valovima i 9 kHz na dugim — a zaustavljanja padaju na mrežu kanala. Pretraga ostaje unutar svojeg raspona i unutar onoga što prijemnik može ugoditi; na rubu se vraća na drugi kraj i nastavlja.
 
 Postavke i isključeni kanali pamte se u vašem pregledniku.
 
@@ -299,31 +290,22 @@ AGC automatski podešava razine zvuka:
 
 ### Četiri regulatora šuma
 
-NR, NB, NS i AN zasebni su prekidači, svaki protiv druge vrste šuma. Neovisni su
-— uključivanje jednoga ne uključuje drugi — i mogu se slobodno kombinirati.
+NR, NB, NS i AN zasebni su prekidači, svaki protiv druge vrste šuma. Neovisni su — uključivanje jednoga ne uključuje drugi — i mogu se slobodno kombinirati.
 
-Nijedan ne doseže dekodere: FT8, CW, WSPR, SSTV, FAX, NAVTEX, RTTY/PSK31/Olivia i
-QRSS grabber čitaju zvuk *prije* ovih filtara, pa ih možete namještati isključivo
-po sluhu bez utjecaja na dekodiranje. Vidjeti
+Nijedan ne doseže dekodere: FT8, CW, WSPR, SSTV, FAX, NAVTEX, RTTY/PSK31/Olivia i QRSS grabber čitaju zvuk *prije* ovih filtara, pa ih možete namještati isključivo po sluhu bez utjecaja na dekodiranje. Vidjeti
 [priručnik za dekodere](DECODERS.md#12-opći-savjeti).
 
 ### Smanjenje šuma (NR)
 
-Spektralno smanjenje šuma. Procjenjuje razinu šuma u svakom dijelu zvučnog
-spektra i te dijelove stišava, a ono što se izdiže iznad šuma ostavlja na miru.
+Spektralno smanjenje šuma. Procjenjuje razinu šuma u svakom dijelu zvučnog spektra i te dijelove stišava, a ono što se izdiže iznad šuma ostavlja na miru.
 
 **Koristite kada**: čujete ravnomjerno siktanje ili bijeli šum iza signala.
 
-Postojani tonovi — CW nota, nosilac — prepoznaju se kao signal i štite, pa NR ne
-pojede CW signal kako bi to učinio naivan filtar. Tipičan učinak: 10 dB manje
-šuma između riječi, uz gubitak od nekoliko desetinki dB na samom govoru.
+Postojani tonovi — CW nota, nosilac — prepoznaju se kao signal i štite, pa NR ne pojede CW signal kako bi to učinio naivan filtar. Tipičan učinak: 10 dB manje šuma između riječi, uz gubitak od nekoliko desetinki dB na samom govoru.
 
 ### Prigušivač impulsnog šuma (NB)
 
-Uklanja impulsni šum: klikove, praskove, atmosferske izboje, paljenje motora i
-smetnje s dalekovoda. Prati ovojnicu zvuka i utišava samo uzorke koji daleko
-iskaču iznad nje — oko jedne milisekunde po prasku, s mekim ulazom i izlazom kako
-samo prigušivanje ne bi kliknulo.
+Uklanja impulsni šum: klikove, praskove, atmosferske izboje, paljenje motora i smetnje s dalekovoda. Prati ovojnicu zvuka i utišava samo uzorke koji daleko iskaču iznad nje — oko jedne milisekunde po prasku, s mekim ulazom i izlazom kako samo prigušivanje ne bi kliknulo.
 
 **Koristite kada**: čujete klikove ili praskove s dalekovoda, motora, grmljavine
 ili paljenja vozila.
@@ -332,31 +314,23 @@ Notch filtri mrežnog bruma na 50 Hz i 60 Hz slijede ovu tipku.
 
 ### Potiskivanje pozadinskog šuma (NS)
 
-Kroz nekoliko sekundi mjeri vlastiti prag šuma pojasa i stalnim iznosom stišava
-sve što leži na njemu, dublje na visokim nego na niskim zvučnim frekvencijama.
-Dok NR reagira iz trenutka u trenutak, NS je spora, mirna ruka: spušta šum pojasa
-ne mijenjajući kako signal zvuči.
+Kroz nekoliko sekundi mjeri vlastiti prag šuma pojasa i stalnim iznosom stišava sve što leži na njemu, dublje na visokim nego na niskim zvučnim frekvencijama. Dok NR reagira iz trenutka u trenutak, NS je spora, mirna ruka: spušta šum pojasa ne mijenjajući kako signal zvuči.
 
 **Koristite kada**: pojas je miran ali šuman, a želite spustiti šum bez
 „podvodnog" prizvuka agresivnog NR-a.
 
-Djeluje samo u USB, LSB i AM — CW, FM i digitalni načini ostaju netaknuti. Prag
-mjeri iznova pri svakoj promjeni frekvencije ili načina rada i smiri se unutar
-nekoliko sekundi.
+Djeluje samo u USB, LSB i AM — CW, FM i digitalni načini ostaju netaknuti. Prag mjeri iznova pri svakoj promjeni frekvencije ili načina rada i smiri se unutar nekoliko sekundi.
 
 ### Automatski notch (AN)
 
-Sam pronalazi i uklanja postojane ometajuće tonove — heterodine, nosioce,
-zvižduke — bez ručnog postavljanja notcha. Neprekidno se prilagođava, pa
-istodobno uklanja više tonova i drži prigušenim ton koji klizi.
+Sam pronalazi i uklanja postojane ometajuće tonove — heterodine, nosioce, zvižduke — bez ručnog postavljanja notcha. Neprekidno se prilagođava, pa istodobno uklanja više tonova i drži prigušenim ton koji klizi.
 
 **Koristite kada**: čujete zvižduk ili ton preko željenog signala.
 
 Zaobiđen u CW-u, gdje je željeni signal *upravo* postojan ton.
 
 **Napomena o kašnjenju**: NR i NS dok su uključeni dodaju svaki oko 40 ms
-kašnjenja zvuka (oba zajedno oko 80 ms). NB i AN ne dodaju ništa. To se tiče samo
-slušanja, nikada dekodera.
+kašnjenja zvuka (oba zajedno oko 80 ms). NB i AN ne dodaju ništa. To se tiče samo slušanja, nikada dekodera.
 
 ### Automatski squelch (SQL)
 
@@ -674,8 +648,7 @@ Spremite omiljene frekvencije za brzi pristup. Popis oznaka možete i izvesti te
 
 Kada se oznake i markeri preklapaju:
 
-🔵 Plave se oznake prikazuju iznad <br />
-🟡 Žuti se markeri prikazuju ispod <br />
+🔵 Plave se oznake prikazuju iznad <br /> 🟡 Žuti se markeri prikazuju ispod <br />
 ✅ Klikovi na oznake imaju prednost <br />
 
 

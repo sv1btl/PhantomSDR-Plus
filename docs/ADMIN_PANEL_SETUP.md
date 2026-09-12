@@ -144,6 +144,8 @@ The same four with `phantomsdr-proxy`, or both at once: `sudo systemctl restart 
 
 `admin.log` and `proxy.log` keep working exactly as before — the units append to those same files.
 
+One thing to do once: install the tmpfiles rule at `tmpfiles/phantomsdr-logs.conf` (edit its paths and user first). systemd creates those two logs as `root` before it drops to `User=`, and the panel's **Clear Logs** button then fails on them with `Permission denied` — see [“Clear Logs” says Permission denied](#clear-logs-says-permission-denied) below. `setup_admin.sh` installs the rule for you.
+
 The admin unit carries `SupplementaryGroups=cpufreq`, which is what lets the thermal guard's throttle stage lower the CPU clock without the panel running as root. Create that group first with `./setup-cpufreq-perms.sh`, or systemd will refuse to start the unit; delete the line if you do not use the throttle stage.
 
 To go back to Method A:
@@ -372,6 +374,41 @@ The panel's **Clear Logs** button truncates every file in the table above **exce
 Successful polls are filtered out of **both** access logs, by the `QuietPollFilter` in `proxy.py` and the one in `admin_server.py`. The dashboard hits `/admin/api/status` every 3 seconds, and `/admin/api/logs`, `/admin/api/autorun/status`, `/admin/api/users`, `/admin/api/graph-stats` and `/admin/api/chat` every 5 seconds; unfiltered they are ~95% of both files. Only plain `200`s on those paths are dropped — any other status, path or method is logged as before, so a failing poll stays visible and state-changing actions (`kick`, `autorun/start`, …) are separate paths and always recorded. The one deliberate exception is `/admin/api/logs/clear`, filtered in both files: its own access line is written *after* the truncate, so without the filter every successful clear left one fresh line behind in the log it had just emptied, and the button looked broken.
 
 Because `proxy.log` is an access log, it contains visitor IP addresses and user-agent strings — keep that in mind before sharing it when asking for help.
+
+### "Clear Logs" says Permission denied
+
+On a machine where the systemd units were installed on a clean tree, the button can come back with:
+
+```
+✗ Could not clear admin.log ([Errno 13] Permission denied: /home/you/PhantomSDR-Plus/admin.log),
+  proxy.log ([Errno 13] Permission denied: /home/you/PhantomSDR-Plus/proxy.log)
+```
+
+It is always those two files and never the other five, because they are the only ones systemd creates itself. `StandardOutput=append:` is opened by PID 1 **before** it drops to `User=`, so a log that does not exist yet is created `root:root 0644`. The panel runs as your user and cannot truncate it. The other five logs are created by the launcher scripts, which already run as your user, so they clear normally. Where the two logs predate the units — `manage_admin.sh` created them with `>>` — they are already owned correctly and the button works, which is why the problem only shows up on a fresh systemd-first install.
+
+Confirm with `ls -l admin.log proxy.log`: the failing ones say `root root`. Repair them:
+
+```bash
+sudo chown "$(id -un):$(id -gn)" admin.log proxy.log
+sudo chmod 664 admin.log proxy.log
+```
+
+No restart is needed — systemd keeps writing through the file descriptor it already holds, and appending does not change ownership. Press **Clear Logs** again and both are emptied.
+
+**Do not delete the files instead.** Both are held open `O_APPEND`; unlinking one leaves systemd filling an invisible inode until the service restarts, and the file that reappears is root-owned again.
+
+To stop it coming back, install the tmpfiles rule the repo ships at `tmpfiles/phantomsdr-logs.conf`. It re-creates both logs with the right owner at every boot, before the units start, so a removed log — manual cleanup, a reinstall, a moved installation directory — never returns root-owned. **It is site-specific: open it and change the two paths and the user:group to match your machine first**, then:
+
+```bash
+sudo cp tmpfiles/phantomsdr-logs.conf /etc/tmpfiles.d/99-phantomsdr-logs.conf
+sudo systemd-tmpfiles --create /etc/tmpfiles.d/99-phantomsdr-logs.conf
+```
+
+As with `logrotate/phantomsdr`, the repo file and the `/etc` copy are independent — editing the repo copy changes nothing until you re-run the `cp`. On systemd 254 and newer the rule also repairs the ownership and mode of a log that already exists, so it fixes the current failure as well as future ones; on older versions the `chown` above is what unblocks the button.
+
+`setup_admin.sh` does all of this for you when it installs the units, so a setup made with the script never hits this. The steps above are for a hand-installed pair, or for an installation that predates the script's log-ownership step.
+
+Logrotate does not reintroduce the problem: the shipped config uses `copytruncate`, which keeps the same inode and therefore the same owner.
 
 ---
 

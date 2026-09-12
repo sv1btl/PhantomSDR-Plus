@@ -148,6 +148,8 @@ Iste četiri s `phantomsdr-proxy`, ili obje odjednom: `sudo systemctl restart ph
 
 `admin.log` i `proxy.log` rade točno kao i prije — jedinice pišu u iste datoteke.
 
+Jedno napravite jednom: instalirajte tmpfiles pravilo iz `tmpfiles/phantomsdr-logs.conf` (prvo u njemu izmijenite putanje i korisnika). systemd te dvije datoteke stvara kao `root` prije nego se spusti na `User=`, pa gumb **Clear Logs** na ploči na njima pada uz `Permission denied` — vidi niže „Clear Logs javlja Permission denied“. `setup_admin.sh` pravilo instalira umjesto vas.
+
 Jedinica ploče nosi `SupplementaryGroups=cpufreq`, što throttle fazi toplinske zaštite omogućuje snižavanje takta procesora bez da ploča radi kao root. Tu grupu prvo stvorite s `./setup-cpufreq-perms.sh`, inače systemd neće pokrenuti jedinicu; obrišite taj redak ako ne koristite throttle fazu.
 
 Povratak na način A:
@@ -376,6 +378,41 @@ Gumb **Clear Logs** na ploči prazni svaku datoteku iz gornje tablice **osim `au
 Uspješna ispitivanja filtriraju se iz **oba** zapisnika pristupa, `QuietPollFilterom` u `proxy.py` i onim u `admin_server.py`. Nadzorna ploča poziva `/admin/api/status` svake 3 sekunde, a `/admin/api/logs`, `/admin/api/autorun/status`, `/admin/api/users`, `/admin/api/graph-stats` i `/admin/api/chat` svakih 5 sekundi; nefiltrirani bi činili ~95 % obiju datoteka. Izbacuju se samo obični `200` na tim putanjama — svaki drugi status, putanja ili metoda bilježi se kao i prije, pa neuspjelo ispitivanje ostaje vidljivo, a radnje koje mijenjaju stanje (`kick`, `autorun/start`, …) idu zasebnim putanjama i uvijek se zapisuju. Jedina namjerna iznimka je `/admin/api/logs/clear`, filtrirana u obje datoteke: njezin vlastiti redak pristupa piše se *nakon* pražnjenja, pa je bez filtra svako uspješno pražnjenje ostavljalo jedan svjež redak u zapisniku koji je upravo ispraznilo, a gumb je izgledao neispravno.
 
 Budući da je `proxy.log` zapisnik pristupa, sadrži IP adrese posjetitelja i nizove user-agenta — imajte to na umu prije nego što ga podijelite tražeći pomoć.
+
+### „Clear Logs“ javlja Permission denied
+
+Na stroju gdje su systemd jedinice instalirane na čistom stablu, gumb može vratiti:
+
+```
+✗ Could not clear admin.log ([Errno 13] Permission denied: /home/you/PhantomSDR-Plus/admin.log),
+  proxy.log ([Errno 13] Permission denied: /home/you/PhantomSDR-Plus/proxy.log)
+```
+
+Uvijek su to te dvije datoteke i nikada ostalih pet, jer ih jedine stvara sam systemd. `StandardOutput=append:` otvara PID 1 **prije** nego se spusti na `User=`, pa se zapisnik koji još ne postoji stvara kao `root:root 0644`. Ploča radi kao vaš korisnik i ne može ga isprazniti. Ostalih pet zapisnika stvaraju skripte za pokretanje, koje ionako rade kao vaš korisnik, pa se brišu normalno. Ondje gdje su te dvije datoteke starije od jedinica — stvorio ih je `manage_admin.sh` s `>>` — vlasnik je već ispravan i gumb radi; zato se problem pojavljuje samo na svježoj instalaciji koja je odmah krenula sa systemd jedinicama.
+
+Provjerite s `ls -l admin.log proxy.log`: one koje ne uspijevaju pokazuju `root root`. Popravite ih:
+
+```bash
+sudo chown "$(id -un):$(id -gn)" admin.log proxy.log
+sudo chmod 664 admin.log proxy.log
+```
+
+Ponovno pokretanje nije potrebno — systemd i dalje piše kroz već otvoreni opisnik datoteke, a dopisivanje ne mijenja vlasništvo. Pritisnite **Clear Logs** ponovno i obje se prazne.
+
+**Nemojte umjesto toga obrisati datoteke.** Obje su otvorene s `O_APPEND`; brisanjem jedne systemd nastavlja puniti nevidljivi inode sve do ponovnog pokretanja usluge, a datoteka koja se ponovno pojavi opet pripada rootu.
+
+Da se ne bi vraćalo, instalirajte tmpfiles pravilo koje repozitorij isporučuje u `tmpfiles/phantomsdr-logs.conf`. Ono pri svakom dizanju sustava, prije pokretanja jedinica, ponovno stvara oba zapisnika s ispravnim vlasnikom, pa se uklonjeni zapisnik — ručno čišćenje, ponovna instalacija, premješten instalacijski direktorij — nikada ne vrati u vlasništvu roota. **Pravilo ovisi o stroju: otvorite ga i najprije promijenite dvije putanje i user:group da odgovaraju vašem sustavu**, a zatim:
+
+```bash
+sudo cp tmpfiles/phantomsdr-logs.conf /etc/tmpfiles.d/99-phantomsdr-logs.conf
+sudo systemd-tmpfiles --create /etc/tmpfiles.d/99-phantomsdr-logs.conf
+```
+
+Kao i kod `logrotate/phantomsdr`, datoteka u repozitoriju i kopija u `/etc` neovisne su — uređivanje one u repozitoriju ne mijenja ništa dok ponovno ne pokrenete `cp`. Na systemd 254 i novijem pravilo popravlja i vlasništvo i prava već postojećeg zapisnika, pa rješava i trenutni kvar i buduće; na starijim verzijama gumb odblokira upravo `chown` iznad.
+
+`setup_admin.sh` sve ovo obavlja umjesto vas pri instalaciji jedinica, pa postava napravljena skriptom nikada ne naiđe na ovo. Gornji koraci su za ručno instalirani par ili za instalaciju stariju od koraka sa vlasništvom zapisnika u skripti.
+
+Logrotate ne vraća problem: isporučena konfiguracija koristi `copytruncate`, koji zadržava isti inode, a time i istog vlasnika.
 
 ---
 

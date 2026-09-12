@@ -397,6 +397,8 @@ PhantomSDR-Plus
 ├── setup-cpufreq-perms.sh
 ├── thermal_guard.py           # Προστασία υπερθέρμανσης CPU για τον πίνακα διαχείρισης (τρέχει και αυτόνομα)
 ├── thermal-guard.service      # δείγμα μονάδας systemd για την προστασία, χωρίς πίνακα διαχείρισης
+├── tmpfiles
+│   └── phantomsdr-logs.conf
 ├── phantomsdr-admin.service   # δείγμα μονάδας systemd για τον πίνακα διαχείρισης (εκκίνηση με το boot, επανεκκίνηση μετά από κατάρρευση)
 ├── phantomsdr-proxy.service   # δείγμα μονάδας systemd για τον διαμεσολαβητή, εγκαθίσταται μαζί με τη μονάδα του πίνακα
 ├── phantomsdr-websdr-relay.service  # δείγμα systemd unit για το relay diversity WebSDR

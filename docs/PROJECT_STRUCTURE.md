@@ -437,6 +437,8 @@ PhantomSDR-Plus
 ├── setup-cpufreq-perms.sh     # grants group write on scaling_max_freq so the guard can throttle without root
 ├── thermal_guard.py           # CPU over-temperature guard used by the admin panel (also runs standalone)
 ├── thermal-guard.service      # sample systemd unit for the guard, for installs without the admin panel
+├── tmpfiles
+│   └── phantomsdr-logs.conf   # keeps admin.log + proxy.log owned by the panel's user (edit paths before installing)
 ├── phantomsdr-admin.service   # sample systemd unit for the admin panel (starts at boot, restarts after a crash)
 ├── phantomsdr-proxy.service   # sample systemd unit for the proxy, installed alongside the panel unit
 ├── phantomsdr-websdr-relay.service  # sample systemd unit for the WebSDR diversity relay

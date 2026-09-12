@@ -521,6 +521,12 @@ case "$SVC_CHOICE" in
         if getent group cpufreq >/dev/null 2>&1; then
             SUPP_GROUP="SupplementaryGroups=cpufreq"
         fi
+        # KillMode=process is load-bearing: the panel's Start button launches
+        # the receiver as a child, and a child inherits the unit's cgroup —
+        # start_new_session drops the terminal and process group, not the
+        # cgroup. Under systemd's default KillMode=control-group, restarting
+        # the panel would SIGTERM and SIGKILL spectrumserver, its watchdog and
+        # the autorun daemon with it, and stall for the full stop timeout.
         sudo tee /etc/systemd/system/phantomsdr-admin.service > /dev/null << UNIT
 [Unit]
 Description=PhantomSDR Admin Panel
@@ -534,6 +540,7 @@ WorkingDirectory=$SCRIPT_DIR
 ExecStart=$PYTHON_BIN -u $SCRIPT_DIR/admin_server.py
 StandardOutput=append:$SCRIPT_DIR/admin.log
 StandardError=append:$SCRIPT_DIR/admin.log
+KillMode=process
 Restart=always
 RestartSec=5
 Environment=ADMIN_PORT=$ADMIN_PORT
@@ -561,6 +568,30 @@ RestartSec=5
 [Install]
 WantedBy=multi-user.target
 UNIT
+        # ── Keep admin.log / proxy.log writable by the panel ─────────────────
+        # StandardOutput=append: is opened by PID 1 *before* it drops to User=,
+        # so a log that does not exist yet is created root:root 0644 and the
+        # panel — running as $(whoami) — cannot truncate it. "Clear Logs" then
+        # fails with Errno 13 on exactly these two files and no other. Fix the
+        # pair that exists now, and install a tmpfiles.d rule so a deleted log
+        # is re-created with the right owner at the next boot, before the units
+        # start. chown, never rm: both are held open O_APPEND.
+        for LOG in admin.log proxy.log; do
+            sudo touch "$SCRIPT_DIR/$LOG"
+            sudo chown "$(id -un):$(id -gn)" "$SCRIPT_DIR/$LOG"
+            sudo chmod 664 "$SCRIPT_DIR/$LOG"
+        done
+        sudo tee /etc/tmpfiles.d/99-phantomsdr-logs.conf > /dev/null << TMPF
+# PhantomSDR-Plus — installed by setup_admin.sh
+# Keeps admin.log and proxy.log owned by the user the units run as, so the
+# panel's "Clear Logs" button can truncate them. See docs/ADMIN_PANEL_SETUP.md.
+f $SCRIPT_DIR/admin.log 0664 $(id -un) $(id -gn) -
+f $SCRIPT_DIR/proxy.log 0664 $(id -un) $(id -gn) -
+TMPF
+        sudo systemd-tmpfiles --create /etc/tmpfiles.d/99-phantomsdr-logs.conf \
+            2>/dev/null || true
+        echo "[OK] admin.log and proxy.log owned by $(id -un) (Clear Logs works)"
+
         # Free the ports in case a hand-started pair is still up, or the units
         # and manage_admin.sh will fight over them.
         chmod +x "$SCRIPT_DIR/manage_admin.sh"

@@ -397,6 +397,8 @@ PhantomSDR-Plus
 ├── setup-cpufreq-perms.sh
 ├── thermal_guard.py           # Protection contre la surchauffe du processeur pour le panneau (fonctionne aussi seule)
 ├── thermal-guard.service      # unité systemd d'exemple pour le garde, sans panneau d'administration
+├── tmpfiles
+│   └── phantomsdr-logs.conf
 ├── phantomsdr-admin.service   # unité systemd d'exemple pour le panneau (démarrage au boot, redémarrage après plantage)
 ├── phantomsdr-proxy.service   # unité systemd d'exemple pour le proxy, à installer avec celle du panneau
 ├── phantomsdr-websdr-relay.service  # unité systemd d'exemple pour le relais de diversité WebSDR

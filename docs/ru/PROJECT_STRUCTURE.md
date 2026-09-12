@@ -397,6 +397,8 @@ PhantomSDR-Plus
 ├── setup-cpufreq-perms.sh
 ├── thermal_guard.py           # Защита от перегрева процессора для панели администратора (работает и отдельно)
 ├── thermal-guard.service      # пример systemd-юнита для защиты, для установок без панели
+├── tmpfiles
+│   └── phantomsdr-logs.conf
 ├── phantomsdr-admin.service   # пример юнита systemd для панели (запуск при загрузке, перезапуск после сбоя)
 ├── phantomsdr-proxy.service   # пример юнита systemd для прокси, ставится вместе с юнитом панели
 ├── phantomsdr-websdr-relay.service  # пример systemd-юнита для ретранслятора WebSDR

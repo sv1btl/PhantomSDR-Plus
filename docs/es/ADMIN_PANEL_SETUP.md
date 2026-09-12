@@ -148,6 +148,8 @@ Los mismos cuatro con `phantomsdr-proxy`, o ambos a la vez: `sudo systemctl rest
 
 `admin.log` y `proxy.log` siguen funcionando igual que antes — las unidades escriben en esos mismos archivos.
 
+Algo que conviene hacer una vez: instalar la regla tmpfiles de `tmpfiles/phantomsdr-logs.conf` (cambie antes sus rutas y el usuario). systemd crea esos dos registros como `root` antes de bajar a `User=`, y entonces el botón **Clear Logs** del panel falla con `Permission denied` — véase más abajo «Clear Logs dice Permission denied». `setup_admin.sh` instala la regla por usted.
+
 La unidad del panel lleva `SupplementaryGroups=cpufreq`, que es lo que permite a la fase throttle de la protección térmica bajar el reloj de la CPU sin que el panel se ejecute como root. Cree ese grupo primero con `./setup-cpufreq-perms.sh`, o systemd se negará a arrancar la unidad; elimine la línea si no usa la fase throttle.
 
 Para volver al Método A:
@@ -376,6 +378,41 @@ El botón **Clear Logs** del panel vacía todos los archivos de la tabla anterio
 Las consultas correctas se filtran de **ambos** registros de acceso, mediante el `QuietPollFilter` de `proxy.py` y el de `admin_server.py`. El panel llama a `/admin/api/status` cada 3 segundos y a `/admin/api/logs`, `/admin/api/autorun/status`, `/admin/api/users`, `/admin/api/graph-stats` y `/admin/api/chat` cada 5 segundos; sin filtrar serían el ~95 % de los dos archivos. Solo se descartan los `200` simples en esas rutas: cualquier otro estado, ruta o método se registra como antes, de modo que una consulta fallida sigue siendo visible y las acciones que cambian el estado (`kick`, `autorun/start`, …) usan rutas distintas y quedan siempre registradas. La única excepción deliberada es `/admin/api/logs/clear`, filtrada en ambos archivos: su propia línea de acceso se escribe *después* del vaciado, así que sin el filtro cada limpieza correcta dejaba una línea recién escrita en el registro que acababa de vaciar, y el botón parecía averiado.
 
 Como `proxy.log` es un registro de acceso, contiene direcciones IP de visitantes y cadenas de user-agent; téngalo en cuenta antes de compartirlo al pedir ayuda.
+
+### «Clear Logs» dice Permission denied
+
+En una máquina donde las unidades systemd se instalaron sobre un árbol limpio, el botón puede responder:
+
+```
+✗ Could not clear admin.log ([Errno 13] Permission denied: /home/you/PhantomSDR-Plus/admin.log),
+  proxy.log ([Errno 13] Permission denied: /home/you/PhantomSDR-Plus/proxy.log)
+```
+
+Siempre son esos dos archivos y nunca los otros cinco, porque son los únicos que crea el propio systemd. `StandardOutput=append:` lo abre PID 1 **antes** de bajar a `User=`, así que un registro que aún no existe se crea como `root:root 0644`. El panel se ejecuta como su usuario y no puede vaciarlo. Los otros cinco registros los crean los scripts de arranque, que ya se ejecutan como su usuario, por eso se limpian con normalidad. Donde los dos archivos son anteriores a las unidades —`manage_admin.sh` los creó con `>>`— ya tienen el propietario correcto y el botón funciona; por eso el problema solo aparece en una instalación nueva que empezó directamente con systemd.
+
+Compruébelo con `ls -l admin.log proxy.log`: los que fallan dicen `root root`. Repárelos:
+
+```bash
+sudo chown "$(id -un):$(id -gn)" admin.log proxy.log
+sudo chmod 664 admin.log proxy.log
+```
+
+No hace falta reiniciar: systemd sigue escribiendo por el descriptor de archivo que ya tiene abierto, y añadir datos no cambia la propiedad. Pulse **Clear Logs** de nuevo y ambos se vacían.
+
+**No borre los archivos en su lugar.** Ambos están abiertos con `O_APPEND`; si elimina uno, systemd seguirá llenando un inodo invisible hasta que el servicio se reinicie, y el archivo que reaparece vuelve a ser de root.
+
+Para que no vuelva a ocurrir, instale la regla tmpfiles que incluye el repositorio en `tmpfiles/phantomsdr-logs.conf`. Recrea ambos registros con el propietario correcto en cada arranque, antes de que se inicien las unidades, de modo que un registro eliminado —limpieza manual, reinstalación, directorio de instalación movido— nunca vuelva siendo de root. **Es específica de cada máquina: ábrala y cambie primero las dos rutas y el user:group para que coincidan con su equipo**, y luego:
+
+```bash
+sudo cp tmpfiles/phantomsdr-logs.conf /etc/tmpfiles.d/99-phantomsdr-logs.conf
+sudo systemd-tmpfiles --create /etc/tmpfiles.d/99-phantomsdr-logs.conf
+```
+
+Igual que con `logrotate/phantomsdr`, el archivo del repositorio y la copia en `/etc` son independientes: editar el del repositorio no cambia nada hasta que vuelva a ejecutar el `cp`. En systemd 254 y posteriores la regla también repara la propiedad y el modo de un registro que ya existe, así que soluciona tanto el fallo actual como los futuros; en versiones anteriores es el `chown` de arriba lo que desbloquea el botón.
+
+`setup_admin.sh` hace todo esto por usted cuando instala las unidades, así que una configuración hecha con el script nunca se topa con esto. Los pasos anteriores son para un par instalado a mano, o para una instalación anterior al paso de propiedad de los registros del script.
+
+Logrotate no reintroduce el problema: la configuración incluida usa `copytruncate`, que conserva el mismo inodo y, por tanto, el mismo propietario.
 
 ---
 

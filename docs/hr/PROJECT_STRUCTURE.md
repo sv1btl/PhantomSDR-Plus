@@ -397,6 +397,8 @@ PhantomSDR-Plus
 ├── setup-cpufreq-perms.sh
 ├── thermal_guard.py           # Zaštita od pregrijavanja procesora za administratorsku ploču (radi i samostalno)
 ├── thermal-guard.service      # primjer systemd jedinice za čuvara, bez administratorske ploče
+├── tmpfiles
+│   └── phantomsdr-logs.conf
 ├── phantomsdr-admin.service   # ogledna systemd jedinica za ploču (pokreće se pri dizanju sustava, ponovno nakon pada)
 ├── phantomsdr-proxy.service   # ogledna systemd jedinica za proxy, instalira se zajedno s jedinicom ploče
 ├── phantomsdr-websdr-relay.service  # primjer systemd unita za WebSDR diverziti relej

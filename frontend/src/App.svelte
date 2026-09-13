@@ -8243,6 +8243,18 @@
                     >
                       📊 System Resources
                     </button>
+                    
+                    <!-- Desktop applications: the installers for Desktop PhantomSDR+ live in a
+                         public Dropbox folder, because GitHub cannot host files that size. -->
+                    <button
+                      type="button"
+                      class="glass-button text-white py-1 px-2 ml-2 rounded text-xs"
+                      on:click={() => window.open("https://www.dropbox.com/scl/fo/kjwj96zg3kj7dgq4fjef9/APnA3c9hhv4hk3YMGIGjH7s?rlkey=jfiwklly63kv73poalx631pk3&st=m37uvaym&dl=0", "_blank", "noopener,noreferrer")}
+                      title="Download Desktop PhantomSDR+ for Linux and Windows"
+                      style="color:rgba(0, 225, 255, 0.993); font-size: 0.75rem;"
+                    >
+                      💾 Desktop applications
+                    </button>
 
                     <!-- System Stats Modal -->
                     {#if showSystemStats}

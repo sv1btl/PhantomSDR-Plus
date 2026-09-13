@@ -353,6 +353,37 @@ Magnifies the waterfall display:
 
 **Use when**: You need to see signals more clearly or tune precisely.
 
+### Transceiver control (CAT)
+
+Your own transceiver and the receiver page can be kept on the same frequency: turn the rig's dial and the waterfall follows, or click a signal on the waterfall and the rig tunes to it. It only moves *your* listening session — nobody else on the receiver is affected.
+
+**With Desktop PhantomSDR+ (4.0 or later).** The desktop application has a **Rig** menu. *Rig → Rig control...* opens a window where you choose your rig and how to reach it, and the menu itself switches the sync on and off. It syncs frequency, mode and filter width, in either direction or both, and can mute the receiver while you transmit. Besides PhantomSDR-Plus it drives **KiwiSDR, PA3FWM WebSDR and UberSDR** receivers the same way. It reaches the rig in one of four ways:
+
+- **Built-in** — no other software: Icom (CI-V), Yaesu (new CAT and the FT-817/857/897), Kenwood, Elecraft, FlexRadio SmartSDR CAT, QRP Labs and other Kenwood-compatible rigs.
+- **Hamlib** — every rig Hamlib knows, more than 300 of them, picked from a searchable list. The Windows installers include Hamlib; on Linux install `libhamlib-utils`.
+- **rigctld on the network** — a `rigctld` that is already running.
+- **flrig** — for a rig that flrig already shares with fldigi, WSJT-X or a logger.
+
+The application, its installers and its full manual are at [Desktop PhantomSDR+ (Dropbox)](https://www.dropbox.com/scl/fo/kjwj96zg3kj7dgq4fjef9/APnA3c9hhv4hk3YMGIGjH7s?rlkey=jfiwklly63kv73poalx631pk3&st=m37uvaym&dl=0).
+
+**With a web browser.** The [CATsync Tool for WebSDRs](https://catsyncsdr.wordpress.com/) (Windows) couples a rig to the receiver page open in your browser. It syncs frequency and mode.
+
+**Filter width and mute on transmit** work on KiwiSDR, WebSDR and UberSDR receivers, and on a PhantomSDR-Plus receiver running 4.0 with the update of September 2026 or later. On an older PhantomSDR-Plus frequency and mode still sync; the filter does not.
+
+The full manual — every setting, the supported rigs, how the two sides are kept from fighting, and troubleshooting — is **[Rig Control](RIG_CONTROL.md)**.
+
+**For developers.** Every receiver page offers these functions on `window`, which is what both tools use:
+
+| Function | Does |
+|---|---|
+| `catsync_getFrequency()` / `catsync_setFrequency(hz)` | Tuned frequency, in Hz |
+| `catsync_getMode()` / `catsync_setMode(mode)` | `USB`, `LSB`, `CW`, `CW-L`, `AM`, `FM`, `WBFM` … |
+| `catsync_getBandwidth()` / `catsync_setBandwidth(hz)` | Whole passband width, in Hz. Set it after the mode: changing mode resets the passband |
+| `catsync_getMute()` / `catsync_setMute(on)` | Mute, through the page's own mute button |
+| `catsync_ready` | `true` once the functions are installed |
+
+The last three rows are new in the September 2026 update; check that a function exists before calling it.
+
 ---
 
 ## Demodulation Modes

@@ -353,6 +353,37 @@ Uvećava prikaz slapa:
 
 **Koristite kada**: trebate jasnije vidjeti signale ili se precizno ugoditi.
 
+### Upravljanje primopredajnikom (CAT)
+
+Vaš primopredajnik i stranica prijemnika mogu ostati na istoj frekvenciji: okrenite gumb za ugađanje na uređaju i slap ga slijedi, ili kliknite signal na slapu i uređaj se ugodi na njega. To se odnosi samo na *vašu* sesiju slušanja; nitko drugi na prijemniku to ne primjećuje.
+
+**S aplikacijom Desktop PhantomSDR+ (4.0 ili novija).** Desktop aplikacija ima izbornik **Rig**. *Rig → Rig control...* otvara prozor u kojem birate svoj uređaj i način povezivanja, a sam izbornik uključuje i isključuje sinkronizaciju. Sinkronizira frekvenciju, način rada i širinu filtra, u jednom ili oba smjera, i može utišati prijemnik dok odašiljete. Osim PhantomSDR-Plusa na isti način upravlja i prijemnicima **KiwiSDR, PA3FWM WebSDR i UberSDR**. Do uređaja dolazi na jedan od četiri načina:
+
+- **Ugrađeni upravljači** — bez drugog softvera: Icom (CI-V), Yaesu (novi CAT i FT-817/857/897), Kenwood, Elecraft, FlexRadio SmartSDR CAT, QRP Labs i ostali uređaji kompatibilni s Kenwoodom.
+- **Hamlib** — svaki uređaj koji Hamlib poznaje, više od 300, odabran s popisa s pretraživanjem. Instalacijski programi za Windows sadrže Hamlib; na Linuxu instalirajte `libhamlib-utils`.
+- **rigctld na mreži** — `rigctld` koji je već pokrenut.
+- **flrig** — za uređaj koji flrig već dijeli s fldigijem, WSJT-X-om ili dnevnikom veza.
+
+Aplikacija, njezini instalacijski programi i cijeli priručnik nalaze se na [Desktop PhantomSDR+ (Dropbox)](https://www.dropbox.com/scl/fo/kjwj96zg3kj7dgq4fjef9/APnA3c9hhv4hk3YMGIGjH7s?rlkey=jfiwklly63kv73poalx631pk3&st=m37uvaym&dl=0).
+
+**S web preglednikom.** [CATsync Tool for WebSDRs](https://catsyncsdr.wordpress.com/) (Windows) povezuje uređaj sa stranicom prijemnika otvorenom u vašem pregledniku. Sinkronizira frekvenciju i način rada.
+
+**Širina filtra i utišavanje pri odašiljanju** rade na prijemnicima KiwiSDR, WebSDR i UberSDR te na PhantomSDR-Plus prijemniku s 4.0 i ažuriranjem iz rujna 2026. ili novijim. Na starijem PhantomSDR-Plusu frekvencija i način rada i dalje se sinkroniziraju; filtar ne.
+
+Cijeli priručnik — svaka postavka, podržani uređaji, kako se sprječava da se strane „svađaju” i rješavanje problema — nalazi se u **[Upravljanje primopredajnikom](RIG_CONTROL.md)**.
+
+**Za programere.** Svaka stranica prijemnika nudi ove funkcije na `window`, a njih koriste oba alata:
+
+| Funkcija | Što radi |
+|---|---|
+| `catsync_getFrequency()` / `catsync_setFrequency(hz)` | Ugođena frekvencija, u Hz |
+| `catsync_getMode()` / `catsync_setMode(mode)` | `USB`, `LSB`, `CW`, `CW-L`, `AM`, `FM`, `WBFM` … |
+| `catsync_getBandwidth()` / `catsync_setBandwidth(hz)` | Ukupna širina propusnog pojasa, u Hz. Postavite je nakon načina rada: promjena načina vraća propusni pojas na zadano |
+| `catsync_getMute()` / `catsync_setMute(on)` | Utišavanje, preko gumba za utišavanje na stranici |
+| `catsync_ready` | `true` čim su funkcije postavljene |
+
+Posljednja tri retka nova su u ažuriranju iz rujna 2026.; prije poziva provjerite postoji li funkcija.
+
 ---
 
 ## Načini demodulacije

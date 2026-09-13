@@ -57,6 +57,8 @@ PhantomSDR-Plus
 │   │   ├── RADE_General_INSTALL_MANUAL_LINUX.md
 │   │   ├── RADE_README.md
 │   │   ├── README.md
+│   │   ├── RECEIVE_DIVERSITY.md
+│   │   ├── RIG_CONTROL.md
 │   │   ├── THERMAL_GUARD.md
 │   │   └── USER_GUIDE.md
 │   ├── DECODERS.md
@@ -72,6 +74,8 @@ PhantomSDR-Plus
 │   │   ├── RADE_General_INSTALL_MANUAL_LINUX.md
 │   │   ├── RADE_README.md
 │   │   ├── README.md
+│   │   ├── RECEIVE_DIVERSITY.md
+│   │   ├── RIG_CONTROL.md
 │   │   ├── THERMAL_GUARD.md
 │   │   └── USER_GUIDE.md
 │   ├── es
@@ -85,6 +89,8 @@ PhantomSDR-Plus
 │   │   ├── RADE_General_INSTALL_MANUAL_LINUX.md
 │   │   ├── RADE_README.md
 │   │   ├── README.md
+│   │   ├── RECEIVE_DIVERSITY.md
+│   │   ├── RIG_CONTROL.md
 │   │   ├── THERMAL_GUARD.md
 │   │   └── USER_GUIDE.md
 │   ├── fr
@@ -98,6 +104,8 @@ PhantomSDR-Plus
 │   │   ├── RADE_General_INSTALL_MANUAL_LINUX.md
 │   │   ├── RADE_README.md
 │   │   ├── README.md
+│   │   ├── RECEIVE_DIVERSITY.md
+│   │   ├── RIG_CONTROL.md
 │   │   ├── THERMAL_GUARD.md
 │   │   └── USER_GUIDE.md
 │   ├── hr
@@ -111,6 +119,8 @@ PhantomSDR-Plus
 │   │   ├── RADE_General_INSTALL_MANUAL_LINUX.md
 │   │   ├── RADE_README.md
 │   │   ├── README.md
+│   │   ├── RECEIVE_DIVERSITY.md
+│   │   ├── RIG_CONTROL.md
 │   │   ├── THERMAL_GUARD.md
 │   │   └── USER_GUIDE.md
 │   ├── INSTALLATION.md
@@ -119,6 +129,8 @@ PhantomSDR-Plus
 │   ├── RADE_General_INSTALL_MANUAL_LINUX.md
 │   ├── RADE_README.md
 │   ├── README.md
+│   ├── RECEIVE_DIVERSITY.md
+│   ├── RIG_CONTROL.md
 │   ├── ru
 │   │   ├── ADMIN_PANEL_SETUP.md
 │   │   ├── Aether_config.md
@@ -130,6 +142,8 @@ PhantomSDR-Plus
 │   │   ├── RADE_General_INSTALL_MANUAL_LINUX.md
 │   │   ├── RADE_README.md
 │   │   ├── README.md
+│   │   ├── RECEIVE_DIVERSITY.md
+│   │   ├── RIG_CONTROL.md
 │   │   ├── THERMAL_GUARD.md
 │   │   └── USER_GUIDE.md
 │   ├── sdr-stats

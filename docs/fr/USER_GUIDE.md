@@ -354,6 +354,37 @@ Agrandit l'affichage en cascade :
 
 **À utiliser quand** : vous devez mieux voir les signaux ou vous accorder finement.
 
+### Pilotage du transceiver (CAT)
+
+Votre propre transceiver et la page du récepteur peuvent rester sur la même fréquence : tournez le bouton d'accord du poste et la cascade suit, ou cliquez sur un signal dans la cascade et le poste s'y accorde. Cela ne concerne que *votre* session d'écoute ; personne d'autre sur le récepteur n'est affecté.
+
+**Avec Desktop PhantomSDR+ (4.0 ou ultérieur).** L'application de bureau possède un menu **Rig**. *Rig → Rig control...* ouvre une fenêtre où vous choisissez votre poste et la façon de le joindre, et le menu lui-même active ou coupe la synchronisation. Elle synchronise la fréquence, le mode et la largeur de filtre, dans un sens ou dans les deux, et peut couper le son du récepteur pendant que vous émettez. Outre PhantomSDR-Plus, elle pilote de la même façon les récepteurs **KiwiSDR, PA3FWM WebSDR et UberSDR**. Le poste est joint de l'une de ces quatre façons :
+
+- **Intégré** — sans autre logiciel : Icom (CI-V), Yaesu (nouveau CAT et FT-817/857/897), Kenwood, Elecraft, FlexRadio SmartSDR CAT, QRP Labs et autres postes compatibles Kenwood.
+- **Hamlib** — tous les postes que connaît Hamlib, plus de 300, choisis dans une liste avec recherche. Les installateurs Windows incluent Hamlib ; sous Linux, installez `libhamlib-utils`.
+- **rigctld sur le réseau** — un `rigctld` déjà lancé.
+- **flrig** — pour un poste que flrig partage déjà avec fldigi, WSJT-X ou un logiciel de carnet de trafic.
+
+L'application, ses installateurs et son manuel complet se trouvent sur [Desktop PhantomSDR+ (Dropbox)](https://www.dropbox.com/scl/fo/kjwj96zg3kj7dgq4fjef9/APnA3c9hhv4hk3YMGIGjH7s?rlkey=jfiwklly63kv73poalx631pk3&st=m37uvaym&dl=0).
+
+**Avec un navigateur web.** Le [CATsync Tool for WebSDRs](https://catsyncsdr.wordpress.com/) (Windows) couple un poste à la page du récepteur ouverte dans votre navigateur. Il synchronise la fréquence et le mode.
+
+**La largeur de filtre et la coupure du son en émission** fonctionnent sur les récepteurs KiwiSDR, WebSDR et UberSDR, et sur un récepteur PhantomSDR-Plus en 4.0 avec la mise à jour de septembre 2026 ou ultérieure. Sur un PhantomSDR-Plus plus ancien, la fréquence et le mode se synchronisent toujours ; le filtre non.
+
+Le manuel complet — chaque réglage, les postes pris en charge, comment on empêche les deux côtés de se battre, et le dépannage — est **[Pilotage du transceiver](RIG_CONTROL.md)**.
+
+**Pour les développeurs.** Chaque page de récepteur propose ces fonctions sur `window` ; ce sont elles qu'utilisent les deux outils :
+
+| Fonction | Rôle |
+|---|---|
+| `catsync_getFrequency()` / `catsync_setFrequency(hz)` | Fréquence d'accord, en Hz |
+| `catsync_getMode()` / `catsync_setMode(mode)` | `USB`, `LSB`, `CW`, `CW-L`, `AM`, `FM`, `WBFM` … |
+| `catsync_getBandwidth()` / `catsync_setBandwidth(hz)` | Largeur totale de la bande passante, en Hz. À régler après le mode : changer de mode réinitialise la bande passante |
+| `catsync_getMute()` / `catsync_setMute(on)` | Coupure du son, via le bouton muet de la page |
+| `catsync_ready` | `true` dès que les fonctions sont installées |
+
+Les trois dernières lignes sont nouvelles avec la mise à jour de septembre 2026 ; vérifiez qu'une fonction existe avant de l'appeler.
+
 ---
 
 ## Modes de démodulation

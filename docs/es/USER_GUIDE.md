@@ -353,6 +353,37 @@ Amplía la cascada:
 
 **Úsela cuando**: necesite ver las señales con más claridad o sintonizar con precisión.
 
+### Control del transceptor (CAT)
+
+Su propio transceptor y la página del receptor pueden mantenerse en la misma frecuencia: gire el dial del equipo y la cascada lo sigue, o haga clic en una señal de la cascada y el equipo se sintoniza en ella. Solo afecta a *su* sesión de escucha; nadie más en el receptor lo nota.
+
+**Con Desktop PhantomSDR+ (4.0 o posterior).** La aplicación de escritorio tiene un menú **Rig**. *Rig → Rig control...* abre una ventana donde elige su equipo y la forma de conectarlo, y el propio menú activa y desactiva la sincronización. Sincroniza frecuencia, modo y ancho de filtro, en un sentido o en ambos, y puede silenciar el receptor mientras transmite. Además de PhantomSDR-Plus maneja del mismo modo receptores **KiwiSDR, PA3FWM WebSDR y UberSDR**. Llega al equipo de una de estas cuatro formas:
+
+- **Integrado** — sin otro software: Icom (CI-V), Yaesu (CAT nuevo y FT-817/857/897), Kenwood, Elecraft, FlexRadio SmartSDR CAT, QRP Labs y otros equipos compatibles con Kenwood.
+- **Hamlib** — cualquier equipo que conozca Hamlib, más de 300, elegido de una lista con búsqueda. Los instaladores de Windows incluyen Hamlib; en Linux instale `libhamlib-utils`.
+- **rigctld en la red** — un `rigctld` que ya está en marcha.
+- **flrig** — para un equipo que flrig ya comparte con fldigi, WSJT-X o un programa de registro.
+
+La aplicación, sus instaladores y su manual completo están en [Desktop PhantomSDR+ (Dropbox)](https://www.dropbox.com/scl/fo/kjwj96zg3kj7dgq4fjef9/APnA3c9hhv4hk3YMGIGjH7s?rlkey=jfiwklly63kv73poalx631pk3&st=m37uvaym&dl=0).
+
+**Con un navegador web.** La [CATsync Tool for WebSDRs](https://catsyncsdr.wordpress.com/) (Windows) acopla un equipo a la página del receptor abierta en su navegador. Sincroniza frecuencia y modo.
+
+**El ancho de filtro y el silencio al transmitir** funcionan en receptores KiwiSDR, WebSDR y UberSDR, y en un receptor PhantomSDR-Plus con la 4.0 y la actualización de septiembre de 2026 o posterior. En un PhantomSDR-Plus más antiguo la frecuencia y el modo siguen sincronizándose; el filtro no.
+
+El manual completo — cada ajuste, los equipos admitidos, cómo se evita que los dos lados se peleen y la solución de problemas — es **[Control del transceptor](RIG_CONTROL.md)**.
+
+**Para desarrolladores.** Cada página de receptor ofrece estas funciones en `window`, que son las que usan ambas herramientas:
+
+| Función | Qué hace |
+|---|---|
+| `catsync_getFrequency()` / `catsync_setFrequency(hz)` | Frecuencia sintonizada, en Hz |
+| `catsync_getMode()` / `catsync_setMode(mode)` | `USB`, `LSB`, `CW`, `CW-L`, `AM`, `FM`, `WBFM` … |
+| `catsync_getBandwidth()` / `catsync_setBandwidth(hz)` | Ancho total de la banda de paso, en Hz. Fíjelo después del modo: cambiar de modo restablece la banda de paso |
+| `catsync_getMute()` / `catsync_setMute(on)` | Silencio, mediante el propio botón de silencio de la página |
+| `catsync_ready` | `true` en cuanto las funciones están instaladas |
+
+Las tres últimas filas son nuevas en la actualización de septiembre de 2026; compruebe que una función existe antes de llamarla.
+
 ---
 
 ## Modos de demodulación

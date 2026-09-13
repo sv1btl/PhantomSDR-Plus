@@ -136,9 +136,13 @@
     <!-- Detection element — CATsync looks for this -->
     <div id="id-kiwi-container" style="display:none"></div>
 
-    <!-- Dummy Kiwi frequency form — CATsync writes the frequency here -->
-    <form name="form_freq" style="display:none">
-      <input type="text" value="" />
+    <!-- Kiwi frequency box, as on a real KiwiSDR: form "form_freq" holding
+         input "id-freq-input".  CATsync writes the rig's frequency here and
+         calls freqset_complete(), and reads the receiver's frequency back
+         from it, so App.svelte keeps its value at the receiver's frequency
+         in kHz ("7074.00") whenever the receiver moves. -->
+    <form id="id-freq-form" name="form_freq" style="display:none" onsubmit="freqset_complete(0); return false;">
+      <input type="text" id="id-freq-input" value="" />
     </form>
 
     <script>
@@ -152,8 +156,15 @@
       window.__catsync_q     = window.__catsync_q     || [];
       window.__catsync_state = window.__catsync_state || { hz: null, mode: null };
 
-      // Prevent audio stutter from repeated identical retunes
-      var __catsync_last_hz = null;
+      // The tool re-sends the rig's frequency on every poll.  A repeat of its
+      // last command is ignored inside __catsync_setfreq_impl, so that the
+      // listener's own tuning is not pulled back to the rig on the next poll.
+
+      // Before the app has loaded, keep only the latest frequency command.
+      function queueFreq(hz) {
+        window.__catsync_q = window.__catsync_q.filter(function (c) { return c.t !== "freq"; });
+        window.__catsync_q.push({ t: "freq", hz: hz });
+      }
 
       // -------------------------------------------------
       // freqset_complete() — KiwiSDR-style frequency set
@@ -169,15 +180,12 @@
           // Kiwi uses kHz; accept raw Hz too (large numbers)
           var hz = (x < 1e6) ? Math.round(x * 1000) : Math.round(x);
 
-          if (__catsync_last_hz === hz) return true;   // idempotent
-          __catsync_last_hz = hz;
-
           window.__catsync_state.hz = hz;
 
           if (typeof window.__catsync_setfreq_impl === "function") {
             return window.__catsync_setfreq_impl(hz);
           }
-          window.__catsync_q.push({ t: "freq", hz: hz });
+          queueFreq(hz);
           return true;
         } catch (e) {
           return false;
@@ -193,26 +201,43 @@
 
         var hz = (x < 1e6) ? Math.round(x * 1000) : Math.round(x);
 
-        if (__catsync_last_hz === hz) return true;
-        __catsync_last_hz = hz;
-
         window.__catsync_state.hz = hz;
 
         if (typeof window.__catsync_setfreq_impl === "function") {
           return window.__catsync_setfreq_impl(hz);
         }
-        window.__catsync_q.push({ t: "freq", hz: hz });
+        queueFreq(hz);
         return true;
       };
 
       // -------------------------------------------------
       // Getters — read back current state
+      // These are only the stand-ins for the first seconds: once the app has
+      // loaded, App.svelte replaces ext_get_freq_kHz, nominalfreq and
+      // ext_get_mode with versions that read the receiver itself.
       // -------------------------------------------------
       window.ext_get_freq_kHz = function () {
         return (window.__catsync_state.hz == null)
           ? null
           : window.__catsync_state.hz / 1000;
       };
+
+      // Kiwi globals an injected script may read instead of calling the
+      // getters: the current mode (lower case) and the displayed frequency.
+      try {
+        Object.defineProperty(window, "cur_mode", {
+          configurable: true,
+          get: function () { return window.ext_get_mode(); }
+        });
+        Object.defineProperty(window, "freq_displayed_Hz", {
+          configurable: true,
+          get: function () { var k = window.ext_get_freq_kHz(); return k == null ? 0 : Math.round(k * 1000); }
+        });
+        Object.defineProperty(window, "freq_displayed_kHz_str", {
+          configurable: true,
+          get: function () { var k = window.ext_get_freq_kHz(); return k == null ? "" : Number(k).toFixed(2); }
+        });
+      } catch (e) {}
 
       window.nominalfreq = function () {
         return (window.__catsync_state.hz == null)
@@ -240,9 +265,8 @@
       window.ext_set_mode = function (m) {
         var mode = String(m || "").toUpperCase().trim();
 
-        // Map Kiwi names -> PhantomSDR names
-        if (mode === "NBFM") mode = "FM";
-
+        // Kiwi names are mapped to this receiver's modes by
+        // __catsync_setmode_impl (NBFM -> FM, SAM -> AM, CWN -> CW ...).
         if (!mode) return false;
 
         window.__catsync_state.mode = mode;

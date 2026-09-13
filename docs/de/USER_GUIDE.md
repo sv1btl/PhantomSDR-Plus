@@ -354,6 +354,37 @@ Vergrößert die Wasserfallanzeige:
 
 **Verwenden, wenn**: Sie Signale deutlicher sehen oder genauer abstimmen möchten.
 
+### Transceiver-Steuerung (CAT)
+
+Ihr eigener Transceiver und die Empfängerseite lassen sich auf derselben Frequenz halten: Drehen Sie am Abstimmknopf des Funkgeräts, folgt der Wasserfall – oder klicken Sie auf ein Signal im Wasserfall, und das Funkgerät stimmt darauf ab. Das betrifft nur *Ihre* eigene Hörsitzung; niemand sonst am Empfänger merkt etwas davon.
+
+**Mit Desktop PhantomSDR+ (ab 4.0).** Die Desktop-Anwendung hat ein Menü **Rig**. *Rig → Rig control...* öffnet ein Fenster, in dem Sie Ihr Funkgerät und den Verbindungsweg wählen; das Menü selbst schaltet die Synchronisierung ein und aus. Synchronisiert werden Frequenz, Betriebsart und Filterbreite, in eine Richtung oder in beide, und auf Wunsch wird der Empfänger während des Sendens stummgeschaltet. Neben PhantomSDR-Plus steuert sie auf dieselbe Weise auch Empfänger **KiwiSDR, PA3FWM WebSDR und UberSDR**. Das Funkgerät wird auf einem von vier Wegen erreicht:
+
+- **Integriert** – ohne weitere Software: Icom (CI-V), Yaesu (neues CAT sowie FT-817/857/897), Kenwood, Elecraft, FlexRadio SmartSDR CAT, QRP Labs und andere Kenwood-kompatible Geräte.
+- **Hamlib** – jedes Funkgerät, das Hamlib kennt, mehr als 300, ausgewählt aus einer durchsuchbaren Liste. Die Windows-Installer enthalten Hamlib; unter Linux installieren Sie `libhamlib-utils`.
+- **rigctld im Netzwerk** – ein bereits laufender `rigctld`.
+- **flrig** – für ein Funkgerät, das flrig schon mit fldigi, WSJT-X oder einem Logbuch teilt.
+
+Die Anwendung, ihre Installer und das vollständige Handbuch finden Sie unter [Desktop PhantomSDR+ (Dropbox)](https://www.dropbox.com/scl/fo/kjwj96zg3kj7dgq4fjef9/APnA3c9hhv4hk3YMGIGjH7s?rlkey=jfiwklly63kv73poalx631pk3&st=m37uvaym&dl=0).
+
+**Mit einem Webbrowser.** Das [CATsync Tool for WebSDRs](https://catsyncsdr.wordpress.com/) (Windows) koppelt ein Funkgerät an die im Browser geöffnete Empfängerseite. Es synchronisiert Frequenz und Betriebsart.
+
+**Filterbreite und Stummschaltung beim Senden** funktionieren mit KiwiSDR-, WebSDR- und UberSDR-Empfängern sowie mit einem PhantomSDR-Plus-Empfänger mit 4.0 und dem Update vom September 2026 oder neuer. Bei einem älteren PhantomSDR-Plus werden Frequenz und Betriebsart weiterhin synchronisiert, der Filter nicht.
+
+Das vollständige Handbuch — jede Einstellung, die unterstützten Geräte, wie verhindert wird, dass sich beide Seiten bekämpfen, und die Fehlerbehebung — ist **[Transceiver-Steuerung](RIG_CONTROL.md)**.
+
+**Für Entwickler.** Jede Empfängerseite stellt diese Funktionen auf `window` bereit; beide Werkzeuge nutzen sie:
+
+| Funktion | Wirkung |
+|---|---|
+| `catsync_getFrequency()` / `catsync_setFrequency(hz)` | Abgestimmte Frequenz in Hz |
+| `catsync_getMode()` / `catsync_setMode(mode)` | `USB`, `LSB`, `CW`, `CW-L`, `AM`, `FM`, `WBFM` … |
+| `catsync_getBandwidth()` / `catsync_setBandwidth(hz)` | Gesamte Durchlassbreite in Hz. Nach der Betriebsart setzen: ein Wechsel der Betriebsart setzt den Durchlassbereich zurück |
+| `catsync_getMute()` / `catsync_setMute(on)` | Stummschaltung, über die Stummschalttaste der Seite |
+| `catsync_ready` | `true`, sobald die Funktionen installiert sind |
+
+Die letzten drei Zeilen sind mit dem Update vom September 2026 hinzugekommen; prüfen Sie vor dem Aufruf, ob eine Funktion vorhanden ist.
+
 ---
 
 ## Demodulationsarten

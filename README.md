@@ -15,6 +15,7 @@ and report issues against.
 * **A channel scanner, on the Fine Tuning row.** ◀ ■ ▶ walk the receiver channel by channel until something is there, stopping on anything a chosen number of **dB above the band's own noise floor** — a relative threshold, so one setting keeps working as conditions change through the day. **Scan Band** follows the band plan and **Scan Visible** follows exactly what the waterfall is showing; the step and the channel grid follow the mode, it resumes by itself when a channel goes quiet, and a lockout button drops a birdie for good. All of it is local to the listener's browser and never moves the receiver for anyone else. Full section: **[docs/USER_GUIDE.md](docs/USER_GUIDE.md)** under *Basic Operations → Scanner*.
 * **Changes in FT4 & FT2 decoders.** FT4 and FT2 now aim at the middle of the range the decoder can really search. FT8 is untouched: it was never near its limit. JS8 is untouched too — its decoder widens its search to match the window, so all five submodes were already correct, and both were re-measured to confirm it.
 * **Changes in Mobile Phones' Audio.**  Mobile Phones now run their audio at the rate the device actually wants, and the conversion from 12 kHz is done inside the page instead, by a proper polyphase filter that carries its state across packet boundaries. That last part matters more than it sounds: converting each arriving packet on its own leaves a discontinuity at every packet edge, and a discontinuity repeating at a steady rate is an audible tone rather than a click. The filter was measured across three output rates before being used — no discontinuity at any block boundary, spurious content below -60 dB.
+* **Transceiver control from the desktop app.** [Desktop PhantomSDR+](https://www.dropbox.com/scl/fo/kjwj96zg3kj7dgq4fjef9/APnA3c9hhv4hk3YMGIGjH7s?rlkey=jfiwklly63kv73poalx631pk3&st=m37uvaym&dl=0) 4.0 adds a **Rig** menu that keeps your own transceiver and a receiver window in step — frequency, mode and filter width, in either direction or both — and can mute the receiver while you transmit. Besides PhantomSDR-Plus it drives KiwiSDR, PA3FWM WebSDR and UberSDR receivers. It talks to Icom, Yaesu, Kenwood, Elecraft, FlexRadio and QRP Labs rigs directly, to every other rig through Hamlib, and to flrig. The receiver page gained the matching filter and mute functions in its CATsync API. Full manual, in all seven languages and in the offline PDFs: **[docs/RIG_CONTROL.md](docs/RIG_CONTROL.md)**.
 * **Two new manuals, in all seven languages and in the offline PDFs.** [docs/Aether_config.md](docs/Aether_config.md) for the KiwiSDR bridge — every `[kiwi_emulation]` key, audio level, the S-meter, the waterfall rate, and a symptom table — and [docs/RECEIVE_DIVERSITY.md](docs/RECEIVE_DIVERSITY.md) for diversity, including the WebSDR relay and how to be a good guest on someone else's receiver.
 
 ------------------
@@ -27,7 +28,7 @@ We also provide a wide range of additional **features**:
 * Installers that stop a running receiver first, frame every step with its own verdict, and spell out the default of each question.
 * A **Thermal Protection** function in Admin Panel, to avoid thermal stress of the CPU and take the proper actions.
 * A modern, futuristic user-interface design.
-* **CATsync** support through the [CATsync Tool for WebSDRs](https://catsyncsdr.wordpress.com/) application.
+* **CATsync** support through the [CATsync Tool for WebSDRs](https://catsyncsdr.wordpress.com/) application, and two-way rig control — frequency, mode and filter — in [Desktop PhantomSDR+](https://www.dropbox.com/scl/fo/kjwj96zg3kj7dgq4fjef9/APnA3c9hhv4hk3YMGIGjH7s?rlkey=jfiwklly63kv73poalx631pk3&st=m37uvaym&dl=0). See [docs/RIG_CONTROL.md](docs/RIG_CONTROL.md).
 * **KiwiSDR client emulation** — an optional bridge that lets Kiwi clients such as **AetherSDR** and `kiwiclient` connect to the receiver directly, on the same host and port, with real retuning, waterfall and S-meter. Off until `[kiwi_emulation] enabled = true` is added to your config. See [docs/Aether_config.md](docs/Aether_config.md).
 * **Receive diversity** — pair the receiver with a second site (another PhantomSDR-Plus, a KiwiSDR, an UberSDR or a WebSDR) and hear whichever of the two currently has the better signal. It runs in the listener's browser; only a WebSDR as the partner needs a small relay on your own server. See [docs/RECEIVE_DIVERSITY.md](docs/RECEIVE_DIVERSITY.md).
 * A full-featured, password-protected Admin Panel for remote server management without requiring direct SSH access. It provides access to server logs, chat moderation, user messaging, chat-message deletion without restarting the server, user disconnection, command execution, file editing, and other administrative functions.
@@ -724,6 +725,14 @@ For detailed information about installation, usage, and the project structure, p
 
 ### 👥 For End Users:
 
+- **[Rig Control (CAT)](docs/RIG_CONTROL.md)** - keeping your own transceiver and a receiver window in step
+  - What you need: Desktop PhantomSDR+, or the CATsync Tool in a browser
+  - Supported receivers: PhantomSDR-Plus, KiwiSDR, PA3FWM WebSDR, UberSDR
+  - Choosing how to reach the rig, and the rigs with a built-in driver
+  - Sync direction, modes, filter width, mute on transmit, transverter offset
+  - The page's `catsync_*` interface, for developers
+  - Troubleshooting
+
 - **[User Guide](docs/USER_GUIDE.md)** - Complete guide for using the WebSDR
   - Interface overview and navigation
   - Tuning and demodulation modes
@@ -736,7 +745,7 @@ For detailed information about installation, usage, and the project structure, p
 
 ### 📄 Offline PDF editions:
 
-Every document above, in one printable file — thirteen chapters in reading order, with a linked table of contents and working cross-references. Handy for reading away from the machine, or for printing the parts you keep coming back to.
+Every document above, in one printable file — fourteen chapters in reading order, with a linked table of contents and working cross-references. Handy for reading away from the machine, or for printing the parts you keep coming back to.
 
 | Language | Download |
 |---|---|

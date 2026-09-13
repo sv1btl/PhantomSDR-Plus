@@ -496,9 +496,26 @@
   let currentBand = -2;
   let bandName;
 
-  // CATsync loop-prevention / idempotency guards
-  let __catsync_last_applied_hz = null;
-  let __catsync_last_applied_mode = null;
+  // CATsync: non-zero while a command from the CATsync Tool is being applied,
+  // so the changes it causes are not reported back to the tool as the
+  // listener's own (which would echo the rig's command straight back to it).
+  let catsyncRemote = 0;
+  // The last frequency and mode the tool sent.  The tool re-sends the rig's
+  // frequency and mode on every poll, changed or not, so a command equal to
+  // its previous one is a repeat, not a request - applying it would pull the
+  // receiver straight back to the rig every time the listener tuned away.
+  // Only a command that differs from the last one means the rig has moved.
+  let catsyncLastToolHz = null;
+  let catsyncLastToolMode = null;
+  // What the tool was sending just before the listener last tuned, and until
+  // when a repeat of it still counts as stale.  A tool that re-sends the rig
+  // before it has read the new position keeps sending the old value for a
+  // poll or two; after this grace the same value means the rig really went
+  // back there.
+  const CATSYNC_STALE_MS = 2000;
+  let catsyncStaleHz = null;
+  let catsyncStaleMode = null;
+  let catsyncStaleUntil = 0;
 
   // Begin Wheel Tuning Steps declarations
   let defaultStep,
@@ -3848,8 +3865,68 @@
     return [Math.floor(l), m, Math.floor(r)];
   }
 
+  // CATsync: a mode name from the CATsync Tool (Kiwi, WebSDR or rig
+  // spelling) as one of this receiver's modes, or null if it has none.
+  function catsyncModeFromTool(name) {
+    const m = String(name || "").toUpperCase().trim();
+    const alias = {
+      NBFM: "FM", NNFM: "FM", NFM: "FM", FMN: "FM",
+      WFM: "WBFM",
+      "CW-U": "CW", CWU: "CW", CWN: "CW",
+      CWL: "CW-L", CWR: "CW-L", "CW-R": "CW-L",
+      USN: "USB", USBN: "USB", DIGU: "USB", PKTUSB: "USB",
+      LSN: "LSB", LSBN: "LSB", DIGL: "LSB", PKTLSB: "LSB",
+      AMN: "AM", AMW: "AM", SAM: "AM", SAL: "AM", SAU: "AM", SAS: "AM", AMSYNC: "AM", DSB: "AM",
+      QAM: "QUAM",
+    };
+    const mode = alias[m] || m;
+    return demodulationDefaults[mode] ? mode : null;
+  }
+
+  // CATsync: this receiver's mode in the Kiwi spelling the tool expects.
+  // Kiwi has no CW-L or wideband FM, so those report as their nearest mode.
+  function catsyncModeForTool(mode) {
+    switch (mode) {
+      case "USB": case "RADEU": return "usb";
+      case "LSB": case "RADEL": return "lsb";
+      case "CW": case "CW-L": return "cw";
+      case "AM": return samEnabled ? "sam" : "am";
+      case "QUAM": return "qam";
+      case "FM": case "WBFM": return "nbfm";
+      default: return "usb";
+    }
+  }
+
+  // CATsync: show the receiver's frequency in the Kiwi frequency box of
+  // index.html, the way a KiwiSDR does - the CATsync Tool reads it from there.
+  function catsyncPublish() {
+    try {
+      const form = document.forms["form_freq"];
+      const input = form && form.elements[0];
+      if (!input || !frequencyInputComponent || !frequencyInputComponent.getFrequency) return;
+      const hz = frequencyInputComponent.getFrequency();
+      if (Number.isFinite(hz) && hz > 0) input.value = (hz / 1000).toFixed(2);
+    } catch (e) {}
+  }
+
   // CATsync: notify external tools (e.g. CATsync) when frequency/mode changes
   function catsyncNotify(changed) {
+    // The box first: a tool reacting to the notification reads it at once.
+    catsyncPublish();
+    // The listener has moved the receiver, and the tool is about to move the
+    // rig to match.  From now on that is the rig's position: a command equal
+    // to it is the tool repeating itself, while anything else - including
+    // the frequency the rig was on before - means the rig was really turned.
+    if (changed && changed.freq && frequencyInputComponent && frequencyInputComponent.getFrequency) {
+      catsyncStaleHz = catsyncLastToolHz;
+      catsyncStaleUntil = Date.now() + CATSYNC_STALE_MS;
+      catsyncLastToolHz = frequencyInputComponent.getFrequency();
+    }
+    if (changed && changed.mode) {
+      catsyncStaleMode = catsyncLastToolMode;
+      catsyncStaleUntil = Date.now() + CATSYNC_STALE_MS;
+      catsyncLastToolMode = demodulation;
+    }
     if (
       typeof window !== "undefined" &&
       typeof window.injection_environment_changed === "function"
@@ -3902,6 +3979,13 @@
   // Demodulation controls
   function handleDemodulationChange(e, changed) {
     passbandTunerComponent.setMode(demodulation);
+    // CATsync: every mode change - a button, the band plan, a decoder, a
+    // bookmark - passes through here, so this is where the tool hears of it.
+    window.__catsync_state = window.__catsync_state || { hz: null, mode: null };
+    if (changed && window.__catsync_state.mode !== demodulation) {
+      window.__catsync_state.mode = demodulation;
+      if (!catsyncRemote) catsyncNotify({ mode: 1 });
+    }
     const demodulationDefault = demodulationDefaults[demodulation];
     if (changed) {
       if (demodulation === "WBFM") {
@@ -4713,6 +4797,12 @@
     // A waterfall click rebuilds the passband from the mode defaults, so a
     // running decoder has to get its own back.
     _decoderReassertReceiver();
+
+    // CATsync: a waterfall click or passband drag is the listener tuning,
+    // and the most common way they do it - tell the tool.
+    window.__catsync_state = window.__catsync_state || { hz: null, mode: null };
+    window.__catsync_state.hz = frequencyInputComponent.getFrequency();
+    if (!catsyncRemote) catsyncNotify({ freq: 1 });
   }
 
   // Entering new frequency into the textbox
@@ -4778,7 +4868,7 @@
     window.__catsync_state = window.__catsync_state || { hz: null, mode: null };
     window.__catsync_state.hz = event.detail;
     // Only fire the hook when the tune came from the user, not from CATsync itself
-    if (!event.__catsync_remote) {
+    if (!event.__catsync_remote && !catsyncRemote) {
       catsyncNotify({ freq: 1 });
     }
   }
@@ -6375,20 +6465,50 @@
       if (!frequencyInputComponent || !frequencyInputComponent.setFrequency)
         return false;
       frequencyInputComponent.setFrequency(Math.round(f));
+      // handleFrequencyChange reports the change to the CATsync Tool itself.
       handleFrequencyChange({ detail: Math.round(f) });
-      catsyncNotify({ freq: 1 });
       return true;
     };
 
     window.catsync_setMode = function (mode) {
-      if (!mode) return false;
-      var m = String(mode).toUpperCase().trim();
+      var m = catsyncModeFromTool(mode);
+      if (!m) return false;
+      // SetMode -> handleDemodulationChange reports the change itself.
       SetMode(m);
-      catsyncNotify({ mode: 1 });
+      return true;
+    };
+
+    // Filter width, in Hz: the whole passband, low edge to high edge.
+    // Setting it keeps the passband anchored the way the IF filter buttons
+    // do (USB grows up, LSB grows down, the rest symmetrically). Call it
+    // after catsync_setMode, which resets the passband to the mode default.
+    window.catsync_getBandwidth = function () {
+      if (!audio || !audio.getAudioRange) return null;
+      const [l, , r] = audio.getAudioRange().map(FFTOffsetToFrequency);
+      return Math.round(r - l);
+    };
+
+    window.catsync_setBandwidth = function (hz) {
+      var bw = Math.round(Number(hz));
+      if (!isFinite(bw) || bw <= 0) return false;
+      handleSetStaticBandwidth(bw, false);
+      return true;
+    };
+
+    // Mute, for a controller that silences the receiver while its own
+    // transceiver transmits. Goes through the mute button's state, so the
+    // button shows it and the listener can still unmute by hand.
+    window.catsync_getMute = function () {
+      return mute;
+    };
+
+    window.catsync_setMute = function (on) {
+      if (!!on !== mute) handleMuteChange();
       return true;
     };
 
     window.catsync_ready = true;
+    catsyncPublish();
 
     // Twente WebSDR / KiwiSDR compatibility layer
     window.nominalfreq = function () {
@@ -6397,54 +6517,95 @@
       return frequencyInputComponent.getFrequency() / 1000; // kHz
     };
 
+    // These are the tool's commands, so they go through the same remote
+    // implementations as freqset_complete and ext_set_mode.
     window.setfreq = function (f) {
       var x = Number(f);
       if (!isFinite(x)) return false;
       var hz = x < 1e6 ? Math.round(x * 1000) : Math.round(x);
-      if (!frequencyInputComponent || !frequencyInputComponent.setFrequency)
-        return false;
-      frequencyInputComponent.setFrequency(hz);
-      handleFrequencyChange({ detail: hz });
-      catsyncNotify({ freq: 1 });
-      return true;
+      return window.__catsync_setfreq_impl(hz);
     };
 
     window.set_mode = function (m) {
-      var mode = String(m || "")
-        .toUpperCase()
-        .trim();
-      SetMode(mode);
-      catsyncNotify({ mode: 1 });
-      return true;
+      return window.__catsync_setmode_impl(m);
+    };
+
+    // What the CATsync Tool reads back.  It sees this page as a KiwiSDR, so
+    // it reads the Kiwi getters - and they must report the receiver as it
+    // really is, however the listener got there, not a copy that only some
+    // tuning paths ever updated.
+    window.ext_get_freq_kHz = function () {
+      if (!frequencyInputComponent || !frequencyInputComponent.getFrequency)
+        return null;
+      return frequencyInputComponent.getFrequency() / 1000;
+    };
+
+    window.ext_get_mode = function () {
+      return catsyncModeForTool(demodulation);
     };
 
     // Internal implementations called by the early index.html shim
     window.__catsync_setfreq_impl = function (hz) {
       if (!frequencyInputComponent || !frequencyInputComponent.setFrequency)
         return false;
-      // Idempotent: skip if same frequency — prevents audio stutter from polling
-      if (__catsync_last_applied_hz === hz) return true;
-      __catsync_last_applied_hz = hz;
-      frequencyInputComponent.setFrequency(hz);
-      // Pass __catsync_remote so handleFrequencyChange won't re-notify CATsync
-      handleFrequencyChange({ detail: hz, __catsync_remote: true });
+      hz = Math.round(Number(hz));
+      if (!isFinite(hz) || hz <= 0) return false;
       window.__catsync_state = window.__catsync_state || {
         hz: null,
         mode: null,
       };
+      // A repeat of the tool's last command is its routine poll, not the rig
+      // moving: leave the receiver where the listener has put it.
+      const staleHz = hz === catsyncStaleHz && Date.now() < catsyncStaleUntil;
+      if (hz === catsyncLastToolHz || staleHz) {
+        // The tool wrote its repeat into the box; put the receiver's back.
+        catsyncPublish();
+        return true;
+      }
+      catsyncLastToolHz = hz;
       window.__catsync_state.hz = hz;
+      if (frequencyInputComponent.getFrequency() === hz) {
+        catsyncPublish();
+        return true;
+      }
+      const modeBefore = demodulation;
+      catsyncRemote++;
+      try {
+        frequencyInputComponent.setFrequency(hz);
+        handleFrequencyChange({ detail: hz, __catsync_remote: true });
+        // A retune can select the band's default mode.  The rig did not ask
+        // for that - a KiwiSDR would keep its mode - and reporting it would
+        // push the rig out of the mode it is in.  Put the mode back, unless a
+        // running decoder owns the receiver.
+        if (demodulation !== modeBefore && !_decoderOwnsReceiver()) {
+          SetMode(modeBefore);
+        }
+      } finally {
+        catsyncRemote--;
+        catsyncPublish();
+      }
       return true;
     };
 
     window.__catsync_setmode_impl = function (mode) {
-      if (__catsync_last_applied_mode === mode) return true;
-      __catsync_last_applied_mode = mode;
-      SetMode(mode);
+      const m = catsyncModeFromTool(mode);
+      if (!m) return false;
       window.__catsync_state = window.__catsync_state || {
         hz: null,
         mode: null,
       };
-      window.__catsync_state.mode = mode;
+      // As for frequency: a repeated mode is the tool polling, not the rig.
+      if (m === catsyncLastToolMode) return true;
+      if (m === catsyncStaleMode && Date.now() < catsyncStaleUntil) return true;
+      catsyncLastToolMode = m;
+      window.__catsync_state.mode = m;
+      if (demodulation === m) return true;
+      catsyncRemote++;
+      try {
+        SetMode(m);
+      } finally {
+        catsyncRemote--;
+      }
       return true;
     };
 

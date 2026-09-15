@@ -2,7 +2,7 @@
 # kiwi_install.sh
 #
 # Installs the complete KiwiSDR protocol bridge into a PhantomSDR-Plus tree
-# (4.0.0 or close to it). Kept in step with src/ as of 31 August 2026.
+# (4.1.0 or close to it). Kept in step with src/ as of 31 August 2026.
 # Validated end to end:
 #   - connection, handshake, audio and waterfall streams (confirmed working
 #     with AetherSDR, both on the LAN and through a router)

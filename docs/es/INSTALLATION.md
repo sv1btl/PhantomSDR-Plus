@@ -629,7 +629,7 @@ A partir de ahí se muestran dos contadores distintos, fáciles de confundir. Lo
 
 ## Emulación de clientes KiwiSDR (opcional)
 
-Desde la v4.0.0 PhantomSDR-Plus también puede responder al **protocolo KiwiSDR**, de modo que el software escrito para un KiwiSDR — **AetherSDR**, `kiwiclient` y los demás — se conecta directamente a su receptor, en el mismo host y puerto que ya publica. Está apagado hasta que se añade `[kiwi_emulation] enabled = true` a la configuración con la que arranca su receptor.
+Desde la v4.1.0 PhantomSDR-Plus también puede responder al **protocolo KiwiSDR**, de modo que el software escrito para un KiwiSDR — **AetherSDR**, `kiwiclient` y los demás — se conecta directamente a su receptor, en el mismo host y puerto que ya publica. Está apagado hasta que se añade `[kiwi_emulation] enabled = true` a la configuración con la que arranca su receptor.
 
 El instalador lo ofrece como paso 17; `./kiwi_install.sh` lo aplica a un árbol ya instalado.
 
@@ -722,7 +722,7 @@ Edite los siguientes campos:
   "siteCity": "Your City, Country",
   "siteInformation": "https://github.com/sv1btl/PhantomSDR-Plus",
   "siteHardware": "Computer specifications",
-  "siteSoftware": "PhantomSDR-Plus v4.0.0",
+  "siteSoftware": "PhantomSDR-Plus v4.1.0",
   "siteReceiver": "Your SDR model",
   "siteAntenna": "Antenna description",
   "siteNote": "Additional information",
@@ -1435,7 +1435,7 @@ waterfall_compression = "zstd"  # Efficient compression
 
 ## Actualización de PhantomSDR-Plus
 
-Desde la versión 4.0.0 el repositorio incluye **`update.sh`**, una herramienta que pone al día una instalación con el árbol publicado **sin tocar los archivos que la hacen ser su estación**. Sustituye al script `git pull` que las ediciones anteriores de esta guía le pedían escribir, y no necesita git en absoluto: el árbol publicado se descarga como tarball y se compara con el suyo archivo por archivo, de modo que funciona igual tanto si clonó el repositorio como si descomprimió un `update.zip` o copió el árbol desde una memoria USB.
+Desde la versión 4.1.0 el repositorio incluye **`update.sh`**, una herramienta que pone al día una instalación con el árbol publicado **sin tocar los archivos que la hacen ser su estación**. Sustituye al script `git pull` que las ediciones anteriores de esta guía le pedían escribir, y no necesita git en absoluto: el árbol publicado se descarga como tarball y se compara con el suyo archivo por archivo, de modo que funciona igual tanto si clonó el repositorio como si descomprimió un `update.zip` o copió el árbol desde una memoria USB.
 
 ### Si su instalación aún no tiene update.sh
 
@@ -1513,7 +1513,7 @@ Cada archivo sobrescrito queda en `.update-backups/<marca de tiempo>/` con su pr
 
 ```bash
 ./update.sh --apply --yes     # no pregunta nunca; TODO lo que usted editó se CONSERVA
-./update.sh --ref v4.0.0      # una etiqueta, rama o commit en lugar del árbol actual
+./update.sh --ref v4.1.0      # una etiqueta, rama o commit en lugar del árbol actual
 ./update.sh --list-excludes   # imprime las reglas de "no tocar" tal como se aplican aquí
 ./update.sh --verbose         # lista todos los archivos, no sólo los 40 primeros
 ```

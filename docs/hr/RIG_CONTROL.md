@@ -14,9 +14,10 @@ Dva načina povezivanja uređaja i jedan uvjet na strani prijemnika:
 |---|---|---|
 | **[Desktop PhantomSDR+](https://www.dropbox.com/scl/fo/kjwj96zg3kj7dgq4fjef9/APnA3c9hhv4hk3YMGIGjH7s?rlkey=jfiwklly63kv73poalx631pk3&st=m37uvaym&dl=0) 4.0 ili noviji** | Desktop aplikacija s izbornikom **Rig**. Linux (PC i Raspberry Pi) i Windows. | Frekvenciju, način rada, širinu filtra, utišavanje pri odašiljanju — u jednom ili oba smjera |
 | **[CATsync Tool for WebSDRs](https://catsyncsdr.wordpress.com/)** | Zaseban Windows program koji povezuje uređaj sa stranicom prijemnika u vašem pregledniku. | Frekvenciju i način rada |
-| **Prijemnik** | PhantomSDR-Plus, KiwiSDR, PA3FWM WebSDR ili UberSDR. PhantomSDR-Plus prijemnik treba 4.0 s **ažuriranjem iz rujna 2026.** ili novijim za širinu filtra i utišavanje. | Stariji PhantomSDR-Plus i dalje sinkronizira frekvenciju i način rada |
+| **QRG Sync na stranici prijemnika** | Gumb na samoj PhantomSDR-Plus stranici, u bilo kojem pregledniku. Govori TCI s ExpertSDR-om, AetherSDR-om ili Thetisom, ili s bilo kojim uređajem koji podržava Hamlib preko malog mosta. Samo na PhantomSDR-Plus prijemnicima s inačicom 4.1.0 ili novijom. | Frekvenciju, način rada i širinu filtra u oba smjera; utišavanje pri odašiljanju |
+| **Prijemnik** | PhantomSDR-Plus, KiwiSDR, PA3FWM WebSDR ili UberSDR. PhantomSDR-Plus prijemnik treba **4.1.0** ili noviju za širinu filtra i utišavanje. | Stariji PhantomSDR-Plus i dalje sinkronizira frekvenciju i način rada |
 
-Ostatak ovog priručnika opisuje Desktop PhantomSDR+. CATsync Tool ima vlastitu dokumentaciju na svojoj web stranici.
+Veći dio ovog priručnika opisuje Desktop PhantomSDR+. Gumb QRG Sync ima vlastiti odjeljak, [QRG Sync na stranici prijemnika](#qrg-sync-na-stranici-prijemnika). CATsync Tool ima vlastitu dokumentaciju na svojoj web stranici.
 
 ---
 
@@ -26,7 +27,7 @@ Aplikacija prepoznaje vrstu prijemnika u prozoru stanice i upravlja njime preko 
 
 | Prijemnik | Frekvencija i način rada | Širina filtra | Utišavanje pri odašiljanju |
 |---|---|---|---|
-| PhantomSDR-Plus | Da | S ažuriranjem iz rujna 2026. ili novijim | S ažuriranjem iz rujna 2026. ili novijim |
+| PhantomSDR-Plus | Da | S 4.1.0 ili novijom | S 4.1.0 ili novijom |
 | KiwiSDR (uključujući Web-888) | Da | Da | Da |
 | PA3FWM WebSDR | Da, uz promjenu opsega na stranicama s više opsega | Da | Da |
 | UberSDR | Da | Da | Da |
@@ -177,7 +178,7 @@ Označite **Sync filter width** da se propusni pojasevi poklapaju. Razlike manje
 | Ugrađeni Elecraft | Da, u koracima od 10 Hz |
 | Ugrađeni Kenwood, Yaesu, obitelj FT-817 | Ne — ti uređaji biraju filtre iz tablica za pojedini model. Za filtar koristite Hamlib |
 
-Prijemnici KiwiSDR, WebSDR i UberSDR uvijek imaju tu kontrolu. PhantomSDR-Plus prijemnik mora imati **ažuriranje iz rujna 2026.** ili novije; na starijem se frekvencija i način rada i dalje sinkroniziraju, a prozor Rig control objašnjava zašto filtar ne slijedi.
+Prijemnici KiwiSDR, WebSDR i UberSDR uvijek imaju tu kontrolu. PhantomSDR-Plus prijemnik mora imati **4.1.0** ili noviju; na starijem se frekvencija i način rada i dalje sinkroniziraju, a prozor Rig control objašnjava zašto filtar ne slijedi.
 
 ---
 
@@ -187,7 +188,7 @@ Označite **Mute receiver while transmitting**. Dok uređaj odašilje, prozor pr
 
 Ako ste prijemnik već sami utišali, ostaje utišan i nakon toga.
 
-Treba vezu koja javlja stanje odašiljanja — svi ugrađeni upravljači, flrig i Hamlib za većinu uređaja — i, na PhantomSDR-Plus prijemniku, ažuriranje iz rujna 2026.
+Treba vezu koja javlja stanje odašiljanja — svi ugrađeni upravljači, flrig i Hamlib za većinu uređaja — i, na PhantomSDR-Plus prijemniku, inačicu 4.1.0 ili noviju.
 
 ---
 
@@ -242,9 +243,310 @@ Hamlibov vlastiti `rigctld.exe` uključen je i u 64-bitni i u 32-bitni instalaci
 
 ---
 
+## QRG Sync na stranici prijemnika
+
+Stranica PhantomSDR-Plus prijemnika može pratiti primopredajnik i **sama**, bez desktop aplikacije: preglednik izravno razgovara s **TCI** poslužiteljem na vašem vlastitom računalu. TCI je WebSocket protokol za upravljanje programa ExpertSDR2/ExpertSDR3 (SunSDR), AetherSDR (FlexRadio) i Thetis (Apache Labs ANAN, Hermes). Za uređaj bez TCI-ja, mali most koji dolazi s PhantomSDR-Plus čini da bilo koji Hamlib uređaj izgleda kao TCI poslužitelj.
+
+Potreban je PhantomSDR-Plus prijemnik s inačicom **4.1.0 ili novijom**. Stranice KiwiSDR, WebSDR i UberSDR to nemaju.
+
+### Gumb QRG Sync
+
+Gumb je u redu s **VFO**, **Modes**, **Bands** i **IF Filters** — **QRG Sync** u širokom rasporedu, **CAT** u sažetom. Njegova točka je **zelena** dok je TCI poslužitelj spojen, a inače **siva**. Otvara prozor s:
+
+| Kontrola | Što radi |
+|---|---|
+| Stanje | *Active — TCI (port 50001)* kad je spojeno; *Inactive* s ⏳ *Wait* dok traži |
+| **CAT Sync** | Uključuje ili isključuje sinkronizaciju frekvencije, načina rada i filtra. Utišavanje pri odašiljanju radi u oba slučaja |
+| **Host** | Računalo na kojem radi TCI poslužitelj: `localhost` za ovo računalo, inače njegova adresa u lokalnoj mreži, npr. `192.168.1.42`. Pritisnite Enter ili kliknite izvan polja za ponovno spajanje |
+
+Ništa drugo ne treba birati: portovi **50001** (ExpertSDR3, AetherSDR) i **40001** (ExpertSDR2, Thetis) pokušavaju se istodobno i ponovno svakih nekoliko sekundi, pa se stranica spoji čim se program pokrene. **CAT Sync** i **Host** preglednik pamti.
+
+Preglednici koji traže dopuštenje prije nego što web stranica pristupi lokalnoj mreži — to rade novije inačice Chromea i Edgea — pitaju jednom, pri prvom spajanju. Dopustite, inače točka ostaje siva.
+
+### Što se drži usklađenim
+
+| | Ponašanje |
+|---|---|
+| **Uređaj → prijemnik: frekvencija** | Pomiče se samo skala. Zoom, svjetlina i kontrast ostaju kako ste ih ostavili; vodopad se pomiče samo kad frekvencija izađe iz prikaza, a plan opsega ne mijenja način rada |
+| **Uređaj → prijemnik: način rada** | Prati kad se promijeni način rada uređaja — USB, LSB, CW, AM, FM; digitalni načini kao USB ili LSB. Način koji prijemnik nema ostavlja ga nepromijenjenim. Dekoder koji radi zadržava svoj način |
+| **Uređaj → prijemnik: širina filtra** | Propusni opseg prijemnika preuzima širinu filtra uređaja: promjena filtra ili tipka **FIL** na uređaju mijenja propusni opseg. Dekoder koji radi zadržava svoj propusni opseg |
+| **Prijemnik → uređaj: frekvencija** | Upisana frekvencija, oznaka ili knjižna oznaka, klik na vodopad i povlačenje propusnog opsega pomiču VFO uređaja. Pri povlačenju šalju se samo promijenjene frekvencije |
+| **Prijemnik → uređaj: način rada** | Svaka promjena načina rada na stranici — tipka načina, plan opsega, dekoder, knjižna oznaka — postavlja način rada uređaja (USB, LSB, CW, AM, FM; RADE kao USB ili LSB). Uređaj u digitalnom načinu (USB-D) ostaje u njemu |
+| **Prijemnik → uređaj: širina filtra** | Tipke **IF Filters**, IF klizač, povlačenje propusnog opsega i promjena načina rada postavljaju filtar uređaja; pri povlačenju šalje se samo konačna širina. Na Icom uređajima most umjesto toga odabire FIL1, FIL2 ili FIL3 — vidi [Icom filtri](#icom-filtri-fil1-fil2-fil3) |
+| **Bez jeke** | Promjena koja je došla s uređaja nikad mu se ne vraća, a javljanje prethodnog načina ili filtra uređaja koje stigne odmah nakon promjene na stranici zanemaruje se |
+| **Utišavanje pri odašiljanju** | Uvijek uključeno, čak i s isključenim CAT Sync: stranica utihne dok uređaj odašilje. Pomicanje klizača glasnoće tijekom odašiljanja ne vraća zvuk; pri prijemu zvuk se vraća na trenutni položaj klizača |
+| **Nije podržano** | Split, VFO B, RIT/XIT i pomaci transvertera. Prati se samo VFO A prvog prijemnika |
+
+Način rada i širina filtra šalju se vlastitim TCI naredbama (`modulation`, `rx_filter_band`), pa bi ih i ExpertSDR, AetherSDR i Thetis trebali pratiti; isproban je samo Hamlib most. Za pomak transvertera koristite Desktop PhantomSDR+. Ne koristite oboje istodobno na istom uređaju — dva upravljača bore se oko skale.
+
+### S kojim primopredajnicima radi
+
+| Primopredajnik | Radi | Kako |
+|---|---|---|
+| SunSDR (ExpertSDR2/3), FlexRadio (AetherSDR), ANAN/Hermes (Thetis) | Da | Izravno — uključite TCI poslužitelj u programu. Još nije isprobano s tim programima; testirano sa simuliranim TCI poslužiteljem |
+| Uređaj s CAT portom koji Hamlib podržava — većina Icom, Yaesu, Kenwood, Elecraft, Xiegu, QRP Labs | Da | Preko Hamlib mosta opisanog dolje. Isprobano s **Icom IC-7300** na Linuxu i Windowsima; drugi upravljački programi mogu se razlikovati u nazivima načina rada ili javljanju PTT-a |
+| Uređaj bez CAT porta, ili koji Hamlib ne podržava | Ne | Nema odakle pročitati frekvenciju |
+
+### Hamlib most (IC-7300 i drugi uređaji bez TCI-ja)
+
+`tci-bridge/tci-rigctld.mjs` u PhantomSDR-Plus stablu pretvara svaki uređaj kojim Hamlib može upravljati u TCI poslužitelj za stranicu. Radi na **vašem** računalu — onom spojenom na uređaj, uz preglednik — ne na prijemniku. Četiri puta u sekundi pita Hamlib za frekvenciju, način rada, širinu filtra i stanje odašiljanja, šalje stranici samo promjene i prosljeđuje uređaju promjene frekvencije, načina rada i filtra sa stranice.
+
+Do Hamliba dolazi na jedan od dva načina:
+
+| Način | Lanac | Kada |
+|---|---|---|
+| **`--rigctl`** (preporučeno) | primopredajnik → `rigctl` → `tci-rigctld.mjs` → stranica | Uobičajeno. Most sam pokreće Hamlibov `rigctl`: jedan prozor, bez mrežnog porta. **Koristite ga na Windowsima**, gdje se `rigctld.exe` često odbija porukom *Access is denied* |
+| **`rigctld`** | primopredajnik → `rigctld` → `tci-rigctld.mjs` → stranica | Drugi program, poput WSJT-X-a, mora istodobno koristiti uređaj — vidi [Dijeljenje uređaja](#dijeljenje-uređaja-put-preko-rigctld) |
+
+**Što mu treba**
+
+| | Linux | Windows |
+|---|---|---|
+| Hamlib | `sudo apt install libhamlib-utils`, ili hamlib paket vaše distribucije | `hamlib-w64-….zip` s [github.com/Hamlib/Hamlib/releases](https://github.com/Hamlib/Hamlib/releases), raspakiran u `C:\hamlib` — `rigctl.exe` je u `C:\hamlib\bin` |
+| Node.js | 18 ili noviji | LTS *Windows Installer (.msi)* s [nodejs.org](https://nodejs.org), sa zadanim opcijama |
+| Paket `ws` | Unutar PhantomSDR-Plus stabla pronalazi se automatski | Kopirajte `tci-rigctld.mjs` u mapu poput `C:\tci-bridge` i ondje jednom pokrenite `npm install ws` |
+| Port uređaja | `ls /dev/serial/by-id/`. Jednom se pridružite grupi `dialout`: `sudo usermod -aG dialout $USER`, zatim se odjavite i ponovno prijavite | Instalirajte USB upravljački program proizvođača; COM broj je u **Upravitelj uređaja → Priključci (COM i LPT)** |
+
+Samo jedan program može držati CAT port uređaja. Prije pokretanja mosta zatvorite WSJT-X, flrig, JS8Call, RS-BA1 ili vezu s uređajem u Desktop PhantomSDR+.
+
+#### Primjer: Icom IC-7300
+
+Na uređaju: **MENU → SET → Connectors → CI-V** — **CI-V USB Baud Rate** `115200`, **CI-V Transceive** `ON`. Hamlibov broj modela za IC-7300 je `3073`.
+
+**Linux.** Uređaj je redak koji sadrži `IC-7300` u `ls /dev/serial/by-id/`, obično i `/dev/ttyUSB0`.
+
+1. Provjerite da Hamlib dolazi do uređaja — mora ispisati frekvenciju, npr. `14280000`:
+   ```bash
+   rigctl -m 3073 -r /dev/ttyUSB0 -s 115200 f
+   ```
+2. Pokrenite most i ostavite ga da radi:
+   ```bash
+   cd ~/PhantomSDR-Plus/tci-bridge
+   node tci-rigctld.mjs --rigctl rigctl -m 3073 -r /dev/ttyUSB0 -s 115200
+   ```
+
+**Windows.** Uređaj se u Upravitelju uređaja prikazuje kao *Silicon Labs CP210x USB to UART Bridge (COM4)* — koristite svoj COM broj. U naredbenom retku:
+
+1. Provjerite da Hamlib dolazi do uređaja — mora ispisati frekvenciju:
+   ```bat
+   C:\hamlib\bin\rigctl.exe -m 3073 -r COM4 -s 115200 f
+   ```
+2. Pokrenite most i ostavite prozor otvoren:
+   ```bat
+   cd C:\tci-bridge
+   node tci-rigctld.mjs --rigctl C:\hamlib\bin\rigctl.exe -m 3073 -r COM4 -s 115200
+   ```
+   Redak je dugačak: provjerite da stvarno završava s `-s 115200`, inače se `rigctl` zaustavlja porukom *Type: rigctl --help*.
+
+Na oba sustava most unutar sekunde ispiše:
+
+```
+rig answered through rigctl
+rig -> page 14280000 Hz
+rig -> page mode USB
+rig -> page RX
+```
+
+Zatim otvorite stranicu prijemnika u pregledniku na istom računalu, otvorite **QRG Sync** i uključite **CAT Sync**. Točka postaje zelena, a most ispiše `page connected`. Okrenite VFO i prijemnik prati; kliknite na vodopad i uređaj prati (`page -> rig ... Hz`); prijeđite na odašiljanje i stranica utihne. **Ctrl+C** zaustavlja most, a s njim i `rigctl`.
+
+Sve iza `--rigctl` je program `rigctl` s vlastitim opcijama — upravo onima koje su radile pri provjeri. To je pravilo za svaki uređaj: **kad `rigctl … f` ispiše frekvenciju, most radi s istim opcijama.**
+
+#### Icom filtri (FIL1, FIL2, FIL3)
+
+Icom uređaji poput IC-7300 ne prihvaćaju bilo koju širinu filtra: imaju tri filtra, **FIL1**, **FIL2** i **FIL3**, svaki sa širinom postavljenom u izborniku uređaja. S nekom širinom Hamlib bi odabrao jedan od njih i ujedno prepisao njegovu širinu — a na IC-7300 ta širina može završiti na prethodno odabranom filtru i pomiješati postavke. Zato na Icom uređajima most nikad ne šalje širinu: uzima filtar čija je referentna širina najbliža propusnom opsegu stranice i samo ga **odabire**, vlastitom CI-V naredbom uređaja. Širine postavljene na uređaju nikad se ne mijenjaju.
+
+| Način rada | FIL1 | FIL2 | FIL3 |
+|---|---|---|---|
+| USB, LSB (i njihovi digitalni načini) | 2700 Hz | 2400 Hz | 1800 Hz |
+| CW | 1200 Hz | 500 Hz | 250 Hz |
+| AM | 9000 Hz | 6000 Hz | 3000 Hz |
+| FM | 15000 Hz | 10000 Hz | 7000 Hz |
+
+Na IC-7300 (`-m 3073`) to je automatski. Postavite SSB filtre uređaja odgovarajuće — FIL1 2,7 kHz, FIL2 2,4 kHz, FIL3 1,8 kHz (držite **FIL** na uređaju) — pa odabir 2,7 / 2,4 / 1,8 kHz u **IF Filters** odabire FIL1 / FIL2 / FIL3, a pritisak na **FIL** na uređaju postavlja propusni opseg stranice na širinu tog filtra. Most ispisuje, na primjer, `page -> rig filter 2398 Hz  LSB  → FIL2  sent`.
+
+| Opcija | Namjena |
+|---|---|
+| `--filters 3000,2400,1800` | Druge SSB referentne širine, redom FIL1,FIL2,FIL3; uključuje odabir filtra i za drugi Icom uređaj |
+| `--civ A4` | CI-V adresa uređaja heksadecimalno, kad nije `94` (IC-705 `A4`, IC-9700 `A2`, IC-7610 `98`) |
+| `--filters off` | Slati širine preko Hamliba, kao za druge proizvođače |
+
+Obje opcije idu prije `--rigctl`, npr. `node tci-rigctld.mjs --filters 3000,2400,1800 --civ A4 --rigctl rigctl -m 3085 -r /dev/ttyACM0 -s 19200`. Isprobano samo s IC-7300. Drugi proizvođači — Yaesu, Kenwood, Elecraft i ostali — dobivaju širinu stranice preko Hamliba, koji je postavlja koliko god točno uređaj dopušta.
+
+#### Drugi uređaji
+
+Isti koraci vrijede za svaki uređaj koji Hamlib podržava; mijenjaju se samo opcije.
+
+1. **Pripremite uređaj.** U izborniku zabilježite CAT (ili CI-V) brzinu i uključite postavku poput *CAT preko USB-a* ili *CI-V transceive*, ako postoji. Na Windowsima instalirajte USB upravljački program proizvođača.
+2. **Pronađite Hamlibov broj modela** na popisu koji ispisuje `rigctl -l`:
+   - Linux: `rigctl -l | grep -i 991`
+   - Windows: `C:\hamlib\bin\rigctl.exe -l | findstr /i 991`
+3. **Pronađite port.** Linux: `ls /dev/serial/by-id/`. Windows: Upravitelj uređaja. Neki uređaji stvaraju **dva** porta — Yaesuovi FT-991A, FTDX10 i FT-710 zovu ih *Enhanced* i *Standard*; CAT je na **Enhanced** portu.
+4. **Provjerite, zatim pokrenite most** s `-m <model> -r <port> -s <brzina>`, kao u primjeru za IC-7300: najprije `rigctl -m … -r … -s … f`, zatim iste opcije iza `--rigctl`.
+
+Neki brojevi modela, iz Hamliba 4.5 — potvrdite ih s `rigctl -l`, jer druga inačica Hamliba može drukčije numerirati uređaj:
+
+| Uređaj | `-m` | Uređaj | `-m` |
+|---|---|---|---|
+| Icom IC-7300 | 3073 | Yaesu FT-991 / FT-991A | 1035 |
+| Icom IC-705 | 3085 | Yaesu FTDX10 | 1042 |
+| Icom IC-7610 | 3078 | Yaesu FT-710 | 1049 |
+| Icom IC-9700 | 3081 | Yaesu FT-891 | 1036 |
+| Xiegu G90 | 3088 | Yaesu FT-817 | 1020 |
+| Xiegu X6100 | 3087 | Kenwood TS-590SG | 2037 |
+| Elecraft K3 / K3S | 2029 | Kenwood TS-890S | 2041 |
+| Elecraft KX3 | 2045 | Kenwood TS-2000 | 2014 |
+| Elecraft K4 | 2047 | QRP Labs QCX / QDX | 2052 |
+
+Dodatne opcije, samo kad zatrebaju:
+
+- **Icom uređaj s promijenjenom CI-V adresom:** dodajte `-c` s adresom u *decimalnom* obliku — `94h` je `-c 148`.
+- **Postavka koju Hamlib nudi za taj uređaj:** `rigctl -m <model> -L` ih ispisuje; postavite jednu s `-C ime=vrijednost`, npr. `-C post_write_delay=10` za sporo sučelje.
+- **Uređaj koji pri otvaranju porta prelazi na odašiljanje ili se ponovno pokreće:** neki CAT kabeli koriste DTR ili RTS za PTT; dodajte `-C dtr_state=OFF -C rts_state=OFF`.
+
+#### Primjer: Yaesu FT-991A
+
+Nije isprobano sa stvarnim FT-991A — slijedi Hamlibove postavke za taj uređaj; provjera `rigctl … f` odmah pokazuje radi li.
+
+Na uređaju postavite **CAT RATE** (izbornik 031) na `38400`. Hamlibov broj modela za FT-991 i FT-991A je `1035`.
+
+USB kabel FT-991A stvara **dva** serijska porta. CAT je na **Enhanced** portu:
+
+- **Linux:** `ls /dev/serial/by-id/` prikazuje dva retka za uređaj; onaj koji završava s `-if00-port0` je Enhanced, obično `/dev/ttyUSB0`.
+- **Windows:** Upravitelj uređaja prikazuje *Silicon Labs Dual CP2105 USB to UART Bridge: Enhanced COM Port (COM5)* i *Standard COM Port*; koristite broj Enhanced porta.
+
+**Linux:**
+```bash
+rigctl -m 1035 -r /dev/ttyUSB0 -s 38400 f
+cd ~/PhantomSDR-Plus/tci-bridge
+node tci-rigctld.mjs --rigctl rigctl -m 1035 -r /dev/ttyUSB0 -s 38400
+```
+
+**Windows:**
+```bat
+C:\hamlib\bin\rigctl.exe -m 1035 -r COM5 -s 38400 f
+cd C:\tci-bridge
+node tci-rigctld.mjs --rigctl C:\hamlib\bin\rigctl.exe -m 1035 -r COM5 -s 38400
+```
+
+Ako provjera ne ispiše ništa korisno, uobičajeni uzrok je Standard port umjesto Enhanced, ili CAT RATE različit od `-s`.
+
+#### Primjer: Kenwood TS-590SG
+
+Nije isprobano sa stvarnim TS-590SG — slijedi Hamlibove postavke za taj uređaj; provjera `rigctl … f` odmah pokazuje radi li.
+
+U izborniku uređaja postavite brzinu **USB** porta na `115200` (broj izbornika je u priručniku za TS-590SG). Hamlibov broj modela je `2037`; stariji TS-590S je `2031`. Na Windowsima najprije instalirajte Kenwoodov upravljački program virtualnog COM porta za USB priključak.
+
+USB kabel stvara **jedan** serijski port:
+
+- **Linux:** redak uređaja u `ls /dev/serial/by-id/`, obično `/dev/ttyUSB0`.
+- **Windows:** Upravitelj uređaja → Priključci (COM i LPT), na primjer `COM6`.
+
+**Linux:**
+```bash
+rigctl -m 2037 -r /dev/ttyUSB0 -s 115200 f
+cd ~/PhantomSDR-Plus/tci-bridge
+node tci-rigctld.mjs --rigctl rigctl -m 2037 -r /dev/ttyUSB0 -s 115200
+```
+
+**Windows:**
+```bat
+C:\hamlib\bin\rigctl.exe -m 2037 -r COM6 -s 115200 f
+cd C:\tci-bridge
+node tci-rigctld.mjs --rigctl C:\hamlib\bin\rigctl.exe -m 2037 -r COM6 -s 115200
+```
+
+Ako provjera ne uspije, uobičajeni uzrok je USB brzina različita od `-s`, ili kabel u RS-232 (COM) utičnici uređaja dok `-r` navodi USB port.
+
+#### Još primjera
+
+Nijedan nije isproban na stvarnom uređaju. Svaki redak daje opcije koje idu iza `rigctl` pri provjeri i iza `--rigctl rigctl` za most; u izborniku uređaja postavite istu brzinu. Linux port je uobičajeni — potvrdite ga s `ls /dev/serial/by-id/`. Na Windowsima zamijenite port COM brojem iz Upravitelja uređaja, a `rigctl` s `C:\hamlib\bin\rigctl.exe`.
+
+| Uređaj | Izbornik uređaja | Opcije (Linux) | Napomene |
+|---|---|---|---|
+| Icom IC-705 (USB) | CI-V USB Baud Rate `19200` | `-m 3085 -r /dev/ttyACM0 -s 19200` | Pojavljuju se dva porta; CI-V je prvi (`ttyACM0`) |
+| Icom IC-7100 (USB) | CI-V USB Baud Rate `19200` | `-m 3070 -r /dev/ttyUSB0 -s 19200` | Hamlibova najveća brzina za ovaj uređaj je 19200 |
+| Icom IC-7610 | CI-V USB Baud Rate `115200` | `-m 3078 -r /dev/ttyUSB0 -s 115200` | |
+| Icom IC-9700 | CI-V USB Baud Rate `38400` | `-m 3081 -r /dev/ttyUSB0 -s 38400` | |
+| Yaesu FTDX101D / FTDX101MP | CAT RATE `38400` | `-m 1040 -r /dev/ttyUSB0 -s 38400` | `-m 1044` za FTDX101MP. Dva porta; koristite Enhanced |
+| Yaesu FTDX10 | CAT RATE `38400` | `-m 1042 -r /dev/ttyUSB0 -s 38400` | Dva porta; koristite Enhanced, kao kod FT-991A |
+| Yaesu FT-710 | CAT RATE `38400` | `-m 1049 -r /dev/ttyUSB0 -s 38400` | Dva porta; koristite Enhanced, kao kod FT-991A |
+| Yaesu FT-891 | CAT RATE `38400` | `-m 1036 -r /dev/ttyUSB0 -s 38400` | Dva porta; koristite Enhanced, kao kod FT-991A |
+| Yaesu FT-450D | CAT RATE `38400` | `-m 1046 -r /dev/ttyUSB0 -s 38400` | RS-232 utičnica: koristite USB-serijski adapter |
+| Yaesu FT-817 / FT-818 | CAT RATE `38400` | `-m 1020 -r /dev/ttyUSB0 -s 38400` | `-m 1041` za FT-818. Treba CAT kabel na ACC utičnici |
+| Yaesu FT-857 / FT-897 | CAT RATE `38400` | `-m 1022 -r /dev/ttyUSB0 -s 38400` | `-m 1023` za FT-897. Treba CAT kabel |
+| Kenwood TS-890S (USB) | USB brzina `115200` | `-m 2041 -r /dev/ttyUSB0 -s 115200` | |
+| Kenwood TS-990S (USB) | USB brzina `115200` | `-m 2039 -r /dev/ttyUSB0 -s 115200` | |
+| Kenwood TS-590SG / TS-590S (USB) | USB brzina `115200` | `-m 2037 -r /dev/ttyUSB0 -s 115200` | Detaljan primjer gore |
+| Kenwood TS-480 | Brzina COM porta `57600` | `-m 2028 -r /dev/ttyUSB0 -s 57600` | RS-232 utičnica: koristite USB-serijski adapter |
+| Kenwood TS-2000 | Brzina COM porta `57600` | `-m 2014 -r /dev/ttyUSB0 -s 57600` | RS-232 utičnica; Hamlibova najveća brzina za ovaj uređaj je 57600 |
+| Elecraft K4 (USB) | RS232 brzina `115200` | `-m 2047 -r /dev/ttyUSB0 -s 115200` | |
+| Elecraft K3 / K3S | RS232 brzina `38400` | `-m 2029 -r /dev/ttyUSB0 -s 38400` | K3S: USB; K3: serijski port ili KUSB kabel |
+| Elecraft KX3 | RS232 brzina `38400` | `-m 2045 -r /dev/ttyUSB0 -s 38400` | KXUSB kabel |
+| Elecraft KX2 | RS232 brzina `38400` | `-m 2044 -r /dev/ttyUSB0 -s 38400` | KXUSB kabel |
+| Xiegu G90 | CI-V brzina `19200` | `-m 3088 -r /dev/ttyUSB0 -s 19200` | Hamlib koristi zadanu CI-V adresu G90 |
+| Xiegu X6100 | CI-V brzina `19200` | `-m 3087 -r /dev/ttyUSB0 -s 19200` | Hamlibova najveća brzina za ovaj uređaj je 19200 |
+| Lab599 TX-500 | — | `-m 2050 -r /dev/ttyUSB0 -s 9600` | Hamlib koristi samo 9600 |
+| ELAD FDM-DUO | — | `-m 33001 -r /dev/ttyUSB0 -s 115200` | |
+| QRP Labs QDX | — | `-m 2052 -r /dev/ttyACM0 -s 9600` | USB serijski port; brzina nije bitna, ali se mora navesti |
+
+Potpuna Linux naredba za IC-705, kao primjer čitanja retka:
+
+```bash
+rigctl -m 3085 -r /dev/ttyACM0 -s 19200 f
+node tci-rigctld.mjs --rigctl rigctl -m 3085 -r /dev/ttyACM0 -s 19200
+```
+
+#### Uređaji kojima upravlja drugi program
+
+Nekim uređajima već upravlja program koji može obaviti posao — ponekad bez ikakvog mosta. Nijedan od ovih načina nije isproban.
+
+| Uređaj i program | Što učiniti |
+|---|---|
+| **SunSDR** s ExpertSDR2/3, **FlexRadio** s AetherSDR, **Apache Labs ANAN / Hermes** s Thetisom | Bez mosta. Uključite **TCI poslužitelj** programa i koristite **QRG Sync** izravno — portovi 50001 i 40001 pronalaze se automatski |
+| **FlexRadio** sa SmartSDR (Windows) | Dodajte port u **SmartSDR CAT**. Govori Kenwood CAT, pa serijski port ondje radi kao TS-2000: `-m 2014 -r COM8 -s 57600`. TCP port radi s Hamlibovim FlexRadio modelom: `-m 2036 -r 127.0.0.1:<port>` |
+| **Bilo koji uređaj kojim upravlja flrig** | Ostavite flrig da radi i koristite Hamlibov flrig model; uređaj ostaje dijeljen s fldigi, WSJT-X-om i programima za dnevnik: `-m 4 -r 127.0.0.1:12345` |
+| **Pokrenuti rigctld**, ili program s *Hamlib NET rigctl* poslužiteljem | Pokrenite most bez `--rigctl`, s tom adresom: `node tci-rigctld.mjs 50001 127.0.0.1:4532` |
+
+Kao i svugdje, opcije idu iza `rigctl` pri provjeri i iza `--rigctl rigctl` za most. Mrežna adresa poput `127.0.0.1:12345` ne treba `-s`.
+
+#### Dijeljenje uređaja: put preko rigctld
+
+Kad WSJT-X ili program za dnevnik mora koristiti uređaj dok most radi, pokrenite Hamlibov poslužitelj `rigctld` s istim opcijama, ostavite ga da radi i spojite oba programa na njega:
+
+```bash
+rigctld -m 3073 -r /dev/ttyUSB0 -s 115200
+node tci-rigctld.mjs
+```
+
+Bez `--rigctl` most traži `rigctld` na `127.0.0.1:4532` i ispiše `rigctld connected`; `node tci-rigctld.mjs 50001 192.168.1.50:4532` koristi `rigctld` na drugom računalu. U WSJT-X-u odaberite uređaj *Hamlib NET rigctl* na istoj adresi. Na Windowsima je poslužitelj `C:\hamlib\bin\rigctld.exe` s istim opcijama; ako Windows odgovori *Access is denied*, koristite `--rigctl` i zatvorite drugi program dok most radi.
+
+**Portovi.** Most nudi TCI na portu 50001; drugi port stavlja se prvi u naredbeni redak, npr. `node tci-rigctld.mjs 40001 --rigctl …`. Ako su most i preglednik na različitim računalima, u **Host** upišite adresu računala s mostom.
+
+### Rješavanje problema s QRG Sync
+
+| Simptom | Vjerojatni uzrok | Što učiniti |
+|---|---|---|
+| Točka ostaje siva | TCI poslužitelj ili most ne radi; pogrešan **Host**; odbijeno je dopuštenje preglednika za lokalnu mrežu | Uključite TCI u ExpertSDR/Thetis/AetherSDR ili pokrenite most; provjerite **Host**; dopustite pristup lokalnoj mreži u postavkama stranice |
+| `rigctl … f` javlja pogrešku ili čeka | Pogrešan port ili brzina; nema dopuštenja `dialout` (Linux) ili USB upravljačkog programa (Windows); drugi program drži port | Uskladite `-s` s izbornikom uređaja; provjerite port (`ls /dev/serial/by-id/`, Upravitelj uređaja); zatvorite druge programe za uređaj |
+| Most ispisuje *rigctl stopped … Type: rigctl --help* | Naredba je nepotpuna — obično nedostaje brzina iza `-s` | Ponovno upišite cijeli redak |
+| Most ispisuje *The value after -s is missing* | Naredbeni redak skraćen je pri lijepljenju | Ponovno upišite kraj retka, npr. `-s 115200` |
+| Filtar ne prati u jednom ili drugom smjeru | **CAT Sync** je isključen, na stranici radi dekoder, ili (IC-7300) FIL širine uređaja razlikuju se od 2700 / 2400 / 1800 Hz | Uključite CAT Sync; zaustavite dekoder; postavite FIL širine na uređaju ili navedite `--filters` sa širinama uređaja |
+| Most ispisuje *rigctl stopped … rig_open: error* | `rigctl` ne može otvoriti port | Kao za `rigctl … f` gore |
+| Most ispisuje *the rig is not answering* | Port se otvara, ali uređaj ne odgovara: pogrešna brzina ili model, CAT isključen u izborniku, ili promijenjena Icom CI-V adresa | Ponovite provjeru `rigctl … f`; za promijenjenu CI-V adresu dodajte `-c` |
+| Most ispisuje *rigctld not reachable* | Pokrenut bez `--rigctl`, a `rigctld` ne radi | Dodajte `--rigctl …`, ili najprije pokrenite `rigctld` |
+| `rigctld.exe` javlja *Access is denied* (Windows) | Windows ga odbija pokrenuti | Koristite `--rigctl` — treba mu samo `rigctl.exe` |
+| Spojeno, ali se prijemnik ne pomiče | **CAT Sync** je isključen | Uključite ga — utišavanje pri odašiljanju radi i bez njega |
+| Način rada uređaja ne prati | Način bez odgovarajućeg na prijemniku, ili Hamlib upravljački program javlja neobičan naziv | Frekvencija se svejedno sinkronizira; način rada postavite na stranici |
+| Nema utišavanja pri odašiljanju | Uređaj ili njegov Hamlib upravljački program ne javlja stanje odašiljanja | Na stranici nema što podesiti |
+| Skala skače naprijed-natrag | Desktop PhantomSDR+ ili drugi program također sinkronizira uređaj | Koristite samo jedan upravljač odjednom |
+
+---
+
 ## Za operatere prijemnika
 
-Nema se što podešavati. Upravljanje primopredajnikom koristi malo JavaScript sučelje koje svaka PhantomSDR-Plus stranica već ima; ne treba postavka poslužitelja, otvoreni port ni administratorska ovlast. Funkcije filtra i utišavanja stigle su s ažuriranjem 4.0.0 iz rujna 2026. — nakon primjene ponovno izgradite frontend (`./recompile.sh`, opcija 2); prijemnik ne treba zaustavljati. Ni prijemnici KiwiSDR, WebSDR i UberSDR ne trebaju ništa: aplikacija koristi kontrole koje njihove stranice već imaju.
+Nema se što podešavati. Upravljanje primopredajnikom koristi malo JavaScript sučelje koje svaka PhantomSDR-Plus stranica već ima; ne treba postavka poslužitelja, otvoreni port ni administratorska ovlast. Funkcije filtra i utišavanja stigle su s inačicom 4.1.0 — nakon primjene ponovno izgradite frontend (`./recompile.sh`, opcija 2); prijemnik ne treba zaustavljati. Ni prijemnici KiwiSDR, WebSDR i UberSDR ne trebaju ništa: aplikacija koristi kontrole koje njihove stranice već imaju.
+
+Gumb **QRG Sync** stigao je također s inačicom 4.1.0, opet samo uz ponovnu izgradnju frontenda. Ne otvara nijedan port na prijemniku: veza ide iz preglednika svakog slušatelja prema njegovom vlastitom računalu. Hamlib most, `tci-bridge/tci-rigctld.mjs`, slušatelji pokreću kod kuće; prijemnik ga ne koristi.
 
 ---
 
@@ -264,7 +566,7 @@ I Desktop PhantomSDR+ i CATsync Tool koriste ove funkcije, koje svaka PhantomSDR
 | `catsync_getMute()` | `true` kad je utišano |
 | `catsync_setMute(on)` | Utišava ili vraća zvuk, preko gumba za utišavanje na stranici |
 
-Posljednje četiri stigle su s ažuriranjem iz rujna 2026., pa ih provjerite prije poziva:
+Posljednje četiri stigle su s inačicom 4.1.0, pa ih provjerite prije poziva:
 
 ```js
 if (window.catsync_ready) {
@@ -290,7 +592,7 @@ Postavljanje frekvencije ponovno ugađa zvuk, pa setter pozovite samo kad se vri
 | *flrig is not running at ...* | flrig je zatvoren, ili je njegov XML-RPC port drugačiji | Pokrenite flrig; provjerite port u njegovim postavkama |
 | Spojeno, ali se prijemnik ne pomiče | Nije otvoren prozor stanice, ili je **Receiver window** vezan uz zatvorenu stanicu | Otvorite stanicu ili odaberite *The station window last in front* |
 | Uređaj odašilje pri spajanju | DTR ili RTS preko sučelja uključuje odašiljač | Uklonite oznake **DTR on** i **RTS on** |
-| Filtar ne slijedi | Prijemnik bez ažuriranja iz rujna 2026., ili ugrađeni Kenwood/Yaesu upravljač | Frekvencija i način rada i dalje se sinkroniziraju; za filtar na Kenwoodu/Yaesuu koristite Hamlib |
+| Filtar ne slijedi | Prijemnik stariji od 4.1.0, ili ugrađeni Kenwood/Yaesu upravljač | Frekvencija i način rada i dalje se sinkroniziraju; za filtar na Kenwoodu/Yaesuu koristite Hamlib |
 | Utišavanje pri odašiljanju ne radi ništa | Prijemnik bez ažuriranja, ili uređaj ne javlja stanje odašiljanja | Kao gore |
 | *Lost the rig ... reconnecting* | Izvučen kabel, isključen uređaj ili je rigctld prestao raditi | Ništa — pokušava ponovno svake 3 sekunde i nastavlja kad se uređaj vrati |
 | Obje strane stalno skaču | Dva programa istodobno upravljaju uređajem | Neka samo jedan program podešava uređaj, ili ga dijelite preko flriga |
@@ -303,4 +605,5 @@ Postavljanje frekvencije ponovno ugađa zvuk, pa setter pozovite samo kad se vri
 - Prijemnici osim PhantomSDR-Plus, KiwiSDR, PA3FWM WebSDR i UberSDR — primjerice OpenWebRX — nisu podržani.
 - Ugrađeni upravljači prate objavljene protokole proizvođača i testirani su na simuliranim uređajima i stvarnom Hamlibu; za uređaj koji se ponaša drugačije, rezervno rješenje je Hamlib.
 - Split, VFO B, RIT/XIT i memorijski kanali ne sinkroniziraju se — samo frekvencija aktivnog VFO-a.
+- QRG Sync na stranici prijemnika ne sinkronizira split, VFO B, RIT/XIT ni pomake transvertera, a isproban je samo s IC-7300 preko Hamlib mosta.
 - Na Linuxu paketi koriste Hamlib iz distribucije; vlastiti nije uključen.

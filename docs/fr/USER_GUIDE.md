@@ -369,7 +369,7 @@ L'application, ses installateurs et son manuel complet se trouvent sur [Desktop 
 
 **Avec un navigateur web.** Le [CATsync Tool for WebSDRs](https://catsyncsdr.wordpress.com/) (Windows) couple un poste à la page du récepteur ouverte dans votre navigateur. Il synchronise la fréquence et le mode.
 
-**La largeur de filtre et la coupure du son en émission** fonctionnent sur les récepteurs KiwiSDR, WebSDR et UberSDR, et sur un récepteur PhantomSDR-Plus en 4.0 avec la mise à jour de septembre 2026 ou ultérieure. Sur un PhantomSDR-Plus plus ancien, la fréquence et le mode se synchronisent toujours ; le filtre non.
+**La largeur de filtre et la coupure du son en émission** fonctionnent sur les récepteurs KiwiSDR, WebSDR et UberSDR, et sur un récepteur PhantomSDR-Plus en 4.1.0 ou ultérieure. Sur un PhantomSDR-Plus plus ancien, la fréquence et le mode se synchronisent toujours ; le filtre non.
 
 Le manuel complet — chaque réglage, les postes pris en charge, comment on empêche les deux côtés de se battre, et le dépannage — est **[Pilotage du transceiver](RIG_CONTROL.md)**.
 
@@ -383,7 +383,7 @@ Le manuel complet — chaque réglage, les postes pris en charge, comment on emp
 | `catsync_getMute()` / `catsync_setMute(on)` | Coupure du son, via le bouton muet de la page |
 | `catsync_ready` | `true` dès que les fonctions sont installées |
 
-Les trois dernières lignes sont nouvelles avec la mise à jour de septembre 2026 ; vérifiez qu'une fonction existe avant de l'appeler.
+Les trois dernières lignes sont nouvelles avec la 4.1.0 ; vérifiez qu'une fonction existe avant de l'appeler.
 
 ---
 

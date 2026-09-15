@@ -368,7 +368,7 @@ Aplikacija, njezini instalacijski programi i cijeli priručnik nalaze se na [Des
 
 **S web preglednikom.** [CATsync Tool for WebSDRs](https://catsyncsdr.wordpress.com/) (Windows) povezuje uređaj sa stranicom prijemnika otvorenom u vašem pregledniku. Sinkronizira frekvenciju i način rada.
 
-**Širina filtra i utišavanje pri odašiljanju** rade na prijemnicima KiwiSDR, WebSDR i UberSDR te na PhantomSDR-Plus prijemniku s 4.0 i ažuriranjem iz rujna 2026. ili novijim. Na starijem PhantomSDR-Plusu frekvencija i način rada i dalje se sinkroniziraju; filtar ne.
+**Širina filtra i utišavanje pri odašiljanju** rade na prijemnicima KiwiSDR, WebSDR i UberSDR te na PhantomSDR-Plus prijemniku s inačicom 4.1.0 ili novijom. Na starijem PhantomSDR-Plusu frekvencija i način rada i dalje se sinkroniziraju; filtar ne.
 
 Cijeli priručnik — svaka postavka, podržani uređaji, kako se sprječava da se strane „svađaju” i rješavanje problema — nalazi se u **[Upravljanje primopredajnikom](RIG_CONTROL.md)**.
 
@@ -382,7 +382,7 @@ Cijeli priručnik — svaka postavka, podržani uređaji, kako se sprječava da 
 | `catsync_getMute()` / `catsync_setMute(on)` | Utišavanje, preko gumba za utišavanje na stranici |
 | `catsync_ready` | `true` čim su funkcije postavljene |
 
-Posljednja tri retka nova su u ažuriranju iz rujna 2026.; prije poziva provjerite postoji li funkcija.
+Posljednja tri retka nova su u inačici 4.1.0; prije poziva provjerite postoji li funkcija.
 
 ---
 

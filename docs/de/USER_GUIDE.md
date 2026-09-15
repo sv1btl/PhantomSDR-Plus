@@ -369,7 +369,7 @@ Die Anwendung, ihre Installer und das vollständige Handbuch finden Sie unter [D
 
 **Mit einem Webbrowser.** Das [CATsync Tool for WebSDRs](https://catsyncsdr.wordpress.com/) (Windows) koppelt ein Funkgerät an die im Browser geöffnete Empfängerseite. Es synchronisiert Frequenz und Betriebsart.
 
-**Filterbreite und Stummschaltung beim Senden** funktionieren mit KiwiSDR-, WebSDR- und UberSDR-Empfängern sowie mit einem PhantomSDR-Plus-Empfänger mit 4.0 und dem Update vom September 2026 oder neuer. Bei einem älteren PhantomSDR-Plus werden Frequenz und Betriebsart weiterhin synchronisiert, der Filter nicht.
+**Filterbreite und Stummschaltung beim Senden** funktionieren mit KiwiSDR-, WebSDR- und UberSDR-Empfängern sowie mit einem PhantomSDR-Plus-Empfänger mit 4.1.0 oder neuer. Bei einem älteren PhantomSDR-Plus werden Frequenz und Betriebsart weiterhin synchronisiert, der Filter nicht.
 
 Das vollständige Handbuch — jede Einstellung, die unterstützten Geräte, wie verhindert wird, dass sich beide Seiten bekämpfen, und die Fehlerbehebung — ist **[Transceiver-Steuerung](RIG_CONTROL.md)**.
 
@@ -383,7 +383,7 @@ Das vollständige Handbuch — jede Einstellung, die unterstützten Geräte, wie
 | `catsync_getMute()` / `catsync_setMute(on)` | Stummschaltung, über die Stummschalttaste der Seite |
 | `catsync_ready` | `true`, sobald die Funktionen installiert sind |
 
-Die letzten drei Zeilen sind mit dem Update vom September 2026 hinzugekommen; prüfen Sie vor dem Aufruf, ob eine Funktion vorhanden ist.
+Die letzten drei Zeilen sind mit 4.1.0 hinzugekommen; prüfen Sie vor dem Aufruf, ob eine Funktion vorhanden ist.
 
 ---
 

@@ -451,6 +451,8 @@ PhantomSDR-Plus
 ├── setup-cpufreq-perms.sh     # grants group write on scaling_max_freq so the guard can throttle without root
 ├── thermal_guard.py           # CPU over-temperature guard used by the admin panel (also runs standalone)
 ├── thermal-guard.service      # sample systemd unit for the guard, for installs without the admin panel
+├── tci-bridge
+│   └── tci-rigctld.mjs        # TCI server for Hamlib rigs (IC-7300…), run on the listener's PC — see docs/RIG_CONTROL.md
 ├── tmpfiles
 │   └── phantomsdr-logs.conf   # keeps admin.log + proxy.log owned by the panel's user (edit paths before installing)
 ├── phantomsdr-admin.service   # sample systemd unit for the admin panel (starts at boot, restarts after a crash)
@@ -722,6 +724,7 @@ Each `start-*.sh` below is a **self-contained launcher + watchdog + logger**: it
 | `smeter_theme.sh` | Set the default analog S-meter face (dark / amber / vintage) for all users, and offer the frontend rebuild — see [Editing Variants](EDITING_VARIANTS.md) |
 | `waterfall.sh` | Change the default minimum waterfall level (dB) in `waterfall.js` + `App.svelte` — see [README](README.md) |
 | `kiwi_install.sh` | Install the KiwiSDR client-emulation bridge into a tree that has not got it: patches the backend sources, copies `src/kiwi_bridge.h`, and adds a documented `[kiwi_emulation]` block to the config files in the repository root. Idempotent, and backs up every file it touches — see [KiwiSDR Client Emulation](Aether_config.md) |
+| `tci-bridge/tci-rigctld.mjs` | Not used by the receiver. A small Node.js program a listener runs next to their own transceiver: it reads frequency, mode and transmit state from Hamlib's `rigctld` and serves them as TCI on port 50001, so the page's **QRG Sync** button can drive a rig with no TCI of its own, such as the IC-7300 — see [Rig Control](RIG_CONTROL.md) |
 
 **Legacy launcher chain.** `go.sh`, `xgo.sh`, `check-go.sh`, `kill.sh` and `_relaunch.sh` are the previous generation of launcher, watchdog and stop scripts. Everything they did is now inside each `start-<radio>.sh`, which is what you should use. They are kept on disk because existing installations still reference them, and are not maintained.
 

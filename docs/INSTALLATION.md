@@ -630,7 +630,7 @@ Two different counters are then shown, and it is easy to mistake one for the oth
 
 ## KiwiSDR Client Emulation (optional)
 
-Since v4.0.0 PhantomSDR-Plus can also answer the **KiwiSDR protocol**, so software written for a KiwiSDR — **AetherSDR**, `kiwiclient` and the rest — connects to your receiver directly, on the same host and port you already publish. It is off until `[kiwi_emulation] enabled = true` is added to the config your receiver runs with.
+Since v4.1.0 PhantomSDR-Plus can also answer the **KiwiSDR protocol**, so software written for a KiwiSDR — **AetherSDR**, `kiwiclient` and the rest — connects to your receiver directly, on the same host and port you already publish. It is off until `[kiwi_emulation] enabled = true` is added to the config your receiver runs with.
 
 The installer offers it as step 17, or `./kiwi_install.sh` applies it to a tree that is already installed.
 
@@ -723,7 +723,7 @@ Edit the following fields:
   "siteCity": "Your City, Country",
   "siteInformation": "https://github.com/sv1btl/PhantomSDR-Plus",
   "siteHardware": "Computer specifications",
-  "siteSoftware": "PhantomSDR-Plus v4.0.0",
+  "siteSoftware": "PhantomSDR-Plus v4.1.0",
   "siteReceiver": "Your SDR model",
   "siteAntenna": "Antenna description",
   "siteNote": "Additional information",
@@ -1435,7 +1435,7 @@ waterfall_compression = "zstd"  # Efficient compression
 
 ## Updating PhantomSDR-Plus
 
-Since version 4.0.0 the repository ships **`update.sh`**, an updater that brings an installed receiver up to date with the published tree **without touching the files that make it your site**. It replaces the hand-written `git pull` script that earlier editions of this guide asked you to create, and it does not need git at all: the published tree is downloaded as a tarball and compared with yours file by file, so it works the same whether you cloned the repository, unpacked an `update.zip`, or copied the tree off a USB stick.
+Since version 4.1.0 the repository ships **`update.sh`**, an updater that brings an installed receiver up to date with the published tree **without touching the files that make it your site**. It replaces the hand-written `git pull` script that earlier editions of this guide asked you to create, and it does not need git at all: the published tree is downloaded as a tarball and compared with yours file by file, so it works the same whether you cloned the repository, unpacked an `update.zip`, or copied the tree off a USB stick.
 
 ### If your installation does not have update.sh yet
 
@@ -1511,7 +1511,7 @@ Every overwritten file is kept in `.update-backups/<timestamp>/` with its own `r
 
 ```bash
 ./update.sh --apply --yes     # never asks; every file you edited is KEPT
-./update.sh --ref v4.0.0      # a tag, branch or commit instead of the current tree
+./update.sh --ref v4.1.0      # a tag, branch or commit instead of the current tree
 ./update.sh --list-excludes   # print the never-touch rules as they resolve here
 ./update.sh --verbose         # list every file, not only the first 40
 ```

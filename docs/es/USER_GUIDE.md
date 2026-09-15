@@ -368,7 +368,7 @@ La aplicación, sus instaladores y su manual completo están en [Desktop Phantom
 
 **Con un navegador web.** La [CATsync Tool for WebSDRs](https://catsyncsdr.wordpress.com/) (Windows) acopla un equipo a la página del receptor abierta en su navegador. Sincroniza frecuencia y modo.
 
-**El ancho de filtro y el silencio al transmitir** funcionan en receptores KiwiSDR, WebSDR y UberSDR, y en un receptor PhantomSDR-Plus con la 4.0 y la actualización de septiembre de 2026 o posterior. En un PhantomSDR-Plus más antiguo la frecuencia y el modo siguen sincronizándose; el filtro no.
+**El ancho de filtro y el silencio al transmitir** funcionan en receptores KiwiSDR, WebSDR y UberSDR, y en un receptor PhantomSDR-Plus con la 4.1.0 o posterior. En un PhantomSDR-Plus más antiguo la frecuencia y el modo siguen sincronizándose; el filtro no.
 
 El manual completo — cada ajuste, los equipos admitidos, cómo se evita que los dos lados se peleen y la solución de problemas — es **[Control del transceptor](RIG_CONTROL.md)**.
 
@@ -382,7 +382,7 @@ El manual completo — cada ajuste, los equipos admitidos, cómo se evita que lo
 | `catsync_getMute()` / `catsync_setMute(on)` | Silencio, mediante el propio botón de silencio de la página |
 | `catsync_ready` | `true` en cuanto las funciones están instaladas |
 
-Las tres últimas filas son nuevas en la actualización de septiembre de 2026; compruebe que una función existe antes de llamarla.
+Las tres últimas filas son nuevas en la 4.1.0; compruebe que una función existe antes de llamarla.
 
 ---
 

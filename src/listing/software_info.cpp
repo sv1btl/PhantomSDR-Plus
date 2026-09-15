@@ -36,7 +36,7 @@ SoftwareInfo resolve_software_info(const toml::table &cfg) {
 
     // Safe defaults (final fallback)
     out.name = non_empty_or(out.name, "PhantomSDR+");
-    out.version = non_empty_or(out.version, "v.4.0.0");
+    out.version = non_empty_or(out.version, "v.4.1.0");
     return out;
 }
 

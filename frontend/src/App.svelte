@@ -1,5 +1,5 @@
 <script>
-  const VERSION = "4.0.0 with mobile support and enhancements";
+  const VERSION = "4.1.0 with mobile support and enhancements";
 
   // ── Variant selection ────────────────────────────────────────────────────
   //
@@ -169,6 +169,218 @@
   import Spectrogram from "./lib/Spectrogram.svelte";
   import QrssPanel from "./lib/QrssPanel.svelte";
   import VideoAreaSelector from "./lib/VideoAreaSelector.svelte";
+  import { connectCatSyncAny, buildDefaultSources } from "./lib/catsync.js";
+
+  // ── CAT sync over TCI (transceiver <-> PhantomSDR) ──────────────────────
+  // Muting the audio while the rig transmits (PTT) is always on, there is no
+  // switch for it. Frequency tracking is a single toggle: either both ways
+  // (rig <-> Phantom) or nothing.
+  let showCatPopup = false;
+  let catSyncEnabled = false;
+  let catConnected = false;
+  let catActiveSourceLabel = null;
+  // True while the rig transmits: the page is silent, and the volume slider
+  // only takes effect again on receive.
+  let catTxMuted = false;
+  let catSyncHandle = null;
+  // Machine running the TCI server (ExpertSDR, AetherSDR, Thetis).
+  // "localhost" when it is the browser's own computer, otherwise its LAN IP.
+  let catHost = "localhost";
+  // True while a frequency change is being applied BECAUSE the rig moved, so
+  // that frequency is not echoed straight back to the rig.
+  let catApplyingRemoteFreq = false;
+  // Last frequency sent to the rig from a waterfall click/drag.
+  let catLastSentHz = null;
+  // The rig's frequency and mode as last reported over TCI.
+  let catRigHz = null;
+  let catRigMode = null;
+  // The mode last sent to the rig and when, so the rig's report of its
+  // previous mode, still on the way, does not switch the page back.
+  let catLastSentMode = null;
+  let catLastSentModeAt = 0;
+
+  // This receiver's modes in TCI's names. CW-L has no TCI name of its own.
+  const CAT_TCI_MODES = {
+    USB: "usb", LSB: "lsb", CW: "cw", "CW-L": "cw", AM: "am", QUAM: "am",
+    FM: "nfm", WBFM: "wfm", RADEU: "usb", RADEL: "lsb",
+  };
+
+  // CAT sync over TCI, Phantom -> rig: the receiver's mode. Every mode change
+  // (a button, the band plan, a decoder, a bookmark) arrives here through
+  // handleDemodulationChange.
+  function catSendModeToRig() {
+    if (!catSyncEnabled || catApplyingRemoteFreq || !catSyncHandle) return;
+    const tci = CAT_TCI_MODES[demodulation];
+    if (!tci) return;
+    // The rig is already there, or it was just asked to go there.
+    if (catRigMode && catsyncModeFromTool(catRigMode) === catsyncModeFromTool(tci)) return;
+    if (tci === catLastSentMode && Date.now() - catLastSentModeAt < 2000) return;
+    if (catSyncHandle.sendModeToRig(tci)) {
+      catLastSentMode = tci;
+      catLastSentModeAt = Date.now();
+    }
+  }
+
+  // CAT sync over TCI, Phantom -> rig: the passband. updatePassband calls this
+  // after every passband change; a drag fires it many times, so only the
+  // width that is still there 300 ms later is sent.
+  let catLastSentWidth = null;
+  let catLastSentWidthAt = 0;
+  let catFilterTimer = null;
+  let catPendingWidth = null;
+  function catSendFilterToRig() {
+    if (!catSyncEnabled || !catSyncHandle || !audio || !audio.getAudioRange) return;
+    const [l, m, r] = audio.getAudioRange().map(FFTOffsetToFrequency);
+    const lo = Math.round(l - m);
+    const hi = Math.round(r - m);
+    const width = hi - lo;
+    // A passband reset by the rig's own mode change is the rig's filter
+    // already, so it is not sent back.
+    if (catApplyingRemoteFreq) {
+      clearTimeout(catFilterTimer);
+      catFilterTimer = null;
+      catLastSentWidth = width;
+      return;
+    }
+    if (!(width > 0) || width === catLastSentWidth) return;
+    // The same width reported again while it waits: let the timer run, or a
+    // page that refreshes its passband often would never send at all.
+    if (catFilterTimer && width === catPendingWidth) return;
+    clearTimeout(catFilterTimer);
+    catPendingWidth = width;
+    // Marked as sent from the start, so a rig report arriving during the
+    // 300 ms wait does not override the listener's drag.
+    catLastSentWidthAt = Date.now() + 300;
+    catFilterTimer = setTimeout(() => {
+      catFilterTimer = null;
+      if (catSyncHandle && catSyncHandle.sendFilterToRig(lo, hi)) {
+        catLastSentWidth = width;
+        catLastSentWidthAt = Date.now();
+      }
+    }, 300);
+  }
+
+  function toggleCatPopup() {
+    showCatPopup = !showCatPopup;
+  }
+
+  function loadCatSyncPreferences() {
+    try {
+      catSyncEnabled = JSON.parse(
+        localStorage.getItem("catSyncEnabled") || "false",
+      );
+    } catch (e) {
+      catSyncEnabled = false;
+    }
+    try {
+      catHost = localStorage.getItem("catHost") || "localhost";
+    } catch (e) {
+      catHost = "localhost";
+    }
+  }
+
+  // bind:checked already flips catSyncEnabled; this only persists it and must
+  // never invert it again.
+  function persistCatSyncPreference() {
+    try {
+      localStorage.setItem("catSyncEnabled", JSON.stringify(catSyncEnabled));
+    } catch (e) {}
+  }
+
+  // A new host means reconnecting: close the old links before opening new ones.
+  function applyCatHostChange() {
+    catHost = (catHost || "").trim() || "localhost";
+    try {
+      localStorage.setItem("catHost", catHost);
+    } catch (e) {}
+    if (catSyncHandle) catSyncHandle.close();
+    catConnected = false;
+    catActiveSourceLabel = null;
+    catSyncHandle = startCatSync();
+  }
+
+  // See ./lib/catsync.js. The usual TCI ports (ExpertSDR3/AetherSDR 50001,
+  // ExpertSDR2/Thetis 40001) are tried in parallel on catHost, so the
+  // listener never has to know which one their software uses; the one that
+  // answers is shown in catActiveSourceLabel.
+  function startCatSync() {
+    const catConnectedByPort = {};
+    return connectCatSyncAny(buildDefaultSources(catHost), {
+      onPtt: (isTx) => {
+        catTxMuted = isTx;
+        if (isTx) {
+          audio.setGain(0); // always mute on TX -- no switch
+        } else {
+          handleVolumeChange(); // the slider as it is now
+        }
+      },
+      onVfo: (freqHz, mode) => {
+        // The rig moved on its own, so the next click must be sent even if it
+        // lands on the frequency we sent last time.
+        catLastSentHz = null;
+        // catsync.js reports frequency and mode together, so work out which
+        // of the two the rig actually changed.
+        const freqChanged = freqHz && freqHz !== catRigHz;
+        const modeChanged = mode && mode !== catRigMode;
+        catRigHz = freqHz;
+        catRigMode = mode;
+        if (!catSyncEnabled) return;
+        catApplyingRemoteFreq = true;
+        try {
+          // The rig only moves the dial: no band zoom or brightness, and the
+          // band plan's mode is held off (see the "setMode" subscription).
+          if (freqChanged) {
+            frequencyInputComponent.setFrequency(freqHz);
+            handleFrequencyChange({ detail: freqHz });
+          }
+          // The mode follows only when the rig's mode itself changed, so the
+          // echo of a waterfall click does not overwrite the listener's mode.
+          // A report that contradicts a mode sent a moment ago is the rig's
+          // old mode still on the way, not a hand on the rig.
+          const stale =
+            Date.now() - catLastSentModeAt < 1500 &&
+            catsyncModeFromTool(mode) !== catsyncModeFromTool(catLastSentMode);
+          if (modeChanged && !stale) {
+            // TCI servers spell some modes their own way (nfm, digu, sam);
+            // the CATsync name table knows them all.
+            const wanted = catsyncModeFromTool(mode);
+            if (_decoderOwnsReceiver()) _decoderReassertReceiver();
+            else if (wanted && wanted !== demodulation) SetMode(wanted);
+          }
+        } finally {
+          catApplyingRemoteFreq = false;
+        }
+      },
+      onFilter: (low, high) => {
+        const width = Math.round(high - low);
+        if (!catSyncEnabled || !(width > 0) || !audio || !audio.getAudioRange) return;
+        // The listener has just changed the passband or the mode: a report
+        // now is the rig's filter from before, still on the way.
+        const recent = Math.max(catLastSentWidthAt, catLastSentModeAt);
+        if (catFilterTimer || Date.now() - recent < 1500) return;
+        // A running decoder keeps its own passband.
+        if (_decoderOwnsReceiver()) return;
+        const [l, , r] = audio.getAudioRange().map(FFTOffsetToFrequency);
+        if (Math.abs(r - l - width) < 50) return;
+        catApplyingRemoteFreq = true;
+        try {
+          handleSetStaticBandwidth(width, false);
+        } finally {
+          catApplyingRemoteFreq = false;
+        }
+      },
+      onStatus: (state, detail, sourceConfig) => {
+        catConnectedByPort[sourceConfig.port] = state === "connecté";
+        const activePorts = Object.entries(catConnectedByPort)
+          .filter(([, connected]) => connected)
+          .map(([port]) => port);
+        catConnected = activePorts.length > 0;
+        catActiveSourceLabel = activePorts.length
+          ? `TCI (port ${activePorts.join(", ")})`
+          : null;
+      },
+    });
+  }
 
   let isRecording = false;
   let canDownload = false;
@@ -1115,6 +1327,7 @@
     }
     // important:
     drawWaterfallHighlight(passband);
+    catSendFilterToRig();
   }
 
   function drawWaterfallHighlight(passband) {
@@ -1497,6 +1710,7 @@
 
   onMount(() => window.addEventListener("message", onUserTuneMessage));
   onDestroy(() => window.removeEventListener("message", onUserTuneMessage));
+  onDestroy(() => catSyncHandle && catSyncHandle.close());
 
   // users.html opened in its own tab (http://host:port/users.html) rather than
   // in the modal has no parent frame to ask, so the same "who am I" question
@@ -3986,6 +4200,7 @@
       window.__catsync_state.mode = demodulation;
       if (!catsyncRemote) catsyncNotify({ mode: 1 });
     }
+    if (changed) catSendModeToRig();
     const demodulationDefault = demodulationDefaults[demodulation];
     if (changed) {
       if (demodulation === "WBFM") {
@@ -4803,11 +5018,26 @@
     window.__catsync_state = window.__catsync_state || { hz: null, mode: null };
     window.__catsync_state.hz = frequencyInputComponent.getFrequency();
     if (!catsyncRemote) catsyncNotify({ freq: 1 });
+
+    // CAT sync over TCI, Phantom -> rig: a waterfall click or passband drag
+    // moves the rig too. A drag fires this on every move, so skip repeats.
+    if (catSyncEnabled && !catApplyingRemoteFreq && catSyncHandle) {
+      const hz = Math.round(m);
+      if (hz !== catLastSentHz && catSyncHandle.sendFreqToRig(hz)) {
+        catLastSentHz = hz;
+      }
+    }
   }
 
   // Entering new frequency into the textbox
   function handleFrequencyChange(event) {
     const frequencyHz = event.detail;
+
+    // CAT sync, Phantom -> rig (TCI): only when "CAT Sync" is switched on, and
+    // only when this change did not come from the rig itself (no echo).
+    if (catSyncEnabled && !catApplyingRemoteFreq && catSyncHandle) {
+      catSyncHandle.sendFreqToRig(frequencyHz);
+    }
     const audioRange = audio.getAudioRange();
 
     // Keep the shared UI frequency state in sync before any band/mode refresh.
@@ -5340,6 +5570,8 @@
   }
 
   function handleVolumeChange() {
+    // During TX the slider still moves; its level is applied on receive.
+    if (catTxMuted) return;
     audio.setGain(Math.pow(10, (volume - 50) / 50 + 2.6));
   }
 
@@ -6333,6 +6565,11 @@
     // default above would not have taken effect at all.
     handleAudioBufferDelayMove(audioBufferDelay);
     updateLink();
+
+    // CAT sync over TCI: see ./lib/catsync.js and startCatSync().
+    loadCatSyncPreferences();
+    catSyncHandle = startCatSync();
+
     userId = generateUniqueId();
     let [l, m, r] = audio.getAudioRange().map(FFTOffsetToFrequency);
 
@@ -6435,6 +6672,8 @@
       // see _decoderReassertReceiver(). Mode buttons still work: those call
       // SetMode() directly and are a deliberate operator choice.
       if (_decoderOwnsReceiver()) return;
+      // A frequency from the rig over TCI keeps the rig's mode, not the band's.
+      if (catApplyingRemoteFreq) return;
       SetMode(mode);
     });
 
@@ -8221,7 +8460,7 @@
                     <ul style="font-size: 0.91rem; text-align: left;">
                     <b>Setup &amp; Configuration:</b>
                       <img
-                        src="https://img.shields.io/badge/version- 4.0.0-cyan?logo=github"
+                        src="https://img.shields.io/badge/version- 4.1.0-cyan?logo=github"
                         alt="Version"
                         class="inline-block align-middle ml-2"
                       />
@@ -10001,44 +10240,24 @@ Click again to de-activate"
                       <!-- Phil -->
                       <!-- Begin Popup Buttons Menu -->
                       <div class="w-full mt-4">
-                        <div class="grid grid-cols-4 sm:grid-cols-4 gap-2">
+                        <div class="grid grid-cols-5 sm:grid-cols-5 gap-2">
                           <button
                             id="vfo-ab-button"
-                            class="glass-button h-8 text-white font-bold text-xs py-2 px-4 rounded-lg flex items-center w-full justify-center {toggleVFO ===
+                            class="glass-button h-8 text-white text-sm font-bold py-2 px-1 rounded-lg flex items-center w-full justify-center whitespace-nowrap {toggleVFO ===
                             vfo
                               ? 'bg-green-600 pressed scale-95'
                               : 'bg-blue-700 hover:bg-gray-600'}"
                             on:click={() => toggleVFO(vfo)}
                             title="VFO Toggle"
                           >
-                            <svg
-                              xmlns="http://www.w3.org/2000/svg"
-                              class="h-5 w-5 mr-2"
-                              viewBox="0 0 20 20"
-                              fill="currentColor"
-                            >
-                              <path
-                                d="M5 4a2 2 0 012-2h6a2 2 0 012 2v14l-5-2.5L5 18V4z"
-                              />
-                            </svg>
                             {vfo}
                           </button>
 
                           <button
                             id="mode-button"
-                            class="glass-button h-8 text-white font-bold text-sm py-2 px-4 rounded-lg flex items-center w-full justify-center"
+                            class="glass-button h-8 text-white text-sm font-bold py-2 px-1 rounded-lg flex items-center w-full justify-center whitespace-nowrap"
                             on:click={toggleModePopup}
                           >
-                            <svg
-                              xmlns="http://www.w3.org/2000/svg"
-                              class="h-5 w-5 mr-2"
-                              viewBox="0 0 20 20"
-                              fill="currentColor"
-                            >
-                              <path
-                                d="M5 4a2 2 0 012-2h6a2 2 0 012 2v14l-5-2.5L5 18V4z"
-                              />
-                            </svg>
                             Modes
                           </button>
                           <!-- Mode Popup -->
@@ -10128,19 +10347,9 @@ Click again to de-activate"
                           <!-- Begin Bands Popup Menu -->
                           <button
                             id="band-popup-button"
-                            class="glass-button h-8 text-white text-sm font-bold py-2 px-4 rounded-lg flex items-center w-full justify-center"
+                            class="glass-button h-8 text-white text-sm font-bold py-2 px-1 rounded-lg flex items-center w-full justify-center whitespace-nowrap"
                             on:click={toggleBandPopup}
                           >
-                            <svg
-                              xmlns="http://www.w3.org/2000/svg"
-                              class="h-5 w-5 mr-2"
-                              viewBox="0 0 20 20"
-                              fill="currentColor"
-                            >
-                              <path
-                                d="M5 4a2 2 0 012-2h6a2 2 0 012 2v14l-5-2.5L5 18V4z"
-                              />
-                            </svg>
                             Bands
                           </button>
 
@@ -10238,19 +10447,9 @@ Click again to de-activate"
                           <!-- Begin IF Filters Popup Menu -->
                           <button
                             id="if-filter-popup-button"
-                            class="glass-button h-8 text-white text-sm font-bold py-2 px-4 rounded-lg flex items-center w-full justify-center"
+                            class="glass-button h-8 text-white text-sm font-bold py-2 px-1 rounded-lg flex items-center w-full justify-center whitespace-nowrap"
                             on:click={toggleIFPopup}
                           >
-                            <svg
-                              xmlns="http://www.w3.org/2000/svg"
-                              class="h-5 w-5 mr-2"
-                              viewBox="0 0 20 20"
-                              fill="currentColor"
-                            >
-                              <path
-                                d="M5 4a2 2 0 012-2h6a2 2 0 012 2v14l-5-2.5L5 18V4z"
-                              />
-                            </svg>
                             IF Filters
                           </button>
 
@@ -10370,6 +10569,126 @@ Click again to de-activate"
                             </div>
                           {/if}
                           <!-- End IF Filters Popup Menu -->
+                          <!-- Begin CAT (TCI) Popup Menu -->
+                          <button
+                            id="cat-tci-popup-button"
+                            class="glass-button h-8 text-white text-sm font-bold py-2 px-1 rounded-lg flex items-center w-full justify-center whitespace-nowrap"
+                            on:click={toggleCatPopup}
+                            title={catConnected
+                              ? `CAT control active — ${catActiveSourceLabel}`
+                              : "CAT control via TCI (ExpertSDR, AetherSDR, Thetis)"}
+                          >
+                            <span
+                              class="mr-1 {catConnected
+                                ? 'text-green-400'
+                                : 'text-gray-500'}">●</span
+                            >
+                            QRG Sync
+                          </button>
+
+                          {#if showCatPopup}
+                            <div
+                              class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+                              on:click={toggleCatPopup}
+                            >
+                              <div
+                                class="p-6 rounded-lg max-w-lg w-full max-h-[80vh] flex flex-col decoder-window popup-panel"
+                                on:click|stopPropagation
+                              >
+                                <div
+                                  class="flex justify-between items-center mb-4"
+                                >
+                                  <h2 class="text-base font-bold text-white">
+                                    CAT control via TCI
+                                  </h2>
+                                  <button
+                                    class="text-gray-400 hover:text-white"
+                                    on:click={toggleCatPopup}
+                                  >
+                                    <svg
+                                      class="w-6 h-6"
+                                      fill="none"
+                                      stroke="currentColor"
+                                      viewBox="0 0 24 24"
+                                      xmlns="http://www.w3.org/2000/svg"
+                                    >
+                                      <path
+                                        stroke-linecap="round"
+                                        stroke-linejoin="round"
+                                        stroke-width="2"
+                                        d="M6 18L18 6M6 6l12 12"
+                                      ></path>
+                                    </svg>
+                                  </button>
+                                </div>
+                                <!-- Content Starts -->
+                                <div class="flex flex-col gap-4">
+                                  <p class="text-xs text-gray-400 text-center">
+                                    ExpertSDR, AetherSDR, Thetis — TCI ports
+                                    50001 / 40001 are searched automatically.
+                                  </p>
+                                  <div
+                                    class="flex items-center justify-center gap-3 flex-wrap"
+                                  >
+                                    <span
+                                      class="text-sm font-semibold {catConnected
+                                        ? 'text-green-400'
+                                        : 'text-gray-500'}"
+                                      title={catConnected
+                                        ? `CAT link active — source: ${catActiveSourceLabel}`
+                                        : "No CAT link found (searching TCI on ports 50001/40001)"}
+                                    >
+                                      ● {catConnected
+                                        ? `Active — ${catActiveSourceLabel}`
+                                        : "Inactive"}
+                                    </span>
+                                    {#if !catConnected}
+                                      <span
+                                        class="text-xs text-gray-400 animate-pulse"
+                                        title="Searching for a TCI server..."
+                                      >
+                                        ⏳ Wait
+                                      </span>
+                                    {/if}
+                                  </div>
+                                  <div
+                                    class="flex items-center justify-center gap-4 flex-wrap"
+                                  >
+                                    <div class="flex items-center gap-2">
+                                      <span class="text-sm text-gray-300"
+                                        >CAT Sync</span
+                                      >
+                                      <label
+                                        class="toggle-switch"
+                                        title="Turns frequency tracking (rig <-> PhantomSDR) on or off. Audio is always muted while the rig transmits."
+                                      >
+                                        <input
+                                          type="checkbox"
+                                          bind:checked={catSyncEnabled}
+                                          on:change={persistCatSyncPreference}
+                                        />
+                                        <span class="toggle-slider"></span>
+                                      </label>
+                                    </div>
+                                    <div class="flex items-center gap-2">
+                                      <span class="text-xs text-gray-400"
+                                        >Host:</span
+                                      >
+                                      <input
+                                        type="text"
+                                        class="text-xs bg-gray-800 text-gray-200 rounded px-2 py-0.5 w-32"
+                                        bind:value={catHost}
+                                        on:change={applyCatHostChange}
+                                        title="Address of the computer running ExpertSDR/AetherSDR/Thetis (TCI): 'localhost' for this computer, otherwise its LAN IP (e.g. 192.168.1.42)."
+                                      />
+                                    </div>
+                                  </div>
+                                </div>
+                                <!-- Content Ends -->
+                              </div>
+                            </div>
+                          {/if}
+                          <!-- End CAT (TCI) Popup Menu -->
                         </div>
                         <hr class="border-gray-600 my-2" />
                       </div>
@@ -13727,10 +14046,10 @@ Click again to de-activate"
                       <!-- Phil -->
                       <!-- Begin Popup Buttons Menu -->
                       <div class="w-full mt-4">
-                        <div class="grid grid-cols-4 sm:grid-cols-4 gap-2">
+                        <div class="grid grid-cols-5 sm:grid-cols-5 gap-2">
                           <button
                             id="vfo-ab-button"
-                            class="glass-button h-8 text-white font-bold text-xs py-2 px-4 rounded-lg flex items-center w-full justify-center {toggleVFO ===
+                            class="glass-button h-8 text-white text-sm font-bold py-2 px-1 rounded-lg flex items-center w-full justify-center whitespace-nowrap {toggleVFO ===
                             vfo
                               ? 'bg-green-600 pressed scale-95'
                               : 'bg-blue-700 hover:bg-gray-600'}"
@@ -13742,7 +14061,7 @@ Click again to de-activate"
 
                           <button
                             id="mode-button"
-                            class="glass-button h-8 text-white font-bold text-sm py-2 px-4 rounded-lg flex items-center w-full justify-center"
+                            class="glass-button h-8 text-white text-sm font-bold py-2 px-1 rounded-lg flex items-center w-full justify-center whitespace-nowrap"
                             on:click={toggleModePopup}
                           >
                             Mode
@@ -13834,7 +14153,7 @@ Click again to de-activate"
                           <!-- Begin Bands Popup Menu -->
                           <button
                             id="band-popup-button"
-                            class="glass-button h-8 text-white text-sm font-bold py-2 px-4 rounded-lg flex items-center w-full justify-center"
+                            class="glass-button h-8 text-white text-sm font-bold py-2 px-1 rounded-lg flex items-center w-full justify-center whitespace-nowrap"
                             on:click={toggleBandPopup}
                           >
                             Band
@@ -13934,7 +14253,7 @@ Click again to de-activate"
                           <!-- Begin IF Filters Popup Menu -->
                           <button
                             id="if-filter-popup-button"
-                            class="glass-button h-8 text-white text-sm font-bold py-2 px-4 rounded-lg flex items-center w-full justify-center"
+                            class="glass-button h-8 text-white text-sm font-bold py-2 px-1 rounded-lg flex items-center w-full justify-center whitespace-nowrap"
                             on:click={toggleIFPopup}
                           >
                             IF
@@ -14056,6 +14375,126 @@ Click again to de-activate"
                             </div>
                           {/if}
                           <!-- End IF Filters Popup Menu -->
+                          <!-- Begin CAT (TCI) Popup Menu -->
+                          <button
+                            id="cat-tci-popup-button"
+                            class="glass-button h-8 text-white text-sm font-bold py-2 px-1 rounded-lg flex items-center w-full justify-center whitespace-nowrap"
+                            on:click={toggleCatPopup}
+                            title={catConnected
+                              ? `CAT control active — ${catActiveSourceLabel}`
+                              : "CAT control via TCI (ExpertSDR, AetherSDR, Thetis)"}
+                          >
+                            <span
+                              class="mr-1 {catConnected
+                                ? 'text-green-400'
+                                : 'text-gray-500'}">●</span
+                            >
+                            CAT
+                          </button>
+
+                          {#if showCatPopup}
+                            <div
+                              class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+                              on:click={toggleCatPopup}
+                            >
+                              <div
+                                class="p-6 rounded-lg max-w-lg w-full max-h-[80vh] flex flex-col decoder-window popup-panel"
+                                on:click|stopPropagation
+                              >
+                                <div
+                                  class="flex justify-between items-center mb-4"
+                                >
+                                  <h2 class="text-base font-bold text-white">
+                                    CAT control via TCI
+                                  </h2>
+                                  <button
+                                    class="text-gray-400 hover:text-white"
+                                    on:click={toggleCatPopup}
+                                  >
+                                    <svg
+                                      class="w-6 h-6"
+                                      fill="none"
+                                      stroke="currentColor"
+                                      viewBox="0 0 24 24"
+                                      xmlns="http://www.w3.org/2000/svg"
+                                    >
+                                      <path
+                                        stroke-linecap="round"
+                                        stroke-linejoin="round"
+                                        stroke-width="2"
+                                        d="M6 18L18 6M6 6l12 12"
+                                      ></path>
+                                    </svg>
+                                  </button>
+                                </div>
+                                <!-- Content Starts -->
+                                <div class="flex flex-col gap-4">
+                                  <p class="text-xs text-gray-400 text-center">
+                                    ExpertSDR, AetherSDR, Thetis — TCI ports
+                                    50001 / 40001 are searched automatically.
+                                  </p>
+                                  <div
+                                    class="flex items-center justify-center gap-3 flex-wrap"
+                                  >
+                                    <span
+                                      class="text-sm font-semibold {catConnected
+                                        ? 'text-green-400'
+                                        : 'text-gray-500'}"
+                                      title={catConnected
+                                        ? `CAT link active — source: ${catActiveSourceLabel}`
+                                        : "No CAT link found (searching TCI on ports 50001/40001)"}
+                                    >
+                                      ● {catConnected
+                                        ? `Active — ${catActiveSourceLabel}`
+                                        : "Inactive"}
+                                    </span>
+                                    {#if !catConnected}
+                                      <span
+                                        class="text-xs text-gray-400 animate-pulse"
+                                        title="Searching for a TCI server..."
+                                      >
+                                        ⏳ Wait
+                                      </span>
+                                    {/if}
+                                  </div>
+                                  <div
+                                    class="flex items-center justify-center gap-4 flex-wrap"
+                                  >
+                                    <div class="flex items-center gap-2">
+                                      <span class="text-sm text-gray-300"
+                                        >CAT Sync</span
+                                      >
+                                      <label
+                                        class="toggle-switch"
+                                        title="Turns frequency tracking (rig <-> PhantomSDR) on or off. Audio is always muted while the rig transmits."
+                                      >
+                                        <input
+                                          type="checkbox"
+                                          bind:checked={catSyncEnabled}
+                                          on:change={persistCatSyncPreference}
+                                        />
+                                        <span class="toggle-slider"></span>
+                                      </label>
+                                    </div>
+                                    <div class="flex items-center gap-2">
+                                      <span class="text-xs text-gray-400"
+                                        >Host:</span
+                                      >
+                                      <input
+                                        type="text"
+                                        class="text-xs bg-gray-800 text-gray-200 rounded px-2 py-0.5 w-32"
+                                        bind:value={catHost}
+                                        on:change={applyCatHostChange}
+                                        title="Address of the computer running ExpertSDR/AetherSDR/Thetis (TCI): 'localhost' for this computer, otherwise its LAN IP (e.g. 192.168.1.42)."
+                                      />
+                                    </div>
+                                  </div>
+                                </div>
+                                <!-- Content Ends -->
+                              </div>
+                            </div>
+                          {/if}
+                          <!-- End CAT (TCI) Popup Menu -->
                         </div>
                         <hr class="border-gray-600 my-2" />
                       </div>

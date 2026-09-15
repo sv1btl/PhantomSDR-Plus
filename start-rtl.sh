@@ -265,8 +265,8 @@ start_spectrumserver() {
                         "Connected to "*) after_connect=1 ;;
                         "Sending registration ping #"*|"Waiting response for ping #"*)
                             [ "${msg##*#}" = "1" ] || continue ;;
-                        "#"*" OK"*)
-                            n=${msg#\#}; n=${n%% *}
+                        "#"*" OK"*|"ping #"*" OK"*)
+                            n=${msg#*#}; n=${n%% *}
                             [ "$n" = "1" ] || [ "$after_connect" = "1" ] || continue
                             after_connect=0 ;;
                     esac
@@ -454,7 +454,7 @@ launch() {
         org_state="pending"
         for i in $(seq 1 15); do
             sleep 2
-            if tail -n 60 "$LOG" 2>/dev/null | grep -qE '^\[WebSDROrg\] #[0-9]+ OK'; then
+            if tail -n 60 "$LOG" 2>/dev/null | grep -qE '^\[WebSDROrg\] (ping )?#[0-9]+ OK'; then
                 org_state="ok"; break
             fi
         done

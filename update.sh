@@ -14,7 +14,7 @@
 #    ./update.sh                   report what would change; writes NOTHING
 #    ./update.sh --apply           actually update, asking about your own edits
 #    ./update.sh --apply --yes     unattended; anything you edited is KEPT
-#    ./update.sh --ref v4.0.0      a tag, branch or commit instead of main
+#    ./update.sh --ref v4.1.0      a tag, branch or commit instead of main
 #    ./update.sh --apply --prune   also offer to delete files GitHub removed
 #    ./update.sh --list-excludes   print the exclusion rules as resolved here
 #    ./update.sh --restore LAST    put back the files the last run overwrote

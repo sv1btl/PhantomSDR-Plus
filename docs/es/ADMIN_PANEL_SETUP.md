@@ -175,7 +175,7 @@ sudo systemctl restart phantomsdr-admin phantomsdr-proxy
 
 La unidad incluye `KillMode=process`, y esa línea es esencial. Si arranca el SDR desde el panel, el receptor es hijo de la unidad de administración y hereda su cgroup. Con el valor por omisión de systemd, `KillMode=control-group`, reiniciar el panel se llevaría por delante spectrumserver, su watchdog y el demonio de autorun, tras bloquearse los 90 segundos completos del tiempo de espera de parada. Con `KillMode=process` systemd solo señaliza al panel, de modo que `sudo systemctl restart phantomsdr-admin` deja al aire un receptor con oyentes.
 
-**Actualizar una unidad instalada antes de la v4.0.0.** Los ficheros de unidad antiguos no tienen esa línea, y reiniciar el panel no la añade: `systemctl restart` vuelve a ejecutar el programa, no cambia su configuración. Edite la copia *instalada* — la del repositorio es solo una plantilla que systemd nunca lee:
+**Actualizar una unidad instalada antes de la v4.1.0.** Los ficheros de unidad antiguos no tienen esa línea, y reiniciar el panel no la añade: `systemctl restart` vuelve a ejecutar el programa, no cambia su configuración. Edite la copia *instalada* — la del repositorio es solo una plantilla que systemd nunca lee:
 
 ```bash
 sudo nano /etc/systemd/system/phantomsdr-admin.service

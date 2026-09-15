@@ -411,6 +411,8 @@ PhantomSDR-Plus
 ├── setup-cpufreq-perms.sh
 ├── thermal_guard.py           # Protección contra sobrecalentamiento de la CPU para el panel (también funciona sola)
 ├── thermal-guard.service      # unidad systemd de ejemplo para el guardián, sin panel de administración
+├── tci-bridge
+│   └── tci-rigctld.mjs        # servidor TCI para equipos Hamlib (IC-7300…), se ejecuta en el PC del oyente — ver docs/RIG_CONTROL.md
 ├── tmpfiles
 │   └── phantomsdr-logs.conf
 ├── phantomsdr-admin.service   # unidad systemd de ejemplo para el panel (arranca al inicio, se reinicia tras un fallo)
@@ -735,6 +737,7 @@ Cada `start-*.sh` de los siguientes es un **lanzador autónomo + watchdog + regi
 | `smeter_theme.sh` | Fijar la esfera por defecto del S-meter analógico (dark / amber / vintage) para todos los usuarios y ofrecer la reconstrucción del frontend — véase [Editar variantes](EDITING_VARIANTS.md) |
 | `waterfall.sh` | Cambia el nivel mínimo de cascada predeterminado (dB) en `waterfall.js` + `App.svelte` — véase [README](README.md) |
 | `kiwi_install.sh` | Instala la emulación de clientes KiwiSDR en un árbol que no la tiene: parchea las fuentes del backend, copia `src/kiwi_bridge.h` y añade un bloque `[kiwi_emulation]` documentado a los archivos de configuración de la raíz. Idempotente, y respalda cada archivo que toca — véase [Emulación de clientes KiwiSDR](Aether_config.md) |
+| `tci-bridge/tci-rigctld.mjs` | El receptor no lo usa. Un pequeño programa Node.js que el oyente ejecuta junto a su propio transceptor: lee frecuencia, modo y estado de transmisión del `rigctld` de Hamlib y los ofrece como TCI en el puerto 50001, para que el botón **QRG Sync** de la página controle un equipo sin TCI propio, como el IC-7300 — ver [Control del transceptor](RIG_CONTROL.md) |
 
 **Cadena de arranque antigua.** `go.sh`, `xgo.sh`, `check-go.sh`, `kill.sh` y `_relaunch.sh` son la generación anterior de scripts de arranque, vigilancia y parada. Todo lo que hacían está ahora dentro de cada `start-<radio>.sh`, que es lo que debe usar. Se conservan en disco porque las instalaciones existentes los referencian, y no reciben mantenimiento.
 

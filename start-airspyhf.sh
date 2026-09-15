@@ -1,46 +1,40 @@
 #!/bin/bash
 # ─────────────────────────────────────────────────────────────────────────────
-#  PhantomSDR-Plus  –  start-rsp1a.sh
-#  Universal launcher + watchdog for an SDRplay RSP1A front end (via SoapySDR rx_sdr).
+#  PhantomSDR-Plus  –  start-airspyhf.sh
+#  Universal launcher + watchdog for an Airspy HF+ front end (via SoapySDR rx_sdr).
 #
 #  Same self-contained design as start-rx888mk2.sh: one script that STARTS,
 #  RESTARTS, WATCHDOGS (auto-restarts on failure) and LOGS the server. Derives
 #  its own directory — no hard-coded or user-specific paths. Shares stop-websdr.sh.
 #
 #  Usage:
-#    ./start-rsp1a.sh              start (or restart) the server in the background
+#    ./start-airspyhf.sh           start (or restart) the server in the background
 #    ./stop-websdr.sh              stop the server + watchdog (separate script)
 #  Add -q to the start command for two-line output instead of the live log.
 #
 #  Env overrides (optional):
 #    SPECTRUM_CORES=0-3            pin spectrumserver to these CPUs (taskset list)
 #    SPECTRUM_CORES=none          do not pin at all
-    RADE_ENABLED=0               do not run the RADE sidecar at all
+#    RADE_ENABLED=0               do not run the RADE sidecar at all
 #    RX_ARGS="…"                  override the rx_sdr argument string
 #
-#  NOTE: not tested on RSP1A hardware — it reuses the exact control/watchdog
-#  logic validated on RX-888; only the receiver command/config differ. The
-#  sdrplay service restart in prestart() needs root / passwordless sudo.
+#  NOTE: not tested on Airspy hardware — it reuses the exact control/watchdog
+#  logic validated on RX-888; only the receiver command/config differ.
 # ─────────────────────────────────────────────────────────────────────────────
 
 PHANTOMDIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SELF="$PHANTOMDIR/$(basename "${BASH_SOURCE[0]}")"
 
 # ═══ RECEIVER CONFIGURATION (the only receiver-specific part) ═════════════════
-RX_LABEL="SDRplay RSP1A"
+RX_LABEL="Airspy HF+"
 RX_COMM="rx_sdr"                                   # process name to monitor/kill
-CONFIG="$PHANTOMDIR/config-rsp1a.toml"
-FIFO="$PHANTOMDIR/rsp1a.fifo"
-#rx_sdr -f 25000000 -s 10000000  -g RFGR=1 -t rfnotch_ctrl=false -F CS16  - 
-RX_ARGS="${RX_ARGS:--f 25000000 -s 10000000 -d driver=sdrplay -g RFGR=1 -t rfnotch_ctrl=false -F CS16 -}"
+CONFIG="$PHANTOMDIR/config-airspyhf.toml"
+FIFO="$PHANTOMDIR/airspy.fifo"
+RX_ARGS="${RX_ARGS:--f 6956000 -s 912000 -d driver=airspyhf -F CS16 -}"
 RX_CMD=(rx_sdr)                                    # binary; args come from RX_ARGS
 prestart() {
-    # SDRplay needs its API service running. Best-effort; needs root/passwordless
-    # sudo (a password prompt here would hang the watchdog, so it's suppressed).
-    service sdrplay restart >/dev/null 2>&1 \
-        || sudo -n service sdrplay restart >/dev/null 2>&1 \
-        || true
-    sleep 2
+    # Turn USB power-saving off (best-effort; needs root / passwordless sudo).
+    echo on | sudo tee /sys/bus/usb/devices/*/power/control >/dev/null 2>&1 || true
 }
 # ═════════════════════════════════════════════════════════════════════════════
 
@@ -80,6 +74,28 @@ rotate_log() {
     mv -f "$LOG" "$LOG.1" 2>/dev/null
     stamp
     log "(log passed $LOG_MAX bytes — previous log is now $(basename "$LOG").1)"
+}
+
+# ── keep $SRV_LOG bounded while the server is RUNNING ────────────────────────
+# start_spectrumserver() trims this file too, but only at startup: a receiver
+# left running for months therefore had no bound at all. This is the periodic
+# half of it.
+#
+# It cannot rename the file the way rotate_log() does. spectrumserver.log is
+# written by `tee -a`, which holds the fd open for the life of the server, so a
+# rename would leave tee appending to the renamed inode and the live log would
+# stay empty until the next restart — exactly the trap described above. Copy
+# and truncate instead: tee opened with O_APPEND, so its next write lands at
+# offset 0 of the emptied file. Lines written between the copy and the truncate
+# are lost, which is the accepted cost of this approach (logrotate calls it
+# copytruncate and makes the same trade).
+rotate_srv_log() {
+    local sz
+    sz=$(wc -c < "$SRV_LOG" 2>/dev/null || echo 0)
+    [ "$sz" -gt "$SRV_LOG_MAX" ] 2>/dev/null || return 0
+    cp -f "$SRV_LOG" "$SRV_LOG.1" 2>/dev/null || return 0
+    : > "$SRV_LOG"
+    log "($(basename "$SRV_LOG") passed $SRV_LOG_MAX bytes — previous log is now $(basename "$SRV_LOG").1)"
 }
 
 # ── read one key out of one [section] of the TOML config ─────────────────────
@@ -149,6 +165,8 @@ is_running() {
 }
 
 # ── kill only the receiver/server processes (never the watchdog) ─────────────
+# Writer first, then reader (spectrumserver): killing the reader first would
+# hand the writer a Broken-Pipe panic on the FIFO.
 kill_receivers() {
     killall -KILL "$RX_COMM" 2>/dev/null
     sleep 1
@@ -189,6 +207,9 @@ compute_taskset() {
 }
 
 # ── start the receiver (FIFO pre-open + retry) ───────────────────────────────
+# Pre-opening the FIFO O_RDWR on fd 8 provides a reader so the receiver's
+# write-open doesn't block; kill -0 then tests the real process. fd 8 is closed
+# once spectrumserver holds the read end. Returns 0 if the receiver stays up.
 start_receiver() {
     if ! command -v "${RX_CMD[0]}" >/dev/null 2>&1; then
         log "ERROR: receiver binary '${RX_CMD[0]}' not found in PATH"
@@ -252,8 +273,8 @@ start_spectrumserver() {
                         "Connected to "*) after_connect=1 ;;
                         "Sending registration ping #"*|"Waiting response for ping #"*)
                             [ "${msg##*#}" = "1" ] || continue ;;
-                        "#"*" OK"*)
-                            n=${msg#\#}; n=${n%% *}
+                        "#"*" OK"*|"ping #"*" OK"*)
+                            n=${msg#*#}; n=${n%% *}
                             [ "$n" = "1" ] || [ "$after_connect" = "1" ] || continue
                             after_connect=0 ;;
                     esac
@@ -343,7 +364,7 @@ watchdog_loop() {
         sleep 5
         # Size-check the log every ~5 min (60 ticks) rather than every tick.
         ticks=$(( ticks + 1 ))
-        [ $(( ticks % 60 )) -eq 0 ] && rotate_log
+        if [ $(( ticks % 60 )) -eq 0 ]; then rotate_log; rotate_srv_log; fi
         reason=""
         is_running spectrumserver || reason="spectrumserver"
         is_running "$RX_COMM"     || reason="${reason:+$reason + }$RX_COMM"
@@ -441,7 +462,7 @@ launch() {
         org_state="pending"
         for i in $(seq 1 15); do
             sleep 2
-            if tail -n 60 "$LOG" 2>/dev/null | grep -qE '^\[WebSDROrg\] #[0-9]+ OK'; then
+            if tail -n 60 "$LOG" 2>/dev/null | grep -qE '^\[WebSDROrg\] (ping )?#[0-9]+ OK'; then
                 org_state="ok"; break
             fi
         done

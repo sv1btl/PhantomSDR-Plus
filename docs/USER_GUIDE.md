@@ -368,7 +368,7 @@ The application, its installers and its full manual are at [Desktop PhantomSDR+ 
 
 **With a web browser.** The [CATsync Tool for WebSDRs](https://catsyncsdr.wordpress.com/) (Windows) couples a rig to the receiver page open in your browser. It syncs frequency and mode.
 
-**Filter width and mute on transmit** work on KiwiSDR, WebSDR and UberSDR receivers, and on a PhantomSDR-Plus receiver running 4.0 with the update of September 2026 or later. On an older PhantomSDR-Plus frequency and mode still sync; the filter does not.
+**Filter width and mute on transmit** work on KiwiSDR, WebSDR and UberSDR receivers, and on a PhantomSDR-Plus receiver running 4.1.0 or later. On an older PhantomSDR-Plus frequency and mode still sync; the filter does not.
 
 The full manual — every setting, the supported rigs, how the two sides are kept from fighting, and troubleshooting — is **[Rig Control](RIG_CONTROL.md)**.
 
@@ -382,7 +382,7 @@ The full manual — every setting, the supported rigs, how the two sides are kep
 | `catsync_getMute()` / `catsync_setMute(on)` | Mute, through the page's own mute button |
 | `catsync_ready` | `true` once the functions are installed |
 
-The last three rows are new in the September 2026 update; check that a function exists before calling it.
+The last three rows are new in 4.1.0; check that a function exists before calling it.
 
 ---
 

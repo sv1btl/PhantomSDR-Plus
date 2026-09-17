@@ -429,7 +429,7 @@ patch(
     void on_open_kiwi_snd(connection_hdl hdl);
     void on_open_kiwi_wf(connection_hdl hdl);""",
     "spectrumserver.h: declare on_open_kiwi_snd/wf",
-    marker='on_open_kiwi_snd(connection_hdl hdl);',
+    marker='on_open_kiwi_snd(',
 )
 
 patch(

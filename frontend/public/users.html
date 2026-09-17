@@ -480,6 +480,10 @@ async function fetchUsers() {
     if (!r.ok) throw new Error(r.status);
     const data = await r.json();
 
+    // The station's own locator travels with every /users poll; it is what
+    // places "Local" sessions on the map (see stationLatLng).
+    if (data.grid_locator) setStationGrid(data.grid_locator);
+
     errorShown = false;
     document.getElementById('error-banner').style.display = 'none';
     document.getElementById('pulse').classList.remove('dead');
@@ -804,6 +808,60 @@ function centroidOf(geoStr) {
   return { lat, lng };
 }
 
+// The receiver's own coordinates, from the [websdr] grid_locator in the server
+// config (carried in every /users response). Null until the first poll, or if
+// the locator is unset/malformed.
+let stationLatLng = null;
+
+function setStationGrid(grid) {
+  const next = gridToLatLng(grid);
+  if (!next) return;
+  if (stationLatLng &&
+      next.lat === stationLatLng.lat && next.lng === stationLatLng.lng) return;
+  stationLatLng = next;
+}
+
+// Maidenhead locator → centre of the square. Accepts 4 or 6 characters
+// (KM17 / KM17VX); anything else is refused rather than guessed.
+function gridToLatLng(grid) {
+  const g = String(grid || '').trim().toUpperCase();
+  if (!/^[A-R]{2}[0-9]{2}([A-X]{2})?$/.test(g)) return null;
+  let lng = (g.charCodeAt(0) - 65) * 20 - 180 + (+g[2]) * 2;
+  let lat = (g.charCodeAt(1) - 65) * 10 -  90 + (+g[3]);
+  if (g.length === 6) {
+    lng += (g.charCodeAt(4) - 65) * (2 / 24) + (1 / 24);   // + half a subsquare
+    lat += (g.charCodeAt(5) - 65) * (1 / 24) + (1 / 48);
+  } else {
+    lng += 1;    // centre of the 2° × 1° square
+    lat += 0.5;
+  }
+  return { lat: +lat.toFixed(4), lng: +lng.toFixed(4) };
+}
+
+// Is this session one with no public location of its own — loopback or LAN,
+// shown as "Local" in the table?
+function isLocalUser(u) {
+  return u.geo === 'Local' || isLocalIp(u.ip);
+}
+
+// Geo string that can honestly be put on the map, or null.
+// "Local" is not a place, and handing that word to Nominatim finds a village of
+// that name — which is why the station used to appear in the USA. A local
+// listener is at the receiver by definition, so it is plotted on the station's
+// own locator instead (resolveUserLatLng), with no geocoding at all.
+function mappableGeo(u) {
+  if (isLocalUser(u)) return stationLatLng ? 'Local' : null;
+  if (!u.geo || u.geo === u.ip) return null;
+  return u.geo;
+}
+
+// Coordinates for a user: the station itself for a local session, otherwise the
+// geocoded city.
+function resolveUserLatLng(u, geoStr) {
+  if (isLocalUser(u)) return Promise.resolve(stationLatLng);
+  return geocodeUser(geoStr);
+}
+
 // Geocoding ─ Nominatim with 5 s timeout; falls back to country centroid
 const geoCache    = new Map();  // name → {lat,lng} | null (resolved)
 const geocodeQ    = [];         // {name, resolve}[]
@@ -817,6 +875,9 @@ let   geocodeRunning = false;
 const GEO_LS_KEY = 'phantomsdr_geocache_v1';  // shared with stats.html
 try {
   const stored = JSON.parse(localStorage.getItem(GEO_LS_KEY) || '{}');
+  // Drop the poisoned "Local" entry an older build could have cached (it had
+  // been geocoded to a town of that name, putting the station in the USA).
+  delete stored['Local'];
   for (const k in stored) geoCache.set(k, stored[k]);
 } catch { /* corrupt/absent — start empty */ }
 
@@ -921,11 +982,11 @@ async function updateUsersMap(users) {
   // Add new users (fire-and-forget geocoding per user)
   for (const u of users) {
     if (markersByUid.has(u.id)) continue;
-    const geoStr = (u.geo && u.geo !== u.ip) ? u.geo : null;
+    const geoStr = mappableGeo(u);
     if (!geoStr) continue;
 
     const uid = u.id;
-    geocodeUser(geoStr).then(coords => {
+    resolveUserLatLng(u, geoStr).then(coords => {
       if (!coords || markersByUid.has(uid)) return;
       if (!activeIds.has(uid)) return;  // user left while we were geocoding
 
@@ -946,7 +1007,7 @@ async function updateUsersMap(users) {
   // Update tooltip text for existing markers (frequency/mode may change)
   for (const u of users) {
     const marker = markersByUid.get(u.id);
-    const geoStr = (u.geo && u.geo !== u.ip) ? u.geo : null;
+    const geoStr = mappableGeo(u);
     if (marker && geoStr) {
       const twGeo = s => (typeof twemoji !== 'undefined') ? twemoji.parse(s) : s;
       marker.setTooltipContent(

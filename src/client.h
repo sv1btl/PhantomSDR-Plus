@@ -93,7 +93,8 @@ class PacketSender {
 
     virtual void broadcast_signal_changes(const std::string &unique_id, int l,
                                           double m, int r,
-                                          const std::string &ip = "") = 0;
+                                          const std::string &ip = "",
+                                          bool internal_tap = false) = 0;
 
     virtual ~PacketSender() {}
 };

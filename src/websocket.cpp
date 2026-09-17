@@ -603,6 +603,37 @@ void broadcast_server::on_open_signal(connection_hdl hdl,
     // browser was told in basic_info.
     client->unique_id = uid;
 
+    // Is this the station's own PCM tap? Only a loopback client presenting the
+    // secret token on /audio?tap=<token> counts. Everything else — including a
+    // browser opened on the server itself — is a normal listener and keeps its
+    // IP and "Local" label in /users and on the waterfall. Must be set before
+    // the client is published (signal_slices insert / set_audio_range, which
+    // broadcasts a signal change) so no reader ever sees the default.
+    if (!tap_token.empty()) {
+        server::connection_ptr tap_con = m_server.get_con_from_hdl(hdl);
+        const std::string resource = tap_con->get_resource();
+        const auto qpos = resource.find('?');
+        if (qpos != std::string::npos &&
+            is_loopback_ip(normalize_client_ip(ip_from_hdl(hdl)))) {
+            std::string query = resource.substr(qpos + 1);
+            size_t pos = 0;
+            while (pos < query.size()) {
+                const size_t amp = query.find('&', pos);
+                const std::string part = query.substr(
+                    pos, amp == std::string::npos ? std::string::npos
+                                                  : amp - pos);
+                if (part.rfind("tap=", 0) == 0) {
+                    if (part.substr(4) == tap_token)
+                        client->is_internal_tap.store(
+                            true, std::memory_order_release);
+                    break;
+                }
+                if (amp == std::string::npos) break;
+                pos = amp + 1;
+            }
+        }
+    }
+
     client->set_audio_demodulation(default_mode);
     {
         std::scoped_lock lg(signal_slice_mtx);

@@ -38,9 +38,21 @@ std::string broadcast_server::get_users_json() {
         std::strftime(ts, sizeof(ts), "%Y-%m-%dT%H:%M:%SZ", &tm_utc);
     }
 
+    // The station's own Maidenhead locator, so a page can place a session that
+    // has no public location of its own — a loopback or LAN listener, labelled
+    // "Local" — at the receiver instead of dropping it off the map.
+    std::string grid_locator = config["websdr"]["grid_locator"].value_or("");
+    {
+        std::string clean;
+        for (unsigned char c : grid_locator)
+            if (std::isalnum(c)) clean += static_cast<char>(c);
+        grid_locator = clean;   // "-" / unset / punctuation -> empty
+    }
+
     std::ostringstream o;
     o << "{\n"
       << "  \"timestamp\": \"" << ts << "\",\n"
+      << "  \"grid_locator\": \"" << grid_locator << "\",\n"
       << "  \"users\": [\n";
 
     size_t total_clients = 0;
@@ -49,10 +61,11 @@ std::string broadcast_server::get_users_json() {
 
         bool first = true;
         for (auto &[slice, client] : signal_slices) {
-            // Skip loopback connections (server-local: admin panel, health checks,
-            // local browser tab).  They are not real remote listeners and would
-            // pollute the user count and users.json.
-            if (is_loopback_ip(client->ip_address)) continue;
+            // Skip the station's own internal PCM tap (autorun spot decoder).
+            // It is not a listener and would pollute the user count and
+            // users.json. A browser opened on the server itself is a real
+            // session and stays in the list, with its IP and "Local" label.
+            if (client->is_internal_tap.load(std::memory_order_acquire)) continue;
             // FIX (off-by-one): skip clients that have set disconnecting=true in
             // on_close() but haven't been erased from signal_slices yet.
             if (client->disconnecting.load(std::memory_order_acquire)) continue;
@@ -200,11 +213,13 @@ void broadcast_server::append_user_log(const std::string &event,
     // Look up the live client to get ip / geo / mode / session duration.
     std::string ip_str, geo_str, mode_str = "?";
     long duration_s = 0;
+    bool is_tap = false;
     {
         std::scoped_lock lk(signal_slice_mtx);
         for (auto &[slice, client] : signal_slices) {
             if (client->get_unique_id() == unique_id) {
                 ip_str  = client->ip_address;
+                is_tap  = client->is_internal_tap.load(std::memory_order_acquire);
                 {
                     std::lock_guard<std::mutex> glk(*client->geo_mutex_ptr);
                     geo_str = *client->geo_location_ptr;
@@ -218,10 +233,10 @@ void broadcast_server::append_user_log(const std::string &event,
         }
     }
 
-    // Do not log loopback connections (server-local: admin panel, go.sh health
-    // checks, browser tab on the server machine).  They are not real listeners
-    // and would skew session statistics.
-    if (is_loopback_ip(ip_str)) return;
+    // Do not log the station's own internal PCM tap (autorun spot decoder):
+    // it is permanently connected and would skew session statistics. A browser
+    // on the server machine is a real session and is logged like any other.
+    if (is_tap) return;
 
     // Ensure logs/ directory exists (no-op if already present).
     // Write logs to "logs/" relative to the working directory (project root).
@@ -340,7 +355,7 @@ static size_t count_signal_clients(const signal_slices_t &slices) {
     size_t n = 0;
     for (auto &[slice, client] : slices) {
         if (client->disconnecting.load(std::memory_order_acquire)) continue;
-        if (is_loopback_ip(client->ip_address)) continue;
+        if (client->is_internal_tap.load(std::memory_order_acquire)) continue;
         ++n;
     }
     return n;
@@ -405,8 +420,8 @@ std::string broadcast_server::get_initial_state_info() {
             info.signal_changes.reserve(signal_slices.size());
             for (auto &[slice, data] : signal_slices) {
                 if (data->disconnecting.load(std::memory_order_acquire)) continue;
-                // Skip loopback (autorun taps / admin / local): not real listeners.
-                if (is_loopback_ip(data->ip_address)) continue;
+                // Skip the station's own PCM taps: not real listeners.
+                if (data->is_internal_tap.load(std::memory_order_acquire)) continue;
                 info.signal_changes.emplace(data->get_unique_id(),
                                             std::tuple<int, double, int>{
                                                 data->l, data->audio_mid, data->r});
@@ -418,13 +433,16 @@ std::string broadcast_server::get_initial_state_info() {
 
 void broadcast_server::broadcast_signal_changes(const std::string &unique_id,
                                                 int l, double audio_mid,
-                                                int r, const std::string &ip) {
+                                                int r, const std::string &ip,
+                                                bool internal_tap) {
     // signal_changes drives waterfall overlays — only populated when
-    // show_other_users, and never for loopback clients (the autorun spot-decoder
-    // taps, admin panel, local health checks). Those are server-local, not real
-    // listeners, so they must not appear as user labels on the waterfall — the
-    // same rule already applied to /users and users.json.
-    if (show_other_users && !is_loopback_ip(ip)) {
+    // show_other_users, and never for the station's own PCM taps (the autorun
+    // spot decoder). Those are not listeners, so they must not appear as user
+    // labels on the waterfall — the same rule already applied to /users and
+    // users.json. A browser opened on the server itself IS a listener and gets
+    // its label like everyone else.
+    (void)ip;
+    if (show_other_users && !internal_tap) {
         std::scoped_lock lk(signal_changes_mtx);
         signal_changes[unique_id] = {l, audio_mid, r};
     }

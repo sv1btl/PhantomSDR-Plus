@@ -154,7 +154,8 @@ class broadcast_server : public PacketSender {
 
     virtual void broadcast_signal_changes(const std::string &unique_id, int l,
                                           double m, int r,
-                                          const std::string &ip = "");
+                                          const std::string &ip = "",
+                                          bool internal_tap = false);
 
   private:
     std::unique_ptr<FFT> fft;

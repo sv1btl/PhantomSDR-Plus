@@ -340,7 +340,12 @@ static std::string country_flag(const std::string &cc) {
 // cannot be allowed to drift apart.
 
 // Returns true if the IP is RFC-1918 / loopback / link-local — skip API call.
-static bool is_private_ip(const std::string &ip) {
+static bool is_private_ip(const std::string &ip_raw) {
+    // ip_address is only port-stripped, so a dual-stack listener hands us the
+    // IPv4-mapped spelling ("::ffff:127.0.0.1"). Unmap it first, or every
+    // prefix test below misses and a LAN/loopback client gets sent to the geo
+    // API — which answers nothing, leaving geo empty and the label as a bare IP.
+    const std::string ip = normalize_client_ip(ip_raw);
     if (ip.empty() || ip == "127.0.0.1" || ip == "::1") return true;
     // IPv4 private ranges: 10.x, 172.16-31.x, 192.168.x
     if (ip.rfind("10.",      0) == 0) return true;
@@ -583,7 +588,8 @@ void AudioClient::set_audio_range(int l, double m, int r) {
         node.key() = {l, r};
         it = signal_slices.insert(std::move(node));
     }
-    sender.broadcast_signal_changes(unique_id, l, m, r, ip_address);
+    sender.broadcast_signal_changes(unique_id, l, m, r, ip_address,
+                                    is_internal_tap.load(std::memory_order_acquire));
 }
 
 void AudioClient::set_audio_demodulation(demodulation_mode demodulation) {
@@ -1207,7 +1213,8 @@ void AudioClient::on_close() {
     // mode / duration_s.  The previous order (erase → broadcast) meant the
     // lookup always failed → all disconnect events had empty ip/geo and zero
     // duration.  Reversing the order keeps the client visible for the lookup.
-    sender.broadcast_signal_changes(unique_id, -1, -1, -1, ip_address);
+    sender.broadcast_signal_changes(unique_id, -1, -1, -1, ip_address,
+                                    is_internal_tap.load(std::memory_order_acquire));
 
     {
         std::scoped_lock lk(signal_slice_mtx);

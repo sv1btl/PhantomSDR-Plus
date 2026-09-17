@@ -256,6 +256,16 @@ class AudioClient : public Client,
     std::string                                  ip_address;
     std::chrono::steady_clock::time_point        connected_at;
 
+    // True only for the station's own internal PCM tap — a loopback client on
+    // /audio?tap=<token> (the autorun spot decoder). Those are not listeners:
+    // they must stay out of the user count, /users, users.json, the JSONL stats
+    // log and the waterfall labels. A plain browser opened on the server itself
+    // (http://localhost:<port>) is a real session and is NOT flagged here, so it
+    // shows up with its IP and the "Local" label like any other client.
+    // Set once in on_open_signal() before the client is published; read from
+    // other threads afterwards, hence atomic.
+    std::atomic<bool> is_internal_tap{false};
+
     // Set to true at the start of on_close(), before signal_slices.erase().
     // write_users_json() / get_users_json() skip clients where this is true so
     // the user count drops immediately on disconnect — fixing the off-by-one

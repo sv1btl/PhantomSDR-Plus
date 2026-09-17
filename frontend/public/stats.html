@@ -1213,6 +1213,45 @@ function centroidOf(geoStr) {
   return { lat, lng };
 }
 
+// ── The station's own position ─────────────────────────────────────────────
+// Sessions logged as "Local" (loopback or LAN — the sysop's own browser) have
+// no public location of their own: they are AT the receiver. The locator comes
+// from [websdr] grid_locator in the server config, carried in /users. It is
+// never geocoded — handing the word "Local" to Nominatim finds a village of
+// that name, which is why these used to land in the USA.
+let stationLatLng = null;
+
+// Maidenhead locator → centre of the square. Accepts 4 or 6 characters
+// (KM17 / KM17VX); anything else is refused rather than guessed.
+function gridToLatLng(grid) {
+  const g = String(grid || '').trim().toUpperCase();
+  if (!/^[A-R]{2}[0-9]{2}([A-X]{2})?$/.test(g)) return null;
+  let lng = (g.charCodeAt(0) - 65) * 20 - 180 + (+g[2]) * 2;
+  let lat = (g.charCodeAt(1) - 65) * 10 -  90 + (+g[3]);
+  if (g.length === 6) {
+    lng += (g.charCodeAt(4) - 65) * (2 / 24) + (1 / 24);   // + half a subsquare
+    lat += (g.charCodeAt(5) - 65) * (1 / 24) + (1 / 48);
+  } else {
+    lng += 1;    // centre of the 2° × 1° square
+    lat += 0.5;
+  }
+  return { lat: +lat.toFixed(4), lng: +lng.toFixed(4) };
+}
+
+// One-shot fetch of the locator. This page reads log files, not the live
+// server, so /users is queried purely for its grid_locator field. A failure is
+// not an error: the map simply leaves "Local" off, as it did before.
+async function loadStationLatLng() {
+  if (stationLatLng) return stationLatLng;
+  try {
+    const r = await fetch('/users', { cache: 'no-store' });
+    if (!r.ok) return null;
+    const d = await r.json();
+    stationLatLng = gridToLatLng(d.grid_locator);
+  } catch { /* offline / served from elsewhere — leave it null */ }
+  return stationLatLng;
+}
+
 // Geocoding ─ Nominatim with 5 s timeout; falls back to country centroid
 const geoCache  = new Map();  // name → {lat,lng} | null
 const geocodeQ  = [];         // {name, resolve}[]
@@ -1225,6 +1264,9 @@ let   geocodeRunning = false;
 const GEO_LS_KEY = 'phantomsdr_geocache_v1';  // shared with users.html so the two pages warm each other
 try {
   const stored = JSON.parse(localStorage.getItem(GEO_LS_KEY) || '{}');
+  // Drop the poisoned "Local" entry an older build could have cached (it had
+  // been geocoded to a town of that name, putting the station in the USA).
+  delete stored['Local'];
   for (const k in stored) geoCache.set(k, stored[k]);
 } catch { /* corrupt/absent — start empty */ }
 
@@ -1290,9 +1332,13 @@ let statsMarkers = null;
 async function renderStatsMap(geoCount) {
   // geoCount: [[name, count], ...] sorted by count desc — from analyze()
 
-  // Filter out unresolvable placeholders and local connections
+  // "Local" is kept only once the station's own locator is known — it is
+  // plotted at the receiver (see stationLatLng), never geocoded. The other
+  // placeholders have no position at all and are dropped.
+  await loadStationLatLng();
   const entries = geoCount.filter(([name]) =>
-    name && name !== 'Unknown / resolving' && name !== '?' && name !== 'Local'
+    name && name !== 'Unknown / resolving' && name !== '?' &&
+    (name !== 'Local' || !!stationLatLng)
   );
 
   // Wait one tick so render()'s dash.innerHTML replacement is in the DOM.
@@ -1369,7 +1415,7 @@ async function renderStatsMap(geoCount) {
   // cities already in the persisted geoCache refine effectively instantly.
   const markerByName = new Map();
   for (const [name, count] of entries) {
-    const seed = centroidOf(name);
+    const seed = (name === 'Local') ? stationLatLng : centroidOf(name);
     if (seed) {
       const circle = makeMarker(seed.lat, seed.lng, name, count);
       localMarkers.addLayer(circle);
@@ -1380,6 +1426,11 @@ async function renderStatsMap(geoCount) {
   // Kick off geocoding for all entries; refine the seeded marker (or add one
   // if the entry had no country centroid) as each resolves.
   for (const [name, count] of entries) {
+    if (name === 'Local') {   // already placed on the station, nothing to resolve
+      resolved++;
+      updateStatus();
+      continue;
+    }
     geocodeLoc(name).then(coords => {
       resolved++;
       updateStatus();

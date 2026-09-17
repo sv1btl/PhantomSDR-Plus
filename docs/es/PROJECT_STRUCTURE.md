@@ -28,6 +28,7 @@ PhantomSDR-Plus
 │   ├── manager.js
 │   ├── pool.js
 │   ├── probe-ft8.js
+│   ├── probe-js8.js
 │   ├── pskreporter.js
 │   ├── spotparse.js
 │   ├── wasm-shim.js
@@ -47,6 +48,7 @@ PhantomSDR-Plus
 │   ├── de
 │   │   ├── ADMIN_PANEL_SETUP.md
 │   │   ├── Aether_config.md
+│   │   ├── CONNECTION_LIMITS.md
 │   │   ├── DECODERS.md
 │   │   ├── EDITING_VARIANTS.md
 │   │   ├── INSTALLATION.md
@@ -59,11 +61,13 @@ PhantomSDR-Plus
 │   │   ├── RIG_CONTROL.md
 │   │   ├── THERMAL_GUARD.md
 │   │   └── USER_GUIDE.md
+│   ├── CONNECTION_LIMITS.md
 │   ├── DECODERS.md
 │   ├── EDITING_VARIANTS.md
 │   ├── el
 │   │   ├── ADMIN_PANEL_SETUP.md
 │   │   ├── Aether_config.md
+│   │   ├── CONNECTION_LIMITS.md
 │   │   ├── DECODERS.md
 │   │   ├── EDITING_VARIANTS.md
 │   │   ├── INSTALLATION.md
@@ -79,6 +83,7 @@ PhantomSDR-Plus
 │   ├── es
 │   │   ├── ADMIN_PANEL_SETUP.md
 │   │   ├── Aether_config.md
+│   │   ├── CONNECTION_LIMITS.md
 │   │   ├── DECODERS.md
 │   │   ├── EDITING_VARIANTS.md
 │   │   ├── INSTALLATION.md
@@ -94,6 +99,7 @@ PhantomSDR-Plus
 │   ├── fr
 │   │   ├── ADMIN_PANEL_SETUP.md
 │   │   ├── Aether_config.md
+│   │   ├── CONNECTION_LIMITS.md
 │   │   ├── DECODERS.md
 │   │   ├── EDITING_VARIANTS.md
 │   │   ├── INSTALLATION.md
@@ -109,6 +115,7 @@ PhantomSDR-Plus
 │   ├── hr
 │   │   ├── ADMIN_PANEL_SETUP.md
 │   │   ├── Aether_config.md
+│   │   ├── CONNECTION_LIMITS.md
 │   │   ├── DECODERS.md
 │   │   ├── EDITING_VARIANTS.md
 │   │   ├── INSTALLATION.md
@@ -132,6 +139,7 @@ PhantomSDR-Plus
 │   ├── ru
 │   │   ├── ADMIN_PANEL_SETUP.md
 │   │   ├── Aether_config.md
+│   │   ├── CONNECTION_LIMITS.md
 │   │   ├── DECODERS.md
 │   │   ├── EDITING_VARIANTS.md
 │   │   ├── INSTALLATION.md
@@ -179,8 +187,10 @@ PhantomSDR-Plus
 │   ├── site.txt
 │   └── update-markers.sh
 ├── frontend
+│   ├── .prettierrc.json      # reglas de formato Prettier para las fuentes del frontend
 │   ├── build-all.sh
 │   ├── build-default.sh
+│   ├── build-mobile.sh
 │   ├── build-mobile.sh
 │   ├── debug-title.sh
 │   ├── favicon.ico
@@ -214,12 +224,15 @@ PhantomSDR-Plus
 │   │   │   ├── shortwavestations.json
 │   │   │   ├── SSTV.png
 │   │   │   ├── SSTV.svg
+│   │   │   └── SSTV.png
+│   │   │   └── SSTV.svg
 │   │   │   └── svelte.png
 │   │   ├── audio.js
 │   │   ├── audio-stream-worklet.js
 │   │   ├── bands-config.js
 │   │   ├── broadcastSchedules.js
 │   │   ├── broadcastSchedules.js
+│   │   ├── clientVersion.js
 │   │   ├── cwDecoder.js
 │   │   ├── cw.worker.js
 │   │   ├── cwWorkerProxy.js
@@ -239,6 +252,7 @@ PhantomSDR-Plus
 │   │   ├── lib
 │   │   │   ├── backend.js
 │   │   │   ├── BandSelector.svelte
+│   │   │   ├── catsync.js
 │   │   │   ├── CheckButton.svelte
 │   │   │   ├── colormaps.js
 │   │   │   ├── Counter.svelte
@@ -269,16 +283,16 @@ PhantomSDR-Plus
 │   │   │   ├── VideoAreaSelector.svelte
 │   │   │   └── wrappers.js
 │   │   ├── main.js
-│   │   ├── modeId.js
-│   │   ├── modeId.worker.js
-│   │   ├── modeIdWorkerProxy.js
-│   │   ├── modePriors.js
 │   │   ├── mobile
 │   │   │   ├── backend.js
 │   │   │   ├── bookmarks.js
 │   │   │   ├── main.js
 │   │   │   ├── Mobile.svelte
 │   │   │   └── tuning.js
+│   │   ├── modeId.js
+│   │   ├── modeId.worker.js
+│   │   ├── modeIdWorkerProxy.js
+│   │   ├── modePriors.js
 │   │   ├── modules
 │   │   │   ├── decode.wasm
 │   │   │   ├── encode.wasm
@@ -301,6 +315,7 @@ PhantomSDR-Plus
 │   │   │   └── wspr.js
 │   │   ├── olivia.js
 │   │   ├── psk31.js
+│   │   ├── refused.js
 │   │   ├── remoteSource.js
 │   │   ├── scanner.js
 │   │   ├── sstv.js
@@ -407,6 +422,7 @@ PhantomSDR-Plus
 ├── setup_websdr_relay.sh      # instala el relé de diversidad WebSDR (puerto, identidad, systemd)
 ├── websdr_relay.py            # el relé en sí — véase docs/RECEIVE_DIVERSITY.md
 ├── websdr_relay.json.example  # plantilla de configuración (puerto, límites, identidad de la estación)
+├── setup-firewall.sh          # guardia nftables opcional — vea docs/CONNECTION_LIMITS.md
 ├── setup-rx888-udev.sh
 ├── setup-cpufreq-perms.sh
 ├── thermal_guard.py           # Protección contra sobrecalentamiento de la CPU para el panel (también funciona sola)
@@ -731,6 +747,7 @@ Cada `start-*.sh` de los siguientes es un **lanzador autónomo + watchdog + regi
 | `start-rx888mk2.sh` | Arranque + watchdog del servidor con RX888 MK2 (`rx888_stream`) |
 | `stop-websdr.sh` | Detiene el servidor y su watchdog: compartido por todos los receptores |
 | `setup-rx888-udev.sh` | Instala reglas udev para que `rx888_stream` del RX-888 funcione sin sudo |
+| `setup-firewall.sh` | Guardia de avalanchas opcional en el núcleo: carga una tabla nftables con un tope de conexiones simultáneas y una tasa por dirección de origen en los puertos del receptor, un freno contra fuerza bruta en SSH y la compartición de archivos de Windows cerrada fuera de los rangos privados. Necesita root, no puede dejarle fuera (policy accept, las conexiones establecidas se aceptan primero) y `--apply` se revierte solo si no se confirma en 60 s — vea [Límites de conexión](CONNECTION_LIMITS.md) |
 | `setup-cpufreq-perms.sh` | Concede a un grupo `cpufreq` permiso de escritura sobre el límite de frecuencia de la CPU, para que la fase throttle del guardián funcione sin root. Instala una regla `tmpfiles.d` para que sobreviva a un reinicio; `--revoke` lo deshace |
 | `update.sh` | Actualizar la instalación desde el árbol publicado sin tocar su configuración, marcadores, lista de frecuencias ni cambios locales — véase la [Guía de instalación](INSTALLATION.md) |
 | `recompile.sh` | Reconstruir el backend o el frontend y elegir la variante servida en `/` |
@@ -900,6 +917,13 @@ El rol `fsk` alberga además dos decodificadores que no son FSK en absoluto. Al 
 - Por debajo de unos 10 dB de SNR calla en lugar de adivinar
 - Corre en su propio Web Worker (`modeId.worker.js` + `modeIdWorkerProxy.js`), con el mismo patrón motor/worker/proxy que los decodificadores anteriores; el resultado es la etiqueta de `lib/ModeIdChip.svelte`
 
+#### 4e. Conexiones rechazadas (`refused.js`, `clientVersion.js`)
+
+- `refused.js` es el vocabulario compartido para una conexión que el servidor rechaza: código de cierre **4003** (por encima de un límite por dirección, o la página es anterior a `[server] min_client_version`) y **4001** (una expulsión del sysop). Ambos son definitivos. `audio.js`, `waterfall.js` y `events.js` importan `isRefusal()` de ahí, porque los tres abren una conexión que puede ser rechazada y los tres deben resolver su promesa de inicio cuando ocurre — si no, la página espera para siempre una conexión que nunca llegará
+- Nada reintenta. Una conexión `/audio` caída termina la sesión a propósito: `/waterfall` y `/events` nunca volvían con una reconexión, así que una sesión reintentada era audio vivo sobre una cascada congelada, y frente a un límite de tasa cada intento alargaría justo el rechazo que trataba de sortear. La página de escritorio explica un rechazo que ocurre al cargar y simplemente se detiene cuando ocurre a mitad de sesión; `/mobile` muestra una línea pidiendo al oyente que recargue
+- `clientVersion.js` contiene un único entero, `CLIENT_VERSION`, que la página añade a su conexión de audio como `/audio?v=N`. El servidor rechaza todo lo inferior a `[server] min_client_version`, que es como una estación obliga a recargar a las pestañas que aún ejecutan una versión anterior — la única palanca que hay, ya que el servidor no alcanza el JavaScript que ya corre en un navegador. Increméntelo cuando un cambio del frontend no deba seguir siendo ignorado por pestañas abiertas
+- Referencia completa: [Límites de conexión](CONNECTION_LIMITS.md)
+
 #### 5. Gestión del estado (`stores/`)
 - Almacenes de datos reactivos
 - Estado compartido de la aplicación
@@ -958,6 +982,12 @@ port = 9002
 html_root = "frontend/dist/"
 threads = 2
 otherusers = 1
+
+[limits]
+# Límites por dirección — todos desactivados o con un valor sensato por defecto,
+# así que una configuración sin ellos se comporta como siempre. Vea CONNECTION_LIMITS.md.
+per_ip = 3              # oyentes simultáneos desde una dirección
+per_ip_rate = 40        # conexiones nuevas por minuto desde una dirección
 
 [websdr]
 # Online registration

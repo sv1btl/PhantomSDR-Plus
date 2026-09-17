@@ -30,6 +30,7 @@ PhantomSDR-Plus
 │   ├── package.json
 │   ├── pool.js
 │   ├── probe-ft8.js
+│   ├── probe-js8.js
 │   ├── pskreporter.js
 │   ├── spotparse.js
 │   ├── wasm-shim.js
@@ -49,6 +50,7 @@ PhantomSDR-Plus
 │   ├── de
 │   │   ├── ADMIN_PANEL_SETUP.md
 │   │   ├── Aether_config.md
+│   │   ├── CONNECTION_LIMITS.md
 │   │   ├── DECODERS.md
 │   │   ├── EDITING_VARIANTS.md
 │   │   ├── INSTALLATION.md
@@ -61,11 +63,13 @@ PhantomSDR-Plus
 │   │   ├── RIG_CONTROL.md
 │   │   ├── THERMAL_GUARD.md
 │   │   └── USER_GUIDE.md
+│   ├── CONNECTION_LIMITS.md
 │   ├── DECODERS.md
 │   ├── EDITING_VARIANTS.md
 │   ├── el
 │   │   ├── ADMIN_PANEL_SETUP.md
 │   │   ├── Aether_config.md
+│   │   ├── CONNECTION_LIMITS.md
 │   │   ├── DECODERS.md
 │   │   ├── EDITING_VARIANTS.md
 │   │   ├── INSTALLATION.md
@@ -81,6 +85,7 @@ PhantomSDR-Plus
 │   ├── es
 │   │   ├── ADMIN_PANEL_SETUP.md
 │   │   ├── Aether_config.md
+│   │   ├── CONNECTION_LIMITS.md
 │   │   ├── DECODERS.md
 │   │   ├── EDITING_VARIANTS.md
 │   │   ├── INSTALLATION.md
@@ -96,6 +101,7 @@ PhantomSDR-Plus
 │   ├── fr
 │   │   ├── ADMIN_PANEL_SETUP.md
 │   │   ├── Aether_config.md
+│   │   ├── CONNECTION_LIMITS.md
 │   │   ├── DECODERS.md
 │   │   ├── EDITING_VARIANTS.md
 │   │   ├── INSTALLATION.md
@@ -111,6 +117,7 @@ PhantomSDR-Plus
 │   ├── hr
 │   │   ├── ADMIN_PANEL_SETUP.md
 │   │   ├── Aether_config.md
+│   │   ├── CONNECTION_LIMITS.md
 │   │   ├── DECODERS.md
 │   │   ├── EDITING_VARIANTS.md
 │   │   ├── INSTALLATION.md
@@ -134,6 +141,7 @@ PhantomSDR-Plus
 │   ├── ru
 │   │   ├── ADMIN_PANEL_SETUP.md
 │   │   ├── Aether_config.md
+│   │   ├── CONNECTION_LIMITS.md
 │   │   ├── DECODERS.md
 │   │   ├── EDITING_VARIANTS.md
 │   │   ├── INSTALLATION.md
@@ -181,8 +189,10 @@ PhantomSDR-Plus
 │   ├── site.txt
 │   └── update-markers.sh
 ├── frontend
+│   ├── .prettierrc.json      # Prettier formatting rules for the frontend sources
 │   ├── build-all.sh
 │   ├── build-default.sh
+│   ├── build-mobile.sh
 │   ├── debug-title.sh
 │   ├── favicon.ico
 │   ├── fix-title-python.py
@@ -211,11 +221,14 @@ PhantomSDR-Plus
 │   │   │   ├── amateurfrequencies.json
 │   │   │   ├── background.jpg
 │   │   │   ├── shortwavestations.json
+│   │   │   └── SSTV.png
+│   │   │   └── SSTV.svg
 │   │   │   └── svelte.png
 │   │   ├── audio.js
 │   │   ├── audio-stream-worklet.js
 │   │   ├── bands-config.js
 │   │   ├── broadcastSchedules.js
+│   │   ├── clientVersion.js
 │   │   ├── cwDecoder.js
 │   │   ├── cw.worker.js
 │   │   ├── cwWorkerProxy.js
@@ -235,6 +248,7 @@ PhantomSDR-Plus
 │   │   ├── lib
 │   │   │   ├── backend.js
 │   │   │   ├── BandSelector.svelte
+│   │   │   ├── catsync.js
 │   │   │   ├── CheckButton.svelte
 │   │   │   ├── colormaps.js
 │   │   │   ├── Counter.svelte
@@ -265,6 +279,12 @@ PhantomSDR-Plus
 │   │   │   ├── VideoAreaSelector.svelte
 │   │   │   └── wrappers.js
 │   │   ├── main.js
+│   │   ├── mobile
+│   │   │   ├── backend.js
+│   │   │   ├── bookmarks.js
+│   │   │   ├── main.js
+│   │   │   ├── Mobile.svelte
+│   │   │   └── tuning.js
 │   │   ├── modeId.js
 │   │   ├── modeId.worker.js
 │   │   ├── modeIdWorkerProxy.js
@@ -292,6 +312,7 @@ PhantomSDR-Plus
 │   │   │   └── wspr.js
 │   │   ├── olivia.js
 │   │   ├── psk31.js
+│   │   ├── refused.js
 │   │   ├── remoteSource.js
 │   │   ├── scanner.js
 │   │   ├── sstv.js
@@ -447,6 +468,7 @@ PhantomSDR-Plus
 ├── kill.sh                    # legacy: kills the server processes, called by go.sh
 ├── _relaunch.sh               # legacy: delayed re-launch helper for the go.sh chain
 ├── logproxy                   # rotated copies of the panel / proxy / autorun logs
+├── setup-firewall.sh          # optional nftables flood guard — see docs/CONNECTION_LIMITS.md
 ├── setup-rx888-udev.sh
 ├── setup-cpufreq-perms.sh     # grants group write on scaling_max_freq so the guard can throttle without root
 ├── thermal_guard.py           # CPU over-temperature guard used by the admin panel (also runs standalone)
@@ -718,6 +740,7 @@ Each `start-*.sh` below is a **self-contained launcher + watchdog + logger**: it
 | `start-rx888mk2.sh` | Launch + watchdog server with RX888 MK2 (`rx888_stream`) |
 | `stop-websdr.sh` | Stop the server + its watchdog — shared by all receivers |
 | `setup-rx888-udev.sh` | Install udev rules so RX-888 `rx888_stream` runs without sudo |
+| `setup-firewall.sh` | Optional kernel-level flood guard: loads an nftables table with a per-source connection ceiling and rate on the receiver ports, an SSH brute-force brake, and Windows file sharing closed outside private ranges. Needs root, cannot lock you out (policy accept, established accepted first) and `--apply` rolls itself back unless confirmed within 60 s — see [Connection Limits](CONNECTION_LIMITS.md) |
 | `setup-cpufreq-perms.sh` | Grants a `cpufreq` group write access to the per-CPU frequency limit, so the thermal guard's throttle stage works without running the panel as root. Installs a `tmpfiles.d` rule so it survives a reboot; `--revoke` undoes it |
 | `update.sh` | Update the installation from the published tree, leaving your configuration, markers, frequency list and local edits alone — see [Installation Guide](INSTALLATION.md) |
 | `recompile.sh` | Rebuild the backend and/or the frontend, and pick the variant served at `/` |
@@ -887,6 +910,13 @@ The `fsk` role additionally hosts two decoders that are not FSK at all. Selectin
 - Below roughly 10 dB SNR it stays quiet rather than guessing
 - Runs in its own Web Worker (`modeId.worker.js` + `modeIdWorkerProxy.js`), following the same engine/worker/proxy pattern as the decoders above; the result is the chip in `lib/ModeIdChip.svelte`
 
+#### 4e. Connection refusals (`refused.js`, `clientVersion.js`)
+
+- `refused.js` is the shared vocabulary for a connection the server turns away: close code **4003** (over a per-IP limit, or the page is older than `[server] min_client_version`) and **4001** (a sysop kick). Both are final. `audio.js`, `waterfall.js` and `events.js` all import `isRefusal()` from it, because all three open a socket that can be refused and all three must settle their init promise when it is — otherwise the page waits forever on a connection that is never coming
+- Nothing retries. A dropped `/audio` socket ends the session by design: `/waterfall` and `/events` never came back with a reconnect, so a retried session was live audio attached to a frozen waterfall, and against a rate limit each retry would extend the very refusal it was working around. The desktop page explains a refusal that happens at page load and simply stops when one happens mid-session; `/mobile` shows one line asking the listener to reload
+- `clientVersion.js` holds a single integer, `CLIENT_VERSION`, which the page appends to its audio socket as `/audio?v=N`. The server refuses anything below `[server] min_client_version`, which is how a station forces tabs still running an older build to reload — the only lever there is, since the server cannot reach JavaScript already running in a browser. Bump it when a frontend change must not keep being ignored by open tabs
+- Full reference: [Connection Limits](CONNECTION_LIMITS.md)
+
 #### 5. State Management (`stores/`)
 - Reactive data stores
 - Shared application state
@@ -945,6 +975,12 @@ port = 9002
 html_root = "frontend/dist/"
 threads = 2
 otherusers = 1
+
+[limits]
+# Per-IP connection limits — all default to off or to a sensible value, so a
+# config without them behaves as it always did. See CONNECTION_LIMITS.md.
+per_ip = 3              # simultaneous listeners from one address
+per_ip_rate = 40        # new sockets per minute from one address
 
 [websdr]
 # Online registration

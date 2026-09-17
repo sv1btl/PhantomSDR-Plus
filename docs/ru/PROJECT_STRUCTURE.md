@@ -28,6 +28,7 @@ PhantomSDR-Plus
 │   ├── manager.js
 │   ├── pool.js
 │   ├── probe-ft8.js
+│   ├── probe-js8.js
 │   ├── pskreporter.js
 │   ├── spotparse.js
 │   ├── wasm-shim.js
@@ -47,6 +48,7 @@ PhantomSDR-Plus
 │   ├── de
 │   │   ├── ADMIN_PANEL_SETUP.md
 │   │   ├── Aether_config.md
+│   │   ├── CONNECTION_LIMITS.md
 │   │   ├── DECODERS.md
 │   │   ├── EDITING_VARIANTS.md
 │   │   ├── INSTALLATION.md
@@ -59,11 +61,13 @@ PhantomSDR-Plus
 │   │   ├── RIG_CONTROL.md
 │   │   ├── THERMAL_GUARD.md
 │   │   └── USER_GUIDE.md
+│   ├── CONNECTION_LIMITS.md
 │   ├── DECODERS.md
 │   ├── EDITING_VARIANTS.md
 │   ├── el
 │   │   ├── ADMIN_PANEL_SETUP.md
 │   │   ├── Aether_config.md
+│   │   ├── CONNECTION_LIMITS.md
 │   │   ├── DECODERS.md
 │   │   ├── EDITING_VARIANTS.md
 │   │   ├── INSTALLATION.md
@@ -79,6 +83,7 @@ PhantomSDR-Plus
 │   ├── es
 │   │   ├── ADMIN_PANEL_SETUP.md
 │   │   ├── Aether_config.md
+│   │   ├── CONNECTION_LIMITS.md
 │   │   ├── DECODERS.md
 │   │   ├── EDITING_VARIANTS.md
 │   │   ├── INSTALLATION.md
@@ -94,6 +99,7 @@ PhantomSDR-Plus
 │   ├── fr
 │   │   ├── ADMIN_PANEL_SETUP.md
 │   │   ├── Aether_config.md
+│   │   ├── CONNECTION_LIMITS.md
 │   │   ├── DECODERS.md
 │   │   ├── EDITING_VARIANTS.md
 │   │   ├── INSTALLATION.md
@@ -109,6 +115,7 @@ PhantomSDR-Plus
 │   ├── hr
 │   │   ├── ADMIN_PANEL_SETUP.md
 │   │   ├── Aether_config.md
+│   │   ├── CONNECTION_LIMITS.md
 │   │   ├── DECODERS.md
 │   │   ├── EDITING_VARIANTS.md
 │   │   ├── INSTALLATION.md
@@ -132,6 +139,7 @@ PhantomSDR-Plus
 │   ├── ru
 │   │   ├── ADMIN_PANEL_SETUP.md
 │   │   ├── Aether_config.md
+│   │   ├── CONNECTION_LIMITS.md
 │   │   ├── DECODERS.md
 │   │   ├── EDITING_VARIANTS.md
 │   │   ├── INSTALLATION.md
@@ -179,8 +187,10 @@ PhantomSDR-Plus
 │   ├── site.txt
 │   └── update-markers.sh
 ├── frontend
+│   ├── .prettierrc.json      # правила форматирования Prettier для исходников фронтенда
 │   ├── build-all.sh
 │   ├── build-default.sh
+│   ├── build-mobile.sh
 │   ├── build-mobile.sh
 │   ├── debug-title.sh
 │   ├── favicon.ico
@@ -214,12 +224,15 @@ PhantomSDR-Plus
 │   │   │   ├── shortwavestations.json
 │   │   │   ├── SSTV.png
 │   │   │   ├── SSTV.svg
+│   │   │   └── SSTV.png
+│   │   │   └── SSTV.svg
 │   │   │   └── svelte.png
 │   │   ├── audio.js
 │   │   ├── audio-stream-worklet.js
 │   │   ├── bands-config.js
 │   │   ├── broadcastSchedules.js
 │   │   ├── broadcastSchedules.js
+│   │   ├── clientVersion.js
 │   │   ├── cwDecoder.js
 │   │   ├── cw.worker.js
 │   │   ├── cwWorkerProxy.js
@@ -239,6 +252,7 @@ PhantomSDR-Plus
 │   │   ├── lib
 │   │   │   ├── backend.js
 │   │   │   ├── BandSelector.svelte
+│   │   │   ├── catsync.js
 │   │   │   ├── CheckButton.svelte
 │   │   │   ├── colormaps.js
 │   │   │   ├── Counter.svelte
@@ -269,16 +283,16 @@ PhantomSDR-Plus
 │   │   │   ├── VideoAreaSelector.svelte
 │   │   │   └── wrappers.js
 │   │   ├── main.js
-│   │   ├── modeId.js
-│   │   ├── modeId.worker.js
-│   │   ├── modeIdWorkerProxy.js
-│   │   ├── modePriors.js
 │   │   ├── mobile
 │   │   │   ├── backend.js
 │   │   │   ├── bookmarks.js
 │   │   │   ├── main.js
 │   │   │   ├── Mobile.svelte
 │   │   │   └── tuning.js
+│   │   ├── modeId.js
+│   │   ├── modeId.worker.js
+│   │   ├── modeIdWorkerProxy.js
+│   │   ├── modePriors.js
 │   │   ├── modules
 │   │   │   ├── decode.wasm
 │   │   │   ├── encode.wasm
@@ -301,6 +315,7 @@ PhantomSDR-Plus
 │   │   │   └── wspr.js
 │   │   ├── olivia.js
 │   │   ├── psk31.js
+│   │   ├── refused.js
 │   │   ├── remoteSource.js
 │   │   ├── scanner.js
 │   │   ├── sstv.js
@@ -407,6 +422,7 @@ PhantomSDR-Plus
 ├── setup_websdr_relay.sh      # устанавливает ретранслятор WebSDR (порт, идентификация, systemd)
 ├── websdr_relay.py            # сам ретранслятор — см. docs/RECEIVE_DIVERSITY.md
 ├── websdr_relay.json.example  # шаблон конфигурации (порт, пределы, идентификация станции)
+├── setup-firewall.sh          # необязательная защита nftables — см. docs/CONNECTION_LIMITS.md
 ├── setup-rx888-udev.sh
 ├── setup-cpufreq-perms.sh
 ├── thermal_guard.py           # Защита от перегрева процессора для панели администратора (работает и отдельно)
@@ -733,6 +749,7 @@ PhantomSDR-Plus
 | `start-rx888mk2.sh` | Запуск + сторожевой процесс сервера с RX888 MK2 (`rx888_stream`) |
 | `stop-websdr.sh` | Остановка сервера и его сторожевого процесса — общий для всех приёмников |
 | `setup-rx888-udev.sh` | Устанавливает правила udev, чтобы `rx888_stream` для RX-888 работал без sudo |
+| `setup-firewall.sh` | Необязательная защита от лавины на уровне ядра: загружает таблицу nftables с потолком одновременных подключений и темпом на адрес источника для портов приёмника, тормозом против перебора паролей SSH и общим доступом Windows, закрытым вне частных диапазонов. Требует root, не может запереть вас снаружи (policy accept, установленные подключения принимаются первыми), а `--apply` сам откатывается, если не подтвердить за 60 с — см. [Ограничения подключений](CONNECTION_LIMITS.md) |
 | `setup-cpufreq-perms.sh` | Даёт группе `cpufreq` право записи в ограничение частоты процессора, чтобы этап throttle стража работал без root. Устанавливает правило `tmpfiles.d`, чтобы переживать перезагрузку; `--revoke` всё отменяет |
 | `update.sh` | Обновление установки из опубликованного дерева без изменения вашей конфигурации, меток, списка частот и локальных правок — см. [Руководство по установке](INSTALLATION.md) |
 | `recompile.sh` | Пересборка бэкенда и/или фронтенда и выбор варианта, отдаваемого по `/` |
@@ -902,6 +919,13 @@ PhantomSDR-Plus
 - Ниже примерно 10 дБ SNR он молчит, а не гадает
 - Работает в собственном Web Worker (`modeId.worker.js` + `modeIdWorkerProxy.js`) по той же схеме engine/worker/proxy, что и декодеры выше; результат — метка в `lib/ModeIdChip.svelte`
 
+#### 4e. Отклонённые подключения (`refused.js`, `clientVersion.js`)
+
+- `refused.js` — общий словарь для подключения, которое сервер отклоняет: код закрытия **4003** (превышено ограничение по адресу либо страница старее `[server] min_client_version`) и **4001** (отключение системным оператором). Оба окончательные. `audio.js`, `waterfall.js` и `events.js` импортируют оттуда `isRefusal()`, потому что все три открывают подключение, которому могут отказать, и все три обязаны разрешить свой инициализационный промис, когда это случается, — иначе страница вечно ждёт подключения, которого не будет
+- Ничто не повторяет попытку. Упавшее подключение `/audio` намеренно завершает сессию: `/waterfall` и `/events` с переподключением никогда не возвращались, так что повторённая сессия была живым звуком поверх замороженного водопада, а против ограничения темпа каждая попытка продлевала бы ровно тот отказ, который пыталась обойти. Настольная страница объясняет отказ, случившийся при загрузке, и просто останавливается, если он случился посреди сессии; `/mobile` показывает одну строку с просьбой перезагрузить
+- `clientVersion.js` хранит единственное целое число, `CLIENT_VERSION`, которое страница добавляет к своему звуковому подключению как `/audio?v=N`. Сервер отклоняет всё ниже `[server] min_client_version` — так станция заставляет вкладки, всё ещё работающие на прежней сборке, перезагрузиться; это единственный рычаг, ведь сервер не дотянется до JavaScript, уже работающего в браузере. Увеличивайте его, когда изменение во фронтенде не должно и дальше игнорироваться открытыми вкладками
+- Полная справка: [Ограничения подключений](CONNECTION_LIMITS.md)
+
 #### 5. Управление состоянием (`stores/`)
 - Реактивные хранилища данных
 - Общее состояние приложения
@@ -960,6 +984,12 @@ port = 9002
 html_root = "frontend/dist/"
 threads = 2
 otherusers = 1
+
+[limits]
+# Ограничения по адресу — все по умолчанию выключены или на разумном значении,
+# так что конфигурация без них ведёт себя как раньше. См. CONNECTION_LIMITS.md.
+per_ip = 3              # одновременные слушатели с одного адреса
+per_ip_rate = 40        # новые подключения в минуту с одного адреса
 
 [websdr]
 # Online registration

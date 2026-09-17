@@ -28,6 +28,7 @@ PhantomSDR-Plus
 │   ├── manager.js
 │   ├── pool.js
 │   ├── probe-ft8.js
+│   ├── probe-js8.js
 │   ├── pskreporter.js
 │   ├── spotparse.js
 │   ├── wasm-shim.js
@@ -47,6 +48,7 @@ PhantomSDR-Plus
 │   ├── de
 │   │   ├── ADMIN_PANEL_SETUP.md
 │   │   ├── Aether_config.md
+│   │   ├── CONNECTION_LIMITS.md
 │   │   ├── DECODERS.md
 │   │   ├── EDITING_VARIANTS.md
 │   │   ├── INSTALLATION.md
@@ -59,11 +61,13 @@ PhantomSDR-Plus
 │   │   ├── RIG_CONTROL.md
 │   │   ├── THERMAL_GUARD.md
 │   │   └── USER_GUIDE.md
+│   ├── CONNECTION_LIMITS.md
 │   ├── DECODERS.md
 │   ├── EDITING_VARIANTS.md
 │   ├── el
 │   │   ├── ADMIN_PANEL_SETUP.md
 │   │   ├── Aether_config.md
+│   │   ├── CONNECTION_LIMITS.md
 │   │   ├── DECODERS.md
 │   │   ├── EDITING_VARIANTS.md
 │   │   ├── INSTALLATION.md
@@ -79,6 +83,7 @@ PhantomSDR-Plus
 │   ├── es
 │   │   ├── ADMIN_PANEL_SETUP.md
 │   │   ├── Aether_config.md
+│   │   ├── CONNECTION_LIMITS.md
 │   │   ├── DECODERS.md
 │   │   ├── EDITING_VARIANTS.md
 │   │   ├── INSTALLATION.md
@@ -94,6 +99,7 @@ PhantomSDR-Plus
 │   ├── fr
 │   │   ├── ADMIN_PANEL_SETUP.md
 │   │   ├── Aether_config.md
+│   │   ├── CONNECTION_LIMITS.md
 │   │   ├── DECODERS.md
 │   │   ├── EDITING_VARIANTS.md
 │   │   ├── INSTALLATION.md
@@ -109,6 +115,7 @@ PhantomSDR-Plus
 │   ├── hr
 │   │   ├── ADMIN_PANEL_SETUP.md
 │   │   ├── Aether_config.md
+│   │   ├── CONNECTION_LIMITS.md
 │   │   ├── DECODERS.md
 │   │   ├── EDITING_VARIANTS.md
 │   │   ├── INSTALLATION.md
@@ -132,6 +139,7 @@ PhantomSDR-Plus
 │   ├── ru
 │   │   ├── ADMIN_PANEL_SETUP.md
 │   │   ├── Aether_config.md
+│   │   ├── CONNECTION_LIMITS.md
 │   │   ├── DECODERS.md
 │   │   ├── EDITING_VARIANTS.md
 │   │   ├── INSTALLATION.md
@@ -179,8 +187,10 @@ PhantomSDR-Plus
 │   ├── site.txt
 │   └── update-markers.sh
 ├── frontend
+│   ├── .prettierrc.json      # κανόνες μορφοποίησης Prettier για τον κώδικα του frontend
 │   ├── build-all.sh
 │   ├── build-default.sh
+│   ├── build-mobile.sh
 │   ├── build-mobile.sh
 │   ├── debug-title.sh
 │   ├── favicon.ico
@@ -214,12 +224,15 @@ PhantomSDR-Plus
 │   │   │   ├── shortwavestations.json
 │   │   │   ├── SSTV.png
 │   │   │   ├── SSTV.svg
+│   │   │   └── SSTV.png
+│   │   │   └── SSTV.svg
 │   │   │   └── svelte.png
 │   │   ├── audio.js
 │   │   ├── audio-stream-worklet.js
 │   │   ├── bands-config.js
 │   │   ├── broadcastSchedules.js
 │   │   ├── broadcastSchedules.js
+│   │   ├── clientVersion.js
 │   │   ├── cwDecoder.js
 │   │   ├── cw.worker.js
 │   │   ├── cwWorkerProxy.js
@@ -239,6 +252,7 @@ PhantomSDR-Plus
 │   │   ├── lib
 │   │   │   ├── backend.js
 │   │   │   ├── BandSelector.svelte
+│   │   │   ├── catsync.js
 │   │   │   ├── CheckButton.svelte
 │   │   │   ├── colormaps.js
 │   │   │   ├── Counter.svelte
@@ -269,16 +283,16 @@ PhantomSDR-Plus
 │   │   │   ├── VideoAreaSelector.svelte
 │   │   │   └── wrappers.js
 │   │   ├── main.js
-│   │   ├── modeId.js
-│   │   ├── modeId.worker.js
-│   │   ├── modeIdWorkerProxy.js
-│   │   ├── modePriors.js
 │   │   ├── mobile
 │   │   │   ├── backend.js
 │   │   │   ├── bookmarks.js
 │   │   │   ├── main.js
 │   │   │   ├── Mobile.svelte
 │   │   │   └── tuning.js
+│   │   ├── modeId.js
+│   │   ├── modeId.worker.js
+│   │   ├── modeIdWorkerProxy.js
+│   │   ├── modePriors.js
 │   │   ├── modules
 │   │   │   ├── decode.wasm
 │   │   │   ├── encode.wasm
@@ -301,6 +315,7 @@ PhantomSDR-Plus
 │   │   │   └── wspr.js
 │   │   ├── olivia.js
 │   │   ├── psk31.js
+│   │   ├── refused.js
 │   │   ├── remoteSource.js
 │   │   ├── scanner.js
 │   │   ├── sstv.js
@@ -407,6 +422,7 @@ PhantomSDR-Plus
 ├── setup_websdr_relay.sh      # εγκαθιστά το relay diversity για WebSDR (θύρα, ταυτότητα, systemd)
 ├── websdr_relay.py            # το ίδιο το relay — δείτε docs/RECEIVE_DIVERSITY.md
 ├── websdr_relay.json.example  # πρότυπο ρυθμίσεων (θύρα, όρια, ταυτότητα σταθμού)
+├── setup-firewall.sh          # προαιρετική προστασία nftables — δείτε docs/CONNECTION_LIMITS.md
 ├── setup-rx888-udev.sh
 ├── setup-cpufreq-perms.sh
 ├── thermal_guard.py           # Προστασία υπερθέρμανσης CPU για τον πίνακα διαχείρισης (τρέχει και αυτόνομα)
@@ -731,6 +747,7 @@ PhantomSDR-Plus
 | `start-rx888mk2.sh` | Εκκίνηση + watchdog του διακομιστή με RX888 MK2 (`rx888_stream`) |
 | `stop-websdr.sh` | Διακοπή του διακομιστή και του watchdog του — κοινό για όλους τους δέκτες |
 | `setup-rx888-udev.sh` | Εγκαθιστά κανόνες udev ώστε το `rx888_stream` του RX-888 να τρέχει χωρίς sudo |
+| `setup-firewall.sh` | Προαιρετική προστασία από πλημμύρα σε επίπεδο πυρήνα: φορτώνει έναν πίνακα nftables με ταβάνι ταυτόχρονων συνδέσεων και ρυθμό ανά διεύθυνση προέλευσης στις θύρες του δέκτη, φρένο για επιθέσεις στο SSH, και το Windows file sharing κλειστό εκτός ιδιωτικών περιοχών. Χρειάζεται root, δεν μπορεί να σας κλειδώσει έξω (policy accept, οι εδραιωμένες συνδέσεις γίνονται δεκτές πρώτες) και το `--apply` αναιρείται μόνο του αν δεν επιβεβαιωθεί μέσα σε 60 δευτ. — δείτε [Όρια συνδέσεων](CONNECTION_LIMITS.md) |
 | `setup-cpufreq-perms.sh` | Δίνει σε μια ομάδα `cpufreq` δικαίωμα εγγραφής στο όριο συχνότητας της CPU, ώστε το στάδιο throttle της θερμικής προστασίας να δουλεύει χωρίς root. Εγκαθιστά κανόνα `tmpfiles.d` ώστε να επιβιώνει επανεκκίνησης· το `--revoke` το αναιρεί |
 | `update.sh` | Ενημέρωση της εγκατάστασης από το δημοσιευμένο δέντρο, χωρίς να θιγούν η διαμόρφωση, οι σημάνσεις, η λίστα συχνοτήτων και οι δικές σας αλλαγές — δείτε τον [Οδηγό εγκατάστασης](INSTALLATION.md) |
 | `recompile.sh` | Ανακατασκευή backend ή/και frontend, και επιλογή της παραλλαγής που σερβίρεται στο `/` |
@@ -900,6 +917,13 @@ PhantomSDR-Plus
 - Κάτω από περίπου 10 dB SNR σιωπά αντί να μαντεύει
 - Τρέχει σε δικό του Web Worker (`modeId.worker.js` + `modeIdWorkerProxy.js`), με το ίδιο μοτίβο engine/worker/proxy όπως οι αποκωδικοποιητές παραπάνω· το αποτέλεσμα είναι το chip στο `lib/ModeIdChip.svelte`
 
+#### 4ε. Απορρίψεις συνδέσεων (`refused.js`, `clientVersion.js`)
+
+- Το `refused.js` είναι το κοινό λεξιλόγιο για μια σύνδεση που ο διακομιστής διώχνει: κωδικός κλεισίματος **4003** (πάνω από όριο ανά διεύθυνση, ή η σελίδα είναι παλαιότερη από το `[server] min_client_version`) και **4001** (αποβολή από τον διαχειριστή). Και οι δύο είναι οριστικοί. Τα `audio.js`, `waterfall.js` και `events.js` εισάγουν όλα το `isRefusal()` από εκεί, γιατί και τα τρία ανοίγουν σύνδεση που μπορεί να απορριφθεί και πρέπει να τερματίσουν την υπόσχεση αρχικοποίησής τους όταν συμβεί — αλλιώς η σελίδα περιμένει για πάντα μια σύνδεση που δεν θα έρθει ποτέ
+- Τίποτα δεν ξαναδοκιμάζει. Μια πεσμένη σύνδεση `/audio` τερματίζει τη συνεδρία εκ σχεδιασμού: τα `/waterfall` και `/events` δεν επέστρεφαν ποτέ μαζί με μια επανασύνδεση, οπότε μια συνεδρία που ξαναδοκίμαζε ήταν ζωντανός ήχος πάνω σε παγωμένο καταρράκτη, και απέναντι σε όριο ρυθμού κάθε επανάληψη θα παρέτεινε ακριβώς την απόρριψη που προσπαθούσε να παρακάμψει. Η σελίδα υπολογιστή εξηγεί μια απόρριψη που συμβαίνει κατά τη φόρτωση και απλώς σταματάει όταν συμβεί στη μέση· το `/mobile` δείχνει μία γραμμή που ζητά από τον ακροατή να ανανεώσει
+- Το `clientVersion.js` κρατάει έναν μόνο ακέραιο, το `CLIENT_VERSION`, που η σελίδα προσθέτει στη σύνδεση ήχου ως `/audio?v=N`. Ο διακομιστής απορρίπτει ό,τι είναι κάτω από το `[server] min_client_version`, και έτσι ένας σταθμός αναγκάζει καρτέλες που τρέχουν ακόμη παλιότερη έκδοση να ανανεώσουν — ο μόνος μοχλός που υπάρχει, αφού ο διακομιστής δεν μπορεί να φτάσει σε JavaScript που ήδη τρέχει σε browser. Αυξήστε τον όταν μια αλλαγή στο frontend δεν πρέπει να συνεχίσει να αγνοείται από ανοιχτές καρτέλες
+- Πλήρης αναφορά: [Όρια συνδέσεων](CONNECTION_LIMITS.md)
+
 #### 5. Διαχείριση κατάστασης (`stores/`)
 - Αντιδραστικοί χώροι δεδομένων
 - Κοινή κατάσταση εφαρμογής
@@ -958,6 +982,12 @@ port = 9002
 html_root = "frontend/dist/"
 threads = 2
 otherusers = 1
+
+[limits]
+# Όρια συνδέσεων ανά διεύθυνση — όλα είναι εξ ορισμού ανενεργά ή σε λογική τιμή,
+# οπότε μια ρύθμιση χωρίς αυτά συμπεριφέρεται όπως πάντα. Δείτε CONNECTION_LIMITS.md.
+per_ip = 3              # ταυτόχρονοι ακροατές από μία διεύθυνση
+per_ip_rate = 40        # νέες συνδέσεις ανά λεπτό από μία διεύθυνση
 
 [websdr]
 # Online registration

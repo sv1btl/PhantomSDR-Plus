@@ -8,6 +8,7 @@ import { eventBus } from './eventBus';
 // function in App.svelte //
 import { siteRegion } from '../site_information.json';
 import { bands, MODES } from './bands-config.js';
+import { ConnectionRefused, isRefusal } from './refused'
 
 // ============================================================================
 // ADAPTIVE AUTO-ADJUST CLASS
@@ -438,6 +439,15 @@ export default class SpectrumWaterfall {
       this.resolvePromise = resolve
       this.rejectPromise = reject
     })
+
+    // Nothing else here ever settles this promise on failure: without this the
+    // page would await a waterfall that the server has already refused, and
+    // simply never finish loading.
+    this.waterfallSocket.onclose = (evt) => {
+      if (isRefusal(evt) && this.rejectPromise) {
+        this.rejectPromise(new ConnectionRefused(evt.reason, evt.code))
+      }
+    }
 
     return this.promise
   }

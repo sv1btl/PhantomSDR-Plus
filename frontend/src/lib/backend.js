@@ -1,4 +1,5 @@
 import SpectrumAudio from '../audio'
+import { CLIENT_VERSION } from '../clientVersion'
 import SpectrumWaterfall from '../waterfall'
 import SpectrumEvents from '../events'
 import initWrappers from './wrappers'
@@ -9,7 +10,7 @@ let settings
 const location = window.location
 const baseUri = `${location.protocol.replace('http', 'ws')}//${location.host}`
 export const waterfall = new SpectrumWaterfall(baseUri + '/waterfall')
-export const audio = new SpectrumAudio(baseUri + '/audio')
+export const audio = new SpectrumAudio(baseUri + '/audio?v=' + CLIENT_VERSION)
 export const events = new SpectrumEvents(baseUri + '/events')
 
 // This bundle is also what /mobile's "Mobile extended view" loads, so it runs

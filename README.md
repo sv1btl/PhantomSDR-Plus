@@ -11,6 +11,8 @@ and report issues against.
 
 **New in v.4.1.0**
 
+* **Connection limits, and a flood guard.** On 16 September one address opened 134 listener sessions in a minute and held 181 at once, against a real audience of about a dozen. The receiver can now cap simultaneous listeners and the rate of new connections per address, and bound the silent half-open connections that no other limit can see. Two keys switch it on — `per_ip` and `per_ip_rate` in `[limits]` — and everything defaults to off, so an existing config behaves as before. A refused listener is told why instead of watching a page that never loads. Below it sits `setup-firewall.sh`, an optional nftables layer that sheds volume before the server reads a byte and cannot lock you out of your own machine. Full manual, in all seven languages and in the offline PDFs: **[docs/CONNECTION_LIMITS.md](docs/CONNECTION_LIMITS.md)** — including how to measure your own traffic before choosing the numbers.
+* **A dropped connection now ends the session.** The audio socket no longer reconnects by itself. On a receiver that was wrong: the waterfall and events sockets never came back with it, so a retried session was live audio attached to a frozen waterfall, and stopping the server stopped clearing it. The page goes quiet and the listener reloads. Two things follow — an admin panel kick actually takes effect now instead of undoing itself a second later, and an optional `[server] min_client_version` can turn away tabs still running an older build so a restart clears the receiver for real.
 * **QRG Sync on the receiver page.** A new **QRG Sync** button beside IF Filters lets the page follow your own transceiver by itself, with no desktop application: the browser talks straight to the TCI server of ExpertSDR, AetherSDR or Thetis on your computer. Frequency, mode and filter width follow in both directions — turn the rig's dial or press its FIL button and the receiver follows, click the waterfall or pick an IF filter and the rig follows — and the page falls silent while you transmit. On an Icom IC-7300 the IF filters select FIL1, FIL2 and FIL3 without ever changing the widths set on the radio. Rigs without TCI — the IC-7300 and most other CAT rigs Hamlib supports — work through a small bridge, `tci-bridge/tci-rigctld.mjs`, run next to the radio. Tested on an IC-7300. Full section, in all seven languages and in the offline PDFs: **[docs/RIG_CONTROL.md](docs/RIG_CONTROL.md)** under *QRG Sync on the receiver page*.
 * **Transceiver control from the desktop app.** [Desktop PhantomSDR+](https://www.dropbox.com/scl/fo/kjwj96zg3kj7dgq4fjef9/APnA3c9hhv4hk3YMGIGjH7s?rlkey=jfiwklly63kv73poalx631pk3&st=m37uvaym&dl=0) 4.0 adds a **Rig** menu that keeps your own transceiver and a receiver window in step — frequency, mode and filter width, in either direction or both — and can mute the receiver while you transmit. Besides PhantomSDR-Plus it drives KiwiSDR, PA3FWM WebSDR and UberSDR receivers. It talks to Icom, Yaesu, Kenwood, Elecraft, FlexRadio and QRP Labs rigs directly, to every other rig through Hamlib, and to flrig. The receiver page gained the matching filter and mute functions in its CATsync API. Full manual, in all seven languages and in the offline PDFs: **[docs/RIG_CONTROL.md](docs/RIG_CONTROL.md)**.
 * **The CATsync Tool now hears back from the receiver.** A waterfall click, a passband drag or a mode change reaches the rig in the tool's PA3FWM WebSDR mode, because the page reports its real frequency and mode the way a KiwiSDR does.
@@ -721,6 +723,14 @@ For detailed information about installation, usage, and the project structure, p
   - Running it with or without the admin panel
   - Enabling the throttle stage without root
   - Testing it, and reading the log
+
+- **[Connection Limits](docs/CONNECTION_LIMITS.md)** - full sysop manual for protecting a public receiver from connection floods
+  - What you are actually defending against, and what no server-side limit can stop
+  - Per-IP listener limits, and why one browser tab is four sockets
+  - Idle connections: the attack the other limits cannot see
+  - The nftables guard, and why it cannot lock you out
+  - Measuring your own traffic to choose the numbers
+  - Reading the logs and counters
 
 ### 👥 For End Users:
 

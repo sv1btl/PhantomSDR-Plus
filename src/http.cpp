@@ -466,6 +466,12 @@ namespace {
 } // namespace
 
 void broadcast_server::on_http(connection_hdl hdl) {
+    // A request arrived, so the handshake deadline has nothing more to do with
+    // this connection. /~~orgstatus below depends on this: it hands the socket
+    // to a thread and never writes a response through websocketpp, so it would
+    // otherwise look exactly like a connection that went silent.
+    handshake_watch_done(hdl);
+
     // NOTE: set_access_channels is a global server setting — do NOT call it here
     //       per request (was a race condition). Configure logging at startup instead.
     server::connection_ptr con = m_server.get_con_from_hdl(hdl);
@@ -634,6 +640,58 @@ void broadcast_server::on_http(connection_hdl hdl) {
                 close(raw_fd);
             }).detach();
 
+            return;
+        }
+    }
+
+    // ── /~~kick?ip=<addr>&secs=<n> — the sysop kick, loopback only ──────────
+    // The admin panel calls this. It has to be handled HERE, in spectrumserver,
+    // and not only in proxy.py: on a station whose public port is open (the
+    // usual case) listeners connect to this process directly, so proxy.py never
+    // sees their sockets and its kick closes nothing. 'ss -K' does reach them,
+    // but it destroys the TCP socket, which the browser cannot tell from a
+    // network drop — it reconnects, and the kick undoes itself.
+    //
+    // Loopback is checked on the TCP peer, never on X-Forwarded-For: that
+    // header is whatever the client typed, so trusting it here would hand the
+    // kick to the internet.
+    {
+        std::string path_only = resource;
+        const auto qpos = path_only.find('?');
+        if (qpos != std::string::npos) path_only = path_only.substr(0, qpos);
+
+        if (path_only == "/~~kick") {
+            const std::string peer =
+                normalize_client_ip(con->get_remote_endpoint());
+            con->append_header("Content-Type", "application/json");
+            con->append_header("Cache-Control", "no-store");
+            if (!is_loopback_ip(peer)) {
+                con->set_status(websocketpp::http::status_code::forbidden);
+                con->set_body("{\"ok\":false,\"msg\":\"forbidden\"}");
+                return;
+            }
+            const std::string ip = get_query_param(resource, "ip");
+            if (ip.empty()) {
+                con->set_status(websocketpp::http::status_code::bad_request);
+                con->set_body("{\"ok\":false,\"msg\":\"no ip\"}");
+                return;
+            }
+            // No ban by default: a kick disconnects, it does not lock the
+            // address out. secs is honoured if a caller asks for one.
+            int ban_s = 0;
+            const std::string secs = get_query_param(resource, "secs");
+            if (!secs.empty()) {
+                try { ban_s = std::stoi(secs); } catch (...) {}
+            }
+            // A ban outlives the sysop's patience, not the station's uptime.
+            if (ban_s < 0)     ban_s = 0;
+            if (ban_s > 86400) ban_s = 86400;
+
+            const size_t closed = kick_ip(ip, ban_s);
+            con->set_status(websocketpp::http::status_code::ok);
+            con->set_body("{\"ok\":true,\"count\":" +
+                          std::to_string(closed) + ",\"ban_s\":" +
+                          std::to_string(ban_s) + "}");
             return;
         }
     }

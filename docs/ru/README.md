@@ -327,6 +327,7 @@ segments = round((value + 100) x 35 / 100) + DIGITAL_BAR_TRIM
 - **[ADMIN_PANEL_SETUP.md](ADMIN_PANEL_SETUP.md)** — руководство по установке панели администратора
 - **[USER_GUIDE.md](USER_GUIDE.md)** — руководство конечного пользователя по работе с WebSDR
 - **[THERMAL_GUARD.md](THERMAL_GUARD.md)** - Руководство сисопа по защите от перегрева процессора: четыре режима и что делать в каждом
+- **[CONNECTION_LIMITS.md](CONNECTION_LIMITS.md)** - Руководство сисопа по ограничениям подключений: защита публичного приёмника от лавины подключений
 - **[PROJECT_STRUCTURE.md](PROJECT_STRUCTURE.md)** — структура каталогов и организация кода
 - **[EDITING_VARIANTS.md](EDITING_VARIANTS.md)** — как редактировать варианты фронтенда (S-метр и компоновка) и пересобирать их
 

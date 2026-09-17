@@ -123,6 +123,7 @@
   // browsers sniff raster formats but never SVG -- an <img> would refuse it.
   import sstvSplashUrl from "./assets/SSTV.png";
   import DiversityPanel from "./lib/DiversityPanel.svelte";
+  import { ConnectionRefused } from "./refused.js";
   import {
     init,
     audio,
@@ -6451,7 +6452,20 @@
   }
 
   let backendPromise;
+  // Set when the server turns this session away because the address is over
+  // its per-IP limit. Nothing is retried in that case (see audio.js), so the
+  // page has to say why instead of sitting half-initialised forever.
+  let connectionRefused = "";
   onMount(async () => {
+    // The audio socket ending mid-session — a kick, the server stopping, the
+    // network going — is the end of this session: nothing reopens it. The
+    // waterfall's own socket is already gone with it, so all that is left is
+    // to stop its draw loop. Deliberately no message: the page simply stops,
+    // and whoever wants back in loads it again.
+    audio.onConnectionChange = (state) => {
+      if (state === "connected") return;
+      try { waterfall.stop(); } catch (e) {}
+    };
     loadWaterfallDirection();
     startTopFrequencyBarSync();
     waterfall.initCanvas({
@@ -6474,7 +6488,15 @@
     sendUserID(username);
     backendPromise = init(username);
 
-    await backendPromise;
+    try {
+      await backendPromise;
+    } catch (e) {
+      if (e instanceof ConnectionRefused) {
+        connectionRefused = e.reason || e.message;
+        return; // buttons stay disabled: there is no receiver to drive
+      }
+      throw e;
+    }
 
     // Start geo label polling for waterfall client pills
     await _fetchClientGeo();
@@ -8063,6 +8085,29 @@
   on:mousemove={handleWindowMouseMove}
   on:mouseup={handleWindowMouseUp}
 />
+
+{#if connectionRefused}
+  <div
+    class="fixed inset-0 z-[9999] flex items-center justify-center bg-black/80 p-4"
+  >
+    <div
+      class="max-w-md rounded-lg border border-gray-600 bg-custom-dark p-6 text-center text-gray-200 shadow-xl"
+    >
+      <h2 class="mb-3 text-lg font-semibold">Connection refused</h2>
+      <p class="mb-4 text-sm">
+        This receiver refused the connection: {connectionRefused}.
+      </p>
+      <p class="mb-4 text-xs text-gray-400">
+        Everyone sharing your internet connection counts as one address. Close
+        any other tabs that have this receiver open, then reload.
+      </p>
+      <button
+        class="rounded bg-gray-700 px-4 py-2 text-sm hover:bg-gray-600"
+        on:click={() => window.location.reload()}>Reload</button
+      >
+    </div>
+  </div>
+{/if}
 
 <main class="custom-scrollbar">
   <!-- comment the following 3 lines if you don't want the other versions to be shown -->

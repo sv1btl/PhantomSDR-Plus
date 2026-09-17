@@ -335,31 +335,11 @@ static std::string country_flag(const std::string &cc) {
          + encode4(0x1F1E6u + uint32_t(std::toupper((unsigned char)cc[1]) - 'A'));
 }
 
-// Returns true if the IP is RFC-1918 / loopback / link-local — skip API call.
-// Returns only the IP address from a websocketpp remote_endpoint string.
-// websocketpp::get_remote_endpoint() returns "1.2.3.4:56789" for IPv4
-// and "[::1]:56789" for IPv6 — the port must be stripped before passing
-// the address to ip-api.com or any prefix-based private-IP check.
-static std::string strip_port(const std::string &endpoint) {
-    if (endpoint.empty()) return endpoint;
-    // IPv6 bracketed form: [2001:db8::1]:12345
-    if (endpoint.front() == '[') {
-        const auto close = endpoint.find(']');
-        if (close != std::string::npos)
-            return endpoint.substr(1, close - 1);
-        return endpoint; // malformed — return as-is
-    }
-    // IPv4 (or bare IPv6): strip everything after the last colon that is followed
-    // only by digits (i.e. the port), but leave a bare IPv6 address intact.
-    const auto colon = endpoint.rfind(':');
-    if (colon == std::string::npos) return endpoint;
-    const std::string after = endpoint.substr(colon + 1);
-    const bool all_digits = !after.empty() &&
-        std::all_of(after.begin(), after.end(),
-                    [](unsigned char c){ return std::isdigit(c); });
-    return all_digits ? endpoint.substr(0, colon) : endpoint;
-}
+// strip_port() now lives in utils.cpp — the per-IP connection limiter in
+// websocket.cpp needs the same address spelling this file records, so the two
+// cannot be allowed to drift apart.
 
+// Returns true if the IP is RFC-1918 / loopback / link-local — skip API call.
 static bool is_private_ip(const std::string &ip) {
     if (ip.empty() || ip == "127.0.0.1" || ip == "::1") return true;
     // IPv4 private ranges: 10.x, 172.16-31.x, 192.168.x

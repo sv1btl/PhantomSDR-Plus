@@ -78,6 +78,13 @@ SDR_UPSTREAM   = f"http://{_sdr_host}:{_sdr_port}"
 # admin_server.py calls the localhost-only /__proxy_control/kick endpoint below.
 ACTIVE_WS: "dict[str, set]" = {}
 
+# Close code sent to a kicked listener. A plain 1000 is indistinguishable from
+# an ordinary dropped connection, and audio.js reconnects after one of those —
+# so the kicked browser came straight back with sound while its waterfall, which
+# has no reconnect, stayed frozen. 4001 is in the private range and the frontend
+# treats it as terminal (KICKED_CLOSE_CODE in frontend/src/refused.js).
+KICK_CLOSE_CODE = 4001
+
 
 def _norm_ip(ip: str) -> str:
     ip = (ip or "").strip()
@@ -118,7 +125,8 @@ async def handle_kick(request: web.Request) -> web.Response:
     for ws in list(ACTIVE_WS.get(ip, ())):
         try:
             if not ws.closed:
-                await ws.close(code=1000, message=b"disconnected by admin")
+                await ws.close(code=KICK_CLOSE_CODE,
+                               message=b"disconnected by the sysop")
                 closed += 1
         except Exception:
             pass

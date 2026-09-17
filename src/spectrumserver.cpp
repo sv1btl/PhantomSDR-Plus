@@ -265,9 +265,43 @@ broadcast_server::broadcast_server(
         }
     }
 
-    limit_audio   = config["limits"]["audio"].value_or(1000);
-    limit_waterfall = config["limits"]["waterfall"].value_or(1000);
-    limit_events  = config["limits"]["events"].value_or(1000);
+    // Per-IP limiting — off unless the config asks for it, so an existing
+    // installation is unchanged until its config.toml gains these keys.
+    limit_per_ip         = config["limits"]["per_ip"].value_or(0);
+    limit_per_ip_sockets = config["limits"]["per_ip_sockets"].value_or(0);
+    limit_per_ip_rate    = config["limits"]["per_ip_rate"].value_or(0);
+    limit_per_ip_ban_s   = config["limits"]["per_ip_ban_s"].value_or(600);
+    limit_idle_per_ip    = config["limits"]["idle_per_ip"].value_or(8);
+    limit_idle_total     = config["limits"]["idle_total"].value_or(512);
+    min_client_version   = config["server"]["min_client_version"].value_or(0);
+    if (min_client_version > 0)
+        std::cout << "Minimum client build on /audio: v"
+                  << min_client_version
+                  << " (older pages are asked to reload)" << std::endl;
+    // A desktop tab opens four sockets (audio, waterfall, events, chat), so
+    // the socket ceiling has to be a multiple of the listener limit or a
+    // listener would be refused their own waterfall. The spare four absorb
+    // sockets from a reloaded page that the kernel has not reaped yet.
+    if (limit_per_ip_sockets <= 0 && limit_per_ip > 0)
+        limit_per_ip_sockets = limit_per_ip * 4 + 4;
+    if (limit_per_ip > 0 || limit_per_ip_sockets > 0 || limit_per_ip_rate > 0) {
+        std::cout << "Per-IP limits: "
+                  << (limit_per_ip > 0
+                          ? std::to_string(limit_per_ip) + " listeners"
+                          : std::string("unlimited listeners"))
+                  << ", "
+                  << (limit_per_ip_sockets > 0
+                          ? std::to_string(limit_per_ip_sockets) + " sockets"
+                          : std::string("unlimited sockets"))
+                  << ", "
+                  << (limit_per_ip_rate > 0
+                          ? std::to_string(limit_per_ip_rate) +
+                                " new/min then " +
+                                std::to_string(limit_per_ip_ban_s) +
+                                "s refused"
+                          : std::string("no rate limit"))
+                  << std::endl;
+    }
 
     // ── Derive basefreq and fft_result_size ───────────────────────────────
     // For IQ, the left edge of the baseband is (centre − sps/2).
@@ -417,6 +451,41 @@ broadcast_server::broadcast_server(
     m_server.set_http_handler(
         std::bind(&broadcast_server::on_http, this, std::placeholders::_1));
 
+    // Count the connection from the moment it is accepted — before a single
+    // byte has been read, which is the whole point. See handshake_watch_begin()
+    // and the idle-connection limits in spectrumserver.h.
+    if (limit_idle_per_ip > 0 || limit_idle_total > 0) {
+        m_server.set_socket_init_handler(
+            [this](connection_hdl hdl, boost::asio::ip::tcp::socket &sock) {
+                // The peer address is all we have here: there is no request
+                // yet, so no X-Forwarded-For. That is fine — loopback covers
+                // everything arriving through proxy.py, and a direct flood
+                // carries its own address.
+                std::string ip;
+                try {
+                    boost::system::error_code ec;
+                    auto ep = sock.remote_endpoint(ec);
+                    if (!ec) ip = normalize_client_ip(ep.address().to_string());
+                } catch (...) {}
+
+                if (ip.empty() || is_loopback_ip(ip)) return;
+
+                if (!handshake_watch_begin(hdl, ip)) {
+                    boost::system::error_code ig;
+                    sock.close(ig);
+                }
+            });
+        std::cout << "Idle connections: "
+                  << (limit_idle_per_ip > 0
+                          ? std::to_string(limit_idle_per_ip) + " per address"
+                          : std::string("unlimited per address"))
+                  << ", "
+                  << (limit_idle_total > 0
+                          ? std::to_string(limit_idle_total) + " total"
+                          : std::string("no total"))
+                  << std::endl;
+    }
+
     // ── Slice data structures ─────────────────────────────────────────────
     waterfall_slices.resize(downsample_levels);
     waterfall_slice_mtx.resize(downsample_levels);
@@ -441,6 +510,8 @@ void broadcast_server::run(uint16_t port) {
         m_server.listen(websocketpp::lib::asio::ip::tcp::v4(), port);
     }
     m_server.start_accept();
+
+
 
     // Start the chat admin Unix-socket listener so the admin panel can delete
     // individual chat messages in real time without restarting the server.

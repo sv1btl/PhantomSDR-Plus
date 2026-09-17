@@ -1,3 +1,5 @@
+import { ConnectionRefused, isRefusal } from './refused'
+
 export default class SpectrumEvent {
   constructor (endpoint) {
     this.endpoint = endpoint
@@ -19,6 +21,14 @@ export default class SpectrumEvent {
       this.resolvePromise = resolve
       this.rejectPromise = reject
     })
+
+    // See waterfall.js: a refused socket has to reject, or the page waits on a
+    // connection the server has already turned away.
+    this.eventSocket.onclose = (evt) => {
+      if (isRefusal(evt) && this.rejectPromise) {
+        this.rejectPromise(new ConnectionRefused(evt.reason, evt.code))
+      }
+    }
 
     return this.promise
   }

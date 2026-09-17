@@ -206,6 +206,17 @@ void broadcast_server::init_server() {
 
     // Your fail handler etc. can stay as-is
     m_server.set_fail_handler([this](connection_hdl hdl) {
+        // A connection that dies before it ever makes a request reaches this
+        // handler and nothing else — on_open and on_http never run for it, and
+        // those are the only other places the idle bookkeeping is released.
+        // Without this line its entry stays in pending_handshakes for the life
+        // of the process, so every aborted page load, port scan or TCP probe
+        // permanently spends one of that address's idle_per_ip slots until the
+        // address can no longer connect at all. Harmless for a connection that
+        // did make a request: handshake_watch_done() is a no-op the second
+        // time.
+        handshake_watch_done(hdl);
+
         try {
             auto con = m_server.get_con_from_hdl(hdl);
             auto ec  = con->get_ec();
@@ -215,6 +226,13 @@ void broadcast_server::init_server() {
             }
         } catch (...) {
         }
+    });
+
+    // Same reasoning for a connection closed cleanly before any per-connection
+    // close handler was installed. A path handler that sets its own replaces
+    // this one, and those paths have already released the entry in on_open.
+    m_server.set_close_handler([this](connection_hdl hdl) {
+        handshake_watch_done(hdl);
     });
     
     // Set custom interrupt handler to suppress EOF errors during close
@@ -267,6 +285,265 @@ std::string broadcast_server::ip_from_hdl(connection_hdl hdl) {
     return con->get_remote_endpoint();
 }
 
+// ── Per-IP connection limiting ───────────────────────────────────────────────
+// Motivation and the meaning of each knob are in spectrumserver.h. In short:
+// on 2026-09-16 a single address opened 134 listener sessions inside one
+// minute and sat on 181 of them, and neither the cap nor the rate limit alone
+// would have ended that — the cap stops it holding them, the rate limit stops
+// it retrying forever.
+//
+// The table is keyed on normalize_client_ip() so that the two spellings of an
+// IPv4 client (direct, and the "::ffff:" mapped form a dual-stack listener
+// reports) cannot each get their own allowance. Entries outlive their sessions
+// on purpose: the rate bucket and any ban have to survive a disconnect, or
+// reconnecting would reset the very thing being measured.
+
+// Beyond this many tracked addresses, prune the ones that carry no live
+// session and no useful history. Without it an attacker spraying from many
+// source addresses could grow the table without bound — trading the flood we
+// just blocked for a slower memory one.
+static constexpr size_t IP_LIMIT_TABLE_SOFT_MAX = 4096;
+
+// At most one log line per address per this interval. See ip_limit_result.
+static constexpr std::chrono::seconds IP_LIMIT_LOG_INTERVAL{5};
+
+// WebSocket close code for a refused connection. 4000-4999 is the range
+// reserved for private application use, so it cannot be confused with a
+// protocol-level status. The browser must not auto-reconnect on this one —
+// see _handleSocketTerminal() in frontend/src/audio.js.
+static constexpr uint16_t CLOSE_IP_LIMIT = 4003;
+
+// WebSocket close code for a listener the sysop kicked. It has to be distinct
+// from an ordinary close: on a plain 1000/1006 the browser cannot tell a kick
+// from a dropped connection, so audio.js reconnects and the kick undoes itself
+// a second later — see KICKED_CLOSE_CODE in frontend/src/refused.js.
+static constexpr uint16_t CLOSE_KICKED = 4001;
+
+broadcast_server::ip_limit_result
+broadcast_server::ip_limit_acquire(const std::string &ip, bool listener) {
+    ip_limit_result res;
+    const bool limits_off = limit_per_ip <= 0 && limit_per_ip_sockets <= 0 &&
+                            limit_per_ip_rate <= 0;
+
+    const auto now = std::chrono::steady_clock::now();
+    std::lock_guard<std::mutex> lk(ip_limit_mtx);
+
+    if (limits_off) {
+        // The limits are disabled, but a kick still bans the address and that
+        // ban has to hold — it is the only thing stopping the kicked browser
+        // from reconnecting immediately. Nothing else is tracked in this case,
+        // so an address with no entry is simply allowed.
+        auto it = ip_limit_table.find(ip);
+        if (it == ip_limit_table.end()) return res;
+        if (it->second.banned_until <= now) {
+            ip_limit_table.erase(it);
+            return res;
+        }
+        res.allowed = false;
+        res.reason  = "disconnected by the sysop";
+        res.code    = CLOSE_KICKED;
+        if (now - it->second.last_log >= IP_LIMIT_LOG_INTERVAL) {
+            it->second.last_log = now;
+            res.log_it = true;
+        }
+        return res;
+    }
+
+    if (ip_limit_table.size() > IP_LIMIT_TABLE_SOFT_MAX) {
+        for (auto it = ip_limit_table.begin(); it != ip_limit_table.end();) {
+            // Both counters must be clear. Dropping an entry that still has
+            // sockets open would lose the count while the tokens holding them
+            // are alive — an address could then push the table past the limit
+            // on purpose, prune itself out, and come back with a fresh
+            // allowance while keeping everything it already had.
+            const bool idle  = it->second.active == 0 && it->second.sockets == 0;
+            const bool free_ = it->second.banned_until <= now;
+            // A bucket refills completely in a minute, so an entry idle for
+            // longer than that holds nothing worth remembering.
+            const bool stale = now - it->second.last_refill > std::chrono::seconds(60);
+            if (idle && free_ && stale) it = ip_limit_table.erase(it);
+            else ++it;
+        }
+    }
+
+    auto &e = ip_limit_table[ip];
+    if (e.last_refill.time_since_epoch().count() == 0) {
+        // First sight of this address: a full bucket, so a normal listener is
+        // never penalised for the connection that introduced them.
+        e.last_refill = now;
+        e.tokens      = limit_per_ip_rate > 0 ? limit_per_ip_rate : 0.0;
+    }
+
+    // Decide whether this refusal (if it is one) gets a log line, before any
+    // branch below returns.
+    auto mark_refused = [&](const char *why) {
+        res.allowed = false;
+        res.reason  = why;
+        if (now - e.last_log >= IP_LIMIT_LOG_INTERVAL) {
+            e.last_log = now;
+            res.log_it = true;
+        }
+    };
+
+    if (e.banned_until > now) {
+        if (e.kick_ban) {
+            mark_refused("disconnected by the sysop");
+            res.code = CLOSE_KICKED;
+        } else {
+            mark_refused("too many connection attempts");
+        }
+        return res;
+    }
+
+    // The rate is charged BEFORE the simultaneous cap is tested, and this
+    // order matters. An address that is already at its cap and reconnects in a
+    // loop must still accumulate rate violations — otherwise the cheap "you
+    // are at the cap" refusal would answer it forever and the ban that ends
+    // the loop would never trigger.
+    if (limit_per_ip_rate > 0) {
+        const double elapsed =
+            std::chrono::duration<double>(now - e.last_refill).count();
+        e.last_refill = now;
+        e.tokens = std::min<double>(limit_per_ip_rate,
+                                    e.tokens + elapsed * limit_per_ip_rate / 60.0);
+        if (e.tokens < 1.0) {
+            e.banned_until = now + std::chrono::seconds(limit_per_ip_ban_s);
+            e.kick_ban     = false;
+            mark_refused("too many connection attempts");
+            return res;
+        }
+        e.tokens -= 1.0;
+    }
+
+    if (listener && limit_per_ip > 0 && e.active >= limit_per_ip) {
+        mark_refused("too many simultaneous connections");
+        return res;
+    }
+
+    if (limit_per_ip_sockets > 0 && e.sockets >= limit_per_ip_sockets) {
+        mark_refused("too many simultaneous connections");
+        return res;
+    }
+
+    e.sockets++;
+    if (listener) e.active++;
+    return res;
+}
+
+// Remembers one live WebSocket so kick_ip() can find it later. Expired handles
+// are swept out here, so the map cannot grow without bound on a station where
+// nobody is ever kicked.
+void broadcast_server::live_conn_add(connection_hdl hdl, const std::string &ip) {
+    std::lock_guard<std::mutex> lk(live_conns_mtx);
+    if (live_conns.size() >= LIVE_CONNS_SWEEP_AT) {
+        for (auto it = live_conns.begin(); it != live_conns.end();) {
+            if (it->first.expired()) it = live_conns.erase(it);
+            else ++it;
+        }
+    }
+    live_conns[hdl] = ip;
+}
+
+// Disconnects an address and bans it for `ban_s` seconds.
+//
+// Closing the sockets alone is not a kick: every page reconnects after a drop
+// (audio.js does it deliberately, to survive a change of network), so without
+// the ban the listener is back before the sysop has let go of the mouse. The
+// ban is what makes it stick, and CLOSE_KICKED is what tells the browser not
+// to try in the first place.
+size_t broadcast_server::kick_ip(const std::string &ip_raw, int ban_s) {
+    const std::string ip = normalize_client_ip(ip_raw);
+    // Loopback is the station itself: proxy.py, the admin panel, the autorun
+    // PCM tap. Kicking it would disconnect the sysop's own tooling, and on a
+    // proxied station it would mean every listener at once.
+    if (ip.empty() || is_loopback_ip(ip)) return 0;
+
+    if (ban_s > 0) {
+        const auto now = std::chrono::steady_clock::now();
+        std::lock_guard<std::mutex> lk(ip_limit_mtx);
+        auto &e = ip_limit_table[ip];
+        if (e.last_refill.time_since_epoch().count() == 0) {
+            e.last_refill = now;
+            e.tokens      = limit_per_ip_rate > 0 ? limit_per_ip_rate : 0.0;
+        }
+        e.banned_until = now + std::chrono::seconds(ban_s);
+        e.kick_ban     = true;
+    }
+
+    std::vector<connection_hdl> victims;
+    {
+        std::lock_guard<std::mutex> lk(live_conns_mtx);
+        for (auto it = live_conns.begin(); it != live_conns.end();) {
+            if (it->first.expired()) { it = live_conns.erase(it); continue; }
+            if (it->second == ip) victims.push_back(it->first);
+            ++it;
+        }
+    }
+
+    size_t closed = 0;
+    for (const auto &hdl : victims) {
+        websocketpp::lib::error_code ec;
+        m_server.close(hdl, CLOSE_KICKED, "disconnected by the sysop", ec);
+        if (!ec) closed++;
+    }
+    if (closed || ban_s > 0)
+        std::cout << "Kicked " << ip << ": " << closed << " socket(s) closed, "
+                  << "refused for " << ban_s << "s" << std::endl;
+    return closed;
+}
+
+void broadcast_server::ip_limit_release(const std::string &ip, bool listener) {
+    std::lock_guard<std::mutex> lk(ip_limit_mtx);
+    auto it = ip_limit_table.find(ip);
+    if (it == ip_limit_table.end()) return;
+    // The entry itself stays: erasing it here would hand a reconnecting
+    // attacker a fresh rate bucket every time a connection ended.
+    if (it->second.sockets > 0) it->second.sockets--;
+    if (listener && it->second.active > 0) it->second.active--;
+}
+
+// ── Idle (pre-request) connections ───────────────────────────────────────────
+// See spectrumserver.h: the limit is on how many idle connections an address
+// may hold and never on how long one may live, because websdr.org's callback
+// host legitimately holds one idle for longer than any deadline worth setting.
+
+bool broadcast_server::handshake_watch_begin(connection_hdl hdl,
+                                             const std::string &ip) {
+    if (limit_idle_per_ip <= 0 && limit_idle_total <= 0)
+        return true; // nothing to enforce
+
+    std::lock_guard<std::mutex> lk(pending_handshakes_mtx);
+
+    if (limit_idle_total > 0 &&
+        static_cast<int>(pending_handshakes.size()) >= limit_idle_total) {
+        return false;
+    }
+    if (limit_idle_per_ip > 0) {
+        auto it = pending_by_ip.find(ip);
+        if (it != pending_by_ip.end() && it->second >= limit_idle_per_ip)
+            return false;
+    }
+
+    pending_handshakes[hdl] = ip;
+    pending_by_ip[ip]++;
+    return true;
+}
+
+void broadcast_server::handshake_watch_done(connection_hdl hdl) {
+    std::lock_guard<std::mutex> lk(pending_handshakes_mtx);
+    auto it = pending_handshakes.find(hdl);
+    if (it == pending_handshakes.end()) return;
+    auto cit = pending_by_ip.find(it->second);
+    if (cit != pending_by_ip.end() && --cit->second <= 0)
+        pending_by_ip.erase(cit);
+    pending_handshakes.erase(it);
+}
+
+void IPLimitToken::release() {
+    if (released.exchange(true)) return;
+    server.ip_limit_release(ip, listener);
+}
+
 waterfall_slices_t &broadcast_server::get_waterfall_slices() {
     return waterfall_slices;
 }
@@ -304,7 +581,8 @@ void broadcast_server::on_message(connection_hdl, server::message_ptr msg,
 }
 
 void broadcast_server::on_open_signal(connection_hdl hdl,
-                                      conn_type signal_type) {
+                                      conn_type signal_type,
+                                      std::shared_ptr<IPLimitToken> ip_token) {
     // Pre-generate the client's unique id so we can advertise it in basic_info
     // WITHOUT reordering: basic_info MUST be the very first frame the browser
     // receives on /audio (socketMessageInitial JSON.parse's the first message).
@@ -336,12 +614,17 @@ void broadcast_server::on_open_signal(connection_hdl hdl,
 
     server::connection_ptr con = m_server.get_con_from_hdl(hdl);
 
-    con->set_close_handler([client](connection_hdl h) {
+    // ip_token is captured by both handlers below (and by nothing else), so the
+    // per-IP slot is given back on whichever of close / fail fires first, and
+    // at the latest when websocketpp destroys the handlers. Releasing it more
+    // than once is harmless — see IPLimitToken.
+    con->set_close_handler([client, ip_token](connection_hdl h) {
         // Clean up throttle state for this connection
         {
             std::lock_guard<std::mutex> tlk(g_audio_throttle_mtx);
             g_audio_throttle.erase(h);
         }
+        if (ip_token) ip_token->release();
         // AudioClient::on_close() takes no arguments
         try { client->on_close(); } catch (...) {}
     });
@@ -352,11 +635,12 @@ void broadcast_server::on_open_signal(connection_hdl hdl,
     // access to the per-client shared_ptr so it couldn't call on_close().
     // on_close() is guarded by an atomic<bool> so double-fire (close + fail)
     // is safe — only the first call does anything.
-    con->set_fail_handler([client](connection_hdl h) {
+    con->set_fail_handler([client, ip_token](connection_hdl h) {
         {
             std::lock_guard<std::mutex> tlk(g_audio_throttle_mtx);
             g_audio_throttle.erase(h);
         }
+        if (ip_token) ip_token->release();
         try { client->on_close(); } catch (...) {}
     });
     con->set_message_handler(std::bind(
@@ -364,11 +648,15 @@ void broadcast_server::on_open_signal(connection_hdl hdl,
         std::placeholders::_2, std::static_pointer_cast<Client>(client)));
 }
 
-void broadcast_server::on_open_chat(connection_hdl hdl) {
+void broadcast_server::on_open_chat(connection_hdl hdl,
+                                    std::shared_ptr<IPLimitToken> ip_token) {
     std::shared_ptr<ChatClient> client = std::make_shared<ChatClient>(hdl, *this);
     server::connection_ptr con = m_server.get_con_from_hdl(hdl);
-    con->set_close_handler(std::bind(&ChatClient::on_close_chat, client,
-                                     std::placeholders::_1));
+    // See on_open_signal() for why ip_token is captured here.
+    con->set_close_handler([client, ip_token](connection_hdl h) {
+        if (ip_token) ip_token->release();
+        client->on_close_chat(h);
+    });
     con->set_message_handler(std::bind(
         &broadcast_server::on_message, this, std::placeholders::_1,
         std::placeholders::_2, std::static_pointer_cast<Client>(client)));
@@ -437,7 +725,8 @@ std::vector<std::future<void>> broadcast_server::signal_loop() {
     return futures;
 }
 
-void broadcast_server::on_open_waterfall(connection_hdl hdl) {
+void broadcast_server::on_open_waterfall(connection_hdl hdl,
+                                         std::shared_ptr<IPLimitToken> ip_token) {
     send_basic_info(hdl);
 
     // Set default to the entire spectrum
@@ -451,12 +740,14 @@ void broadcast_server::on_open_waterfall(connection_hdl hdl) {
     client->set_waterfall_range(downsample_levels - 1, 0, min_waterfall_fft);
 
     server::connection_ptr con = m_server.get_con_from_hdl(hdl);
-    con->set_close_handler([client](connection_hdl h) {
+    // See on_open_signal() for why ip_token is captured in both handlers.
+    con->set_close_handler([client, ip_token](connection_hdl h) {
         // Clean up throttle state for this connection
         {
             std::lock_guard<std::mutex> tlk(g_waterfall_throttle_mtx);
             g_waterfall_throttle.erase(h);
         }
+        if (ip_token) ip_token->release();
         try { client->on_close(); } catch (...) {}
     });
     // FIX (SIGSEGV): Register a per-connection fail handler so ungraceful
@@ -467,11 +758,12 @@ void broadcast_server::on_open_waterfall(connection_hdl hdl) {
     // the rb-tree → _Rb_tree_rebalance_for_erase → SIGSEGV.
     // on_close() is guarded by atomic<bool> closed so close+fail double-fire
     // is safe — only the first call does anything.
-    con->set_fail_handler([client](connection_hdl h) {
+    con->set_fail_handler([client, ip_token](connection_hdl h) {
         {
             std::lock_guard<std::mutex> tlk(g_waterfall_throttle_mtx);
             g_waterfall_throttle.erase(h);
         }
+        if (ip_token) ip_token->release();
         try { client->on_close(); } catch (...) {}
     });
     con->set_message_handler(std::bind(
@@ -565,6 +857,10 @@ void broadcast_server::on_open_unknown(connection_hdl hdl) {
 }
 
 void broadcast_server::on_open(connection_hdl hdl) {
+    // This connection made a request, so it is no longer a silent socket the
+    // handshake deadline should reap.
+    handshake_watch_done(hdl);
+
     server::connection_ptr con = m_server.get_con_from_hdl(hdl);
     // get_resource() includes any query string (e.g. "/audio?tap=abc"). Strip it
     // so routing below matches on the bare path.
@@ -574,6 +870,98 @@ void broadcast_server::on_open(connection_hdl hdl) {
         auto qpos = resource.find('?');
         if (qpos != std::string::npos)
             path = resource.substr(0, qpos);
+    }
+
+    // ── Per-IP connection limiting ──────────────────────────────────────
+    // Only *listener* sessions are counted. One desktop tab opens /audio,
+    // /waterfall, /events and /chat, so counting raw sockets would make a
+    // single listener look like four and a limit of 3 would refuse everyone.
+    // /audio is the unit that users.json, the waterfall labels and the user
+    // count already treat as one listener; the Kiwi sound socket is the same
+    // thing for a client speaking the Kiwi protocol.
+    //
+    // This runs before the socket options and the keepalive timer below so a
+    // refused connection costs as little as possible — that is the whole point
+    // when the caller is flooding.
+    std::shared_ptr<IPLimitToken> ip_token;
+    {
+        const bool is_listener_path =
+            (path == "/audio") ||
+            (kiwi_emulation_enabled && is_kiwi_snd_path(path));
+        const std::string ip = normalize_client_ip(ip_from_hdl(hdl));
+
+        // ── Outdated page? Send it away so it reloads ────────────────────────
+        // Only /audio carries the marker, and only /audio matters: it is the
+        // socket a page keeps alive, so refusing it ends the session. See
+        // min_client_version in spectrumserver.h for why this exists at all.
+        if (min_client_version > 0 && path == "/audio" &&
+            !is_loopback_ip(ip)) {
+            int client_v = 0;
+            const auto qpos = resource.find('?');
+            if (qpos != std::string::npos) {
+                std::string query = resource.substr(qpos + 1);
+                size_t pos = 0;
+                while (pos < query.size()) {
+                    const size_t amp = query.find('&', pos);
+                    const std::string part = query.substr(
+                        pos, amp == std::string::npos ? std::string::npos
+                                                      : amp - pos);
+                    if (part.rfind("v=", 0) == 0) {
+                        try { client_v = std::stoi(part.substr(2)); }
+                        catch (...) { client_v = 0; }
+                        break;
+                    }
+                    if (amp == std::string::npos) break;
+                    pos = amp + 1;
+                }
+            }
+            if (client_v < min_client_version) {
+                std::cout << "Outdated client on /audio from " << ip
+                          << " (v" << client_v << " < v" << min_client_version
+                          << "), asked to reload" << std::endl;
+                websocketpp::lib::error_code ec;
+                m_server.close(hdl, CLOSE_IP_LIMIT,
+                               "this page is out of date — please reload it",
+                               ec);
+                return;
+            }
+        }
+        // Loopback is never limited. The autorun PCM tap, the admin panel and
+        // a browser opened on the server itself all arrive from 127.0.0.1, and
+        // letting them consume slots would mean the station's own decoders
+        // could lock out real listeners.
+        if (!is_loopback_ip(ip)) {
+            const ip_limit_result verdict =
+                ip_limit_acquire(ip, is_listener_path);
+            if (!verdict.allowed) {
+                if (verdict.log_it) {
+                    // std::cout, not the websocketpp access log: that channel
+                    // is switched off wholesale in init_server(), so anything
+                    // written to it would be discarded. This reaches
+                    // spectrumserver.log.
+                    std::cout << "Refused " << path << " from " << ip << ": "
+                              << verdict.reason << std::endl;
+                }
+                // Codes 4000-4999 are reserved for the application, so this
+                // cannot collide with a protocol status. The reason travels in
+                // the close frame and reaches the browser as
+                // CloseEvent.reason: it is the only channel available, because
+                // the first frame on /audio must be basic_info (see
+                // send_basic_info) and an error frame ahead of it would break
+                // the parse on every normal connection.
+                websocketpp::lib::error_code ec;
+                m_server.close(hdl, verdict.code, verdict.reason, ec);
+                return;
+            }
+            // Held until the connection ends; see the handlers in
+            // on_open_signal() and its siblings. For a path with no handlers
+            // of its own (on_open_unknown) it dies with this scope, which is
+            // exactly when that connection is closed anyway.
+            ip_token = std::make_shared<IPLimitToken>(*this, ip,
+                                                      is_listener_path);
+            // Remember the socket so a kick can close it (see kick_ip).
+            live_conn_add(hdl, ip);
+        }
     }
 
     // NOTE: loopback connections are NOT rejected here.
@@ -689,21 +1077,21 @@ void broadcast_server::on_open(connection_hdl hdl) {
     }
 
     if (path == "/audio") {
-        on_open_signal(hdl, AUDIO);
+        on_open_signal(hdl, AUDIO, ip_token);
     } else if (path == "/signal") {
         // on_open_signal(hdl, SIGNAL);
     } else if (path == "/waterfall") {
-        on_open_waterfall(hdl);
+        on_open_waterfall(hdl, ip_token);
     } else if (path == "/waterfall_raw") {
         // on_open_waterfall_raw(hdl);
     } else if (path == "/events") {
-        on_open_events(hdl);
+        on_open_events(hdl, ip_token);
     } else if (path == "/chat") {
-        on_open_chat(hdl);
+        on_open_chat(hdl, ip_token);
     } else if (kiwi_emulation_enabled && is_kiwi_snd_path(path)) {
-        on_open_kiwi_snd(hdl);
+        on_open_kiwi_snd(hdl, ip_token);
     } else if (kiwi_emulation_enabled && is_kiwi_wf_path(path)) {
-        on_open_kiwi_wf(hdl);
+        on_open_kiwi_wf(hdl, ip_token);
     } else {
         on_open_unknown(hdl);
     }
@@ -713,7 +1101,8 @@ void broadcast_server::on_open(connection_hdl hdl) {
 // Kiwi protocol bridge (leurre KiwiSDR) — voir kiwi_bridge.h
 // ----------------------------------------------------------------------------
 
-void broadcast_server::on_open_kiwi_snd(connection_hdl hdl) {
+void broadcast_server::on_open_kiwi_snd(connection_hdl hdl,
+                                        std::shared_ptr<IPLimitToken> ip_token) {
     // Pas de send_basic_info() : un client Kiwi n'attend rien avant d'avoir
     // lui-même envoyé "SET auth ...".
     int kiwi_audio_fft_size =
@@ -731,10 +1120,13 @@ void broadcast_server::on_open_kiwi_snd(connection_hdl hdl) {
     client->set_audio_range(default_l, default_m, default_r);
 
     server::connection_ptr con = m_server.get_con_from_hdl(hdl);
-    con->set_close_handler([client](connection_hdl) {
+    // See on_open_signal() for why the token is captured in both handlers.
+    con->set_close_handler([client, ip_token](connection_hdl) {
+        if (ip_token) ip_token->release();
         try { client->on_close(); } catch (...) {}
     });
-    con->set_fail_handler([client](connection_hdl) {
+    con->set_fail_handler([client, ip_token](connection_hdl) {
+        if (ip_token) ip_token->release();
         try { client->on_close(); } catch (...) {}
     });
 
@@ -807,7 +1199,8 @@ void broadcast_server::on_open_kiwi_snd(connection_hdl hdl) {
         });
 }
 
-void broadcast_server::on_open_kiwi_wf(connection_hdl hdl) {
+void broadcast_server::on_open_kiwi_wf(connection_hdl hdl,
+                                       std::shared_ptr<IPLimitToken> ip_token) {
     std::shared_ptr<WaterfallClient> client = std::make_shared<WaterfallClient>(
         hdl, *this, WATERFALL_KIWI, min_waterfall_fft);
     {
@@ -837,10 +1230,13 @@ void broadcast_server::on_open_kiwi_wf(connection_hdl hdl) {
     }
 
     server::connection_ptr con = m_server.get_con_from_hdl(hdl);
-    con->set_close_handler([client](connection_hdl) {
+    // See on_open_signal() for why ip_token is captured in both handlers.
+    con->set_close_handler([client, ip_token](connection_hdl) {
+        if (ip_token) ip_token->release();
         try { client->on_close(); } catch (...) {}
     });
-    con->set_fail_handler([client](connection_hdl) {
+    con->set_fail_handler([client, ip_token](connection_hdl) {
+        if (ip_token) ip_token->release();
         try { client->on_close(); } catch (...) {}
     });
 

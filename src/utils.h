@@ -14,6 +14,28 @@
 
 std::string generate_unique_id();
 
+// ── Client address helpers ──────────────────────────────────────────────────
+// Shared by signal.cpp (geo lookup / user tracking), events.cpp (stats and
+// waterfall labels) and websocket.cpp (per-IP connection limiting), which all
+// need to agree on what "the client's IP" is — otherwise a limit keyed on one
+// spelling of an address would not match the entry the stats log shows.
+
+// "1.2.3.4:56789" -> "1.2.3.4", "[::1]:56789" -> "::1".
+// A bare address with no port is returned unchanged.
+std::string strip_port(const std::string &endpoint);
+
+// True for loopback in every form websocketpp can produce: "127.0.0.1", "::1"
+// and the IPv4-mapped "::ffff:127.x.x.x". These come from the server itself —
+// the autorun PCM tap, the admin panel, a browser opened on the box — and are
+// never real remote listeners.
+bool is_loopback_ip(const std::string &ip);
+
+// Canonical key for one remote host: port stripped and the IPv4-mapped IPv6
+// wrapper unwrapped, so "::ffff:1.2.3.4:5678" and "1.2.3.4:5678" collapse to
+// the same "1.2.3.4". Without the unwrap a client could be counted twice by
+// arriving over both spellings.
+std::string normalize_client_ip(const std::string &endpoint);
+
 template <typename T> class Neumaier {
   public:
     Neumaier(T init) : sum{init}, correction{0} {

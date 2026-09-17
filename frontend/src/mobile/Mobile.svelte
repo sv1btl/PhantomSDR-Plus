@@ -276,8 +276,10 @@
   // screen lock, WiFi to cellular — and the engine now reconnects by itself.
   // This exists so the gap is visible while it happens, instead of the page
   // looking perfectly healthy with no sound coming out of it.
-  let audioLink = 'connected'   // connected | reconnecting | lost | restored
+  let audioLink = 'connected'   // connected | lost | refused | kicked
   let audioLinkTimer = null
+  // Reason text when the server refused this session outright (per-IP limit).
+  let refusedReason = ''
 
   // ── Chat ─────────────────────────────────────────────────────────────────
   let chatSocket = null
@@ -327,7 +329,12 @@
       settings = await initBackend()
     } catch (e) {
       status = 'error'
-      errorMsg = (e && e.message) ? e.message : 'Could not connect to the receiver'
+      // A refusal (per-IP limit) is not a fault the listener can wait out, so
+      // say what it was and what would actually help. audio.js does not retry
+      // this one — see ConnectionRefused in refused.js.
+      errorMsg = (e && e.name === 'ConnectionRefused')
+        ? `The receiver refused the connection: ${e.reason || e.message}. Everyone sharing your internet connection counts as one address — close other tabs on this receiver and reload.`
+        : (e && e.message) ? e.message : 'Could not connect to the receiver'
       return
     }
 
@@ -376,21 +383,18 @@
 
     audio.onConnectionChange = (state) => {
       if (audioLinkTimer) { clearTimeout(audioLinkTimer); audioLinkTimer = null }
-      if (state === 'connected') {
-        // A reconnect can be over in about a second, so going straight back to
-        // "connected" leaves nothing on screen long enough to notice and the
-        // listener is left wondering what the gap was. Hold a confirmation for
-        // a few seconds instead. Skipped on the first connect of the session,
-        // when there was no gap to explain.
-        if (audioLink === 'connected') return
-        audioLink = 'restored'
-        audioLinkTimer = setTimeout(() => { audioLink = 'connected'; audioLinkTimer = null }, 4000)
-      } else {
-        audioLink = (state === 'reconnecting') ? 'reconnecting' : 'lost'
+      if (state === 'refused') {
+        // A kick shows nothing: the sysop ended the session, the page simply
+        // stops. Only a per-IP refusal gets a banner, because that one the
+        // listener can act on.
+        refusedReason = audio.refusedReason || 'too many connections from your address'
+        audioLink = audio.kicked ? 'kicked' : 'refused'
+        return
       }
-      // A reconnect builds a fresh decoder and timeline but keeps the same
-      // AudioContext, so the meter loop and the gesture that unlocked audio
-      // both survive — there is nothing to restart here.
+      // Every other non-connected state is a drop, and a drop is the end of
+      // the session: audio.js does not reopen the socket, so the banner says
+      // what to do rather than promising a reconnect that is not coming.
+      audioLink = (state === 'connected') ? 'connected' : 'lost'
     }
 
     startUsersPoll()
@@ -1228,13 +1232,11 @@
       <button class="tap-start" on:click={handleStart}>Tap to start audio</button>
     {/if}
 
-    {#if audioLink !== 'connected'}
-      <div class="link-banner" class:ok={audioLink === 'restored'}>
-        {audioLink === 'reconnecting'
-          ? 'Audio connection lost — reconnecting…'
-          : audioLink === 'restored'
-            ? 'Audio reconnected.'
-            : 'Audio connection lost.'}
+    {#if audioLink !== 'connected' && audioLink !== 'kicked'}
+      <div class="link-banner">
+        {audioLink === 'refused'
+          ? `Receiver refused the connection: ${refusedReason}. Close other tabs on this receiver and reload.`
+          : 'Connection lost — reload the page to listen again.'}
       </div>
     {/if}
 

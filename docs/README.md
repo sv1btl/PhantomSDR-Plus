@@ -327,6 +327,7 @@ All four GUI variants (analog/digital S-meter x v1/v2 layout) live in the one bu
 - **[ADMIN_PANEL_SETUP.md](ADMIN_PANEL_SETUP.md)** - Installation guide for admin system operators
 - **[USER_GUIDE.md](USER_GUIDE.md)** - End-user guide for operating the WebSDR
 - **[THERMAL_GUARD.md](THERMAL_GUARD.md)** - Sysop manual for the CPU over-temperature guard: the four modes and what to do with each
+- **[CONNECTION_LIMITS.md](CONNECTION_LIMITS.md)** - Sysop manual for connection limits: protecting a public receiver from connection floods
 - **[PROJECT_STRUCTURE.md](PROJECT_STRUCTURE.md)** - Directory structure and code organization
 - **[EDITING_VARIANTS.md](EDITING_VARIANTS.md)** - How to edit the frontend variants (S-meter and layout) and rebuild them
 

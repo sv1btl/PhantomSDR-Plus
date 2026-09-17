@@ -4,6 +4,7 @@ import { RemoteSource } from './remoteSource'
 import { KiwiSource } from './kiwiSource'
 import { UberSource } from './uberSource'
 import { WebSdrSource } from './webSdrSource'
+import { ConnectionRefused, isRefusal, isKick, defaultReason } from './refused'
 // Opus ML decoder — loaded ON DEMAND, not at startup.
 //
 // @wasm-audio-decoders/opus-ml is a single 4.1 MB minified file with an
@@ -589,30 +590,26 @@ export default class SpectrumAudio {
     this.bufferLimit = 0.25;      // ring buffer ceiling / overrun ceiling
     this.bufferThreshold = 0.01;  // 10ms underrun recovery point
 
-    // ── Reconnect ───────────────────────────────────────────────────────────
-    // The /audio socket dropping used to be terminal: the handlers were
-    // stripped, the socket nulled, and nothing ever reopened it. Audio simply
-    // stopped for good while the rest of the page carried on looking healthy —
-    // the users poll kept updating, the UI stayed responsive, only the S-meter
-    // froze. A phone hits this constantly (screen lock, WiFi/cellular handover)
-    // and the only cure was a manual reload.
+    // ── A dropped socket is the end of the session ──────────────────────────
+    // There is deliberately no reconnect here. This page briefly had one, with
+    // backoff, borrowed from the chat-app pattern, and it was wrong for a
+    // receiver: /waterfall and /events never came back with it, so a retried
+    // session was a live audio socket attached to a frozen waterfall, and the
+    // sysop's user list filled with sessions nobody was really in. Stopping
+    // the server no longer cleared it either — everyone was back seconds
+    // later. A WebSDR drop ends the session; the listener loads the page
+    // again, which is one action and leaves no half-alive state behind.
     //
-    // autoReconnect can be set false by a caller that wants to own the socket
-    // lifecycle itself. onConnectionChange, if set, is called with one of
-    // 'connected' | 'lost' | 'reconnecting' | 'failed' so a page can say so.
-    this.autoReconnect = true;
+    // onConnectionChange, if set, is called with 'connected' | 'lost' |
+    // 'failed' | 'refused'. All but 'connected' are final.
     this.onConnectionChange = null;
+    // Set when the server refuses this session outright; see
+    // _handleSocketTerminal() and ConnectionRefused in refused.js.
+    this.refusedReason = null;
     // Set by the page before init(); see _wantsNativeContextRate().
     this.preferNativeContextRate = false;
     this._stopped = false;
-    this._reconnectAttempt = 0;
-    this._reconnectTimer = null;
     this._everConnected = false;
-    // Successful reconnects this session. A reconnect can be over in about a
-    // second, which is too quick to catch on screen — this is what makes it
-    // checkable after the fact rather than a matter of watching at the right
-    // moment. Surfaced by getPlaybackDiagnostics().
-    this._reconnectCount = 0;
 
     // AudioWorklet / fallback diagnostics and hardening
     this._streamForceFallback = false;
@@ -1137,52 +1134,41 @@ _handleSocketTerminal(kind, evt) {
     } catch (_) {}
   }
 
+  // Close code 4003 is the server refusing this session outright: too many
+  // connections, or too many attempts, from this address (see CLOSE_IP_LIMIT
+  // in src/websocket.cpp). Reconnecting would hammer a server that is already
+  // saying no — and, once the rate limit is involved, each attempt extends the
+  // refusal. 4001 is the sysop kicking this listener (handle_kick in proxy.py);
+  // reconnecting there would simply undo the kick a second later. Both are
+  // terminal: latch off instead and let the page explain itself. The reason
+  // text arrives in the close frame because /audio's first data frame is
+  // reserved for basic_info.
+  const refused = kind === 'close' && isRefusal(evt)
+  if (refused) {
+    this.refusedCode   = evt.code
+    this.kicked        = isKick(evt)
+    this.refusedReason = (evt.reason || defaultReason(evt.code))
+    this._stopped = true
+  }
+
   const hadPendingInit = !!this.promise
-  const err = new Error(`[Audio] socket ${kind}`)
+  const err = refused
+    ? new ConnectionRefused(this.refusedReason, this.refusedCode)
+    : new Error(`[Audio] socket ${kind}`)
   this._resetInitPromise(hadPendingInit ? err : null)
 
   this.audioSocket = null
 
-  this._notifyConnection(this._everConnected ? 'lost' : 'failed');
-  this._scheduleReconnect(kind);
-}
-
-/**
- * Reopen the audio socket after a drop, with backoff.
- *
- * Deliberately does NOT rebuild the audio graph: initAudio() reuses a live
- * AudioContext (see the guard there), so a reconnect keeps the listener's
- * gain, filters and — on mobile, where this matters most — the user gesture
- * that unlocked audio in the first place. Losing that would mean a phone
- * showing "Tap to start" every time it changed network.
- */
-_scheduleReconnect(reason) {
-  if (this._stopped || !this.autoReconnect) return;
-  if (this._reconnectTimer || this.audioSocket) return;
-
-  const attempt = this._reconnectAttempt++;
-  // 1, 2, 4, 8, 16 then hold at 30 s, each with ±15% jitter so that a server
-  // restart does not bring every listener back in the same instant.
-  const base  = Math.min(30000, 1000 * Math.pow(2, Math.min(attempt, 5)));
-  const delay = Math.round(base * (0.85 + Math.random() * 0.3));
-
-  console.warn(`[Audio] socket ${reason}; reconnecting in ${(delay / 1000).toFixed(1)}s (attempt ${attempt + 1})`);
-  this._notifyConnection('reconnecting');
-
-  this._reconnectTimer = setTimeout(() => {
-    this._reconnectTimer = null;
-    if (this._stopped || this.audioSocket) return;
-    // init() rejects on failure and _handleSocketTerminal schedules the next
-    // attempt, so the catch here only stops an unhandled rejection.
-    this.init().catch(() => {});
-  }, delay);
-}
-
-_clearReconnect() {
-  if (this._reconnectTimer) {
-    clearTimeout(this._reconnectTimer);
-    this._reconnectTimer = null;
+  if (refused) {
+    console.warn(`[Audio] connection ended by the server: ${this.refusedReason}`)
+    this._notifyConnection('refused')
+    return
   }
+
+  // Terminal, whatever the cause: the socket is not reopened from here.
+  this._stopped = true;
+  console.warn(`[Audio] socket ${kind}; the session has ended`);
+  this._notifyConnection(this._everConnected ? 'lost' : 'failed');
 }
 
 _notifyConnection(state) {
@@ -1197,9 +1183,8 @@ async init() {
   }
 
   // An explicit init() is also the way to revive an instance after stop(),
-  // so clear the latch and any reconnect already queued.
+  // so clear the latch.
   this._stopped = false
-  this._clearReconnect()
 
   this.promise = new Promise((resolve, reject) => {
     this.resolvePromise = resolve
@@ -1229,11 +1214,9 @@ async init() {
 }
 
   stop() {
-    // Latch reconnect off BEFORE the socket is closed below: that close fires
-    // _handleSocketTerminal, which would otherwise queue a reconnect for a
-    // page that is being torn down.
+    // Latched before the socket is closed below, so the close handler knows
+    // this teardown was deliberate.
     this._stopped = true;
-    this._clearReconnect();
     this._clearInitTimeout();
     this._resetInitPromise();
     try { _workerPending.clear(); } catch (_) {}
@@ -3208,7 +3191,6 @@ setAGC(newAGCSpeed) {
       // cushion is too small for the link — raise the buffer preset.
       fallbackRestarts: this._fallbackRestarts || 0,
       fallbackDrops: this._fallbackDrops || 0,
-      reconnects: this._reconnectCount || 0,
       socketOpen: this._isSocketOpen(),
       framesPerPacket: this._pktFrames || 0,
       packetsPerSec: this._pktRate || 0,
@@ -3422,10 +3404,10 @@ setAGC(newAGCSpeed) {
     // identify its own waterfall pill exactly instead of guessing by frequency.
     this.clientId = settings.client_id ?? null
 
-    // On a FIRST connection the server's defaults are where we start. On a
-    // reconnect the listener is still tuned where they were, so taking the
-    // defaults here would clobber the local range and leave getAudioRange()
-    // disagreeing with what _restoreServerState() is about to re-send.
+    // The server's defaults are where a session starts. Guarded all the same:
+    // a page that calls init() on a live instance (after stop(), say) has a
+    // listener already tuned somewhere, and taking the defaults here would
+    // clobber the local range that getAudioRange() reports.
     if (!this._everConnected) {
       this.audioL = settings.defaults.l
       this.audioM = settings.defaults.m
@@ -3443,10 +3425,6 @@ setAGC(newAGCSpeed) {
     // hold a full slot_period - 0.4 s or the slot never reaches decode).
     this._initAccumulators();
 
-    // Settings received, so this attempt succeeded: drop the backoff back to
-    // its shortest delay for the next drop.
-    this._reconnectAttempt = 0
-    const reconnected = this._everConnected
     this._everConnected = true
 
     this._clearInitTimeout()
@@ -3472,12 +3450,6 @@ setAGC(newAGCSpeed) {
     // Order matters: the socket handlers above are live by now, and initAudio
     // has the decoder ready, so anything the server sends in reply to these
     // will be decodable.
-    if (reconnected) {
-      this._reconnectCount++
-      this._restoreServerState()
-      console.log(`[Audio] reconnected (${this._reconnectCount} this session)`)
-    }
-
     this._notifyConnection('connected')
 
     console.log('Audio Samplerate: ', this.trueAudioSps)
@@ -3725,9 +3697,8 @@ setAGC(newAGCSpeed) {
   }
 
   updateAudioParams() {
-    // Kept so a reconnect can replay the exact window this listener is on —
-    // see _restoreServerState(). Storing the command rather than re-deriving
-    // it is what keeps the CW offset window from coming back as the plain one.
+    // Built once and kept: storing the command rather than re-deriving it is
+    // what keeps the CW offset window from being sent as the plain one.
     this._lastWindowCmd = (this.demodulation == "CW")
       ? { cmd: 'window', l: this.audioLOffset, m: this.audioMOffset, r: this.audioROffset }
       : { cmd: 'window', l: this.audioL, m: this.audioM, r: this.audioR }
@@ -3775,8 +3746,8 @@ setAGC(newAGCSpeed) {
       demodulation = "USB"
     }
     this.updateFilters()
-    // Remembered for reconnect: this is the wire value, so AM-ENV comes back as
-    // AM-ENV rather than as the plain AM it is normalised to internally.
+    // The wire value, so AM-ENV goes out as AM-ENV rather than as the plain AM
+    // it is normalised to internally.
     this._lastDemodCmd = backendDemod || demodulation
     this._safeSend({
       cmd: 'demodulation',
@@ -4467,27 +4438,6 @@ _updateCTCSSGate(rawPcm) {
       cmd: 'userid',
       userid: userID
     })
-  }
-
-  /**
-   * Push this listener's state back onto a freshly reconnected socket.
-   *
-   * A new connection gets the server's defaults, but the listener has not
-   * moved: without this a reconnect silently jumps them to the default
-   * frequency and mode, unmutes them, and drops their name from /users —
-   * which would be a worse failure than the dropout it is recovering from.
-   *
-   * Demodulation goes first: the server may reset the window when the mode
-   * changes, so the window has to land after it.
-   */
-  _restoreServerState() {
-    if (this._lastDemodCmd) {
-      this._safeSend({ cmd: 'demodulation', demodulation: this._lastDemodCmd })
-    }
-    if (this._lastWindowCmd) this._safeSend(this._lastWindowCmd)
-    if (this.audioOptions) this._safeSend({ cmd: 'options', options: this.audioOptions })
-    if (this.mute) this._safeSend({ cmd: 'mute', mute: true })
-    if (this._userID != null) this._safeSend({ cmd: 'userid', userid: this._userID })
   }
 
   setSignalDecoder(decoder) {

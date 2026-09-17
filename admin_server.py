@@ -126,19 +126,21 @@ LOG_FILES = {
     "proxy.log": "proxy.log",
 }
 
-# Logs that "Clear Logs" must leave alone — the ones that are a *record* rather
-# than a diagnostic scratchpad, where the history is the whole point:
-#   autorun.log — decode log; the only record of what was heard and when (spots,
-#                 SNR, drift). Wiping it silently discards received traffic that
-#                 cannot be reconstructed, and the daemon holds it open O_APPEND,
-#                 so a truncate takes effect under a running decoder.
-# proxy.log used to be excluded here too, which made the button look broken: the
-# pane kept showing the access log with no explanation. It is an access log the
-# sysop owns and logrotate already bounds (/etc/logrotate.d/phantomsdr), so the
-# button now clears it and whatever it cannot clear is named in the toast.
-# autorun.log is not in that logrotate config, so it grows unbounded
-# (~3 MB/day at 10 bands) until it is.
-CLEAR_EXCLUDE = {"autorun.log"}
+# Logs that "Clear Logs" must leave alone. Empty by sysop decision: the button
+# clears every log in LOG_FILES, autorun.log included.
+#
+# Both exclusions that used to live here are gone for the same reason — a button
+# labelled "Clear Logs" that silently keeps a file looks broken, and neither file
+# needed protecting. proxy.log is an access log the sysop owns; autorun.log is
+# the decoder log, and while its spot history cannot be reconstructed, logrotate
+# (logrotate/phantomsdr) keeps the rotated archives in logproxy/, so a clear
+# costs only what has accumulated since the last rotation.
+#
+# Clearing autorun.log under a running decoder is safe: the daemon holds it open
+# O_APPEND, so an in-place truncate takes effect immediately and the daemon goes
+# on appending to the same inode. Whatever cannot be written is named in the
+# toast rather than reported as success.
+CLEAR_EXCLUDE = set()
 
 # ─── Helpers ───────────────────────────────────────────────────────────────────
 def load_admin_config():
@@ -2885,20 +2887,28 @@ async function clearLogView() {
     toast('Clear failed: ' + e, 'err');
     return;
   }
+  const failed  = d.failed  || [];
+  const skipped = d.skipped || [];
+  const cleared = d.cleared || [];
+  // Blank only the panes whose file was actually emptied. A pane blanked over a
+  // file that is still on disk fills again at the next refresh, which reads as
+  // the button being broken — so a log the server kept or could not write keeps
+  // its lines on screen. CLEAR_EXCLUDE is empty now, so in practice this only
+  // covers failures, but it stays correct if a log is ever excluded again.
+  const keptPanes = new Set(skipped.concat(failed.map(f => f.name))
+                                   .map(n => LOG_TAB_TARGETS[n]));
   ['dash-log', ...Object.values(LOG_TAB_TARGETS)].forEach(id => {
+    if (keptPanes.has(id)) return;
     const el = document.getElementById(id);
     if (el) el.innerHTML = '';
   });
   // Say which files were actually emptied: a silent "Logs cleared" over a pane
   // that still has lines in it is what made this look broken.
-  const failed  = d.failed  || [];
-  const skipped = d.skipped || [];
-  const cleared = d.cleared || [];
   if (failed.length) {
     toast('Could not clear ' + failed.map(f => f.name + ' (' + f.error + ')').join(', '), 'err');
   } else {
     let msg = 'Cleared ' + (cleared.length ? cleared.join(', ') : 'nothing');
-    if (skipped.length) msg += ' — kept ' + skipped.join(', ');
+    if (skipped.length) msg += ' — kept ' + skipped.join(', ') + ' (excluded)';
     toast(msg);
   }
 }
@@ -4708,6 +4718,36 @@ def _proxy_kick(ip):
         return (False, None, str(e))
 
 
+def _server_kick(ip, ban_s=0):
+    """Ask spectrumserver itself to disconnect and ban `ip`.
+
+    This is the one that actually works on a normal station. Listeners reach
+    spectrumserver directly on public_port, so proxy.py never sees their
+    sockets, and 'ss -K' only destroys the TCP connection — which every page
+    treats as a network drop and reconnects from. spectrumserver closes with
+    code 4001, which the browser knows not to retry.
+
+    ban_s is 0: a kick disconnects, it does not lock anyone out. Someone who
+    wants back in reloads the page and is a normal listener again.
+
+    Returns (ok: bool, count: int|None, err: str|None); count is None when the
+    endpoint is unreachable (an older spectrumserver has no /~~kick).
+    """
+    import urllib.request, urllib.parse
+    cfg = load_admin_config()
+    port = cfg.get("public_port")
+    if not port:
+        return (False, None, "no public_port configured")
+    url = "http://127.0.0.1:%d/~~kick?%s" % (
+        int(port), urllib.parse.urlencode({"ip": ip, "secs": int(ban_s)}))
+    try:
+        with urllib.request.urlopen(url, timeout=5) as resp:
+            d = json.loads(resp.read().decode())
+        return (bool(d.get("ok")), int(d.get("count", 0)), None)
+    except Exception as e:
+        return (False, None, str(e))
+
+
 @app.route("/admin/api/kick", methods=["POST"])
 @login_required
 def api_kick():
@@ -4729,6 +4769,19 @@ def api_kick():
     # ── Privilege-free part: close WebSockets proxy.py owns (proxy users) ─────
     _pok, proxy_count, _perr = _proxy_kick(ip)
     proxy_count = proxy_count or 0
+
+    # ── The real kick: spectrumserver closes its own sockets, with a close
+    # code the browser does not reconnect from. No ban — a kick is a
+    # disconnect, and coming back is the listener's own move. ────────────────
+    _sok, server_count, _serr = _server_kick(ip)
+    server_count = server_count or 0
+    if server_count or proxy_count:
+        total = server_count + proxy_count
+        return jsonify({
+            "ok": True,
+            "msg": "Kicked %s — %d connection%s closed" % (
+                ip, total, "s" if total != 1 else ""),
+        })
 
     import shutil as _shutil
     ss_bin = _shutil.which("ss") or "/usr/bin/ss"

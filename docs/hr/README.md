@@ -327,6 +327,7 @@ Sve četiri varijante sučelja (analogni/digitalni S-metar x raspored v1/v2) nal
 - **[ADMIN_PANEL_SETUP.md](ADMIN_PANEL_SETUP.md)** – vodič za instalaciju administratorske ploče
 - **[USER_GUIDE.md](USER_GUIDE.md)** – vodič za krajnje korisnike o radu s WebSDR-om
 - **[THERMAL_GUARD.md](THERMAL_GUARD.md)** - Priručnik za sysopa o zaštiti od pregrijavanja procesora: četiri načina rada i što učiniti u svakome
+- **[CONNECTION_LIMITS.md](CONNECTION_LIMITS.md)** - Priručnik za sysopa o ograničenjima veza: zaštita javnog prijemnika od poplave veza
 - **[PROJECT_STRUCTURE.md](PROJECT_STRUCTURE.md)** – struktura direktorija i organizacija koda
 - **[EDITING_VARIANTS.md](EDITING_VARIANTS.md)** – kako uređivati varijante frontenda (S-metar i raspored) i ponovno ih izgraditi
 

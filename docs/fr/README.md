@@ -327,6 +327,7 @@ Les quatre variantes de l'interface (S-mètre analogique/numérique x dispositio
 - **[ADMIN_PANEL_SETUP.md](ADMIN_PANEL_SETUP.md)** – guide d'installation pour les administrateurs système
 - **[USER_GUIDE.md](USER_GUIDE.md)** – guide de l'utilisateur final pour l'exploitation du WebSDR
 - **[THERMAL_GUARD.md](THERMAL_GUARD.md)** - Manuel du sysop pour la protection contre la surchauffe du processeur : les quatre modes et ce qu'il faut faire pour chacun
+- **[CONNECTION_LIMITS.md](CONNECTION_LIMITS.md)** - Manuel du sysop pour les limites de connexion : protéger un récepteur public contre les afflux de connexions
 - **[PROJECT_STRUCTURE.md](PROJECT_STRUCTURE.md)** – structure des répertoires et organisation du code
 - **[EDITING_VARIANTS.md](EDITING_VARIANTS.md)** – comment modifier les variantes du frontend (S-mètre et disposition) et les reconstruire
 

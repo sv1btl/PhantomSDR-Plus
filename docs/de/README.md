@@ -327,6 +327,7 @@ Alle vier GUI-Varianten (analoges/digitales S-Meter x Layout v1/v2) stecken in e
 - **[ADMIN_PANEL_SETUP.md](ADMIN_PANEL_SETUP.md)** – Installationsanleitung für administrierende Systembetreiber
 - **[USER_GUIDE.md](USER_GUIDE.md)** – Anleitung für Endnutzer zur Bedienung des WebSDR
 - **[THERMAL_GUARD.md](THERMAL_GUARD.md)** - Sysop-Handbuch für den CPU-Überhitzungsschutz: die vier Modi und was bei jedem zu tun ist
+- **[CONNECTION_LIMITS.md](CONNECTION_LIMITS.md)** - Sysop-Handbuch für Verbindungslimits: einen öffentlichen Empfänger vor Verbindungsfluten schützen
 - **[PROJECT_STRUCTURE.md](PROJECT_STRUCTURE.md)** – Verzeichnisstruktur und Codeorganisation
 - **[EDITING_VARIANTS.md](EDITING_VARIANTS.md)** – wie man die Frontend-Varianten (S-Meter und Layout) bearbeitet und neu baut
 

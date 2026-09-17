@@ -19,20 +19,11 @@
 //   compute default_m from default_frequency.
 // ============================================================================
 
-// Returns true for loopback addresses in all the forms websocketpp can produce:
-//   "127.0.0.1"          — plain IPv4 loopback
-//   "::1"                — IPv6 loopback
-//   "::ffff:127.x.x.x"  — IPv4-mapped IPv6 loopback (most common with dual-stack)
-//
-// These connections come from the server itself (Flask admin panel, go.sh health
-// checks, or a browser tab opened locally).  They are not real remote listeners
-// and should be excluded from users.json and the JSONL statistics log.
-static bool is_loopback_ip(const std::string &ip) {
-    if (ip == "127.0.0.1" || ip == "::1") return true;
-    // IPv4-mapped form: "::ffff:127." covers the entire 127.0.0.0/8 range
-    if (ip.find("::ffff:127.") == 0)      return true;
-    return false;
-}
+// is_loopback_ip() now lives in utils.cpp. It is shared with the per-IP
+// connection limiter in websocket.cpp, which must exempt exactly the same
+// server-local connections this file already keeps out of users.json and the
+// JSONL statistics log — the autorun PCM tap above all, which would otherwise
+// be able to spend a real listener's slot.
 
 std::string broadcast_server::get_users_json() {
     const auto now_steady = std::chrono::steady_clock::now();
@@ -447,7 +438,8 @@ void broadcast_server::broadcast_signal_changes(const std::string &unique_id,
     write_users_json();
 }
 
-void broadcast_server::on_open_events(connection_hdl hdl) {
+void broadcast_server::on_open_events(connection_hdl hdl,
+                                     std::shared_ptr<IPLimitToken> ip_token) {
     {
         std::scoped_lock lg(events_connections_mtx);  // ✅ ADDED: Thread-safe insertion
         events_connections.insert(hdl);
@@ -457,8 +449,12 @@ void broadcast_server::on_open_events(connection_hdl hdl) {
                   websocketpp::frame::opcode::text);
 
     server::connection_ptr con = m_server.get_con_from_hdl(hdl);
-    con->set_close_handler(std::bind(&broadcast_server::on_close_events, this,
-                                     std::placeholders::_1));
+    // ip_token is captured here so this address gets its connection slot back
+    // when the socket goes; see on_open_signal() in websocket.cpp.
+    con->set_close_handler([this, ip_token](connection_hdl h) {
+        if (ip_token) ip_token->release();
+        on_close_events(h);
+    });
     con->set_message_handler([](connection_hdl, server::message_ptr) {
         // Ignore messages
     });

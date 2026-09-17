@@ -328,6 +328,7 @@ segments = round((value + 100) x 35 / 100) + DIGITAL_BAR_TRIM
 - **[ADMIN_PANEL_SETUP.md](ADMIN_PANEL_SETUP.md)** – οδηγός εγκατάστασης για διαχειριστές του πίνακα διαχείρισης
 - **[USER_GUIDE.md](USER_GUIDE.md)** – οδηγός τελικού χρήστη για τη λειτουργία του WebSDR
 - **[THERMAL_GUARD.md](THERMAL_GUARD.md)** – εγχειρίδιο διαχειριστή για την προστασία υπερθέρμανσης της CPU: οι τέσσερις λειτουργίες και τι πρέπει να κάνετε σε καθεμία
+- **[CONNECTION_LIMITS.md](CONNECTION_LIMITS.md)** – εγχειρίδιο διαχειριστή για τα όρια συνδέσεων: προστασία ενός δημόσιου δέκτη από πλημμύρα συνδέσεων
 - **[PROJECT_STRUCTURE.md](PROJECT_STRUCTURE.md)** – δομή καταλόγων και οργάνωση του κώδικα
 - **[EDITING_VARIANTS.md](EDITING_VARIANTS.md)** – πώς να επεξεργαστείτε τις παραλλαγές του frontend (S-meter και διάταξη) και να τις ξαναχτίσετε
 

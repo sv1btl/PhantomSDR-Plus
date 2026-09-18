@@ -37,6 +37,12 @@
 
 const KEEPALIVE_MS       = 5000
 const CONNECT_TIMEOUT_MS = 10000
+// A socket still CONNECTING has not reached the server yet: Firefox holds a
+// new WebSocket back after earlier ones to the same host:port failed (RFC 6455
+// 7.2.3), up to 60 s. Closing it at CONNECT_TIMEOUT_MS counts as another
+// failure and lengthens the hold, so past ~12 s no attempt can ever get
+// through and one success is what would reset it. Wait out the hold instead.
+const CONNECTING_MAX_MS = 75000
 const RECONNECT_BASE_MS  = 2000
 const RECONNECT_MAX_MS   = 30000
 
@@ -112,12 +118,18 @@ export class KiwiSource {
     sock.onclose = (ev) => this._failed('closed', ev)
 
     clearTimeout(this._connectTimer)
-    this._connectTimer = setTimeout(() => {
-      if (this.state !== 'ready') {
-        console.warn('[Diversity/Kiwi] no audio parameters within timeout:', url)
-        try { sock.close() } catch (_) {}
+    const armedAt = Date.now()
+    const check = () => {
+      if (this.state === 'ready' || this.socket !== sock) return
+      if (sock.readyState === WebSocket.CONNECTING &&
+          Date.now() - armedAt < CONNECTING_MAX_MS) {
+        this._connectTimer = setTimeout(check, CONNECT_TIMEOUT_MS)
+        return
       }
-    }, CONNECT_TIMEOUT_MS)
+      console.warn('[Diversity/Kiwi] no audio parameters within timeout:', url)
+      try { sock.close() } catch (_) {}
+    }
+    this._connectTimer = setTimeout(check, CONNECT_TIMEOUT_MS)
   }
 
   close () {

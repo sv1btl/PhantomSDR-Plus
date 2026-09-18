@@ -29,6 +29,7 @@
 
 import { createDecoder } from './lib/wrappers'
 import { decode as cbor_decode } from 'cbor-x'
+import { CLIENT_VERSION } from './clientVersion'
 
 // Opus is decoded the way audio.js decodes it — with the ML decoder, not
 // with createDecoder('opus'). Not every receiver honours codec_caps, so a
@@ -78,6 +79,7 @@ export class RemoteSource {
     this._connectTimer = null
     this._pending = null       // tune() called before settings arrived
     this._triedSecure = false
+    this._withVersion = false  // set once the remote refuses a bare /audio
     this._opusReady = false
   }
 
@@ -95,7 +97,14 @@ export class RemoteSource {
 
     let sock
     try {
-      sock = new WebSocket(this.endpoint)
+      // A bare /audio first: servers from before July 2026 route on the whole
+      // resource, so "/audio?v=2" is an unknown path to them and never
+      // answers.  ?v= is added only once a station with min_client_version
+      // set has said so — see _onClose.
+      const url = !this._withVersion || /[?&]v=/.test(this.endpoint)
+        ? this.endpoint
+        : this.endpoint + (this.endpoint.includes('?') ? '&' : '?') + 'v=' + CLIENT_VERSION
+      sock = new WebSocket(url)
     } catch (e) {
       this._setState('error', e)
       this._scheduleReconnect()
@@ -113,7 +122,7 @@ export class RemoteSource {
     }
     sock.onmessage = (ev) => this._onInitial(ev)
     sock.onerror = (ev) => this._failed('error', ev)
-    sock.onclose = (ev) => this._failed('closed', ev)
+    sock.onclose = (ev) => this._onClose(ev)
 
     clearTimeout(this._connectTimer)
     this._connectTimer = setTimeout(() => {
@@ -139,6 +148,24 @@ export class RemoteSource {
     if (!s) return
     s.onopen = s.onmessage = s.onerror = s.onclose = null
     try { s.close() } catch (_) {}
+  }
+
+  // The version gate closes with 4003 and "out of date" in the reason; the
+  // per-IP limit uses the same code with a different reason and must still
+  // go through the ordinary backoff.  Retried once, on the same scheme —
+  // this is not the HTTPS case, so it must not burn the wss:// upgrade.
+  _onClose (ev) {
+    if (!this._withVersion && this._wantOpen && this.state !== 'ready' &&
+        ev && ev.code === 4003 && /out of date/i.test(ev.reason || '')) {
+      this._withVersion = true
+      console.warn('[Diversity] remote wants a client version; retrying with ?v=' + CLIENT_VERSION)
+      this._teardownSocket()
+      clearTimeout(this._connectTimer)
+      clearTimeout(this._timer)
+      this._timer = setTimeout(() => this._open(), 250)
+      return
+    }
+    this._failed('closed', ev)
   }
 
   // Both failure events land here. A handshake that dies can report either

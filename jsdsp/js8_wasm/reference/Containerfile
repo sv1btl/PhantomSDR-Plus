@@ -1,0 +1,4 @@
+FROM docker.io/library/debian:bookworm
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    g++ qt6-base-dev make && rm -rf /var/lib/apt/lists/*
+WORKDIR /src

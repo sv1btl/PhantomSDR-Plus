@@ -1,0 +1,4 @@
+FROM docker.io/library/debian:bookworm
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    gfortran g++ libfftw3-dev libboost-dev make && rm -rf /var/lib/apt/lists/*
+WORKDIR /src

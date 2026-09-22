@@ -18,11 +18,16 @@
 #    ./update.sh --apply --prune   also offer to delete files GitHub removed
 #    ./update.sh --list-excludes   print the exclusion rules as resolved here
 #    ./update.sh --restore LAST    put back the files the last run overwrote
+#    ./update.sh --restore 20260923-164530   ... from that run
 #    ./update.sh --verbose         list every file, not just the first 40
 #
 #  A tree that holds a file called .update-source-of-truth is the tree the
 #  published version is built FROM, so --apply refuses to run in it. Reporting
 #  still works, and there it lists what has not been published yet.
+#
+#  Every file an update overwrites is first saved into a dated archive under
+#  update-backups/ — a plain visible folder, not a hidden one, so it can be
+#  found in a file manager and copied off the machine as one file.
 #
 #  Exit status of a report run: 0 = already up to date, 10 = updates pending.
 #  (So `./update.sh || notify-me` works from cron.)
@@ -63,7 +68,12 @@ REF="${UPDATE_REF:-main}"
 
 STATE_DIR="$PHANTOM_DIR/.update-state"
 MANIFEST="$STATE_DIR/manifest.sha256"
-BACKUP_ROOT="$PHANTOM_DIR/.update-backups"
+# Deliberately NOT a dotted name. A backup nobody can find is not a backup:
+# a leading dot hides it from `ls`, from every file manager, and from the
+# sysop who is looking for it with the site off the air. Runs before
+# 2026-09-22 wrote into the hidden .update-backups/, so that is still read.
+BACKUP_ROOT="$PHANTOM_DIR/update-backups"
+LEGACY_BACKUP_ROOT="$PHANTOM_DIR/.update-backups"
 KEEP_BACKUPS=3
 EXCLUDE_FILE="$PHANTOM_DIR/update-exclude.txt"
 
@@ -143,7 +153,7 @@ confirm() {
 # ------------------------------------------------------------------------------
 # Arguments
 # ------------------------------------------------------------------------------
-usage() { sed -n '2,31p' "$SCRIPT_PATH" | sed 's/^# \?//'; }
+usage() { sed -n '2,39p' "$SCRIPT_PATH" | sed 's/^# \?//'; }
 
 while [ $# -gt 0 ]; do
     case "$1" in
@@ -182,6 +192,10 @@ else SUDO=""; fi
 # Reporting still works, and is the useful thing to do there: it says exactly
 # what has not been published yet.
 GUARD_FILE="$PHANTOM_DIR/.update-source-of-truth"
+# Used further down to turn the report around: on a source tree "differs"
+# means "not published yet", which is the opposite of what it means here.
+IS_SOURCE=false
+[ -e "$GUARD_FILE" ] && IS_SOURCE=true
 if [ "$MODE" = "apply" ] && [ -e "$GUARD_FILE" ]; then
     banner "This tree is marked as a source, not a copy"
     echo ""
@@ -213,7 +227,10 @@ fi
 # beneath it).
 TIER_A=(
     # site identity and per-site configuration
-    'config.toml' 'config-*.toml' 'config.example.*.toml'
+    # config-<receiver>.toml IS the live config of a site that runs that
+    # receiver, so it is untouchable. The config.example.*.toml samples are
+    # Tier B instead — see below.
+    'config.toml' 'config-*.toml'
     'admin_config.json' 'markers.json' 'mymarkers.json'
     # The sysop's callsign, locator, city, hardware and antenna — what visitors
     # see. The repository ships the placeholder version of this file, so leaving
@@ -221,12 +238,17 @@ TIER_A=(
     'frontend/site_information.json' 'users.json' '*/users.json'
     'autorun.json' 'autorun-status.json' 'autorun-totals.json'
     'frontend/variant.json' '.tap_token'
+    # The relay's own config: the .example beside it is what gets distributed.
+    'websdr_relay.json' 'websdr_relay.json.bak'
+    # our own marker, which must never travel to a copy — a copy that had it
+    # would refuse every --apply from then on
+    '.update-source-of-truth'
     # externally refreshed data, permanently dirty by design
     'frequencylist/*'
     # written by users while the site runs
     'chat_history.txt'
     # logs, pids, flags, reports — regenerated, and some are open right now
-    '*.log' 'logs/*' 'logwebsdr.txt' 'logwebsdr.flag' 'install.txt'
+    '*.log' '*.log.*' 'logs/*' 'logproxy/*' 'logwebsdr.txt' 'logwebsdr.flag' 'install.txt'
     '*.pid' '.watchdog.lock' '*.fifo' '*fftw_wisdom'
     # build output and fetched dependencies — never distributed, always rebuilt
     'build/*' 'frontend/dist/*' 'node_modules/*' '*/node_modules/*'
@@ -235,7 +257,8 @@ TIER_A=(
     'frontend/stats.html' 'frontend/stats-*.html'
     'frontend/src/lib/VersionSelector.svelte.backup'
     # ours, and the tooling that is not distributed
-    '.git/*' '.claude/*' '.update-state/*' '.update-backups/*'
+    '.git/*' '.claude/*' '.update-state/*'
+    '.update-backups/*' 'update-backups/*'
     'update-exclude.txt' 'tools/*'
 )
 
@@ -252,6 +275,12 @@ TIER_B=(
     'setup_admin.sh' 'setup-*.sh' 'manage_admin.sh' 'setup_websdr_relay.sh'
     'proxy.py' 'admin_server.py' 'thermal_guard.py' 'rade_helper.py'
     'websdr_relay.py'
+    # The sample configs. They are only ever copied from, never run, so
+    # freezing them in Tier A meant a sysop could never receive an improved
+    # one. But people do annotate the sample they worked from, and losing
+    # that to a silent overwrite is a nasty surprise even with a backup, so
+    # they are offered here rather than taken.
+    'config.example.*.toml'
     # The band-plan overlay: shipped with sensible defaults, but the bands a
     # site shows, and their colours and limits, are a matter of where it is
     # and what it is for. Improvements upstream are worth having, so it is
@@ -309,17 +338,118 @@ if [ "$MODE" = "list-excludes" ]; then
 fi
 
 # ------------------------------------------------------------------------------
+# Re-exec from a temp copy, so this script can rewrite ITSELF safely
+# ------------------------------------------------------------------------------
+# bash reads a script incrementally as it runs. Overwriting update.sh while
+# update.sh is executing makes it jump into the middle of the new text — the
+# classic way a self-updater corrupts its own run. Running from a copy in /tmp
+# means the file on disk is just another file we are allowed to replace.
+#
+# --restore needs this exactly as much as --apply, and used to run before it:
+# update.sh is an ordinary Tier C file, so an update backs it up like any other,
+# and putting that backup back rewrites the very script doing the putting back.
+if { [ "$MODE" = "apply" ] || [ "$MODE" = "restore" ]; } \
+   && [ -z "${PHANTOM_UPDATE_REEXEC:-}" ]; then
+    SELF_COPY="$(mktemp "${TMPDIR:-/tmp}/phantom-update-XXXXXX.sh")"
+    cat "$SCRIPT_PATH" > "$SELF_COPY"
+    chmod +x "$SELF_COPY"
+    export PHANTOM_UPDATE_REEXEC="$SCRIPT_PATH"
+    # `exec` replaces this process, so our own EXIT trap never runs and the
+    # child cannot see our locals: the path of the copy to delete has to be
+    # handed over in the environment, or every run leaves one behind in /tmp.
+    export PHANTOM_UPDATE_SELF_COPY="$SELF_COPY"
+    # Rebuild the argument list; the flags are all we need to carry over.
+    if [ "$MODE" = "restore" ]; then
+        args=(--restore "$RESTORE_ARG")
+    else
+        args=(--apply --ref "$REF")
+        if [ "$ASSUME_YES" = true ]; then args+=(--yes);   fi
+        if [ "$PRUNE"      = true ]; then args+=(--prune); fi
+    fi
+    if [ "$VERBOSE" = true ]; then args+=(--verbose); fi
+    exec "$SELF_COPY" "${args[@]}"
+fi
+SELF_COPY="${PHANTOM_UPDATE_SELF_COPY:-}"
+trap '[ -n "${SELF_COPY:-}" ] && rm -f "$SELF_COPY"' EXIT
+
+# ------------------------------------------------------------------------------
+# Backups: one dated archive per run
+# ------------------------------------------------------------------------------
+# zip is what a sysop can open anywhere, including on the Windows machine they
+# copied it to. But zip is a separate package that a minimal server may not
+# have, while tar is already required by this script, so tar.gz is the
+# fallback. Restoring reads whichever it finds, and the hidden directories
+# older versions left behind.
+backup_format() {
+    if command -v zip >/dev/null 2>&1 && command -v unzip >/dev/null 2>&1; then
+        echo zip
+    else
+        echo tar.gz
+    fi
+}
+
+# Every backup this instance holds, oldest first, named by its timestamp.
+# Note the trailing `true`: with `set -o pipefail` a directory that does not
+# exist yet would make the whole group fail, and `HAVE="$(list_backups)"` would
+# then abort the script under `set -e` without printing anything at all.
+list_backups() {
+    {
+        if [ -d "$BACKUP_ROOT" ]; then
+            ls -1 "$BACKUP_ROOT" 2>/dev/null \
+              | sed -n 's/^phantomsdr-backup-\(.*\)\.zip$/\1/p; s/^phantomsdr-backup-\(.*\)\.tar\.gz$/\1/p'
+        fi
+        if [ -d "$LEGACY_BACKUP_ROOT" ]; then
+            ls -1 "$LEGACY_BACKUP_ROOT" 2>/dev/null
+        fi
+        true
+    } 2>/dev/null | sort -u
+}
+
+# Where the backup for one timestamp actually is — an archive, or a directory
+# from before this script archived them.
+backup_path_for() {
+    local stamp="$1" cand
+    for cand in "$BACKUP_ROOT/phantomsdr-backup-$stamp.zip" \
+                "$BACKUP_ROOT/phantomsdr-backup-$stamp.tar.gz" \
+                "$LEGACY_BACKUP_ROOT/$stamp"; do
+        if [ -e "$cand" ]; then printf '%s\n' "$cand"; return 0; fi
+    done
+    return 1
+}
+
+# ------------------------------------------------------------------------------
 # Restore
 # ------------------------------------------------------------------------------
 if [ "$MODE" = "restore" ]; then
-    [ -d "$BACKUP_ROOT" ] || die "No backups have ever been taken ($BACKUP_ROOT does not exist)."
+    HAVE="$(list_backups)"
+    [ -n "$HAVE" ] || die "No backups have ever been taken (nothing in $BACKUP_ROOT)."
     if [ "$RESTORE_ARG" = "LAST" ] || [ -z "$RESTORE_ARG" ]; then
-        RESTORE_ARG="$(ls -1 "$BACKUP_ROOT" | sort | tail -1)"
-        [ -n "$RESTORE_ARG" ] || die "No backups in $BACKUP_ROOT."
+        RESTORE_ARG="$(printf '%s\n' "$HAVE" | tail -1)"
     fi
-    B="$BACKUP_ROOT/$RESTORE_ARG"
-    [ -d "$B" ] || die "No such backup: $RESTORE_ARG (have: $(ls -1 "$BACKUP_ROOT" | tr '\n' ' '))"
+    # A whole filename is accepted too — it is what `ls update-backups/` shows,
+    # so it is what a sysop will paste.
+    case "$RESTORE_ARG" in
+        phantomsdr-backup-*) RESTORE_ARG="${RESTORE_ARG#phantomsdr-backup-}"
+                             RESTORE_ARG="${RESTORE_ARG%.zip}"
+                             RESTORE_ARG="${RESTORE_ARG%.tar.gz}" ;;
+    esac
+    SRC="$(backup_path_for "$RESTORE_ARG")" \
+        || die "No such backup: $RESTORE_ARG
+     Have: $(printf '%s\n' "$HAVE" | tr '\n' ' ')"
+
+    if [ -d "$SRC" ]; then
+        B="$SRC"
+        UNPACK=""
+    else
+        UNPACK="$(mktemp -d "${TMPDIR:-/tmp}/phantom-restore-XXXXXX")"
+        B="$UNPACK"
+        case "$SRC" in
+            *.zip)    unzip -q "$SRC" -d "$B" || die "Could not read $SRC" ;;
+            *.tar.gz) tar -xzf "$SRC" -C "$B" || die "Could not read $SRC" ;;
+        esac
+    fi
     banner "Restoring the files overwritten on $RESTORE_ARG"
+    echo "     from $SRC"
     n=0
     while IFS= read -r rel; do
         [ "$rel" = "restore.sh" ] && continue
@@ -328,31 +458,11 @@ if [ "$MODE" = "restore" ]; then
         echo "     restored  $rel"
         n=$((n + 1))
     done < <(cd "$B" && find . -type f -printf '%P\n' | sort)
+    [ -n "$UNPACK" ] && rm -rf "$UNPACK"
     echo ""
     green "  ✅ $n file(s) put back. A rebuild may be needed: ./recompile.sh"
     exit 0
 fi
-
-# ------------------------------------------------------------------------------
-# Re-exec from a temp copy, so this script can update ITSELF safely
-# ------------------------------------------------------------------------------
-# bash reads a script incrementally as it runs. Overwriting update.sh while
-# update.sh is executing makes it jump into the middle of the new text — the
-# classic way a self-updater corrupts its own run. Running from a copy in /tmp
-# means the file on disk is just another file we are allowed to replace.
-if [ "$MODE" = "apply" ] && [ -z "${PHANTOM_UPDATE_REEXEC:-}" ]; then
-    SELF_COPY="$(mktemp "${TMPDIR:-/tmp}/phantom-update-XXXXXX.sh")"
-    cat "$SCRIPT_PATH" > "$SELF_COPY"
-    chmod +x "$SELF_COPY"
-    export PHANTOM_UPDATE_REEXEC="$SCRIPT_PATH"
-    # Rebuild the argument list; the flags are all we need to carry over.
-    args=(--apply --ref "$REF")
-    [ "$ASSUME_YES" = true ] && args+=(--yes)
-    [ "$PRUNE"      = true ] && args+=(--prune)
-    [ "$VERBOSE"    = true ] && args+=(--verbose)
-    exec "$SELF_COPY" "${args[@]}"
-fi
-trap '[ -n "${SELF_COPY:-}" ] && rm -f "$SELF_COPY"' EXIT
 
 # ------------------------------------------------------------------------------
 # Preflight
@@ -460,6 +570,42 @@ for rel in "${!PREV_SHA[@]}"; do
     [ "$(tier_of "$rel")" = "A" ] && continue
     F_GONE+=("$rel")
 done
+
+# The other direction: files that are HERE and not in the published tree at all.
+# Only asked on the source tree, where it is the whole question — "have I
+# uploaded everything?" — and where a plain report was silently answering "yes"
+# because the comparison above only ever walks the UPSTREAM file list. On an
+# ordinary site this would just list every stray file the sysop ever dropped in
+# the tree, so it stays quiet there.
+declare -a F_UNPUBLISHED=()
+if [ "$IS_SOURCE" = true ]; then
+    # Prune the heavy generated trees before find descends into them; whatever
+    # survives is still passed through tier_of, which is the real filter.
+    while IFS= read -r rel; do
+        [ -n "$rel" ] || continue
+        [ -n "${UP_SHA[$rel]:-}" ] && continue
+        [ "$(tier_of "$rel")" = "A" ] && continue
+        F_UNPUBLISHED+=("$rel")
+    done < <(cd "$PHANTOM_DIR" && find . \
+        \( -name .git -o -name node_modules -o -name build -o -name dist \
+           -o -name __pycache__ -o -name .update-backups -o -name .update-state \
+           -o -name .claude -o -name tools -o -name frequencylist \
+           -o -name packagecache -o -name glaze -o -name rx888_stream \) -prune -o \
+        -type f -printf '%P\n' | sort)
+    # .gitignore is already the maintainer's own answer to "is this file meant
+    # to be published?", and the source tree is by definition a git checkout.
+    # Nothing else here touches git — an ordinary site has no history to
+    # consult — but on this one side it is the right filter, and it costs one
+    # call. Without it the list fills up with rotated logs and scratch files.
+    if [ ${#F_UNPUBLISHED[@]} -gt 0 ] && command -v git >/dev/null 2>&1 \
+       && git -C "$PHANTOM_DIR" rev-parse --git-dir >/dev/null 2>&1; then
+        mapfile -t F_UNPUBLISHED < <(
+            printf '%s\n' "${F_UNPUBLISHED[@]}" \
+              | git -C "$PHANTOM_DIR" check-ignore --stdin --non-matching --verbose 2>/dev/null \
+              | sed -n 's/^::\t//p'
+        )
+    fi
+fi
 green "done"
 
 # ------------------------------------------------------------------------------
@@ -478,19 +624,43 @@ list_files() {
     done
 }
 
-banner "What this update would change"
-echo ""
+if [ "$IS_SOURCE" = true ]; then
+    banner "This tree against what is published"
+    echo ""
+    grey "  This tree is marked as the source the published version is built from,"
+    grey "  so a difference means \"not uploaded yet\", not \"out of date\"."
+    echo ""
+else
+    banner "What this update would change"
+    echo ""
+fi
 if [ ${#F_NEW[@]} -gt 0 ]; then
-    green "  ➕ ${#F_NEW[@]} new file(s):"
+    if [ "$IS_SOURCE" = true ]; then
+        green "  ➕ ${#F_NEW[@]} file(s) published but missing here:"
+    else
+        green "  ➕ ${#F_NEW[@]} new file(s):"
+    fi
     list_files 32 "+" "${F_NEW[@]}"; echo ""
 fi
 if [ ${#F_UPDATE[@]} -gt 0 ]; then
-    blue "  ⬆  ${#F_UPDATE[@]} file(s) to update:"
+    if [ "$IS_SOURCE" = true ]; then
+        blue "  ⬆  ${#F_UPDATE[@]} file(s) here differ from the published copy:"
+    else
+        blue "  ⬆  ${#F_UPDATE[@]} file(s) to update:"
+    fi
     list_files 34 "~" "${F_UPDATE[@]}"; echo ""
 fi
 if [ ${#F_CONFLICT[@]} -gt 0 ]; then
-    yellow "  ✋ ${#F_CONFLICT[@]} file(s) differ AND look edited here — you decide each one:"
+    if [ "$IS_SOURCE" = true ]; then
+        yellow "  ✋ ${#F_CONFLICT[@]} file(s) differ, and are of the kind a site customises:"
+    else
+        yellow "  ✋ ${#F_CONFLICT[@]} file(s) differ AND look edited here — you decide each one:"
+    fi
     list_files 33 "!" "${F_CONFLICT[@]}"; echo ""
+fi
+if [ ${#F_UNPUBLISHED[@]} -gt 0 ]; then
+    yellow "  ⬆  ${#F_UNPUBLISHED[@]} file(s) here are not in the published tree at all:"
+    list_files 33 "?" "${F_UNPUBLISHED[@]}"; echo ""
 fi
 if [ ${#F_GONE[@]} -gt 0 ]; then
     grey "  🗑  ${#F_GONE[@]} file(s) removed upstream (kept unless --prune):"
@@ -499,14 +669,33 @@ fi
 grey "  🔒 ${#F_SKIP[@]} site-local file(s) skipped   ·   ${#F_SAME[@]} already current"
 echo ""
 
-PENDING=$(( ${#F_NEW[@]} + ${#F_UPDATE[@]} + ${#F_CONFLICT[@]} ))
+# --prune has nothing to work with until the first --apply has written a
+# manifest: F_GONE is built from it alone. Saying so beats looking like a
+# no-op that quietly decided there was nothing to remove.
+if [ "$PRUNE" = true ] && [ ! -f "$MANIFEST" ]; then
+    warn "--prune needs a manifest from an earlier --apply run, and there is none
+     here yet ($MANIFEST). Nothing can be offered for deletion this time; it
+     will work from the next update onwards."
+    echo ""
+fi
+
+PENDING=$(( ${#F_NEW[@]} + ${#F_UPDATE[@]} + ${#F_CONFLICT[@]} + ${#F_UNPUBLISHED[@]} ))
 if [ "$PENDING" -eq 0 ] && { [ "$PRUNE" != true ] || [ ${#F_GONE[@]} -eq 0 ]; }; then
-    green "  ✅ This instance is already up to date with ${REF}."
+    if [ "$IS_SOURCE" = true ]; then
+        green "  ✅ Everything in this tree is published at ${REPO_SLUG} @ ${REF}."
+    else
+        green "  ✅ This instance is already up to date with ${REF}."
+    fi
     exit 0
 fi
 
 if [ "$MODE" != "apply" ]; then
-    echo "     Nothing was written. To do it:  ./update.sh --apply"
+    if [ "$IS_SOURCE" = true ]; then
+        echo "     Nothing was written, and --apply is refused here. The files above"
+        echo "     are what still has to go up to ${REPO_SLUG}."
+    else
+        echo "     Nothing was written. To do it:  ./update.sh --apply"
+    fi
     exit 10
 fi
 
@@ -563,7 +752,8 @@ fi
 # a bad release: the binary is replaced while it is mapped, the panel serves a
 # frontend directory that has moved under it, and the watchdog cheerfully
 # restarts whatever half-written thing it finds.
-PHANTOM_UNITS=(phantomsdr-admin.service phantomsdr-proxy.service sdr-stats.service)
+PHANTOM_UNITS=(phantomsdr-admin.service phantomsdr-proxy.service sdr-stats.service
+                phantomsdr-websdr-relay.service)
 STOPPED_UNITS=()
 STOPPED_RECEIVER=""
 
@@ -689,7 +879,12 @@ stop_running_phantom
 # Apply
 # ------------------------------------------------------------------------------
 STAMP="$(date +%Y%m%d-%H%M%S)"
-BACKUP_DIR="$BACKUP_ROOT/$STAMP"
+# Staged outside the instance while the update runs, then packed into one
+# archive at the end. A run that dies half way leaves no half-written backup
+# directory in the tree, and the finished archive is a single file to copy off.
+BACKUP_DIR="$TMP/backup-$STAMP"
+BACKUP_FMT="$(backup_format)"
+BACKUP_ARCHIVE="$BACKUP_ROOT/phantomsdr-backup-$STAMP.$BACKUP_FMT"
 mkdir -p "$BACKUP_DIR" "$STATE_DIR"
 
 backup_one() {
@@ -755,13 +950,21 @@ printf '%s\n' "$REF" > "$STATE_DIR/last-ref"
 date -Is > "$STATE_DIR/last-run"
 
 if [ -n "$(find "$BACKUP_DIR" -type f -print -quit)" ]; then
+    # Packed with the paths the files have in the instance, so the archive can
+    # be unpacked straight over the tree by hand if this script is unavailable.
     cat > "$BACKUP_DIR/restore.sh" <<'RESTORE'
 #!/bin/bash
 # Put back exactly the files the update of this timestamp overwrote.
-# Equivalent to: ./update.sh --restore <this directory's name>
+# Unpack this archive somewhere, then run this script from inside it and give
+# it the instance directory:   ./restore.sh /path/to/PhantomSDR-Plus
+# Equivalent to:               ./update.sh --restore <the archive's timestamp>
 set -e
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-DEST="$(cd "$HERE/../.." && pwd)"
+DEST="${1:-}"
+if [ -z "$DEST" ]; then
+    echo "usage: $0 /path/to/PhantomSDR-Plus" >&2; exit 1
+fi
+[ -f "$DEST/meson.build" ] || { echo "$DEST is not a PhantomSDR-Plus tree." >&2; exit 1; }
 cd "$HERE"
 find . -type f ! -name restore.sh -printf '%P\n' | while read -r f; do
     mkdir -p "$DEST/$(dirname "$f")"
@@ -771,18 +974,30 @@ done
 echo "Done. A rebuild may be needed: $DEST/recompile.sh"
 RESTORE
     chmod +x "$BACKUP_DIR/restore.sh"
-    echo ""
-    grey "  💾 Overwritten files saved in .update-backups/$STAMP  (restore.sh inside)"
-else
-    rmdir "$BACKUP_DIR" 2>/dev/null || true
+    mkdir -p "$BACKUP_ROOT"
+    if [ "$BACKUP_FMT" = "zip" ]; then
+        ( cd "$BACKUP_DIR" && zip -qr "$BACKUP_ARCHIVE" . ) \
+            || warn "Could not write $BACKUP_ARCHIVE"
+    else
+        ( cd "$BACKUP_DIR" && tar -czf "$BACKUP_ARCHIVE" . ) \
+            || warn "Could not write $BACKUP_ARCHIVE"
+    fi
+    if [ -f "$BACKUP_ARCHIVE" ]; then
+        n_bk="$(find "$BACKUP_DIR" -type f ! -name restore.sh | wc -l)"
+        echo ""
+        grey "  💾 $n_bk overwritten file(s) saved in"
+        grey "     update-backups/$(basename "$BACKUP_ARCHIVE")  ($(du -h "$BACKUP_ARCHIVE" | cut -f1))"
+    fi
 fi
 
-# Keep the last few only; these are whole file copies and they add up.
-if [ -d "$BACKUP_ROOT" ]; then
-    while IFS= read -r old; do
-        [ -n "$old" ] && rm -rf "$BACKUP_ROOT/$old"
-    done < <(ls -1 "$BACKUP_ROOT" 2>/dev/null | sort | head -n -"$KEEP_BACKUPS")
-fi
+# Keep the last few only; these are whole file copies and they add up. Old
+# hidden directories from before archiving are aged out on the same rule.
+while IFS= read -r old; do
+    [ -n "$old" ] || continue
+    rm -rf "$LEGACY_BACKUP_ROOT/$old" \
+           "$BACKUP_ROOT/phantomsdr-backup-$old.zip" \
+           "$BACKUP_ROOT/phantomsdr-backup-$old.tar.gz"
+done < <(list_backups | head -n -"$KEEP_BACKUPS")
 
 # ------------------------------------------------------------------------------
 # Rebuild and restart
@@ -826,6 +1041,7 @@ green "  ✅ Updated to ${REPO_SLUG} @ ${REF}."
 [ "$n_both" -gt 0 ] && echo "     ${n_both} new version(s) are waiting beside yours as *.new."
 [ "$SELF_UPDATED" = true ] && echo "     update.sh itself was updated; the new one is in place for next time."
 echo ""
-grey "     Undo:  ./update.sh --restore LAST"
+grey "     Undo:    ./update.sh --restore LAST"
+[ -f "${BACKUP_ARCHIVE:-}" ] && grey "     Backup:  update-backups/$(basename "$BACKUP_ARCHIVE")"
 echo ""
 exit 0

@@ -251,6 +251,15 @@ static nlohmann::json normalize_json_spots(const nlohmann::json &in, const std::
 
             std::string dx_call = json_value_to_string(s, {"dx_call", "dx", "call", "callsign"});
             std::string de_call = json_value_to_string(s, {"de_call", "spotter", "de", "spotter_call"});
+            // DXSummit appends a node suffix ("-@", "-#") to every spotter call;
+            // strip it so the callsign check below does not reject the whole feed.
+            {
+                const size_t dash = de_call.find_last_of('-');
+                if (dash != std::string::npos && dash + 2 == de_call.size() &&
+                    !std::isalnum((unsigned char)de_call[dash + 1])) {
+                    de_call.erase(dash);
+                }
+            }
             std::string info = json_value_to_string(s, {"info", "comment", "remarks", "message"});
             std::string time = json_value_to_string(s, {"time", "spot_time", "timestamp", "utc"});
             std::string dx_country = json_value_to_string(s, {"dx_country", "country"});
@@ -781,12 +790,14 @@ void broadcast_server::on_http(connection_hdl hdl) {
         con->defer_http_response();
 
         std::thread([this, con, band, limit_num]() {
+            // DXSummit serves port 80 only — a https attempt just burns the
+            // connect timeout on every refresh, so plain http comes first.
             const std::vector<std::string> urls = {
-                "https://new.dxsummit.fi/api/v1/spots?limit=" + std::to_string(limit_num),
                 "http://new.dxsummit.fi/api/v1/spots?limit=" + std::to_string(limit_num),
                 "http://www.dxsummit.fi/api/v1/spots?limit=" + std::to_string(limit_num),
-                "https://www.dxsummit.fi/text/dx25.html",
-                "http://www.dxsummit.fi/text/dx25.html"
+                "https://new.dxsummit.fi/api/v1/spots?limit=" + std::to_string(limit_num),
+                "http://www.dxsummit.fi/text/dx25.html",
+                "https://www.dxsummit.fi/text/dx25.html"
             };
 
             CURL *curl = curl_easy_init();

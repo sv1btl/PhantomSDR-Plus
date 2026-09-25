@@ -7,6 +7,9 @@
   import siteInfo from '../../site_information.json'
   import copy from 'copy-to-clipboard'
   import {
+    parseChatLine, replyMarker, replySnippet, splitReply, stripReplyMarker, threadMessages,
+  } from '../lib/chatReply.js'
+  import {
     LS_URL as DIV_LS_URL,
     LS_TYPE as DIV_LS_TYPE,
     LS_CAL as DIV_LS_CAL,
@@ -292,6 +295,10 @@
   let chatSocket = null
   let chatMessages = []
   let chatInput = ''
+  // The message being answered ({ parsed, snippet }) or null — see lib/chatReply.js.
+  let replyingTo = null
+  let chatInputEl
+  $: threadedChat = threadMessages(chatMessages)
   let username = ''
   let chatConnected = false
   let chatScroller
@@ -974,7 +981,11 @@
         chatMessages = chatMessages.filter((m) => m.text !== gone)
         return
       } else {
-        chatMessages = [...chatMessages, { id: `m${Date.now()}${Math.random()}`, text: data }]
+        const msg = { id: `m${Date.now()}${Math.random()}`, text: data }
+        chatMessages = [...chatMessages, msg]
+        // A reply lands under the message it answers, not at the bottom.
+        const p = parseChatLine(data)
+        if (p && splitReply(p.body).replyTo) { scrollChatTo(msg.id); return }
       }
       scrollChat()
     }
@@ -985,12 +996,33 @@
     if (chatScroller) chatScroller.scrollTop = chatScroller.scrollHeight
   }
 
+  // Scroll the message list (not the page) until this message is visible.
+  async function scrollChatTo (id) {
+    await tick()
+    if (!chatScroller) return
+    const el = chatScroller.querySelector(`[data-chat-id="${id}"]`)
+    if (!el) return
+    const box = chatScroller.getBoundingClientRect()
+    const r = el.getBoundingClientRect()
+    if (r.bottom > box.bottom) chatScroller.scrollTop += r.bottom - box.bottom + 6
+    else if (r.top < box.top) chatScroller.scrollTop -= box.top - r.top + 6
+  }
+
+  function startReply (text) {
+    const parsed = parseChatLine(text)
+    if (!parsed) return
+    replyingTo = { parsed, snippet: replySnippet(parsed.body, 40) }
+    if (chatInputEl) chatInputEl.focus()
+  }
+
   function sendChat () {
     const text = chatInput.trim()
     if (!text || !username.trim()) return
     if (!chatSocket || chatSocket.readyState !== WebSocket.OPEN) return
-    chatSocket.send(JSON.stringify({ cmd: 'chat', message: text, username }))
+    const marker = replyingTo ? replyMarker(replyingTo.parsed) : ''
+    chatSocket.send(JSON.stringify({ cmd: 'chat', message: marker + text, username }))
     chatInput = ''
+    replyingTo = null
   }
 
   function saveUsername () {
@@ -1424,23 +1456,36 @@
           {:else if tab === 'chat'}
             <div class="chat-wrap">
               <div class="chat-msgs" bind:this={chatScroller}>
-                {#each chatMessages as m (m.id)}
-                  <div class="chat-msg">
-                    {#each chatParts(m.text) as p}
+                {#each threadedChat as { msg: m, depth, quote } (m.id)}
+                  <div class="chat-msg" class:chat-reply={depth > 0} data-chat-id={m.id}>
+                    {#if quote}
+                      <div class="chat-quote">↪ {quote.username} {quote.time}{#if quote.snippet}: <em>{quote.snippet}</em>{/if}</div>
+                    {/if}
+                    {#each chatParts(stripReplyMarker(m.text)) as p}
                       {#if p.t === 'freq'}
                         <button class="freq-token" on:click={() => tuneToShared(p.hz, p.mode)}>{p.v}</button>
                       {:else}{p.v}{/if}
                     {/each}
+                    {#if parseChatLine(m.text)}
+                      <button class="chat-reply-btn" on:click={() => startReply(m.text)}>↪ Reply</button>
+                    {/if}
                   </div>
                 {/each}
                 {#if !chatMessages.length}<div class="muted">No messages yet.</div>{/if}
               </div>
               <input class="text-input" placeholder="Your name" maxlength="14"
                      bind:value={username} on:change={saveUsername} />
+              {#if replyingTo}
+                <div class="chat-replying">
+                  <span>↪ Replying to <b>{replyingTo.parsed.username}</b>{#if replyingTo.snippet}: <em>{replyingTo.snippet}</em>{/if}</span>
+                  <button on:click={() => (replyingTo = null)} title="Cancel reply">✕</button>
+                </div>
+              {/if}
               <div class="add-row">
-                <input class="text-input" placeholder={username ? 'Message' : 'Enter a name first'}
-                       maxlength="200" disabled={!username.trim()} bind:value={chatInput}
-                       on:keydown={(e) => e.key === 'Enter' && sendChat()} />
+                <input class="text-input" placeholder={!username ? 'Enter a name first' : replyingTo ? 'Reply' : 'Message'}
+                       maxlength={200 - (replyingTo ? replyMarker(replyingTo.parsed).length : 0)}
+                       disabled={!username.trim()} bind:value={chatInput} bind:this={chatInputEl}
+                       on:keydown={(e) => e.key === 'Enter' ? sendChat() : e.key === 'Escape' && (replyingTo = null)} />
                 <button class="btn" on:click={shareFrequency} disabled={!username.trim()} title="Insert current frequency">f</button>
                 <button class="btn" on:click={sendChat} disabled={!username.trim() || !chatConnected}>Send</button>
               </div>
@@ -1961,6 +2006,22 @@
     background: #0e141c; border: 1px solid #1c2836; border-radius: 7px;
     overflow-wrap: anywhere;
   }
+  .chat-reply { margin-left: 14px; padding-left: 6px; border-left: 2px solid #2f4257; }
+  .chat-quote {
+    font-size: 0.68rem; color: #7f95ab;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .chat-reply-btn {
+    margin-left: 6px; padding: 0 4px; font: inherit; font-size: 0.68rem;
+    color: #6b8299; background: none; border: none;
+  }
+  .chat-replying {
+    display: flex; align-items: center; justify-content: space-between; gap: 6px;
+    padding: 3px 6px; font-size: 0.72rem; color: #cfe3ff;
+    background: #16202c; border-left: 2px solid #2f7fb5; border-radius: 5px;
+  }
+  .chat-replying span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .chat-replying button { font: inherit; color: #8ba7bf; background: none; border: none; }
   .freq-token {
     display: inline; padding: 1px 5px; font: inherit;
     color: #7ee0ff; background: #16202c;

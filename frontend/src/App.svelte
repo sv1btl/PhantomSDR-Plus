@@ -171,6 +171,14 @@
   import QrssPanel from "./lib/QrssPanel.svelte";
   import VideoAreaSelector from "./lib/VideoAreaSelector.svelte";
   import { connectCatSyncAny, buildDefaultSources } from "./lib/catsync.js";
+  import {
+    parseChatLine,
+    replyMarker,
+    replySnippet,
+    splitReply,
+    stripReplyMarker,
+    threadMessages,
+  } from "./lib/chatReply.js";
 
   // ── CAT sync over TCI (transceiver <-> PhantomSDR) ──────────────────────
   // Muting the audio while the rig transmits (PTT) is always on, there is no
@@ -5591,6 +5599,8 @@
     if (event.key === "Enter") {
       event.preventDefault(); // Prevent the default action
       sendMessage();
+    } else if (event.key === "Escape" && replyingTo) {
+      replyingTo = null;
     }
   }
 
@@ -6000,6 +6010,21 @@
 
   let messages = writable([]);
   let newMessage = "";
+  // The message being answered: { parsed, snippet }, or null. Sending puts
+  // its reply marker in front of the text (see lib/chatReply.js).
+  let replyingTo = null;
+  $: threadedMessages = threadMessages($messages);
+
+  function startReply(text) {
+    const parsed = parseChatLine(text);
+    if (!parsed) return;
+    replyingTo = { parsed, snippet: replySnippet(parsed.body, 50) };
+    // Both chat layouts carry data-role="chat-input"; focus the visible one.
+    const inp = [
+      ...document.querySelectorAll('input[data-role="chat-input"]'),
+    ].find((el) => el.offsetParent !== null);
+    if (inp) inp.focus();
+  }
   let showEmojiPicker = false;
   // Load the ~140 KB emoji-picker-element chunk on demand, only when the
   // user first opens the picker, so it stays out of the initial bundle.
@@ -6679,7 +6704,14 @@
           ...currentMessages,
           receivedMessageObject,
         ]);
-        scrollToBottom();
+        // A reply is shown under the message it answers, which may be well
+        // above the bottom of the list: bring that spot into view instead.
+        const parsedLine = parseChatLine(_data);
+        if (parsedLine && splitReply(parsedLine.body).replyTo) {
+          scrollToMessage(receivedMessageObject.id);
+        } else {
+          scrollToBottom();
+        }
       }
     };
 
@@ -6950,14 +6982,16 @@
 
   function sendMessage() {
     if (newMessage.trim() && username.trim()) {
+      const marker = replyingTo ? replyMarker(replyingTo.parsed) : "";
       const messageObject = {
         cmd: "chat",
-        message: newMessage.trim(),
+        message: marker + newMessage.trim(),
         username: username,
       };
       socket.send(JSON.stringify(messageObject));
       newMessage = "";
-      scrollToBottom();
+      if (!replyingTo) scrollToBottom();
+      replyingTo = null;
     }
   }
 
@@ -6996,6 +7030,20 @@
         behavior: "smooth",
       });
     }
+  }
+
+  // Scroll the chat list (never the page) until this message is visible.
+  async function scrollToMessage(id) {
+    await tick();
+    if (!chatMessages) return;
+    const el = chatMessages.querySelector(`[data-chat-id="${id}"]`);
+    if (!el) return;
+    const box = chatMessages.getBoundingClientRect();
+    const r = el.getBoundingClientRect();
+    let delta = 0;
+    if (r.bottom > box.bottom) delta = r.bottom - box.bottom + 8;
+    else if (r.top < box.top) delta = r.top - box.top - 8;
+    if (delta) chatMessages.scrollBy({ top: delta, behavior: "smooth" });
   }
 
   $: {
@@ -13456,15 +13504,26 @@ Slider: share of denoised audio, the rest is the original"
                     class="bg-gray-900 rounded-lg p-2 sm:p-3 mb-2 sm:mb-4 h-48 sm:h-64 overflow-y-auto custom-scrollbar"
                     bind:this={chatMessages}
                   >
-                    {#each $messages as { id, text } (id)}
-                      {@const formattedMessage = formatFrequencyMessage(text)}
+                    {#each threadedMessages as { msg: { id, text }, depth, quote } (id)}
+                      {@const formattedMessage = formatFrequencyMessage(
+                        stripReplyMarker(text),
+                      )}
                       <div
                         class="mb-2 sm:mb-3 text-left"
+                        class:chat-reply={depth > 0}
+                        data-chat-id={id}
                         in:fly={{ y: 20, duration: 300, easing: quintOut }}
                       >
                         <div
                           class="inline-block bg-gray-800 rounded-lg p-2 max-w-full"
                         >
+                          {#if quote}
+                            <p class="chat-quote">
+                              ↪ {quote.username}
+                              <span class="text-gray-500">{quote.time}</span>
+                              {#if quote.snippet}: <em>{quote.snippet}</em>{/if}
+                            </p>
+                          {/if}
                           <p class="text-white text-xs sm:text-sm break-words">
                             <span class="font-semibold text-blue-300"
                               >{formattedMessage.username}</span
@@ -13472,6 +13531,13 @@ Slider: share of denoised audio, the rest is the original"
                             <span class="text-xs text-gray-400 ml-2"
                               >{formattedMessage.timestamp}</span
                             >
+                            {#if formattedMessage.timestamp}
+                              <button
+                                class="chat-reply-btn"
+                                title="Reply to this message"
+                                on:click={() => startReply(text)}>↪ Reply</button
+                              >
+                            {/if}
                           </p>
                           <p
                             class="text-white text-xs sm:text-sm break-words mt-1"
@@ -13500,6 +13566,19 @@ Slider: share of denoised audio, the rest is the original"
                     {/each}
                   </div>
 
+                  {#if replyingTo}
+                    <div class="chat-replying">
+                      <span class="truncate"
+                        >↪ Replying to <b>{replyingTo.parsed.username}</b
+                        >{#if replyingTo.snippet}: <em>{replyingTo.snippet}</em
+                          >{/if}</span
+                      >
+                      <button
+                        title="Cancel reply (Esc)"
+                        on:click={() => (replyingTo = null)}>✕</button
+                      >
+                    </div>
+                  {/if}
                   <!-- Message Input and Buttons -->
                   <div
                     class="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2"
@@ -13507,9 +13586,12 @@ Slider: share of denoised audio, the rest is the original"
                     <input
                       id="textInput"
                       class="glass-input text-white py-2 px-3 rounded-lg outline-none text-xs sm:text-sm flex-grow"
+                      data-role="chat-input"
                       bind:value={newMessage}
                       on:keydown={handleEnterKey}
-                      placeholder="Type a message..."
+                      placeholder={replyingTo
+                        ? "Type your reply..."
+                        : "Type a message..."}
                     />
                     <div class="flex space-x-2">
                       <div class="emoji-btn-container">
@@ -17361,15 +17443,26 @@ Slider: share of denoised audio, the rest is the original"
                     class="bg-gray-900 rounded-lg p-2 sm:p-3 mb-2 sm:mb-4 h-48 sm:h-64 overflow-y-auto custom-scrollbar"
                     bind:this={chatMessages}
                   >
-                    {#each $messages as { id, text } (id)}
-                      {@const formattedMessage = formatFrequencyMessage(text)}
+                    {#each threadedMessages as { msg: { id, text }, depth, quote } (id)}
+                      {@const formattedMessage = formatFrequencyMessage(
+                        stripReplyMarker(text),
+                      )}
                       <div
                         class="mb-2 sm:mb-3 text-left"
+                        class:chat-reply={depth > 0}
+                        data-chat-id={id}
                         in:fly={{ y: 20, duration: 300, easing: quintOut }}
                       >
                         <div
                           class="inline-block bg-gray-800 rounded-lg p-2 max-w-full"
                         >
+                          {#if quote}
+                            <p class="chat-quote">
+                              ↪ {quote.username}
+                              <span class="text-gray-500">{quote.time}</span>
+                              {#if quote.snippet}: <em>{quote.snippet}</em>{/if}
+                            </p>
+                          {/if}
                           <p class="text-white text-xs sm:text-sm break-words">
                             <span class="font-semibold text-blue-300"
                               >{formattedMessage.username}</span
@@ -17377,6 +17470,13 @@ Slider: share of denoised audio, the rest is the original"
                             <span class="text-xs text-gray-400 ml-2"
                               >{formattedMessage.timestamp}</span
                             >
+                            {#if formattedMessage.timestamp}
+                              <button
+                                class="chat-reply-btn"
+                                title="Reply to this message"
+                                on:click={() => startReply(text)}>↪ Reply</button
+                              >
+                            {/if}
                           </p>
                           <p
                             class="text-white text-xs sm:text-sm break-words mt-1"
@@ -17405,15 +17505,31 @@ Slider: share of denoised audio, the rest is the original"
                     {/each}
                   </div>
 
+                  {#if replyingTo}
+                    <div class="chat-replying">
+                      <span class="truncate"
+                        >↪ Replying to <b>{replyingTo.parsed.username}</b
+                        >{#if replyingTo.snippet}: <em>{replyingTo.snippet}</em
+                          >{/if}</span
+                      >
+                      <button
+                        title="Cancel reply (Esc)"
+                        on:click={() => (replyingTo = null)}>✕</button
+                      >
+                    </div>
+                  {/if}
                   <!-- Message Input and Buttons -->
                   <div
                     class="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2"
                   >
                     <input
                       class="glass-input text-white py-2 px-3 rounded-lg outline-none text-xs sm:text-sm flex-grow"
+                      data-role="chat-input"
                       bind:value={newMessage}
                       on:keydown={handleEnterKey}
-                      placeholder="Type a message..."
+                      placeholder={replyingTo
+                        ? "Type your reply..."
+                        : "Type a message..."}
                     />
                     <div class="flex space-x-2">
                       <div class="emoji-btn-container">
@@ -18189,6 +18305,46 @@ Slider: share of denoised audio, the rest is the original"
     overflow: hidden;
   }
 
+  .chat-reply {
+    margin-left: 1.25rem;
+    padding-left: 0.5rem;
+    border-left: 2px solid #4b5563;
+  }
+  .chat-quote {
+    font-size: 0.7rem;
+    color: #9ca3af;
+    margin-bottom: 2px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .chat-reply-btn {
+    margin-left: 0.5rem;
+    font-size: 0.7rem;
+    color: #6b7280;
+  }
+  .chat-reply-btn:hover {
+    color: #93c5fd;
+  }
+  .chat-replying {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    margin-bottom: 0.4rem;
+    padding: 0.25rem 0.5rem;
+    font-size: 0.75rem;
+    color: #d1d5db;
+    background: #1f2937;
+    border-left: 2px solid #60a5fa;
+    border-radius: 0.25rem;
+  }
+  .chat-replying button {
+    color: #9ca3af;
+  }
+  .chat-replying button:hover {
+    color: #fff;
+  }
   .chat-input {
     -webkit-appearance: none;
     -moz-appearance: none;

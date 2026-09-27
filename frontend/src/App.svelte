@@ -19657,6 +19657,13 @@ Slider: share of denoised audio, the rest is the original"
     emoji-picker {
       width: min(300px, calc(100vw - 32px));
     }
+    /* The emoji button is the leftmost in its row, so anchoring the picker
+       to its right edge pushes it off the left side of a phone screen.
+       Open it rightwards from the button instead. */
+    .emoji-picker-wrapper {
+      left: 0;
+      right: auto;
+    }
   }
 
   /* users.html / stats.html are embedded as-is and have desktop-width tables

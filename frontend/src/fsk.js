@@ -33,6 +33,18 @@ import { OliviaDecoder, OLIVIA_MODES, SYNC_THRESHOLD_DEFAULT } from './olivia.js
 // The tones/bandwidth pairs the UI offers, as [tones, bandwidth] for lookup.
 const OLIVIA_PAIRS = OLIVIA_MODES.map((m) => [m.tones, m.bandwidth]);
 
+// NAVTEX: a message whose ZCZC was missed opens after this many characters in
+// a row whose two FEC copies (DX and RX) agree.
+const NAVTEX_HEADERLESS_RUN = 4;
+
+// RTTY squelch, in dB SNR referred to 3 kHz (the figure the panel shows).
+// FSK_SQUELCH_OFF and below disable it.
+export const FSK_SQUELCH_DEFAULT = -8;
+export const FSK_SQUELCH_HAM_DEFAULT = -5;
+export const FSK_SQUELCH_OFF = -20;
+// Hysteresis: once open, the squelch closes only this far below the setting.
+const FSK_SQUELCH_HYST_DB = 2;
+
 /** True when `b` differs from `a` in `key` alone (and in nothing else). */
 function _onlyDiffersBy(a, b, key) {
   const keys = new Set([...Object.keys(a), ...Object.keys(b)]);
@@ -260,7 +272,9 @@ export class KiwiFSKDecoder {
         text: `Auto-tune: center ${centerHz} Hz (was ${oldCenter} Hz)` });
       this._fskCb({
         type: 'metrics', variant: 'psk31',
-        snrDb: 0, lockQuality: 0, centerHz, imdDb: 0, timingLocked: false,
+        // Nothing measured yet after the retune: the floor of the 3 kHz scale,
+        // not 0 dB, which on that scale is a solid signal.
+        snrDb: -25, lockQuality: 0, centerHz, imdDb: 0, timingLocked: false,
       });
     }
   }
@@ -381,6 +395,15 @@ export class KiwiFSKDecoder {
       return;
     }
 
+    // Same for the RTTY squelch: it gates printing, not the demodulator.
+    if (this._variant !== 'olivia' && this._variant !== 'psk31' && this._customConfig &&
+        _onlyDiffersBy(this._customConfig, cfg, 'squelch')) {
+      this._customConfig = { ...cfg };
+      if (this._nvPreset) this._nvPreset.squelch = Number(cfg.squelch);
+      this._fskSquelchDb = Number.isFinite(Number(cfg.squelch)) ? Number(cfg.squelch) : FSK_SQUELCH_DEFAULT;
+      return;
+    }
+
     this._customConfig = { ...cfg };
     this._fskReset();
     console.log('[FSK] custom config =', this._customConfig);
@@ -482,7 +505,7 @@ export class KiwiFSKDecoder {
         return {
           name: 'weather', center: 1000.0, shift: 450.0, baud: 50.0,
           lowpass: 65.0, audioMinimum: 96.0, protocol: 'ita2', encoding: 'ita2', framing: '5N1.5',
-          dataBits: 5, parity: 'N', stopBits: 1.5,
+          dataBits: 5, parity: 'N', stopBits: 1.5, squelch: FSK_SQUELCH_DEFAULT,
           // The DWD circuits arrive with mark (idle/1) on the LOWER audio tone
           // in USB. The discriminator reads positive for the HIGHER frequency,
           // so without inversion markState=1 would map to space and every bit
@@ -496,7 +519,7 @@ export class KiwiFSKDecoder {
         return {
           name: 'ham', center: 1000.0, shift: 170.0, baud: 45.45,
           lowpass: 55.0, audioMinimum: 72.0, protocol: 'ita2', encoding: 'ita2', framing: '5N1.5',
-          dataBits: 5, parity: 'N', stopBits: 1.5,
+          dataBits: 5, parity: 'N', stopBits: 1.5, squelch: FSK_SQUELCH_HAM_DEFAULT,
           // Amateur RTTY is mark = the HIGHER RF frequency, and USB preserves
           // the spectrum, so mark arrives as the HIGHER audio tone and no
           // inversion is wanted. (The familiar 2125 mark / 2295 space pair has
@@ -559,6 +582,8 @@ export class KiwiFSKDecoder {
     // made those preset values dead. The UI always sends an explicit boolean,
     // so this only affects callers that set a variant with no config.
     out.inverted = (cfg.inverted != null ? cfg.inverted : out.inverted) ? 1 : 0;
+    // Squelch in dB SNR (3 kHz reference); at or below FSK_SQUELCH_OFF it is off.
+    out.squelch = num(cfg.squelch, out.squelch);
 
     const enc = String(cfg.encoding || cfg.encode || out.encoding || out.protocol || 'ita2').toLowerCase();
     out.encoding = enc;
@@ -645,6 +670,8 @@ export class KiwiFSKDecoder {
     this._fskAsyncBitIndex = 0;
     this._fskAsyncCenter = 0;
     this._fskPrevBit = 1;
+    this._fskHuntPrev = 1;
+    this._fskLastFallAt = -1;
     this._fskAutoShift = this._fskAutoShift !== false;
     this._fskLastAutoShiftAt = 0;
     this._fskLastMetricsAt = 0;
@@ -655,6 +682,116 @@ export class KiwiFSKDecoder {
     this._fskSignalEMA = 0;
     this._fskNoiseEMA = 0;
     this._fskRecentPCM = [];
+    this._fskSnrReset();
+    this._fskSquelchDb = Number.isFinite(Number(preset.squelch)) ? Number(preset.squelch) : FSK_SQUELCH_DEFAULT;
+    this._fskSquelchOpen = false;
+  }
+
+  // ── Tone-correlator SNR (async FSK) ─────────────────────────────────────
+  //
+  // Each bit window correlates the complex baseband against both tones. The
+  // tone that is ON holds signal + noise, the OFF tone holds noise alone, so
+  // (on − off) / off is Eb/N0 for that bit, and
+  //     SNR(3 kHz) = Eb/N0 · baud / 3000
+  // is the familiar RTTY/FT8-style figure. The tones follow the adaptive
+  // threshold, which sits at the frequency offset of a mistuned signal.
+  _fskSnrReset() {
+    this._snrPh = 0;
+    this._snrOffPh = 0;
+    this._snrHiRe = this._snrHiIm = this._snrLoRe = this._snrLoIm = 0;
+    this._snrN = 0; this._snrW = 0; this._snrW2 = 0;
+    this._snrOnFast = this._snrOffFast = 0;   // squelch gate, ~5 bits
+    this._snrOnSlow = this._snrOffSlow = 0;   // display, ~20 bits
+    this._snrPrimed = false;
+    this._fskSnrFastDb = -99;
+    this._fskSnrDb = -99;
+    // Group delay of the post-discriminator low-pass (2nd-order Butterworth at
+    // 0.75 × baud): √2 / (2π · 0.75 · baud) = 0.30 bit at any baud rate.
+    const delayBits = Math.SQRT2 / (2.0 * Math.PI * 0.75);
+    const D = Math.max(0, Math.round((this._nvSampleRate || 12000) * delayBits / (this._nvBaudRate || 45.45)));
+    this._snrDelayBuf = new Float64Array(2 * D);
+    this._snrDelayIdx = 0;
+  }
+
+  _fskSnrSample(iLP, qLP) {
+    const SR = this._nvSampleRate || 12000;
+    const offHz = (this._fskThresh || 0) * this._nvDeviation;
+    this._snrPh += 2.0 * Math.PI * this._nvDeviation / SR;
+    if (this._snrPh > Math.PI) this._snrPh -= 2.0 * Math.PI;
+    this._snrOffPh += 2.0 * Math.PI * offHz / SR;
+    if (this._snrOffPh > Math.PI) this._snrOffPh -= 2.0 * Math.PI;
+    else if (this._snrOffPh < -Math.PI) this._snrOffPh += 2.0 * Math.PI;
+    // High tone: rotate by −(dev + off); low tone: rotate by −(−dev + off).
+    const aH = this._snrPh + this._snrOffPh, aL = this._snrOffPh - this._snrPh;
+    // Delay the baseband to line up with the bit clock, which runs behind it
+    // by the post-discriminator low-pass group delay.
+    const buf = this._snrDelayBuf, D = buf.length / 2;
+    if (D > 0) {
+      const k = this._snrDelayIdx;
+      const iNow = iLP, qNow = qLP;
+      iLP = buf[2 * k]; qLP = buf[2 * k + 1];
+      buf[2 * k] = iNow; buf[2 * k + 1] = qNow;
+      this._snrDelayIdx = (k + 1) % D;
+    }
+    // Hann-weighted: the tones are not orthogonal over one bit (170 Hz ×
+    // 22 ms = 3.74 cycles), and a square window leaks the ON tone into the
+    // OFF correlator at −24 dB, which capped the reading near +3 dB.
+    const w = 0.5 - 0.5 * Math.cos(2.0 * Math.PI * (this._snrN + 0.5) / this._nvBitPeriodTrue);
+    const wi = w * iLP, wq = w * qLP;
+    const cH = Math.cos(aH), sH = Math.sin(aH), cL = Math.cos(aL), sL = Math.sin(aL);
+    this._snrHiRe += wi * cH + wq * sH;  this._snrHiIm += wq * cH - wi * sH;
+    this._snrLoRe += wi * cL + wq * sL;  this._snrLoIm += wq * cL - wi * sL;
+    this._snrW += w; this._snrW2 += w * w;
+    this._snrN++;
+  }
+
+  /** Close one bit window. Short windows (cut by a start-bit re-anchor) are dropped. */
+  _fskSnrBit() {
+    const n = this._snrN;
+    if (n >= 0.9 * this._nvBitPeriodTrue) {
+      const w2 = this._snrW2 || 1;
+      const eH = (this._snrHiRe * this._snrHiRe + this._snrHiIm * this._snrHiIm) / w2;
+      const eL = (this._snrLoRe * this._snrLoRe + this._snrLoIm * this._snrLoIm) / w2;
+      // Window gain: for a square window this is 1/N and SNR = Eb/N0·baud/3000;
+      // Hann's Σw²/(Σw)² is 1.5/N, and the same expression covers both.
+      this._snrGain = (this._snrW2 / Math.max(1e-9, this._snrW * this._snrW)) *
+        (this._nvSampleRate || 12000) / 3000;
+      const on = Math.max(eH, eL), off = Math.min(eH, eL);
+      if (!this._snrPrimed) {
+        this._snrOnFast = this._snrOnSlow = on;
+        this._snrOffFast = this._snrOffSlow = off;
+        this._snrPrimed = true;
+      } else {
+        this._snrOnFast  += (on  - this._snrOnFast)  * 0.2;
+        this._snrOffFast += (off - this._snrOffFast) * 0.2;
+        this._snrOnSlow  += (on  - this._snrOnSlow)  * 0.05;
+        this._snrOffSlow += (off - this._snrOffSlow) * 0.05;
+      }
+      const k = this._snrGain;
+      const db = (on_, off_) => {
+        const r = (on_ - off_) / (off_ + 1e-12);
+        return r > 0 ? Math.max(-30, 10 * Math.log10(r * k)) : -30;
+      };
+      this._fskSnrFastDb = db(this._snrOnFast, this._snrOffFast);
+      this._fskSnrDb     = db(this._snrOnSlow, this._snrOffSlow);
+      this._fskSquelchUpdate();
+    }
+    this._snrHiRe = this._snrHiIm = this._snrLoRe = this._snrLoIm = 0;
+    this._snrN = 0; this._snrW = 0; this._snrW2 = 0;
+  }
+
+  _fskSquelchUpdate() {
+    const sq = this._fskSquelchDb;
+    if (!(sq > FSK_SQUELCH_OFF)) { this._fskSquelchOpen = true; return; }
+    const snr = this._fskSnrFastDb;
+    if (!this._fskSquelchOpen && snr >= sq) {
+      this._fskSquelchOpen = true;
+      // Whatever shift noise left behind is meaningless; senders start in LTRS.
+      this._fskShift = false;
+      this._fskFigsRunLen = 0;
+    } else if (this._fskSquelchOpen && snr < sq - FSK_SQUELCH_HYST_DB) {
+      this._fskSquelchOpen = false;
+    }
   }
 
   _nvApplyPreset(preset) {
@@ -702,12 +839,12 @@ export class KiwiFSKDecoder {
     this._nvBaudError = 0;
     this._nvInverted = preset.inverted ? 1 : 0;
 
-    // Async mode flag: ITA2 (ham/weather RTTY) re-anchors the bit clock on
+    // Async mode flag: ITA2 / ASCII (ham/weather RTTY) re-anchors the bit clock on
     // every start-bit edge, which gives better synchronisation than the
     // zero-crossing sync designed for continuous synchronous CCIR-476 data.
     // When async, _nvSyncDelta is never applied so stale or noise-derived
     // corrections can't corrupt the clean start-bit re-anchor.
-    this._nvAsyncMode = (preset.protocol === 'ita2');
+    this._nvAsyncMode = (preset.protocol !== 'ccir476');
 
     this._nvZeroCrossingSamples = 16;
     this._nvZeroCrossingsDivisor = 4;
@@ -755,7 +892,10 @@ export class KiwiFSKDecoder {
     this._fmILPF    = this._nvBiquadCreate();
     this._fmQLPF    = this._nvBiquadCreate();
     this._fmDiscLPF = this._nvBiquadCreate();
-    if (preset.protocol === 'ita2') {
+    // Every async framing (ITA2 or ASCII) runs through the discriminator, so
+    // configure it for all of them — gating on 'ita2' left ASCII on all-zero
+    // filters, which decoded nothing.
+    if (this._nvAsyncMode) {
       // I/Q arm lowpass: passes ±shift/2 from baseband while removing the
       // 2×centre image produced by the complex mixer.
       // shift×0.7 comfortably covers both tones without wasting noise bandwidth.
@@ -770,6 +910,11 @@ export class KiwiFSKDecoder {
       this._fskMarkEMA  =  0.1;
       this._fskSpaceEMA = -0.1;
       this._fskThresh   =  0.0;
+      // Discriminator gain: 1 / sin(2π·deviation/SR) puts the tones at ±1.
+      this._fmDiscGain  = 1.0 / Math.sin(2.0 * Math.PI * this._nvDeviation / SR);
+      // Threshold EMA: the 0.005-per-sample rate tuned at 12 kHz (≈17 ms),
+      // held constant in time so other audio rates behave the same.
+      this._fskThreshAlpha = 1.0 - Math.exp(-1.0 / (0.0167 * SR));
     }
   }
 
@@ -780,6 +925,13 @@ export class KiwiFSKDecoder {
     this._nvStation = '';
     this._nvSubject = '';
     this._nvSerial = '';
+    this._nvHeader = '';
+    this._nvHeaderDone = false;
+    this._nvNRun = '';
+    this._nvHeaderless = false;   // inside a message that began without ZCZC
+    this._nvPreBuf = '';          // agreeing chars that may open one
+    this._nvZHold = '';           // a possible "ZCZC" held back from the text
+    this._nvAgreeRun = 0;
   }
 
   _nvSetState(s) {
@@ -814,6 +966,9 @@ export class KiwiFSKDecoder {
     this._nvC2 = 0;
     this._nvC3 = 0;
     this._nvSyncChars = [];
+    this._nvSlotHist = [];
+    this._nvAgreeRx = 0;          // agreement rate in the slots read as RX
+    this._nvAgreeDx = 0;          // … and in the others (high = phase swapped)
   }
 
   // ── PCM ingestion / Kiwi JNX-style demodulation ──────────────────────────
@@ -853,12 +1008,16 @@ export class KiwiFSKDecoder {
         const disc = this._fmPrevI * qLP - this._fmPrevQ * iLP;
         this._fmPrevI = iLP;
         this._fmPrevQ = qLP;
+        if (!legacyNavtexMode) this._fskSnrSample(iLP, qLP);
 
         // Step 4: normalise by signal power for amplitude-independent output.
         const power = iLP * iLP + qLP * qLP + 1e-10;
 
         // Step 5: post-discriminator LPF — bit-rate matched noise rejection.
-        logicLevel = this._nvBiquadFilter(this._fmDiscLPF, disc / power);
+        // Scaled so mark reads ≈ +1 and space ≈ −1 at ANY sample rate: the raw
+        // sin(Δφ) shrinks as 1/SR, and at 24 kHz and up it fell below the
+        // fixed ±0.1 threshold seeds, pinning every bit to space.
+        logicLevel = this._nvBiquadFilter(this._fmDiscLPF, disc / power) * this._fmDiscGain;
 
         // Step 6: adaptive midpoint threshold.
         //   Track separate EMAs for samples landing on the mark side vs the
@@ -866,10 +1025,15 @@ export class KiwiFSKDecoder {
         //   the new threshold.  This continuously cancels the DC bias that
         //   accumulates whenever the centre frequency is even slightly off,
         //   without needing periodic auto-tune scans.
+        //   The EMA input is clamped to ±2 (tones sit at ±1). An FM click when
+        //   the signal dips is a huge spike; unclamped it dragged one EMA past
+        //   the other tone, and since that side then never crossed the
+        //   threshold again its EMA could not recover — decoding stopped dead.
+        const lvEma = logicLevel > 2 ? 2 : (logicLevel < -2 ? -2 : logicLevel);
         if (logicLevel > this._fskThresh) {
-          this._fskMarkEMA  += (logicLevel - this._fskMarkEMA)  * 0.005;
+          this._fskMarkEMA  += (lvEma - this._fskMarkEMA)  * this._fskThreshAlpha;
         } else {
-          this._fskSpaceEMA += (logicLevel - this._fskSpaceEMA) * 0.005;
+          this._fskSpaceEMA += (lvEma - this._fskSpaceEMA) * this._fskThreshAlpha;
         }
         this._fskThresh = (this._fskMarkEMA + this._fskSpaceEMA) * 0.5;
         markState = (logicLevel > this._fskThresh);
@@ -879,12 +1043,6 @@ export class KiwiFSKDecoder {
         this._nvAudioAverage += (envelope - this._nvAudioAverage) * this._nvAudioAverageTc;
         this._nvAudioAverage = Math.max(0.1, this._nvAudioAverage);
 
-        if (!legacyNavtexMode) {
-          this._fskSignalEMA += (envelope - this._fskSignalEMA) * 0.01;
-          // Noise proxy: envelope × constant fraction (gives ~26 dB display SNR
-          // on clean signals; drops toward 0 dB when the signal fades).
-          this._fskNoiseEMA += (envelope * 0.05 + 1e-9 - this._fskNoiseEMA) * 0.01;
-        }
       } else {
         // ── Dual-BPF envelope detector (CCIR-476 / NAVTEX / maritime) ───────
         const markLevel  = this._nvBiquadFilter(this._nvMarkFilter, dv);
@@ -909,6 +1067,21 @@ export class KiwiFSKDecoder {
 
       this._nvSignalAccumulator += markState ? 1 : -1;
       this._nvBitDuration++;
+
+      // Async (ITA2/ASCII) start-bit hunt at SAMPLE resolution. Waiting for the
+      // bit-period majority vote to read 0 found the start bit anywhere from
+      // ½ to 1½ bits after its edge, so every data window of the character sat
+      // up to ½ bit off — on a clean signal that misframed whole lines, and a
+      // misframe on back-to-back RTTY tends to lock itself in.
+      if (this._nvAsyncMode) {
+        const m = (markState ? 1 : 0) ^ this._nvInverted;
+        if (this._fskHuntPrev === 1 && m === 0) this._fskLastFallAt = this._nvSampleCount;
+        this._fskHuntPrev = m;
+        if (this._fskAsyncState === 'hunt' && this._fskLastFallAt >= 0 &&
+            this._nvSampleCount - this._fskLastFallAt < this._nvHalfBitSampleCount) {
+          this._fskAsyncStartAt(this._fskLastFallAt);
+        }
+      }
 
       if (markState !== this._nvOldMarkState) {
         if ((this._nvBitDuration % this._nvBitSampleCount) > this._nvHalfBitSampleCount) {
@@ -971,6 +1144,7 @@ export class KiwiFSKDecoder {
       if (this._nvAudioAverage < this._nvAudioMinimum) {
         if (this._nvState !== KiwiFSKDecoder._NV_STATE_NOSIGNAL) {
           this._nvSetState(KiwiFSKDecoder._NV_STATE_NOSIGNAL);
+          if (legacyNavtexMode) this._nvCloseHeaderless('lost');
           if (!legacyNavtexMode && this._fskCb) {
             this._fskCb({ type: 'status', variant: preset.name, text: 'No signal' });
           }
@@ -980,6 +1154,7 @@ export class KiwiFSKDecoder {
       }
 
       if (this._nvPulseEdgeEvent) {
+        if (this._nvAsyncMode && !legacyNavtexMode) this._fskSnrBit();
         if (preset.protocol === 'ccir476') {
           this._nvHandleBit(this._nvAveragedMarkState ? 1 : 0);
         } else {
@@ -993,7 +1168,11 @@ export class KiwiFSKDecoder {
         const nowMs = (this._nvSampleCount / (this._nvSampleRate || 12000)) * 1000;
         if ((nowMs - (this._fskLastMetricsAt || 0)) >= 250) {
           this._fskLastMetricsAt = nowMs;
-          const snrDb = 20 * Math.log10(((this._fskSignalEMA || 1e-6) + 1e-6) / ((this._fskNoiseEMA || 1e-6) + 1e-6));
+          // Async FSK reports the tone-correlator SNR (3 kHz reference); the
+          // CCIR-476 path keeps its mark/space filter ratio.
+          const snrDb = this._nvAsyncMode
+            ? this._fskSnrDb
+            : 20 * Math.log10(((this._fskSignalEMA || 1e-6) + 1e-6) / ((this._fskNoiseEMA || 1e-6) + 1e-6));
           const succ = this._nvSucceedTally || this._fskCharsDecoded || 0;
           const fail = this._nvFailTally || this._fskInvalidFrames || 0;
           const lockQuality = Math.max(0, Math.min(100, Math.round(100 * succ / Math.max(1, succ + fail))));
@@ -1014,7 +1193,8 @@ export class KiwiFSKDecoder {
               : this._nvCenterFreq - this._nvShiftHz / 2,
             baud: this._nvBaudRate,
             timingLocked: !!this._fskTimingLock,
-            inverted: !!this._nvInverted
+            inverted: !!this._nvInverted,
+            squelchOpen: this._nvAsyncMode ? !!this._fskSquelchOpen : true,
           });
         }
         if (this._fskAutoShift && preset.protocol !== 'ccir476' && (nowMs - (this._fskLastAutoShiftAt || 0)) >= 1500 && this._fskCharsDecoded < 2) {
@@ -1109,6 +1289,7 @@ export class KiwiFSKDecoder {
             this._nvErrorCount++;
             if (this._nvErrorCount > 2) {
               this._nvSyncSetup = 1;
+              this._nvCloseHeaderless('lost');
               if (this._navtexCb) this._navtexCb({ type: 'status', text: 'Sync lost — scanning…' });
               if (this._isFsk() && this._variant === 'maritime' && this._fskCb) {
                 this._fskCb({ type: 'status', variant: 'maritime', text: 'Sync lost — scanning…' });
@@ -1137,6 +1318,30 @@ export class KiwiFSKDecoder {
       this._nvAlphaPhase = true;
     }
 
+    // FEC agreement, independent of which slot the decoder thinks is which:
+    // every RX copy equals the code sent five slots earlier. The phasing
+    // signals above are the only other way to learn the slot phase, and
+    // someone who tunes in mid-message never hears them — half the time the
+    // decoder then read the DX copies as if they were RX, printed them
+    // unprotected, and never saw a copy agree. Agreements that keep landing
+    // in the non-RX slots mean the phase is the wrong way round: swap it.
+    const hist = this._nvSlotHist || (this._nvSlotHist = []);
+    const agreeHere = success && hist.length >= 5 && hist[hist.length - 5] === code;
+    hist.push(code);
+    if (hist.length > 5) hist.shift();
+    // Decide on agreement RATES, not a streak: ordinary text repeats a letter
+    // five slots apart now and then, which fakes a wrong-slot agreement, and
+    // at −6 dB a streak of three of those flipped a correct phase. Each slot
+    // type keeps an average over ~8 of its slots; swap only when the wrong
+    // ones clearly agree and the right ones clearly do not.
+    const a = agreeHere ? 1 : 0;
+    if (this._nvAlphaPhase) this._nvAgreeRx += (a - (this._nvAgreeRx || 0)) / 8;
+    else                    this._nvAgreeDx += (a - (this._nvAgreeDx || 0)) / 8;
+    if (!this._nvAlphaPhase && this._nvAgreeDx > 0.5 && this._nvAgreeRx < 0.2) {
+      this._nvAlphaPhase = true;
+      [this._nvAgreeRx, this._nvAgreeDx] = [this._nvAgreeDx, this._nvAgreeRx];
+    }
+
     if (!this._nvAlphaPhase) {
       this._nvC1 = this._nvC2;
       this._nvC2 = this._nvC3;
@@ -1148,6 +1353,12 @@ export class KiwiFSKDecoder {
         if (success) chr = code;
         else if (this._nvCheckBits(this._nvC1)) chr = this._nvC1;
       }
+
+      // A run of RX copies agreeing with their DX copies (agreeHere, above).
+      // Noise almost never produces one and a real signal almost always does;
+      // idle phasing never counts, since five slots back from a phasing signal
+      // is the other one. This run is what opens a headerless message.
+      this._nvAgreeRun = agreeHere ? (this._nvAgreeRun || 0) + 1 : 0;
 
       if (chr === -1) {
         tally = -1;
@@ -1196,34 +1407,19 @@ export class KiwiFSKDecoder {
     switch (this._fskAsyncState) {
       case 'hunt':
       default:
-        if (this._fskPrevBit === 1 && bit === 0) {
-          // Re-anchor the bit-sampling clock to this start-bit edge.
-          // The majority-vote period just committed here, so this sample is
-          // approximately the centre of the start bit.  Snapping the next
-          // event to exactly one bit period away places it at the centre of
-          // the first data bit — the correct async RTTY sample point.
-          // Without this, the free-running clock stays at its old phase and
-          // the stop bit gets sampled at the wrong time → framing error.
-          this._nvNextEventCount = this._nvSampleCount + Math.round(this._nvBitPeriodTrue);
-          this._nvBitPeriodFrac  = 0.0;
-          this._nvSignalAccumulator = 0;
-          // Clear zero-crossing state so stale idle-period buckets don't
-          // produce a bad _nvSyncDelta at the next collection cycle.
-          this._nvZeroCrossings.fill(0);
-          this._nvZeroCrossingCount = 0;
-          this._nvSyncDelta = 0;
-          this._fskAsyncState = 'data';
-          this._fskAsyncBits = 0;
-          this._fskAsyncBitIndex = 0;
-          this._fskAsyncParityBit = 0;
-          this._fskAsyncStopSeen = 0;
-          if (!this._fskTimingLock) {
-            this._fskTimingLock = true;
-          }
-          if (!this._fskTimingAnnounced && this._fskCb) {
-            this._fskCb({ type: 'status', variant: preset.name, text: 'Timing lock acquired' });
-            this._fskTimingAnnounced = true;
-          }
+        // The start edge is found per sample in _nvFeedPCMCommon, which moves
+        // the state to 'start'; a bit-period decision here carries no edge.
+        break;
+
+      case 'start':
+        // The window just closed covers the start bit exactly. A majority of
+        // mark means the edge was a noise glitch — go back to hunting.
+        if (bit !== 0) { this._fskAsyncState = 'hunt'; break; }
+        this._fskAsyncState = 'data';
+        if (!this._fskTimingLock) this._fskTimingLock = true;
+        if (!this._fskTimingAnnounced && this._fskCb) {
+          this._fskCb({ type: 'status', variant: preset.name, text: 'Timing lock acquired' });
+          this._fskTimingAnnounced = true;
         }
         break;
 
@@ -1252,7 +1448,7 @@ export class KiwiFSKDecoder {
             if (parityOk) {
               this._fskEmitAsyncChar(code, preset);
               this._fskInvalidFrames = Math.max(0, (this._fskInvalidFrames || 0) - 1);
-            } else if (this._fskCb) {
+            } else if (this._fskCb && this._fskSquelchOpen) {
               this._fskInvalidFrames = (this._fskInvalidFrames || 0) + 1;
               this._fskCb({ type: 'parity-error', variant: preset.name });
             }
@@ -1262,51 +1458,51 @@ export class KiwiFSKDecoder {
             this._fskAsyncStopSeen = 0;
           }
         } else {
-          // bit === 0 in stop position
-          if (this._fskAsyncStopSeen >= 1) {
-            // At least one stop bit seen — this 0 is the start bit of the next
-            // character. Accept the current character and re-anchor immediately.
-            const code = this._fskAsyncBits;
-            let parityOk = true;
-            if (needParity) {
-              const ones = this._fskPopcount(code & ((1 << dataBits) - 1));
-              const expected = parityMode === 'E' ? (ones & 1) : ((ones + 1) & 1);
-              parityOk = expected === this._fskAsyncParityBit;
-            }
-            if (parityOk) {
-              this._fskEmitAsyncChar(code, preset);
-              this._fskInvalidFrames = Math.max(0, (this._fskInvalidFrames || 0) - 1);
-            } else if (this._fskCb) {
-              this._fskInvalidFrames = (this._fskInvalidFrames || 0) + 1;
-              this._fskCb({ type: 'parity-error', variant: preset.name });
-            }
-          } else {
-            // No stop bit seen at all — genuine framing error.
+          // Space in the stop position: framing error. Do not take this 0 as
+          // the next start bit — that re-anchors on an arbitrary mid-character
+          // edge and keeps the misframe going. Hunt for the next mark→space
+          // edge instead; only an edge after this moment counts.
+          if (this._fskSquelchOpen) {
             this._fskInvalidFrames = (this._fskInvalidFrames || 0) + 1;
             if (this._fskCb) this._fskCb({ type: 'framing-error', variant: preset.name });
-            if ((this._fskInvalidFrames || 0) > 24 && (this._fskCharsDecoded || 0) < 2) {
-              this._fskTimingLock = false;
-              this._fskTimingAnnounced = false;
-            }
           }
-          // In both sub-cases the current 0 is the next start bit.
-          // Re-anchor the clock to this edge exactly as hunt→data does.
-          this._nvNextEventCount = this._nvSampleCount + Math.round(this._nvBitPeriodTrue);
-          this._nvBitPeriodFrac  = 0.0;
-          this._nvSignalAccumulator = 0;
-          this._nvZeroCrossings.fill(0);
-          this._nvZeroCrossingCount = 0;
-          this._nvSyncDelta = 0;
-          this._fskAsyncState = 'data';
+          if ((this._fskInvalidFrames || 0) > 24 && (this._fskCharsDecoded || 0) < 2) {
+            this._fskTimingLock = false;
+            this._fskTimingAnnounced = false;
+          }
+          this._fskLastFallAt = -1;
+          this._fskAsyncState = 'hunt';
           this._fskAsyncBits = 0;
           this._fskAsyncBitIndex = 0;
-          this._fskAsyncParityBit = 0;
           this._fskAsyncStopSeen = 0;
         }
         break;
     }
 
     this._fskPrevBit = bit;
+  }
+
+  /** Start a character whose start-bit edge fell at sample index `edgeAt`. */
+  _fskAsyncStartAt(edgeAt) {
+    // The next bit window runs from the edge to one bit later, so the start
+    // bit itself is integrated and checked before any data bit is taken.
+    this._nvNextEventCount = edgeAt + Math.round(this._nvBitPeriodTrue);
+    this._nvBitPeriodFrac  = this._nvBitPeriodTrue - Math.round(this._nvBitPeriodTrue);
+    // Samples since the edge are all start bit; count them as space. The
+    // accumulator holds the raw discriminator sign, before inversion.
+    const n = this._nvSampleCount - edgeAt + 1;
+    this._nvSignalAccumulator = this._nvInverted ? n : -n;
+    this._nvSyncDelta = 0;
+    // The SNR window restarts with the bit clock; the part before the edge
+    // belonged to a window that no longer closes.
+    this._snrHiRe = this._snrHiIm = this._snrLoRe = this._snrLoIm = 0;
+    this._snrN = 0; this._snrW = 0; this._snrW2 = 0;
+    this._fskLastFallAt = -1;
+    this._fskAsyncState = 'start';
+    this._fskAsyncBits = 0;
+    this._fskAsyncBitIndex = 0;
+    this._fskAsyncParityBit = 0;
+    this._fskAsyncStopSeen = 0;
   }
 
   _fskPopcount(v) {
@@ -1317,6 +1513,9 @@ export class KiwiFSKDecoder {
   }
 
   _fskEmitAsyncChar(code, preset) {
+    // Squelched: noise frames are neither printed nor allowed to flip the
+    // LTRS/FIGS state or feed the auto-tune counters.
+    if (!this._fskSquelchOpen) return;
     const enc = this._fskEncoding || 'ita2';
     if (enc === 'ita2') return this._fskEmitITA2Char(code, preset);
     if (enc === 'ascii') return this._fskEmitASCIIChar(code, preset);
@@ -1409,17 +1608,31 @@ export class KiwiFSKDecoder {
       }
       return re * re + im * im;
     };
-    let bestShift = this._nvShiftHz || preset.shift;
-    let bestScore = -Infinity;
+    // Noise reference: median energy of probes spread across the band the
+    // candidates span. On noise the old arg-max picked a random shift every
+    // 1.5 s (17 jumps in 30 s once the squelch stopped noise from printing).
+    const span = Math.max(...candidates) / 2 + 60;
+    const probes = [];
+    for (let k = 0; k < 24; k++) probes.push(energyAt(center - span + (2 * span * (k + 0.5)) / 24));
+    probes.sort((a, b) => a - b);
+    const noiseRef = (probes[11] + probes[12]) / 2 + 1e-20;
+    const curShift = this._nvShiftHz || preset.shift;
+    const pairAt = (shift) => {
+      const lo = energyAt(center - shift / 2), hi = energyAt(center + shift / 2);
+      return { score: lo + hi, weak: Math.min(lo, hi) };
+    };
+    let bestShift = curShift;
+    let best = pairAt(curShift);
+    const curScore = best.score;
     for (const shift of candidates) {
-      const half = shift / 2;
-      const score = energyAt(center - half) + energyAt(center + half);
-      if (score > bestScore) {
-        bestScore = score;
-        bestShift = shift;
-      }
+      const p = pairAt(shift);
+      if (p.score > best.score) { best = p; bestShift = shift; }
     }
-    if (Math.abs(bestShift - (this._nvShiftHz || preset.shift)) >= 20) {
+    // Retune only on a real two-tone signal: both tones 8× (9 dB) over the
+    // median noise probe — noise alone clears that about once an hour — and
+    // twice the energy of the shift in use.
+    const isSignal = best.weak > 8 * noiseRef && best.score > 2 * curScore;
+    if (isSignal && Math.abs(bestShift - curShift) >= 20) {
       this._customConfig = { ...(this._customConfig || {}), shift: bestShift };
       this._fskReset();
       if (this._fskCb) {
@@ -1566,30 +1779,118 @@ export class KiwiFSKDecoder {
     if (!cb) return;
     if (ch === '\r') return;
 
-    this._nvRawWin = (this._nvRawWin + ch).slice(-32);
-
     if (!this._nvInMsg) {
-      if (this._nvRawWin.includes('ZCZC')) {
-        const m = this._nvRawWin.match(/ZCZC\s*([A-Z])([A-Z])(\d{2})/);
-        this._nvInMsg = true;
-        this._nvMsgTail = '';
-        this._nvStation = m ? m[1] : '?';
-        this._nvSubject = m ? m[2] : '?';
-        this._nvSerial = m ? m[3] : '??';
-        cb({ type: 'navstart', station: this._nvStation, subject: this._nvSubject, seq: this._nvSerial });
-      }
+      this._nvRawWin = (this._nvRawWin + ch).slice(-32);
+      if (this._nvRawWin.includes('ZCZC')) { this._nvStartFramed(); return; }
+
+      // No ZCZC seen: someone tuned in mid-message, or the header was lost to
+      // noise. Open a headerless message once NAVTEX_HEADERLESS_RUN characters
+      // in a row arrived with both FEC copies agreeing, and include them.
+      // Only real text counts: the line ends and spaces after an NNNN agree
+      // too, and would otherwise open one just before the next ZCZC. For the
+      // same reason, never open while the tail could still become "ZCZC".
+      if ((this._nvAgreeRun || 0) === 0) { this._nvPreBuf = ''; return; }
+      this._nvPreBuf = (this._nvPreBuf + ch).slice(-16);
+      if (this._nvAgreeRun < NAVTEX_HEADERLESS_RUN) return;
+      if (this._nvPreBuf.replace(/\s/g, '').length < NAVTEX_HEADERLESS_RUN) return;
+      if (/(^|[^Z])(Z|ZC|ZCZ)$/.test(this._nvPreBuf)) return;
+      this._nvInMsg = true;
+      this._nvHeaderless = true;
+      this._nvHeaderDone = true;
+      this._nvStation = '?'; this._nvSubject = '?'; this._nvSerial = '??';
+      this._nvNRun = ''; this._nvZHold = '';
+      cb({ type: 'navstart', station: '?', subject: '?', seq: '??', headerless: true });
+      const pre = this._nvPreBuf.replace(/^\s+/, '');
+      this._nvPreBuf = '';
+      for (const c of pre) this._nvEmitHeaderlessChar(c);
       return;
     }
 
-    this._nvMsgTail = (this._nvMsgTail + ch).slice(-8);
-    if (this._nvMsgTail.includes('NNNN')) {
-      cb({ type: 'navend', station: this._nvStation, subject: this._nvSubject, seq: this._nvSerial });
+    if (this._nvHeaderless) { this._nvEmitHeaderlessChar(ch); return; }
+
+    if (!this._nvHeaderDone) {
+      this._nvHeader += ch;
+      const m = this._nvHeader.match(/^\s*([A-Z])([A-Z])(\d{2})/);
+      // Give up on a corrupted header at the end of its line or after a
+      // dozen characters; what arrived is then shown rather than lost.
+      if (!m && ch !== '\n' && this._nvHeader.length < 12) return;
+      this._nvHeaderDone = true;
+      this._nvStation = m ? m[1] : '?';
+      this._nvSubject = m ? m[2] : '?';
+      this._nvSerial  = m ? m[3] : '??';
+      cb({ type: 'navstart', station: this._nvStation, subject: this._nvSubject, seq: this._nvSerial });
+      const rest = m ? this._nvHeader.slice(m[0].length) : this._nvHeader.replace(/^\s+/, '');
+      for (const c of rest) this._nvEmitBodyChar(c);
+      return;
+    }
+
+    this._nvEmitBodyChar(ch);
+  }
+
+  /** A ZCZC arrived: begin a normal message (closing a headerless one first). */
+  _nvStartFramed() {
+    if (this._nvHeaderless) this._nvCloseHeaderless('next');
+    // The header (station, subject, serial — "ZCZC JA01") is still on its way
+    // when ZCZC itself completes. Parsing at that moment always failed and put
+    // "????" in the banner with the header in the message text, so the
+    // characters after ZCZC are held until the header is complete.
+    this._nvInMsg = true;
+    this._nvHeaderless = false;
+    this._nvHeader = '';
+    this._nvHeaderDone = false;
+    this._nvMsgTail = '';
+    this._nvNRun = '';
+    this._nvZHold = '';
+    this._nvPreBuf = '';
+  }
+
+  /** Headerless text: like a normal body, but a ZCZC here starts a real message. */
+  _nvEmitHeaderlessChar(ch) {
+    const cand = this._nvZHold + ch;
+    if ('ZCZC'.startsWith(cand)) {
+      if (cand === 'ZCZC') { this._nvZHold = ''; this._nvStartFramed(); return; }
+      this._nvZHold = cand;
+      return;
+    }
+    const held = this._nvZHold;
+    this._nvZHold = '';
+    for (const c of held) { this._nvEmitBodyChar(c); if (!this._nvInMsg) return; }
+    if (ch === 'Z') { this._nvZHold = 'Z'; return; }
+    this._nvEmitBodyChar(ch);
+  }
+
+  /** End a headerless message: 'lost' (sync or signal gone) or 'next' (a ZCZC). */
+  _nvCloseHeaderless(reason) {
+    if (!this._nvInMsg || !this._nvHeaderless) return;
+    const cb = this._navtexCb;
+    // Held N's and Z's were text after all.
+    for (const c of this._nvNRun + this._nvZHold) if (cb) cb({ type: 'char', char: c });
+    this._nvInMsg = false;
+    this._nvHeaderless = false;
+    this._nvNRun = ''; this._nvZHold = ''; this._nvPreBuf = ''; this._nvRawWin = '';
+    this._nvAgreeRun = 0;
+    if (cb) cb({ type: 'navend', station: '?', subject: '?', seq: '??', headerless: true, reason });
+  }
+
+  /** Message text, with NNNN held back so its first three N's never print. */
+  _nvEmitBodyChar(ch) {
+    const cb = this._navtexCb;
+    if (ch === 'N') {
+      this._nvNRun += 'N';
+      if (this._nvNRun.length < 4) return;
+      cb({ type: 'navend', station: this._nvStation, subject: this._nvSubject, seq: this._nvSerial,
+           headerless: !!this._nvHeaderless, reason: 'nnnn' });
       this._nvInMsg = false;
+      this._nvHeaderless = false;
+      this._nvAgreeRun = 0;
       this._nvRawWin = '';
       this._nvMsgTail = '';
+      this._nvNRun = '';
       return;
     }
-
+    // Not the end marker after all ("NNW 6", "INNER"): release the held N's.
+    for (const n of this._nvNRun) cb({ type: 'char', char: n });
+    this._nvNRun = '';
     cb({ type: 'char', char: ch });
   }
 }

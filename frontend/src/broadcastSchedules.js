@@ -18,6 +18,10 @@
  *
  * The August 2026 re-check found NOAA still on its 7 March 2025 edition and the
  * DWD plan unchanged, so every FAX and RTTY frequency stands as it was.
+ * Re-checked 27 September 2026, time by time against that edition: every FAX
+ * slot listed matched (RBW41 appears there as "RBW 41"; XSG matches the current
+ * weatherfax.com page). Added then: VMC's four 11030 kHz-only repeats and the
+ * CBM Punta Arenas station, both in the NOAA edition but missing here.
  *
  * FAX entries are 'HHMM label' strings; a chart occupies the slot until the next
  * one starts, which is what lets the UI show a station as ON AIR instead of
@@ -223,6 +227,12 @@ export const FAX_SCHEDULE = {
     '2015 Casey E/W High Seas (H+24)', '2030 Australian MSLP Analysis', '2215 Casey E/W High Seas (H+36)',
     '2230 S.H. 500 hPa Prog (H+48)', '2245 S.H. MSLP Prog (H+48)', '2300 S.H. 500 hPa Analysis',
     '2315 Casey E/W High Seas (H+48)', '2330 Australian MSLP Prog (H+36)', '2345 Indian Ocean MSLP Prog (H+48)',
+    // VMC only: repeats sent on 11030 kHz alone, via a directional aerial
+    // pointing towards Tasmania (NOAA rfax.pdf, Charleville notes).
+    '0345 Australian MSLP Analysis — repeat, 11030 kHz only',
+    '0500 Australian MSLP 4-day forecast, days 1-2 — repeat, 11030 kHz only',
+    '0515 Australian MSLP 4-day forecast, days 3-4 — repeat, 11030 kHz only',
+    '0000 Indian Ocean MSLP Analysis — repeat, 11030 kHz only',
   ],
   'VMW — Australia Wiluna': [
     '0015 VMC/VMW Schedule page 1', '0030 VMC/VMW Schedule page 2', '0045 VMC/VMW Information Notice',
@@ -411,6 +421,14 @@ export const FAX_SCHEDULE = {
     '1630 24hr Surface Forecast', '1645 Satellite Image (15Z)', '1915 Surface Chart (12Z)',
     '1930 Satellite Image (18Z)', '2200 36hr Surface Forecast', '2215 Surface Chart (18Z) — Antarctic',
     '2230 Winds Barb / Isotachs Forecast', '2310 48hr Surface Forecast', '2325 Satellite Image (21Z)',
+  ],
+  // Punta Arenas / Magallanes shares Valparaiso's page in NOAA rfax.pdf and its
+  // test chart; map area B (Antarctic) as for CBV's 2215 chart.
+  'CBM — Chile Punta Arenas': [
+    '1550 Test Chart / CBV CBM Schedules', '1605 12hr Surface Forecast', '1620 Satellite Image (12Z)',
+    '1730 Surface Chart (12Z)', '1745 Satellite Image (15Z)', '2005 Significant Wave Forecast',
+    '2020 Satellite Image (18Z)', '2240 36hr Surface Forecast', '2255 Surface Chart (18Z) — Antarctic',
+    '2310 Winds Barb / Isotachs Forecast', '0350 48hr Surface Forecast', '0405 Satellite Image (00Z)',
   ],
 };
 // NAVTEX slots default to the ITU rule — (B1 letter - 'A') x 10 min, every 4 h.

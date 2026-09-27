@@ -37,6 +37,10 @@
 
 import { transformFlat } from './lib/fftRadix2.js';
 
+// Signal gate on the estimator's on/off envelope ratio (see _estimateSpeed).
+const SIG_OPEN  = 2.2;
+const SIG_CLOSE = 1.7;
+
 // ── Morse table (code → character) ──────────────────────────────────────────
 const MORSE = {
   '.-':'A',   '-...':'B', '-.-.':'C', '-..':'D',  '.':'E',
@@ -127,7 +131,9 @@ export default class CWDecoder {
     this.charFlushed = true;
     this.wordEmitted = true;
     this.silent = false;
-    this.charGapEma = 0;         // learned character-gap width (Farnsworth-aware)
+    this.gapHist = [];           // recent character/word gaps (frames), for _wordThresh
+    this.sigOpen = false;        // signal gate — see _estimateSpeed
+    this._wordThrCache = 0;
   }
 
   _configure() {
@@ -251,11 +257,11 @@ export default class CWDecoder {
     this.onLvlLocal = null; this.offLvlLocal = null;
     this.keyOn = false; this.markFrames = 0; this.spaceFrames = 0;
     this.curElems = []; this.charFlushed = true; this.wordEmitted = true;
-    this.silent = false; this.charGapEma = 0;
+    this.silent = false; this.gapHist = []; this._wordThrCache = 0; this.sigOpen = false;
   }
 
   _emitFreq() {
-    if (!this.callback) return;
+    if (!this.callback || !this.sigOpen) return;
     const wpm = this.Td > 0 ? Math.round(1200 / (this.Td * this.frameMs)) : 0;
     this.callback({ type: 'freq', hz: Math.round(this.toneHz), wpm });
   }
@@ -349,14 +355,14 @@ export default class CWDecoder {
   }
 
   _risingEdge() {
-    // A mark begins. Learn this operator's character-gap width from the gap that
-    // just ended, so word spacing adapts to wide (Farnsworth) sending instead of
-    // splitting words at every stretched inter-character gap. Only gaps that did
-    // NOT already count as a word (below the current word threshold) feed the
-    // estimate, so genuine word gaps don't inflate it.
+    // A mark begins. Remember the gap that just ended (character and word gaps
+    // only) so the word threshold can find this operator's two gap widths —
+    // see _wordThresh().
     const gap = this.spaceFrames, T = this.Td;
-    if (gap > T * 1.5 && gap < this._wordThresh()) {
-      this.charGapEma = this.charGapEma > 0 ? this.charGapEma * 0.85 + gap * 0.15 : gap;
+    if (T > 0 && gap > T * 1.5 && gap < T * 25) {
+      this.gapHist.push(gap);
+      if (this.gapHist.length > 40) this.gapHist.shift();
+      this._wordThrCache = 0;
     }
     this.spaceFrames = 0;
     this.markFrames = 0;
@@ -365,15 +371,40 @@ export default class CWDecoder {
     this.silent = false;
   }
 
-  // Word-gap threshold. Standard word:char spacing is 7:3 ≈ 2.3×, and Farnsworth
-  // stretches both together, so 1.8× the observed character gap tracks either.
-  // Defaults to 6·T (handles standard 3T chars / 7T words and moderate stretch)
-  // until the character-gap width is learned.
+  // Word-gap threshold, from this operator's own spacing. The recent gaps
+  // (character and word gaps) fall into two groups; the threshold sits between
+  // them, wherever they are. That covers standard 3:7 spacing and any
+  // Farnsworth stretch alike. The old rule learned the character gap only from
+  // gaps already below a 6·T threshold, so at ×2.5 Farnsworth (7.5·T character
+  // gaps) it never learned, and every letter came out as a word of its own.
   _wordThresh() {
     const T = this.Td;
-    return this.charGapEma > 0
-      ? Math.min(T * 12, Math.max(T * 4.5, this.charGapEma * 1.8))
-      : T * 6;
+    if (this._wordThrCache && this._wordThrT === T) return this._wordThrCache;
+    const g = this.gapHist;
+    let thr = T * 6;
+    if (g.length >= 6) {
+      const v = g.map(Math.log).sort((a, b) => a - b), n = v.length;
+      const tot = v.reduce((a, b) => a + b, 0);
+      let best = -1, bi = 0, lo = 0;
+      for (let i = 1; i < n; i++) {           // Otsu split in the log domain
+        lo += v[i - 1];
+        const m0 = lo / i, m1 = (tot - lo) / (n - i);
+        const sb = i * (n - i) * (m1 - m0) * (m1 - m0);
+        if (sb > best) { best = sb; bi = i; }
+      }
+      let s0 = 0; for (let i = 0; i < bi; i++) s0 += v[i];
+      const m0 = s0 / bi, m1 = (tot - s0) / (n - bi);
+      if (m1 - m0 > Math.log(1.6)) {
+        thr = Math.exp((m0 + m1) / 2);        // two groups: split between them
+      } else {
+        // One group so far. Characters outnumber words, so it is the character
+        // gap: a word gap is clearly longer than that.
+        thr = Math.max(T * 6, 1.8 * Math.exp(v[n >> 1]));
+      }
+      thr = Math.min(T * 15, Math.max(T * 4, thr));
+    }
+    this._wordThrCache = thr; this._wordThrT = T;
+    return thr;
   }
 
   _fallingEdge() {
@@ -408,7 +439,7 @@ export default class CWDecoder {
     }
   }
 
-  _emitWord() { if (this.callback) this.callback({ type: 'word' }); }
+  _emitWord() { if (this.callback && this.sigOpen) this.callback({ type: 'word' }); }
 
   // ── Speed & threshold estimation ──────────────────────────────────────────
   // Search dot periods; score each by the best-phase Otsu separability of the
@@ -465,7 +496,7 @@ export default class CWDecoder {
       ema[Td] = ema[Td] * (1 - beta) + scoreArr[Td] * beta;
       if (ema[Td] > bestScore) { bestScore = ema[Td]; bestTd = Td; }
     }
-    if (bestTd === 0 || bestScore < 0.35) return;   // no confident CW present
+    if (bestTd === 0 || bestScore < 0.35) { this.sigOpen = false; return; }   // no confident CW
 
     // Adopt / smooth the estimate.
     if (this.Td === 0 || Math.abs(bestTd - this.Td) > 0.3 * this.Td) this.Td = bestTd;
@@ -491,6 +522,18 @@ export default class CWDecoder {
     this.offLvl = m0Arr[bestTd];
     this.onLvl  = m1Arr[bestTd];
     if (this.onLvl <= this.offLvl) this.onLvl = this.offLvl * 1.5 + 1e-9;
+
+    // Signal gate. The lock score above cannot tell Morse from noise — pure
+    // noise scores 0.56–0.82, well over 0.35 — so the decoder used to lock on
+    // an empty channel and print ~200 junk characters every 5 minutes. The
+    // on/off level ratio does separate them: 99% of noise estimates stay below
+    // 1.74, while a still-readable −10 dB signal sits at 2.3–2.8. At 2.0 noise
+    // still opened the gate about once an hour (one burst of ~15 characters);
+    // at SIG_OPEN = 2.2 two hours of noise opened it never, and weak-signal
+    // copy did not change. Close below SIG_CLOSE (hysteresis).
+    const ratio = this.onLvl / Math.max(1e-12, this.offLvl);
+    if (!this.sigOpen && ratio >= SIG_OPEN) this.sigOpen = true;
+    else if (this.sigOpen && ratio < SIG_CLOSE) this.sigOpen = false;
     // Seed the fast local followers on the first lock; afterwards leave them to
     // track QSB on their own (nudge only if they've drifted implausibly far).
     if (this.onLvlLocal === null) { this.onLvlLocal = this.onLvl; this.offLvlLocal = this.offLvl; }
@@ -512,16 +555,31 @@ export default class CWDecoder {
     }
     runs.push([cur, len]);
     if (runs.length < 4) return 0;
-    const onV = [1, 3], offV = [1, 3, 7];
-    let sum = 0, cnt = 0;
+    const onV = [1, 3];
+    let sum = 0, cnt = 0, ones = 0;
     for (let i = 1; i < runs.length - 1; i++) {   // skip partial first/last runs
       const on = runs[i][0], L = runs[i][1];
       if (L > 10) continue;
-      const V = on ? onV : offV;
-      let d = Infinity; for (const v of V) d = Math.min(d, Math.abs(L - v));
-      sum += Math.max(0, 1 - d); cnt++;
+      let sc;
+      if (on) {
+        let d = Infinity; for (const v of onV) d = Math.min(d, Math.abs(L - v));
+        sc = Math.max(0, 1 - d);
+      } else {
+        // Any gap of 3+ slots is a legal character or word gap: Farnsworth
+        // senders stretch them (5.4·T at 18/10 wpm). Scoring only exactly 3
+        // and 7 marked the true dot down on such signals until a third of it
+        // won — every element then read as a dash ("TTTT TTT").
+        sc = L === 1 ? 1 : (L >= 3 ? 1 : 0);
+      }
+      if (L === 1) ones++;
+      sum += sc; cnt++;
     }
-    return cnt >= 3 ? sum / cnt : 0;
+    if (cnt < 3) return 0;
+    // Real Morse at the true dot is full of 1-slot runs (every dot and every
+    // gap inside a character). At a third of the dot there are none, though
+    // its 3-slot runs fit perfectly — so demand them.
+    const shortOk = Math.min(1, (ones / cnt) / 0.25);
+    return (sum / cnt) * shortOk;
   }
 
   // Otsu two-class split of `vals`; returns {sep, m0(off mean), m1(on mean)}.
@@ -554,7 +612,7 @@ export default class CWDecoder {
     this.charFlushed = true;
     if (durs.length === 0) return;
     const ch = this._mapDecode(durs);
-    if (ch && this.callback) this.callback({ type: 'char', char: ch });
+    if (ch && this.callback && this.sigOpen) this.callback({ type: 'char', char: ch });
   }
 
   _mapDecode(durs) {

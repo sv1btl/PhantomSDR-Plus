@@ -50,6 +50,26 @@ const COARSE_N = 256;
 // stays silent instead of spraying varicode noise into the text pane.
 const SQUELCH_LOCK = 45;
 
+// SNR display: the 3 kHz reference the RTTY panel uses. SNR_RAW_TABLE maps the
+// raw symbol-bandwidth figure to it where the two stop being a fixed offset;
+// points are [raw dB, SNR in 3 kHz], measured through the ±100 Hz passband.
+const SNR_FLOOR_DB  = -25;
+const SNR_OFFSET_DB = 20.2;
+const SNR_RAW_TABLE = [[-12.0, -25], [-5.8, -20], [1.1, -15], [8.4, -10], [15.0, -5]];
+
+function _rawSnrTo3k(raw) {
+  const t = SNR_RAW_TABLE;
+  if (raw >= t[t.length - 1][0]) return Math.min(40, raw - SNR_OFFSET_DB);
+  if (raw <= t[0][0]) return SNR_FLOOR_DB;
+  for (let k = 1; k < t.length; k++) {
+    if (raw <= t[k][0]) {
+      const [x0, y0] = t[k - 1], [x1, y1] = t[k];
+      return y0 + (y1 - y0) * (raw - x0) / (x1 - x0);
+    }
+  }
+  return SNR_FLOOR_DB;
+}
+
 // ── PSK31 varicode ──────────────────────────────────────────────────────────
 // Index = ASCII code, value = the codeword. Every codeword starts and ends with
 // a 1 and contains no "00" — that invariant is what makes "00" a safe delimiter,
@@ -419,11 +439,16 @@ export class PSK31Demodulator {
   }
 
   get snrDb() {
-    // Re(d)^2 carries signal + half the noise, Im(d)^2 carries the other half.
-    if (this._noisePow <= 0) return 0;
+    // Re(d)^2 carries signal + half the noise, Im(d)^2 carries the other half,
+    // so the ratio below is the S/N in the symbol bandwidth. Reported on the
+    // same 3 kHz scale as the RTTY panel: measured on calibrated noise, the raw
+    // figure is the 3 kHz SNR + 20.2 dB (10·log(3000/31.25) = 19.8, plus the
+    // matched filter) from −5 dB up; below that noise × noise terms in the
+    // differential product compress it, which the table undoes.
+    if (this._noisePow <= 0) return SNR_FLOOR_DB;
     const ratio = this._sigPow / this._noisePow - 1;
-    if (!(ratio > 0)) return 0;
-    return Math.max(0, Math.min(40, 10 * Math.log10(ratio)));
+    if (!(ratio > 0)) return SNR_FLOOR_DB;
+    return _rawSnrTo3k(10 * Math.log10(ratio));
   }
 
   /**

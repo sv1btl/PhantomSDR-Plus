@@ -126,6 +126,8 @@ export class KiwiFAXDecoder {
     this._phasingLines = 40;
     this._phasingSkipLines = 1;
     this._phasingPos = new Int32Array(this._phasingLines);
+    this._phasingSum = null;      // sum of the phasing lines, for the weak-signal fallback
+    this._phasingSumCount = 0;
     this._phasingLinesLeft = 0;
     this._phasingSkipData = 0;
     this._havePhasing = false;
@@ -212,28 +214,30 @@ export class KiwiFAXDecoder {
       energy += v * v;
     }
     const rms = Math.sqrt(energy / Math.max(1, bufferLen)) + 1e-9;
-    // Use a 1/4-line DFT window instead of the full line.
-    // The full 6000-sample window has 2 Hz bin resolution; Opus codec phase
-    // perturbations shift the FM-discriminated pixel tone by ~1–3 Hz, causing
-    // sinc() attenuation that drops startRatio below the detection threshold
-    // (FLAC is lossless so its tone lands exactly on the bin and is fine).
-    // A 1500-sample window widens each bin to 8 Hz, so a ±4 Hz offset causes
-    // only ~2% attenuation (sinc(0.15) ≈ 0.977) instead of ~50%.
-    // Normalised amplitude A/2 and the startRatio formula are unchanged;
-    // false-positive immunity is preserved (random image content ≈ 0.018).
-    const detLen = Math.max(512, Math.floor(bufferLen / 4));
-    const startDet = this._fourierTransformSub(centered, sampsPerLine, detLen, this._startTone) / detLen;
-    const stopDet  = this._fourierTransformSub(centered, sampsPerLine, detLen, this._stopToneHz) / detLen;
+    // Look at each quarter of the line (1500 samples: 8 Hz bins, so an Opus
+    // offset of a few Hz costs only ~2%) and require the tone in ALL FOUR.
+    // The start/stop signals fill the whole line; chart content does not. With
+    // only the first quarter examined, a hatched area whose spacing matched
+    // 300 Hz (~12 px) scored up to 0.67 — measured 17 lines in a row detected as
+    // START in the middle of a chart, after which the next 40 chart lines were
+    // swallowed as "phasing". All-quarters, the same chart peaks at 0.106.
+    // That margin allows the lower threshold 0.18: the real start signal holds
+    // 0.61 at 10 dB SNR, 0.38 at 3 dB and 0.23 at 0 dB (was missed below ~2 dB
+    // at 0.30). For a perfect square wave the ratio is 4/(π√2) ≈ 0.637.
+    const q = Math.max(512, Math.floor(bufferLen / 4));
+    let startDet = Infinity, stopDet = Infinity;
+    for (let k = 0; k + q <= bufferLen; k += q) {
+      const seg = centered.subarray(k, k + q);
+      const sd = this._fourierTransformSub(seg, sampsPerLine, q, this._startTone) / q;
+      const td = this._fourierTransformSub(seg, sampsPerLine, q, this._stopToneHz) / q;
+      if (sd < startDet) startDet = sd;
+      if (td < stopDet) stopDet = td;
+    }
     const startRatio = startDet / rms;
     const stopRatio  = stopDet / rms;
 
-    // Threshold derivation: for a perfect 300 Hz square wave (0/255 pixels),
-    // startRatio = 4/(π√2) ≈ 0.637.  For a sinusoidal tone it is 1/√2 ≈ 0.707.
-    // Lowered from 0.40 to 0.30 to account for the small residual attenuation
-    // from the shorter window under noisy HF conditions, while remaining well
-    // above image-content noise (≈0.05–0.15).
-    if (startRatio > 0.30 && startDet > 12) return 'START';
-    if (stopRatio  > 0.30 && stopDet  > 12) return 'STOP';
+    if (startRatio > 0.18 && startDet > 8) return 'START';
+    if (stopRatio  > 0.18 && stopDet  > 8) return 'STOP';
     return 'IMAGE';
   }
 
@@ -262,6 +266,38 @@ export class KiwiFAXDecoder {
       }
     }
     return minPos;
+  }
+
+  _averagedPhasingPos(spl) {
+    const sum = this._phasingSum, n = this._phasingSumCount;
+    if (!sum || sum.length !== spl || n < 10) return 0;
+    const avg = new Float64Array(spl);
+    for (let i = 0; i < spl; i++) avg[i] = sum[i] / n;
+    const pos = this._phasingLinePosition(avg, spl);
+    // Contrast check: the 5% pulse (inside the 7% search window) against the
+    // median of the whole averaged line. At −1 dB the discriminator's noise
+    // clicks wash black and white towards grey: real phasing measured 0.33–0.36.
+    const w = Math.max(1, Math.floor(spl * 0.07)), pw = Math.max(1, Math.floor(spl * 0.05));
+    const c0 = pos + Math.floor((w - pw) / 2);
+    let pulse = 0;
+    for (let j = 0; j < pw; j++) pulse += avg[(c0 + j) % spl];
+    pulse /= pw;
+    const sorted = Array.from(avg).sort((a, b) => a - b);
+    const median = sorted[sorted.length >> 1];
+    if (median - pulse < 0.25 * median) return 0;
+    // Width check: phasing is a 5% pulse. Contrast alone cannot tell it from
+    // chart content — a solid black block scores 1.00 — but width can. Smooth
+    // over 1% of the line, then measure the run below the pulse/line midpoint.
+    const sw = Math.max(1, Math.floor(spl * 0.01)), mid = (pulse + median) / 2;
+    const sm = (i) => { let a = 0; for (let j = -sw; j <= sw; j++) a += avg[((i + j) % spl + spl) % spl]; return a / (2 * sw + 1); };
+    const centre = c0 + (pw >> 1);
+    let lo = 0, hi = 0;
+    while (lo < spl / 4 && sm(centre - lo - 1) < mid) lo++;
+    while (hi < spl / 4 && sm(centre + hi + 1) < mid) hi++;
+    const width = (lo + hi + 1) / spl;
+    if (width < 0.025 || width > 0.10) return 0;
+    console.log(`[FAX] phasing: per-line estimates disagreed; averaged ${n} lines, pulse ${pulse.toFixed(0)} vs line ${median.toFixed(0)}, ${(100 * width).toFixed(1)}% wide`);
+    return pos;
   }
 
   _medianFromArray(arr, count, pctLo = 10, pctHi = 90) {
@@ -371,6 +407,8 @@ export class KiwiFAXDecoder {
     this._stopDetected = (type === 'STOP');
 
     if (type === 'START') {
+      this._phasingSum = new Float64Array(spl);
+      this._phasingSumCount = 0;
       this._phasingLinesLeft = this._phasingLines;
       this._phasingSkipData = 0;
       this._havePhasing = false;
@@ -383,6 +421,10 @@ export class KiwiFAXDecoder {
       const idx = this._phasingLinesLeft - this._phasingSkipLines - 1;
       if (idx >= 0 && idx < this._phasingPos.length) {
         this._phasingPos[idx] = this._phasingLinePosition(buf, spl);
+        if (this._phasingSum && this._phasingSum.length === spl) {
+          for (let i = 0; i < spl; i++) this._phasingSum[i] += buf[i];
+          this._phasingSumCount++;
+        }
       }
     }
 
@@ -392,6 +434,13 @@ export class KiwiFAXDecoder {
       if (this._phasingLinesLeft === 0) {
         const used = Math.max(1, this._phasingLines - this._phasingSkipLines);
         this._phasingSkipData = this._averagePhasingPos(this._phasingPos, used, spl);
+        // Weak-signal fallback. Each phasing line locates the pulse on its own,
+        // and around −1 dB SNR those estimates scatter past the spread limit
+        // (about 1 run in 6), so alignment gave up and the chart came out
+        // shifted sideways. Averaging the phasing lines first cuts the noise
+        // ~6× (40 lines); the result must still look like a phasing pulse —
+        // clearly darker than the line and 2.5–10% wide (see _averagedPhasingPos).
+        if (!this._phasingSkipData) this._phasingSkipData = this._averagedPhasingPos(spl);
       }
     }
 

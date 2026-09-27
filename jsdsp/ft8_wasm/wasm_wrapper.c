@@ -30,6 +30,7 @@
 #include "ft8/decode.h"
 #include "ft8/constants.h"
 #include "ft8/message.h"
+#include "ft8/encode.h"
 #include "common/monitor.h"
 
 /* ── Constants (mirroring Kiwi's decode_ft8.c) ────────────────────────────── */
@@ -41,7 +42,7 @@
 #define LDPC_ITERATIONS     25
 #define MAX_RESULTS         64
 #define MSG_BUF_LEN         36
-#define SNR_ADJ             (-10.0f)
+#define SNR_FLOOR           (-24.0f)   /* WSJT-X clamps at -24 dB too */
 
 /* Kiwi: FT8_PASSBAND_LO / FT8_PASSBAND_HI in extensions/FT8/FT8.h */
 #define PASSBAND_LO         100.0f
@@ -155,6 +156,78 @@ static monitor_t s_mon;
 static bool      s_mon_init  = false;
 static int       s_mon_rate  = 0;
 static int       s_mon_proto = -1;
+
+/* ── SNR, referred to 2500 Hz like WSJT-X ─────────────────────────────────────
+ * The reported SNR used to be score/2 − 10: half the Costas sync score, which
+ * ft8_lib's own decode_ft8.c marks "TODO: compute better approximation of
+ * SNR". Against WSJT-X on the test corpus it barely moved (0.12 dB per real
+ * dB): a −20 dB signal read about +1, a +10 dB one about +5.
+ *
+ * Signal: re-encode the decoded message to get the tone sent in every symbol
+ * and average the power in that tone over the message.
+ * Noise: the median power of the spectrum around the signal (±SNR_NOISE_SPAN
+ * bins, every block of the slot), which other stations hardly move; for noise
+ * power the median is ln 2 × the mean. WSJT-X's own reference, the unused tone
+ * four places away, does not work on this spectrum: its time steps are half a
+ * symbol, so that tone picks up the signal from the neighbouring symbols and
+ * strong stations saturated at about +5 dB.
+ *     SNR = 10·log10(signal/noise − 1) − 10·log10(2500 / bin width) − SNR_CAL_DB
+ * bin_hz is the TRUE audio bin width (FT2 is analysed stretched in time).
+ * SNR_CAL_DB is the constant this spectrum's window and overlap leave over,
+ * fitted against WSJT-X on ft8_lib's test corpus: after it, 255 decodes
+ * follow WSJT-X at slope 0.97, correlation 0.94, same offset from −15 to +14.
+ */
+#define SNR_NOISE_SPAN 40
+#define SNR_CAL_DB     3.3
+
+static float ftx_snr(const ftx_waterfall_t *wf, const ftx_candidate_t *cand,
+                     const ftx_message_t *msg, float bin_hz)
+{
+    uint8_t tones[FT4_NN > FT8_NN ? FT4_NN : FT8_NN];
+    int nn, ntones;
+    if (wf->protocol == FTX_PROTOCOL_FT4) { ft4_encode(msg->payload, tones); nn = FT4_NN; ntones = 4; }
+    else                                  { ft8_encode(msg->payload, tones); nn = FT8_NN; ntones = 8; }
+
+    /* Same indexing as decode.c's get_cand_mag(), without the time offset. */
+    const WF_ELEM_T *plane = wf->mag
+        + cand->time_sub * wf->freq_osr * wf->num_bins
+        + cand->freq_sub * wf->num_bins;
+    const WF_ELEM_T *base = plane + cand->freq_offset;
+
+    double sig = 0.0;
+    int used = 0;
+    for (int i = 0; i < nn; i++) {
+        int blk = cand->time_offset + i;
+        if (blk < 0 || blk >= wf->num_blocks) continue;
+        sig += pow(10.0, WF_ELEM_MAG(base[blk * wf->block_stride + tones[i]]) / 10.0);
+        used++;
+    }
+    if (used < nn / 2) return SNR_FLOOR;
+    sig /= used;
+
+    /* Noise floor: median of the surrounding bins over the whole slot. The
+       waterfall holds 0.5 dB steps in a byte, so a 256-bucket histogram gives
+       the median directly. */
+    int lo = cand->freq_offset - SNR_NOISE_SPAN;
+    int hi = cand->freq_offset + ntones + SNR_NOISE_SPAN;
+    if (lo < 0) lo = 0;
+    if (hi > wf->num_bins) hi = wf->num_bins;
+    uint32_t hist[256] = {0};
+    uint32_t total = 0;
+    for (int blk = 0; blk < wf->num_blocks; blk++) {
+        const WF_ELEM_T *row = plane + blk * wf->block_stride;
+        for (int b = lo; b < hi; b++) { hist[(uint8_t)row[b]]++; total++; }
+    }
+    if (total == 0) return SNR_FLOOR;
+    uint32_t acc = 0; int med = 0;
+    while (med < 255 && (acc += hist[med]) < total / 2) med++;
+    double noi = pow(10.0, WF_ELEM_MAG(med) / 10.0) / 0.6931472;
+
+    double r = sig / noi - 1.0;
+    if (r < 0.001) r = 0.001;
+    float snr = (float)(10.0 * log10(r) - 10.0 * log10(2500.0 / bin_hz) - SNR_CAL_DB);
+    return snr < SNR_FLOOR ? SNR_FLOOR : snr;
+}
 
 /* ── 2x upsample (FT2 → FT4) ─────────────────────────────────────────────── */
 static void upsample2x(const float *src, int n, float *dst) {
@@ -283,7 +356,8 @@ int ftx_decode(const float *pcm, int num_samples, int js_protocol, int sample_ra
 
         strncpy(s_results[s_count].text, text, MSG_BUF_LEN - 1);
         s_results[s_count].freq = freq_hz;
-        s_results[s_count].snr  = (float)heap[i].score * 0.5f + SNR_ADJ;
+        s_results[s_count].snr  = ftx_snr(wf, &heap[i], &msg,
+                                          freq_scale / s_mon.symbol_period);
         s_results[s_count].dt   = dt;
         s_count++;
     }

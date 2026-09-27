@@ -2279,6 +2279,12 @@
       lpm: 120,
       ioc: 576,
     },
+    {
+      name: "CBM — Chile Punta Arenas",
+      freqs: [4322, 8696],
+      lpm: 120,
+      ioc: 576,
+    },
   ];
 
   let faxEnabled = false;
@@ -3012,16 +3018,25 @@
           navtexMessages = [...navtexMessages, navtexCurrentLine].slice(-300);
           navtexCurrentLine = "";
         }
+        // A headerless message is one joined after its ZCZC (tuned in late,
+        // or the header was lost to noise); fsk.js opens it only once the
+        // FEC copies agree, so it is real text, just without a header.
         navtexMessages = [
           ...navtexMessages,
-          `━━ ZCZC ${event.station}${event.subject}${event.seq} ━━`,
+          event.headerless
+            ? "━━ (header missed) ━━"
+            : `━━ ZCZC ${event.station}${event.subject}${event.seq} ━━`,
         ].slice(-300);
       } else if (event.type === "navend") {
         if (navtexCurrentLine.trim()) {
           navtexMessages = [...navtexMessages, navtexCurrentLine].slice(-300);
           navtexCurrentLine = "";
         }
-        navtexMessages = [...navtexMessages, "━━ NNNN ━━", ""].slice(-300);
+        // 'next': a real ZCZC took over, and its own banner follows at once.
+        if (event.reason === "lost")
+          navtexMessages = [...navtexMessages, "━━ (signal lost) ━━", ""].slice(-300);
+        else if (event.reason !== "next")
+          navtexMessages = [...navtexMessages, "━━ NNNN ━━", ""].slice(-300);
       } else if (event.type === "status") {
         navtexStatusText = event.text;
       }
@@ -3101,6 +3116,7 @@
       framing: "5N1.5",
       encoding: "ita2",
       invert: true,
+      squelch: -8,
     },
     ham: {
       center: 1000,
@@ -3109,6 +3125,7 @@
       framing: "5N1.5",
       encoding: "ita2",
       invert: false,
+      squelch: -5,
     },
     // PSK31 is not FSK: no tone pair, no UART framing. The shift/framing fields
     // are only here so the shared config plumbing has something to carry — the
@@ -3144,6 +3161,12 @@
   // Squelch = the FEC signal-to-noise a block must reach to be printed.
   // 3.0 is the floor below which pure noise starts leaking through.
   let oliviaSquelch = 4.0;
+  // RTTY squelch in dB SNR (3 kHz reference), for the async ITA2/ASCII
+  // variants. Mirrors FSK_SQUELCH_DEFAULT / FSK_SQUELCH_OFF in fsk.js; each
+  // variant's starting value is its FSK_VARIANT_PRESETS.squelch.
+  const FSK_SQUELCH_DEFAULT = -8;
+  const FSK_SQUELCH_OFF = -20;
+  let fskSquelch = FSK_SQUELCH_DEFAULT;
   $: oliviaCfg =
     OLIVIA_MODE_OPTIONS.find((m) => `${m.tones}/${m.bw}` === oliviaMode) ||
     OLIVIA_MODE_OPTIONS[0];
@@ -3266,6 +3289,7 @@
     fskFraming = p.framing;
     fskEncoding = p.encoding;
     fskInvert = !!p.invert;
+    if (p.squelch != null) fskSquelch = p.squelch;
     if (v === "maritime") fskKnownFrequency = "518";
     if (v === "psk31") fskKnownFrequency = "14070.15";
     if (v === "olivia") fskKnownFrequency = "14075.5";
@@ -3276,6 +3300,8 @@
   // Neither mode has a tone pair or UART framing, so they share the same
   // "hide the FSK-only controls" branch throughout the panel.
   $: isMfskLike = isPsk || isOlivia;
+  // NAVTEX/SITOR (maritime) has FEC and its own framing; the squelch is RTTY's.
+  $: fskHasSquelch = fskVariant === "ham" || fskVariant === "weather";
 
   function _fskEffectiveConfig() {
     if (fskVariant === "psk31") {
@@ -3297,6 +3323,9 @@
       framing: fskFraming,
       encoding: fskEncoding,
       inverted: !!fskInvert,
+      squelch: Number.isFinite(Number(fskSquelch))
+        ? Number(fskSquelch)
+        : FSK_SQUELCH_DEFAULT,
     };
   }
 
@@ -3370,12 +3399,22 @@
     // PSK31 occupies ~62 Hz; a narrow window keeps neighbouring signals on the
     // same watering hole out of the decoder. Olivia needs its full bandwidth
     // plus room for the sync search either side.
+    //
+    // Async RTTY: shift/2 + 1.43·baud, i.e. ±150 Hz for 45.45 Bd / 170 Hz and
+    // ±297 Hz for DWD's 50 Bd / 450 Hz. Measured on synthetic RTTY behind a
+    // brick-wall passband: the old shift/2 + 120 (410 Hz for ham) let a 10 dB
+    // stronger neighbour 250 Hz away wipe the copy out (88% CER); at 300 Hz
+    // that neighbour is gone, weak-signal copy improves, and a 40 Hz tuning
+    // error at 0 dB still copies clean. Narrower (270 Hz) cut a tone at 60 Hz
+    // off. NAVTEX/SITOR keeps its width — it can only be checked on air.
     const halfWidth =
       fskVariant === "psk31"
         ? 100
         : fskVariant === "olivia"
           ? (cfg.bandwidth || 1000) / 2 + 150
-          : (cfg.shift || 0) / 2 + 120;
+          : cfg.encoding === "ccir476"
+            ? (cfg.shift || 0) / 2 + 120
+            : (cfg.shift || 0) / 2 + 1.43 * (Number(cfg.baud) || 45.45);
     const low = hz + Math.round(cfg.center - halfWidth);
     const mid = hz;
     const high = hz + Math.round(cfg.center + halfWidth);
@@ -3507,16 +3546,24 @@
         fskStatusText = event.text || "";
       } else if (event.type === "metrics") {
         fskMetrics = event;
+        // Auto-shift / auto-tune moved the tones: the receiver passband is
+        // built from centre and shift, so it has to follow or it clips a tone.
+        let moved = false;
         if (
           event.shiftHz &&
           Math.abs((Number(fskShift) || 0) - event.shiftHz) >= 20
-        )
+        ) {
           fskShift = Math.round(event.shiftHz);
+          moved = true;
+        }
         if (
           event.centerHz &&
           Math.abs((Number(fskCenter) || 0) - event.centerHz) >= 10
-        )
+        ) {
           fskCenter = Math.round(event.centerHz);
+          moved = true;
+        }
+        if (moved && fskEnabled) fskApplyBandpass();
       } else if (
         event.type === "parity-error" ||
         event.type === "framing-error"
@@ -4446,7 +4493,9 @@
       } else if (event.type === "navstart") {
         digiMessages = [
           ...digiMessages,
-          `── ZCZC ${event.station}${event.subject}${event.seq} ──`,
+          event.headerless
+            ? "── (header missed) ──"
+            : `── ZCZC ${event.station}${event.subject}${event.seq} ──`,
         ].slice(-200);
         digiCurrentLine = "";
       } else if (event.type === "navend") {
@@ -4454,7 +4503,10 @@
           digiMessages = [...digiMessages, digiCurrentLine].slice(-200);
           digiCurrentLine = "";
         }
-        digiMessages = [...digiMessages, "── NNNN ──"].slice(-200);
+        if (event.reason === "lost")
+          digiMessages = [...digiMessages, "── (signal lost) ──"].slice(-200);
+        else if (event.reason !== "next")
+          digiMessages = [...digiMessages, "── NNNN ──"].slice(-200);
       } else if (event.type === "frame") {
         const via =
           event.via && event.via.length ? ` via ${event.via.join(",")}` : "";
@@ -12527,6 +12579,33 @@ Slider: share of denoised audio, the rest is the original"
                             </p>
                           </div>
                         {/if}
+                        {#if fskHasSquelch}
+                          <div class="col-span-2">
+                            <label
+                              class="text-xs text-gray-300 block mb-1 flex justify-between"
+                            >
+                              <span>Squelch (SNR)</span>
+                              <span class="text-green-300 font-mono"
+                                >{Number(fskSquelch) <= FSK_SQUELCH_OFF
+                                  ? "off"
+                                  : `${Number(fskSquelch)} dB`}</span
+                              >
+                            </label>
+                            <input
+                              type="range"
+                              min={FSK_SQUELCH_OFF}
+                              max="10"
+                              step="1"
+                              bind:value={fskSquelch}
+                              class="w-full accent-green-500"
+                              on:input={fskApplySquelch}
+                            />
+                            <p class="text-gray-500 text-[10px] mt-0.5">
+                              Noise reads −12 to −15 dB; RTTY stays readable
+                              down to about −4 dB. Far left turns it off.
+                            </p>
+                          </div>
+                        {/if}
                         {#if !isMfskLike}
                           <div>
                             <label class="text-xs text-gray-300 block mb-1"
@@ -12549,7 +12628,11 @@ Slider: share of denoised audio, the rest is the original"
                             <select
                               bind:value={fskBaud}
                               class="glass-select text-white text-xs px-2 py-1 rounded-md w-full"
-                              on:change={() => fskApplySettings(false)}
+                              on:change={() => {
+                                fskApplySettings(false);
+                                // The RTTY passband width scales with baud.
+                                if (fskEnabled) fskApplyBandpass();
+                              }}
                             >
                               {#each FSK_BAUD_OPTIONS[fskVariant] || [] as v}
                                 <option value={v}>{v}</option>
@@ -12665,8 +12748,13 @@ Slider: share of denoised audio, the rest is the original"
                           >
                         {/if}
                         <span class="text-gray-300"
-                          >{isMfskLike ? "S/N" : "SNR"}: <span
-                            class="text-green-300 font-mono"
+                          >{isOlivia ? "S/N" : "SNR"}: <span
+                            class="{fskMetrics.squelchOpen === false
+                              ? 'text-gray-500'
+                              : 'text-green-300'} font-mono"
+                            title={fskMetrics.squelchOpen === false
+                              ? "Squelch closed"
+                              : ""}
                             >{Number(fskMetrics.snrDb || 0).toFixed(1)} dB</span
                           ></span
                         >
@@ -16851,6 +16939,33 @@ Slider: share of denoised audio, the rest is the original"
                             </p>
                           </div>
                         {/if}
+                        {#if fskHasSquelch}
+                          <div class="col-span-2">
+                            <label
+                              class="text-xs text-gray-300 block mb-1 flex justify-between"
+                            >
+                              <span>Squelch (SNR)</span>
+                              <span class="text-green-300 font-mono"
+                                >{Number(fskSquelch) <= FSK_SQUELCH_OFF
+                                  ? "off"
+                                  : `${Number(fskSquelch)} dB`}</span
+                              >
+                            </label>
+                            <input
+                              type="range"
+                              min={FSK_SQUELCH_OFF}
+                              max="10"
+                              step="1"
+                              bind:value={fskSquelch}
+                              class="w-full accent-green-500"
+                              on:input={fskApplySquelch}
+                            />
+                            <p class="text-gray-500 text-[10px] mt-0.5">
+                              Noise reads −12 to −15 dB; RTTY stays readable
+                              down to about −4 dB. Far left turns it off.
+                            </p>
+                          </div>
+                        {/if}
                         {#if !isMfskLike}
                           <div>
                             <label class="text-xs text-gray-300 block mb-1"
@@ -16873,7 +16988,11 @@ Slider: share of denoised audio, the rest is the original"
                             <select
                               bind:value={fskBaud}
                               class="glass-select text-white text-xs px-2 py-1 rounded-md w-full"
-                              on:change={() => fskApplySettings(false)}
+                              on:change={() => {
+                                fskApplySettings(false);
+                                // The RTTY passband width scales with baud.
+                                if (fskEnabled) fskApplyBandpass();
+                              }}
                             >
                               {#each FSK_BAUD_OPTIONS[fskVariant] || [] as v}
                                 <option value={v}>{v}</option>
@@ -16989,8 +17108,13 @@ Slider: share of denoised audio, the rest is the original"
                           >
                         {/if}
                         <span class="text-gray-300"
-                          >{isMfskLike ? "S/N" : "SNR"}: <span
-                            class="text-green-300 font-mono"
+                          >{isOlivia ? "S/N" : "SNR"}: <span
+                            class="{fskMetrics.squelchOpen === false
+                              ? 'text-gray-500'
+                              : 'text-green-300'} font-mono"
+                            title={fskMetrics.squelchOpen === false
+                              ? "Squelch closed"
+                              : ""}
                             >{Number(fskMetrics.snrDb || 0).toFixed(1)} dB</span
                           ></span
                         >

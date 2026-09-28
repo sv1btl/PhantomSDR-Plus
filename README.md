@@ -202,7 +202,7 @@ Each extra is a normal script you can also run on its own at any time — `./set
 >
 > If you change the `.toml` after the installation, only a backend rebuild is needed:
 > ```
-> cd PhantomSDR-Plus/ ./recompile.sh
+> cd PhantomSDR-Plus/ && ./recompile.sh
 > ```
 
 

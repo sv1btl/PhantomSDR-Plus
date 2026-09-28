@@ -12,7 +12,7 @@ PhantomSDR-Plus ist ein Fork von PhantomSDR und stellt einen leistungsstarken So
 - **Mehrbenutzerbetrieb**: Hunderte gleichzeitiger Nutzer, je nach Hardware
 - **Hohe Abtastrate**: Unterstützung von SDRs bis 70 MSPS (real) / 35 MSPS (IQ)
 - **Hardwarebeschleunigung**: OpenCL- und CUDA-Unterstützung für GPU-beschleunigte Verarbeitung
-- **Optimiertes Streaming**: FLAC- und Opus-Audiokompression mit geringer Latenz
+- **Optimiertes Streaming**: FLAC- und Opus-Audiokompression mit geringer Latenz. Der Browser decodiert jedes FLAC-Paket in dem Moment, in dem es eintrifft, und sein Wiedergabepuffer passt sich der Verbindung des Hörers an und hält nur so viel Ton vorrätig wie nötig — typisch 100–150 ms vom Empfänger bis zum Lautsprecher auf einem Telefon im WLAN
 
 ### Benutzeroberfläche
 - **Futuristisches Design**: moderne, responsive Weboberfläche
@@ -358,8 +358,9 @@ Setzen Sie `register_online=true` in Ihrer `.toml`-Konfigurationsdatei, um sich 
 - Siehe INSTALLATION.md für die ausführliche OpenCL-Einrichtung
 
 **Probleme mit der Audiolatenz**
-- Wechseln Sie testweise zwischen den Codecs FLAC und Opus
-- Passen Sie die Puffereinstellungen in der Konfiguration an
+- Bleiben Sie bei FLAC als Codec: Es ist der mit der geringeren Latenz, während Opus pro Paket bis zu 20 ms zurückhält
+- Öffnen Sie die Seite mit angehängtem `?diag=1` (zum Beispiel `/mobile?diag=1`), um die Verzögerung aufgeteilt in Paket, Puffer und Ausgabe zu sehen; der Puffer schrumpft innerhalb von ein, zwei Minuten nach einer Netzstörung von selbst
+- Bricht der Ton ab, erhöhen Sie die Pufferstufe um eins (siehe Benutzerhandbuch, *Audiopuffer und Verzögerung*)
 - Sorgen Sie für ausreichende CPU-/GPU-Ressourcen
 
 **Build-Fehler**

@@ -1493,9 +1493,9 @@ Tri se vrste datoteka tretiraju različito, i upravo je u toj razlici cijela poa
 
 | Datoteke | Što se događa |
 |---|---|
-| `config*.toml`, `markers.json`, `admin_config.json`, `autorun.json`, `frequencylist/`, `chat_history.txt`, `frontend/variant.json`, `frontend/site_information.json`, zapisnici, `build/`, `frontend/dist/` | **Nikada se ne diraju** niti se ikada pojavljuju u pitanju. Upravo one od stroja čine *vaš* prijamnik. |
-| `start-*.sh`, `stop-websdr.sh`, `*.service` jedinice, `install*.sh`, `recompile.sh`, `setup_admin.sh`, `smeter_theme.sh`, `proxy.py`, `admin_server.py`, `thermal_guard.py`, `frontend/src/bands-config.js` | **Uvijek se pita**, jer su to datoteke koje operator s razlogom može biti izmijenio. |
-| Sve ostalo | Ažurira se, nakon što se kopija stare datoteke spremi u `.update-backups/`. |
+| `config.toml`, `config-<prijamnik>.toml`, `markers.json`, `admin_config.json`, `autorun.json`, `frequencylist/`, `chat_history.txt`, `frontend/variant.json`, `frontend/site_information.json`, zapisnici, `build/`, `frontend/dist/` | **Nikada se ne diraju** niti se ikada pojavljuju u pitanju. Upravo one od stroja čine *vaš* prijamnik. |
+| `start-*.sh`, `stop-websdr.sh`, `*.service` jedinice, `install*.sh`, `recompile.sh`, `setup_admin.sh`, `smeter_theme.sh`, `proxy.py`, `admin_server.py`, `thermal_guard.py`, `websdr_relay.py`, `frontend/src/bands-config.js`, ogledne konfiguracije `config.example.*.toml` | **Uvijek se pita**, jer su to datoteke koje operator s razlogom može biti izmijenio. |
+| Sve ostalo | Ažurira se, nakon što se kopija stare datoteke spremi u arhivu sigurnosne kopije (vidi *Poništavanje ažuriranja*). |
 
 Za svaku datoteku iz srednje skupine prikazuju se razlike i nude tri izbora:
 
@@ -1522,7 +1522,7 @@ Vaša konfiguracija u tome nikada ne sudjeluje: pitanja se uvijek tiču samo skr
 `update.sh` u `.update-state/` bilježi inačicu svake datoteke koju instalira. Već od drugog
 pokretanja zato razlikuje datoteku koju ste **vi** mijenjali od one koja je naprosto stara, i zaustavlja se samo kod onih kojih ste se doista dotakli.
 
-Prije nego išta zapiše zaustavlja prijamnik, administratorsku ploču i obrnuti proxy **instalacije koju ažurira** — ono što poslužuje drugi direktorij navodi se i ostavlja raditi, pa se drugi klon može ažurirati dok prvi ostaje u eteru — a na kraju pokreće natrag točno ono što je zaustavio. Ako su se promijenile izvorne ili frontend datoteke, ponudit će da za vas pokrene `recompile.sh`. Ništa se nikada ne briše: datoteke kojih više nema u repozitoriju samo se prijavljuju, a uklanjaju se jedino ako to zatražite s `--prune`.
+Prije nego išta zapiše zaustavlja prijamnik, administratorsku ploču, obrnuti proxy i WebSDR diversity relej **instalacije koju ažurira** — ono što poslužuje drugi direktorij navodi se i ostavlja raditi, pa se drugi klon može ažurirati dok prvi ostaje u eteru — a na kraju pokreće natrag točno ono što je zaustavio. Ako su se promijenile izvorne ili frontend datoteke, ponudit će da za vas pokrene `recompile.sh`. Ništa se nikada ne briše: datoteke kojih više nema u repozitoriju samo se prijavljuju, a uklanjaju se jedino ako to zatražite s `--prune`.
 
 ### Poništavanje ažuriranja
 
@@ -1530,8 +1530,22 @@ Prije nego išta zapiše zaustavlja prijamnik, administratorsku ploču i obrnuti
 ./update.sh --restore LAST
 ```
 
-Svaka prepisana datoteka čuva se u `.update-backups/<vremenska oznaka>/` s vlastitim
-`restore.sh`; zadržavaju se posljednja tri pokretanja.
+Svaka datoteka koju ažuriranje prepiše najprije se sprema, u jednu arhivu s datumom po pokretanju, u običnu, vidljivu mapu `update-backups/`:
+
+```
+update-backups/phantomsdr-backup-20260923-164530.zip
+```
+
+Arhiva sadrži samo datoteke koje je to pokretanje zamijenilo, svaku na putanji koju ima u vašem stablu, pa se može kopirati na drugo računalo kao jedna datoteka, otvoriti bilo gdje ili raspakirati izravno preko instalacije. Gdje `zip` nije instaliran, zapisuje se kao `.tar.gz`. Čuvaju se tri najnovije. Bilo koja od ovih naredbi vraća ono što je ažuriranje zamijenilo:
+
+```bash
+./update.sh --restore LAST
+./update.sh --restore phantomsdr-backup-20260923-164530.zip
+```
+
+Svaka arhiva nosi i vlastiti `restore.sh`, za slučaj da je problem sam `update.sh`: raspakirajte arhivu i dajte mu direktorij svoje instalacije, na primjer `./restore.sh /home/pi/PhantomSDR-Plus`. Tijekom vraćanja `update.sh` radi iz kopije izvan stabla, jer je obično i sam jedna od datoteka koje se vraćaju.
+
+Sigurnosne kopije od prije 23. rujna 2026. nalaze se u skrivenoj mapi `.update-backups/<vremenska oznaka>/`; vraćaju se na isti način i ubrajaju se u tri koje se čuvaju.
 
 ### Ostale mogućnosti
 

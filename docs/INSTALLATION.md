@@ -1492,9 +1492,9 @@ Three kinds of file are treated differently, and that difference is the whole po
 
 | Files | What happens |
 |---|---|
-| `config*.toml`, `markers.json`, `admin_config.json`, `autorun.json`, `frequencylist/`, `chat_history.txt`, `frontend/variant.json`, `frontend/site_information.json`, the logs, `build/`, `frontend/dist/` | **Never touched**, and never even shown in a prompt. These are what make the machine *your* receiver. |
-| `start-*.sh`, `stop-websdr.sh`, the `*.service` units, `install*.sh`, `recompile.sh`, `setup_admin.sh`, `smeter_theme.sh`, `proxy.py`, `admin_server.py`, `thermal_guard.py`, `frontend/src/bands-config.js` | **Always asked about**, because these are the files a sysop has a reason to have edited. |
-| Everything else | Updated, after a copy of the old file is saved in `.update-backups/`. |
+| `config.toml`, `config-<receiver>.toml`, `markers.json`, `admin_config.json`, `autorun.json`, `frequencylist/`, `chat_history.txt`, `frontend/variant.json`, `frontend/site_information.json`, the logs, `build/`, `frontend/dist/` | **Never touched**, and never even shown in a prompt. These are what make the machine *your* receiver. |
+| `start-*.sh`, `stop-websdr.sh`, the `*.service` units, `install*.sh`, `recompile.sh`, `setup_admin.sh`, `smeter_theme.sh`, `proxy.py`, `admin_server.py`, `thermal_guard.py`, `websdr_relay.py`, `frontend/src/bands-config.js`, the sample configs `config.example.*.toml` | **Always asked about**, because these are the files a sysop has a reason to have edited. |
+| Everything else | Updated, after a copy of the old file is saved in the backup archive (see *Undoing an update*). |
 
 For each file in the middle group you are shown the differences and given three choices:
 
@@ -1521,7 +1521,7 @@ Your configuration is never part of this: the questions are only ever about scri
 `update.sh` records the version of every file it installs in `.update-state/`. From the second
 run on it can therefore tell a file **you** edited from a file that is merely old, and it only stops to ask about the ones you actually changed.
 
-Before writing anything it stops the receiver, the admin panel and the reverse proxy **of the installation it is updating** — a component serving another directory is listed and left running, so a second clone can be updated while the first one stays on the air — and when it has finished it starts back exactly what it stopped. If source or frontend files changed, it offers to run `recompile.sh` for you. Nothing is ever deleted: files that have gone from the repository are reported, and removed only if you ask with `--prune`.
+Before writing anything it stops the receiver, the admin panel, the reverse proxy and the WebSDR diversity relay **of the installation it is updating** — a component serving another directory is listed and left running, so a second clone can be updated while the first one stays on the air — and when it has finished it starts back exactly what it stopped. If source or frontend files changed, it offers to run `recompile.sh` for you. Nothing is ever deleted: files that have gone from the repository are reported, and removed only if you ask with `--prune`.
 
 ### Undoing an update
 
@@ -1529,7 +1529,22 @@ Before writing anything it stops the receiver, the admin panel and the reverse p
 ./update.sh --restore LAST
 ```
 
-Every overwritten file is kept in `.update-backups/<timestamp>/` with its own `restore.sh`, and the last three runs are retained.
+Every file an update overwrites is saved first, in one dated archive per run in the plain, visible folder `update-backups/`:
+
+```
+update-backups/phantomsdr-backup-20260923-164530.zip
+```
+
+The archive holds only the files that run replaced, each at the path it has in your tree, so it can be copied to another machine as a single file, opened anywhere, or unpacked straight back over the installation. Where `zip` is not installed it is written as `.tar.gz` instead. The three most recent are kept. Either of these puts back what an update replaced:
+
+```bash
+./update.sh --restore LAST
+./update.sh --restore phantomsdr-backup-20260923-164530.zip
+```
+
+Each archive also carries its own `restore.sh`, for the case where `update.sh` itself is the problem: unpack the archive and give it your installation directory, for example `./restore.sh /home/pi/PhantomSDR-Plus`. While restoring, `update.sh` runs from a copy outside the tree, because it is usually one of the files being put back.
+
+Backups made before 23 September 2026 sit in the hidden folder `.update-backups/<timestamp>/`; they can still be restored the same way and count towards the three that are kept.
 
 ### Other options
 

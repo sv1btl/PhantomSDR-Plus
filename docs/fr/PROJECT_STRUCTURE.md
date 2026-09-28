@@ -250,6 +250,7 @@ PhantomSDR-Plus
 │   │   ├── fax.worker.js
 │   │   ├── faxWorkerProxy.js
 │   │   ├── fft.js
+│   │   ├── flacLowLatency.js         # décodeur FLAC qui joue chaque paquet dès son arrivée
 │   │   ├── fsk.js
 │   │   ├── fsk.worker.js
 │   │   ├── fskWorkerProxy.js
@@ -258,6 +259,7 @@ PhantomSDR-Plus
 │   │   │   ├── backend.js
 │   │   │   ├── BandSelector.svelte
 │   │   │   ├── catsync.js
+│   │   │   ├── chatReply.js              # marqueur et fils des réponses du chat
 │   │   │   ├── CheckButton.svelte
 │   │   │   ├── colormaps.js
 │   │   │   ├── Counter.svelte
@@ -320,6 +322,7 @@ PhantomSDR-Plus
 │   │   │   ├── phantomsdrdsp_router.js
 │   │   │   └── wspr.js
 │   │   ├── olivia.js
+│   │   ├── playoutControl.js         # mesure la connexion, garde petit le tampon de lecture
 │   │   ├── psk31.js
 │   │   ├── refused.js
 │   │   ├── remoteSource.js
@@ -923,6 +926,8 @@ L'interface utilisateur web construite avec Svelte et Vite.
 - Contrôle de la lecture audio
 - Distribue le PCM brut (prélevé avant l'AGC, la réduction de bruit et la coupure du son) aux décodeurs de modes
 - Réduction de bruit par IA : `lib/rnnoise.js` charge le module WebAssembly RNNoise (`@jitsi/rnnoise-wasm`) à la première utilisation ; `audio.js` ne l'applique qu'aux modes phonie, après la prise des décodeurs, qui ne l'entendent donc jamais
+- Le FLAC passe par `flacLowLatency.js`, qui décode chaque paquet dès qu'il arrive et ramène la fréquence réelle du flux (par exemple 12016,3 Hz) à 12000 Hz avec un rééchantillonneur à 64 coefficients (2,7 ms de retard). Le décodeur WASM de `modules/` livrait le son par blocs fixes de 1024 échantillons et retenait environ 160 ms ; il sert encore pour Opus, pour les sources de diversité et pour le FLAC quand la page est ouverte avec `?flac=wasm`
+- Contrôle du tampon de lecture (`playoutControl.js`) : `ArrivalMeter` mesure l'irrégularité d'arrivée des paquets par rapport à la chronologie propre du flux, ainsi que la dérive entre l'horloge d'échantillonnage du récepteur et la carte son de l'auditeur ; `CushionController` maintient le plus petit tampon de la dernière minute près de la marge du cran de tampon choisi, en coupant ou en répétant une période accordée à la hauteur du son (`spliceOut` / `spliceIn`) dans l'audio envoyé au haut-parleur. Les décodeurs et les enregistrements reçoivent le flux intact. S'applique au chemin à tampons planifiés qu'utilise tout auditeur d'une station en http simple ; `?drain=0` le désactive, `?diag=1` affiche ses valeurs
 
 #### 4a. Décodeurs de modes et leurs workers
 
@@ -981,6 +986,11 @@ Le rôle `fsk` héberge en outre deux décodeurs qui ne sont pas du FSK du tout.
 - Rien ne réessaie. Une connexion `/audio` tombée met fin à la session, délibérément : `/waterfall` et `/events` ne revenaient jamais avec une reconnexion, une session réessayée était donc de l'audio vivant sur une cascade figée, et face à une limite de débit chaque tentative prolongerait justement le refus qu'elle cherchait à contourner. La page de bureau explique un refus survenu au chargement et s'arrête simplement quand il survient en cours de session ; `/mobile` affiche une ligne invitant l'auditeur à recharger
 - `clientVersion.js` contient un seul entier, `CLIENT_VERSION`, que la page ajoute à sa connexion audio sous la forme `/audio?v=N`. Le serveur éconduit tout ce qui est inférieur à `[server] min_client_version` : c'est ainsi qu'une station force les onglets exécutant encore une version antérieure à recharger — le seul levier existant, puisque le serveur n'atteint pas le JavaScript déjà en cours dans un navigateur. Incrémentez-le quand une modification du frontend ne doit plus être ignorée par les onglets ouverts
 - Référence complète : [Limites de connexion](CONNECTION_LIMITS.md)
+
+#### 4f. Réponses dans le chat (`lib/chatReply.js`)
+- Une réponse est un message de chat ordinaire qui commence par un marqueur nommant le message auquel il répond, `[RE:<horodatage>|<nom>]` ; le serveur le stocke et le relaie comme toute autre ligne et n'a besoin d'aucune modification
+- `chatReply.js` crée et lit ce marqueur et regroupe les réponses sous leur original, sur un niveau. `App.svelte` et `mobile/Mobile.svelte` l'utilisent tous deux, si bien que les deux pages organisent le chat de la même façon
+- Quand l'original a déjà quitté l'historique de 20 messages du serveur, la réponse reste là où elle est arrivée et n'affiche que le nom et l'heure auxquels elle répond
 
 #### 5. Gestion d'état (`stores/`)
 - Magasins de données réactifs

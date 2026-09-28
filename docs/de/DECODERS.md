@@ -125,6 +125,10 @@ Die Meldungsliste zeigt dekodierte Aussendungen, sobald sie eintreffen. Jeder 15
 
 Typisches Meldungsformat: `CQ DX AA1BB FN31` — ein CQ-Ruf des Rufzeichens AA1BB aus dem Planquadrat FN31.
 
+Die **SNR** bei jeder Dekodierung ist ein echter Signal-Rausch-Abstand, gemessen am dekodierten Signal gegenüber dem umgebenden Rauschen und auf 2500 Hz Bandbreite bezogen, so wie WSJT-X sie angibt. Schwache Stationen zeigen negative Werte bis etwa −20 dB, starke positive; auf denselben Aufnahmen stimmen beide Programme im Mittel überein, bei einer einzelnen Dekodierung typisch auf etwa 3 dB. FT4 und FT2 verwenden dasselbe Verfahren.
+
+> **Nach einem Update:** Der FT8/FT4/FT2-Decoder ist eine eigene Datei, die Browser lange zwischenspeichern. Liegen alle SNR-Werte weiterhin zwischen etwa 0 und +5 dB, laden Sie die Seite hart neu (**Strg+Umschalt+R**, auf dem Mac **Cmd+Umschalt+R**).
+
 > **Tipp:** FT8 ist eng zeitsynchronisiert. Ihr Browser nutzt die Uhr Ihres Rechners; weicht die Systemzeit um mehr als ein paar Sekunden ab, schlägt die Dekodierung fehl. Halten Sie Ihre Systemzeit per NTP synchron.
 
 ---
@@ -268,12 +272,13 @@ CW ist auf allen Amateurbändern aktiv, typischerweise im unteren Teil jedes Ban
 
 - Die Kopfzeile des Bedienfelds zeigt die erkannte Signalfrequenz in Hz (z. B. `≈ 700 Hz`) und die geschätzte Gebegeschwindigkeit in Wörtern pro Minute (z. B. `· 22 WPM`).
 - Wird kein Signal erkannt, zeigt die Kopfzeile **scanning…**
+- Auf einem leeren Kanal wird nichts ausgegeben, und Geschwindigkeit und Ton werden nicht angezeigt. Der Decoder beginnt erst zu schreiben, wenn sich Taste gedrückt und Taste offen deutlich unterscheiden, was reines Rauschen nicht erzeugt, ein bei etwa −10 dB noch lesbares Signal aber reichlich.
 - Der dekodierte Text läuft in bernsteinfarbener Festbreitenschrift durch. Der blinkende Cursor (▋) markiert die Stelle, an der gerade geschrieben wird.
 - Klicken Sie auf **Clear**, um den Ausgabepuffer zu löschen.
 
 > **Tipps:**
 > - Zentrieren Sie Ihren Durchlassbereich auf den CW-Ton. Der Decoder arbeitet am besten, wenn das CW-Signal etwa zwischen 400 und 900 Hz im Audiospektrum liegt.
-> - Sehr schnelles oder sehr langsames Geben sowie stark handgetastetes (unregelmäßiges) Morsen können die Genauigkeit verringern.
+> - Geschwindigkeiten von etwa 8 bis 40 WPM werden gelesen, auch Farnsworth-Gebung (schnell gegebene Zeichen mit längeren Pausen dazwischen): Die Geschwindigkeitsverriegelung hält, und Buchstaben werden nicht in einzelne Wörter zerlegt. Stark handgetastetes (unregelmäßiges) Morsen kann die Genauigkeit weiterhin verringern.
 > - Der Decoder liefert die besten Ergebnisse bei einem einzelnen sauberen Signal. Starkes QRM benachbarter Signale auf demselben Band kann ihn verwirren.
 
 ---
@@ -429,7 +434,7 @@ Klicken Sie auf **Clear**, um die Spot-Liste zu löschen.
 
 1. Aktivieren Sie den Decoder und wählen Sie **HF FAX / WEFAX** aus dem Menü. Oder drücken Sie einfach die Taste **FAX**.
 2. Das Bedienfeld **HF FAX / WEFAX Receiver** erscheint darunter.
-3. **Wählen Sie eine Station** im Auswahlmenü Station. Über 20 Stationen stehen zur Verfügung und decken Europa, Asien, Ozeanien und Amerika ab (z. B. DDH3/DDK3 Deutschland, SVJ4/GR Griechenland, JMH Japan, NMG USA New Orleans).
+3. **Wählen Sie eine Station** im Auswahlmenü Station. Über 20 Stationen stehen zur Verfügung und decken Europa, Asien, Ozeanien und Amerika ab (z. B. DDH3/DDK3 Deutschland, SVJ4/GR Griechenland, JMH Japan, NMG USA New Orleans). Auch CBM Punta Arenas (Chile) ist dabei. Die Sendepläne folgen dem weltweiten Radiofax-Plan der NOAA (Ausgabe vom 7. März 2025); Charleville (VMC, Australien) enthält seine zusätzlichen Sendungen, die nur auf 11030 kHz laufen.
 4. Sendet die Station auf mehreren Frequenzen, wählen Sie die gewünschte im Untermenü **Frequency**.
 5. Klicken Sie auf **▶ Tune**, um den Wasserfall automatisch auf diese Station abzustimmen.
 6. Die Betriebsart wird automatisch auf **USB** gesetzt.
@@ -465,6 +470,8 @@ Unter dem Bild zeigen zwei Tonanzeigen:
 
 - **300 Hz phasing** — leuchtet cyan, wenn der Phasenton am Bildanfang erkannt wird.
 - **450 Hz stop** — leuchtet rot, wenn der Stoppton am Bildende erkannt wird.
+
+Beide Signale werden an ihrem Rhythmus über die ganze Zeilenbreite erkannt, die echte Start- und Stoppsignale immer ausfüllen und Karteninhalte praktisch nie, sodass schraffierte Flächen einer Karte nicht für ein Startsignal gehalten werden. Sie werden bis herab zu etwa 0 dB SNR erkannt, und bei sehr schwachen Signalen wird das Bild aus dem Mittel mehrerer Phasing-Zeilen ausgerichtet, sodass die Karte trotzdem am linken Rand beginnt.
 
 > **Hinweis:** Das Bild läuft nach oben — die zuletzt empfangene Zeile erscheint immer unten auf der Zeichenfläche. Steht **[PHASING]** in der Kopfzeile, hat der Decoder auf einen neuen Bildanfang eingerastet.
 
@@ -508,7 +515,9 @@ Der dekodierte Text erscheint in blaugrüner Festbreitenschrift. Die Meldungsgre
 ━━ NNNN ━━
 ```
 
-`ZCZC` markiert den Anfang einer Meldung. Die drei folgenden Zeichen kennzeichnen Station (`M`), Thema (`A` = Navigationswarnungen) und laufende Nummer (`12`). `NNNN` markiert das Ende.
+`ZCZC` markiert den Anfang einer Meldung. Die vier folgenden Zeichen kennzeichnen Station (`M`), Thema (`A` = Navigationswarnungen) und laufende Nummer (`12`). Das Banner wartet auf die vollständige Kopfzeile und lautet daher `ZCZC MA12`, nicht `ZCZC ????`. `NNNN` markiert das Ende.
+
+Stimmen Sie ein, nachdem eine Meldung schon begonnen hat, oder geht ihre Kopfzeile im Rauschen unter, erscheint der Text trotzdem, unter einem Banner **━━ (header missed) ━━**. Es öffnet sich erst, wenn mehrere Zeichen hintereinander eintreffen, bei denen beide NAVTEX-Aussendungen übereinstimmen, was Rauschen praktisch nie erzeugt. Es schließt wie gewohnt bei `NNNN`, mit **━━ (signal lost) ━━**, wenn das Signal vorher verschwindet, oder wenn eine neue Meldung beginnt.
 
 Klicken Sie auf **Clear**, um den Meldungspuffer zu löschen.
 
@@ -573,6 +582,7 @@ Das Bedienfeld passt sich der gewählten Variante an. **Shift**, **Baud**, **Fra
 | Auto shift detect | nur FSK | Versucht, den Shift automatisch aus dem eingehenden Signal zu messen |
 | Mode (Töne / Hz) | nur Olivia | Anzahl der Töne und Bandbreite — muss exakt zur Aussendung passen |
 | Squelch (FEC S/N) | nur Olivia | Wie stark die Übereinstimmung der Fehlerkorrektur sein muss, bevor Text ausgegeben wird |
+| Squelch (SNR) | Amateur- und Wetter-RTTY | Verhindert, dass Rauschen als zufällige Buchstaben ausgegeben wird. Beginnt bei −5 dB für Amateur-RTTY und −8 dB für Wetter-RTTY; ganz links (**off**) ist sie abgeschaltet. Die SNR-Anzeige wird grau, solange die Squelch geschlossen ist |
 
 ### Signalmesswerte
 
@@ -581,15 +591,19 @@ Die Statuszeile zeigt Live-Messwerte, und die Felder wechseln mit der Variante:
 | Variante | Angezeigte Felder |
 |----------|-------------------|
 | FSK-Varianten | **Mark / Space** (gemessene Tonfrequenzen), **SNR**, **Lock**, **Timing** |
-| PSK31 | **Carrier** (Hz, nach automatischer Frequenzkorrektur), **IMD** (dB), **S/N**, **Lock**, **Timing** |
+| PSK31 | **Carrier** (Hz, nach automatischer Frequenzkorrektur), **IMD** (dB), **SNR**, **Lock**, **Timing** |
 | Olivia | **Centre** (Hz), **Mode**, **S/N**, **FEC** (%), **Sync** |
 
 `Timing`/`Sync` zeigt `LOCKED`/`SYNCED`, sobald der Decoder dem Signal folgt, und `SEARCH`, solange er noch sucht.
 
+Die **SNR** der FSK-Varianten und von PSK31 wird am Signal selbst gemessen und auf 3 kHz Bandbreite bezogen, sodass beide auf derselben Skala liegen: von +20 dB bis −5 dB auf etwa 1 dB genau. Eine leere Frequenz zeigt etwa −12 bis −15 dB, und bei PSK31 ist 0 dB bereits ein starkes Signal. Die **S/N** von Olivia ist etwas anderes: die Qualitätszahl der Fehlerkorrektur.
+
+Amateur-RTTY (45,45 Baud, 170 Hz) wird bis herab zu etwa 0 dB fehlerfrei gelesen, mit rund 1,5 % falschen Zeichen bei −3 dB und 20 % bei −6 dB.
+
 ### Weitere Bedienelemente
 
-- **⇒ Set IF Band-Pass** — verengt den Durchlassbereich des Empfängers so, dass er das Signal eng umschließt. Die Breite richtet sich nach der Variante: Mark/Space plus Rand bei FSK, etwa ±100 Hz bei PSK31 und die volle Tonblockbreite plus Rand bei Olivia.
-- **⟳ Auto-tune Center** — automatische Suche nach dem Signal. Bei den FSK-Varianten sucht sie ein ausgewogenes Tonpaar, bei PSK31 findet sie den Träger, bei Olivia den stärksten Block der gewählten Bandbreite.
+- **⇒ Set IF Band-Pass** — verengt den Durchlassbereich des Empfängers so, dass er das Signal eng umschließt. Die Breite richtet sich nach der Variante: 300 Hz für Amateur-RTTY (schmal genug, um eine stärkere Station 250 Hz daneben zu entfernen, und dennoch lesbar bei einem 40 Hz verstimmten Signal), 594 Hz für Wetter-RTTY, Mark/Space plus Reserve für Maritime FSK, etwa ±100 Hz für PSK31 und die volle Breite des Tonblocks plus Reserve für Olivia. Der Durchlassbereich folgt dem Decoder, wenn **Auto-tune** oder **Auto shift detect** die Töne verschiebt, und wenn Sie die **Baud**-Einstellung ändern.
+- **⟳ Auto-tune Center** — automatische Suche nach dem Signal. Bei den FSK-Varianten sucht sie ein ausgewogenes Tonpaar, bei PSK31 findet sie den Träger, bei Olivia den stärksten Block der gewählten Bandbreite. **Auto shift detect** ändert die Shift nur, wenn ein echtes Zweitonsignal vorhanden ist, und springt daher nicht mehr auf Rauschen.
 
 ### Hinweise zu PSK31
 

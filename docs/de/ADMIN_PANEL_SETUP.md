@@ -434,6 +434,7 @@ So funktioniert es:
 - Das Admin-Panel schreibt die Chatprotokolldatei an Ort und Stelle neu und entfernt dabei nur die Zeile der gewählten Nachricht.
 - Die Änderung wirkt für jeden Nutzer, der den Chat neu lädt; bereits geladener Chatverlauf in offenen Browser-Tabs wird nicht rückwirkend aktualisiert.
 - Das Leeren des gesamten Protokolls (Schaltfläche **Clear All**) kürzt die Datei, was ebenfalls ohne Neustart wirkt.
+- Eine **Chat-Antwort** wird als gewöhnliche Nachricht gespeichert, die mit einer Markierung beginnt, welche die beantwortete Nachricht benennt, zum Beispiel `[RE:2026-09-25 12:00:01|SV1BTL]`; in dieser Liste erscheint sie deshalb mit dieser Markierung davor. Das Löschen einer Antwort entfernt nur diese Antwort. Das Löschen der beantworteten Nachricht lässt ihre Antworten stehen; sie zeigen dann nur noch Name und Uhrzeit dessen, worauf sie antworten.
 
 Die Löschschaltfläche wird in allen fünf Svelte-App-Varianten einheitlich dargestellt. Scheint eine Löschung nicht zu wirken, prüfen Sie, ob das Admin-Panel Schreibrechte auf die Chatprotokolldatei hat:
 

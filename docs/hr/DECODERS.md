@@ -125,6 +125,10 @@ Popis poruka prikazuje dekodirane emisije kako pristižu. Svaki ciklus od 15 sek
 
 Tipičan oblik poruke: `CQ DX AA1BB FN31` — CQ poziv pozivnog znaka AA1BB smještenog u polju FN31.
 
+**SNR** prikazan uz svako dekodiranje pravi je omjer signala i šuma, izmjeren na dekodiranom signalu u odnosu na šum oko njega i sveden na širinu pojasa od 2500 Hz, kako ga daje WSJT-X. Slabe stanice pokazuju negativne vrijednosti, do oko −20 dB, a jake pozitivne; na istim snimkama oba programa u prosjeku se slažu, obično unutar oko 3 dB za pojedino dekodiranje. FT4 i FT2 koriste istu metodu.
+
+> **Nakon ažuriranja:** FT8/FT4/FT2 dekoder zasebna je datoteka koju preglednici dugo čuvaju. Ako su svi SNR i dalje između oko 0 i +5 dB, ponovno učitajte stranicu potpunim osvježavanjem (**Ctrl+Shift+R**, ili **Cmd+Shift+R** na Macu).
+
 > **Savjet:** FT8 je usko vremenski sinkroniziran. Vaš preglednik koristi sat vašeg računala; ako sat sustava odstupa više od nekoliko sekundi, dekodiranje neće uspjeti. Držite vrijeme sustava usklađeno putem NTP-a.
 
 ---
@@ -268,12 +272,13 @@ CW je aktivan na svim amaterskim pojasevima, obično u njihovu donjem dijelu. Uo
 
 - Zaglavlje ploče prikazuje otkrivenu frekvenciju signala u Hz (npr. `≈ 700 Hz`) i procijenjenu brzinu odašiljanja u riječima u minuti (npr. `· 22 WPM`).
 - Ako signal nije otkriven, zaglavlje prikazuje **scanning…**
+- Na praznom kanalu ništa se ne ispisuje, a brzina i ton se ne prikazuju. Dekoder počinje pisati tek kad postoji jasna razlika između pritisnutog i otpuštenog tipkala, što sam šum ne proizvodi, dok signal još čitljiv na oko −10 dB to ima u izobilju.
 - Dekodirani tekst kliže u jantarnom fontu jednolike širine. Trepćući pokazivač (▋) označava mjesto na kojem se tekst trenutačno ispisuje.
 - Kliknite **Clear** da izbrišete međuspremnik ispisa.
 
 > **Savjeti:**
 > - Centrirajte propusni pojas na CW ton. Dekoder radi najbolje kada CW signal leži otprilike između 400 i 900 Hz u audiospektru.
-> - Vrlo brzo ili vrlo sporo odašiljanje te izrazito ručno tipkani (nepravilan) Morse mogu smanjiti točnost.
+> - Čitaju se brzine od oko 8 do 40 WPM, uključujući Farnsworth odašiljanje (znakovi poslani brzo s duljim razmacima među njima): zaključavanje brzine drži, a slova se ne raspadaju u zasebne riječi. Izrazito ručno tipkan (nepravilan) Morse i dalje može smanjiti točnost.
 > - Dekoder daje najbolje rezultate na jednom čistom signalu. Jak QRM od obližnjih signala na istom pojasu može ga zbuniti.
 
 ---
@@ -429,7 +434,7 @@ Kliknite **Clear** da izbrišete popis spotova.
 
 1. Uključite dekoder i iz padajućeg izbornika odaberite **HF FAX / WEFAX**. Ili jednostavno pritisnite gumb **FAX**.
 2. Ploča **HF FAX / WEFAX Receiver** pojavljuje se ispod.
-3. **Odaberite postaju** iz padajućeg izbornika Station. Dostupno je više od 20 postaja koje pokrivaju Europu, Aziju, Oceaniju i Ameriku (npr. DDH3/DDK3 Njemačka, SVJ4/GR Grčka, JMH Japan, NMG SAD New Orleans).
+3. **Odaberite postaju** iz padajućeg izbornika Station. Dostupno je više od 20 postaja koje pokrivaju Europu, Aziju, Oceaniju i Ameriku (npr. DDH3/DDK3 Njemačka, SVJ4/GR Grčka, JMH Japan, NMG SAD New Orleans). Tu je i CBM Punta Arenas (Čile). Rasporedi prate NOAA-in svjetski raspored radiofaksa (izdanje od 7. ožujka 2025.); Charleville (VMC, Australija) uključuje svoje dodatne emisije samo na 11030 kHz.
 4. Ako postaja emitira na više frekvencija, odaberite željenu iz podizbornika **Frequency**.
 5. Kliknite **▶ Tune** da automatski ugodite slap na tu postaju.
 6. Način rada automatski se postavlja na **USB**.
@@ -465,6 +470,8 @@ Na dnu slike dva pokazatelja tona prikazuju:
 
 - **300 Hz phasing** — svijetli cijan kada je otkriven fazni ton početka slike.
 - **450 Hz stop** — svijetli crveno kada je otkriven ton završetka slike.
+
+Oba signala prepoznaju se po ritmu preko cijele širine retka, koju pravi signali početka i kraja uvijek ispunjavaju, a sadržaj karte praktički nikad, pa se šrafirana područja karte ne smatraju signalom početka. Prepoznaju se do oko 0 dB SNR-a, a kod vrlo slabih signala slika se poravnava prema prosjeku nekoliko redaka faziranja, pa karta i dalje počinje na lijevom rubu.
 
 > **Napomena:** slika klizi prema gore — najnoviji primljeni redak uvijek je na dnu platna. Ako u zaglavlju vidite **[PHASING]**, dekoder se uhvatio za početak nove slike.
 
@@ -508,7 +515,9 @@ Dekodirani tekst pojavljuje se u tirkiznom fontu jednolike širine. Granice poru
 ━━ NNNN ━━
 ```
 
-`ZCZC` označava početak poruke. Tri znaka iza njega označavaju postaju (`M`), temu (`A` = navigacijska upozorenja) i redni broj (`12`). `NNNN` označava kraj.
+`ZCZC` označava početak poruke. Četiri znaka nakon njega označavaju stanicu (`M`), temu (`A` = navigacijska upozorenja) i redni broj (`12`). Natpis čeka cijelo zaglavlje, pa glasi `ZCZC MA12`, a ne `ZCZC ????`. `NNNN` označava kraj.
+
+Ako se ugodite nakon što je poruka već počela, ili joj se zaglavlje izgubi u šumu, tekst se svejedno pojavljuje, ispod natpisa **━━ (header missed) ━━**. On se otvara tek kad stigne nekoliko znakova zaredom kod kojih se obje NAVTEX emisije slažu, što šum praktički nikad ne proizvodi. Zatvara se na `NNNN` kao i obično, s **━━ (signal lost) ━━** ako signal nestane prije, ili kad počne nova poruka.
 
 Kliknite **Clear** da izbrišete međuspremnik poruka.
 
@@ -573,6 +582,7 @@ Ploča se prilagođava odabranoj inačici. **Shift**, **Baud**, **Framing**, **E
 | Auto shift detect | samo FSK | Pokušava automatski izmjeriti shift iz dolaznog signala |
 | Mode (tonovi / Hz) | samo Olivia | Broj tonova i širina pojasa — mora točno odgovarati emisiji |
 | Squelch (FEC S/N) | samo Olivia | Koliko jako podudaranje korekcije pogrešaka mora biti prije ispisa teksta |
+| Squelch (SNR) | Amaterski i meteorološki RTTY | Sprječava da se šum ispisuje kao nasumična slova. Počinje na −5 dB za amaterski RTTY i na −8 dB za meteorološki; skroz lijevo (**off**) je isključen. Brojka SNR postaje siva dok je squelch zatvoren |
 
 ### Mjerenja signala
 
@@ -581,15 +591,19 @@ Statusna traka prikazuje mjerenja uživo, a polja se mijenjaju s inačicom:
 | Inačica | Prikazana polja |
 |---------|-----------------|
 | FSK inačice | **Mark / Space** (izmjerene frekvencije tonova), **SNR**, **Lock**, **Timing** |
-| PSK31 | **Carrier** (Hz, nakon automatske korekcije frekvencije), **IMD** (dB), **S/N**, **Lock**, **Timing** |
+| PSK31 | **Carrier** (Hz, nakon automatske korekcije frekvencije), **IMD** (dB), **SNR**, **Lock**, **Timing** |
 | Olivia | **Centre** (Hz), **Mode**, **S/N**, **FEC** (%), **Sync** |
 
 `Timing`/`Sync` pokazuje `LOCKED`/`SYNCED` kada dekoder prati signal, a `SEARCH` dok ga još traži.
 
+**SNR** FSK varijanti i PSK31 mjeri se na samom signalu i daje u širini pojasa od 3 kHz, pa se oba čitaju na istoj ljestvici: s točnošću od oko 1 dB od +20 dB do −5 dB. Prazna frekvencija pokazuje oko −12 do −15 dB, a kod PSK31 0 dB je već jak signal. **S/N** kod Olivije je nešto drugo: pokazatelj kvalitete ispravljanja pogrešaka.
+
+Amaterski RTTY (45,45 bauda, 170 Hz) čita se bez pogrešaka do oko 0 dB, s oko 1,5 % pogrešnih znakova na −3 dB i 20 % na −6 dB.
+
 ### Dodatne kontrole
 
-- **⇒ Set IF Band-Pass** — sužava propusni pojas prijamnika tako da tijesno obuhvati signal. Širina prati inačicu: mark/space plus rezerva za FSK, oko ±100 Hz za PSK31 i puna širina bloka tonova plus rezerva za Oliviju.
-- **⟳ Auto-tune Center** — automatsko traženje signala. Za FSK inačice traži uravnotežen par tonova, za PSK31 pronalazi nosilac, a za Oliviju najjači blok odabrane širine pojasa.
+- **⇒ Set IF Band-Pass** — sužava propusni pojas prijamnika tako da tijesno obuhvati signal. Širina prati varijantu: 300 Hz za amaterski RTTY (dovoljno usko da ukloni jaču stanicu 250 Hz dalje, a i dalje čita signal razdešen za 40 Hz), 594 Hz za meteorološki RTTY, mark/space plus rezerva za pomorski FSK, oko ±100 Hz za PSK31 i cijela širina bloka tonova plus rezerva za Oliviju. Propusni pojas prati dekoder kad **Auto-tune** ili **Auto shift detect** pomakne tonove te kad promijenite postavku **Baud**.
+- **⟳ Auto-tune Center** — automatsko traženje signala. Za FSK inačice traži uravnotežen par tonova, za PSK31 pronalazi nosilac, a za Oliviju najjači blok odabrane širine pojasa. **Auto shift detect** mijenja shift samo kad je prisutan pravi dvotonski signal, pa više ne skače na šum.
 
 ### Napomene o PSK31
 

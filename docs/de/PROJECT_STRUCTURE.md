@@ -250,6 +250,7 @@ PhantomSDR-Plus
 │   │   ├── fax.worker.js
 │   │   ├── faxWorkerProxy.js
 │   │   ├── fft.js
+│   │   ├── flacLowLatency.js         # FLAC-Decoder, der jedes Paket beim Eintreffen abspielt
 │   │   ├── fsk.js
 │   │   ├── fsk.worker.js
 │   │   ├── fskWorkerProxy.js
@@ -258,6 +259,7 @@ PhantomSDR-Plus
 │   │   │   ├── backend.js
 │   │   │   ├── BandSelector.svelte
 │   │   │   ├── catsync.js
+│   │   │   ├── chatReply.js              # Markierung und Zuordnung von Chat-Antworten
 │   │   │   ├── CheckButton.svelte
 │   │   │   ├── colormaps.js
 │   │   │   ├── Counter.svelte
@@ -320,6 +322,7 @@ PhantomSDR-Plus
 │   │   │   ├── phantomsdrdsp_router.js
 │   │   │   └── wspr.js
 │   │   ├── olivia.js
+│   │   ├── playoutControl.js         # misst die Verbindung, hält den Wiedergabepuffer klein
 │   │   ├── psk31.js
 │   │   ├── refused.js
 │   │   ├── remoteSource.js
@@ -923,6 +926,8 @@ Die mit Svelte und Vite erstellte webbasierte Benutzeroberfläche.
 - Steuerung der Audiowiedergabe
 - Verteilt rohes PCM (vor AGC, Rauschminderung und Stummschaltung abgegriffen) an die Betriebsartendecoder
 - KI-Rauschunterdrückung: `lib/rnnoise.js` lädt das RNNoise-WebAssembly-Modul (`@jitsi/rnnoise-wasm`) beim ersten Gebrauch; `audio.js` wendet es nur in Sprachbetriebsarten an, hinter dem Abgriff für die Decoder, sodass diese es nie hören
+- FLAC läuft über `flacLowLatency.js`, das jedes Paket in dem Moment decodiert, in dem es eintrifft, und die tatsächliche Rate des Streams (zum Beispiel 12016,3 Hz) mit einem 64-Tap-Resampler (2,7 ms Verzögerung) auf 12000 Hz bringt. Der WASM-Decoder in `modules/` gab den Ton in festen Blöcken von 1024 Samples frei und hielt rund 160 ms zurück; er wird weiterhin für Opus, für Diversity-Quellen und für FLAC verwendet, wenn die Seite mit `?flac=wasm` geöffnet wird
+- Steuerung des Wiedergabepuffers (`playoutControl.js`): `ArrivalMeter` misst, wie unregelmäßig die Pakete gemessen an der eigenen Zeitachse des Streams eintreffen, und die Drift zwischen dem Abtasttakt des Empfängers und der Soundkarte des Hörers; `CushionController` hält den kleinsten Pufferstand der letzten Minute nahe an der Reserve der gewählten Pufferstufe, indem er eine tonhöhengerechte Periode (`spliceOut` / `spliceIn`) des Tons zum Lautsprecher herausschneidet oder wiederholt. Decoder und Aufnahmen erhalten den unveränderten Stream. Gilt für den Pfad mit geplanten Puffern, den jeder Hörer einer reinen http-Station nutzt; `?drain=0` schaltet ihn ab, `?diag=1` zeigt seine Werte
 
 #### 4a. Betriebsartendecoder und ihre Worker
 
@@ -981,6 +986,11 @@ Die Rolle `fsk` beherbergt zusätzlich zwei Decoder, die überhaupt kein FSK sin
 - Nichts versucht es erneut. Eine abgebrochene `/audio`-Verbindung beendet die Sitzung mit Absicht: `/waterfall` und `/events` kamen mit einem Wiederverbinden nie zurück, eine erneut aufgebaute Sitzung war also lebendes Audio an einem eingefrorenen Wasserfall, und gegen ein Ratenlimit würde jeder Versuch genau die Abweisung verlängern, die er umgehen wollte. Die Desktop-Seite erklärt eine Abweisung beim Laden und hört einfach auf, wenn eine mitten in der Sitzung kommt; `/mobile` zeigt eine Zeile, die zum Neuladen auffordert
 - `clientVersion.js` enthält eine einzige Ganzzahl, `CLIENT_VERSION`, die die Seite ihrer Audioverbindung als `/audio?v=N` anhängt. Der Server weist alles unterhalb von `[server] min_client_version` ab — so zwingt eine Station Tabs, die noch einen älteren Stand fahren, zum Neuladen, der einzige Hebel, den es gibt, da der Server JavaScript im Browser nicht mehr erreicht. Erhöhen Sie sie, wenn eine Frontend-Änderung von offenen Tabs nicht weiter ignoriert werden darf
 - Vollständige Referenz: [Verbindungslimits](CONNECTION_LIMITS.md)
+
+#### 4f. Chat-Antworten (`lib/chatReply.js`)
+- Eine Antwort ist eine gewöhnliche Chat-Nachricht, die mit einer Markierung beginnt, welche die beantwortete Nachricht benennt: `[RE:<Zeitstempel>|<Name>]`. Der Server speichert und verteilt sie wie jede andere Zeile und braucht keine Änderung
+- `chatReply.js` erzeugt und liest diese Markierung und ordnet Antworten eine Ebene tief unter ihrem Original an. `App.svelte` und `mobile/Mobile.svelte` verwenden es beide, sodass beide Seiten den Chat gleich gliedern
+- Ist das Original bereits aus dem Verlauf von 20 Nachrichten des Servers verschwunden, bleibt die Antwort dort, wo sie eintraf, und zeigt nur Name und Uhrzeit dessen, worauf sie antwortet
 
 #### 5. Zustandsverwaltung (`stores/`)
 - Reaktive Datenspeicher

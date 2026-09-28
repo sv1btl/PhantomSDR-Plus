@@ -350,12 +350,29 @@ The **AI** button, with a strength slider beside it, sits in the Audio & Buffer 
 Everything happens in your own browser: nothing is sent to an outside server, there is no account, and the receiver does no extra work.
 
 - **On/off**: Click **AI**; the button turns blue. The first click downloads the module (about 1.3 MB), and the button pulses while it loads.
-- **Strength**: The slider sets how strongly it works while someone is talking — 100% is fully processed, lower values keep more of the original sound. Between words it works harder on its own, so the hiss drops further there. The default is 50%. You can set it while AI is off.
+- **Strength**: The slider sets how strongly it works while someone is talking — lower values keep more of the original sound. The top of the scale is deliberately softer than a full cut, so that speech is not damaged even at 100%, which still cleans more than 50% does. Between words it works harder on its own, so the hiss drops further there. The default is 50%. You can set it while AI is off.
 - **Status label**: The AI label under the frequency display lights cyan while AI is working, and shows half-dimmed when AI is on but the current mode is not a voice mode.
 
-**Use when**: Listening to SSB or AM voice on a noisy band. The hiss between words typically drops by about 10 dB at the default 50%, and by 20 dB or more at 100%, while the speech keeps its level.
+**Use when**: Listening to SSB or AM voice on a noisy band. The hiss between words typically drops by about 10 dB at the default 50%, and more at 100%, up to about 20 dB, while the speech keeps its level.
 
-Voice modes only — USB, LSB, AM and SAM. In CW, FM, the data modes and C-QUAM the audio passes through untouched, because the network treats a CW tone or music as noise. Like the four noise controls, it never reaches the decoders. On very weak stations (around 0 dB SNR) speech can sound processed; if a signal sounds "watery", lower the slider. It adds about 50 ms of audio delay.
+Voice modes only — USB, LSB, AM and SAM. In CW, FM, the data modes and C-QUAM the audio passes through untouched, because the network treats a CW tone or music as noise. Like the four noise controls, it never reaches the decoders. On weak stations (below about +6 dB SNR) it measures the signal-to-noise ratio itself and smooths its decisions more, so speech does not take on the bubbling, "watery" sound this kind of filter can give; strong stations are processed exactly as before. If a very weak signal still sounds processed, lower the slider. It adds about 50 ms of audio delay.
+
+### Audio Buffer and Delay
+
+Audio reaches the browser in small packets, 35 ms each on a typical receiver, and the browser keeps a little of it in hand so that a packet arriving late does not cause a gap. That reserve is the **buffer**, and it is most of the delay between the receiver and your loudspeaker.
+
+- **Desktop**: in the Audio & Buffer panel, the button with the network icon moves the buffer one step up per click (it turns green above the lowest step), and the slider beside it picks a step from 1 to 6 directly. The lowest step suits a wired connection; phones start on step 2.
+- **/mobile**: the **BUF** button and the **Buffer** slider in the Audio tab do the same.
+
+The buffer adjusts itself. The page measures how irregularly your connection delivers the audio and keeps only as much in hand as the last minute showed was needed, plus the safety margin of the step you chose: 20 ms on step 1, 50 ms on step 2, more on the higher steps. After a moment of network trouble the extra delay drains away again within a minute or two, and a small difference between your sound card's clock and the receiver's no longer leads to a break every few minutes. The adjustments are a few milliseconds at a time, made where the sound repeats itself, and cannot be heard. The decoders and your recordings are never affected: they receive every sample.
+
+If the audio breaks up, move the buffer one step higher. On a phone over home Wi-Fi the delay from the receiver to the loudspeaker is typically about 100–150 ms; the network between you and the receiver adds to it.
+
+### Chat
+
+When the operator has enabled the chat, it has its own panel on the desktop page and a **Chat** tab on /mobile. Enter your name or callsign, type your message and send it.
+
+To answer a particular message, click **↪ Reply** next to its time. A line above the input box shows who and what you are answering; type and send as usual, or press ✕ or Esc to cancel. The answer appears indented under the message it answers, with a short quote line. A reply to a reply joins the same thread. The server keeps the last 20 messages; when the original has already dropped out of that history, a reply shows only the name and time it answers.
 
 ### Zoom Function
 
@@ -641,7 +658,7 @@ NAVTEX is the international maritime broadcast system for coastal safety informa
 
 A general-purpose decoder for narrow-band text modes, with five variants in one window: Maritime FSK (SITOR), Weather RTTY, Amateur RTTY, **PSK31** (phase-shift keying, 31.25 baud) and **Olivia** (multi-tone FSK with forward error correction). The panel adapts to the variant — the shift, baud and framing controls disappear for PSK31 and Olivia, and Olivia adds a Mode selector and a squelch slider.
 
-Two things to know: PSK31 corrects its own tuning error over about ±25 Hz, so you only need to get close; Olivia needs its **Mode** (tones / bandwidth) set to exactly match the transmission, sends no preamble, and therefore takes a few seconds to synchronise before any text appears. The panel opens on Olivia **8 / 250**.
+Amateur RTTY and Weather RTTY have a **Squelch (SNR)** slider that stops noise from printing as random letters, and every variant except Olivia shows a real SNR on the same 3 kHz scale. Two things to know: PSK31 corrects its own tuning error over about ±25 Hz, so you only need to get close; Olivia needs its **Mode** (tones / bandwidth) set to exactly match the transmission, sends no preamble, and therefore takes a few seconds to synchronise before any text appears. The panel opens on Olivia **8 / 250**.
 
 ---
 
@@ -857,6 +874,19 @@ A frequency outside the receiver's coverage is pulled back to the nearest edge, 
 3. Use narrower filter bandwidth
 4. Tune away from interfering signals
 
+### Audio Breaks Up or Lags Behind
+
+**Possible causes:**
+1. Irregular connection → packets arrive late and the buffer runs dry
+2. Busy phone or computer → the browser cannot keep up
+
+**Solutions:**
+1. Move the buffer one step higher (see *Audio Buffer and Delay*)
+2. Prefer Wi-Fi or a cable to mobile data
+3. Close other tabs and apps
+
+For a closer look, open the page with `?diag=1` added to its address (for example `http://your_server:PORT/mobile?diag=1`). The /mobile page then shows the delay, how irregular the connection is and how the buffer is doing under its controls; the desktop page writes the same line to the browser console (F12) every ten seconds. Useful when reporting a problem to the station operator.
+
 ### Waterfall Not Updating
 
 **Possible causes:**
@@ -921,7 +951,7 @@ A: Some browsers allow recording. Check your browser's features.
 A: Varies by station. Check the station information page.
 
 **Q: What's the latency?**
-A: Typically 2-5 seconds between radio signal and your speakers.
+A: Usually a few tenths of a second between the radio signal and your speakers: the receiver's processing, the network, and the browser's playback buffer, which adjusts itself to your connection (about 100–150 ms on a phone over home Wi-Fi). See *Audio Buffer and Delay*.
 
 **Q: Can I use multiple instances?**
 A: Usually yes, but it may strain the server. Be considerate.
@@ -941,7 +971,7 @@ A: Depends on server capacity. Often 50-200+ users.
 A: If enabled, yes. Look for "other users" indicators.
 
 **Q: Can I chat with other listeners?**
-A: If enabled by operator. Look for chat box.
+A: If enabled by the operator. Look for the chat box; **↪ Reply** answers a particular message (see *Chat* above).
 
 **Q: Why do some frequencies show nothing?**
 A: No signals on that frequency at the moment. Try others!

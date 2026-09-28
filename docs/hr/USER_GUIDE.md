@@ -350,12 +350,29 @@ Tipka **AI**, s klizačem jačine pokraj nje, nalazi se na ploči Audio & Buffer
 Sve se odvija u vašem pregledniku: ništa se ne šalje na vanjski poslužitelj, nije potreban račun, a prijamnik nema nikakav dodatni posao.
 
 - **Uključivanje**: kliknite **AI**; tipka postaje plava. Prvi klik preuzima modul (oko 1,3 MB), a tipka pulsira dok se učitava.
-- **Jačina**: klizač određuje koliko snažno radi dok netko govori — na 100 % sve je obrađeno, niže vrijednosti zadržavaju više izvornog zvuka. Između riječi sam radi jače, pa šum ondje pada još više. Zadano je 50 %. Možete ga namjestiti i dok je AI isključen.
+- **Jačina**: određuje koliko snažno djeluje dok netko govori — niže vrijednosti zadržavaju više izvornog zvuka. Gornji kraj ljestvice namjerno je blaži od punog rezanja, kako govor ne bi bio oštećen ni na 100 %, što i dalje čisti više nego 50 %. Između riječi sama djeluje jače, pa šum ondje pada još više. Zadana vrijednost je 50 %. Možete je postaviti i dok je AI isključen.
 - **Oznaka stanja**: oznaka AI ispod prikaza frekvencije svijetli cijan dok AI radi, a prikazuje se napola prigušena kad je AI uključen, ali trenutni način nije govorni.
 
-**Koristite kad**: slušate SSB ili AM govor na pojasu s puno šuma. Šum između riječi obično padne za oko 10 dB uz zadanih 50 %, a za 20 dB ili više na 100 %, dok govor zadržava svoju razinu.
+**Koristite kad**: slušate SSB ili AM govor na pojasu s puno šuma. Šum između riječi obično padne za oko 10 dB uz zadanih 50 %, a na 100 % više, do oko 20 dB, dok govor zadržava svoju razinu.
 
-Samo govorni načini — USB, LSB, AM i SAM. U CW, FM, digitalnim načinima i C-QUAM zvuk prolazi nepromijenjen, jer mreža CW ton ili glazbu smatra šumom. Kao ni četiri kontrole šuma, nikad ne dopire do dekodera. Kod vrlo slabih postaja (oko 0 dB SNR) govor može zvučati obrađeno; ako signal zvuči „vodenasto“, smanjite klizač. Dodaje oko 50 ms kašnjenja zvuka.
+Samo govorni načini — USB, LSB, AM i SAM. U CW, FM, digitalnim načinima i C-QUAM zvuk prolazi nepromijenjen, jer mreža CW ton ili glazbu smatra šumom. Kao ni četiri regulatora šuma, nikad ne dolazi do dekodera. Kod slabih stanica (ispod oko +6 dB SNR-a) sama mjeri omjer signala i šuma i jače izglađuje svoje odluke, kako govor ne bi poprimio žuboreći, „vodenasti“ zvuk koji takav filtar može dati; jake stanice obrađuju se točno kao prije. Ako vrlo slab signal i dalje zvuči obrađeno, smanjite klizač. Dodaje oko 50 ms kašnjenja zvuka.
+
+### Zvučni spremnik i kašnjenje
+
+Zvuk stiže u preglednik u malim paketima, kod tipičnog prijamnika po 35 ms, a preglednik zadržava malu zalihu kako paket koji kasni ne bi izazvao prekid. Ta zaliha je **spremnik** (buffer) i čini najveći dio kašnjenja između prijamnika i vašeg zvučnika.
+
+- **Desktop**: u panelu Audio & Buffer tipka s ikonom mreže povećava spremnik za jedan korak po kliku (postaje zelena iznad najnižeg koraka), a klizač pokraj nje izravno bira korak od 1 do 6. Najniži korak odgovara žičanoj vezi; telefoni počinju na koraku 2.
+- **/mobile**: tipka **BUF** i klizač **Buffer** u kartici Audio rade isto.
+
+Spremnik se sam prilagođava. Stranica mjeri koliko nepravilno vaša veza isporučuje zvuk i drži samo onoliko zalihe koliko je posljednja minuta pokazala da treba, plus sigurnosnu rezervu odabranog koraka: 20 ms na koraku 1, 50 ms na koraku 2, više na višim koracima. Nakon trenutnog problema s mrežom dodatno kašnjenje ponovno nestaje za minutu-dvije, a mala razlika između takta vaše zvučne kartice i takta prijamnika više ne izaziva prekid svakih nekoliko minuta. Prilagodbe su po nekoliko milisekundi, rade se ondje gdje se zvuk ponavlja i ne čuju se. Dekoderi i vaše snimke nikad nisu pogođeni: dobivaju svaki uzorak.
+
+Ako se zvuk prekida, povećajte spremnik za jedan korak. Na telefonu preko kućnog Wi-Fija kašnjenje od prijamnika do zvučnika obično je oko 100–150 ms; mreža između vas i prijamnika dodaje se na to.
+
+### Chat
+
+Kad je operater uključio chat, on ima vlastiti panel na desktop stranici i karticu **Chat** na /mobile. Upišite svoje ime ili pozivni znak, napišite poruku i pošaljite je.
+
+Da biste odgovorili na određenu poruku, kliknite **↪ Reply** pokraj njezina vremena. Redak iznad polja za unos pokazuje kome i na što odgovarate; pišite i šaljite kao i obično, ili pritisnite ✕ ili Esc za odustajanje. Odgovor se pojavljuje uvučen ispod poruke na koju odgovara, s kratkim retkom citata. Odgovor na odgovor ide u istu nit. Poslužitelj čuva zadnjih 20 poruka; kad je izvorna poruka već ispala iz te povijesti, odgovor prikazuje samo ime i vrijeme na koje odgovara.
 
 ### Funkcija uvećanja
 
@@ -641,7 +658,7 @@ NAVTEX je međunarodni pomorski sustav emitiranja obavijesti o sigurnosti u prio
 
 Univerzalni dekoder za uskopojasne tekstualne načine rada, s pet inačica u jednom prozoru: pomorski FSK (SITOR), meteorološki RTTY, amaterski RTTY, **PSK31** (fazno ključanje, 31,25 bauda) i **Olivia** (viševalni FSK s korekcijom pogrešaka). Ploča se prilagođava inačici — kontrole za shift, baud i okvir nestaju za PSK31 i Oliviju, a Olivia dodaje birač Mode i klizač squelcha.
 
-Dvije stvari treba znati: PSK31 sam ispravlja pogrešku ugađanja u rasponu od otprilike ±25 Hz, pa se dovoljno samo približiti; Olivia traži da **Mode** (tonovi / širina pojasa) točno odgovara emisiji, ne šalje preambulu i stoga joj treba nekoliko sekundi za sinkronizaciju prije nego što se pojavi tekst. Ploča se otvara na Olivia **8 / 250**.
+Amaterski i meteorološki RTTY imaju klizač **Squelch (SNR)** koji sprječava da se šum ispisuje kao nasumična slova, a sve varijante osim Olivije prikazuju pravi SNR na istoj ljestvici od 3 kHz. Dvije stvari treba znati: PSK31 sam ispravlja pogrešku ugađanja u rasponu od otprilike ±25 Hz, pa se dovoljno samo približiti; Olivia traži da **Mode** (tonovi / širina pojasa) točno odgovara emisiji, ne šalje preambulu i stoga joj treba nekoliko sekundi za sinkronizaciju prije nego što se pojavi tekst. Ploča se otvara na Olivia **8 / 250**.
 
 ---
 
@@ -857,6 +874,19 @@ Frekvencija izvan pokrivenosti prijamnika povlači se na najbliži rub, pa vas s
 3. Upotrijebite uži pojas filtra
 4. Odmaknite se od ometajućih signala
 
+### Zvuk se prekida ili kasni
+
+**Mogući uzroci:**
+1. Nepravilna veza → paketi stižu kasno i spremnik se isprazni
+2. Zauzet telefon ili računalo → preglednik ne stiže
+
+**Rješenja:**
+1. Povećajte spremnik za jedan korak (vidi *Zvučni spremnik i kašnjenje*)
+2. Radije koristite Wi-Fi ili kabel nego mobilne podatke
+3. Zatvorite ostale kartice i aplikacije
+
+Za detaljniji uvid otvorite stranicu s dodanim `?diag=1` na adresi (na primjer `http://your_server:PORT/mobile?diag=1`). Stranica /mobile tada ispod svojih kontrola prikazuje kašnjenje, koliko je veza nepravilna i kako stoji spremnik; desktop stranica isti redak upisuje u konzolu preglednika (F12) svakih deset sekundi. Korisno kad operateru stanice prijavljujete problem.
+
 ### Slap se ne osvježava
 
 **Mogući uzroci:**
@@ -921,7 +951,7 @@ O: Neki preglednici omogućuju snimanje. Provjerite mogućnosti svojeg pregledni
 O: Razlikuje se od postaje do postaje. Pogledajte stranicu s podacima o postaji.
 
 **P: Kolika je latencija?**
-O: Obično 2-5 sekundi između radijskog signala i vaših zvučnika.
+O: Obično nekoliko desetinki sekunde između radijskog signala i vaših zvučnika: obrada u prijamniku, mreža i spremnik reprodukcije preglednika, koji se prilagođava vašoj vezi (oko 100–150 ms na telefonu preko kućnog Wi-Fija). Vidi *Zvučni spremnik i kašnjenje*.
 
 **P: Mogu li koristiti više instanci?**
 O: Obično da, ali to može opteretiti poslužitelj. Budite obzirni.
@@ -941,7 +971,7 @@ O: Ovisi o kapacitetu poslužitelja. Često 50-200+ korisnika.
 O: Ako je omogućeno, da. Potražite oznake „drugi korisnici".
 
 **P: Mogu li razgovarati s drugim slušateljima?**
-O: Ako je operater omogućio razgovor. Potražite okvir za razgovor.
+O: Ako ga je operater uključio. Potražite okvir za chat; **↪ Reply** odgovara na određenu poruku (vidi *Chat* gore).
 
 **P: Zašto se na nekim frekvencijama ništa ne vidi?**
 O: Na toj frekvenciji trenutačno nema signala. Isprobajte druge!

@@ -12,7 +12,7 @@ PhantomSDR-Plus es un fork de PhantomSDR que ofrece un servidor web de radio def
 - **Compatibilidad multiusuario**: cientos de usuarios simultáneos según el hardware
 - **Alta tasa de muestreo**: admite SDR de hasta 70 MSPS (real) / 35 MSPS (IQ)
 - **Aceleración por hardware**: compatibilidad con OpenCL y CUDA para procesamiento acelerado por GPU
-- **Transmisión optimizada**: compresión de audio FLAC y Opus de baja latencia
+- **Transmisión optimizada**: compresión de audio FLAC y Opus de baja latencia. El navegador decodifica cada paquete FLAC en el momento en que llega, y su búfer de reproducción se ajusta a la conexión del oyente, guardando solo el audio necesario: normalmente 100–150 ms del receptor al altavoz en un teléfono con Wi-Fi
 
 ### Interfaz de usuario
 - **Diseño futurista**: interfaz web moderna y adaptable
@@ -358,8 +358,9 @@ Establezca `register_online=true` en su archivo de configuración `.toml` para r
 - Consulte INSTALLATION.md para la configuración detallada de OpenCL
 
 **Problemas de latencia de audio**
-- Pruebe a alternar entre los códecs FLAC y Opus
-- Ajuste la configuración del búfer
+- Mantenga FLAC como códec: es el de menor latencia, mientras que Opus retiene hasta 20 ms por paquete
+- Abra la página añadiendo `?diag=1` a su dirección (por ejemplo `/mobile?diag=1`) para ver el retardo dividido en paquete, búfer y salida; el búfer se reduce solo en uno o dos minutos tras un problema de red
+- Si el audio se corta, suba el búfer un paso (vea la Guía del usuario, *Búfer de audio y retardo*)
 - Asegúrese de disponer de recursos de CPU/GPU suficientes
 
 **Fallos de compilación**

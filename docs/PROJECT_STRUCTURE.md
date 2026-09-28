@@ -250,6 +250,7 @@ PhantomSDR-Plus
 │   │   ├── fax.worker.js
 │   │   ├── faxWorkerProxy.js
 │   │   ├── fft.js
+│   │   ├── flacLowLatency.js         # FLAC decoder that plays each packet as it arrives
 │   │   ├── fsk.js
 │   │   ├── fsk.worker.js
 │   │   ├── fskWorkerProxy.js
@@ -258,6 +259,7 @@ PhantomSDR-Plus
 │   │   │   ├── backend.js
 │   │   │   ├── BandSelector.svelte
 │   │   │   ├── catsync.js
+│   │   │   ├── chatReply.js              # chat reply marker and threading
 │   │   │   ├── CheckButton.svelte
 │   │   │   ├── colormaps.js
 │   │   │   ├── Counter.svelte
@@ -320,6 +322,7 @@ PhantomSDR-Plus
 │   │   │   ├── phantomsdrdsp_router.js
 │   │   │   └── wspr.js
 │   │   ├── olivia.js
+│   │   ├── playoutControl.js         # measures the connection, keeps the playback buffer small
 │   │   ├── psk31.js
 │   │   ├── refused.js
 │   │   ├── remoteSource.js
@@ -919,8 +922,9 @@ The web-based user interface built with Svelte and Vite.
 
 #### 4. Audio System (`audio.js`)
 - WebSocket audio stream
-- FLAC/Opus decoding
+- FLAC/Opus decoding. FLAC goes through `flacLowLatency.js`, which decodes each packet the moment it arrives and corrects the stream's true rate (for example 12016.3 Hz) to 12000 Hz with a 64-tap resampler (2.7 ms of delay). The WASM decoder in `modules/` released audio in fixed 1024-sample chunks and held back about 160 ms; it is still used for Opus, for diversity sources, and for FLAC when the page is opened with `?flac=wasm`
 - Audio playback control
+- Playback buffer control (`playoutControl.js`): `ArrivalMeter` measures how irregularly packets arrive against the stream's own timeline, and the drift between the receiver's sample clock and the listener's sound card; `CushionController` keeps the smallest buffer seen in the last minute close to the buffer preset's margin, by cutting or repeating one pitch-matched period (`spliceOut` / `spliceIn`) of the audio going to the loudspeaker. Decoders and recordings get the untouched stream. Applies to the scheduled-buffer path that every listener on a plain-http station uses; `?drain=0` switches it off, `?diag=1` shows its figures
 - Distributes raw PCM (taken before AGC, noise reduction and mute) to the mode decoders
 - AI noise reduction: `lib/rnnoise.js` loads the RNNoise WebAssembly module (`@jitsi/rnnoise-wasm`) on first use; `audio.js` runs it on voice modes only, after the decoder tap, so the decoders never hear it
 
@@ -981,6 +985,11 @@ The `fsk` role additionally hosts two decoders that are not FSK at all. Selectin
 - Nothing retries. A dropped `/audio` socket ends the session by design: `/waterfall` and `/events` never came back with a reconnect, so a retried session was live audio attached to a frozen waterfall, and against a rate limit each retry would extend the very refusal it was working around. The desktop page explains a refusal that happens at page load and simply stops when one happens mid-session; `/mobile` shows one line asking the listener to reload
 - `clientVersion.js` holds a single integer, `CLIENT_VERSION`, which the page appends to its audio socket as `/audio?v=N`. The server refuses anything below `[server] min_client_version`, which is how a station forces tabs still running an older build to reload — the only lever there is, since the server cannot reach JavaScript already running in a browser. Bump it when a frontend change must not keep being ignored by open tabs
 - Full reference: [Connection Limits](CONNECTION_LIMITS.md)
+
+#### 4f. Chat replies (`lib/chatReply.js`)
+- A reply is an ordinary chat message that starts with a marker naming the message it answers, `[RE:<timestamp>|<name>]`; the server stores and relays it like any other line and needs no change
+- `chatReply.js` builds and reads that marker and groups replies under their original, one level deep. `App.svelte` and `mobile/Mobile.svelte` both use it, so the two pages thread the chat the same way
+- When the original has already left the server's 20-message history, the reply stays where it arrived and shows only the name and time it answers
 
 #### 5. State Management (`stores/`)
 - Reactive data stores

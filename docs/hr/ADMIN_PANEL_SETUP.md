@@ -434,6 +434,7 @@ Kako to radi:
 - Administratorska ploča prepisuje datoteku zapisnika razgovora na mjestu, uklanjajući samo redak odabrane poruke.
 - Promjena vrijedi za svakog korisnika koji ponovno učita razgovor; već učitana povijest u otvorenim karticama preglednika ne ažurira se retroaktivno.
 - Brisanje cijelog zapisnika (gumb **Clear All**) prazni datoteku, što također djeluje bez ponovnog pokretanja.
+- **Odgovor u chatu** sprema se kao obična poruka koja počinje oznakom što imenuje poruku na koju odgovara, na primjer `[RE:2026-09-25 12:00:01|SV1BTL]`, pa se u ovom popisu prikazuje s tom oznakom ispred. Brisanje odgovora uklanja samo taj odgovor. Brisanje poruke na koju odgovara ostavlja njezine odgovore na mjestu, a oni tada prikazuju samo ime i vrijeme na koje odgovaraju.
 
 Gumb za brisanje dosljedno se prikazuje u svih pet Svelte inačica aplikacije. Ako se čini da brisanje nema učinka, provjerite ima li administratorska ploča pravo pisanja u datoteku zapisnika razgovora:
 

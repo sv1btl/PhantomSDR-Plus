@@ -434,6 +434,7 @@ Cómo funciona:
 - El panel de administración reescribe el archivo de registro del chat sobre la marcha, eliminando solo la línea del mensaje seleccionado.
 - El cambio surte efecto para cualquier usuario que recargue el chat; el historial ya cargado en pestañas abiertas no se actualiza retroactivamente.
 - Vaciar todo el registro (botón **Clear All**) trunca el archivo, lo que también surte efecto sin reiniciar.
+- Una **respuesta del chat** se guarda como un mensaje corriente que empieza con una marca que nombra el mensaje al que responde, por ejemplo `[RE:2026-09-25 12:00:01|SV1BTL]`, así que en esta lista aparece con esa marca delante. Borrar una respuesta elimina solo esa respuesta. Borrar el mensaje al que responde deja sus respuestas en su sitio, mostrando solo el nombre y la hora a los que responden.
 
 El botón de eliminar se muestra de forma coherente en las cinco variantes de la aplicación Svelte. Si una eliminación no parece surtir efecto, confirme que el panel de administración tiene permiso de escritura sobre el archivo de registro del chat:
 

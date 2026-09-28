@@ -1493,9 +1493,9 @@ Hay tres clases de archivo y se tratan de forma distinta; esa diferencia es lo e
 
 | Archivos | Qué ocurre |
 |---|---|
-| `config*.toml`, `markers.json`, `admin_config.json`, `autorun.json`, `frequencylist/`, `chat_history.txt`, `frontend/variant.json`, `frontend/site_information.json`, los registros, `build/`, `frontend/dist/` | **Nunca se tocan** ni aparecen en ninguna pregunta. Son los que hacen que la máquina sea *su* receptor. |
-| `start-*.sh`, `stop-websdr.sh`, las unidades `*.service`, `install*.sh`, `recompile.sh`, `setup_admin.sh`, `smeter_theme.sh`, `proxy.py`, `admin_server.py`, `thermal_guard.py`, `frontend/src/bands-config.js` | **Siempre se pregunta**, porque son los archivos que un sysop tiene motivos para haber modificado. |
-| Todo lo demás | Se actualiza, tras guardar una copia del archivo antiguo en `.update-backups/`. |
+| `config.toml`, `config-<receptor>.toml`, `markers.json`, `admin_config.json`, `autorun.json`, `frequencylist/`, `chat_history.txt`, `frontend/variant.json`, `frontend/site_information.json`, los registros, `build/`, `frontend/dist/` | **Nunca se tocan** ni aparecen en ninguna pregunta. Son los que hacen que la máquina sea *su* receptor. |
+| `start-*.sh`, `stop-websdr.sh`, las unidades `*.service`, `install*.sh`, `recompile.sh`, `setup_admin.sh`, `smeter_theme.sh`, `proxy.py`, `admin_server.py`, `thermal_guard.py`, `websdr_relay.py`, `frontend/src/bands-config.js`, las configuraciones de ejemplo `config.example.*.toml` | **Siempre se pregunta**, porque son los archivos que un sysop tiene motivos para haber modificado. |
+| Todo lo demás | Se actualiza, tras guardar una copia del archivo antiguo en el archivo de copia de seguridad (vea *Deshacer una actualización*). |
 
 Para cada archivo del grupo intermedio se muestran las diferencias y se ofrecen tres opciones:
 
@@ -1522,7 +1522,7 @@ Su configuración nunca entra en esto: las preguntas son siempre sobre scripts y
 `update.sh` anota en `.update-state/` la versión de cada archivo que instala. Por eso, a partir
 de la segunda ejecución distingue un archivo que **usted** editó de otro que simplemente es antiguo, y sólo se detiene a preguntar por los que realmente tocó.
 
-Antes de escribir nada detiene el receptor, el panel de administración y el proxy inverso **de la instalación que está actualizando**: lo que sirve a otro directorio se enumera y se deja en marcha, de modo que un segundo clon puede actualizarse mientras el primero sigue en el aire. Al terminar vuelve a arrancar exactamente lo que detuvo. Si han cambiado archivos de código o del frontend, le ofrece ejecutar `recompile.sh`. Nunca borra nada: los archivos que han desaparecido del repositorio se comunican y sólo se eliminan si lo pide con `--prune`.
+Antes de escribir nada detiene el receptor, el panel de administración, el proxy inverso y el relé de diversidad WebSDR **de la instalación que está actualizando**: lo que sirve a otro directorio se enumera y se deja en marcha, de modo que un segundo clon puede actualizarse mientras el primero sigue en el aire. Al terminar vuelve a arrancar exactamente lo que detuvo. Si han cambiado archivos de código o del frontend, le ofrece ejecutar `recompile.sh`. Nunca borra nada: los archivos que han desaparecido del repositorio se comunican y sólo se eliminan si lo pide con `--prune`.
 
 ### Deshacer una actualización
 
@@ -1530,8 +1530,22 @@ Antes de escribir nada detiene el receptor, el panel de administración y el pro
 ./update.sh --restore LAST
 ```
 
-Cada archivo sobrescrito queda en `.update-backups/<marca de tiempo>/` con su propio
-`restore.sh`; se conservan las tres últimas ejecuciones.
+Todo archivo que una actualización sobrescribe se guarda antes, en un archivo fechado por ejecución dentro de la carpeta normal y visible `update-backups/`:
+
+```
+update-backups/phantomsdr-backup-20260923-164530.zip
+```
+
+El archivo contiene solo los archivos que esa ejecución sustituyó, cada uno en la ruta que tiene en su árbol, así que puede copiarse a otra máquina como un único archivo, abrirse en cualquier parte o descomprimirse directamente sobre la instalación. Donde `zip` no está instalado se escribe como `.tar.gz`. Se conservan los tres más recientes. Cualquiera de estas órdenes devuelve lo que una actualización sustituyó:
+
+```bash
+./update.sh --restore LAST
+./update.sh --restore phantomsdr-backup-20260923-164530.zip
+```
+
+Cada archivo lleva además su propio `restore.sh`, para el caso de que el problema sea el propio `update.sh`: descomprima el archivo y pásele el directorio de su instalación, por ejemplo `./restore.sh /home/pi/PhantomSDR-Plus`. Durante la restauración `update.sh` se ejecuta desde una copia fuera del árbol, porque normalmente es uno de los archivos que se devuelven.
+
+Las copias anteriores al 23 de septiembre de 2026 están en la carpeta oculta `.update-backups/<marca de tiempo>/`; se restauran igual y cuentan entre las tres que se conservan.
 
 ### Otras opciones
 

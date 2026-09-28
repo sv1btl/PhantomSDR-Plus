@@ -12,7 +12,7 @@ PhantomSDR-Plus is a fork of PhantomSDR that provides a high-performance Softwar
 - **Multi-user support**: Handle hundreds of concurrent users depending on hardware
 - **High sample rate**: Support for SDRs up to 70 MSPS (real) / 35 MSPS (IQ)
 - **Hardware acceleration**: OpenCL and CUDA support for GPU-accelerated processing
-- **Optimized streaming**: Low-latency FLAC and Opus audio compression
+- **Optimized streaming**: Low-latency FLAC and Opus audio compression. The browser decodes each FLAC packet the moment it arrives, and its playback buffer adjusts itself to the listener's connection, keeping only as much audio in hand as needed — typically 100–150 ms from receiver to loudspeaker on a phone over Wi-Fi
 
 ### User Interface
 - **Futuristic design**: Modern, responsive web interface
@@ -358,8 +358,9 @@ Set `register_online=true` in your `.toml` configuration file to automatically r
 - See INSTALLATION.md for detailed OpenCL setup
 
 **Audio Latency Issues**
-- Try switching between FLAC and Opus codecs
-- Adjust buffer settings in configuration
+- Keep FLAC as the codec: it is the lower-latency one, while Opus holds back up to 20 ms per packet
+- Open the page with `?diag=1` added to its address (for example `/mobile?diag=1`) to see the delay split into packet, buffer and output; the buffer shrinks by itself within a minute or two of a network hiccup
+- If the audio breaks up, move the buffer control one step higher (see the User Guide, *Audio Buffer and Delay*)
 - Ensure adequate CPU/GPU resources
 
 **Build Failures**

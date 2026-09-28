@@ -351,12 +351,29 @@ Le bouton **AI**, avec un curseur d'intensité à côté, se trouve dans le pann
 Tout se passe dans votre propre navigateur : rien n'est envoyé à un serveur extérieur, aucun compte n'est nécessaire, et le récepteur n'a aucun travail supplémentaire.
 
 - **Marche/arrêt** : cliquez sur **AI** ; le bouton devient bleu. Le premier clic télécharge le module (environ 1,3 Mo), et le bouton pulse pendant le chargement.
-- **Intensité** : le curseur règle la force du traitement pendant que quelqu'un parle — à 100 % tout est traité, les valeurs plus basses gardent davantage du son d'origine. Entre les mots, il travaille de lui-même plus fort, si bien que le souffle y baisse encore. La valeur par défaut est 50 %. Vous pouvez le régler même quand AI est éteint.
+- **Intensité** : règle l'intensité de son action pendant que quelqu'un parle — des valeurs plus basses gardent davantage du son d'origine. Le haut de l'échelle est volontairement plus doux qu'une coupure totale, pour que la parole ne soit pas abîmée même à 100 %, qui nettoie pourtant davantage que 50 %. Entre les mots, elle agit plus fort d'elle-même, si bien que le souffle y baisse davantage. La valeur par défaut est 50 %. Vous pouvez la régler même quand l'IA est coupée.
 - **Voyant d'état** : le voyant AI sous l'affichage de fréquence s'allume en cyan quand AI travaille, et apparaît à demi atténué quand AI est actif mais que le mode courant n'est pas un mode phonie.
 
-**À utiliser quand** : vous écoutez de la phonie SSB ou AM sur une bande bruyante. Le souffle entre les mots baisse en général d'environ 10 dB avec les 50 % par défaut, et de 20 dB ou plus à 100 %, tandis que la parole garde son niveau.
+**À utiliser quand** : vous écoutez de la phonie SSB ou AM sur une bande bruyante. Le souffle entre les mots baisse en général d'environ 10 dB avec les 50 % par défaut, et davantage à 100 %, jusqu'à environ 20 dB, tandis que la parole garde son niveau.
 
-Modes phonie seulement — USB, LSB, AM et SAM. En CW, FM, modes numériques et C-QUAM, le son passe sans modification, car le réseau traite une note CW ou de la musique comme du bruit. Comme les quatre commandes de bruit, il n'atteint jamais les décodeurs. Sur des stations très faibles (autour de 0 dB de SNR), la parole peut sembler traitée ; si un signal sonne « aqueux », baissez le curseur. Il ajoute environ 50 ms de retard audio.
+Modes phonie seulement — USB, LSB, AM et SAM. En CW, FM, modes numériques et C-QUAM, le son passe sans modification, car le réseau traite une tonalité CW ou de la musique comme du bruit. Comme les quatre commandes de bruit, elle n'atteint jamais les décodeurs. Sur les stations faibles (en dessous d'environ +6 dB de SNR), elle mesure elle-même le rapport signal/bruit et lisse davantage ses décisions, pour que la parole ne prenne pas le son gargouillant, « aqueux », que peut donner ce type de filtre ; les stations fortes sont traitées exactement comme avant. Si un signal très faible sonne encore traité, baissez le curseur. Elle ajoute environ 50 ms de retard au son.
+
+### Tampon audio et retard
+
+Le son arrive au navigateur par petits paquets, de 35 ms chacun sur un récepteur typique, et le navigateur en garde un peu en réserve pour qu'un paquet en retard ne provoque pas de trou. Cette réserve est le **tampon**, et elle représente l'essentiel du retard entre le récepteur et votre haut-parleur.
+
+- **Ordinateur** : dans le panneau Audio & Buffer, le bouton à l'icône réseau monte le tampon d'un cran par clic (il passe au vert au-dessus du cran le plus bas), et le curseur à côté choisit directement un cran de 1 à 6. Le cran le plus bas convient à une connexion filaire ; les téléphones commencent au cran 2.
+- **/mobile** : le bouton **BUF** et le curseur **Buffer** de l'onglet Audio font la même chose.
+
+Le tampon se règle tout seul. La page mesure l'irrégularité avec laquelle votre connexion livre le son et ne garde en réserve que ce que la dernière minute a montré nécessaire, plus la marge de sécurité du cran choisi : 20 ms au cran 1, 50 ms au cran 2, davantage aux crans supérieurs. Après un moment de difficulté réseau, le retard supplémentaire se résorbe en une ou deux minutes, et une petite différence entre l'horloge de votre carte son et celle du récepteur ne provoque plus de coupure toutes les quelques minutes. Les ajustements sont de quelques millisecondes à la fois, faits là où le son se répète, et sont inaudibles. Les décodeurs et vos enregistrements ne sont jamais touchés : ils reçoivent chaque échantillon.
+
+Si le son se coupe, montez le tampon d'un cran. Sur un téléphone en Wi-Fi domestique, le retard du récepteur au haut-parleur est en général d'environ 100–150 ms ; le réseau entre vous et le récepteur s'y ajoute.
+
+### Chat
+
+Quand l'opérateur a activé le chat, il a son propre panneau sur la page de bureau et un onglet **Chat** sur /mobile. Saisissez votre nom ou indicatif, tapez votre message et envoyez-le.
+
+Pour répondre à un message précis, cliquez sur **↪ Reply** à côté de son heure. Une ligne au-dessus de la zone de saisie indique à qui et à quoi vous répondez ; tapez et envoyez comme d'habitude, ou appuyez sur ✕ ou Échap pour annuler. La réponse apparaît en retrait sous le message auquel elle répond, avec une courte ligne de citation. Une réponse à une réponse rejoint le même fil. Le serveur garde les 20 derniers messages ; quand l'original a déjà quitté cet historique, la réponse n'affiche que le nom et l'heure auxquels elle répond.
 
 ### Fonction de zoom
 
@@ -642,7 +659,7 @@ NAVTEX est le système international de diffusion maritime des informations de s
 
 Un décodeur polyvalent pour les modes texte à bande étroite, avec cinq variantes dans une seule fenêtre : FSK maritime (SITOR), RTTY météo, RTTY amateur, **PSK31** (modulation par déplacement de phase, 31,25 bauds) et **Olivia** (FSK multitonalité avec correction d'erreurs). Le panneau s'adapte à la variante — les commandes de shift, de bauds et de trame disparaissent pour PSK31 et Olivia, et Olivia ajoute un sélecteur Mode et un curseur de squelch.
 
-Deux points à retenir : PSK31 corrige lui-même son erreur d'accord sur environ ±25 Hz, il suffit donc de s'approcher ; Olivia exige que **Mode** (tonalités / largeur de bande) corresponde exactement à l'émission, n'envoie pas de préambule et met donc quelques secondes à se synchroniser avant que du texte apparaisse. Le panneau s'ouvre sur Olivia **8 / 250**.
+Le RTTY amateur et le RTTY météo ont un curseur **Squelch (SNR)** qui empêche le bruit de s'afficher en lettres aléatoires, et toutes les variantes sauf Olivia affichent un vrai SNR sur la même échelle de 3 kHz. Deux points à retenir : PSK31 corrige lui-même son erreur d'accord sur environ ±25 Hz, il suffit donc de s'approcher ; Olivia exige que **Mode** (tonalités / largeur de bande) corresponde exactement à l'émission, n'envoie pas de préambule et met donc quelques secondes à se synchroniser avant que du texte apparaisse. Le panneau s'ouvre sur Olivia **8 / 250**.
 
 ---
 
@@ -858,6 +875,19 @@ Une fréquence hors de la couverture du récepteur est ramenée au bord le plus 
 3. Utilisez un filtre plus étroit
 4. Éloignez-vous des signaux perturbateurs
 
+### Le son se coupe ou traîne
+
+**Causes possibles :**
+1. Connexion irrégulière → les paquets arrivent en retard et le tampon se vide
+2. Téléphone ou ordinateur surchargé → le navigateur ne suit pas
+
+**Solutions :**
+1. Montez le tampon d'un cran (voir *Tampon audio et retard*)
+2. Préférez le Wi-Fi ou le câble aux données mobiles
+3. Fermez les autres onglets et applications
+
+Pour y regarder de plus près, ouvrez la page en ajoutant `?diag=1` à son adresse (par exemple `http://your_server:PORT/mobile?diag=1`). La page /mobile affiche alors sous ses commandes le retard, l'irrégularité de la connexion et l'état du tampon ; la page de bureau écrit la même ligne dans la console du navigateur (F12) toutes les dix secondes. Utile pour signaler un problème à l'opérateur de la station.
+
 ### La cascade ne se met pas à jour
 
 **Causes possibles :**
@@ -922,7 +952,7 @@ R : Certains navigateurs permettent l'enregistrement. Vérifiez les fonctions de
 R : Cela varie selon la station. Consultez la page d'informations de la station.
 
 **Q : Quelle est la latence ?**
-R : Généralement 2 à 5 secondes entre le signal radio et vos haut-parleurs.
+R : En général quelques dixièmes de seconde entre le signal radio et vos haut-parleurs : le traitement dans le récepteur, le réseau et le tampon de lecture du navigateur, qui s'adapte à votre connexion (environ 100–150 ms sur un téléphone en Wi-Fi domestique). Voir *Tampon audio et retard*.
 
 **Q : Puis-je ouvrir plusieurs instances ?**
 R : En général oui, mais cela peut solliciter le serveur. Soyez prévenant.
@@ -942,7 +972,7 @@ R : Cela dépend de la capacité du serveur. Souvent 50 à 200 utilisateurs ou p
 R : Si la fonction est activée, oui. Cherchez les indicateurs « autres utilisateurs ».
 
 **Q : Puis-je discuter avec les autres auditeurs ?**
-R : Si l'opérateur a activé le chat. Cherchez la fenêtre de discussion.
+R : Si l'opérateur l'a activé. Cherchez la zone de chat ; **↪ Reply** répond à un message précis (voir *Chat* plus haut).
 
 **Q : Pourquoi certaines fréquences n'affichent-elles rien ?**
 R : Aucun signal sur cette fréquence pour le moment. Essayez-en d'autres !

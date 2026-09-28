@@ -12,7 +12,7 @@ PhantomSDR-Plus est un fork de PhantomSDR qui fournit un serveur web de radio lo
 - **Multi-utilisateurs** : gère des centaines d'utilisateurs simultanés selon le matériel
 - **Taux d'échantillonnage élevé** : prise en charge des SDR jusqu'à 70 MSPS (réel) / 35 MSPS (IQ)
 - **Accélération matérielle** : prise en charge d'OpenCL et de CUDA pour un traitement accéléré par GPU
-- **Diffusion optimisée** : compression audio FLAC et Opus à faible latence
+- **Diffusion optimisée** : compression audio FLAC et Opus à faible latence. Le navigateur décode chaque paquet FLAC dès son arrivée, et son tampon de lecture s'adapte à la connexion de l'auditeur en ne gardant que le son nécessaire — en général 100–150 ms du récepteur au haut-parleur sur un téléphone en Wi-Fi
 
 ### Interface utilisateur
 - **Design futuriste** : interface web moderne et responsive
@@ -358,8 +358,9 @@ Définissez `register_online=true` dans votre fichier de configuration `.toml` p
 - Voir INSTALLATION.md pour la configuration détaillée d'OpenCL
 
 **Problèmes de latence audio**
-- Essayez de basculer entre les codecs FLAC et Opus
-- Ajustez les réglages de tampon dans la configuration
+- Gardez FLAC comme codec : c'est le plus faible en latence, alors qu'Opus retient jusqu'à 20 ms par paquet
+- Ouvrez la page en ajoutant `?diag=1` à son adresse (par exemple `/mobile?diag=1`) pour voir le retard réparti entre paquet, tampon et sortie ; le tampon se réduit tout seul en une ou deux minutes après un incident réseau
+- Si le son se coupe, montez le tampon d'un cran (voir le Guide de l'utilisateur, *Tampon audio et retard*)
 - Assurez-vous de disposer de ressources CPU/GPU suffisantes
 
 **Échecs de compilation**

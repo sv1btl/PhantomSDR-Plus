@@ -350,12 +350,29 @@ El botón **AI**, con un deslizador de intensidad al lado, está en el panel Aud
 Todo ocurre en su propio navegador: no se envía nada a ningún servidor externo, no hace falta cuenta y el receptor no tiene trabajo adicional.
 
 - **Encendido/apagado**: pulse **AI**; el botón se vuelve azul. La primera pulsación descarga el módulo (unos 1,3 MB) y el botón parpadea mientras carga.
-- **Intensidad**: el deslizador fija la fuerza con que trabaja mientras alguien habla — al 100 % todo se procesa, los valores más bajos conservan más del sonido original. Entre palabras trabaja más fuerte por sí solo, así que allí el soplido baja todavía más. El valor predeterminado es 50 %. Puede ajustarlo aunque AI esté apagado.
+- **Intensidad**: fija con qué intensidad actúa mientras alguien habla: los valores más bajos conservan más del sonido original. El extremo superior de la escala es a propósito más suave que un corte total, para que la voz no se dañe ni siquiera al 100 %, que aun así limpia más que el 50 %. Entre palabras actúa con más fuerza por sí sola, de modo que el soplido baja aún más ahí. El valor por defecto es 50 %. Puede ajustarlo con la IA apagada.
 - **Indicador de estado**: el indicador AI bajo la frecuencia se enciende en cian mientras AI trabaja, y aparece medio atenuado cuando AI está activo pero el modo actual no es de voz.
 
-**Úselo cuando**: escuche voz en SSB o AM en una banda ruidosa. El soplido entre palabras suele bajar unos 10 dB con el 50 % predeterminado, y 20 dB o más al 100 %, mientras la voz conserva su nivel.
+**Úselo cuando**: escuche voz en SSB o AM en una banda ruidosa. El soplido entre palabras suele bajar unos 10 dB con el 50 % predeterminado, y más al 100 %, hasta unos 20 dB, mientras la voz conserva su nivel.
 
-Solo modos de voz — USB, LSB, AM y SAM. En CW, FM, modos digitales y C-QUAM el audio pasa sin cambios, porque la red trata un tono de CW o la música como ruido. Como los cuatro controles de ruido, nunca llega a los decodificadores. En estaciones muy débiles (alrededor de 0 dB de SNR) la voz puede sonar procesada; si una señal suena «acuosa», baje el deslizador. Añade unos 50 ms de retardo de audio.
+Solo modos de voz — USB, LSB, AM y SAM. En CW, FM, modos digitales y C-QUAM el audio pasa sin cambios, porque la red trata un tono de CW o la música como ruido. Como los cuatro controles de ruido, nunca llega a los decodificadores. En estaciones débiles (por debajo de unos +6 dB de SNR) mide ella misma la relación señal/ruido y suaviza más sus decisiones, para que la voz no adquiera el sonido burbujeante, «acuoso», que puede dar este tipo de filtro; las estaciones fuertes se procesan exactamente igual que antes. Si una señal muy débil aún suena procesada, baje el control. Añade unos 50 ms de retardo al audio.
+
+### Búfer de audio y retardo
+
+El audio llega al navegador en pequeños paquetes, de 35 ms cada uno en un receptor típico, y el navegador guarda un poco de reserva para que un paquete que llega tarde no provoque un hueco. Esa reserva es el **búfer**, y es la mayor parte del retardo entre el receptor y su altavoz.
+
+- **Escritorio**: en el panel Audio & Buffer, el botón con el icono de red sube el búfer un paso por clic (se pone verde por encima del paso más bajo), y el control deslizante de al lado elige directamente un paso del 1 al 6. El paso más bajo va bien con una conexión por cable; los teléfonos empiezan en el paso 2.
+- **/mobile**: el botón **BUF** y el control **Buffer** de la pestaña Audio hacen lo mismo.
+
+El búfer se ajusta solo. La página mide lo irregular que es la entrega del audio en su conexión y guarda solo la reserva que el último minuto demostró necesaria, más el margen de seguridad del paso elegido: 20 ms en el paso 1, 50 ms en el paso 2 y más en los pasos superiores. Tras un momento de problemas de red, el retardo extra se vuelve a absorber en uno o dos minutos, y una pequeña diferencia entre el reloj de su tarjeta de sonido y el del receptor ya no provoca un corte cada pocos minutos. Los ajustes son de unos pocos milisegundos cada vez, se hacen donde el sonido se repite y no se oyen. Los decodificadores y sus grabaciones nunca se ven afectados: reciben todas las muestras.
+
+Si el audio se corta, suba el búfer un paso. En un teléfono con Wi-Fi doméstico el retardo del receptor al altavoz suele ser de unos 100–150 ms; la red entre usted y el receptor se suma a eso.
+
+### Chat
+
+Cuando el operador ha activado el chat, tiene su propio panel en la página de escritorio y una pestaña **Chat** en /mobile. Escriba su nombre o indicativo, luego su mensaje, y envíelo.
+
+Para responder a un mensaje concreto, pulse **↪ Reply** junto a su hora. Una línea sobre el cuadro de entrada muestra a quién y a qué responde; escriba y envíe como siempre, o pulse ✕ o Esc para cancelar. La respuesta aparece sangrada bajo el mensaje al que responde, con una breve línea de cita. Una respuesta a una respuesta se une al mismo hilo. El servidor guarda los últimos 20 mensajes; cuando el original ya ha salido de ese historial, la respuesta muestra solo el nombre y la hora a los que responde.
 
 ### Función de zoom
 
@@ -641,7 +658,7 @@ NAVTEX es el sistema internacional de radiodifusión marítima de información d
 
 Un decodificador de uso general para modos de texto de banda estrecha, con cinco variantes en una sola ventana: FSK marítimo (SITOR), RTTY meteorológico, RTTY de aficionado, **PSK31** (modulación por desplazamiento de fase, 31,25 baudios) y **Olivia** (FSK multitono con corrección de errores). El panel se adapta a la variante — los controles de shift, baudios y trama desaparecen en PSK31 y Olivia, y Olivia añade un selector de Mode y un deslizador de squelch.
 
-Dos cosas que conviene saber: PSK31 corrige por sí mismo su error de sintonía en unos ±25 Hz, así que basta con acercarse; Olivia necesita que **Mode** (tonos / ancho de banda) coincida exactamente con la transmisión, no envía preámbulo y por tanto tarda unos segundos en sincronizarse antes de que aparezca texto. El panel se abre en Olivia **8 / 250**.
+El RTTY de aficionados y el meteorológico tienen un control **Squelch (SNR)** que evita que el ruido se imprima como letras al azar, y todas las variantes salvo Olivia muestran una SNR real en la misma escala de 3 kHz. Dos cosas que conviene saber: PSK31 corrige por sí mismo su error de sintonía en unos ±25 Hz, así que basta con acercarse; Olivia necesita que **Mode** (tonos / ancho de banda) coincida exactamente con la transmisión, no envía preámbulo y por tanto tarda unos segundos en sincronizarse antes de que aparezca texto. El panel se abre en Olivia **8 / 250**.
 
 ---
 
@@ -857,6 +874,19 @@ Una frecuencia fuera de la cobertura del receptor se ajusta al extremo más cerc
 3. Use un filtro más estrecho
 4. Aléjese de las señales interferentes
 
+### El audio se corta o va con retraso
+
+**Posibles causas:**
+1. Conexión irregular → los paquetes llegan tarde y el búfer se vacía
+2. Teléfono u ordenador ocupado → el navegador no da abasto
+
+**Soluciones:**
+1. Suba el búfer un paso (vea *Búfer de audio y retardo*)
+2. Prefiera Wi-Fi o cable a los datos móviles
+3. Cierre otras pestañas y aplicaciones
+
+Para verlo con detalle, abra la página añadiendo `?diag=1` a su dirección (por ejemplo `http://your_server:PORT/mobile?diag=1`). La página /mobile muestra entonces bajo sus controles el retardo, lo irregular que es la conexión y el estado del búfer; la página de escritorio escribe la misma línea en la consola del navegador (F12) cada diez segundos. Útil al comunicar un problema al operador de la estación.
+
 ### La cascada no se actualiza
 
 **Posibles causas:**
@@ -921,7 +951,7 @@ R: Algunos navegadores permiten grabar. Compruebe las funciones de su navegador.
 R: Varía según la estación. Consulte la página de información de la estación.
 
 **P: ¿Cuál es la latencia?**
-R: Normalmente de 2 a 5 segundos entre la señal de radio y sus altavoces.
+R: Normalmente unas décimas de segundo entre la señal de radio y sus altavoces: el procesado en el receptor, la red y el búfer de reproducción del navegador, que se ajusta a su conexión (unos 100–150 ms en un teléfono con Wi-Fi doméstico). Vea *Búfer de audio y retardo*.
 
 **P: ¿Puedo abrir varias instancias?**
 R: Normalmente sí, pero puede sobrecargar el servidor. Sea considerado.
@@ -941,7 +971,7 @@ R: Depende de la capacidad del servidor. A menudo entre 50 y más de 200 usuario
 R: Si está habilitado, sí. Busque los indicadores de «otros usuarios».
 
 **P: ¿Puedo chatear con otros oyentes?**
-R: Si el operador lo ha habilitado. Busque el cuadro de chat.
+R: Si el operador lo ha activado. Busque el cuadro de chat; **↪ Reply** responde a un mensaje concreto (vea *Chat* más arriba).
 
 **P: ¿Por qué algunas frecuencias no muestran nada?**
 R: En ese momento no hay señales en esa frecuencia. ¡Pruebe otras!

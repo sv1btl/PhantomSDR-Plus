@@ -351,12 +351,29 @@ Die Taste **AI** mit einem Stärkeregler daneben sitzt im Bereich Audio & Buffer
 Alles geschieht in Ihrem eigenen Browser: Nichts wird an einen fremden Server geschickt, es gibt kein Konto, und der Empfänger hat keine zusätzliche Arbeit.
 
 - **Ein/Aus**: **AI** anklicken; die Taste wird blau. Beim ersten Klick wird das Modul geladen (etwa 1,3 MB), und die Taste pulsiert, solange es lädt.
-- **Stärke**: Der Regler bestimmt, wie stark es arbeitet, während gesprochen wird — 100 % ist voll bearbeitet, niedrigere Werte behalten mehr vom Originalton. Zwischen den Worten arbeitet es von selbst stärker, dort sinkt das Rauschen also weiter. Voreingestellt sind 50 %. Er lässt sich auch bei ausgeschaltetem AI einstellen.
+- **Stärke**: Der Regler bestimmt, wie stark sie wirkt, während jemand spricht — niedrigere Werte behalten mehr vom ursprünglichen Klang. Das obere Ende der Skala ist absichtlich weicher als ein voller Schnitt, damit die Sprache selbst bei 100 % nicht beschädigt wird; 100 % reinigt trotzdem mehr als 50 %. Zwischen den Wörtern arbeitet sie von sich aus stärker, sodass das Rauschen dort weiter sinkt. Voreinstellung ist 50 %. Sie können den Wert auch bei ausgeschalteter KI setzen.
 - **Statusanzeige**: Die Anzeige AI unter der Frequenz leuchtet cyan, solange AI arbeitet, und erscheint halb abgedunkelt, wenn AI eingeschaltet ist, die aktuelle Betriebsart aber keine Sprachbetriebsart ist.
 
-**Verwenden, wenn**: Sie SSB- oder AM-Sprache auf einem verrauschten Band hören. Das Rauschen zwischen den Worten sinkt bei der Voreinstellung 50 % typisch um etwa 10 dB, bei 100 % um 20 dB oder mehr, während die Sprache ihren Pegel behält.
+**Verwenden, wenn**: Sie SSB- oder AM-Sprache auf einem verrauschten Band hören. Das Rauschen zwischen den Worten sinkt bei der Voreinstellung 50 % typisch um etwa 10 dB, bei 100 % um mehr, bis etwa 20 dB, während die Sprache ihren Pegel behält.
 
-Nur Sprachbetriebsarten — USB, LSB, AM und SAM. In CW, FM, den Datenbetriebsarten und C-QUAM läuft der Ton unverändert durch, weil das Netz einen CW-Ton oder Musik als Rauschen behandelt. Wie die vier Rauschfilter erreicht es die Decoder nie. Bei sehr schwachen Stationen (um 0 dB SNR) kann Sprache bearbeitet klingen; klingt ein Signal „wässrig“, den Regler zurücknehmen. Es fügt etwa 50 ms Audioverzögerung hinzu.
+Nur Sprachbetriebsarten — USB, LSB, AM und SAM. In CW, FM, den Datenbetriebsarten und C-QUAM läuft der Ton unverändert durch, weil das Netz einen CW-Ton oder Musik als Rauschen behandelt. Wie die vier Rauschregler erreicht sie nie die Decoder. Bei schwachen Stationen (unter etwa +6 dB SNR) misst sie den Signal-Rausch-Abstand selbst und glättet ihre Entscheidungen stärker, damit die Sprache nicht den blubbernden, „wässrigen“ Klang annimmt, den ein solches Filter erzeugen kann; starke Stationen werden genau wie bisher verarbeitet. Klingt ein sehr schwaches Signal trotzdem bearbeitet, senken Sie den Regler. Sie fügt etwa 50 ms Tonverzögerung hinzu.
+
+### Audiopuffer und Verzögerung
+
+Der Ton erreicht den Browser in kleinen Paketen, bei einem typischen Empfänger je 35 ms, und der Browser hält ein wenig davon vorrätig, damit ein verspätetes Paket keine Lücke verursacht. Dieser Vorrat ist der **Puffer**, und er macht den größten Teil der Verzögerung zwischen Empfänger und Lautsprecher aus.
+
+- **Desktop**: Im Bereich Audio & Buffer erhöht die Taste mit dem Netzwerksymbol den Puffer pro Klick um eine Stufe (sie wird oberhalb der niedrigsten Stufe grün), und der Schieberegler daneben wählt direkt eine Stufe von 1 bis 6. Die niedrigste Stufe passt zu einer Kabelverbindung; Telefone beginnen auf Stufe 2.
+- **/mobile**: Die Taste **BUF** und der Regler **Buffer** im Reiter Audio tun dasselbe.
+
+Der Puffer passt sich selbst an. Die Seite misst, wie unregelmäßig Ihre Verbindung den Ton liefert, und hält nur so viel vorrätig, wie die letzte Minute gezeigt hat, plus die Sicherheitsreserve der gewählten Stufe: 20 ms auf Stufe 1, 50 ms auf Stufe 2, mehr auf den höheren Stufen. Nach einer kurzen Netzstörung baut sich die zusätzliche Verzögerung innerhalb von ein, zwei Minuten wieder ab, und ein kleiner Unterschied zwischen dem Takt Ihrer Soundkarte und dem des Empfängers führt nicht mehr alle paar Minuten zu einer Unterbrechung. Die Anpassungen betragen jeweils wenige Millisekunden, erfolgen dort, wo sich der Klang wiederholt, und sind nicht hörbar. Decoder und Ihre Aufnahmen sind nie betroffen: Sie erhalten jedes Sample.
+
+Bricht der Ton ab, erhöhen Sie den Puffer um eine Stufe. Auf einem Telefon im heimischen WLAN beträgt die Verzögerung vom Empfänger bis zum Lautsprecher typisch etwa 100–150 ms; das Netz zwischen Ihnen und dem Empfänger kommt hinzu.
+
+### Chat
+
+Hat der Betreiber den Chat aktiviert, hat er auf der Desktop-Seite einen eigenen Bereich und auf /mobile einen Reiter **Chat**. Geben Sie Ihren Namen oder Ihr Rufzeichen ein, schreiben Sie Ihre Nachricht und senden Sie sie.
+
+Um auf eine bestimmte Nachricht zu antworten, klicken Sie auf **↪ Reply** neben ihrer Uhrzeit. Eine Zeile über dem Eingabefeld zeigt, wem und worauf Sie antworten; schreiben und senden Sie wie gewohnt, oder drücken Sie ✕ bzw. Esc zum Abbrechen. Die Antwort erscheint eingerückt unter der beantworteten Nachricht, mit einer kurzen Zitatzeile. Eine Antwort auf eine Antwort gehört zum selben Faden. Der Server behält die letzten 20 Nachrichten; ist das Original schon aus diesem Verlauf verschwunden, zeigt eine Antwort nur Name und Uhrzeit dessen, worauf sie antwortet.
 
 ### Zoomfunktion
 
@@ -642,7 +659,7 @@ NAVTEX ist das internationale seefunkgestützte Aussendungssystem für küstenna
 
 Ein universeller Decoder für schmalbandige Textbetriebsarten mit fünf Varianten in einem Fenster: maritimes FSK (SITOR), Wetter-RTTY, Amateur-RTTY, **PSK31** (Phasenumtastung, 31,25 Baud) und **Olivia** (Mehrton-FSK mit Vorwärtsfehlerkorrektur). Das Bedienfeld passt sich der Variante an — die Regler für Shift, Baud und Rahmung verschwinden bei PSK31 und Olivia, und Olivia ergänzt einen Mode-Wähler und einen Squelch-Regler.
 
-Zwei Dinge sind wichtig: PSK31 korrigiert seinen Abstimmfehler über etwa ±25 Hz selbst, Sie müssen also nur in die Nähe kommen; Olivia braucht einen **Mode** (Töne / Bandbreite), der exakt zur Aussendung passt, sendet keine Präambel und benötigt daher einige Sekunden zur Synchronisierung, bevor Text erscheint. Das Bedienfeld startet mit Olivia **8 / 250**.
+Amateur-RTTY und Wetter-RTTY haben einen Regler **Squelch (SNR)**, der verhindert, dass Rauschen als zufällige Buchstaben ausgegeben wird, und alle Varianten außer Olivia zeigen eine echte SNR auf derselben 3-kHz-Skala. Zwei Dinge sind wichtig: PSK31 korrigiert seinen Abstimmfehler über etwa ±25 Hz selbst, Sie müssen also nur in die Nähe kommen; Olivia braucht einen **Mode** (Töne / Bandbreite), der exakt zur Aussendung passt, sendet keine Präambel und benötigt daher einige Sekunden zur Synchronisierung, bevor Text erscheint. Das Bedienfeld startet mit Olivia **8 / 250**.
 
 ---
 
@@ -858,6 +875,19 @@ Eine Frequenz außerhalb des Empfangsbereichs wird auf die nächste Bereichsgren
 3. Ein schmaleres Filter verwenden
 4. Von störenden Signalen wegstimmen
 
+### Ton bricht ab oder hinkt hinterher
+
+**Mögliche Ursachen:**
+1. Unregelmäßige Verbindung → Pakete kommen zu spät, und der Puffer läuft leer
+2. Ausgelastetes Telefon oder ausgelasteter Computer → der Browser kommt nicht hinterher
+
+**Lösungen:**
+1. Erhöhen Sie den Puffer um eine Stufe (siehe *Audiopuffer und Verzögerung*)
+2. Ziehen Sie WLAN oder Kabel mobilen Daten vor
+3. Schließen Sie andere Tabs und Apps
+
+Für einen genaueren Blick öffnen Sie die Seite mit angehängtem `?diag=1` (zum Beispiel `http://your_server:PORT/mobile?diag=1`). Die Seite /mobile zeigt dann unter ihren Bedienelementen die Verzögerung, wie unregelmäßig die Verbindung ist und wie es um den Puffer steht; die Desktop-Seite schreibt dieselbe Zeile alle zehn Sekunden in die Browserkonsole (F12). Nützlich, wenn Sie dem Betreiber der Station ein Problem melden.
+
 ### Wasserfall wird nicht aktualisiert
 
 **Mögliche Ursachen:**
@@ -922,7 +952,7 @@ A: Einige Browser erlauben Aufnahmen. Prüfen Sie die Funktionen Ihres Browsers.
 A: Das ist von Station zu Station verschieden. Sehen Sie auf der Stationsinformationsseite nach.
 
 **F: Wie groß ist die Latenz?**
-A: Typischerweise 2-5 Sekunden zwischen Funksignal und Ihren Lautsprechern.
+A: Meist einige Zehntelsekunden zwischen Funksignal und Ihren Lautsprechern: die Verarbeitung im Empfänger, das Netz und der Wiedergabepuffer des Browsers, der sich an Ihre Verbindung anpasst (etwa 100–150 ms auf einem Telefon im heimischen WLAN). Siehe *Audiopuffer und Verzögerung*.
 
 **F: Kann ich mehrere Instanzen nutzen?**
 A: Meist ja, das kann den Server aber belasten. Bitte nehmen Sie Rücksicht.
@@ -942,7 +972,7 @@ A: Das hängt von der Serverkapazität ab. Oft 50-200 Nutzer und mehr.
 A: Falls aktiviert, ja. Achten Sie auf die Anzeigen für „andere Nutzer".
 
 **F: Kann ich mit anderen Hörern chatten?**
-A: Falls vom Betreiber aktiviert. Achten Sie auf das Chatfenster.
+A: Wenn der Betreiber ihn aktiviert hat. Suchen Sie das Chatfeld; **↪ Reply** beantwortet eine bestimmte Nachricht (siehe *Chat* oben).
 
 **F: Warum ist auf manchen Frequenzen nichts zu sehen?**
 A: Auf dieser Frequenz sind gerade keine Signale. Probieren Sie andere!

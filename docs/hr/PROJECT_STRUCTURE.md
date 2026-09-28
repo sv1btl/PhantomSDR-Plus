@@ -250,6 +250,7 @@ PhantomSDR-Plus
 │   │   ├── fax.worker.js
 │   │   ├── faxWorkerProxy.js
 │   │   ├── fft.js
+│   │   ├── flacLowLatency.js         # FLAC dekoder koji reproducira svaki paket čim stigne
 │   │   ├── fsk.js
 │   │   ├── fsk.worker.js
 │   │   ├── fskWorkerProxy.js
@@ -258,6 +259,7 @@ PhantomSDR-Plus
 │   │   │   ├── backend.js
 │   │   │   ├── BandSelector.svelte
 │   │   │   ├── catsync.js
+│   │   │   ├── chatReply.js              # oznaka i niti odgovora u chatu
 │   │   │   ├── CheckButton.svelte
 │   │   │   ├── colormaps.js
 │   │   │   ├── Counter.svelte
@@ -320,6 +322,7 @@ PhantomSDR-Plus
 │   │   │   ├── phantomsdrdsp_router.js
 │   │   │   └── wspr.js
 │   │   ├── olivia.js
+│   │   ├── playoutControl.js         # mjeri vezu, drži spremnik reprodukcije malim
 │   │   ├── psk31.js
 │   │   ├── refused.js
 │   │   ├── remoteSource.js
@@ -923,6 +926,8 @@ Web-sučelje izgrađeno pomoću Sveltea i Vitea.
 - Upravljanje reprodukcijom zvuka
 - Distribuira sirovi PCM (uzet prije AGC-a, smanjenja šuma i utišavanja) dekoderima načina rada
 - Smanjenje šuma umjetnom inteligencijom: `lib/rnnoise.js` učitava RNNoise WebAssembly modul (`@jitsi/rnnoise-wasm`) pri prvoj uporabi; `audio.js` ga primjenjuje samo u govornim načinima, iza odvojka za dekodere, pa ga oni nikad ne čuju
+- FLAC ide kroz `flacLowLatency.js`, koji dekodira svaki paket u trenutku kad stigne i stvarnu brzinu toka (na primjer 12016,3 Hz) svodi na 12000 Hz resamplerom sa 64 koeficijenta (2,7 ms kašnjenja). WASM dekoder u `modules/` puštao je zvuk u fiksnim blokovima od 1024 uzorka i zadržavao oko 160 ms; i dalje se koristi za Opus, za izvore diversity prijema i za FLAC kad se stranica otvori s `?flac=wasm`
+- Upravljanje spremnikom reprodukcije (`playoutControl.js`): `ArrivalMeter` mjeri koliko nepravilno paketi stižu u odnosu na vlastitu vremensku os toka te odstupanje između takta uzorkovanja prijamnika i zvučne kartice slušatelja; `CushionController` drži najmanju popunjenost spremnika u posljednjoj minuti blizu rezerve odabranog koraka spremnika tako što izreže ili ponovi jednu periodu usklađenu s visinom tona (`spliceOut` / `spliceIn`) u zvuku koji ide prema zvučniku. Dekoderi i snimke dobivaju netaknut tok. Vrijedi za put s planiranim spremnicima koji koristi svaki slušatelj stanice na običnom http-u; `?drain=0` ga isključuje, `?diag=1` prikazuje njegove vrijednosti
 
 #### 4a. Dekoderi načina rada i njihovi workeri
 
@@ -981,6 +986,11 @@ Uloga `fsk` dodatno ugošćuje dva dekodera koji uopće nisu FSK. Odabirom inač
 - Ništa ne pokušava ponovno. Pala `/audio` veza namjerno završava sesiju: `/waterfall` i `/events` nikad se nisu vraćali s ponovnim spajanjem, pa je ponovljena sesija bila živi zvuk na zamrznutom slapu, a pred ograničenjem brzine svaki bi pokušaj produljio upravo ono odbijanje koje je htio zaobići. Stolna stranica objašnjava odbijanje koje se dogodi pri učitavanju i jednostavno stane kad se dogodi usred sesije; `/mobile` prikazuje jedan redak koji slušatelju kaže da osvježi
 - `clientVersion.js` sadrži jedan jedini cijeli broj, `CLIENT_VERSION`, koji stranica dodaje svojoj zvučnoj vezi kao `/audio?v=N`. Poslužitelj odbija sve ispod `[server] min_client_version`, i tako stanica prisiljava kartice koje još rade na starijoj inačici da se osvježe — jedina poluga koja postoji, jer poslužitelj ne doseže JavaScript koji već radi u pregledniku. Povećajte ga kad promjenu u frontendu otvorene kartice više ne smiju ignorirati
 - Potpuna referenca: [Ograničenja veza](CONNECTION_LIMITS.md)
+
+#### 4f. Odgovori u chatu (`lib/chatReply.js`)
+- Odgovor je obična poruka u chatu koja počinje oznakom što imenuje poruku na koju odgovara, `[RE:<vremenska oznaka>|<ime>]`; poslužitelj je sprema i prosljeđuje kao svaki drugi redak i ne treba nikakvu promjenu
+- `chatReply.js` stvara i čita tu oznaku te grupira odgovore ispod izvorne poruke, jednu razinu duboko. Koriste ga i `App.svelte` i `mobile/Mobile.svelte`, pa obje stranice jednako slažu chat
+- Kad je izvorna poruka već ispala iz povijesti od 20 poruka na poslužitelju, odgovor ostaje ondje gdje je stigao i prikazuje samo ime i vrijeme na koje odgovara
 
 #### 5. Upravljanje stanjem (`stores/`)
 - Reaktivne pohrane podataka

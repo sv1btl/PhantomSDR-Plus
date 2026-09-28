@@ -430,6 +430,7 @@ How it works:
 - The admin panel rewrites the chat log file in place, stripping only the selected message line.
 - The change takes effect for any user who reloads the chat; already-loaded chat history in open browser tabs is not retroactively updated.
 - Clearing the entire log (the **Clear All** button) truncates the file, which also takes effect without a restart.
+- A **chat reply** is stored as an ordinary message that begins with a marker naming the message it answers, for example `[RE:2026-09-25 12:00:01|SV1BTL]`, so in this list it shows with that marker in front. Deleting a reply removes only that reply. Deleting the message it answers leaves its replies in place, showing only the name and time they answer.
 
 The delete button is rendered consistently across all five Svelte App variants. If a deletion appears not to take effect, confirm the admin panel has write permission to the chat log file:
 

@@ -12,7 +12,7 @@ PhantomSDR-Plus je fork projekta PhantomSDR koji pruža web-poslužitelj softver
 - **Podrška za više korisnika**: stotine istodobnih korisnika, ovisno o hardveru
 - **Visoka frekvencija uzorkovanja**: podrška za SDR uređaje do 70 MSPS (realno) / 35 MSPS (IQ)
 - **Hardversko ubrzanje**: podrška za OpenCL i CUDA za obradu ubrzanu GPU-om
-- **Optimizirano emitiranje**: FLAC i Opus audiokompresija niske latencije
+- **Optimizirano emitiranje**: FLAC i Opus audiokompresija niske latencije. Preglednik dekodira svaki FLAC paket u trenutku kad stigne, a njegov se spremnik reprodukcije prilagođava vezi slušatelja i drži samo onoliko zvuka koliko treba — obično 100–150 ms od prijamnika do zvučnika na telefonu preko Wi-Fija
 
 ### Korisničko sučelje
 - **Futuristički dizajn**: moderno, prilagodljivo web-sučelje
@@ -358,8 +358,9 @@ Postavite `register_online=true` u svojoj `.toml` konfiguracijskoj datoteci za a
 - Za detaljno postavljanje OpenCL-a vidi INSTALLATION.md
 
 **Problemi s latencijom zvuka**
-- Pokušajte prebaciti između kodeka FLAC i Opus
-- Prilagodite postavke međuspremnika u konfiguraciji
+- Zadržite FLAC kao kodek: on ima manju latenciju, dok Opus zadržava do 20 ms po paketu
+- Otvorite stranicu s dodanim `?diag=1` na adresi (na primjer `/mobile?diag=1`) da biste vidjeli kašnjenje podijeljeno na paket, spremnik i izlaz; spremnik se sam smanji za minutu-dvije nakon problema s mrežom
+- Ako se zvuk prekida, povećajte spremnik za jedan korak (vidi Korisnički priručnik, *Zvučni spremnik i kašnjenje*)
 - Osigurajte dostatne CPU/GPU resurse
 
 **Neuspjeli build**

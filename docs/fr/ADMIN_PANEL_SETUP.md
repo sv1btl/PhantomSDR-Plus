@@ -434,6 +434,7 @@ Fonctionnement :
 - Le panneau d'administration réécrit le fichier de journal du chat sur place, en supprimant uniquement la ligne du message sélectionné.
 - Le changement prend effet pour tout utilisateur qui recharge le chat ; l'historique déjà chargé dans les onglets ouverts n'est pas mis à jour rétroactivement.
 - Effacer tout le journal (bouton **Clear All**) tronque le fichier, ce qui prend également effet sans redémarrage.
+- Une **réponse du chat** est stockée comme un message ordinaire qui commence par un marqueur nommant le message auquel elle répond, par exemple `[RE:2026-09-25 12:00:01|SV1BTL]` ; dans cette liste elle apparaît donc précédée de ce marqueur. Supprimer une réponse ne retire que cette réponse. Supprimer le message auquel elle répond laisse ses réponses en place, n'affichant plus que le nom et l'heure auxquels elles répondent.
 
 Le bouton de suppression est affiché de manière cohérente dans les cinq variantes de l'application Svelte. Si une suppression semble sans effet, vérifiez que le panneau d'administration a le droit d'écriture sur le fichier de journal du chat :
 

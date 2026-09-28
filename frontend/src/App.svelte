@@ -7363,9 +7363,13 @@
         audio.setAudioBufferDelay(0.25, 0.01);
         break;
       case 2:
-        // Default for handsets. Rides out ordinary mobile jitter.
+        // Default for handsets. Rides out ordinary mobile jitter. The margin
+        // was 0.1 until the cushion drain (playoutControl.js): the margin now
+        // sits ON TOP of the worst jitter of the last minute rather than being
+        // the whole defence, and a phone on LAN Wi-Fi measured worst 64 ms
+        // with 0 gaps, so 50 ms of extra safety is enough.
         audioBufferDelayEnabled = true;
-        audio.setAudioBufferDelay(0.5, 0.1);
+        audio.setAudioBufferDelay(0.5, 0.05);
         break;
       case 3:
         // Low: good for fast but variable connections.

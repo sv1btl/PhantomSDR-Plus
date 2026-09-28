@@ -82,6 +82,27 @@ export function getMaximumBandwidth () {
   return audio.trueAudioSps
 }
 
+// ── Playback diagnostics on the console: ?diag=1 ──────────────────────────
+// The mobile page shows these on screen; the desktop page has no room for
+// them, so it logs one line every 10 s instead. Numbers in ms unless marked.
+try {
+  if (new URLSearchParams(window.location.search).has('diag')) {
+    setInterval(() => {
+      const d = audio.getPlaybackDiagnostics()
+      if (!d || !d.link || !d.drain) return
+      const r = (x) => (x === null || x === undefined) ? '…' : Math.round(x)
+      console.log(
+        `[diag] ${d.path} · latency ${r(d.latency.total * 1000)} (buf ${r(d.latency.buffered * 1000)})` +
+        ` · jitter ${r(d.link.jitterMs)} worst ${r(d.link.jitterWorstMs)}` +
+        ` · drift ${d.link.driftPpm === null ? '…' : d.link.driftPpm + ' ppm'}` +
+        ` · cushion min/avg/max ${r(d.drain.cushionMinMs)}/${r(d.drain.cushionAvgMs)}/${r(d.drain.cushionMaxMs)}` +
+        ` · drain ${d.drain.enabled ? d.drain.windowSec + 's' : 'OFF'} −${r(d.drain.trimmedMs)}/+${r(d.drain.filledMs)}` +
+        ` · gaps ${d.fallbackRestarts} sheds ${d.fallbackDrops}`
+      )
+    }, 10000)
+  }
+} catch (e) { /* no URL; no diagnostics */ }
+
 // ── Receive diversity ──────────────────────────────────────────────────────
 // Thin pass-throughs so the UI never has to reach into the audio instance.
 // The wiring lives here rather than in SpectrumAudio's constructor so that

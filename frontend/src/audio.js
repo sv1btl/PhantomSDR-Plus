@@ -84,6 +84,10 @@ import { VideoRecorder } from './videoRecorder.js';
 // _cwReset/_cwFeedPCM below use.  See cw.worker.js for why CW is fed the
 // PROCESSED buffer rather than the raw tap.
 import { CWWorkerProxy } from './cwWorkerProxy.js';
+// Link jitter/drift meter and the playout cushion drain — see playoutControl.js.
+import { ArrivalMeter, CushionController, spliceOut, spliceIn, blockRms } from './playoutControl.js';
+// FLAC without the WASM decoder's 1024-sample output chunking (~160 ms held).
+import { FlacLowLatencyDecoder } from './flacLowLatency.js';
 
 // ── Opus master switch ──────────────────────────────────────────────────
 // Set false to "kill" Opus in the browser: the client tells the server it
@@ -618,6 +622,16 @@ export default class SpectrumAudio {
     this._loggedFallbackPlayback = false;
     this._loggedWorkletFailure = false;
     this._streamStats = null;
+
+    // Link measurement and cushion control for the fallback scheduler. The
+    // drain is on by default; ?drain=0 turns it off for an A/B comparison
+    // (the meter keeps running either way, so the ?diag=1 numbers compare).
+    this._arrivalMeter = new ArrivalMeter(10);
+    this._cushionCtl = new CushionController();
+    try {
+      if (new URLSearchParams(window.location.search).get('drain') === '0') this._cushionCtl.enabled = false;
+    } catch (e) { /* no URL; keep the default */ }
+    this._arrivalAt = 0;
 
     this.endpoint = endpoint
 
@@ -3026,8 +3040,13 @@ setAGC(newAGCSpeed) {
       // current channel count (2 for C-QUAM) up front so we don't create a mono
       // decoder and immediately rebuild it stereo via setChannels().
       this.decoder = new OpusMLAdapter(this.audioMaxSps || this.trueAudioSps || this.audioOutputSps || 48000, this.channels || 1);
+    } else if (codec === 'flac' && !this._wantsWasmFlac()) {
+      // Decodes each packet as it arrives; see flacLowLatency.js for the
+      // measurement that retired the WASM path. Same output as before —
+      // 12 kHz Float32, same scale — so nothing downstream changes.
+      this.decoder = new FlacLowLatencyDecoder(this.trueAudioSps || this.audioOutputSps || 12000, this.audioOutputSps || 12000, 1);
     } else {
-      // Use existing wrapper-based decoder (FLAC, etc.)
+      // Use existing wrapper-based decoder (FLAC with ?flac=wasm, etc.)
       this.decoder = createDecoder(codec, this.audioMaxSps, this.trueAudioSps, this.audioOutputSps);
 
       // ✅ CRITICAL FIX: Disable buggy WASM noise blanker for FLAC
@@ -3137,6 +3156,9 @@ setAGC(newAGCSpeed) {
     // keys off this.settings.audio_compression, so it must match the new codec.
     this.settings.audio_compression = c;
     this._buildDecoder(c);
+    // The codecs frame differently (Opus holds partial frames), so the stream
+    // timeline the meter tracks restarts here.
+    this._arrivalMeter.reset();
   }
 
   initAudio(settings) {
@@ -3559,6 +3581,12 @@ setAGC(newAGCSpeed) {
    * ?ctxrate=native and ?ctxrate=stream override it either way, so the
    * comparison stays available on any device without a rebuild.
    */
+  // ?flac=wasm puts the old WASM FLAC decoder back, for an A/B comparison.
+  _wantsWasmFlac() {
+    try { return new URLSearchParams(window.location.search).get('flac') === 'wasm' }
+    catch (e) { return false }
+  }
+
   _wantsNativeContextRate() {
     try {
       const forced = new URLSearchParams(window.location.search).get('ctxrate')
@@ -3600,6 +3628,10 @@ setAGC(newAGCSpeed) {
       // cushion is too small for the link — raise the buffer preset.
       fallbackRestarts: this._fallbackRestarts || 0,
       fallbackDrops: this._fallbackDrops || 0,
+      // The link itself (jitter over 10 s and the session's worst, clock
+      // drift) and what the cushion drain is doing about it.
+      link: this._arrivalMeter.snapshot(),
+      drain: this._cushionCtl.snapshot(),
       socketOpen: this._isSocketOpen(),
       framesPerPacket: this._pktFrames || 0,
       packetsPerSec: this._pktRate || 0,
@@ -3647,6 +3679,10 @@ setAGC(newAGCSpeed) {
     this._dBQueue = [];
     this._fallbackRestarts = 0;
     this._fallbackDrops = 0;
+    // A new stream: its timeline starts again, and the old cushion history
+    // describes a schedule that no longer exists.
+    this._arrivalMeter.reset();
+    this._cushionCtl.reset();
     // Its history is the tail of a stream that has ended.
     this._resampler = null;
   }
@@ -3865,6 +3901,8 @@ setAGC(newAGCSpeed) {
   }
 
   socketMessage(event) {
+    // Arrival time before any work, so decode cost does not count as jitter.
+    this._arrivalAt = performance.now() / 1000;
     if (event.data instanceof ArrayBuffer) {
       const packet = cbor_decode(new Uint8Array(event.data))
       
@@ -3966,6 +4004,12 @@ setAGC(newAGCSpeed) {
     // the one number that says how hard that path is being asked to work.
     this._pktFrames = (this.channels === 2) ? Math.floor(pcmArray.length / 2) : pcmArray.length;
     this._pktCount = (this._pktCount || 0) + 1;
+    this._arrivalMeter.onPacket(
+      this._arrivalAt,
+      (this.audioCtx.state === 'running') ? this.audioCtx.currentTime : null,
+      this._pktFrames,
+      this.audioOutputSps || 12000
+    );
     {
       const nowMs = performance.now();
       if (!this._pktWindowStart) this._pktWindowStart = nowMs;
@@ -6055,6 +6099,9 @@ js8Pending() {
       // half of each UI buffer preset — the value that decides how much jitter
       // a listener can absorb here, and raising the preset now genuinely helps.
       const prebuffer = Math.max(this.bufferThreshold, 0.02);
+      const nowSec = this._arrivalAt || performance.now() / 1000;
+      const ctl = this._cushionCtl;
+      ctl.observe(nowSec, this.playTime - currentTime);
 
       if (!(this.playTime > currentTime)) {
         // Underrun: everything scheduled has already played out, so there is
@@ -6062,6 +6109,7 @@ js8Pending() {
         // the clock. This is still a gap, but a clean silent one.
         this.playTime = currentTime + prebuffer;
         this._fallbackRestarts = (this._fallbackRestarts || 0) + 1;
+        ctl.onUnderrun();
       } else if ((this.playTime - currentTime) > (this.bufferLimit + prebuffer)) {
         // Overrun: the producer is outrunning playback. Shed THIS chunk and
         // leave the timeline untouched — the backlog drains by one chunk and
@@ -6072,10 +6120,33 @@ js8Pending() {
         // the link is too far ahead to play everything.
         this._fallbackDrops = (this._fallbackDrops || 0) + 1;
         shedFromPlayback = true;
+        const ch = this.channels === 2 ? 2 : 1;
+        ctl.onShed(pcmArray.length / ch / (this.audioOutputSps || 12000));
       }
 
       if (!shedFromPlayback) {
-        const curPlayTime = this.playPCM(pcmArray, this.playTime, this.audioOutputSps, 1, this.channels)
+        // Cushion drain: steady-state playTime only ever advances by each
+        // chunk's own length, so a cushion left behind by a burst or a restart
+        // used to stay for the whole session, and a fast or slow sound card
+        // walked it towards a gap or towards bufferLimit. The controller holds
+        // the smallest cushion seen at arrival near `prebuffer` by cutting or
+        // repeating one pitch period of THIS chunk (see playoutControl.js).
+        // Only the speaker copy is spliced: `pcmArray` itself goes on to the
+        // recording below untouched, and the decoders were fed in playAudio()
+        // before any of this.
+        let speakerPcm = pcmArray;
+        const sps = this.audioOutputSps || 12000;
+        const adjust = ctl.planAdjust(nowSec, prebuffer, blockRms(pcmArray), sps);
+        if (adjust > 0) {
+          const r = spliceOut(pcmArray, this.channels, adjust);
+          speakerPcm = r.pcm;
+          ctl.onAdjusted(nowSec, r.removed / sps);
+        } else if (adjust < 0) {
+          const r = spliceIn(pcmArray, this.channels, -adjust);
+          speakerPcm = r.pcm;
+          ctl.onAdjusted(nowSec, -r.added / sps);
+        }
+        const curPlayTime = this.playPCM(speakerPcm, this.playTime, sps, 1, this.channels)
         this.playTime += curPlayTime;
       }
     } else {

@@ -85,9 +85,10 @@
   // scheduled-buffer path's cushion directly — so moving this is heard at
   // once, mid-session.
   const BUFFER_PRESETS = [
-    [0.25, 0.01], [0.5, 0.1], [1.0, 0.2], [1.5, 0.3], [2.0, 0.4], [2.5, 0.5]
+    [0.25, 0.01], [0.5, 0.05], [1.0, 0.2], [1.5, 0.3], [2.0, 0.4], [2.5, 0.5]
   ]
-  let bufferStep = 1        // the desktop's x2 — the handset default
+  let bufferStep = 1        // the desktop's x2 — the handset default (50 ms margin
+                            // since the cushion drain; see App.svelte case 2)
 
   // ── Recording ────────────────────────────────────────────────────────────
   let isRecording = false
@@ -1545,13 +1546,22 @@
                   · gaps {diag.fallbackRestarts} drop {diag.fallbackDrops}
                 {/if}
                 · {diag.codec} {diag.channels}ch {diag.decoder}
-                · socket {diag.socketOpen ? 'up' : 'DOWN'} · reconnects {diag.reconnects}
+                · socket {diag.socketOpen ? 'up' : 'DOWN'}
                 · {diag.framesPerPacket}f/pkt {diag.packetsPerSec}/s{diag.resampling ? ' · resampling' : ''}
                 {#if diag.latency}
                   <br />latency: pkt {Math.round(diag.latency.packet * 1000)}
                   + buf {Math.round(diag.latency.buffered * 1000)}
                   + out {Math.round((diag.latency.base + diag.latency.output) * 1000)}
                   = <b>{Math.round(diag.latency.total * 1000)} ms</b>
+                {/if}
+                {#if diag.link && diag.drain}
+                  <br />link: jitter {Math.round(diag.link.jitterMs)} (worst {Math.round(diag.link.jitterWorstMs)})
+                  · drift {diag.link.driftPpm === null ? '…' : diag.link.driftPpm + ' ppm'}
+                  {#if diag.drain.cushionMinMs !== null}
+                    · cushion {Math.round(diag.drain.cushionMinMs)}/{Math.round(diag.drain.cushionAvgMs)}/{Math.round(diag.drain.cushionMaxMs)}
+                  {/if}
+                  · drain {diag.drain.enabled ? diag.drain.windowSec + 's' : 'OFF'}
+                  −{Math.round(diag.drain.trimmedMs)}/+{Math.round(diag.drain.filledMs)} ms
                 {/if}
               </div>
             {/if}

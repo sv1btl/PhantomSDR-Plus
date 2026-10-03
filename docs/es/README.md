@@ -23,6 +23,7 @@ PhantomSDR-Plus es un fork de PhantomSDR que ofrece un servidor web de radio def
 - **Botones de decodificador de una pulsación**: una fila de decodificadores en el panel principal, justo debajo del selector de modos (FT8, FT4, FT2, JS8, CW, WSPR, FAX, SSTV, NAVTX, RTTY), con RADEL y RADEU junto al propio selector de modos y repetidos en las ventanas emergentes de modos y bandas. Una pulsación inicia el decodificador y abre su ventana; una segunda lo detiene. La antigua fila de ancho de banda se ha eliminado.
 - **Escáner de canales**: recorre la banda, o exactamente lo que muestra la cascada, y se detiene en el primer canal que supere en los dB elegidos el propio suelo de ruido de la banda; continúa solo en cuanto ese canal queda en silencio. El paso sigue al modo y las paradas caen en la rejilla de canales (1 kHz SSB, 100 Hz CW, 5 kHz AM de onda corta, 9/10 kHz onda media, 9 kHz onda larga). Un modo *Saltar vacíos* lee el espectro de la cascada y salta directamente a las señales, y un botón de bloqueo saca del barrido un canal siempre ocupado. Todo es local al navegador del oyente, de modo que explorar no mueve el receptor para nadie más (véase la [Guía del usuario](USER_GUIDE.md))
 - **Diversidad de recepción**: combina el receptor con un segundo receptor situado en otro lugar y reproduce el que en cada momento tiene mejor señal, de modo que un desvanecimiento en uno lo cubre el otro. El segundo puede ser otro PhantomSDR-Plus, un KiwiSDR, un UberSDR o un WebSDR; los tres primeros no necesitan nada más que el navegador del oyente, y solo un WebSDR requiere un pequeño relé en su propio servidor. La alineación tarda unos quince segundos, y un ajuste remoto de SNR equilibra ambas estaciones entre sí. Cada oyente guarda en su propio navegador una lista de segundos receptores con nombre, en el orden que prefiera, y puede exportarla a un archivo e importarla de nuevo (véase [Diversidad de recepción](RECEIVE_DIVERSITY.md))
+- **Varios receptores, una página**: un ordenador puede hacer funcionar dos o más receptores a la vez — por ejemplo un RX-888 para HF y un RTL-SDR para 2 m — y los oyentes pasan de uno a otro con botones en la cabecera de la página. Cada receptor conserva su propia cascada, chat, marcadores, lista de oyentes y datos de estación, y por encima de 30 MHz el S-meter indica unidades S de VHF (S9 = −93 dBm) (vea [Varios receptores](MULTI_RECEIVER.md))
 
 ### Procesamiento de señal
 - **Múltiples modos de demodulación**: AM, FM, USB, LSB, CW y más. También se ha implementado un decodificador RADE versión 1.
@@ -30,6 +31,7 @@ PhantomSDR-Plus es un fork de PhantomSDR que ofrece un servidor web de radio def
 - **Reducción de ruido**: NR (espectral), NB (supresor de impulsos), NS (supresión del ruido de fondo) y AN (notch automático), todos en la escucha y nunca en los decodificadores
 - **Opciones de AGC**: varios modos de control automático de ganancia
 - **Squelch automático**: umbral de squelch automático basado en el ruido
+- **Silenciador por subtono CTCSS**: el audio FM solo pasa mientras se recibe el subtono elegido — o cualquiera estándar; el tono se elige en una pequeña ventana junto al botón CTCSS, que luego lo muestra
 - **Reducción de ruido por IA**: red neuronal RNNoise en el navegador del oyente, elimina el ruido de banda de la voz (solo modos de voz; véase la [Guía del usuario](USER_GUIDE.md))
 
 ### Funciones avanzadas
@@ -335,6 +337,7 @@ Las cuatro variantes de la interfaz (S-meter analógico/digital x disposición v
 - **[USER_GUIDE.md](USER_GUIDE.md)**: guía para el usuario final sobre el manejo del WebSDR
 - **[THERMAL_GUARD.md](THERMAL_GUARD.md)** - Manual del sysop para la protección contra sobrecalentamiento de la CPU: los cuatro modos y qué hacer con cada uno
 - **[CONNECTION_LIMITS.md](CONNECTION_LIMITS.md)** - Manual del sysop para los límites de conexión: proteger un receptor público frente a avalanchas de conexiones
+- **[MULTI_RECEIVER.md](MULTI_RECEIVER.md)** - Manual del sysop para varios receptores en un ordenador: instancias, `receivers.toml`, el selector de receptor y `start-all.sh`
 - **[PROJECT_STRUCTURE.md](PROJECT_STRUCTURE.md)**: estructura de directorios y organización del código
 - **[EDITING_VARIANTS.md](EDITING_VARIANTS.md)**: cómo editar las variantes del frontend (S-meter y disposición) y reconstruirlas
 

@@ -231,6 +231,8 @@ Key fields written by `setup_admin.sh`:
 | `sdr_process_name` | Process name to monitor (default: `spectrumserver`) |
 | `start_script` / `stop_script` | Scripts the panel runs to start and stop the SDR server — also what the thermal guard acts through |
 
+> **Several receivers on one computer?** Set `start_script` to `start-all.sh`. The stop script already stops every receiver, and Restart and the thermal guard use the start script, so with `start-all.sh` they bring back every receiver in `receivers.toml` instead of only the main one. The Users page, the user count and the kick then cover every receiver as well. See [Several Receivers](MULTI_RECEIVER.md).
+
 Thermal guard keys (all optional — the panel writes them when you save the Thermal Guard settings, and any that are missing fall back to these defaults):
 
 | Key | Default | Description |

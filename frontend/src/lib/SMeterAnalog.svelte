@@ -27,11 +27,17 @@
    * mutually exclusive `{#if !Device.isMobile}` branches), so the ids stay unique.
    */
   import { onMount, onDestroy } from "svelte";
+  import { sUnitLiftDb } from "./sUnits.js";
 
   /** Calibrated signal power in dBm, as computed by the parent's _smeterTick(). */
   export let dbm = -130;
   /** Render the compact mobile bar instead of the round desktop face. */
   export let mobile = false;
+  /** Tuned frequency in Hz: above 30 MHz the needle reads VHF S-units
+   *  (S9 = -93 dBm), see sUnits.js. */
+  export let frequencyHz = 0;
+  /** True while the VHF/UHF gate holds the needle at 0 (sUnits.js). */
+  export let gated = false;
 
   // Inline in the App files, the draw could assume its canvas was in the DOM.
   // As a component the reactive block below runs once *before* mount, and the
@@ -721,12 +727,13 @@ function _animateNeedle(ts) {
 
   // Drive the needle from the incoming dBm.  setSMeterPower() starts the
   // smoothing loop if it is not already running.
-  $: if (mounted) setSMeterPower(powerFromDbm(dbm));
+  $: if (mounted)
+    setSMeterPower(gated ? 0 : powerFromDbm(dbm + sUnitLiftDb(frequencyHz)));
 
   onMount(() => {
     mounted = true;
     // Land the needle on the first real reading instead of sweeping up from 0.
-    currentPower = targetPower = powerFromDbm(dbm);
+    currentPower = targetPower = gated ? 0 : powerFromDbm(dbm + sUnitLiftDb(frequencyHz));
     drawSMeter(currentPower);
   });
 

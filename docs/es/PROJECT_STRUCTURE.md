@@ -19,6 +19,7 @@ Este documento ofrece una visión general completa de la estructura de directori
 ## Árbol de directorios
 ```
 PhantomSDR-Plus
+├── add-receiver.sh            # añade un receptor más: controlador, instances/<nombre>/, receivers.toml — vea docs/MULTI_RECEIVER.md
 ├── admin_config.json
 ├── admin_server.py
 ├── autorun
@@ -60,6 +61,7 @@ PhantomSDR-Plus
 │   │   ├── DECODERS.md
 │   │   ├── EDITING_VARIANTS.md
 │   │   ├── INSTALLATION.md
+│   │   ├── MULTI_RECEIVER.md
 │   │   ├── PhantomSDR-Plus-Documentation-DE.pdf
 │   │   ├── PROJECT_STRUCTURE.md
 │   │   ├── RADE_General_INSTALL_MANUAL_LINUX.md
@@ -78,6 +80,7 @@ PhantomSDR-Plus
 │   │   ├── DECODERS.md
 │   │   ├── EDITING_VARIANTS.md
 │   │   ├── INSTALLATION.md
+│   │   ├── MULTI_RECEIVER.md
 │   │   ├── PhantomSDR-Plus-Documentation-EL.pdf
 │   │   ├── PROJECT_STRUCTURE.md
 │   │   ├── RADE_General_INSTALL_MANUAL_LINUX.md
@@ -94,6 +97,7 @@ PhantomSDR-Plus
 │   │   ├── DECODERS.md
 │   │   ├── EDITING_VARIANTS.md
 │   │   ├── INSTALLATION.md
+│   │   ├── MULTI_RECEIVER.md
 │   │   ├── PhantomSDR-Plus-Documentation-ES.pdf
 │   │   ├── PROJECT_STRUCTURE.md
 │   │   ├── RADE_General_INSTALL_MANUAL_LINUX.md
@@ -110,6 +114,7 @@ PhantomSDR-Plus
 │   │   ├── DECODERS.md
 │   │   ├── EDITING_VARIANTS.md
 │   │   ├── INSTALLATION.md
+│   │   ├── MULTI_RECEIVER.md
 │   │   ├── PhantomSDR-Plus-Documentation-FR.pdf
 │   │   ├── PROJECT_STRUCTURE.md
 │   │   ├── RADE_General_INSTALL_MANUAL_LINUX.md
@@ -126,6 +131,7 @@ PhantomSDR-Plus
 │   │   ├── DECODERS.md
 │   │   ├── EDITING_VARIANTS.md
 │   │   ├── INSTALLATION.md
+│   │   ├── MULTI_RECEIVER.md
 │   │   ├── PhantomSDR-Plus-Documentation-HR.pdf
 │   │   ├── PROJECT_STRUCTURE.md
 │   │   ├── RADE_General_INSTALL_MANUAL_LINUX.md
@@ -136,6 +142,7 @@ PhantomSDR-Plus
 │   │   ├── THERMAL_GUARD.md
 │   │   └── USER_GUIDE.md
 │   ├── INSTALLATION.md
+│   ├── MULTI_RECEIVER.md
 │   ├── PhantomSDR-Plus-Documentation-EN.pdf
 │   ├── PROJECT_STRUCTURE.md
 │   ├── RADE_General_INSTALL_MANUAL_LINUX.md
@@ -150,6 +157,7 @@ PhantomSDR-Plus
 │   │   ├── DECODERS.md
 │   │   ├── EDITING_VARIANTS.md
 │   │   ├── INSTALLATION.md
+│   │   ├── MULTI_RECEIVER.md
 │   │   ├── PhantomSDR-Plus-Documentation-RU.pdf
 │   │   ├── PROJECT_STRUCTURE.md
 │   │   ├── RADE_General_INSTALL_MANUAL_LINUX.md
@@ -280,12 +288,15 @@ PhantomSDR-Plus
 │   │   │   ├── PassbandTuner.svelte
 │   │   │   ├── Popover.svelte
 │   │   │   ├── QrssPanel.svelte
+│   │   │   ├── receivers.js           # datos del selector de receptor (/receivers.json)
 │   │   │   ├── rnnoise.js     # carga RNNoise para la reducción de ruido por IA
+│   │   │   ├── rx.js                  # a qué receptor pertenece una página (?rx=)
 │   │   │   ├── SMeterAnalog.svelte
 │   │   │   ├── SMeterDigital.svelte
 │   │   │   ├── Spectrogram.svelte
 │   │   │   ├── StatusIndicators.svelte
 │   │   │   ├── storage.js
+│   │   │   ├── sUnits.js              # escala de unidades S según la frecuencia (S9 = −93 dBm por encima de 30 MHz)
 │   │   │   ├── Tooltip.svelte
 │   │   │   ├── VersionSelector.svelte
 │   │   │   ├── VideoAreaSelector.svelte
@@ -327,6 +338,7 @@ PhantomSDR-Plus
 │   │   ├── refused.js
 │   │   ├── remoteSource.js
 │   │   ├── scanner.js
+│   │   ├── siteInfo.js               # site_information.json, superpuesto con la copia propia del receptor
 │   │   ├── sstv.js
 │   │   ├── sstv.worker.js
 │   │   ├── sstvWorkerProxy.js
@@ -375,6 +387,7 @@ PhantomSDR-Plus
 ├── install_rade_ubuntu22.sh
 ├── install.sh
 ├── install-stats-server.sh
+├── instances                  # receptores adicionales, una carpeta cada uno (no en git) — vea docs/MULTI_RECEIVER.md
 ├── instructions-for-airspy
 ├── instructions-for-rsp1a
 ├── jsdsp
@@ -468,6 +481,7 @@ PhantomSDR-Plus
 ├── rade.sh
 ├── README.md
 ├── recompile.sh
+├── receivers.toml.example     # lista de receptores para proxy.py — copiar a receivers.toml
 ├── _relaunch.sh               # antiguo: ayudante de relanzamiento diferido de la cadena go.sh
 ├── request.hpp
 ├── setup_admin.sh
@@ -477,6 +491,7 @@ PhantomSDR-Plus
 ├── setup-fobos.sh             # cadena de driver Fobos: libfobos + SoapyFobosSDR + rx_sdr + cf32_to_real + udev
 ├── setup-hackrf.sh            # HackRF: paquete hackrf de la distribución + udev (nada compilado)
 ├── setup-rsp1a.sh             # cadena de driver RSP1A: libmirisdr-5 + SoapyMiri + rx_sdr + lista negra msi2500 + udev
+├── setup-rtlsdr.sh            # controlador RTL-SDR: paquete de la distribución, o el controlador Blog V4 desde el código + bloqueo DVB + udev
 ├── setup-rx888-udev.sh
 ├── setup-sdr-common.sh        # funciones comunes de los tres scripts setup de arriba
 ├── setup_websdr_relay.sh      # instala el relé de diversidad WebSDR (puerto, identidad, systemd)
@@ -524,6 +539,7 @@ PhantomSDR-Plus
 │   ├── websocket.cpp
 │   └── websocket.h
 ├── start-airspyhf.sh
+├── start-all.sh               # arranca cada receptor de receivers.toml
 ├── start-fobos-hf.sh
 ├── start-fobos.sh
 ├── start-hackrf.sh
@@ -791,11 +807,12 @@ PhantomSDR-Plus
 
 ### Scripts de arranque, parada y mantenimiento
 
-Cada `start-*.sh` de los siguientes es un **lanzador autónomo + watchdog + registrador**: detiene cualquier instancia en marcha, levanta el receptor y `spectrumserver`, pasa a segundo plano, reinicia automáticamente la cadena si se cae y registra en `logwebsdr.txt`. Comparten un único script de parada y un solo bloqueo `flock` (solo funciona un receptor a la vez). Edite únicamente el bloque **RECEIVER CONFIGURATION** de la parte superior de cada uno (argumentos del receptor / configuración / nombre del proceso). Los seis scripts de arranque hechos con la misma plantilla (`start-airspyhf.sh`, `start-rtl.sh`, `start-rsp1a.sh`, `start-fobos.sh`, `start-fobos-hf.sh`, `start-hackrf.sh`) son idénticos por debajo de ese bloque; `start-rx888mk2.sh` es un script propio.
+Cada `start-*.sh` de los siguientes es un **lanzador autónomo + watchdog + registrador**: detiene cualquier instancia en marcha, levanta el receptor y `spectrumserver`, pasa a segundo plano, reinicia automáticamente la cadena si se cae y registra en `logwebsdr.txt`. Comparten un único script de parada y un solo bloqueo `flock` (solo funciona un receptor a la vez). Edite únicamente el bloque **RECEIVER CONFIGURATION** de la parte superior de cada uno (argumentos del receptor / configuración / nombre del proceso). Los seis scripts de arranque hechos con la misma plantilla (`start-airspyhf.sh`, `start-rtl.sh`, `start-rsp1a.sh`, `start-fobos.sh`, `start-fobos-hf.sh`, `start-hackrf.sh`) son idénticos por debajo de ese bloque; `start-rx888mk2.sh` es un script propio. Desde la v5.0.0 pueden funcionar varios receptores a la vez: si un script de arranque se lanza con `INSTANCE=<nombre>`, ese receptor tiene su propia carpeta en `instances/<nombre>/` y su propio registro, bloqueo y FIFO — vea [Varios receptores](MULTI_RECEIVER.md).
 
 | Script | Finalidad |
 |--------|-----------|
 | `install.sh` | Instalación y compilación automatizadas |
+| `add-receiver.sh` | Añade un receptor más a este ordenador: pregunta qué receptor y qué cubre, instala su controlador, crea `instances/<nombre>/` y la entrada en `receivers.toml`, y ofrece arrancarlo y reiniciar el proxy. Los instaladores lo ofrecen al final — vea [Varios receptores](MULTI_RECEIVER.md) |
 | `start-rtl.sh` | Arranque + watchdog del servidor con RTL-SDR (`rtl_sdr`) |
 | `start-rsp1a.sh` | Arranque + watchdog del servidor con SDRplay RSP1A (`rx_sdr`); usa libmirisdr-5, o la API de SDRplay cuando está instalada (`RX_DRIVER` fuerza uno) |
 | `start-airspyhf.sh` | Arranque + watchdog del servidor con Airspy HF+ (`rx_sdr`) |
@@ -803,10 +820,13 @@ Cada `start-*.sh` de los siguientes es un **lanzador autónomo + watchdog + regi
 | `start-fobos.sh` | Arranque + watchdog del servidor con RigExpert Fobos SDR, rama RF (`rx_sdr`) |
 | `start-hackrf.sh` | Arranque + watchdog del servidor con HackRF One (`hackrf_transfer`) |
 | `start-rx888mk2.sh` | Arranque + watchdog del servidor con RX888 MK2 (`rx888_stream`) |
+| `start-all.sh` | Arranca cada receptor de `receivers.toml` con su propio script — póngalo como script de arranque del panel de administración en una estación con varios receptores; vea [Varios receptores](MULTI_RECEIVER.md) |
 | `stop-websdr.sh` | Detiene el servidor y su watchdog: compartido por todos los receptores |
+| `stop-websdr.sh <instancia>` | Detiene un solo receptor (`main` para el principal); sin argumento se detienen todos, como antes |
 | `setup-rx888-udev.sh` | Instala reglas udev para que `rx888_stream` del RX-888 funcione sin sudo |
 | `setup-rsp1a.sh` / `setup-fobos.sh` / `setup-airspyhf.sh` | Instalan la cadena de driver SoapySDR del RSP1A, el Fobos o el Airspy HF+ — SoapySDR desde la distribución, driver y rx_tools compilados en `sdr_drivers/`, una regla udev — en cualquiera de las cuatro distribuciones admitidas. Las opciones 3, 5 y 6 del instalador los ejecutan; también funcionan solos. Código común en `setup-sdr-common.sh` — vea la [Guía de instalación](INSTALLATION.md#receptores-sobre-soapysdr-rsp1a-fobos-airspy-hf) |
 | `setup-hackrf.sh` | Instala el paquete `hackrf` de la distribución y una regla udev para el HackRF One, en cualquiera de las cuatro distribuciones admitidas; la opción 7 del instalador lo ejecuta |
+| `setup-rtlsdr.sh` | Instala el controlador RTL-SDR en cualquiera de las cuatro distribuciones admitidas — el paquete `rtl-sdr` de la distribución o, con `RTL_V4=y`, el controlador del RTL-SDR Blog V4 compilado desde el código —, bloquea el controlador DVB-T y añade una regla udev; lo ejecuta `add-receiver.sh` |
 | `setup-firewall.sh` | Guardia de avalanchas opcional en el núcleo: carga una tabla nftables con un tope de conexiones simultáneas y una tasa por dirección de origen en los puertos del receptor, un freno contra fuerza bruta en SSH y la compartición de archivos de Windows cerrada fuera de los rangos privados. Necesita root, no puede dejarle fuera (policy accept, las conexiones establecidas se aceptan primero) y `--apply` se revierte solo si no se confirma en 60 s — vea [Límites de conexión](CONNECTION_LIMITS.md) |
 | `setup-cpufreq-perms.sh` | Concede a un grupo `cpufreq` permiso de escritura sobre el límite de frecuencia de la CPU, para que la fase throttle del guardián funcione sin root. Instala una regla `tmpfiles.d` para que sobreviva a un reinicio; `--revoke` lo deshace |
 | `update.sh` | Actualizar la instalación desde el árbol publicado sin tocar su configuración, marcadores, lista de frecuencias ni cambios locales — véase la [Guía de instalación](INSTALLATION.md) |

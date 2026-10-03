@@ -726,7 +726,7 @@ nano frontend/site_information.json
   "siteCity": "Your City, Country",
   "siteInformation": "https://github.com/sv1btl/PhantomSDR-Plus",
   "siteHardware": "Computer specifications",
-  "siteSoftware": "PhantomSDR-Plus v4.2.0",
+  "siteSoftware": "PhantomSDR-Plus v5.0.0",
   "siteReceiver": "Your SDR model",
   "siteAntenna": "Antenna description",
   "siteNote": "Additional information",
@@ -913,6 +913,10 @@ hackrf_info          # with the HackRF plugged in: must list the board
 Το `start-hackrf.sh` στέλνει ένα παράθυρο κάθε φορά. Διαλέξτε το πριν την πρώτη εκκίνηση: τα `-f` (κέντρο) και `-s` (ρυθμός δειγματοληψίας) στη γραμμή `RX_ARGS` πρέπει να ταιριάζουν με τα `frequency=` και `sps=` του `config-hackrf.toml`. Τα `-l` και `-g` είναι τα κέρδη του LNA (0-40 dB, βήματα 8 dB) και του VGA (0-62 dB, βήματα 2 dB), και το `-a 1` ανάβει τον ενισχυτή RF. Οι τιμές που έρχονται (98 MHz, 20 Msps) είναι μόνο αφετηρία για να δείτε ότι τρέχει.
 
 Το `hackrf_transfer` γράφει IQ 8 bit **με πρόσημο**, γι' αυτό οι ρυθμίσεις θέλουν `format="s8"`. Το `config.example.hackrf.toml` είχε `u8` μέχρι τον Σεπτέμβριο του 2026· με `u8` κάθε δείγμα είναι μετατοπισμένο κατά 128 και ο καταρράκτης δείχνει μόνο θόρυβο — ελέγξτε τυχόν παλαιότερο αντίγραφό του.
+
+### Πολλοί δέκτες σε έναν υπολογιστή
+
+Ένας υπολογιστής μπορεί να τρέχει ταυτόχρονα περισσότερους από έναν από τους παραπάνω δέκτες — για παράδειγμα ένα RX-888 για τα βραχέα και ένα RTL-SDR για τα 2 m — τον καθένα ως ξεχωριστό διακομιστή, με επιλογή δέκτη πάνω στη σελίδα. Κάθε επιπλέον δέκτης ξεκινά με `INSTANCE=<όνομα> ./start-<δέκτης>.sh` και ρυθμίζεται στο `instances/<όνομα>/`· το `receivers.toml` τους καταγράφει για τον proxy και για το `start-all.sh`. Όλα βρίσκονται στο [Πολλοί δέκτες](MULTI_RECEIVER.md). Ο γρηγορότερος τρόπος να προσθέσετε δέκτη είναι το `./add-receiver.sh`, που προσφέρουν τα σενάρια εγκατάστασης στο τέλος: εγκαθιστά τον οδηγό (`setup-rtlsdr.sh` για RTL-SDR, το αντίστοιχο `setup-*.sh` για τους άλλους) και γράφει για εσάς τον φάκελο του instance και το `receivers.toml`.
 
 ---
 
@@ -1550,7 +1554,7 @@ update-backups/phantomsdr-backup-20260923-164530.zip
 
 ```bash
 ./update.sh --apply --yes     # δεν ρωτά ποτέ· ό,τι έχετε αλλάξει ΔΙΑΤΗΡΕΙΤΑΙ
-./update.sh --ref v4.1.0      # ετικέτα, κλάδος ή commit αντί για το τρέχον δέντρο
+./update.sh --ref v5.0.0      # ετικέτα, κλάδος ή commit αντί για το τρέχον δέντρο
 ./update.sh --list-excludes   # τυπώνει τους κανόνες "μην αγγίζεις" όπως ισχύουν εδώ
 ./update.sh --verbose         # εμφανίζει όλα τα αρχεία, όχι μόνο τα πρώτα 40
 ```

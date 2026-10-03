@@ -151,7 +151,7 @@ Dodatne kontrole:
 - **NB**: prigušivač impulsnog šuma
 - **NS**: potiskivanje pozadinskog šuma
 - **AN**: automatski notch
-- **CTCSS**: squelch podtonom (FM)
+- **CTCSS**: squelch podtonom (FM). Pritisak otvara pokraj gumba mali prozor s *Any tone* i 49 standardnih podtonova (67,0–254,1 Hz); nakon odabira gumb prikazuje ton (na primjer *88.5* ili *ANY*), a zvuk prolazi samo dok se taj podton prima. Redak *Heard:* u prozoru pokazuje koji podton prijemnik upravo čuje na kanalu i koliko je jak, pa se nepoznati podton repetitora može očitati. Dok je CTCSS uključen, FM zvuk kasni 0,4 s za prijemnikom, tako da je squelch već otvoren kad stignu prve riječi stanice; s *Any tone* početak se još može malo odrezati, pa gdje god možete odaberite točan podton. Ponovni pritisak isključuje CTCSS; Escape ili klik izvan prozora zatvara ga bez promjene. Oznake pamte odabrani ton.
 - **SQL**: squelch
 - **AI**: smanjenje šuma umjetnom inteligencijom (samo govor)
 - **Zoom**: razina uvećanja slapa
@@ -273,6 +273,12 @@ S-metar prikazuje jakost signala:
 **Savjet**: za najbolji zvuk ugodite se na signale koji pokazuju S7 ili više.
 
 **Promjena izgleda instrumenta**: na analognom (kazaljčnom) S-metru kliknite na sam instrument — ili ga fokusirajte i pritisnite Enter ili Razmaknicu — da biste prošli kroz tri pozadine: tamni brušeni metal, svijetlu blijedosivu skalu i toplu jantarnu skalu u vintage stilu. Vaš preglednik pamti izbor, pa ostaje i nakon osvježavanja ili ponovnog pokretanja. Vrijedi po pregledniku i po adresi: otvaranje prijamnika preko imena računala i preko IP-a daje dvije odvojene postavke, a privatni prozor uvijek kreće od zadane vrijednosti stranice.
+
+**Iznad 30 MHz** S-metar slijedi VHF standard IARU Regije 1: ondje je S9 na −93 dBm umjesto −73 dBm na kratkom valu, i dalje sa šest dB po S-jedinici. Kazaljka i traka same se prebacuju prema ugođenoj frekvenciji; vrijednosti u dBm i dBµV uvijek pokazuju izmjerenu razinu. Neke stanice svoje VHF/UHF prijemnike podese i tako da instrumenti **miruju na 0 dok je kanal prazan**, kao na VHF/UHF primopredajniku: iznad 60 MHz kazaljka i traka tada se dižu tek kad signal izađe iz šuma. Vrijednosti dBm, dBµV, SNR i NF uvijek pokazuju stvarne vrijednosti.
+
+### Odabir prijemnika
+
+Neke stanice imaju više od jednog prijemnika — na primjer jedan za kratki val i jedan za opseg od 2 m. U zaglavlju stranice prikazuju redak *Receivers:* s jednim gumbom po prijemniku; onaj na kojem ste prikazan je žuto. Pritiskom na drugi gumb otvara se stranica tog prijemnika, s vlastitim vodopadom, opsezima, chatom i popisom slušatelja. Na stranici /mobile isti gumbi nalaze se u gornjoj traci. Stanica s jednim prijemnikom ne prikazuje takav redak.
 
 ---
 

@@ -178,6 +178,7 @@ class broadcast_server : public PacketSender {
     int fft_threads;
     std::string input_format;
     std::string m_docroot;
+    std::string m_fallback_root;   // [server] html_fallback_root, "" = off
     // Secret token gating the internal PCM-tap loopback exemption. Generated at
     // startup, written to ./.tap_token (mode 600). A loopback client (the
     // autorun spot daemon) must present it as ?tap=<token> on /audio; every

@@ -38,7 +38,7 @@
  */
 
 import { WebSdrCodec } from './webSdrCodec.js'
-import { siteSysop } from '../site_information.json'
+import { siteSysop } from './siteInfo.js'
 
 const CONNECT_TIMEOUT_MS = 12000
 // A socket still CONNECTING has not reached the server yet: Firefox holds a

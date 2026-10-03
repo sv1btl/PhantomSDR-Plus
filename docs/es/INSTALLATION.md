@@ -725,7 +725,7 @@ Edite los siguientes campos:
   "siteCity": "Your City, Country",
   "siteInformation": "https://github.com/sv1btl/PhantomSDR-Plus",
   "siteHardware": "Computer specifications",
-  "siteSoftware": "PhantomSDR-Plus v4.2.0",
+  "siteSoftware": "PhantomSDR-Plus v5.0.0",
   "siteReceiver": "Your SDR model",
   "siteAntenna": "Antenna description",
   "siteNote": "Additional information",
@@ -912,6 +912,10 @@ hackrf_info          # with the HackRF plugged in: must list the board
 `start-hackrf.sh` entrega una ventana cada vez. Elíjala antes del primer arranque: `-f` (centro) y `-s` (frecuencia de muestreo) en su línea `RX_ARGS` deben coincidir con `frequency=` y `sps=` de `config-hackrf.toml`. `-l` y `-g` son las ganancias del LNA (0-40 dB, pasos de 8 dB) y del VGA (0-62 dB, pasos de 2 dB), y `-a 1` enciende el amplificador de RF. Los valores incluidos (98 MHz, 20 Msps) son solo un punto de partida para comprobar que funciona.
 
 `hackrf_transfer` escribe IQ de 8 bits **con signo**, así que la configuración necesita `format="s8"`. `config.example.hackrf.toml` decía `u8` hasta septiembre de 2026; con `u8` cada muestra está desplazada en 128 y la cascada solo muestra ruido — revise cualquier copia antigua.
+
+### Varios receptores en un ordenador
+
+Un ordenador puede hacer funcionar a la vez más de uno de los receptores anteriores — por ejemplo un RX-888 para HF y un RTL-SDR para 2 m — cada uno como servidor propio, con un selector de receptor en la página. Cada receptor adicional se arranca con `INSTANCE=<nombre> ./start-<radio>.sh` y se configura en `instances/<nombre>/`; `receivers.toml` los enumera para el proxy y para `start-all.sh`. Todo está en [Varios receptores](MULTI_RECEIVER.md). La forma más rápida de añadir un receptor es `./add-receiver.sh`, que los instaladores ofrecen al final: instala el controlador (`setup-rtlsdr.sh` para un RTL-SDR, el `setup-*.sh` correspondiente para los demás) y escribe por usted la carpeta de la instancia y `receivers.toml`.
 
 ---
 
@@ -1551,7 +1555,7 @@ Las copias anteriores al 23 de septiembre de 2026 están en la carpeta oculta `.
 
 ```bash
 ./update.sh --apply --yes     # no pregunta nunca; TODO lo que usted editó se CONSERVA
-./update.sh --ref v4.1.0      # una etiqueta, rama o commit en lugar del árbol actual
+./update.sh --ref v5.0.0      # una etiqueta, rama o commit en lugar del árbol actual
 ./update.sh --list-excludes   # imprime las reglas de "no tocar" tal como se aplican aquí
 ./update.sh --verbose         # lista todos los archivos, no sólo los 40 primeros
 ```

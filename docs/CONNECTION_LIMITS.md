@@ -106,6 +106,8 @@ per_ip_ban_s=600    # how long an address that breaks the rate is refused
 
 This also covers `proxy.py`: connections through the proxy reach `spectrumserver` from loopback, and the real client address arrives in the `X-Forwarded-For` header, which is what the limits are keyed on.
 
+Since v5.0.0 that header is believed **only from a loopback peer** — a proxy on the same machine. Sent by anyone else it is ignored and the TCP address counts, because otherwise a direct visitor could write `X-Forwarded-For: 127.0.0.1` and pass as loopback, past every limit on this page. `proxy.py` also drops any `X-Forwarded-For` or `X-Real-IP` a client sends before adding its own, and answers the sysop kick (`/~~kick`) only for clients on the same machine. A station running several receivers behind the proxy is described in [Several Receivers](MULTI_RECEIVER.md); the limits there apply per receiver.
+
 ---
 
 ## 4. Idle connections

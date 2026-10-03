@@ -18,6 +18,7 @@
    */
 
   import { onMount } from "svelte";
+  import { sUnitLiftDb } from "./sUnits.js";
 
   /** Raw audio.getPowerDb(). */
   export let rawDb = -130;
@@ -26,6 +27,11 @@
   /** Mobile layout. Only affects the canvas' initial attributes — drawSMeter()
    *  sets width/height itself on every frame, so both render identically. */
   export let mobile = false;
+  /** Tuned frequency in Hz: above 30 MHz the bar reads VHF S-units
+   *  (S9 = -93 dBm), see sUnits.js. The dBm figure is unaffected. */
+  export let frequencyHz = 0;
+  /** True while the VHF/UHF gate holds the bar at 0 (sUnits.js). */
+  export let gated = false;
 
   // Segment count of the bar — used by both the draw and the mapping below.
   const numberOfDots = 35;
@@ -162,11 +168,14 @@
   }
 
   // Was inline in _smeterTick(): raw dB -> the scale setSignalStrength expects.
-  $: if (mounted) setSignalStrength((rawDb / 150) * 100 + smeterOffset);
+  $: if (mounted) {
+    if (gated) drawSMeter(0);
+    else setSignalStrength(((rawDb + sUnitLiftDb(frequencyHz)) / 150) * 100 + smeterOffset);
+  }
 
   onMount(() => {
     mounted = true;
-    setSignalStrength((rawDb / 150) * 100 + smeterOffset);
+    setSignalStrength(((rawDb + sUnitLiftDb(frequencyHz)) / 150) * 100 + smeterOffset);
   });
 </script>
 

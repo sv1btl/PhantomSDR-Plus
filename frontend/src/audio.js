@@ -789,14 +789,24 @@ export default class SpectrumAudio {
     this.ctcssToneHz = null;          // null => accept any valid CTCSS tone
     this.ctcssMute = false;           // true while tone squelch should hold audio closed
     this._ctcssEnabled = false;
-    this._ctcssDetectThreshold = 0.20;  // confidence = bestPower/sumSq; real tones >> 0.5, noise << 0.05
+    this._ctcssSnrMin = 10;             // tone bin vs median of nearby off-tone bins (10 dB) to OPEN; noise sits ~1
+    this._ctcssSnrHold = 4;             // looser test (6 dB) that keeps an open gate open through speech
+    this.ctcssHeard = null;             // { toneHz, snrDb } of the strongest tone in the last window, for the UI
+    this.ctcssListen = false;           // picker open: detect for the readout without muting
     this._ctcssNeighborReject = 2.5;    // separation vs secondPower; at N=4096 legit seps are >> 10
     this._ctcssMinRms = 0.008;          // raised from 0.003; filters sub-threshold noise frames early
-    this._ctcssHoldMs = 220;
-    this._ctcssLastOpenMs = 0;
+    this._ctcssHoldMs = 450;            // > 5 hops (85 ms): bridges missed windows without a dropout
+    this._ctcssHop = 1024;              // analyse every 85 ms over the last 4096 samples (75% overlap)
+    this._ctcssSnrFast = 100;           // 20 dB: a selected tone this clear opens on its first window
+                                        // (not for "Any": a voice harmonic can land on some tone)
+    this._ctcssLookaheadS = 0.4;        // speaker audio held back this long while CTCSS is on, so the
+                                        // gate opens before the first words reach the loudspeaker
+    this._ctcssDelayQ = null;
+    this._ctcssLastOpenMs = -Infinity;
     this._ctcssDetectedToneHz = null;
     this._ctcssDetectBuffer = new Float32Array(4096); // 341 ms @ 12 kHz — 2.93 Hz/bin resolves all CTCSS pairs
     this._ctcssDetectFill = 0;
+    this._ctcssLastHitTone = null;
     this._ctcssHpState = 0;
     this._ctcssHpPrevIn = 0;
     this._ctcssLpState = 0;
@@ -804,7 +814,9 @@ export default class SpectrumAudio {
     // window detections (~openCount x 341 ms). A single spurious window
     // (noise spike, brief interference) cannot open the squelch.
     this._ctcssConsecutive = 0;
-    this._ctcssOpenCount   = 3;         // ~1 s of sustained tone required
+    this._ctcssOpenCount   = 2;         // 2 consecutive windows (one hop apart) for a tone below 20 dB
+    this._ctcssAnyOpenCount = 4;        // "Any tone" has no selected tone to anchor on: 4 hits (~0.34 s
+                                        // of steady tone) so a gliding voice harmonic cannot open it
     this._ctcssStdTones = [
       67.0, 71.9, 74.4, 77.0, 79.7, 82.5, 85.4, 88.5, 91.5, 94.8,
       97.4, 100.0, 103.5, 107.2, 110.9, 114.8, 118.8, 123.0, 127.3,
@@ -4409,14 +4421,29 @@ setAGC(newAGCSpeed) {
   }
 
 
+_ctcssDelay(pcm) {
+  if (!this._ctcssDelayQ) {
+    const sr = this.audioOutputSps || 12000;
+    this._ctcssDelayQ = new Float32Array(Math.round(sr * this._ctcssLookaheadS));
+  }
+  const q = this._ctcssDelayQ;
+  const all = new Float32Array(q.length + pcm.length);
+  all.set(q, 0);
+  all.set(pcm, q.length);
+  this._ctcssDelayQ = all.slice(pcm.length);
+  return all.subarray(0, pcm.length);
+}
+
 _resetCTCSSState(closeGate = false) {
   this._ctcssDetectFill = 0;
   this._ctcssHpState = 0;
   this._ctcssHpPrevIn = 0;
   this._ctcssLpState = 0;
-  this._ctcssLastOpenMs = 0;
+  this._ctcssLastOpenMs = -Infinity;
   this._ctcssDetectedToneHz = null;
+  this._ctcssLastHitTone = null;
   this._ctcssConsecutive = 0;
+  this.ctcssHeard = null;
   this.ctcssMute = !!closeGate;
 }
 
@@ -4479,7 +4506,28 @@ _goertzelPower(samples, targetHz, sampleRate) {
   return s1 * s1 + s2 * s2 - coeff * s1 * s2;
 }
 
-_analyzeCTCSSWindow(windowSamples, sampleRate) {
+_ctcssToneSnr(prepared, toneHz, toneP, sampleRate) {
+  // Tone power against the local floor: median power at off-tone frequencies
+  // just outside the Hamming mainlobe (half-width ≈ 2 bins = 5.9 Hz at
+  // N=4096).  Noise bins are exponentially distributed around that floor, so
+  // a 10x margin almost never happens by chance.  bestPower/sumSq is NOT a
+  // usable test: for white noise it is ~1 on average.
+  const refs = [];
+  for (const off of [8, 11, 14, 17, 20, 23]) {
+    for (const f of [toneHz - off, toneHz + off]) {
+      if (f > 40 && f < 320) refs.push(this._goertzelPower(prepared, f, sampleRate));
+    }
+  }
+  refs.sort((x, y) => x - y);
+  const floor = refs.length ? refs[refs.length >> 1] : 0;
+  return toneP / Math.max(floor, 1e-12);
+}
+
+// One analysis window.  Returns { toneHz, snr } when the window counts as a
+// hit, else null.  `holdToneHz` is the tone an already-open gate is locked
+// on: it only has to stay clearly present (looser SNR, beat its neighbours),
+// so voice harmonics in the sub-audible range cannot chop the audio.
+_analyzeCTCSSWindow(windowSamples, sampleRate, holdToneHz = null) {
   const n = windowSamples.length;
   if (!n || !(sampleRate > 0)) return null;
 
@@ -4497,54 +4545,57 @@ _analyzeCTCSSWindow(windowSamples, sampleRate) {
   }
 
   const rms = Math.sqrt(sumSq / n);
-  if (!(rms > this._ctcssMinRms)) return null;
+  if (!(rms > this._ctcssMinRms)) { this.ctcssHeard = null; return null; }
 
-  const tones = (this.ctcssToneHz && this.ctcssToneHz > 0)
-    ? [this._nearestCTCSSTone(this.ctcssToneHz)].filter(Boolean)
-    : this._ctcssStdTones;
+  const tones = this._ctcssStdTones;
+  const powers = tones.map((t) => this._goertzelPower(prepared, t, sampleRate));
 
-  let bestTone = null;
-  let bestPower = 0;
-  let secondPower = 0;
+  let bi = 0, si = -1;
+  for (let i = 1; i < powers.length; i++) {
+    if (powers[i] > powers[bi]) { si = bi; bi = i; }
+    else if (si < 0 || powers[i] > powers[si]) si = i;
+  }
+  if (!(powers[bi] > 0)) { this.ctcssHeard = null; return null; }
 
-  for (const tone of tones) {
-    const power = this._goertzelPower(prepared, tone, sampleRate);
-    if (power > bestPower) {
-      secondPower = bestPower;
-      bestPower = power;
-      bestTone = tone;
-    } else if (power > secondPower) {
-      secondPower = power;
-    }
+  // For the "Heard:" readout — what is actually on the channel.
+  const bestSnr = this._ctcssToneSnr(prepared, tones[bi], powers[bi], sampleRate);
+  this.ctcssHeard = { toneHz: tones[bi], snrDb: 10 * Math.log10(bestSnr) };
+
+  // Which tone are we testing?  Locked tone (gate open) > selected tone >
+  // strongest tone (Any).
+  const target = holdToneHz || (this.ctcssToneHz ? this._nearestCTCSSTone(this.ctcssToneHz) : tones[bi]);
+  const k = tones.indexOf(target);
+  if (k < 0) return null;
+  const pk = powers[k];
+
+  // It must beat the neighbouring standard tones (rejects a station on
+  // 91.5 when 88.5 is wanted).  Only the neighbours: a voice harmonic or a
+  // hum line elsewhere in 67-254 Hz says nothing about whether this tone is
+  // present.  The closest pair (159.8/162.2) is 0.8 bin apart, where a real
+  // tone still out-powers its neighbour by > 2.5x.
+  const nb = Math.max(k > 0 ? powers[k - 1] : 0, k < tones.length - 1 ? powers[k + 1] : 0);
+  const snr = (k === bi) ? bestSnr : this._ctcssToneSnr(prepared, target, pk, sampleRate);
+
+  if (holdToneHz) {
+    if (pk < nb || snr < this._ctcssSnrHold) return null;
+    return { toneHz: target, snr };
   }
 
-  if (!bestTone || !(bestPower > 0)) return null;
-
-  // Separation: compare best CTCSS tone against the second-best standard tone.
-  // ±Hz Goertzel neighbor checks are intentionally omitted: at any realistic
-  // window length they fall inside the Hamming mainlobe (half-width ≈ 2 bins)
-  // and produce near-peak power, making the ratio meaningless and suppressing
-  // every valid detection. secondPower is the correct discriminator — it
-  // measures whether a single tone dominates over all other CTCSS candidates.
-  // Requires _ctcssDetectBuffer ≥ 4096 samples so the 2.93 Hz/bin resolution
-  // can actually distinguish adjacent CTCSS pairs (closest gap: 2.4 Hz).
-  const neighborPower = secondPower;
-
-  const confidence = bestPower / Math.max(sumSq, 1e-12);
-  const separation  = bestPower / Math.max(neighborPower, 1e-12);
-  const toneErr = this.ctcssToneHz ? Math.abs(bestTone - this.ctcssToneHz) : 0;
-  const toneTol = this.ctcssToneHz ? Math.max(1.5, this.ctcssToneHz * 0.015) : Infinity;
-
-  if (confidence < this._ctcssDetectThreshold) return null;
-  if (separation < this._ctcssNeighborReject) return null;
-  if (toneErr > toneTol) return null;
-
-  return { toneHz: bestTone, confidence, separation, rms };
+  if (pk < this._ctcssNeighborReject * nb) return null;
+  // "Any tone": the winner must also stand clear of the runner-up anywhere,
+  // otherwise noise picks a different "best" tone every window.
+  if (!this.ctcssToneHz && si >= 0 && powers[bi] < this._ctcssNeighborReject * powers[si]) return null;
+  if (snr < this._ctcssSnrMin) return null;
+  return { toneHz: target, snr };
 }
 
 _updateCTCSSGate(rawPcm) {
-  if (!this._ctcssEnabled || this.demodulation !== 'FM' || this.channels !== 1) {
+  // ctcssListen: the tone picker is open — run the detector for its "Heard:"
+  // readout, but never mute.
+  const listenOnly = !this._ctcssEnabled && this.ctcssListen;
+  if ((!this._ctcssEnabled && !listenOnly) || this.demodulation !== 'FM' || this.channels !== 1) {
     this.ctcssMute = false;
+    this.ctcssHeard = null;
     return;
   }
 
@@ -4573,21 +4624,36 @@ _updateCTCSSGate(rawPcm) {
     detectBuf[fill++] = lpState;
 
     if (fill >= detectBuf.length) {
-      const result = this._analyzeCTCSSWindow(detectBuf, sampleRate);
+      const now = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+      const isOpenNow = (now - this._ctcssLastOpenMs) <= this._ctcssHoldMs;
+      const result = this._analyzeCTCSSWindow(detectBuf, sampleRate,
+        isOpenNow ? this._ctcssDetectedToneHz : null);
       if (result) {
-        // Require _ctcssOpenCount consecutive detections before opening the gate.
-        // Prevents a single noise window from briefly unmuting the speaker.
-        this._ctcssConsecutive = (this._ctcssConsecutive || 0) + 1;
-        if (this._ctcssConsecutive >= this._ctcssOpenCount) {
-          const now = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+        // Require _ctcssOpenCount consecutive detections of the SAME tone
+        // before opening; once open, every hit keeps it open (the hold
+        // bridges one missed window, so a voice peak does not chop audio).
+        this._ctcssConsecutive = (result.toneHz === this._ctcssLastHitTone)
+          ? (this._ctcssConsecutive || 0) + 1 : 1;
+        this._ctcssLastHitTone = result.toneHz;
+        const isOpen = (now - this._ctcssLastOpenMs) <= this._ctcssHoldMs;
+        const need = this.ctcssToneHz ? this._ctcssOpenCount : this._ctcssAnyOpenCount;
+        if (this._ctcssConsecutive >= need ||
+            (this.ctcssToneHz && result.snr >= this._ctcssSnrFast) ||
+            (isOpen && result.toneHz === this._ctcssDetectedToneHz)) {
           this._ctcssLastOpenMs = now;
           this._ctcssDetectedToneHz = result.toneHz;
         }
       } else {
         // Miss: reset streak. One failed window re-arms the false-positive guard.
         this._ctcssConsecutive = 0;
+        this._ctcssLastHitTone = null;
       }
-      fill = 0;
+      // Overlapped windows: keep the newest (length - hop) samples, so the next
+      // analysis comes one hop (85 ms) later — a station's first words are not
+      // lost while the detector waits for a whole fresh window.
+      const hop = this._ctcssHop;
+      detectBuf.copyWithin(0, hop);
+      fill = detectBuf.length - hop;
     }
   }
 
@@ -4597,7 +4663,7 @@ _updateCTCSSGate(rawPcm) {
   this._ctcssLpState = lpState;
 
   const now = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
-  this.ctcssMute = (now - this._ctcssLastOpenMs) > this._ctcssHoldMs;
+  this.ctcssMute = !listenOnly && (now - this._ctcssLastOpenMs) > this._ctcssHoldMs;
 }
 
   setGain(gain) {
@@ -5973,6 +6039,15 @@ js8Pending() {
     // Real FM CTCSS tone-squelch:
     // keep speaker audio closed until a valid subtone is detected.
     this._updateCTCSSGate(rawPcm);
+
+    // CTCSS look-ahead: the detector needs ~0.3-0.4 s of tone before it can
+    // open, so while tone squelch is on the speaker audio runs that much
+    // behind the detector and the station's first words are not cut off.
+    if (this._ctcssEnabled && this.demodulation === 'FM' && this.channels === 1) {
+      pcmArray = this._ctcssDelay(pcmArray);
+    } else if (this._ctcssDelayQ) {
+      this._ctcssDelayQ = null;
+    }
 
     // Speaker-audio gate starts here. Decoder feeds above must still run.
     if (this.mute || (this.squelchMute && this.squelch) || this.ctcssMute) {

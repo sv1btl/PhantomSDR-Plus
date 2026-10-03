@@ -151,7 +151,7 @@ Weitere Bedienelemente:
 - **NB**: Störaustaster (impulsiv)
 - **NS**: Grundrauschunterdrückung
 - **AN**: automatische Notch
-- **CTCSS**: Subton-Rauschsperre (FM)
+- **CTCSS**: Subton-Rauschsperre (FM). Ein Druck öffnet neben der Taste ein kleines Fenster mit *Any tone* und den 49 Standard-Subtönen (67,0–254,1 Hz); nach der Wahl zeigt die Taste den Ton an (zum Beispiel *88.5* oder *ANY*), und der Ton ist nur zu hören, solange dieser Subton empfangen wird. Die Zeile *Heard:* im Fenster zeigt, welchen Subton der Empfänger gerade auf dem Kanal hört und wie stark er ist — so lässt sich ein unbekannter Relais-Subton ablesen. Solange CTCSS eingeschaltet ist, läuft der FM-Ton 0,4 s hinter dem Empfänger her, damit die Sperre schon offen ist, wenn die ersten Worte einer Station eintreffen; mit *Any tone* kann der Anfang noch leicht abgeschnitten werden, wählen Sie daher nach Möglichkeit den genauen Subton. Ein erneuter Druck schaltet CTCSS aus; Escape oder ein Klick daneben schließt das Fenster, ohne etwas zu ändern. Lesezeichen speichern den gewählten Ton.
 - **SQL**: Rauschsperre
 - **AI**: KI-Rauschunterdrückung (nur Sprache)
 - **Zoom**: Vergrößerungsstufe des Wasserfalls
@@ -274,6 +274,12 @@ Das S-Meter zeigt die Signalstärke:
 **Tipp**: Für die beste Tonqualität stimmen Sie auf Signale ab, die S7 oder mehr anzeigen.
 
 **Das Skalenbild wechseln**: Klicken Sie beim analogen Instrument (Zeiger) auf das Instrument selbst — oder wählen Sie es an und drücken Sie Enter oder die Leertaste —, um drei Hintergründe durchzuschalten: dunkles gebürstetes Metall, ein helles blassgraues Zifferblatt und ein warmes Bernstein-Zifferblatt im Vintage-Stil. Ihr Browser merkt sich die Wahl, sie ist also nach einem Neuladen oder Neustart noch da. Sie gilt pro Browser und pro Adresse: Der Aufruf des Empfängers über den Hostnamen und über die IP ergibt zwei getrennte Einstellungen, und ein privates Fenster startet immer mit der Standardeinstellung der Seite.
+
+**Oberhalb von 30 MHz** folgt das S-Meter dem VHF-Standard der IARU Region 1: S9 liegt dort bei −93 dBm statt −73 dBm auf Kurzwelle, weiterhin sechs dB je S-Stufe. Zeiger und Balken stellen sich mit der eingestellten Frequenz von selbst um; die Werte in dBm und dBµV zeigen immer den gemessenen Pegel. Manche Stationen stellen ihre VHF/UHF-Empfänger außerdem so ein, dass die Instrumente **auf einem leeren Kanal auf 0 ruhen**, wie bei einem VHF/UHF-Funkgerät: Oberhalb von 60 MHz schlagen Zeiger und Balken dann erst aus, wenn ein Signal aus dem Rauschen heraustritt. Die Werte in dBm, dBµV, SNR und NF zeigen immer die echten Werte.
+
+### Einen Empfänger wählen
+
+Manche Stationen betreiben mehr als einen Empfänger — zum Beispiel einen für Kurzwelle und einen für das 2-m-Band. Sie zeigen im Seitenkopf eine Zeile *Receivers:* mit einer Schaltfläche pro Empfänger; der, auf dem Sie gerade sind, erscheint gelb. Ein Druck auf eine andere Schaltfläche öffnet die Seite dieses Empfängers, mit eigenem Wasserfall, eigenen Bändern, Chat und eigener Hörerliste. Auf der Seite /mobile sitzen dieselben Schaltflächen in der oberen Leiste. Eine Station mit nur einem Empfänger zeigt keine solche Zeile.
 
 ---
 

@@ -726,7 +726,7 @@ Edit the following fields:
   "siteCity": "Your City, Country",
   "siteInformation": "https://github.com/sv1btl/PhantomSDR-Plus",
   "siteHardware": "Computer specifications",
-  "siteSoftware": "PhantomSDR-Plus v4.2.0",
+  "siteSoftware": "PhantomSDR-Plus v5.0.0",
   "siteReceiver": "Your SDR model",
   "siteAntenna": "Antenna description",
   "siteNote": "Additional information",
@@ -913,6 +913,10 @@ hackrf_info          # with the HackRF plugged in: must list the board
 `start-hackrf.sh` streams one window at a time. Choose it before the first start: `-f` (centre) and `-s` (sample rate) in its `RX_ARGS` line must match `frequency=` and `sps=` in `config-hackrf.toml`. `-l` and `-g` are the LNA (0-40 dB, 8 dB steps) and VGA (0-62 dB, 2 dB steps) gains, and `-a 1` switches the RF amplifier on. The shipped values (98 MHz, 20 Msps) are only a starting point to check that it runs.
 
 `hackrf_transfer` writes **signed** 8-bit IQ, so the config needs `format="s8"`. `config.example.hackrf.toml` said `u8` until September 2026; with `u8` every sample is off by 128 and the waterfall shows only noise — check an older copy of it.
+
+### Several receivers on one computer
+
+One computer can run more than one of the receivers above at the same time — for example an RX-888 for HF and an RTL-SDR for 2 m — each as its own server, with a receiver picker on the page. Each extra receiver is started with `INSTANCE=<name> ./start-<radio>.sh` and set up in `instances/<name>/`; `receivers.toml` lists them for the proxy and for `start-all.sh`. Everything is in [Several Receivers](MULTI_RECEIVER.md). The quickest way to add a receiver is `./add-receiver.sh`, which the installers offer at the end: it installs the driver (`setup-rtlsdr.sh` for an RTL-SDR, the matching `setup-*.sh` for the others) and writes the instance folder and `receivers.toml` for you.
 
 ---
 
@@ -1550,7 +1554,7 @@ Backups made before 23 September 2026 sit in the hidden folder `.update-backups/
 
 ```bash
 ./update.sh --apply --yes     # never asks; every file you edited is KEPT
-./update.sh --ref v4.1.0      # a tag, branch or commit instead of the current tree
+./update.sh --ref v5.0.0      # a tag, branch or commit instead of the current tree
 ./update.sh --list-excludes   # print the never-touch rules as they resolve here
 ./update.sh --verbose         # list every file, not only the first 40
 ```

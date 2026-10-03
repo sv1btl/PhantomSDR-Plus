@@ -23,6 +23,7 @@ PhantomSDR-Plus est un fork de PhantomSDR qui fournit un serveur web de radio lo
 - **Boutons de décodeur en une pression** : une rangée Decoders sur le panneau principal, juste sous le sélecteur de modes (FT8, FT4, FT2, JS8, CW, WSPR, FAX, SSTV, NAVTX, RTTY), avec RADEL et RADEU à côté du sélecteur de modes lui-même et repris dans les fenêtres surgissantes des modes et des bandes. Une pression démarre le décodeur et ouvre sa fenêtre, une seconde l'arrête. L'ancienne rangée de largeur de bande a été supprimée.
 - **Scanner de canaux** : balaie la bande, ou exactement ce que montre la cascade, et s'arrête sur le premier canal dépassant d'un nombre de dB choisi le plancher de bruit de la bande elle-même, puis repart tout seul dès que ce canal redevient silencieux. Le pas suit le mode et les arrêts tombent sur la grille de canaux (1 kHz SSB, 100 Hz CW, 5 kHz AM ondes courtes, 9/10 kHz ondes moyennes, 9 kHz ondes longues). Un mode *Sauter les vides* lit le spectre de la cascade et saute directement aux signaux, et un bouton de verrouillage retire du balayage un canal toujours occupé. Tout se passe localement dans le navigateur de l'auditeur : le balayage ne déplace le récepteur pour personne d'autre (voir le [Guide de l'utilisateur](USER_GUIDE.md))
 - **Diversité de réception** : associe le récepteur à un second situé ailleurs et restitue celui des deux qui a le meilleur signal à cet instant, de sorte qu'un évanouissement d'un côté est couvert par l'autre. Le second peut être un autre PhantomSDR-Plus, un KiwiSDR, un UberSDR ou un WebSDR ; les trois premiers ne demandent rien de plus que le navigateur de l'auditeur, et seul un WebSDR nécessite un petit relais sur votre propre serveur. L'alignement prend une quinzaine de secondes, et un réglage de SNR distant équilibre les deux stations l'une par rapport à l'autre. Chaque auditeur conserve dans son propre navigateur une liste nommée de seconds récepteurs, dans l'ordre qu'il veut, et peut l'exporter dans un fichier puis la réimporter (voir [Diversité de réception](RECEIVE_DIVERSITY.md))
+- **Plusieurs récepteurs, une page** : un ordinateur peut faire tourner deux récepteurs ou plus à la fois — par exemple un RX-888 pour les ondes courtes et un RTL-SDR pour le 2 m — et les auditeurs passent de l'un à l'autre par des boutons dans l'en-tête de la page. Chaque récepteur garde sa propre cascade, son chat, ses repères, sa liste d'auditeurs et ses informations de station, et au-dessus de 30 MHz le S-mètre indique des points S VHF (S9 = −93 dBm) (voir [Plusieurs récepteurs](MULTI_RECEIVER.md))
 
 ### Traitement du signal
 - **Modes de démodulation multiples** : AM, FM, USB, LSB, CW et davantage. Un décodeur RADE version 1 a également été implémenté.
@@ -30,6 +31,7 @@ PhantomSDR-Plus est un fork de PhantomSDR qui fournit un serveur web de radio lo
 - **Réduction de bruit** : NR (spectrale), NB (silencieux d'impulsions), NS (suppression du bruit de fond) et AN (notch automatique), tous sur l'écoute et jamais sur les décodeurs
 - **Options AGC** : plusieurs modes de contrôle automatique de gain
 - **Squelch automatique** : seuil de squelch calculé automatiquement d'après le bruit
+- **Squelch à sous-tonalité CTCSS** : l'audio FM ne passe que tant que la sous-tonalité choisie — ou n'importe quelle tonalité normalisée — est reçue ; la tonalité se choisit dans une petite fenêtre à côté du bouton CTCSS, qui l'affiche ensuite
 - **Réduction de bruit par IA** : réseau de neurones RNNoise dans le navigateur de l'auditeur, retire le bruit de bande de la parole (modes phonie seulement ; voir le [Guide de l'utilisateur](USER_GUIDE.md))
 
 ### Fonctions avancées
@@ -335,6 +337,7 @@ Les quatre variantes de l'interface (S-mètre analogique/numérique x dispositio
 - **[USER_GUIDE.md](USER_GUIDE.md)** – guide de l'utilisateur final pour l'exploitation du WebSDR
 - **[THERMAL_GUARD.md](THERMAL_GUARD.md)** - Manuel du sysop pour la protection contre la surchauffe du processeur : les quatre modes et ce qu'il faut faire pour chacun
 - **[CONNECTION_LIMITS.md](CONNECTION_LIMITS.md)** - Manuel du sysop pour les limites de connexion : protéger un récepteur public contre les afflux de connexions
+- **[MULTI_RECEIVER.md](MULTI_RECEIVER.md)** - Manuel du sysop pour plusieurs récepteurs sur un ordinateur : instances, `receivers.toml`, le sélecteur de récepteur et `start-all.sh`
 - **[PROJECT_STRUCTURE.md](PROJECT_STRUCTURE.md)** – structure des répertoires et organisation du code
 - **[EDITING_VARIANTS.md](EDITING_VARIANTS.md)** – comment modifier les variantes du frontend (S-mètre et disposition) et les reconstruire
 

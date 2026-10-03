@@ -1,0 +1,52 @@
+# ─────────────────────────────────────────────────────────────────────────────
+#  receivers.toml — several receivers behind ONE public port (proxy.py)
+#
+#  Copy to receivers.toml and edit. Without that file proxy.py serves a single
+#  receiver exactly as before, so a one-receiver station needs nothing here.
+#
+#  Each receiver is its own spectrumserver on its own internal port: the main
+#  one started as usual (./start-rx888mk2.sh), every other one as a named
+#  instance (INSTANCE=vhf ./start-rtl.sh, set up in instances/vhf/).
+#
+#  proxy.py picks the receiver for each request from, in order:
+#    1. ?rx=<id> in the URL        http://your.host:8900/?rx=vhf
+#    2. the rx cookie it sets whenever a request carries a valid ?rx=
+#    3. the Host header, if the receiver lists that name in `hostnames`
+#    4. the default receiver
+#  Kiwi clients and other programs that carry none of these always get the
+#  default receiver.
+#
+#  ./start-all.sh starts every receiver that has a `launcher`; point the admin
+#  panel's start script at it so Restart and the thermal guard bring them all
+#  back (stop-websdr.sh already stops them all).
+#
+#  Restart the proxy after editing:  sudo systemctl restart phantomsdr-proxy
+# ─────────────────────────────────────────────────────────────────────────────
+
+[front]
+# The public port listeners already use. proxy.py listens here as well as on
+# proxy_port from admin_config.json. The main spectrumserver must then move to
+# another port (its [server] port), since only one program can own this one.
+port = 8900
+
+[[receiver]]
+id      = "hf"                       # letters, digits, - and _
+name    = "HF 0-30 MHz (RX-888 MkII)"
+port    = 8901                       # its spectrumserver's [server] port
+default = true
+launcher = "start-rx888mk2.sh"      # for start-all.sh; no instance = main
+
+[[receiver]]
+id   = "vhf"
+name = "2 m (RTL-SDR Blog V4)"
+port = 9002
+launcher = "start-rtl.sh"
+instance = "vhf"                     # its instances/vhf/ folder
+# hostnames = ["vhf.example.org"]    # optional: route a second DNS name here
+
+# The page's receiver picker (HF / 2 m buttons) reads /receivers.json from
+# this proxy. Each receiver may give the public address its button opens:
+#   url = "http://your.host:8900/"       # e.g. a receiver on its own port
+# Without url the button opens this proxy's /?rx=<id>. A page that is not
+# served through the proxy finds the list through siteReceiversList in its
+# site_information.json, e.g. "http://your.host:8899/receivers.json".

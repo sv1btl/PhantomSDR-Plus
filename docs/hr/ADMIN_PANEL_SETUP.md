@@ -235,6 +235,8 @@ Ključna polja koja zapisuje `setup_admin.sh`:
 | `sdr_process_name` | Naziv procesa za nadzor (zadano: `spectrumserver`) |
 | `start_script` / `stop_script` | Skripte kojima ploča pokreće i zaustavlja SDR poslužitelj — preko njih djeluje i toplinska zaštita |
 
+> **Više prijemnika na jednom računalu?** Postavite `start_script` na `start-all.sh`. Skripta za zaustavljanje već zaustavlja sve prijemnike, a Restart i toplinska zaštita koriste skriptu za pokretanje; sa `start-all.sh` vraćaju sve prijemnike iz `receivers.toml` umjesto samo glavnoga. Stranica Users, broj slušatelja i izbacivanje tada također obuhvaćaju svaki prijemnik. Vidi [Više prijemnika](MULTI_RECEIVER.md).
+
 Ključevi toplinske zaštite (svi neobavezni — ploča ih zapisuje kad spremite postavke Thermal Guarda, a oni koji nedostaju koriste ove zadane vrijednosti):
 
 | Ključ | Zadano | Opis |

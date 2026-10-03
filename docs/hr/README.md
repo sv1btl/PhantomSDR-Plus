@@ -23,6 +23,7 @@ PhantomSDR-Plus je fork projekta PhantomSDR koji pruža web-poslužitelj softver
 - **Tipke dekodera na jedan pritisak**: red Decoders na glavnoj ploči, odmah ispod izbornika načina rada (FT8, FT4, FT2, JS8, CW, WSPR, FAX, SSTV, NAVTX, RTTY), uz RADEL i RADEU pokraj samog izbornika načina rada te ponovljene u skočnim prozorima načina rada i pojaseva. Jedan pritisak pokreće dekoder i otvara njegov prozor, drugi ga zaustavlja. Dosadašnji red za širinu pojasa je uklonjen.
 - **Skener kanala**: pretražuje pojas, ili točno ono što prikazuje slap, i zaustavlja se na prvom kanalu koji se izabranim brojem dB uzdigne iznad šuma samoga pojasa, a zatim nastavlja sam čim taj kanal utihne. Korak prati način rada, a zaustavljanja padaju na mrežu kanala (1 kHz SSB, 100 Hz CW, 5 kHz kratkovalni AM, 9/10 kHz srednji val, 9 kHz dugi val). Način *Preskoči prazne* čita spektar slapa i skoči ravno na signale, a tipka za zaključavanje izbacuje stalno zauzet kanal iz pretraživanja. Sve se odvija lokalno u pregledniku slušatelja, pa pretraživanje nikome drugom ne pomiče prijamnik (vidi [Korisnički priručnik](USER_GUIDE.md))
 - **Diverziti prijam**: povezuje prijamnik s drugim na nekoj drugoj lokaciji i reproducira onaj koji trenutačno ima bolji signal, pa propadanje na jednoj lokaciji pokriva druga. Drugi prijamnik može biti još jedan PhantomSDR-Plus, KiwiSDR, UberSDR ili WebSDR; prva tri ne traže ništa osim preglednika slušatelja, a samo WebSDR treba mali relej na vašem vlastitom poslužitelju. Poravnanje traje otprilike petnaest sekundi, a udaljeni SNR ugađanje uravnotežuje dvije postaje jednu prema drugoj. Svaki slušatelj u vlastitom pregledniku drži imenovani popis drugih prijamnika, redoslijedom kakav želi, i može ga izvesti u datoteku te ponovno uvesti (vidi [Diverziti prijam](RECEIVE_DIVERSITY.md))
+- **Više prijemnika, jedna stranica**: jedno računalo može istodobno pokretati dva ili više prijemnika — na primjer RX-888 za kratki val i RTL-SDR za 2 m — a slušatelji prelaze s jednog na drugi gumbima u zaglavlju stranice. Svaki prijemnik zadržava vlastiti vodopad, chat, oznake, popis slušatelja i podatke o stanici, a iznad 30 MHz S-metar pokazuje VHF S-jedinice (S9 = −93 dBm) (vidi [Više prijemnika](MULTI_RECEIVER.md))
 
 ### Obrada signala
 - **Više načina demodulacije**: AM, FM, USB, LSB, CW i drugi. Također je implementiran RADE dekoder verzije 1.
@@ -30,6 +31,7 @@ PhantomSDR-Plus je fork projekta PhantomSDR koji pruža web-poslužitelj softver
 - **Smanjenje šuma**: NR (spektralno), NB (prigušivač impulsnog šuma), NS (potiskivanje pozadinskog šuma) i AN (automatski notch) — svi na putu slušanja, nikada na dekoderima
 - **AGC mogućnosti**: više načina automatske regulacije pojačanja
 - **Automatski squelch**: automatski prag squelcha na temelju šuma
+- **CTCSS squelch podtonom**: FM zvuk prolazi samo dok se prima odabrani podton — ili bilo koji standardni; ton se bira u malom prozoru pokraj gumba CTCSS, koji ga zatim prikazuje
 - **Smanjenje šuma umjetnom inteligencijom**: neuronska mreža RNNoise u pregledniku slušatelja, uklanja šum pojasa iz govora (samo govorni načini; vidi [Korisnički priručnik](USER_GUIDE.md))
 
 ### Napredne značajke
@@ -335,6 +337,7 @@ Sve četiri varijante sučelja (analogni/digitalni S-metar x raspored v1/v2) nal
 - **[USER_GUIDE.md](USER_GUIDE.md)** – vodič za krajnje korisnike o radu s WebSDR-om
 - **[THERMAL_GUARD.md](THERMAL_GUARD.md)** - Priručnik za sysopa o zaštiti od pregrijavanja procesora: četiri načina rada i što učiniti u svakome
 - **[CONNECTION_LIMITS.md](CONNECTION_LIMITS.md)** - Priručnik za sysopa o ograničenjima veza: zaštita javnog prijemnika od poplave veza
+- **[MULTI_RECEIVER.md](MULTI_RECEIVER.md)** - Priručnik za sysopa o više prijemnika na jednom računalu: instance, `receivers.toml`, izbornik prijemnika i `start-all.sh`
 - **[PROJECT_STRUCTURE.md](PROJECT_STRUCTURE.md)** – struktura direktorija i organizacija koda
 - **[EDITING_VARIANTS.md](EDITING_VARIANTS.md)** – kako uređivati varijante frontenda (S-metar i raspored) i ponovno ih izgraditi
 

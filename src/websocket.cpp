@@ -261,6 +261,18 @@ std::string broadcast_server::ip_from_hdl(connection_hdl hdl) {
     //
     // X-Forwarded-For can contain a comma-separated chain of IPs when there
     // are multiple proxies — the first one is the original client.
+    //
+    // Both headers are believed ONLY from a loopback TCP peer, i.e. a proxy on
+    // this machine (proxy.py, nginx, websdr_relay.py). From anyone else they
+    // are just text the client typed: a direct visitor sending
+    // "X-Forwarded-For: 127.0.0.1" would otherwise pass as loopback and walk
+    // past every per-IP limit, and could pin their sessions on someone
+    // else's address for the sysop to kick.
+    const std::string peer = con->get_remote_endpoint();
+    if (!is_loopback_ip(normalize_client_ip(peer))) {
+        return peer;
+    }
+
     const std::string xff = con->get_request_header("X-Forwarded-For");
     if (!xff.empty()) {
         const auto comma = xff.find(',');
@@ -281,8 +293,8 @@ std::string broadcast_server::ip_from_hdl(connection_hdl hdl) {
             return xri.substr(start, end - start + 1);
     }
 
-    // No proxy headers — direct connection, use the TCP endpoint.
-    return con->get_remote_endpoint();
+    // No proxy headers — a local client talking to us directly.
+    return peer;
 }
 
 // ── Per-IP connection limiting ───────────────────────────────────────────────

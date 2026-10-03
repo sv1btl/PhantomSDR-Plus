@@ -235,6 +235,8 @@ Wichtige von `setup_admin.sh` geschriebene Felder:
 | `sdr_process_name` | Zu überwachender Prozessname (Standard: `spectrumserver`) |
 | `start_script` / `stop_script` | Skripte, mit denen das Panel den SDR-Server startet und stoppt — über sie handelt auch der thermische Schutz |
 
+> **Mehrere Empfänger auf einem Rechner?** Setzen Sie `start_script` auf `start-all.sh`. Das Stoppskript hält bereits jeden Empfänger an, und Restart sowie der Temperaturschutz verwenden das Startskript; mit `start-all.sh` kehren deshalb alle Empfänger aus `receivers.toml` zurück statt nur des Hauptempfängers. Die Seite Users, die Hörerzahl und der Kick umfassen dann ebenfalls jeden Empfänger. Siehe [Mehrere Empfänger](MULTI_RECEIVER.md).
+
 Schlüssel des thermischen Schutzes (alle optional — das Panel schreibt sie beim Speichern der Thermal-Guard-Einstellungen; fehlende Schlüssel verwenden diese Standardwerte):
 
 | Schlüssel | Standard | Beschreibung |

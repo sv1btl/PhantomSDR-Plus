@@ -4,7 +4,10 @@
   import { MODES, tune, coverage } from './tuning.js'
   import { bands as ALL_BANDS } from '../bands-config.js'
   import * as BM from './bookmarks.js'
-  import siteInfo from '../../site_information.json'
+  import { rx, withRx } from '../lib/rx'
+  import { loadReceivers, mobileUrl } from '../lib/receivers'
+  import { sUnitLiftDb, meterGated } from '../lib/sUnits.js'
+  import siteInfo from '../siteInfo.js'
   import copy from 'copy-to-clipboard'
   import {
     parseChatLine, replyMarker, replySnippet, splitReply, stripReplyMarker, threadMessages,
@@ -336,6 +339,13 @@
     try { localStorage.setItem(key, value); return true } catch (e) { return false }
   }
 
+  // Other receivers of this station, for the header buttons; null (nothing
+  // shown) on a one-receiver station. See lib/receivers.js.
+  let receiverPicker = null
+  loadReceivers().then((p) => { receiverPicker = p })
+  // Re-read once a minute: a stopped receiver drops out of the proxy's list.
+  setInterval(() => loadReceivers().then((p) => { receiverPicker = p }), 60000)
+
   onMount(async () => {
     username = lsGet('chatusername')
     bookmarks = BM.load()
@@ -558,6 +568,7 @@
     const q = new URLSearchParams(extra)
     q.set('frequency', String(hz))
     q.set('modulation', m)
+    if (rx) q.set('rx', rx)
     return q.toString()
   }
 
@@ -926,7 +937,7 @@
   // ═══════════════════════════════════════════════════════════════════════
   async function fetchUsers () {
     try {
-      const res = await fetch('/users', { cache: 'no-store' })
+      const res = await fetch(withRx('/users'), { cache: 'no-store' })
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       const data = await res.json()
       users = Array.isArray(data.users) ? data.users : []
@@ -962,7 +973,7 @@
   // ═══════════════════════════════════════════════════════════════════════
   function connectChat () {
     try {
-      chatSocket = new WebSocket(window.location.origin.replace(/^http/, 'ws') + '/chat')
+      chatSocket = new WebSocket(window.location.origin.replace(/^http/, 'ws') + withRx('/chat'))
     } catch (e) {
       return
     }
@@ -1241,6 +1252,12 @@
   // calibration knob from config.toml and is applied on top, in bar units.
   const SMETER_VISUAL_DB = 0
 
+  // VHF/UHF gate (lib/sUnits.js). This page has no waterfall, so the noise
+  // floor is estimated from the received power itself: a smoothed copy of it,
+  // followed down at once and up by only 0.2 dB a second, so a long FM over
+  // is not taken for noise. The bar rests at 0 until a signal stands out.
+  let gatePower = NaN, gateFloor = NaN, gateLast = 0, gateClosed = false
+
   function startSmeter () {
     if (smeterRaf) cancelAnimationFrame(smeterRaf)
     const tickFn = () => {
@@ -1251,8 +1268,16 @@
       // smeter_offset is the per-receiver calibration knob from config.toml.
       let raw = audio.getPowerDb()
       if (!Number.isFinite(raw)) raw = -150
-      const power = ((raw + SMETER_VISUAL_DB) / 150) * 100 + (audio.smeter_offset || 0)
-      setSignalStrength(power)
+      // sUnitLiftDb: above 30 MHz the bar reads VHF S-units (S9 = -93 dBm).
+      const power = ((raw + SMETER_VISUAL_DB + sUnitLiftDb(frequency)) / 150) * 100 + (audio.smeter_offset || 0)
+      const now = performance.now()
+      const dt = gateLast ? Math.min(1, (now - gateLast) / 1000) : 0
+      gateLast = now
+      gatePower = Number.isFinite(gatePower) ? gatePower + 0.1 * (raw - gatePower) : raw
+      gateFloor = !Number.isFinite(gateFloor) || gatePower < gateFloor ? gatePower : gateFloor + 0.2 * dt
+      gateClosed = meterGated(gateClosed, frequency, gatePower - gateFloor)
+      if (gateClosed) drawSMeter(0)
+      else setSignalStrength(power)
       smeterRaf = requestAnimationFrame(tickFn)
     }
     smeterRaf = requestAnimationFrame(tickFn)
@@ -1270,6 +1295,17 @@
       <a class="site-link-btn" href={WEBSDR_ORG_URL} target="_blank" rel="noopener noreferrer"
          title="websdr.org">WebSDR</a>
     </div>
+    {#if receiverPicker}
+      <!-- Other receivers of this station (lib/receivers.js); each opens its
+           own /mobile page. -->
+      <div class="site-links">
+        {#each receiverPicker.receivers as r (r.id)}
+          <a class="site-link-btn" class:rx-current={r.id === receiverPicker.current}
+             href={mobileUrl(r.url)} title={r.name}
+             aria-current={r.id === receiverPicker.current ? 'page' : undefined}>{r.name}</a>
+        {/each}
+      </div>
+    {/if}
   </header>
 
   {#if status === 'error'}
@@ -1802,6 +1838,7 @@
     white-space: nowrap;
   }
   .site-link-btn:active { background: #1d4a6b; }
+  .site-link-btn.rx-current { color: #ffd166; border-color: #ffd166; }
 
   .panes { flex: 1 1 auto; display: flex; flex-direction: column; min-height: 0; gap: 6px; padding: 6px; }
   .pane  { min-height: 0; display: flex; flex-direction: column; gap: 6px; }

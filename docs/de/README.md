@@ -23,6 +23,7 @@ PhantomSDR-Plus ist ein Fork von PhantomSDR und stellt einen leistungsstarken So
 - **Decoder-Tasten mit einem Druck**: eine Decoder-Reihe im Hauptfeld direkt unter der Modus-Auswahl (FT8, FT4, FT2, JS8, CW, WSPR, FAX, SSTV, NAVTX, RTTY), dazu RADEL und RADEU neben der Modus-Auswahl selbst sowie in den Pop-ups für Modi und Bänder. Ein Druck startet den Decoder und öffnet sein Fenster, ein zweiter beendet ihn. Die bisherige Bandbreiten-Reihe ist entfallen.
 - **Kanalsuchlauf**: durchsucht das Band oder genau den sichtbaren Wasserfallausschnitt und hält beim ersten Kanal an, der eine wählbare Anzahl dB über dem Rauschflur des Bandes liegt; sobald der Kanal wieder still ist, läuft er von selbst weiter. Die Schrittweite folgt der Betriebsart, und die Stopps liegen auf dem Kanalraster (1 kHz SSB, 100 Hz CW, 5 kHz Kurzwellen-AM, 9/10 kHz Mittelwelle, 9 kHz Langwelle). Ein Modus *Leere überspringen* liest das Wasserfallspektrum und springt direkt zu den Signalen, und eine Sperrtaste nimmt einen dauerbelegten Kanal aus dem Suchlauf. Alles läuft lokal im Browser des Hörers, der Suchlauf verstellt den Empfänger für niemanden sonst (siehe [Benutzerhandbuch](USER_GUIDE.md))
 - **Empfangsdiversität**: koppelt den Empfänger mit einem zweiten an einem anderen Ort und gibt jeweils die Seite mit dem besseren Signal wieder, sodass ein Schwund an der einen Station von der anderen aufgefangen wird. Der Partner kann ein weiterer PhantomSDR-Plus, ein KiwiSDR, ein UberSDR oder ein WebSDR sein; die ersten drei brauchen nichts außer dem Browser des Hörers, und nur ein WebSDR benötigt ein kleines Relais auf Ihrem eigenen Server. Die Ausrichtung dauert etwa fünfzehn Sekunden, und ein Fernabgleich des SNR gleicht die beiden Stationen aneinander an. Jeder Hörer führt im eigenen Browser eine benannte Liste zweiter Empfänger in selbst gewählter Reihenfolge und kann sie in eine Datei exportieren und wieder einlesen (siehe [Empfangsdiversität](RECEIVE_DIVERSITY.md))
+- **Mehrere Empfänger, eine Seite**: Ein Rechner kann zwei oder mehr Empfänger gleichzeitig betreiben — etwa einen RX-888 für Kurzwelle und einen RTL-SDR für 2 m — und die Hörer wechseln mit Schaltflächen im Seitenkopf zwischen ihnen. Jeder Empfänger behält seinen eigenen Wasserfall, Chat, Markierungen, Hörerliste und Stationsangaben, und oberhalb von 30 MHz zeigt das S-Meter VHF-S-Stufen (S9 = −93 dBm) (siehe [Mehrere Empfänger](MULTI_RECEIVER.md))
 
 ### Signalverarbeitung
 - **Mehrere Demodulationsarten**: AM, FM, USB, LSB, CW und mehr. Ein RADE-Decoder der Version 1 wurde ebenfalls implementiert.
@@ -30,6 +31,7 @@ PhantomSDR-Plus ist ein Fork von PhantomSDR und stellt einen leistungsstarken So
 - **Rauschminderung**: NR (spektral), NB (Störaustaster), NS (Grundrauschunterdrückung) und AN (automatische Notch) — sämtlich am Hörweg, nie an den Decodern
 - **AGC-Optionen**: mehrere Betriebsarten der automatischen Verstärkungsregelung
 - **Auto-Squelch**: automatische, rauschbasierte Rauschsperrenschwelle
+- **CTCSS-Subton-Rauschsperre**: FM-Audio ist nur zu hören, solange der gewählte Subton — oder ein beliebiger Standard-Subton — empfangen wird; der Ton wird in einem kleinen Fenster neben der CTCSS-Taste gewählt, die ihn dann anzeigt
 - **KI-Rauschunterdrückung**: neuronales Netz RNNoise im Browser des Hörers, entfernt Bandrauschen aus Sprache (nur Sprachbetriebsarten; siehe [Benutzerhandbuch](USER_GUIDE.md))
 
 ### Erweiterte Funktionen
@@ -335,6 +337,7 @@ Alle vier GUI-Varianten (analoges/digitales S-Meter x Layout v1/v2) stecken in e
 - **[USER_GUIDE.md](USER_GUIDE.md)** – Anleitung für Endnutzer zur Bedienung des WebSDR
 - **[THERMAL_GUARD.md](THERMAL_GUARD.md)** - Sysop-Handbuch für den CPU-Überhitzungsschutz: die vier Modi und was bei jedem zu tun ist
 - **[CONNECTION_LIMITS.md](CONNECTION_LIMITS.md)** - Sysop-Handbuch für Verbindungslimits: einen öffentlichen Empfänger vor Verbindungsfluten schützen
+- **[MULTI_RECEIVER.md](MULTI_RECEIVER.md)** - Sysop-Handbuch für mehrere Empfänger auf einem Rechner: Instanzen, `receivers.toml`, die Empfängerauswahl und `start-all.sh`
 - **[PROJECT_STRUCTURE.md](PROJECT_STRUCTURE.md)** – Verzeichnisstruktur und Codeorganisation
 - **[EDITING_VARIANTS.md](EDITING_VARIANTS.md)** – wie man die Frontend-Varianten (S-Meter und Layout) bearbeitet und neu baut
 

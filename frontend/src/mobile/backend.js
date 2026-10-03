@@ -12,11 +12,12 @@
 import SpectrumAudio from '../audio'
 import { CLIENT_VERSION } from '../clientVersion'
 import initWrappers from '../lib/wrappers'
+import { withRx } from '../lib/rx'
 
 const loc = window.location
 const baseUri = `${loc.protocol.replace('http', 'ws')}//${loc.host}`
 
-export const audio = new SpectrumAudio(baseUri + '/audio?v=' + CLIENT_VERSION)
+export const audio = new SpectrumAudio(baseUri + withRx('/audio?v=' + CLIENT_VERSION))
 
 // This page only exists for handsets, so it always asks for the device's own
 // sample rate and lets audio.js resample the 12 kHz stream up to it. Asking a

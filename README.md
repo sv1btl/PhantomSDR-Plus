@@ -1,24 +1,25 @@
-# PhantomSDR-Plus WebSDR (version 4.2.0)
+# PhantomSDR-Plus WebSDR (version 5.0.0)
 
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-cyan.svg)](https://www.gnu.org/licenses/gpl-3.0)
-[![Version](https://img.shields.io/badge/version-4.2.0-cyan.svg)](https://github.com/sv1btl/PhantomSDR-Plus)
+[![Version](https://img.shields.io/badge/version-5.0.0-cyan.svg)](https://github.com/sv1btl/PhantomSDR-Plus)
 
-**Maintained by SV1BTL.** The current version is 4.2.0, and the project lives at
+**Maintained by SV1BTL.** The current version is 5.0.0, and the project lives at
 **https://github.com/sv1btl/PhantomSDR-Plus** — that is the one to clone, link to
 and report issues against.
 
+🌐 **Website: [phantomsdr.psychomed.gr](https://phantomsdr.psychomed.gr)** — what PhantomSDR-Plus does, the decoders, the Desktop PhantomSDR+ app, and the documentation PDFs in seven languages.
+
 ## Note: Tested on Debian 12 (Bookworm), Debian 13 (Trixie), Ubuntu 22.04, Ubuntu 24.04.
 
-**New in v.4.2.0**
+**What's new in v.5.0.0**
 
-* **Much less audio delay.** The listener's browser used to hold back about 160 ms inside its FLAC decoder, which released the audio in fixed 85 ms chunks; the page now has its own decoder that plays each packet the moment it arrives, verified sample for sample against ffmpeg. The playback buffer also adjusts itself: it keeps only as much audio in hand as the connection needed over the last minute plus a small margin (50 ms on phones), and removes or adds a few inaudible milliseconds where the sound repeats itself. On a phone over home Wi-Fi the delay went from well over a third of a second to about 140 ms, and below 100 ms once the buffer settles. `audio_sps` and the server are unchanged, and the decoders and recordings still get every sample. Add `?diag=1` to the page address to see the figures. See **[docs/USER_GUIDE.md](docs/USER_GUIDE.md)** under *Audio Buffer and Delay*.
-* **Chat replies.** Every chat message has a **↪ Reply** button; the answer appears indented under the message it answers, on the desktop page and on /mobile. The server needs no change.
-* **Better text and fax decoders.** RTTY copies far better (no errors down to about 0 dB for amateur RTTY), shows a real SNR and has a squelch; PSK31 reports SNR on the same scale; NAVTEX reads message headers and shows messages joined in the middle; CW stays silent on an empty channel and copies slow and Farnsworth sending; FT8, FT4 and FT2 show a real SNR that agrees with WSJT-X; weather fax no longer loses part of a chart to a false start and lines charts up on weaker signals, and CBM Punta Arenas joins the station list. See **[docs/DECODERS.md](docs/DECODERS.md)**.
-* **update.sh keeps its backups in sight.** Each update's backup is now one dated archive in the visible `update-backups/` folder, restorable with `./update.sh --restore LAST` or by its own `restore.sh`; the sample `config.example.*.toml` files are offered instead of being frozen, and the WebSDR diversity relay is stopped and restarted with the rest.
-* **The DX Cluster window shows spots again.** DXSummit started adding a node suffix to spotter callsigns ("JM6URL-@"), which made the server reject every spot; the suffix is now removed first, and the list arrives in about a tenth of a second instead of five.
-* **AI noise reduction.** A new **AI** button with a strength slider sits under SQ in the Audio & Buffer panel (on the /mobile page, in the Audio tab under Squelch). It removes band noise from speech with RNNoise, a small neural network trained on voice — in the same spirit as RM Noise, but everything runs inside the listener's own browser: nothing is sent to an outside server, there is no account, and the receiver's CPU load does not change. The slider sets how strongly it works while someone is talking (default 50%); between words it works harder on its own. On a noisy SSB band the hiss between words drops by about 10 dB at 50% and more at 100%, up to about 20 dB, while the speech keeps its level, and the leftover hiss stays smooth; on weak stations the filter smooths its decisions more on its own. Voice modes only (USB, LSB, AM, SAM): in CW, FM, data modes and C-QUAM it steps aside, because the network treats a CW tone as noise. The decoders always get the audio from before it. See **[docs/USER_GUIDE.md](docs/USER_GUIDE.md)** under *AI Noise Reduction*.
-* **The QRG Sync button is now labelled TCI-CAT**, after the protocol it speaks; it works as before. See [docs/RIG_CONTROL.md](docs/RIG_CONTROL.md#tci-cat-on-the-receiver-page).
-* **Four more receivers set up by the installer, on every supported Linux.** The receiver question in `install.sh` (Debian and Ubuntu) and in `install_fedora.sh`, `install_arch.sh` and `install_opensuse.sh` now installs the complete driver chain for the **SDRplay RSP1A** (option 3, the open-source libmirisdr-5 driver with SoapyMiri), the **RigExpert Fobos SDR** (option 5, new, with two launchers: `start-fobos-hf.sh` for HF1/HF2 direct sampling 0-25 MHz and `start-fobos.sh` for the RF path) and the **Airspy HF+** (option 6, new): SoapySDR, the driver, `rx_sdr` and a udev rule, so the start script runs without `sudo`. The **HackRF One** (option 7, new, with `start-hackrf.sh`) needs only the distribution's `hackrf` package and a udev rule; its example config now reads the HackRF's samples as signed (`s8`), as they are. Each receiver's part is also a script of its own — `setup-rsp1a.sh`, `setup-fobos.sh`, `setup-airspyhf.sh`, `setup-hackrf.sh` — that adds a receiver to a station already installed. `start-rsp1a.sh` keeps using SDRplay's own API where that is installed, so existing RSP1A stations carry on unchanged. Details in [docs/INSTALLATION.md](docs/INSTALLATION.md#receivers-on-soapysdr-rsp1a-fobos-airspy-hf).
+* **Several receivers on one computer.** One PhantomSDR-Plus computer can now run two or more receivers at the same time — for example an RX-888 for HF and an RTL-SDR for 2 m — each as a complete server of its own, with its own waterfall, chat, markers, listener list and station details. An extra receiver is started with `INSTANCE=<name> ./start-<radio>.sh` and set up in its own folder, `instances/<name>/`; nothing of it is ever overwritten by an update. All seven start scripts now tell their receivers apart by an instance tag rather than by program name, so two receivers may even run the same program (two RTL-SDRs, or an RSP1A and an Airspy that both use `rx_sdr`) and restarting one never touches the other. A station with one receiver sees no change. The easy way to add one is **`./add-receiver.sh`**, which all four installers now offer at the end: it asks which receiver and what it should cover, installs its driver, writes the instance folder and `receivers.toml`, and offers to start it. Its driver for an RTL-SDR comes from the new **`setup-rtlsdr.sh`** — the distribution's package, or the RTL-SDR Blog V4 driver built from source — on Debian/Ubuntu, Fedora, Arch and openSUSE alike. See **[docs/MULTI_RECEIVER.md](docs/MULTI_RECEIVER.md)**.
+* **A receiver picker on the page.** On a station with several receivers the page header gets a line *Receivers:* with one button per receiver, the current one in yellow; /mobile has the same buttons in its top bar. `proxy.py` reads a new `receivers.toml` and sends each request to the right receiver by `?rx=<id>` in the address, a cookie, or the host name — so the receivers can share one public port, or the main one can keep its own. A page opened on a second receiver loads that receiver's own band buttons, station details and links before it starts.
+* **`start-all.sh`** starts every receiver listed in `receivers.toml`, and `./stop-websdr.sh <name>` stops just one. Set `start-all.sh` as the admin panel's start script and its Restart button and the thermal guard bring back every receiver; the panel's users list, user count and kick cover them all.
+* **The S-meter reads VHF S-units above 30 MHz.** Following IARU Region 1, S9 is −93 dBm above 30 MHz and −73 dBm below it. The analog needle, the digital bar and the /mobile bar now switch with the tuned frequency; the dBm and dBµV figures stay as measured. Optionally, above 60 MHz they can rest at 0 on an empty channel like a VHF/UHF transceiver's meter: add `"siteSMeterGateDb": 6` to that receiver's `site_information.json` (off by default).
+* **CTCSS subtone picker.** Pressing **CTCSS** opens a small window beside it with *Any tone* and the 49 standard subtones; the button then shows the chosen tone (for example *88.5*, or *ANY*), and pressing it again switches tone squelch off. A *Heard:* line in the window shows the tone on the channel, so an unknown repeater tone can be read off, and bookmarks keep the tone. The tone squelch also no longer opens on an empty channel, holds through speech, and catches a station's first words: while it is on, FM audio plays 0.4 s behind the receiver so the squelch is already open when they arrive. See **[docs/USER_GUIDE.md](docs/USER_GUIDE.md)** under *Control Panel*.
+* **Security fixes — please update.** Through `proxy.py` anyone could use the sysop's kick to disconnect and ban any listener, because the proxy relayed it and the server trusted every request coming from the proxy; the proxy now answers it only for clients on the same machine. And the server believed an `X-Forwarded-For` header from anyone, so a visitor could claim to be `127.0.0.1` and ignore the per-IP connection limits; it is now believed only from a proxy on the same machine. A page connected through the proxy also gets the right message again when the server refuses it or the sysop disconnects it — the proxy used to pass both on as an ordinary disconnect.
+* **New server options**, all optional: `[server] host` binds a receiver to one address (`127.0.0.1` keeps it off the network, reachable only through the proxy); `[server] html_fallback_root` lets a receiver keep only its own few page files and take the rest from the shared build; `[websdr] public_port` names the port the directory listing announces when the proxy owns the public one. `site_information.json` gains `siteReceiverURL` and `siteAntennaURL`, so the *Receiver* and *Antenna* links in *Open Additional Info* point to each receiver's own hardware.
 
 ------------------
 
@@ -26,7 +27,7 @@ We also provide a wide range of additional **features**:
 
 * A new `install.sh` installation procedure that simplifies the initial server setup.
 * A `recompile.sh` script for quickly rebuilding the backend, the frontend, or both.
-* An `update.sh` tool that updates the receiver with one command, keeping your configs, markers, logs and edited scripts untouched.
+* An `update.sh` tool that updates the receiver with one command, keeping your configs, markers, logs and edited scripts untouched; each update's backup is one dated archive in `update-backups/`, restorable with `./update.sh --restore LAST`.
 * Installers that stop a running receiver first, frame every step with its own verdict, and spell out the default of each question.
 * A **Thermal Protection** function in Admin Panel, to avoid thermal stress of the CPU and take the proper actions.
 * A modern, futuristic user-interface design.
@@ -34,7 +35,7 @@ We also provide a wide range of additional **features**:
 * **KiwiSDR client emulation** — an optional bridge that lets Kiwi clients such as **AetherSDR** and `kiwiclient` connect to the receiver directly, on the same host and port, with real retuning, waterfall and S-meter. Off until `[kiwi_emulation] enabled = true` is added to your config. See [docs/Aether_config.md](docs/Aether_config.md).
 * **Receive diversity** — pair the receiver with a second site (another PhantomSDR-Plus, a KiwiSDR, an UberSDR or a WebSDR) and hear whichever of the two currently has the better signal. It runs in the listener's browser; only a WebSDR as the partner needs a small relay on your own server. See [docs/RECEIVE_DIVERSITY.md](docs/RECEIVE_DIVERSITY.md).
 * A full-featured, password-protected Admin Panel for remote server management without requiring direct SSH access. It provides access to server logs, chat moderation, user messaging, chat-message deletion without restarting the server, user disconnection, command execution, file editing, and other administrative functions.
-* Integrated decoders for **FT8, FT4, FT2, JS8, CW, QRSS Grabber, WSPR, HF FAX, SSTV, NAVTEX, FSK/RTTY, PSK31, Olivia, and FreeDV RADE V1**. See the [decoder documentation](docs/DECODERS.md).
+* Integrated decoders for **FT8, FT4, FT2, JS8, CW, QRSS Grabber, WSPR, HF FAX, SSTV, NAVTEX, FSK/RTTY, PSK31, Olivia, and FreeDV RADE V1**. RTTY, PSK31, FT8, FT4 and FT2 show a real SNR (the FT modes agree with WSJT-X), and RTTY has a squelch. See the [decoder documentation](docs/DECODERS.md).
 * A **channel scanner** on the tuning row: it sweeps the band — or exactly what the waterfall is showing — and stops on the first channel rising a chosen number of dB above the band noise floor, resumes by itself when the channel goes quiet, keeps the step on the mode's own channel grid, and can skip empty channels by reading the spectrum. Locked-out channels and settings live in the listener's browser.
 * A **Decoder ID** tool that identifies an unknown digital signal and offers the matching decoder in one click. Off by default.
 * Picking a digital mode sets both the sideband and the passband.
@@ -45,12 +46,13 @@ We also provide a wide range of additional **features**:
   * **FT8, FT4 and JS8 → [PSK Reporter](https://pskreporter.info/)** using the native IPFIX/UDP protocol. Spots are batched and transmitted at the recommended interval of at least five minutes. JS8 is spotted at Normal speed, from heartbeats, compound frames and directed messages; group destinations such as `@ALLCALL` and unresolved callsigns are never reported.
   * **WSPR → [WSPRnet](https://wsprnet.org/)** using the standard WSPRnet upload endpoint. WSPR reports are sent only to WSPRnet to prevent duplicate submissions.
 * Integrated **FreeDV Reporter and DX Cluster tools**.
+* Chat with a **↪ Reply** button on every message; answers appear indented under the message they answer, on the desktop page and on /mobile.
 * **Automatic C-QUAM status indication**. When a C-QUAM transmission is detected, the button label turns green. While operating in AM mode, pressing the button again enables synchronous AM detection on the carrier. The label then turns yellow and displays `SAM`. Pressing the button once more returns the receiver to standard AM mode.
 * A configurable band-plan overlay on the waterfall, with independent brightness, frequency-range, and visibility settings for each band.
 * An improved custom colour-map system. A reversed spectrum and waterfall layout is used by default across all interface variants, although this behaviour can be changed manually.
 * Optimized FLAC and Opus encoders with balanced latency. Both operate at 16-bit resolution, providing a theoretical dynamic range of approximately 96 dB. ⭐
 * Numerous redesigned and optimized functions, including:
-  * Reduced end-to-end latency.
+  * Reduced end-to-end latency: the browser's own FLAC decoder plays each packet the moment it arrives, and the playback buffer sizes itself to the connection (about 140 ms on a phone over Wi-Fi; add `?diag=1` to the address to see the figures).
   * Noise Reduction (spectral, tone-preserving).
   * Noise Cancellation.
   * Noise Blanker (impulse).
@@ -61,6 +63,7 @@ We also provide a wide range of additional **features**:
   * Synchronous AM enabled by default.
   * Selectable AGC modes.
   * Automatic squelch.
+  * CTCSS tone squelch (FM), with a pop-up picker for the subtone.
   * Configurable buffer settings.
   * Automatic waterfall-level adjustment.
   * Mouse-wheel frequency tuning.
@@ -89,7 +92,7 @@ We also provide a wide range of additional **features**:
   * [sdr-list.xyz](https://sdr-list.xyz)
   * [sdr.shbrg.nl](https://sdr.shbrg.nl/sdr/)
   * [websdr.org](http://websdr.org/)
-* Supported receivers currently include the **RX-888, RTL-SDR Blog V4, Airspy HF+ Discovery, HackRF, SDRplay RSP1A and RigExpert Fobos SDR**, including compatible clones through SoapySDR. Support for additional receivers is planned.
+* Supported receivers currently include the **RX-888, RTL-SDR Blog V4, Airspy HF+ Discovery, HackRF, SDRplay RSP1A and RigExpert Fobos SDR**, including compatible clones through SoapySDR. The installers set up each one's complete driver chain, and `setup-rsp1a.sh`, `setup-fobos.sh`, `setup-airspyhf.sh` and `setup-hackrf.sh` add one to a station already installed. Support for additional receivers is planned.
 
 - More to come!...
 
@@ -492,7 +495,7 @@ removed only if you ask with `--prune`. <br />
 For a machine you do not sit at: <br />
 ```
 ./update.sh --apply --yes   never asks; every file you have edited is KEPT
-./update.sh --ref v4.1.0    a tag, branch or commit instead of the current tree
+./update.sh --ref v5.0.0    a tag, branch or commit instead of the current tree
 ```
 A plain `./update.sh` exits **0** when you are up to date and **10** when an update is waiting, so cron can tell
 you when there is something to do. <br />
@@ -742,6 +745,13 @@ For detailed information about installation, usage, and the project structure, p
   - Measuring your own traffic to choose the numbers
   - Reading the logs and counters
 
+- **[Several Receivers](docs/MULTI_RECEIVER.md)** - full sysop manual for running two or more receivers on one computer
+  - How the proxy picks a receiver, and the two ways to publish them
+  - Adding a second receiver, step by step (an RTL-SDR for 2 m as the example)
+  - `receivers.toml`, `start-all.sh` and the instance folders
+  - The receiver picker, and each receiver's own page details
+  - The S-meter above 30 MHz, security, and how many receivers fit
+
 ### 👥 For End Users:
 
 - **[Rig Control (CAT)](docs/RIG_CONTROL.md)** - keeping your own transceiver and a receiver window in step
@@ -764,7 +774,7 @@ For detailed information about installation, usage, and the project structure, p
 
 ### 📄 Offline PDF editions:
 
-Every document above, in one printable file — fourteen chapters in reading order, with a linked table of contents and working cross-references. Handy for reading away from the machine, or for printing the parts you keep coming back to.
+Every document above, in one printable file — sixteen chapters in reading order, with a linked table of contents and working cross-references. Handy for reading away from the machine, or for printing the parts you keep coming back to.
 
 | Language | Download |
 |---|---|
@@ -780,6 +790,7 @@ The PDFs are generated from the same Markdown files and are refreshed when the d
 
 ### 🎯 Quick Links:
 
+- **Website**: https://phantomsdr.psychomed.gr
 - **Live Demo**: http://phantomsdr.no-ip.org:8900/
 - **WebSDR Directory**: https://sdr-list.xyz
 - **GitHub Issues**: [Report bugs or request features](https://github.com/sv1btl/PhantomSDR-Plus/issues)

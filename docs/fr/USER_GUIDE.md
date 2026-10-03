@@ -151,7 +151,7 @@ Commandes supplémentaires :
 - **NB** : silencieux d'impulsions
 - **NS** : suppression du bruit de fond
 - **AN** : notch automatique
-- **CTCSS** : squelch à sous-tonalité (FM)
+- **CTCSS** : squelch à sous-tonalité (FM). Un appui ouvre à côté du bouton une petite fenêtre avec *Any tone* et les 49 sous-tonalités normalisées (67,0–254,1 Hz) ; une fois la tonalité choisie, le bouton l'affiche (par exemple *88.5*, ou *ANY*) et l'audio ne passe que tant que cette tonalité est reçue. La ligne *Heard:* de la fenêtre indique la sous-tonalité que le récepteur entend sur le canal à cet instant et son intensité, ce qui permet de lire la tonalité inconnue d'un relais. Tant que le CTCSS est activé, l'audio FM est joué 0,4 s derrière le récepteur, afin que le squelch soit déjà ouvert quand arrivent les premiers mots d'une station ; avec *Any tone*, le début peut encore être légèrement coupé, choisissez donc la tonalité exacte quand vous le pouvez. Un nouvel appui désactive le CTCSS ; Échap ou un clic à l'extérieur ferme la fenêtre sans rien changer. Les signets conservent la tonalité choisie.
 - **SQL** : squelch
 - **AI** : réduction de bruit par IA (modes phonie)
 - **Zoom** : niveau de zoom de la cascade
@@ -273,6 +273,12 @@ Le S-mètre indique la force du signal :
 **Astuce** : pour un meilleur son, accordez-vous sur des signaux affichant S7 ou plus.
 
 **Changer le cadran de l'instrument** : sur le S-mètre analogique (à aiguille), cliquez sur l'instrument lui-même — ou sélectionnez-le et appuyez sur Entrée ou Espace — pour faire défiler trois fonds : métal brossé sombre, un cadran clair gris pâle et un cadran ambre chaud de style vintage. Votre navigateur retient le choix : il est toujours là après un rafraîchissement ou un redémarrage. Il vaut par navigateur et par adresse : ouvrir le récepteur par nom d'hôte et par IP donne deux réglages distincts, et une fenêtre privée repart toujours du réglage par défaut du site.
+
+**Au-dessus de 30 MHz**, le S-mètre suit la norme VHF de l'IARU Région 1 : S9 y vaut −93 dBm au lieu de −73 dBm en ondes courtes, toujours avec six dB par point S. L'aiguille et la barre basculent d'elles-mêmes selon la fréquence accordée ; les valeurs en dBm et dBµV indiquent toujours le niveau mesuré. Certaines stations règlent en outre leurs récepteurs VHF/UHF pour que les instruments restent à **0 sur un canal vide**, comme sur un transceiver VHF/UHF : au-dessus de 60 MHz, l'aiguille et la barre ne montent alors que lorsqu'un signal sort du bruit. Les valeurs dBm, dBµV, SNR et NF indiquent toujours les valeurs réelles.
+
+### Choisir un récepteur
+
+Certaines stations ont plus d'un récepteur — par exemple un pour les ondes courtes et un pour la bande des 2 m. Elles affichent dans l'en-tête de la page une ligne *Receivers:* avec un bouton par récepteur ; celui sur lequel vous êtes apparaît en jaune. Appuyer sur un autre bouton ouvre la page de ce récepteur, avec sa propre cascade, ses bandes, son chat et sa liste d'auditeurs. Sur la page /mobile, les mêmes boutons se trouvent dans la barre supérieure. Une station à un seul récepteur n'affiche pas cette ligne.
 
 ---
 

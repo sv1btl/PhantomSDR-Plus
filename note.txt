@@ -1,0 +1,116 @@
+==============================================================================
+ PhantomSDR-Plus 5.0.0 — update
+ SV1BTL — https://github.com/sv1btl/PhantomSDR-Plus
+ 1 October 2026
+==============================================================================
+
+WHAT THIS ARCHIVE IS
+
+A file drop over an existing PhantomSDR-Plus installation. Everything in update/ keeps the path it has in the repository, so unpacking it on top of your tree puts each file where it belongs.
+
+This is version 5.0.0. It brings two security fixes that every station should install, whether or not it uses anything else in this release. The main new feature is optional: one computer can now run several receivers at the same time — for example an RX-888 for HF and an RTL-SDR for 2 m — and listeners switch between them with buttons on the page. A station with one receiver keeps working exactly as before. The S-meter also reads VHF S-units above 30 MHz now, and the documentation, in all seven languages and in the offline PDFs, has a new chapter on running several receivers.
+
+No configuration file of yours is touched: no .toml, no site_information.json, no admin_config.json is in this archive. It is meant for a tree that already has the update of 28 September 2026. On an older tree, apply that one first.
+
+
+------------------------------------------------------------------------------
+ 1. HOW TO APPLY
+------------------------------------------------------------------------------
+
+RX-888 owners who changed their start-rx888mk2.sh: save it first (see "RX-888 OWNERS" below).
+
+  cd ~
+  unzip -o update.zip
+  cp -a update/. PhantomSDR-Plus/
+  chmod +x PhantomSDR-Plus/start-all.sh PhantomSDR-Plus/add-receiver.sh PhantomSDR-Plus/setup-rtlsdr.sh
+
+Then rebuild the backend and the web page together:
+
+  cd ~/PhantomSDR-Plus
+  ./recompile.sh          # choose [3] Both backend and frontend
+
+It first asks which variant a first-time visitor should see; pick the one you use now. At the frontend question choose [1] build-all.sh, so that /mobile is rebuilt as well as the desktop page.
+
+Then restart three things. The receiver, the way you normally do (for example with your start-*.sh script). And — this is the part that closes the security holes — the proxy and the admin panel, if you run them:
+
+  sudo systemctl restart phantomsdr-proxy
+  sudo systemctl restart phantomsdr-admin
+
+Listeners see the changes after they reload the page.
+
+The backend files (src/http.cpp, src/spectrumserver.cpp, src/spectrumserver.h, src/websocket.cpp and src/listing/software_info.cpp) need the backend rebuild; the frontend files need the frontend build. proxy.py and admin_server.py take effect when their services restart. The start-*.sh scripts, stop-websdr.sh, the four installers and the new start-all.sh, add-receiver.sh and setup-rtlsdr.sh are shell scripts and are in effect the moment they are copied.
+
+New files: add-receiver.sh, setup-rtlsdr.sh, frontend/site_information.example.json, start-all.sh, receivers.toml.example, frontend/src/siteInfo.js, frontend/src/lib/rx.js, frontend/src/lib/receivers.js, frontend/src/lib/sUnits.js, and docs/MULTI_RECEIVER.md with its six translations. Nothing was deleted; you do not have to remove anything.
+
+RX-888 OWNERS: this archive includes start-rx888mk2.sh, and unpacking it REPLACES yours. If you changed anything in your launcher — the gain or other options in its RX888_ARGS line, the CPU pinning — save it before you unpack:
+
+  cp ~/PhantomSDR-Plus/start-rx888mk2.sh ~/start-rx888mk2.sh.mine
+
+and afterwards copy your settings back into the new file (compare with: diff ~/start-rx888mk2.sh.mine ~/PhantomSDR-Plus/start-rx888mk2.sh). The new launcher starts rx888_stream with -g 40, as before, and otherwise behaves exactly like the old one for a single receiver. It is needed if you ever run a second receiver next to the RX-888: the old one stopped every receiver on the computer whenever it restarted.
+
+
+------------------------------------------------------------------------------
+ 2. SECURITY FIXES — PLEASE INSTALL
+------------------------------------------------------------------------------
+
+Anyone could disconnect and ban your listeners through proxy.py. The sysop kick (the admin panel's "Kick" button) is a request to spectrumserver that it accepts only from its own computer. But every request that proxy.py relays reaches spectrumserver from its own computer — so anyone who could reach the proxy's port (proxy_port in admin_config.json, usually reachable from the internet because the admin panel lives there) could send that request through it and throw any listener off, with a ban of up to a day. proxy.py now answers the kick only for clients on the same computer. The admin panel's own Kick button keeps working, because the panel runs on the same computer.
+
+Anyone could switch off your per-IP connection limits. spectrumserver believed the X-Forwarded-For header from any visitor. A visitor connecting straight to the receiver's port could send "X-Forwarded-For: 127.0.0.1", pass as the server's own computer, and so ignore the per-IP listener limit that protects a public receiver from connection floods. The header is now believed only when the connection really comes from a proxy on the same computer, and proxy.py drops any copy a visitor sends before adding its own. This half needs the backend rebuild and a restart of the receiver; the kick half needs the proxy restart.
+
+A third fix belongs here although it is not a hole: a listener who came through the proxy and was refused by a connection limit, or disconnected by the sysop, used to get an ordinary "connection lost" instead of the proper message, because the proxy passed every close on as a plain disconnect. It now passes on the real reason.
+
+
+------------------------------------------------------------------------------
+ 3. SEVERAL RECEIVERS ON ONE COMPUTER (OPTIONAL)
+------------------------------------------------------------------------------
+
+Nothing changes until you set it up. A station with one receiver can skip this section.
+
+The easy way is the new script:
+
+  cd ~/PhantomSDR-Plus
+  ./add-receiver.sh
+
+It asks which receiver you are adding and what it should cover, installs its driver, creates its folder and the receivers.toml entry, offers to set the admin panel's start script, and offers to start the receiver and restart the proxy. For an RTL-SDR it uses the new setup-rtlsdr.sh, which installs either your distribution's rtl-sdr package or the RTL-SDR Blog V4 driver built from source, on Debian/Ubuntu, Fedora, Arch and openSUSE alike. The installers (install.sh, install_fedora.sh, install_arch.sh, install_opensuse.sh) now offer add-receiver.sh at the very end of an installation; the answer defaults to No.
+
+What it sets up, in short:
+
+Each extra receiver is a complete server of its own, with its own waterfall, chat, markers, listener list and station details. It lives in its own folder, instances/<name>/, which no update ever overwrites, and is started with:
+
+  INSTANCE=vhf ./start-rtl.sh
+
+All start-*.sh scripts now tell their receivers apart by an instance tag rather than by program name, so two receivers may run the same program and restarting one never touches the other. ./stop-websdr.sh vhf stops only that receiver; ./stop-websdr.sh without an argument still stops all of them.
+
+proxy.py reads a new file, receivers.toml (copy receivers.toml.example), and sends each request to the right receiver. Pages then show a line "Receivers:" in the header with one button per receiver — only for the receivers that are running: a stopped receiver's button disappears within a minute and comes back when it starts again. A station with a single receiver shows no such line at all. The main receiver can keep its own public port, so its listeners notice nothing; the other receivers are reached through the proxy, for example http://your.host:8899/?rx=vhf.
+
+Each launcher now also tags its processes with the folder it was started from, so a second copy of PhantomSDR-Plus on the same computer (a test copy, for example) can never stop or restart this one's receivers, even under the same instance name. Likewise ./stop-websdr.sh without an argument now stops every receiver of this installation, and leaves another copy's alone.
+
+./start-all.sh starts every receiver listed in receivers.toml. If you run several receivers, set start-all.sh as the admin panel's Default start script: Restart and the thermal guard then bring back every receiver, not only the main one.
+
+The complete guide, with an RTL-SDR Blog V4 on 2 m as the worked example, is docs/MULTI_RECEIVER.md (and its translations, and the new chapter in the PDFs).
+
+
+------------------------------------------------------------------------------
+ 4. THE S-METER ABOVE 30 MHz
+------------------------------------------------------------------------------
+
+Following IARU Region 1, S9 is -93 dBm above 30 MHz and -73 dBm below it. The S-meters used the HF scale everywhere, so a VHF signal read two S-units low. The analog needle, the digital bar and the /mobile bar now switch with the tuned frequency. The dBm and dBuV figures are not changed, and your smeter_offset settings keep their meaning.
+
+Optional, off by default: above 60 MHz the meters can rest at 0 on an empty channel, as a VHF/UHF transceiver's meter does, and come up only when a signal stands out of the noise. To switch it on for a receiver, add "siteSMeterGateDb": 6 to its site_information.json (no rebuild needed). The dBm, dBuV, SNR and NF figures always show the real values. On an HF-only receiver nothing changes. For an RTL-SDR, add-receiver.sh writes a starting calibration — a fixed gain of -g 29.7 and S-meter offsets measured on an RTL-SDR Blog V4 at that gain with a -71 dBm signal — so a new 2 m receiver reads within a few dB from the start; check it with a known signal.
+
+
+------------------------------------------------------------------------------
+ 5. SMALLER CHANGES
+------------------------------------------------------------------------------
+
+- New optional server settings, unused unless you add them: [server] host (listen on one address only, e.g. 127.0.0.1), [server] html_fallback_root (a second receiver keeps only its own page files and takes the rest from the shared build), and [websdr] public_port (the port the directory listing announces when it differs from the server's own).
+
+- site_information.json may now carry siteReceiverURL and siteAntennaURL: the Receiver and Antenna names in "Open Additional Info" link there instead of to the RX-888 and end-fed pages that were built in. Your file is not in this archive (it would overwrite your station details); frontend/site_information.example.json, which is, shows every key with a placeholder — compare it with yours and copy over the ones you want, then rebuild the web page. Without the keys the links stay as they were, and only a real http(s):// address counts — placeholder text left over from the template is ignored rather than turned into a broken link. An address written with a doubled scheme ("http://http://…", which add-receiver.sh produced when the station address was typed with http:// in front) is now read as a single one, so a second receiver whose picker showed no buttons for that reason works again after this update, without editing anything.
+
+- CTCSS tone squelch: pressing CTCSS now opens a small window beside the button with "Any tone" and the 49 standard subtones. The button then shows the chosen tone (for example 88.5, or ANY); pressing it again switches tone squelch off, and bookmarks keep the tone. A "Heard:" line in that window shows the tone on the channel right now, so an unknown repeater tone can be read off. The detector was also reworked: it no longer opens on an empty channel, it holds through speech, and it catches a station's first words — while CTCSS is on, FM audio plays 0.4 s behind the receiver so the squelch is already open when they arrive. Part of the frontend build above.
+
+- The version is now 5.0.0: in the page, in the admin panel's sidebar, and in what the receiver reports to the directories.
+
+- The documentation, in all seven languages: a new chapter "Several Receivers" (docs/MULTI_RECEIVER.md), and new sections in the User Guide (choosing a receiver, the VHF S-meter), the Admin Panel guide (start-all.sh), Connection Limits (the X-Forwarded-For rule), Installation and Project Structure, and the CTCSS subtone picker in the User Guide. The seven offline PDFs are rebuilt and now have sixteen chapters.
+
+73 de SV1BTL

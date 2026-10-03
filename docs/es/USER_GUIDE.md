@@ -151,7 +151,7 @@ Controles adicionales:
 - **NB**: supresor de impulsos
 - **NS**: supresión del ruido de fondo
 - **AN**: notch automático
-- **CTCSS**: silenciador por subtono (FM)
+- **CTCSS**: silenciador por subtono (FM). Al pulsarlo se abre junto al botón una pequeña ventana con *Any tone* y los 49 subtonos estándar (67,0–254,1 Hz); al elegir uno, el botón lo muestra (por ejemplo *88.5*, o *ANY*) y el audio solo pasa mientras se recibe ese subtono. La línea *Heard:* de la ventana muestra qué subtono oye el receptor en el canal en ese momento y con qué intensidad, de modo que se puede leer el subtono desconocido de un repetidor. Mientras el CTCSS está activado, el audio FM se reproduce 0,4 s por detrás del receptor, para que el silenciador ya esté abierto cuando llegan las primeras palabras de una estación; con *Any tone* el comienzo aún puede recortarse un poco, así que elija el subtono exacto siempre que pueda. Pulsar de nuevo el botón desactiva el CTCSS; Escape o un clic fuera cierra la ventana sin cambiar nada. Los marcadores guardan el tono elegido.
 - **SQL**: silenciador (squelch)
 - **AI**: reducción de ruido por IA (solo voz)
 - **Zoom**: nivel de ampliación de la cascada
@@ -274,6 +274,12 @@ El S-metro indica la intensidad de la señal:
 **Consejo**: para obtener el mejor audio, sintonice señales que marquen S7 o más.
 
 **Cambiar la esfera del instrumento**: en el S-meter analógico (de aguja), haga clic sobre el propio instrumento —o enfóquelo y pulse Enter o Espacio— para recorrer tres fondos: metal cepillado oscuro, una esfera clara gris pálido y una cálida esfera ámbar de estilo vintage. Su navegador recuerda la elección, así que sigue ahí tras una recarga o un reinicio. Es por navegador y por dirección: abrir el receptor por nombre de host y por IP da dos ajustes separados, y una ventana privada siempre parte del valor por defecto del sitio.
+
+**Por encima de 30 MHz** el S-metro sigue la norma de VHF de la IARU Región 1: allí S9 está en −93 dBm en lugar de −73 dBm en HF, igualmente con seis dB por unidad S. La aguja y la barra cambian solas con la frecuencia sintonizada; las cifras en dBm y dBµV muestran siempre el nivel medido. Algunas estaciones configuran además sus receptores de VHF/UHF para que los medidores se queden en **0 con el canal vacío**, como en un transceptor de VHF/UHF: por encima de 60 MHz la aguja y la barra solo suben entonces cuando una señal destaca sobre el ruido. Las cifras de dBm, dBµV, SNR y NF muestran siempre los valores reales.
+
+### Elegir un receptor
+
+Algunas estaciones tienen más de un receptor — por ejemplo uno para HF y otro para la banda de 2 m. Muestran en la cabecera de la página una línea *Receivers:* con un botón por receptor; aquel en el que está aparece en amarillo. Al pulsar otro botón se abre la página de ese receptor, con su propia cascada, bandas, chat y lista de oyentes. En la página /mobile los mismos botones están en la barra superior. Una estación con un solo receptor no muestra esa línea.
 
 ---
 

@@ -725,7 +725,7 @@ nano frontend/site_information.json
   "siteCity": "Your City, Country",
   "siteInformation": "https://github.com/sv1btl/PhantomSDR-Plus",
   "siteHardware": "Computer specifications",
-  "siteSoftware": "PhantomSDR-Plus v4.2.0",
+  "siteSoftware": "PhantomSDR-Plus v5.0.0",
   "siteReceiver": "Your SDR model",
   "siteAntenna": "Antenna description",
   "siteNote": "Additional information",
@@ -912,6 +912,10 @@ hackrf_info          # with the HackRF plugged in: must list the board
 `start-hackrf.sh` передаёт одно окно одновременно. Выберите его до первого запуска: `-f` (центр) и `-s` (частота дискретизации) в его строке `RX_ARGS` должны совпадать с `frequency=` и `sps=` в `config-hackrf.toml`. `-l` и `-g` — усиление LNA (0-40 дБ, шаг 8 дБ) и VGA (0-62 дБ, шаг 2 дБ), а `-a 1` включает усилитель RF. Поставляемые значения (98 МГц, 20 Msps) — лишь отправная точка, чтобы проверить, что всё работает.
 
 `hackrf_transfer` пишет 8-битный IQ **со знаком**, поэтому в конфигурации нужен `format="s8"`. В `config.example.hackrf.toml` до сентября 2026 года стояло `u8`; с `u8` каждый отсчёт сдвинут на 128 и водопад показывает только шум — проверьте старые копии.
+
+### Несколько приёмников на одном компьютере
+
+Один компьютер может одновременно обслуживать несколько перечисленных выше приёмников — например, RX-888 для КВ и RTL-SDR для 2 м, — каждый как отдельный сервер, с выбором приёмника на странице. Каждый дополнительный приёмник запускается командой `INSTANCE=<имя> ./start-<радио>.sh` и настраивается в `instances/<имя>/`; `receivers.toml` перечисляет их для прокси и для `start-all.sh`. Всё описано в разделе [Несколько приёмников](MULTI_RECEIVER.md). Быстрее всего добавить приёмник командой `./add-receiver.sh`, которую установщики предлагают в конце: она устанавливает драйвер (`setup-rtlsdr.sh` для RTL-SDR, соответствующий `setup-*.sh` для остальных) и сама записывает папку экземпляра и `receivers.toml`.
 
 ---
 
@@ -1547,7 +1551,7 @@ update-backups/phantomsdr-backup-20260923-164530.zip
 
 ```bash
 ./update.sh --apply --yes     # никогда не спрашивает; всё изменённое вами СОХРАНЯЕТСЯ
-./update.sh --ref v4.1.0      # метка, ветка или коммит вместо текущего дерева
+./update.sh --ref v5.0.0      # метка, ветка или коммит вместо текущего дерева
 ./update.sh --list-excludes   # печатает правила «не трогать» так, как они действуют здесь
 ./update.sh --verbose         # перечисляет все файлы, а не только первые 40
 ```

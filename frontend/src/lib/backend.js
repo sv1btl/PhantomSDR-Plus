@@ -4,14 +4,15 @@ import SpectrumWaterfall from '../waterfall'
 import SpectrumEvents from '../events'
 import initWrappers from './wrappers'
 import Device from 'svelte-device-info'
+import { withRx } from './rx'
 
 let settings
 
 const location = window.location
 const baseUri = `${location.protocol.replace('http', 'ws')}//${location.host}`
-export const waterfall = new SpectrumWaterfall(baseUri + '/waterfall')
-export const audio = new SpectrumAudio(baseUri + '/audio?v=' + CLIENT_VERSION)
-export const events = new SpectrumEvents(baseUri + '/events')
+export const waterfall = new SpectrumWaterfall(baseUri + withRx('/waterfall'))
+export const audio = new SpectrumAudio(baseUri + withRx('/audio?v=' + CLIENT_VERSION))
+export const events = new SpectrumEvents(baseUri + withRx('/events'))
 
 // This bundle is also what /mobile's "Mobile extended view" loads, so it runs
 // on handsets as well as desktops. Phones get the device's own sample rate,

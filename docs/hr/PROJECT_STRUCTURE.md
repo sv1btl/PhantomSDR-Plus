@@ -19,6 +19,7 @@ Ovaj dokument daje sveobuhvatan pregled strukture direktorija PhantomSDR-Plusa, 
 ## Stablo direktorija
 ```
 PhantomSDR-Plus
+├── add-receiver.sh            # dodaje još jedan prijemnik: upravljački program, instances/<ime>/, receivers.toml — vidi docs/MULTI_RECEIVER.md
 ├── admin_config.json
 ├── admin_server.py
 ├── autorun
@@ -60,6 +61,7 @@ PhantomSDR-Plus
 │   │   ├── DECODERS.md
 │   │   ├── EDITING_VARIANTS.md
 │   │   ├── INSTALLATION.md
+│   │   ├── MULTI_RECEIVER.md
 │   │   ├── PhantomSDR-Plus-Documentation-DE.pdf
 │   │   ├── PROJECT_STRUCTURE.md
 │   │   ├── RADE_General_INSTALL_MANUAL_LINUX.md
@@ -78,6 +80,7 @@ PhantomSDR-Plus
 │   │   ├── DECODERS.md
 │   │   ├── EDITING_VARIANTS.md
 │   │   ├── INSTALLATION.md
+│   │   ├── MULTI_RECEIVER.md
 │   │   ├── PhantomSDR-Plus-Documentation-EL.pdf
 │   │   ├── PROJECT_STRUCTURE.md
 │   │   ├── RADE_General_INSTALL_MANUAL_LINUX.md
@@ -94,6 +97,7 @@ PhantomSDR-Plus
 │   │   ├── DECODERS.md
 │   │   ├── EDITING_VARIANTS.md
 │   │   ├── INSTALLATION.md
+│   │   ├── MULTI_RECEIVER.md
 │   │   ├── PhantomSDR-Plus-Documentation-ES.pdf
 │   │   ├── PROJECT_STRUCTURE.md
 │   │   ├── RADE_General_INSTALL_MANUAL_LINUX.md
@@ -110,6 +114,7 @@ PhantomSDR-Plus
 │   │   ├── DECODERS.md
 │   │   ├── EDITING_VARIANTS.md
 │   │   ├── INSTALLATION.md
+│   │   ├── MULTI_RECEIVER.md
 │   │   ├── PhantomSDR-Plus-Documentation-FR.pdf
 │   │   ├── PROJECT_STRUCTURE.md
 │   │   ├── RADE_General_INSTALL_MANUAL_LINUX.md
@@ -126,6 +131,7 @@ PhantomSDR-Plus
 │   │   ├── DECODERS.md
 │   │   ├── EDITING_VARIANTS.md
 │   │   ├── INSTALLATION.md
+│   │   ├── MULTI_RECEIVER.md
 │   │   ├── PhantomSDR-Plus-Documentation-HR.pdf
 │   │   ├── PROJECT_STRUCTURE.md
 │   │   ├── RADE_General_INSTALL_MANUAL_LINUX.md
@@ -136,6 +142,7 @@ PhantomSDR-Plus
 │   │   ├── THERMAL_GUARD.md
 │   │   └── USER_GUIDE.md
 │   ├── INSTALLATION.md
+│   ├── MULTI_RECEIVER.md
 │   ├── PhantomSDR-Plus-Documentation-EN.pdf
 │   ├── PROJECT_STRUCTURE.md
 │   ├── RADE_General_INSTALL_MANUAL_LINUX.md
@@ -150,6 +157,7 @@ PhantomSDR-Plus
 │   │   ├── DECODERS.md
 │   │   ├── EDITING_VARIANTS.md
 │   │   ├── INSTALLATION.md
+│   │   ├── MULTI_RECEIVER.md
 │   │   ├── PhantomSDR-Plus-Documentation-RU.pdf
 │   │   ├── PROJECT_STRUCTURE.md
 │   │   ├── RADE_General_INSTALL_MANUAL_LINUX.md
@@ -280,12 +288,15 @@ PhantomSDR-Plus
 │   │   │   ├── PassbandTuner.svelte
 │   │   │   ├── Popover.svelte
 │   │   │   ├── QrssPanel.svelte
+│   │   │   ├── receivers.js           # podaci izbornika prijemnika (/receivers.json)
 │   │   │   ├── rnnoise.js     # učitava RNNoise za smanjenje šuma umjetnom inteligencijom
+│   │   │   ├── rx.js                  # kojem prijemniku stranica pripada (?rx=)
 │   │   │   ├── SMeterAnalog.svelte
 │   │   │   ├── SMeterDigital.svelte
 │   │   │   ├── Spectrogram.svelte
 │   │   │   ├── StatusIndicators.svelte
 │   │   │   ├── storage.js
+│   │   │   ├── sUnits.js              # ljestvica S-jedinica prema frekvenciji (S9 = −93 dBm iznad 30 MHz)
 │   │   │   ├── Tooltip.svelte
 │   │   │   ├── VersionSelector.svelte
 │   │   │   ├── VideoAreaSelector.svelte
@@ -327,6 +338,7 @@ PhantomSDR-Plus
 │   │   ├── refused.js
 │   │   ├── remoteSource.js
 │   │   ├── scanner.js
+│   │   ├── siteInfo.js               # site_information.json, prekriven vlastitom kopijom prijemnika
 │   │   ├── sstv.js
 │   │   ├── sstv.worker.js
 │   │   ├── sstvWorkerProxy.js
@@ -375,6 +387,7 @@ PhantomSDR-Plus
 ├── install_rade_ubuntu22.sh
 ├── install.sh
 ├── install-stats-server.sh
+├── instances                  # dodatni prijemnici, svaki u svojoj mapi (nije u gitu) — vidi docs/MULTI_RECEIVER.md
 ├── instructions-for-airspy
 ├── instructions-for-rsp1a
 ├── jsdsp
@@ -468,6 +481,7 @@ PhantomSDR-Plus
 ├── rade.sh
 ├── README.md
 ├── recompile.sh
+├── receivers.toml.example     # popis prijemnika za proxy.py — kopirati u receivers.toml
 ├── _relaunch.sh               # staro: pomoćnik odgođenog ponovnog pokretanja lanca go.sh
 ├── request.hpp
 ├── setup_admin.sh
@@ -477,6 +491,7 @@ PhantomSDR-Plus
 ├── setup-fobos.sh             # lanac upravljačkog programa Fobos: libfobos + SoapyFobosSDR + rx_sdr + cf32_to_real + udev
 ├── setup-hackrf.sh            # HackRF: paket hackrf iz distribucije + udev (ništa se ne gradi)
 ├── setup-rsp1a.sh             # lanac upravljačkog programa RSP1A: libmirisdr-5 + SoapyMiri + rx_sdr + crna lista msi2500 + udev
+├── setup-rtlsdr.sh            # RTL-SDR upravljački program: paket distribucije ili Blog V4 iz izvornog koda + blokada DVB + udev
 ├── setup-rx888-udev.sh
 ├── setup-sdr-common.sh        # zajedničke pomoćne funkcije triju setup skripti iznad
 ├── setup_websdr_relay.sh      # instalira WebSDR diverziti relej (port, identitet, systemd)
@@ -524,6 +539,7 @@ PhantomSDR-Plus
 │   ├── websocket.cpp
 │   └── websocket.h
 ├── start-airspyhf.sh
+├── start-all.sh               # pokreće svaki prijemnik iz receivers.toml
 ├── start-fobos-hf.sh
 ├── start-fobos.sh
 ├── start-hackrf.sh
@@ -791,11 +807,12 @@ PhantomSDR-Plus
 
 ### Skripte za pokretanje/zaustavljanje i održavanje
 
-Svaka od donjih `start-*.sh` skripti samostalan je **pokretač + watchdog + zapisivač**: zaustavlja svaku pokrenutu instancu, podiže prijamnik + `spectrumserver`, odvaja se u pozadinu, automatski ponovno pokreće lanac ako se ugasi i zapisuje u `logwebsdr.txt`. Dijele jednu skriptu za zaustavljanje i jedno `flock` zaključavanje (istodobno radi samo jedan prijamnik). Uredite samo blok **RECEIVER CONFIGURATION** na vrhu svake (argumenti prijamnika / konfiguracija / naziv procesa). Šest skripti za pokretanje izrađenih iz istog predloška (`start-airspyhf.sh`, `start-rtl.sh`, `start-rsp1a.sh`, `start-fobos.sh`, `start-fobos-hf.sh`, `start-hackrf.sh`) identične su ispod tog bloka; `start-rx888mk2.sh` je zasebna skripta.
+Svaka od donjih `start-*.sh` skripti samostalan je **pokretač + watchdog + zapisivač**: zaustavlja svaku pokrenutu instancu, podiže prijamnik + `spectrumserver`, odvaja se u pozadinu, automatski ponovno pokreće lanac ako se ugasi i zapisuje u `logwebsdr.txt`. Dijele jednu skriptu za zaustavljanje i jedno `flock` zaključavanje (istodobno radi samo jedan prijamnik). Uredite samo blok **RECEIVER CONFIGURATION** na vrhu svake (argumenti prijamnika / konfiguracija / naziv procesa). Šest skripti za pokretanje izrađenih iz istog predloška (`start-airspyhf.sh`, `start-rtl.sh`, `start-rsp1a.sh`, `start-fobos.sh`, `start-fobos-hf.sh`, `start-hackrf.sh`) identične su ispod tog bloka; `start-rx888mk2.sh` je zasebna skripta. Od v5.0.0 više prijemnika može raditi jedan uz drugi: skripta pokrenuta s `INSTANCE=<ime>` daje tom prijemniku vlastitu mapu u `instances/<ime>/` te vlastiti zapisnik, zaključavanje i FIFO — vidi [Više prijemnika](MULTI_RECEIVER.md).
 
 | Skripta | Svrha |
 |---------|-------|
 | `install.sh` | Automatizirana instalacija i izgradnja |
+| `add-receiver.sh` | Dodaje još jedan prijemnik ovom računalu: pita koji prijemnik i što pokriva, instalira njegov upravljački program, stvara `instances/<ime>/` i unos u `receivers.toml` te nudi da ga pokrene i ponovno pokrene proxy. Instalacijske skripte nude ga na kraju — vidi [Više prijemnika](MULTI_RECEIVER.md) |
 | `start-rtl.sh` | Pokretanje + watchdog poslužitelja s RTL-SDR-om (`rtl_sdr`) |
 | `start-rsp1a.sh` | Pokretanje + watchdog poslužitelja sa SDRplay RSP1A (`rx_sdr`); koristi libmirisdr-5, ili SDRplay API kad je instaliran (`RX_DRIVER` nameće jedan) |
 | `start-airspyhf.sh` | Pokretanje + watchdog poslužitelja s Airspy HF+ (`rx_sdr`) |
@@ -803,10 +820,13 @@ Svaka od donjih `start-*.sh` skripti samostalan je **pokretač + watchdog + zapi
 | `start-fobos.sh` | Pokretanje + watchdog poslužitelja s RigExpert Fobos SDR, RF grana (`rx_sdr`) |
 | `start-hackrf.sh` | Pokretanje + watchdog poslužitelja s HackRF One (`hackrf_transfer`) |
 | `start-rx888mk2.sh` | Pokretanje + watchdog poslužitelja s RX888 MK2 (`rx888_stream`) |
+| `start-all.sh` | Pokreće svaki prijemnik iz `receivers.toml` njegovom vlastitom skriptom — na stanici s više prijemnika postavite ga kao skriptu za pokretanje u administratorskoj ploči; vidi [Više prijemnika](MULTI_RECEIVER.md) |
 | `stop-websdr.sh` | Zaustavlja poslužitelj i njegov watchdog — zajedničko za sve prijamnike |
+| `stop-websdr.sh <instanca>` | Zaustavlja samo jedan prijemnik (`main` za glavni); bez argumenta zaustavljaju se svi, kao i prije |
 | `setup-rx888-udev.sh` | Instalira udev pravila da `rx888_stream` za RX-888 radi bez sudo |
 | `setup-rsp1a.sh` / `setup-fobos.sh` / `setup-airspyhf.sh` | Instaliraju SoapySDR lanac upravljačkog programa za RSP1A, Fobos ili Airspy HF+ — SoapySDR iz distribucije, upravljački program i rx_tools izgrađeni u `sdr_drivers/`, udev pravilo — na bilo kojoj od četiri podržane distribucije. Pokreću ih opcije 3, 5 i 6 instalacije; rade i samostalno. Zajednički kod u `setup-sdr-common.sh` — vidi [Vodič za instalaciju](INSTALLATION.md#prijamnici-preko-soapysdr-a-rsp1a-fobos-airspy-hf) |
 | `setup-hackrf.sh` | Instalira paket `hackrf` iz distribucije i udev pravilo za HackRF One, na bilo kojoj od četiri podržane distribucije; pokreće ga opcija 7 instalacije |
+| `setup-rtlsdr.sh` | Instalira RTL-SDR upravljački program na bilo kojoj od četiri podržane distribucije — paket `rtl-sdr` distribucije ili, s `RTL_V4=y`, upravljački program za RTL-SDR Blog V4 izgrađen iz izvornog koda — blokira DVB-T upravljački program i dodaje udev pravilo; pokreće ga `add-receiver.sh` |
 | `setup-firewall.sh` | Neobvezna zaštita od poplave na razini jezgre: učitava nftables tablicu s gornjom granicom istodobnih veza i brzinom po izvorišnoj adresi na priključcima prijemnika, kočnicom za grubo pogađanje SSH lozinki i Windows dijeljenjem datoteka zatvorenim izvan privatnih raspona. Treba root, ne može vas zaključati vani (policy accept, uspostavljene veze prihvaćaju se prve), a `--apply` se sam poništi ako se ne potvrdi unutar 60 s — vidi [Ograničenja veza](CONNECTION_LIMITS.md) |
 | `setup-cpufreq-perms.sh` | Daje grupi `cpufreq` pravo pisanja na ograničenje frekvencije procesora, kako bi throttle faza čuvara radila bez roota. Instalira `tmpfiles.d` pravilo da preživi ponovno pokretanje; `--revoke` sve poništava |
 | `update.sh` | Ažuriranje instalacije iz objavljenog stabla, bez diranja vaše konfiguracije, oznaka, popisa frekvencija i vlastitih izmjena — vidi [Vodič za instalaciju](INSTALLATION.md) |

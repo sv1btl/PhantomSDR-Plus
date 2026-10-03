@@ -6,7 +6,7 @@ import 'core-js/actual/clear-immediate'
 import { eventBus } from './eventBus';
 // Added to fix an error when printing the waterfall during the handleBandChange //
 // function in App.svelte //
-import { siteRegion } from '../site_information.json';
+import { siteRegion } from './siteInfo.js';
 import { bands, MODES } from './bands-config.js';
 import { ConnectionRefused, isRefusal } from './refused'
 
@@ -728,7 +728,7 @@ export default class SpectrumWaterfall {
   }
 
   getSnrEstimate() {
-    return { snrDb: this.snrDb, noiseDb: this.snrNoiseDb }
+    return { snrDb: this.snrDb, noiseDb: this.snrNoiseDb, gateSnrDb: this.gateSnrDb }
   }
 
   // Frequency of the strongest bin within +/-halfSpanHz of centerHz, from the
@@ -844,6 +844,36 @@ export default class SpectrumWaterfall {
 
       const snr = Math.max(0, this.snrScale * (peak - this.snrNoiseDb))
       this.snrDb = this.snrDb == null ? snr : this.snrDb + 0.3 * (snr - this.snrDb)
+
+      // ==== Local SNR for the VHF/UHF meter gate (lib/sUnits.js) ============
+      // The figure above measures against the quietest patch of the whole
+      // span, which on a wide IQ receiver lies at the band edge where the
+      // front-end filter rolls off — so pure noise in mid-band reads a few dB
+      // "above the noise". The gate only asks "is anything in the passband?",
+      // and answers it locally: the passband's strongest bin against the 80th
+      // percentile of its own neighbourhood (±100 kHz, with a guard band),
+      // where the noise is flat. An empty channel reads about 0 dB; a carrier
+      // or an FM signal stands clear; one busy channel nearby barely moves a
+      // percentile. The SNR figure itself is unchanged.
+      let gate = null
+      if (hasPb) {
+        const hzPerBin = (this.totalBandwidth / this.waterfallMaxSize) * (span / n)
+        const reach = Math.max(8, Math.round(100000 / hzPerBin))
+        const guard = Math.max(1, Math.round(5000 / hzPerBin))
+        const ring = []
+        for (let i = i0 - guard - reach; i <= i1 + guard + reach; i++) {
+          if (i < 0 || i >= n || (i >= i0 - guard && i <= i1 + guard)) continue
+          const v = data[i]
+          if (Number.isFinite(v)) ring.push(v)
+        }
+        if (ring.length >= 8) {
+          ring.sort((x, y) => x - y)
+          const p80 = ring[Math.floor(ring.length * 0.8)]
+          gate = this.snrScale * (peak - p80)
+        }
+      }
+      this.gateSnrDb = gate == null ? null
+        : this.gateSnrDb == null ? gate : this.gateSnrDb + 0.3 * (gate - this.gateSnrDb)
     } catch (e) { /* estimation is best-effort */ }
   }
 

@@ -74,6 +74,7 @@ set -euo pipefail
 #   PHANTOM_STATS=y|n          statistics server(default y interactive, n unattended)
 #   PHANTOM_KIWI=y|n           Kiwi client emulation  (default y interactive, n unattended)
 #   PHANTOM_RECOMPILE=y|n      final rebuild                      (default y)
+#   PHANTOM_ADD_RECEIVER=y|n   offer add-receiver.sh at the end   (default n)
 #   PHANTOM_FIX_CLOCK_SKEW=y|n reset source timestamps that are dated in
 #                              the future, so meson can build   (default y)
 #
@@ -2932,3 +2933,28 @@ fline "            🎉  INSTALLATION COMPLETE  🎉" 2
 fline "                 PhantomSDR-Plus WebSDR"
 fline ""
 fbot
+
+# ------------------------------------------------------------------------------
+# More receivers on this computer (optional) — asked after the report, so it
+# never disturbs the step table. add-receiver.sh also runs on its own later.
+# ------------------------------------------------------------------------------
+
+if [ -f "$PHANTOM_DIR/add-receiver.sh" ]; then
+    echo "One computer can run several receivers — for example an RTL-SDR for 2 m"
+    echo "next to your HF receiver — with buttons on the page to switch between them."
+    if confirm PHANTOM_ADD_RECEIVER n n "Add another receiver on this computer now?"; then
+        case $option in
+            1) ADD_RX_MAIN_LAUNCHER=start-rx888mk2.sh ;;
+            2) ADD_RX_MAIN_LAUNCHER=start-rtl.sh ;;
+            3) ADD_RX_MAIN_LAUNCHER=start-rsp1a.sh ;;
+            6) ADD_RX_MAIN_LAUNCHER=start-airspyhf.sh ;;
+            7) ADD_RX_MAIN_LAUNCHER=start-hackrf.sh ;;
+        esac
+        export ADD_RX_MAIN_LAUNCHER
+        bash "$PHANTOM_DIR/add-receiver.sh" \
+            || warn "add-receiver.sh did not finish — run it again any time:  cd $PHANTOM_DIR && ./add-receiver.sh"
+    else
+        echo "   Later:  cd $PHANTOM_DIR && ./add-receiver.sh   (guide: docs/MULTI_RECEIVER.md)"
+    fi
+    echo ""
+fi

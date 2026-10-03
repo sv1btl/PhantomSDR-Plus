@@ -238,6 +238,9 @@ broadcast_server::broadcast_server(
         config["input"]["audio_compression"].value_or("flac");
 
     m_docroot     = config["server"]["html_root"].value_or("html/");
+    // Optional: where files missing from html_root are served from (a second
+    // receiver points this at the shared frontend/dist). Empty = off.
+    m_fallback_root = config["server"]["html_fallback_root"].value_or("");
 
     // ── Internal PCM-tap token ────────────────────────────────────────────
     // Random per-boot secret that lets a LOCAL loopback client (the autorun
@@ -503,11 +506,29 @@ void broadcast_server::run(uint16_t port) {
 
     m_server.set_listen_backlog(8192);
     m_server.set_reuse_addr(true);
-    try {
-        m_server.listen(port);
-    } catch (...) {
-        // IPv6 not available — fall back to IPv4 only
-        m_server.listen(websocketpp::lib::asio::ip::tcp::v4(), port);
+    // [server] host binds one address only. A receiver behind proxy.py sets
+    // "127.0.0.1", so its own port cannot be reached around the proxy (and
+    // its per-IP limits and kick rules with it). Unset, "0.0.0.0" or "::"
+    // listen on every interface, as always.
+    const std::string host = config["server"]["host"].value_or("");
+    if (!host.empty() && host != "0.0.0.0" && host != "::") {
+        boost::system::error_code ec;
+        const auto addr = boost::asio::ip::make_address(host, ec);
+        if (ec) {
+            std::cerr << "[server] host = \"" << host
+                      << "\" is not an IP address" << std::endl;
+            std::exit(1);
+        }
+        m_server.listen(boost::asio::ip::tcp::endpoint(addr, port));
+        std::cout << "Listening on " << host << ":" << port << " only"
+                  << std::endl;
+    } else {
+        try {
+            m_server.listen(port);
+        } catch (...) {
+            // IPv6 not available — fall back to IPv4 only
+            m_server.listen(websocketpp::lib::asio::ip::tcp::v4(), port);
+        }
     }
     m_server.start_accept();
 
@@ -515,7 +536,15 @@ void broadcast_server::run(uint16_t port) {
 
     // Start the chat admin Unix-socket listener so the admin panel can delete
     // individual chat messages in real time without restarting the server.
-    ChatClient::start_admin_listener();
+    // The main receiver keeps the path admin_server.py knows. A named instance
+    // (PHANTOMSDR_INSTANCE, exported by the start-*.sh launchers) gets its own,
+    // or its listener would unlink the main receiver's socket and take it over.
+    std::string chat_sock = "/tmp/phantomsdr_chat.sock";
+    const char *instance = std::getenv("PHANTOMSDR_INSTANCE");
+    if (instance && *instance && std::string(instance) != "main") {
+        chat_sock = std::string("/tmp/phantomsdr_chat-") + instance + ".sock";
+    }
+    ChatClient::start_admin_listener(chat_sock);
 
     fft_thread = std::thread(&broadcast_server::fft_task, this);
     set_event_timer();
@@ -679,7 +708,11 @@ void broadcast_server::start_websdr_updates() {
 void broadcast_server::update_websdr_list() {
     std::srand(std::time(nullptr));
 
-    int port = config["server"]["port"].value_or(9002);
+    // The port the directory sends visitors to. Behind proxy.py that is the
+    // proxy's public port, not this server's own [server] port, so
+    // [websdr] public_port may name it; unset, [server] port as before.
+    int port = config["websdr"]["public_port"].value_or(
+        config["server"]["port"].value_or(9002));
     auto center_frequency = config["input"]["frequency"].value<int64_t>();
     auto bandwidth        = config["input"]["sps"].value<int64_t>();
     std::string antenna     = config["websdr"]["antenna"].value_or("N/A");
@@ -1047,11 +1080,6 @@ int main(int argc, char **argv) {
         << std::endl;
 
     config = toml::parse_file(config_file);
-
-    // host is read from config but websocketpp binds on all interfaces by
-    // default; the value is kept for future selective-bind support.
-    [[maybe_unused]] std::string host =
-        config["server"]["host"].value_or("0.0.0.0");
 
     auto driver_type = config["input"]["driver"]["name"].value<std::string>();
     if (!driver_type.has_value()) {

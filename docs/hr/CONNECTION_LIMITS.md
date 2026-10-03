@@ -107,6 +107,8 @@ per_ip_ban_s=600    # koliko se dugo odbija adresa koja probije brzinu
 
 To pokriva i `proxy.py`: veze kroz proxy dolaze do `spectrumservera` s povratne petlje, a stvarna adresa klijenta stiže u zaglavlju `X-Forwarded-For`, na koje su ograničenja i vezana.
 
+Od v5.0.0 tom se zaglavlju vjeruje **samo ako dolazi s povratne petlje** — od proxyja na istom računalu. Ako ga pošalje bilo tko drugi, zanemaruje se i vrijedi TCP adresa, jer bi inače izravni posjetitelj mogao napisati `X-Forwarded-For: 127.0.0.1` i proći kao povratna petlja mimo svih ograničenja s ove stranice. `proxy.py` usto odbacuje svaki `X-Forwarded-For` ili `X-Real-IP` koji klijent pošalje prije nego doda svoje, a na izbacivanje od strane sysopa (`/~~kick`) odgovara samo klijentima na istom računalu. Stanica s više prijemnika iza proxyja opisana je u [Više prijemnika](MULTI_RECEIVER.md); ondje ograničenja vrijede po prijemniku.
+
 ---
 
 ## 4. Neaktivne veze

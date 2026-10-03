@@ -725,7 +725,7 @@ Bearbeiten Sie die folgenden Felder:
   "siteCity": "Your City, Country",
   "siteInformation": "https://github.com/sv1btl/PhantomSDR-Plus",
   "siteHardware": "Computer specifications",
-  "siteSoftware": "PhantomSDR-Plus v4.2.0",
+  "siteSoftware": "PhantomSDR-Plus v5.0.0",
   "siteReceiver": "Your SDR model",
   "siteAntenna": "Antenna description",
   "siteNote": "Additional information",
@@ -912,6 +912,10 @@ hackrf_info          # with the HackRF plugged in: must list the board
 `start-hackrf.sh` liefert jeweils ein Fenster. Wählen Sie es vor dem ersten Start: `-f` (Mitte) und `-s` (Abtastrate) in seiner Zeile `RX_ARGS` müssen zu `frequency=` und `sps=` in `config-hackrf.toml` passen. `-l` und `-g` sind die Verstärkungen von LNA (0-40 dB, 8-dB-Schritte) und VGA (0-62 dB, 2-dB-Schritte), `-a 1` schaltet den HF-Verstärker ein. Die mitgelieferten Werte (98 MHz, 20 Msps) sind nur ein Ausgangspunkt, um zu prüfen, dass es läuft.
 
 `hackrf_transfer` schreibt **vorzeichenbehaftetes** 8-Bit-IQ, daher braucht die Konfiguration `format="s8"`. `config.example.hackrf.toml` enthielt bis September 2026 `u8`; damit ist jedes Sample um 128 verschoben und der Wasserfall zeigt nur Rauschen — prüfen Sie ältere Kopien davon.
+
+### Mehrere Empfänger auf einem Rechner
+
+Ein Rechner kann mehr als einen der oben genannten Empfänger gleichzeitig betreiben — etwa einen RX-888 für Kurzwelle und einen RTL-SDR für 2 m — jeden als eigenen Server, mit einer Empfängerauswahl auf der Seite. Jeder weitere Empfänger wird mit `INSTANCE=<name> ./start-<radio>.sh` gestartet und in `instances/<name>/` eingerichtet; `receivers.toml` führt sie für den Proxy und für `start-all.sh` auf. Alles Weitere steht in [Mehrere Empfänger](MULTI_RECEIVER.md). Am schnellsten fügen Sie einen Empfänger mit `./add-receiver.sh` hinzu, das die Installer am Ende anbieten: Es installiert den Treiber (`setup-rtlsdr.sh` für einen RTL-SDR, das passende `setup-*.sh` für die anderen) und schreibt den Instanzordner und `receivers.toml` für Sie.
 
 ---
 
@@ -1551,7 +1555,7 @@ Sicherungen von vor dem 23. September 2026 liegen im versteckten Ordner `.update
 
 ```bash
 ./update.sh --apply --yes     # fragt nie; jede von Ihnen geänderte Datei BLEIBT
-./update.sh --ref v4.1.0      # ein Tag, Branch oder Commit statt des aktuellen Standes
+./update.sh --ref v5.0.0      # ein Tag, Branch oder Commit statt des aktuellen Standes
 ./update.sh --list-excludes   # zeigt die Nie-anrühren-Regeln, wie sie hier gelten
 ./update.sh --verbose         # listet jede Datei, nicht nur die ersten 40
 ```

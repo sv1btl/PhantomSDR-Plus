@@ -726,7 +726,7 @@ Uredite sljedeća polja:
   "siteCity": "Your City, Country",
   "siteInformation": "https://github.com/sv1btl/PhantomSDR-Plus",
   "siteHardware": "Computer specifications",
-  "siteSoftware": "PhantomSDR-Plus v4.2.0",
+  "siteSoftware": "PhantomSDR-Plus v5.0.0",
   "siteReceiver": "Your SDR model",
   "siteAntenna": "Antenna description",
   "siteNote": "Additional information",
@@ -913,6 +913,10 @@ hackrf_info          # with the HackRF plugged in: must list the board
 `start-hackrf.sh` šalje jedan prozor odjednom. Odaberite ga prije prvog pokretanja: `-f` (središte) i `-s` (brzina uzorkovanja) u njegovu retku `RX_ARGS` moraju odgovarati `frequency=` i `sps=` u `config-hackrf.toml`. `-l` i `-g` su pojačanja LNA (0-40 dB, koraci od 8 dB) i VGA (0-62 dB, koraci od 2 dB), a `-a 1` uključuje RF pojačalo. Isporučene vrijednosti (98 MHz, 20 Msps) samo su polazište za provjeru da radi.
 
 `hackrf_transfer` piše 8-bitni IQ **s predznakom**, pa konfiguracija treba `format="s8"`. `config.example.hackrf.toml` je do rujna 2026. imao `u8`; s `u8` svaki je uzorak pomaknut za 128 i vodopad pokazuje samo šum — provjerite svaku stariju kopiju.
+
+### Više prijemnika na jednom računalu
+
+Jedno računalo može istodobno pokretati više gore navedenih prijemnika — na primjer RX-888 za kratki val i RTL-SDR za 2 m — svaki kao zaseban poslužitelj, s izbornikom prijemnika na stranici. Svaki dodatni prijemnik pokreće se s `INSTANCE=<ime> ./start-<radio>.sh` i podešava u `instances/<ime>/`; `receivers.toml` ih navodi za proxy i za `start-all.sh`. Sve je opisano u [Više prijemnika](MULTI_RECEIVER.md). Najbrže se prijemnik dodaje s `./add-receiver.sh`, koji instalacijske skripte nude na kraju: instalira upravljački program (`setup-rtlsdr.sh` za RTL-SDR, odgovarajući `setup-*.sh` za ostale) i za vas zapisuje mapu instance i `receivers.toml`.
 
 ---
 
@@ -1551,7 +1555,7 @@ Sigurnosne kopije od prije 23. rujna 2026. nalaze se u skrivenoj mapi `.update-b
 
 ```bash
 ./update.sh --apply --yes     # nikada ne pita; svaka vaša izmijenjena datoteka OSTAJE
-./update.sh --ref v4.1.0      # oznaka, grana ili commit umjesto trenutnog stabla
+./update.sh --ref v5.0.0      # oznaka, grana ili commit umjesto trenutnog stabla
 ./update.sh --list-excludes   # ispisuje pravila "ne diraj" kako vrijede ovdje
 ./update.sh --verbose         # nabraja sve datoteke, ne samo prvih 40
 ```

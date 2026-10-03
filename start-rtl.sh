@@ -16,6 +16,8 @@
 #    SPECTRUM_CORES=0-3            pin spectrumserver to these CPUs (taskset list)
 #    SPECTRUM_CORES=none          do not pin at all
 #    RADE_ENABLED=0               do not run the RADE sidecar at all
+#    INSTANCE=vhf                 run as a separate receiver set up in
+#                                 instances/vhf/; stop it with ./stop-websdr.sh vhf
 #    RX_ARGS="…"                  override the rtl_sdr argument string
 #
 #  NOTE: not tested on RTL-SDR hardware — it reuses the exact control/watchdog
@@ -35,10 +37,54 @@ RX_CMD=(rtl_sdr)                                   # binary; args come from RX_A
 prestart() { :; }                                  # no pre-start step for RTL-SDR
 # ═════════════════════════════════════════════════════════════════════════════
 
-LOG="$PHANTOMDIR/logwebsdr.txt"
+# ── instance: several receivers on one box ───────────────────────────────────
+# Empty (the default) is the main receiver and keeps the historical file names
+# (logwebsdr.txt, spectrumserver.log, .watchdog.lock, the FIFO above), so a
+# single-receiver station sees no change at all. A name — INSTANCE=vhf
+# ./start-rtl.sh — gives this receiver its own log, server log, lock and FIFO,
+# and ./stop-websdr.sh vhf stops only it. Two launchers run with the same
+# instance replace each other, exactly as any two launchers did before.
+#
+# Every process started from here inherits PHANTOMSDR_INSTANCE. That tag, not
+# the process name, is how this script and stop-websdr.sh tell receivers apart:
+# two of them may run the very same binary (two rtl_sdr, or rx_sdr for both an
+# RSP1A and an Airspy).
+INSTANCE="${INSTANCE:-}"
+[ "$INSTANCE" = "main" ] && INSTANCE=""
+case "$INSTANCE" in
+    *[!A-Za-z0-9_-]*)
+        echo "$(basename "$SELF"): INSTANCE may only contain letters, digits, - and _" >&2
+        exit 1 ;;
+esac
+export INSTANCE
+export PHANTOMSDR_INSTANCE="${INSTANCE:-main}"
+# The installation, too: a second copy of PhantomSDR-Plus on this computer (a
+# test tree, another station) may use the same instance names.
+export PHANTOMSDR_TREE="$PHANTOMDIR"
+SFX="${INSTANCE:+-$INSTANCE}"
+FIFO="${FIFO%.fifo}$SFX.fifo"
+
+# A named instance lives in instances/<name>/: its own config.toml, and the
+# working directory its spectrumserver runs in, so chat_history.txt,
+# markers.json, the FFTW wisdom and logs/ are its own as well. An optional
+# instance.env there is read last and may set RX_ARGS, SPECTRUM_CORES and the
+# like for this receiver only.
+INSTDIR=""
+if [ -n "$INSTANCE" ]; then
+    INSTDIR="$PHANTOMDIR/instances/$INSTANCE"
+    CONFIG="$INSTDIR/config.toml"
+    if [ ! -f "$CONFIG" ]; then
+        echo "$(basename "$SELF"): instance $INSTANCE needs $CONFIG — create it first" >&2
+        exit 1
+    fi
+    # shellcheck disable=SC1091
+    [ -f "$INSTDIR/instance.env" ] && . "$INSTDIR/instance.env"
+fi
+
+LOG="$PHANTOMDIR/logwebsdr$SFX.txt"
 SPECTRUM="$PHANTOMDIR/build/spectrumserver"
 STOP="$PHANTOMDIR/stop-websdr.sh"
-LOCK="$PHANTOMDIR/.watchdog.lock"
+LOCK="$PHANTOMDIR/.watchdog$SFX.lock"
 
 # RADE v1 sidecar (optional — skipped silently if rade_helper.py isn't present).
 RADE="$PHANTOMDIR/rade_helper.py"
@@ -47,7 +93,7 @@ RADE_LOG="$PHANTOMDIR/rade.log"
 # spectrumserver's own stdout/stderr (client connects, [WebSDROrg] registration,
 # curl errors). Kept out of $LOG so the bring-up log stays readable; the
 # [WebSDROrg] lines are mirrored into $LOG because those are worth watching.
-SRV_LOG="$PHANTOMDIR/spectrumserver.log"
+SRV_LOG="$PHANTOMDIR/spectrumserver$SFX.log"
 SRV_LOG_MAX=10485760            # rotate at 10 MB (one .1 generation kept)
 LOG_MAX=2097152                 # rotate logwebsdr.txt at 2 MB (one .1 kept)
 
@@ -151,23 +197,60 @@ report_registration() {
     fi
 }
 
-# ── is a process alive (by exact command name), excluding zombies? ───────────
+# ── which instance a process belongs to ──────────────────────────────────────
+# Read from its environment. No tag means it was started before instances
+# existed, which can only have been the main receiver.
+instance_of() {
+    local v
+    v=$(tr '\0' '\n' < "/proc/$1/environ" 2>/dev/null | sed -n 's/^PHANTOMSDR_INSTANCE=//p')
+    echo "${v:-main}"
+}
+
+# ── which installation a process belongs to (empty = started before the tag) ─
+tree_of() {
+    tr '\0' '\n' < "/proc/$1/environ" 2>/dev/null | sed -n 's/^PHANTOMSDR_TREE=//p'
+}
+
+# ── PIDs of THIS instance's processes with an exact command name ─────────────
+# Same instance AND same installation — or no installation tag at all, which
+# only a process started before the tag existed can lack.
+own_pids() {
+    local pid tree
+    for pid in $(pgrep -x "$1" 2>/dev/null); do
+        [ "$(instance_of "$pid")" = "$PHANTOMSDR_INSTANCE" ] || continue
+        tree="$(tree_of "$pid")"
+        [ -z "$tree" ] || [ "$tree" = "$PHANTOMDIR" ] || continue
+        echo "$pid"
+    done
+}
+
+# ── is a process of this instance alive (by exact command name)? ─────────────
+# Zombies don't count.
 is_running() {
     local pid stat
-    for pid in $(pgrep -x "$1" 2>/dev/null); do
+    for pid in $(own_pids "$1"); do
         stat=$(awk '{print $3}' "/proc/$pid/stat" 2>/dev/null)
         case "$stat" in Z) ;; "") ;; *) return 0 ;; esac
     done
     return 1
 }
 
+# ── SIGKILL this instance's processes with an exact command name ─────────────
+kill_own() {
+    local pids
+    pids=$(own_pids "$1")
+    # shellcheck disable=SC2086
+    [ -n "$pids" ] && kill -KILL $pids 2>/dev/null
+    return 0
+}
+
 # ── kill only the receiver/server processes (never the watchdog) ─────────────
 # Writer first, then reader (spectrumserver): killing the reader first would
 # hand the writer a Broken-Pipe panic on the FIFO.
 kill_receivers() {
-    killall -KILL "$RX_COMM" 2>/dev/null
+    kill_own "$RX_COMM"
     sleep 1
-    killall -KILL spectrumserver 2>/dev/null
+    kill_own spectrumserver
     sleep 2
     [ -n "$RX_PID" ] && wait "$RX_PID" 2>/dev/null; RX_PID=""
     [ -n "$SS_PID" ] && wait "$SS_PID" 2>/dev/null; SS_PID=""
@@ -219,7 +302,7 @@ start_receiver() {
         mkfifo "$FIFO"
         exec 8<>"$FIFO"
         # taskset execs into the target, so $! stays the real receiver PID — the
-        # kill -0 check below and the killall in stop/prestart are unaffected.
+        # kill -0 check below and kill_own are unaffected.
         # shellcheck disable=SC2086
         "${SS_TASKSET[@]}" "${RX_CMD[@]}" $RX_ARGS > "$FIFO" &
         RX_PID=$!
@@ -294,6 +377,7 @@ start_spectrumserver() {
 # A missing sidecar is not an error — the server runs fine without it, we just
 # say so instead of leaving the user wondering.
 rade_state() {
+    [ -n "$INSTANCE" ]             && { echo instance; return; }
     [ "${RADE_ENABLED:-1}" = "0" ] && { echo off;      return; }
     [ -f "$RADE" ]                 || { echo missing;  return; }
     command -v python3 >/dev/null 2>&1 || { echo nopython; return; }
@@ -303,6 +387,7 @@ rade_state() {
 # Human-readable reason for every non-ok state (empty when ok).
 rade_reason() {
     case "$(rade_state)" in
+        instance) echo "RADE runs with the main receiver only — sidecar not activated for instance $INSTANCE" ;;
         off)      echo "RADE disabled (RADE_ENABLED=0) — sidecar not activated" ;;
         missing)  echo "RADE not installed ($(basename "$RADE") not found) — sidecar not activated" ;;
         nopython) echo "RADE not activated — python3 not found in PATH" ;;
@@ -312,7 +397,10 @@ rade_reason() {
 rade_wanted() { [ "$(rade_state)" = "ok" ]; }
 rade_running() { pgrep -f "rade_helper\.py" >/dev/null 2>&1; }
 
+# The sidecar is a singleton on a fixed port that belongs to the main receiver,
+# so another instance's restart must not take it down.
 stop_rade() {
+    [ -n "$INSTANCE" ] && return 0
     pkill -9 -f "rade_helper\.py" 2>/dev/null
     killall -KILL lpcnet_demo 2>/dev/null
     sleep 1
@@ -387,9 +475,16 @@ watchdog_main() {
         echo "$(basename "$SELF"): another watchdog is already running — exiting" >&2
         exit 0
     fi
+
+    # Everything below starts from here, so spectrumserver's relative paths
+    # (html_root, chat, markers, wisdom, logs/) land in the instance folder.
+    if [ -n "$INSTDIR" ] && ! cd "$INSTDIR"; then
+        log "ERROR: cannot enter $INSTDIR"
+        exit 1
+    fi
     rotate_log
     stamp
-    log "Starting the initialization script of the PhantomSDR Server ($RX_LABEL)"
+    log "Starting the initialization script of the PhantomSDR Server ($RX_LABEL${INSTANCE:+, instance $INSTANCE})"
     log " "
     compute_taskset
     if [ ${#SS_TASKSET[@]} -gt 0 ]; then
@@ -417,9 +512,9 @@ watchdog_main() {
 launch() {
     local quiet="$1" tail_pid="" up=0 i
 
-    echo "PhantomSDR-Plus ($RX_LABEL)"
-    echo "  stopping any running instance..."
-    [ -x "$STOP" ] && "$STOP" >/dev/null 2>&1
+    echo "PhantomSDR-Plus ($RX_LABEL${INSTANCE:+, instance $INSTANCE})"
+    echo "  stopping instance $PHANTOMSDR_INSTANCE if it is running..."
+    [ -x "$STOP" ] && "$STOP" "$PHANTOMSDR_INSTANCE" >/dev/null 2>&1
     sleep 5                        # let the device fully release after a kill
 
     # Mirror only what this run appends (-n 0), started before the watchdog so
@@ -430,7 +525,7 @@ launch() {
         tail -n 0 -F "$LOG" 2>/dev/null &
         tail_pid=$!
     else
-        echo "PhantomSDR-Plus ($RX_LABEL) starting in the background."
+        echo "PhantomSDR-Plus ($RX_LABEL${INSTANCE:+, instance $INSTANCE}) starting in the background."
         echo "Progress is logged to: $LOG"
     fi
 

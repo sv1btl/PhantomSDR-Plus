@@ -151,7 +151,7 @@ Additional controls:
 - **NB**: Noise Blanker (impulse)
 - **NS**: Background Noise Suppression
 - **AN**: Auto Notch
-- **CTCSS**: Sub-audible tone squelch (FM)
+- **CTCSS**: Sub-audible tone squelch (FM). Pressing it opens a small window beside the button with *Any tone* and the 49 standard subtones (67.0–254.1 Hz); pick one and the button shows it (for example *88.5*, or *ANY*), and the audio then passes only while that tone is received. The window's *Heard:* line shows the tone the receiver hears on the channel right now and how strong it is, so an unknown repeater tone can be read off. While CTCSS is on, FM audio plays 0.4 s behind the receiver, so the squelch is already open when a station's first words arrive; with *Any tone* the start can still be clipped slightly, so pick the exact tone where you can. Press the button again to switch CTCSS off; Escape or a click outside closes the window without changing anything. Bookmarks keep the chosen tone.
 - **SQL**: Squelch
 - **AI**: AI noise reduction (voice modes)
 - **Zoom**: Waterfall zoom level
@@ -273,6 +273,12 @@ The S-meter shows signal strength:
 **Tip**: For best audio, tune to signals showing S7 or higher.
 
 **Changing the meter face**: on the analog (needle) meter, click the meter itself — or focus it and press Enter or Space — to cycle through three backgrounds: dark brushed metal, a light pale-grey face, and a warm vintage amber face. Your browser remembers the choice, so it is still there after a refresh or a restart. It is per browser and per address, so opening the receiver by hostname and by IP gives two separate settings, and a private window always starts from the site default.
+
+**Above 30 MHz** the meter follows the VHF standard of IARU Region 1: S9 is −93 dBm there instead of −73 dBm on HF, still six dB per S-unit. The needle and the bar switch by themselves with the tuned frequency; the dBm and dBµV figures are always the measured level. Some stations also set their VHF/UHF receivers to rest at **0 on an empty channel**, like a VHF/UHF transceiver's meter: above 60 MHz the needle and the bar then come up only when a signal stands out of the noise. The dBm, dBµV, SNR and NF figures always show the real values.
+
+### Choosing a receiver
+
+Some stations run more than one receiver — for example one for HF and one for the 2 m band. They show a line *Receivers:* in the page header with one button per receiver; the one you are on is shown in yellow. Pressing another button opens that receiver's page, with its own waterfall, bands, chat and listener list. On the /mobile page the same buttons sit in the top bar. A station with a single receiver shows no such line.
 
 ---
 

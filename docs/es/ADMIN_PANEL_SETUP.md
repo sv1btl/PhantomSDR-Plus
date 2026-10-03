@@ -235,6 +235,8 @@ Campos clave escritos por `setup_admin.sh`:
 | `sdr_process_name` | Nombre del proceso a vigilar (por defecto: `spectrumserver`) |
 | `start_script` / `stop_script` | Scripts que el panel ejecuta para arrancar y detener el servidor SDR — también son la vía por la que actúa la protección térmica |
 
+> **¿Varios receptores en un ordenador?** Ponga `start_script` en `start-all.sh`. El script de parada ya detiene todos los receptores, y Restart y la protección térmica usan el script de arranque; con `start-all.sh` devuelven todos los receptores de `receivers.toml` en lugar de solo el principal. La página Users, el recuento de oyentes y la expulsión abarcan entonces también todos los receptores. Vea [Varios receptores](MULTI_RECEIVER.md).
+
 Claves de la protección térmica (todas opcionales: el panel las escribe al guardar los ajustes de Thermal Guard, y las que falten usan estos valores por defecto):
 
 | Clave | Por defecto | Descripción |

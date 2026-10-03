@@ -725,7 +725,7 @@ Modifiez les champs suivants :
   "siteCity": "Your City, Country",
   "siteInformation": "https://github.com/sv1btl/PhantomSDR-Plus",
   "siteHardware": "Computer specifications",
-  "siteSoftware": "PhantomSDR-Plus v4.2.0",
+  "siteSoftware": "PhantomSDR-Plus v5.0.0",
   "siteReceiver": "Your SDR model",
   "siteAntenna": "Antenna description",
   "siteNote": "Additional information",
@@ -912,6 +912,10 @@ hackrf_info          # with the HackRF plugged in: must list the board
 `start-hackrf.sh` diffuse une fenêtre à la fois. Choisissez-la avant le premier lancement : `-f` (centre) et `-s` (fréquence d'échantillonnage) sur sa ligne `RX_ARGS` doivent correspondre à `frequency=` et `sps=` dans `config-hackrf.toml`. `-l` et `-g` sont les gains du LNA (0-40 dB, pas de 8 dB) et du VGA (0-62 dB, pas de 2 dB), et `-a 1` allume l'amplificateur RF. Les valeurs livrées (98 MHz, 20 Msps) ne sont qu'un point de départ pour vérifier que cela tourne.
 
 `hackrf_transfer` écrit de l'IQ 8 bits **signé**, la configuration a donc besoin de `format="s8"`. `config.example.hackrf.toml` indiquait `u8` jusqu'en septembre 2026 ; avec `u8` chaque échantillon est décalé de 128 et la chute d'eau ne montre que du bruit — vérifiez toute copie plus ancienne.
+
+### Plusieurs récepteurs sur un ordinateur
+
+Un ordinateur peut faire tourner en même temps plusieurs des récepteurs ci-dessus — par exemple un RX-888 pour les ondes courtes et un RTL-SDR pour le 2 m — chacun comme serveur à part, avec un sélecteur de récepteur sur la page. Chaque récepteur supplémentaire se démarre avec `INSTANCE=<nom> ./start-<radio>.sh` et se configure dans `instances/<nom>/` ; `receivers.toml` les recense pour le proxy et pour `start-all.sh`. Tout est décrit dans [Plusieurs récepteurs](MULTI_RECEIVER.md). Le plus rapide pour ajouter un récepteur est `./add-receiver.sh`, que les installeurs proposent à la fin : il installe le pilote (`setup-rtlsdr.sh` pour un RTL-SDR, le `setup-*.sh` correspondant pour les autres) et écrit pour vous le dossier de l'instance et `receivers.toml`.
 
 ---
 
@@ -1551,7 +1555,7 @@ Les sauvegardes antérieures au 23 septembre 2026 se trouvent dans le dossier ca
 
 ```bash
 ./update.sh --apply --yes     # ne demande jamais rien ; tout fichier modifié est CONSERVÉ
-./update.sh --ref v4.1.0      # une étiquette, une branche ou un commit précis
+./update.sh --ref v5.0.0      # une étiquette, une branche ou un commit précis
 ./update.sh --list-excludes   # affiche les règles « ne pas toucher » telles qu'appliquées ici
 ./update.sh --verbose         # liste tous les fichiers, pas seulement les 40 premiers
 ```

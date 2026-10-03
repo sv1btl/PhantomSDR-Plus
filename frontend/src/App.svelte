@@ -1,5 +1,5 @@
 <script>
-  const VERSION = "4.2.0 with mobile support and enhancements";
+  const VERSION = "5.0.0 with mobile support and enhancements";
 
   // ── Variant selection ────────────────────────────────────────────────────
   //
@@ -70,6 +70,9 @@
   } from "svelte";
   import { fade, fly, scale } from "svelte/transition";
   import copy from "copy-to-clipboard";
+  import { withRx } from "./lib/rx";
+  import { meterGated } from "./lib/sUnits.js";
+  import { loadReceivers } from "./lib/receivers";
   import SMeterAnalog from "./lib/SMeterAnalog.svelte";
   import SMeterDigital from "./lib/SMeterDigital.svelte";
   import StatusIndicators from "./lib/StatusIndicators.svelte";
@@ -152,7 +155,9 @@
     siteHardware,
     siteSoftware,
     siteReceiver,
+    siteReceiverURL,
     siteAntenna,
+    siteAntennaURL,
     siteNote,
     siteIP,
     siteStats,
@@ -160,7 +165,7 @@
     siteSDRBandwidth,
     siteRegion,
     siteChatEnabled,
-  } from "../site_information.json";
+  } from "./siteInfo.js";
   // End of Information Area import //
 
   // Import to detect mobile devices //
@@ -514,7 +519,7 @@
 
   async function _fetchClientGeo() {
     try {
-      const r = await fetch("/users", { cache: "no-store" });
+      const r = await fetch(withRx("/users"), { cache: "no-store" });
       if (!r.ok) return;
       const raw = await r.json();
       // /users may return an array directly or an object with a nested array
@@ -1137,7 +1142,7 @@
     async function pollAdminMsg() {
       try {
         // Cache-bust with timestamp so the browser never serves stale data
-        const r = await fetch("/wf-message.json?_=" + Date.now());
+        const r = await fetch(withRx("/wf-message.json?_=" + Date.now()));
         if (!r.ok) {
           // File not yet created — treat as "no message"
           adminMessage = "";
@@ -1775,6 +1780,32 @@
 
   // Window for stats
   let showStats = false;
+
+  // Receiver picker (HF / 2 m ...): null — and nothing shown — unless this
+  // station runs several receivers behind proxy.py. See lib/receivers.js.
+  let receiverPicker = null;
+  loadReceivers().then((p) => (receiverPicker = p));
+  // Re-read once a minute: the proxy lists only the receivers that are
+  // running, so a stopped one's button goes away (and comes back) on its own.
+  setInterval(() => loadReceivers().then((p) => (receiverPicker = p)), 60000);
+
+  // Where the info panel's Antenna name links to: siteAntennaURL from this
+  // receiver's site_information.json. Absent = the original end-fed kit page;
+  // "" = no link, just the name (better than pointing at the wrong antenna).
+  // Only a real web address counts as a link: the template site_information.json
+  // ships descriptive placeholders ("Antenna URL (optional)") that a sysop may
+  // leave as they are, and those must not become broken links.
+  const isWebUrl = (v) => typeof v === "string" && /^https?:\/\//i.test(v.trim());
+  const antennaHref =
+    siteAntennaURL === undefined
+      ? "https://hamradioshop.net/en/Antennas/DIY-End-Fed-Antennas/294/End-fed-antenna-building-kit-complete-for-10-12-15-17-20-30-40-80-160-meter-band.-450-watt-PEP"
+      : isWebUrl(siteAntennaURL)
+        ? siteAntennaURL.trim()
+        : "";
+  // The Receiver link: siteReceiverURL when it is a web address, else the old one.
+  const receiverHref = isWebUrl(siteReceiverURL)
+    ? siteReceiverURL.trim()
+    : "https://www.rx-888.com/rx/";
   let closeStatsBtnEl;
 
   function openStats() {
@@ -5251,6 +5282,11 @@
   // a branch; only the markup below picks which one is mounted.
   let smeterRawDb = -130;
   let smeterOffset = 0;
+  // `frequency` is the tuned frequency in kHz (a string); the meters want Hz.
+  $: smeterFrequencyHz = parseFloat(frequency) * 1e3 || 0;
+  // VHF/UHF gate: the meters rest at 0 until a signal stands out of the noise
+  // (lib/sUnits.js). Updated every frame from the waterfall's local SNR.
+  let smeterGated = false;
   // Handle for the _smeterTick() RAF loop.  It used to be declared alongside the
   // needle-animation state that moved into lib/SMeterAnalog.svelte, but the tick
   // itself stays here, so the declaration has to stay with it.
@@ -5669,6 +5705,42 @@
   let NSEnabled = false;
   let ANEnabled = false;
   let CTCSSSupressEnabled = false;
+  // Selected subtone in Hz; null = accept any standard tone. Kept while
+  // CTCSS is off so the picker can highlight the last tone used.
+  let CTCSSToneHz = null;
+  let showCTCSSPicker = false;
+  let ctcssPickerPos = { left: 0, top: 0 };
+  let ctcssPickerEl;
+  const CTCSS_PICKER_W = 236;
+  const CTCSS_TONES = [
+    67.0, 71.9, 74.4, 77.0, 79.7, 82.5, 85.4, 88.5, 91.5, 94.8,
+    97.4, 100.0, 103.5, 107.2, 110.9, 114.8, 118.8, 123.0, 127.3,
+    131.8, 136.5, 141.3, 146.2, 151.4, 156.7, 159.8, 162.2, 165.5,
+    167.9, 171.3, 173.8, 177.3, 179.9, 183.5, 186.2, 189.9, 192.8,
+    196.6, 199.5, 203.5, 206.5, 210.7, 218.1, 225.7, 229.1, 233.6,
+    241.8, 250.3, 254.1,
+  ];
+  // While the picker is open the detector runs listen-only and the picker
+  // shows the strongest tone on the channel — handy when the tone is unknown.
+  let ctcssHeard = null;
+  let ctcssHeardTimer = null;
+  $: {
+    if (audio) audio.ctcssListen = showCTCSSPicker;
+    if (showCTCSSPicker && !ctcssHeardTimer) {
+      ctcssHeardTimer = setInterval(() => {
+        ctcssHeard = audio ? audio.ctcssHeard : null;
+      }, 250);
+    } else if (!showCTCSSPicker && ctcssHeardTimer) {
+      clearInterval(ctcssHeardTimer);
+      ctcssHeardTimer = null;
+      ctcssHeard = null;
+    }
+  }
+  $: ctcssLabel = CTCSSSupressEnabled
+    ? CTCSSToneHz
+      ? CTCSSToneHz.toFixed(1)
+      : "ANY"
+    : "CTCSS";
 
   // Backend Noise Gate Control
   let noiseGatePreset = "balanced";
@@ -5802,10 +5874,48 @@
     applyAutoNotch(ANEnabled);
   }
 
-  function handleCTCSSChange() {
-    CTCSSSupressEnabled = !CTCSSSupressEnabled;
-    audio.setCTCSSFilter(CTCSSSupressEnabled);
-    console.log("mD = " + Device.isMobile);
+  // Off -> open the tone picker next to the button; on -> switch CTCSS off.
+  function handleCTCSSChange(event) {
+    if (CTCSSSupressEnabled) {
+      CTCSSSupressEnabled = false;
+      showCTCSSPicker = false;
+      audio.setCTCSSFilter(false);
+      return;
+    }
+    if (showCTCSSPicker) {
+      showCTCSSPicker = false;
+      return;
+    }
+    const r = event.currentTarget.getBoundingClientRect();
+    const h = 330;
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+    let left = r.right + 8;
+    if (left + CTCSS_PICKER_W > vw - 8) left = r.left - CTCSS_PICKER_W - 8;
+    if (left < 8) left = Math.max(8, vw - CTCSS_PICKER_W - 8);
+    let top = r.top + r.height / 2 - h / 2;
+    top = Math.max(8, Math.min(top, vh - h - 8));
+    ctcssPickerPos = { left, top };
+    showCTCSSPicker = true;
+  }
+
+  function pickCTCSSTone(toneHz) {
+    CTCSSToneHz = toneHz;
+    CTCSSSupressEnabled = true;
+    showCTCSSPicker = false;
+    audio.setCTCSSFilter(toneHz ?? true);
+  }
+
+  function handleCTCSSPickerOutside(event) {
+    if (!showCTCSSPicker) return;
+    if (ctcssPickerEl && ctcssPickerEl.contains(event.target)) return;
+    if (event.target.closest && event.target.closest("[data-ctcss-button]"))
+      return;
+    showCTCSSPicker = false;
+  }
+
+  function handleCTCSSPickerKey(event) {
+    if (showCTCSSPicker && event.key === "Escape") showCTCSSPicker = false;
   }
 
   function handleNoiseGatePresetChange(event) {
@@ -5915,6 +6025,15 @@
           ? waterfall.getSnrEstimate()
           : null;
       const _snr = _wf && Number.isFinite(_wf.snrDb) ? _wf.snrDb : 0;
+      // The gate uses the waterfall's LOCAL SNR (passband against its own
+      // neighbourhood), and NaN when there is none, so an unknown SNR never
+      // holds the meters at 0.
+      const _gate = meterGated(
+        smeterGated,
+        smeterFrequencyHz,
+        _wf && Number.isFinite(_wf.gateSnrDb) ? _wf.gateSnrDb : NaN,
+      );
+      if (_gate !== smeterGated) smeterGated = _gate;
       window._lastSnr = _snr;
       window._noiseFloorDb = window._lastPowerDb - _snr;
     } catch (e) {}
@@ -6018,7 +6137,7 @@
     };
     frequency = (frequencyInputComponent.getFrequency() / 1e3).toFixed(3);
     const linkQuery = constructLink(linkObj);
-    link = `${location.origin}${location.pathname}?${linkQuery}`;
+    link = withRx(`${location.origin}${location.pathname}?${linkQuery}`);
     storeInLocalStorage(linkObj);
 
     // Keep the address bar on the current tuning.  parseLink() already reads
@@ -6046,11 +6165,11 @@
   // refreshed by updateLink) and demodulation, so the href never goes stale.
   $: mobilePageHref = (() => {
     const hz = Math.round(parseFloat(frequency) * 1000);
-    if (!Number.isFinite(hz)) return "/mobile";
+    if (!Number.isFinite(hz)) return withRx("/mobile");
     // AM + samEnabled is what that page calls SAM; sending plain "AM" would
     // silently drop the synchronous detector on the way over.
     const m = demodulation === "AM" && samEnabled ? "SAM" : demodulation;
-    return `/mobile?frequency=${hz}&modulation=${encodeURIComponent(m)}`;
+    return withRx(`/mobile?frequency=${hz}&modulation=${encodeURIComponent(m)}`);
   })();
   function handleLinkCopyClick() {
     copy(link);
@@ -6130,6 +6249,7 @@
       NBEnabled: NBEnabled,
       NSEnabled: NSEnabled,
       CTCSSSupressEnabled: CTCSSSupressEnabled,
+      CTCSSToneHz: CTCSSToneHz,
       currentTuneStep: currentTuneStep,
       min_waterfall: min_waterfall,
       max_waterfall: max_waterfall,
@@ -6212,9 +6332,11 @@
 
     // Set CTCSS
     CTCSSSupressEnabled = false;
-    audio.setCTCSSFilter(CTCSSSupressEnabled);
-    CTCSSSupressEnabled = bookmark.CTCSSSupressEnabled;
-    audio.setCTCSSFilter(CTCSSSupressEnabled);
+    showCTCSSPicker = false;
+    audio.setCTCSSFilter(false);
+    CTCSSSupressEnabled = !!bookmark.CTCSSSupressEnabled;
+    CTCSSToneHz = bookmark.CTCSSToneHz ?? null;
+    audio.setCTCSSFilter(CTCSSSupressEnabled ? (CTCSSToneHz ?? true) : false);
 
     // Set bandwidth
     if (bookmark.staticBandwidthEnabled) {
@@ -6407,6 +6529,7 @@
             NBEnabled: false, // default
             NSEnabled: false, // default
             CTCSSSupressEnabled: false, // default
+            CTCSSToneHz: null, // default (any tone)
             currentTuneStep: 9000, // default
             min_waterfall: -30, // default
             max_waterfall: 110, // default
@@ -6718,7 +6841,7 @@
     window["spectrumWaterfall"] = waterfall;
 
     socket = new WebSocket(
-      window.location.origin.replace(/^http/, "ws") + "/chat",
+      window.location.origin.replace(/^http/, "ws") + withRx("/chat"),
     );
 
     chatContentDiv = document.getElementById("chat_content");
@@ -8218,7 +8341,53 @@
 <svelte:window
   on:mousemove={handleWindowMouseMove}
   on:mouseup={handleWindowMouseUp}
+  on:pointerdown={handleCTCSSPickerOutside}
+  on:keydown={handleCTCSSPickerKey}
 />
+
+{#if showCTCSSPicker}
+  <div
+    bind:this={ctcssPickerEl}
+    class="fixed z-[9000] rounded-lg border border-gray-600 bg-gray-800 p-2 shadow-xl"
+    style="left:{ctcssPickerPos.left}px;top:{ctcssPickerPos.top}px;width:{CTCSS_PICKER_W}px"
+    role="dialog"
+    aria-label="CTCSS subtone"
+  >
+    <div class="mb-1 flex items-center justify-between">
+      <span class="text-xs font-semibold text-gray-200">CTCSS subtone (Hz)</span>
+      <button
+        class="px-1 text-xs text-gray-400 hover:text-white"
+        on:click={() => (showCTCSSPicker = false)}
+        aria-label="Close">✕</button
+      >
+    </div>
+    <button
+      class="mb-1 w-full rounded border border-gray-600 py-0.5 text-xs text-white {CTCSSToneHz === null
+        ? 'bg-blue-600'
+        : 'bg-gray-700 hover:bg-gray-600'}"
+      on:click={() => pickCTCSSTone(null)}>Any tone</button
+    >
+    <div class="grid grid-cols-5 gap-1">
+      {#each CTCSS_TONES as tone}
+        <button
+          class="rounded border border-gray-600 py-0.5 text-[11px] font-mono text-white {CTCSSToneHz === tone
+            ? 'bg-blue-600'
+            : 'bg-gray-700 hover:bg-gray-600'}"
+          on:click={() => pickCTCSSTone(tone)}>{tone.toFixed(1)}</button
+        >
+      {/each}
+    </div>
+    {#if demodulation !== "FM"}
+      <div class="mt-1 text-[10px] text-yellow-400">Tone squelch works in FM only.</div>
+    {:else}
+      <div class="mt-1 text-[11px] font-mono text-gray-300">
+        Heard: {#if ctcssHeard && ctcssHeard.snrDb >= 10}<span class="text-green-400"
+            >{ctcssHeard.toneHz.toFixed(1)} Hz</span
+          > · {ctcssHeard.snrDb.toFixed(0)} dB{:else}—{/if}
+      </div>
+    {/if}
+  </div>
+{/if}
 
 {#if connectionRefused}
   <div
@@ -8366,6 +8535,31 @@
                   >
                     <span class="icon">3</span>
                   </button>
+
+                  {#if receiverPicker}
+                    <!-- On a line of its own, below the directory buttons. -->
+                    <div class="flex flex-wrap items-center justify-center w-full gap-y-1">
+                    Receivers:&nbsp;
+                    {#each receiverPicker.receivers as r (r.id)}
+                      <a
+                        class="glass-button text-white py-1 px-3 mb-2 lg:mb-0 rounded-lg text-xs sm:text-sm"
+                        style="color:{r.id === receiverPicker.current
+                          ? '#ffd166'
+                          : 'rgba(0, 225, 255, 0.993)'}"
+                        href={r.url}
+                        title={r.id === receiverPicker.current
+                          ? r.name + ' (this receiver)'
+                          : 'Switch to ' + r.name}
+                        aria-current={r.id === receiverPicker.current
+                          ? "page"
+                          : undefined}
+                      >
+                        {r.name}
+                      </a>
+                      &nbsp;
+                    {/each}
+                    </div>
+                  {/if}
 
                   <div
                     class="flex flex-wrap items-center justify-center w-full gap-y-1"
@@ -9943,12 +10137,13 @@ Slider: share of denoised audio, the rest is the original"
                           class="retro-button h-8 text-white font-bold h-8 text-xs rounded-md flex items-center justify-center border border-gray-600 shadow-inner transition-all duration-200 ease-in-out {enabled
                             ? 'bg-blue-600 pressed scale-95'
                             : 'bg-gray-700 hover:bg-gray-600'}"
-                          on:click={() => {
+                          data-ctcss-button={option === "CTCSS" ? "" : undefined}
+                          on:click={(event) => {
                             if (option === "NR") handleNRChange();
                             else if (option === "NB") handleNBChange();
                             else if (option === "NS") handleNSChange();
                             else if (option === "AN") handleANChange();
-                            else handleCTCSSChange();
+                            else handleCTCSSChange(event);
                           }}
                         >
                           <svg
@@ -9989,7 +10184,7 @@ Slider: share of denoised audio, the rest is the original"
                               />
                             {/if}
                           </svg>
-                          <span>{option}</span>
+                          <span>{option === "CTCSS" ? ctcssLabel : option}</span>
                         </button>
                       {/each}
                     </div>
@@ -10166,9 +10361,9 @@ Slider: share of denoised audio, the rest is the original"
                             {ANEnabled}
                             {CTCSSSupressEnabled}
                           />
-                          <SMeterDigital rawDb={smeterRawDb} {smeterOffset} />
+                          <SMeterDigital rawDb={smeterRawDb} {smeterOffset} frequencyHz={smeterFrequencyHz} gated={smeterGated} />
                         {:else}
-                          <SMeterAnalog dbm={smeterDbm} />
+                          <SMeterAnalog dbm={smeterDbm} frequencyHz={smeterFrequencyHz} gated={smeterGated} />
                         {/if}
                       </div>
                     </div>
@@ -13823,6 +14018,29 @@ Slider: share of denoised audio, the rest is the original"
                     style="background:rgba(200, 30, 30, 0.95); color:rgb(255, 230, 0)"
                     >Simplified mobile</a
                   >
+                  {#if receiverPicker}
+                    <!-- Other receivers of this station (lib/receivers.js), on a
+                         row of their own; the current one is yellow. -->
+                    <div
+                      class="flex flex-wrap items-center justify-center gap-1 mt-1"
+                    >
+                      {#each receiverPicker.receivers as r (r.id)}
+                        <a
+                          href={r.url}
+                          class="glass-button py-1 px-2 rounded-lg text-xs"
+                          style="color:{r.id === receiverPicker.current
+                            ? '#ffd166'
+                            : 'rgba(0, 225, 255, 0.993)'}"
+                          title={r.id === receiverPicker.current
+                            ? r.name + ' (this receiver)'
+                            : 'Switch to ' + r.name}
+                          aria-current={r.id === receiverPicker.current
+                            ? "page"
+                            : undefined}>{r.name}</a
+                        >
+                      {/each}
+                    </div>
+                  {/if}
                 </div>
               </div>
               <!--End of Titel Box -->
@@ -14269,11 +14487,13 @@ Slider: share of denoised audio, the rest is the original"
                           />
 
                           {#if isAnalog}
-                            <SMeterAnalog dbm={smeterDbmFlat} mobile />
+                            <SMeterAnalog dbm={smeterDbmFlat} mobile frequencyHz={smeterFrequencyHz} gated={smeterGated} />
                           {:else}
                             <SMeterDigital
                               rawDb={smeterRawDb}
                               {smeterOffset}
+                              frequencyHz={smeterFrequencyHz}
+                              gated={smeterGated}
                               mobile
                             />
                           {/if}
@@ -15285,15 +15505,16 @@ Slider: share of denoised audio, the rest is the original"
                               class="retro-button text-white font-bold h-8 text-xs rounded-md flex items-center justify-center border border-gray-600 shadow-inner transition-all duration-200 ease-in-out {enabled
                                 ? 'bg-blue-600 pressed scale-95'
                                 : 'bg-gray-700 hover:bg-gray-600'}"
-                              on:click={() => {
+                              data-ctcss-button={option === "CTCSS" ? "" : undefined}
+                              on:click={(event) => {
                                 if (option === "NR") handleNRChange();
                                 else if (option === "NB") handleNBChange();
                                 else if (option === "NS") handleNSChange();
                                 else if (option === "AN") handleANChange();
-                                else handleCTCSSChange();
+                                else handleCTCSSChange(event);
                               }}
                             >
-                              <span>{option}</span>
+                              <span>{option === "CTCSS" ? ctcssLabel : option}</span>
                             </button>
                           {/each}
                         </div>

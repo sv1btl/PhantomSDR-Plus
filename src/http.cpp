@@ -745,7 +745,10 @@ void broadcast_server::on_http(connection_hdl hdl) {
         return;
     }
 
-    if (resource == "/users" || resource == "/users.json") {
+    // Matched on the path alone: a page for a second receiver asks for
+    // /users?rx=<id>, and a cache-buster query must not 404 either.
+    const std::string resource_path = resource.substr(0, resource.find('?'));
+    if (resource_path == "/users" || resource_path == "/users.json") {
         // Live user list — always fresh from in-memory state, never from disk.
         const std::string body = get_users_json();
         con->append_header("Content-Type", "application/json");
@@ -895,50 +898,57 @@ void broadcast_server::on_http(connection_hdl hdl) {
     std::string response;
 
     filename = filename.substr(0, filename.find("?"));
-    if (filename == "/") {
-        filename = m_docroot + "/" + "index.html";
-    } else {
-        filename = m_docroot + "/" + filename.substr(1);
-    }
+    const std::string rel =
+        (filename == "/") ? std::string("index.html") : filename.substr(1);
 
-    // Docroot boundary check — prevent symlink / path-traversal escapes
-    {
-        std::string canonical_docroot;
-        std::string canonical_file;
-        try {
-            canonical_docroot = std::filesystem::canonical(m_docroot).string();
-            canonical_file    = std::filesystem::weakly_canonical(filename).string();
-        } catch (...) {
-            con->set_body("Not Found");
-            con->set_status(websocketpp::http::status_code::not_found);
-            return;
-        }
-        if (canonical_file.rfind(canonical_docroot, 0) != 0) {
-            con->set_body("Not Found");
-            con->set_status(websocketpp::http::status_code::not_found);
-            return;
-        }
-    }
-
-    // Resolve a directory to its index.html, and refuse anything that is not a
-    // regular file.
+    // Resolve `rel` inside one root, or return "" when that root cannot serve
+    // it.
     //
-    // On Linux std::ifstream::open() SUCCEEDS on a directory, so the `!file`
-    // check further down does not catch one. tellg() then reports a nonsense
-    // size and response.reserve() throws std::bad_alloc, which nothing catches
-    // — std::terminate kills the whole server. Any visitor requesting a path
-    // with a trailing slash ("/analog/", "/assets/") could therefore take the
-    // receiver down for everyone.
-    {
+    // Boundary check first — prevent symlink / path-traversal escapes.
+    //
+    // Then resolve a directory to its index.html, and refuse anything that is
+    // not a regular file. On Linux std::ifstream::open() SUCCEEDS on a
+    // directory, so the `!file` check further down does not catch one.
+    // tellg() then reports a nonsense size and response.reserve() throws
+    // std::bad_alloc, which nothing catches — std::terminate kills the whole
+    // server. Any visitor requesting a path with a trailing slash ("/analog/",
+    // "/assets/") could therefore take the receiver down for everyone.
+    auto resolve_in = [&rel](const std::string &root) -> std::string {
+        std::string path = root + "/" + rel;
+        try {
+            const std::string canonical_root =
+                std::filesystem::canonical(root).string();
+            const std::string canonical_file =
+                std::filesystem::weakly_canonical(path).string();
+            if (canonical_file.rfind(canonical_root, 0) != 0) {
+                return "";
+            }
+        } catch (...) {
+            return "";
+        }
         std::error_code ec;
-        if (std::filesystem::is_directory(filename, ec)) {
-            filename = (std::filesystem::path(filename) / "index.html").string();
+        if (std::filesystem::is_directory(path, ec)) {
+            path = (std::filesystem::path(path) / "index.html").string();
         }
-        if (!std::filesystem::is_regular_file(filename, ec)) {
-            con->set_body("Not Found");
-            con->set_status(websocketpp::http::status_code::not_found);
-            return;
+        if (!std::filesystem::is_regular_file(path, ec)) {
+            return "";
         }
+        return path;
+    };
+
+    // A second receiver on the same box keeps only its own few files in
+    // html_root (site_information.json, wf-message.json, the users.json it
+    // writes) and takes everything else — the built frontend — from
+    // html_fallback_root, so one rebuild of frontend/dist reaches every
+    // receiver. The fallback gets the same boundary check as html_root.
+    filename = resolve_in(m_docroot);
+    if (filename.empty() && !m_fallback_root.empty()) {
+        filename = resolve_in(m_fallback_root);
+    }
+    if (filename.empty()) {
+        con->set_body("Not Found");
+        con->set_status(websocketpp::http::status_code::not_found);
+        return;
     }
 
     // NB: mime type is derived from the RESOLVED filename, so a directory

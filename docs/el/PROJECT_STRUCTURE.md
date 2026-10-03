@@ -19,6 +19,7 @@
 ## Δέντρο καταλόγων
 ```
 PhantomSDR-Plus
+├── add-receiver.sh            # προσθέτει έναν ακόμη δέκτη: οδηγός, instances/<όνομα>/, receivers.toml — δείτε docs/MULTI_RECEIVER.md
 ├── admin_config.json
 ├── admin_server.py
 ├── autorun
@@ -60,6 +61,7 @@ PhantomSDR-Plus
 │   │   ├── DECODERS.md
 │   │   ├── EDITING_VARIANTS.md
 │   │   ├── INSTALLATION.md
+│   │   ├── MULTI_RECEIVER.md
 │   │   ├── PhantomSDR-Plus-Documentation-DE.pdf
 │   │   ├── PROJECT_STRUCTURE.md
 │   │   ├── RADE_General_INSTALL_MANUAL_LINUX.md
@@ -78,6 +80,7 @@ PhantomSDR-Plus
 │   │   ├── DECODERS.md
 │   │   ├── EDITING_VARIANTS.md
 │   │   ├── INSTALLATION.md
+│   │   ├── MULTI_RECEIVER.md
 │   │   ├── PhantomSDR-Plus-Documentation-EL.pdf
 │   │   ├── PROJECT_STRUCTURE.md
 │   │   ├── RADE_General_INSTALL_MANUAL_LINUX.md
@@ -94,6 +97,7 @@ PhantomSDR-Plus
 │   │   ├── DECODERS.md
 │   │   ├── EDITING_VARIANTS.md
 │   │   ├── INSTALLATION.md
+│   │   ├── MULTI_RECEIVER.md
 │   │   ├── PhantomSDR-Plus-Documentation-ES.pdf
 │   │   ├── PROJECT_STRUCTURE.md
 │   │   ├── RADE_General_INSTALL_MANUAL_LINUX.md
@@ -110,6 +114,7 @@ PhantomSDR-Plus
 │   │   ├── DECODERS.md
 │   │   ├── EDITING_VARIANTS.md
 │   │   ├── INSTALLATION.md
+│   │   ├── MULTI_RECEIVER.md
 │   │   ├── PhantomSDR-Plus-Documentation-FR.pdf
 │   │   ├── PROJECT_STRUCTURE.md
 │   │   ├── RADE_General_INSTALL_MANUAL_LINUX.md
@@ -126,6 +131,7 @@ PhantomSDR-Plus
 │   │   ├── DECODERS.md
 │   │   ├── EDITING_VARIANTS.md
 │   │   ├── INSTALLATION.md
+│   │   ├── MULTI_RECEIVER.md
 │   │   ├── PhantomSDR-Plus-Documentation-HR.pdf
 │   │   ├── PROJECT_STRUCTURE.md
 │   │   ├── RADE_General_INSTALL_MANUAL_LINUX.md
@@ -136,6 +142,7 @@ PhantomSDR-Plus
 │   │   ├── THERMAL_GUARD.md
 │   │   └── USER_GUIDE.md
 │   ├── INSTALLATION.md
+│   ├── MULTI_RECEIVER.md
 │   ├── PhantomSDR-Plus-Documentation-EN.pdf
 │   ├── PROJECT_STRUCTURE.md
 │   ├── RADE_General_INSTALL_MANUAL_LINUX.md
@@ -150,6 +157,7 @@ PhantomSDR-Plus
 │   │   ├── DECODERS.md
 │   │   ├── EDITING_VARIANTS.md
 │   │   ├── INSTALLATION.md
+│   │   ├── MULTI_RECEIVER.md
 │   │   ├── PhantomSDR-Plus-Documentation-RU.pdf
 │   │   ├── PROJECT_STRUCTURE.md
 │   │   ├── RADE_General_INSTALL_MANUAL_LINUX.md
@@ -280,12 +288,15 @@ PhantomSDR-Plus
 │   │   │   ├── PassbandTuner.svelte
 │   │   │   ├── Popover.svelte
 │   │   │   ├── QrssPanel.svelte
+│   │   │   ├── receivers.js           # δεδομένα της επιλογής δέκτη (/receivers.json)
 │   │   │   ├── rnnoise.js     # φορτώνει το RNNoise για τη μείωση θορύβου AI
+│   │   │   ├── rx.js                  # σε ποιον δέκτη ανήκει μια σελίδα (?rx=)
 │   │   │   ├── SMeterAnalog.svelte
 │   │   │   ├── SMeterDigital.svelte
 │   │   │   ├── Spectrogram.svelte
 │   │   │   ├── StatusIndicators.svelte
 │   │   │   ├── storage.js
+│   │   │   ├── sUnits.js              # κλίμακα μονάδων S ανά συχνότητα (S9 = −93 dBm πάνω από 30 MHz)
 │   │   │   ├── Tooltip.svelte
 │   │   │   ├── VersionSelector.svelte
 │   │   │   ├── VideoAreaSelector.svelte
@@ -327,6 +338,7 @@ PhantomSDR-Plus
 │   │   ├── refused.js
 │   │   ├── remoteSource.js
 │   │   ├── scanner.js
+│   │   ├── siteInfo.js               # site_information.json, με επικάλυψη από το αντίγραφο του δέκτη
 │   │   ├── sstv.js
 │   │   ├── sstv.worker.js
 │   │   ├── sstvWorkerProxy.js
@@ -375,6 +387,7 @@ PhantomSDR-Plus
 ├── install_rade_ubuntu22.sh
 ├── install.sh
 ├── install-stats-server.sh
+├── instances                  # επιπλέον δέκτες, ένας φάκελος ο καθένας (όχι στο git) — δείτε docs/MULTI_RECEIVER.md
 ├── instructions-for-airspy
 ├── instructions-for-rsp1a
 ├── jsdsp
@@ -468,6 +481,7 @@ PhantomSDR-Plus
 ├── rade.sh
 ├── README.md
 ├── recompile.sh
+├── receivers.toml.example     # λίστα δεκτών για το proxy.py — αντιγράψτε σε receivers.toml
 ├── _relaunch.sh               # παλιό: βοηθός καθυστερημένης επανεκκίνησης της αλυσίδας go.sh
 ├── request.hpp
 ├── setup_admin.sh
@@ -477,6 +491,7 @@ PhantomSDR-Plus
 ├── setup-fobos.sh             # αλυσίδα driver Fobos: libfobos + SoapyFobosSDR + rx_sdr + cf32_to_real + udev
 ├── setup-hackrf.sh            # HackRF: πακέτο hackrf της διανομής + udev (τίποτα δεν χτίζεται)
 ├── setup-rsp1a.sh             # αλυσίδα driver RSP1A: libmirisdr-5 + SoapyMiri + rx_sdr + blacklist msi2500 + udev
+├── setup-rtlsdr.sh            # οδηγός RTL-SDR: πακέτο της διανομής, ή οδηγός Blog V4 από τον πηγαίο κώδικα + αποκλεισμός DVB + udev
 ├── setup-rx888-udev.sh
 ├── setup-sdr-common.sh        # κοινές βοηθητικές συναρτήσεις των τριών setup scripts παραπάνω
 ├── setup_websdr_relay.sh      # εγκαθιστά το relay diversity για WebSDR (θύρα, ταυτότητα, systemd)
@@ -524,6 +539,7 @@ PhantomSDR-Plus
 │   ├── websocket.cpp
 │   └── websocket.h
 ├── start-airspyhf.sh
+├── start-all.sh               # ξεκινά κάθε δέκτη του receivers.toml
 ├── start-fobos-hf.sh
 ├── start-fobos.sh
 ├── start-hackrf.sh
@@ -791,11 +807,12 @@ PhantomSDR-Plus
 
 ### Σενάρια εκκίνησης/διακοπής και συντήρησης
 
-Καθένα από τα παρακάτω `start-*.sh` είναι **αυτόνομος εκκινητής + watchdog + καταγραφέας**: σταματά κάθε στιγμιότυπο που εκτελείται, ανεβάζει τον δέκτη + τον `spectrumserver`, αποσυνδέεται στο παρασκήνιο, επανεκκινεί αυτόματα την αλυσίδα αν τερματιστεί και καταγράφει στο `logwebsdr.txt`. Μοιράζονται ένα κοινό σενάριο διακοπής και ένα μοναδικό κλείδωμα `flock` (εκτελείται μόνο ένας δέκτης κάθε φορά). Επεξεργαστείτε μόνο το τμήμα **RECEIVER CONFIGURATION** στην αρχή καθενός (ορίσματα δέκτη / ρυθμίσεις / όνομα διεργασίας). Τα έξι scripts εκκίνησης από το ίδιο πρότυπο (`start-airspyhf.sh`, `start-rtl.sh`, `start-rsp1a.sh`, `start-fobos.sh`, `start-fobos-hf.sh`, `start-hackrf.sh`) είναι πανομοιότυπα κάτω από αυτό το τμήμα· το `start-rx888mk2.sh` είναι ξεχωριστό script.
+Καθένα από τα παρακάτω `start-*.sh` είναι **αυτόνομος εκκινητής + watchdog + καταγραφέας**: σταματά κάθε στιγμιότυπο που εκτελείται, ανεβάζει τον δέκτη + τον `spectrumserver`, αποσυνδέεται στο παρασκήνιο, επανεκκινεί αυτόματα την αλυσίδα αν τερματιστεί και καταγράφει στο `logwebsdr.txt`. Μοιράζονται ένα κοινό σενάριο διακοπής και ένα μοναδικό κλείδωμα `flock` (εκτελείται μόνο ένας δέκτης κάθε φορά). Επεξεργαστείτε μόνο το τμήμα **RECEIVER CONFIGURATION** στην αρχή καθενός (ορίσματα δέκτη / ρυθμίσεις / όνομα διεργασίας). Τα έξι scripts εκκίνησης από το ίδιο πρότυπο (`start-airspyhf.sh`, `start-rtl.sh`, `start-rsp1a.sh`, `start-fobos.sh`, `start-fobos-hf.sh`, `start-hackrf.sh`) είναι πανομοιότυπα κάτω από αυτό το τμήμα· το `start-rx888mk2.sh` είναι ξεχωριστό script. Από την v5.0.0 πολλοί δέκτες μπορούν να τρέχουν δίπλα-δίπλα: αν ένα σενάριο εκκίνησης ξεκινήσει με `INSTANCE=<όνομα>`, ο δέκτης παίρνει δικό του φάκελο στο `instances/<όνομα>/` και δικό του log, κλείδωμα και FIFO — δείτε [Πολλοί δέκτες](MULTI_RECEIVER.md).
 
 | Σενάριο | Σκοπός |
 |---------|--------|
 | `install.sh` | Αυτοματοποιημένη εγκατάσταση και μεταγλώττιση |
+| `add-receiver.sh` | Προσθέτει έναν ακόμη δέκτη σε αυτόν τον υπολογιστή: ρωτά ποιον δέκτη και τι καλύπτει, εγκαθιστά τον οδηγό του, δημιουργεί το `instances/<όνομα>/` και την καταχώριση στο `receivers.toml`, και προσφέρεται να τον ξεκινήσει και να επανεκκινήσει τον proxy. Τα σενάρια εγκατάστασης το προσφέρουν στο τέλος — δείτε [Πολλοί δέκτες](MULTI_RECEIVER.md) |
 | `start-rtl.sh` | Εκκίνηση + watchdog του διακομιστή με RTL-SDR (`rtl_sdr`) |
 | `start-rsp1a.sh` | Εκκίνηση + watchdog του διακομιστή με SDRplay RSP1A (`rx_sdr`)· χρησιμοποιεί το libmirisdr-5, ή το API της SDRplay όταν είναι εγκατεστημένο (το `RX_DRIVER` επιβάλλει έναν) |
 | `start-airspyhf.sh` | Εκκίνηση + watchdog του διακομιστή με Airspy HF+ (`rx_sdr`) |
@@ -803,10 +820,13 @@ PhantomSDR-Plus
 | `start-fobos.sh` | Εκκίνηση + watchdog του διακομιστή με RigExpert Fobos SDR, κλάδος RF (`rx_sdr`) |
 | `start-hackrf.sh` | Εκκίνηση + watchdog του διακομιστή με HackRF One (`hackrf_transfer`) |
 | `start-rx888mk2.sh` | Εκκίνηση + watchdog του διακομιστή με RX888 MK2 (`rx888_stream`) |
+| `start-all.sh` | Ξεκινά κάθε δέκτη του `receivers.toml` μέσω του δικού του σεναρίου εκκίνησης — ορίστε το ως σενάριο εκκίνησης του πίνακα διαχείρισης σε σταθμό με πολλούς δέκτες· δείτε [Πολλοί δέκτες](MULTI_RECEIVER.md) |
 | `stop-websdr.sh` | Διακοπή του διακομιστή και του watchdog του — κοινό για όλους τους δέκτες |
+| `stop-websdr.sh <instance>` | Σταματά μόνο έναν δέκτη (`main` για τον κύριο)· χωρίς όρισμα σταματούν όλοι οι δέκτες, όπως πριν |
 | `setup-rx888-udev.sh` | Εγκαθιστά κανόνες udev ώστε το `rx888_stream` του RX-888 να τρέχει χωρίς sudo |
 | `setup-rsp1a.sh` / `setup-fobos.sh` / `setup-airspyhf.sh` | Εγκαθιστούν την αλυσίδα driver SoapySDR για RSP1A, Fobos ή Airspy HF+ — SoapySDR από τη διανομή, driver και rx_tools χτισμένα στο `sdr_drivers/`, κανόνας udev — σε οποιαδήποτε από τις τέσσερις υποστηριζόμενες διανομές. Τα καλούν οι επιλογές 3, 5 και 6 του προγράμματος εγκατάστασης· τρέχουν και μόνα τους. Κοινός κώδικας στο `setup-sdr-common.sh` — δείτε τον [Οδηγό εγκατάστασης](INSTALLATION.md#δέκτες-μέσω-soapysdr-rsp1a-fobos-airspy-hf) |
 | `setup-hackrf.sh` | Εγκαθιστά το πακέτο `hackrf` της διανομής και κανόνα udev για τον HackRF One, σε οποιαδήποτε από τις τέσσερις υποστηριζόμενες διανομές· το καλεί η επιλογή 7 του προγράμματος εγκατάστασης |
+| `setup-rtlsdr.sh` | Εγκαθιστά τον οδηγό RTL-SDR σε οποιαδήποτε από τις τέσσερις υποστηριζόμενες διανομές — το πακέτο `rtl-sdr` της διανομής, ή με `RTL_V4=y` τον οδηγό του RTL-SDR Blog V4 χτισμένο από τον πηγαίο κώδικα — αποκλείει τον οδηγό DVB-T και προσθέτει κανόνα udev· το καλεί το `add-receiver.sh` |
 | `setup-firewall.sh` | Προαιρετική προστασία από πλημμύρα σε επίπεδο πυρήνα: φορτώνει έναν πίνακα nftables με ταβάνι ταυτόχρονων συνδέσεων και ρυθμό ανά διεύθυνση προέλευσης στις θύρες του δέκτη, φρένο για επιθέσεις στο SSH, και το Windows file sharing κλειστό εκτός ιδιωτικών περιοχών. Χρειάζεται root, δεν μπορεί να σας κλειδώσει έξω (policy accept, οι εδραιωμένες συνδέσεις γίνονται δεκτές πρώτες) και το `--apply` αναιρείται μόνο του αν δεν επιβεβαιωθεί μέσα σε 60 δευτ. — δείτε [Όρια συνδέσεων](CONNECTION_LIMITS.md) |
 | `setup-cpufreq-perms.sh` | Δίνει σε μια ομάδα `cpufreq` δικαίωμα εγγραφής στο όριο συχνότητας της CPU, ώστε το στάδιο throttle της θερμικής προστασίας να δουλεύει χωρίς root. Εγκαθιστά κανόνα `tmpfiles.d` ώστε να επιβιώνει επανεκκίνησης· το `--revoke` το αναιρεί |
 | `update.sh` | Ενημέρωση της εγκατάστασης από το δημοσιευμένο δέντρο, χωρίς να θιγούν η διαμόρφωση, οι σημάνσεις, η λίστα συχνοτήτων και οι δικές σας αλλαγές — δείτε τον [Οδηγό εγκατάστασης](INSTALLATION.md) |

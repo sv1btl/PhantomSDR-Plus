@@ -23,6 +23,7 @@ PhantomSDR-Plus is a fork of PhantomSDR that provides a high-performance Softwar
 - **One-touch decoder buttons**: A Decoders row sits on the main panel directly under the Modes selector (FT8, FT4, FT2, CW, WSPR, FAX, SSTV, NAVTEX, RTTY), with RADEL and RADEU beside the Modes selector itself and repeated in the Modes and Bands pop-ups. One press starts the decoder and opens its window, a second press stops it. The old Bandwidth row has been removed.
 - **Channel scanner**: sweeps the band, or exactly what the waterfall is showing, and stops on the first channel rising a chosen number of dB above the band's own noise floor, then carries on by itself once that channel goes quiet. The step follows the mode and stops land on the channel grid (1 kHz SSB, 100 Hz CW, 5 kHz shortwave AM, 9/10 kHz medium wave, 9 kHz long wave); a *Skip empty* mode reads the waterfall spectrum and jumps straight to the signals; a lockout button drops an always-busy channel out of the sweep. Everything is local to the listener's browser, so scanning never moves the receiver for anyone else (see [User Guide](USER_GUIDE.md))
 - **Receive diversity**: pairs the receiver with a second one somewhere else and plays whichever of the two currently has the better signal, so a fade at one site is covered by the other. The partner can be another PhantomSDR-Plus, a KiwiSDR, an UberSDR or a WebSDR; the first three need nothing beyond the listener's browser, and only a WebSDR needs a small relay on your own server. Alignment takes about fifteen seconds, and a remote SNR trim balances the two sites against each other. Each listener keeps a named list of second receivers in their own browser, in whatever order they choose, and can export it to a file and import it back (see [Receive Diversity](RECEIVE_DIVERSITY.md))
+- **Several receivers, one page**: one computer can run two or more receivers at once — for example an RX-888 for HF and an RTL-SDR for 2 m — and listeners switch between them with buttons in the page header. Each receiver keeps its own waterfall, chat, markers, listener list and station details, and the S-meter reads VHF S-units (S9 = −93 dBm) above 30 MHz (see [Several Receivers](MULTI_RECEIVER.md))
 
 ### Signal Processing
 - **Multiple demodulation modes**: AM, FM, USB, LSB, CW, and more. A version 1 RADE decoder has also been implemented.
@@ -30,6 +31,7 @@ PhantomSDR-Plus is a fork of PhantomSDR that provides a high-performance Softwar
 - **Noise reduction**: Advanced NR, NC (Noise Cancel), and NB (Noise Blanker)
 - **AGC options**: Multiple Automatic Gain Control modes
 - **Auto squelch**: Automatic noise-based squelch threshold
+- **CTCSS tone squelch**: FM audio passes only while the chosen subtone — or any standard one — is received; the tone is picked from a small window beside the CTCSS button, which then shows it
 - **AI noise reduction**: RNNoise neural network in the listener's browser, removes band noise from speech (voice modes only; see [User Guide](USER_GUIDE.md))
 
 ### Advanced Features
@@ -335,6 +337,7 @@ All four GUI variants (analog/digital S-meter x v1/v2 layout) live in the one bu
 - **[USER_GUIDE.md](USER_GUIDE.md)** - End-user guide for operating the WebSDR
 - **[THERMAL_GUARD.md](THERMAL_GUARD.md)** - Sysop manual for the CPU over-temperature guard: the four modes and what to do with each
 - **[CONNECTION_LIMITS.md](CONNECTION_LIMITS.md)** - Sysop manual for connection limits: protecting a public receiver from connection floods
+- **[MULTI_RECEIVER.md](MULTI_RECEIVER.md)** - Sysop manual for running several receivers on one computer: instances, `receivers.toml`, the receiver picker and `start-all.sh`
 - **[PROJECT_STRUCTURE.md](PROJECT_STRUCTURE.md)** - Directory structure and code organization
 - **[EDITING_VARIANTS.md](EDITING_VARIANTS.md)** - How to edit the frontend variants (S-meter and layout) and rebuild them
 

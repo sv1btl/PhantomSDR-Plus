@@ -13,6 +13,11 @@ Routes:
   /admin*  → Admin panel     (localhost:{port})
   /*       → Spectrumserver  ({sdr_host}:{public_port})
 
+Several receivers on one port: see receivers.toml.example. With a
+receivers.toml next to this file, /* goes to one of the receivers listed there
+(chosen by ?rx=, the rx cookie, the Host header, else the default), and the
+proxy can also listen on the public port the listeners already use.
+
 Note on sdr_host
 ----------------
 Older versions had to set this to the machine's LAN IP because spectrumserver
@@ -72,6 +77,126 @@ LISTEN_PORT    = int(_cfg["proxy_port"])
 ADMIN_UPSTREAM = f"http://127.0.0.1:{int(_cfg['port'])}"
 SDR_UPSTREAM   = f"http://{_sdr_host}:{_sdr_port}"
 
+# ── Several receivers behind one port (receivers.toml) ─────────────────────────
+# Optional. Without the file there is one SDR upstream, exactly as before. With
+# it, every non-admin request goes to one of the receivers listed there, chosen
+# in this order:
+#   1. ?rx=<id> in the URL — the page, and every socket and poll it opens
+#      (frontend/src/lib/rx.js adds it)
+#   2. the rx cookie, set on any response to a request with a valid ?rx=
+#   3. the receiver whose `hostnames` list holds the Host header's name
+#   4. the default receiver
+# A Kiwi client carries none of these, so it always lands on the default.
+# [front] port is a second listening port next to proxy_port: the public port
+# the listeners, the directories and websdr.org already know.
+RX_COOKIE   = "rx"
+RECEIVERS: "dict[str, dict]" = {}
+DEFAULT_RX  = ""
+FRONT_PORT  = 0
+_rx_path = Path(__file__).parent / "receivers.toml"
+if _rx_path.exists():
+    try:
+        import tomllib
+        with open(_rx_path, "rb") as _f:
+            _rxcfg = tomllib.load(_f)
+    except Exception as _e:
+        print(f"[ERROR] {_rx_path.name}: {_e}", file=sys.stderr)
+        sys.exit(1)
+    for _r in _rxcfg.get("receiver", []):
+        _id = str(_r.get("id", "")).strip()
+        if not re.fullmatch(r"[A-Za-z0-9_-]+", _id) or "port" not in _r:
+            print(f"[ERROR] {_rx_path.name}: every [[receiver]] needs an id "
+                  f"(letters, digits, - and _) and a port", file=sys.stderr)
+            sys.exit(1)
+        RECEIVERS[_id] = {
+            "name":      str(_r.get("name", _id)),
+            "upstream":  f"http://{_r.get('host', _sdr_host)}:{int(_r['port'])}",
+            "host":      str(_r.get("host", _sdr_host)),
+            "port":      int(_r["port"]),
+            "hostnames": [str(h).lower() for h in _r.get("hostnames", [])],
+            # Where the page's receiver picker sends a visitor. Absolute when
+            # the receiver has its own public port; else this proxy + ?rx=.
+            "url":       str(_r.get("url") or ("/?rx=" + _id)),
+        }
+        if _r.get("default"):
+            if DEFAULT_RX:
+                print(f"[ERROR] {_rx_path.name}: more than one default receiver",
+                      file=sys.stderr)
+                sys.exit(1)
+            DEFAULT_RX = _id
+    if not RECEIVERS:
+        print(f"[ERROR] {_rx_path.name}: no [[receiver]] entries", file=sys.stderr)
+        sys.exit(1)
+    DEFAULT_RX   = DEFAULT_RX or next(iter(RECEIVERS))
+    SDR_UPSTREAM = RECEIVERS[DEFAULT_RX]["upstream"]
+    FRONT_PORT   = int(_rxcfg.get("front", {}).get("port", 0) or 0)
+
+
+def _pick_receiver(request: web.Request) -> "tuple[str, str]":
+    """Return (upstream, id to remember in the rx cookie, or "")."""
+    if not RECEIVERS:
+        return SDR_UPSTREAM, ""
+    rid = request.query.get("rx", "")
+    if rid in RECEIVERS:
+        return RECEIVERS[rid]["upstream"], rid
+    rid = request.cookies.get(RX_COOKIE, "")
+    if rid in RECEIVERS:
+        return RECEIVERS[rid]["upstream"], ""
+    host = (request.host or "").lower()
+    host = host[:host.rfind(":")] if host.rfind(":") > host.rfind("]") else host
+    for rid, r in RECEIVERS.items():
+        if host in r["hostnames"]:
+            return r["upstream"], ""
+    return SDR_UPSTREAM, ""
+
+
+def _upstream_path(request: web.Request) -> str:
+    """The request path and query for the upstream, minus our own rx=: it
+    only picks the receiver, and spectrumserver matches some paths (/users)
+    exactly, query and all."""
+    url = request.rel_url
+    if "rx" in url.query:
+        rest = [(k, v) for k, v in url.query.items() if k != "rx"]
+        url = url.with_query(rest or None)
+    return str(url)
+
+
+# Which receivers answer right now, for /receivers.json: a stopped receiver
+# drops out of the page's picker instead of leading to an error page. One TCP
+# connect per receiver, half a second at most, and the answer is reused for
+# a few seconds so that every open page re-reading the list costs nothing.
+_UP_CACHE: "dict[str, bool]" = {}
+_UP_CACHE_AT = 0.0
+_UP_CACHE_S = 5.0
+
+
+async def _receiver_up(r: dict) -> bool:
+    try:
+        _reader, writer = await asyncio.wait_for(
+            asyncio.open_connection(r["host"], r["port"]), timeout=0.5)
+        writer.close()
+        return True
+    except Exception:
+        return False
+
+
+async def _receivers_up() -> "dict[str, bool]":
+    global _UP_CACHE, _UP_CACHE_AT
+    now = asyncio.get_running_loop().time()
+    if now - _UP_CACHE_AT > _UP_CACHE_S:
+        ids = list(RECEIVERS)
+        results = await asyncio.gather(*(_receiver_up(RECEIVERS[i]) for i in ids))
+        _UP_CACHE, _UP_CACHE_AT = dict(zip(ids, results)), now
+    return _UP_CACHE
+
+
+def _local_port(request: web.Request) -> int:
+    """The port this request arrived on (proxy_port or the front port)."""
+    try:
+        return int(request.transport.get_extra_info("sockname")[1])
+    except Exception:
+        return LISTEN_PORT
+
 # ── Active WebSocket registry (powers the admin "kick") ─────────────────────────
 # proxy.py owns every client WebSocket, so it can disconnect a user simply by
 # closing the matching ws_client — no CAP_NET_ADMIN / 'ss -K' privilege needed.
@@ -111,7 +236,7 @@ async def handle_kick(request: web.Request) -> web.Response:
     Called by admin_server.py's /admin/api/kick. Restricted to loopback so it
     can never be reached by an external client through the public proxy port.
     """
-    if _norm_ip(request.remote) not in ("127.0.0.1", "::1"):
+    if not _is_local(request):
         return web.json_response({"ok": False, "msg": "forbidden"}, status=403)
     try:
         data = await request.json()
@@ -132,17 +257,32 @@ async def handle_kick(request: web.Request) -> web.Response:
             pass
     return web.json_response({"ok": True, "count": closed})
 
+# ── Client-identity headers ───────────────────────────────────────────────────
+# spectrumserver believes X-Forwarded-For / X-Real-IP from a loopback peer, and
+# every connection this proxy makes to it IS loopback. Whatever a client sends
+# in these headers is therefore dropped (in any letter case) before ours are
+# added, or a visitor could claim to be 127.0.0.1 and skip the per-IP limits.
+_CLIENT_ID_HEADERS = frozenset(("x-forwarded-for", "x-forwarded-host",
+                                "x-forwarded-proto", "x-forwarded-port",
+                                "x-real-ip", "forwarded"))
+
+
+def _is_local(request: web.Request) -> bool:
+    return _norm_ip(request.remote) in ("127.0.0.1", "::1")
+
 # ─────────────────────────────────────────────────────────────────────────────
 
-async def proxy_request(request: web.Request, upstream: str) -> web.StreamResponse:
-    url = upstream + str(request.rel_url)
+async def proxy_request(request: web.Request, upstream: str,
+                        set_rx: str = "") -> web.StreamResponse:
+    url = upstream + _upstream_path(request)
     headers = {k: v for k, v in request.headers.items()
-               if k.lower() not in ("host", "content-length", "accept-encoding")}
+               if k.lower() not in ("host", "content-length", "accept-encoding")
+               and k.lower() not in _CLIENT_ID_HEADERS}
     headers["Accept-Encoding"]   = "identity"
     headers["X-Forwarded-For"]   = request.remote or ""
     headers["X-Forwarded-Host"]  = request.headers.get("Host", "")
     headers["X-Forwarded-Proto"] = "http"
-    headers["X-Forwarded-Port"]  = str(LISTEN_PORT)
+    headers["X-Forwarded-Port"]  = str(_local_port(request))
     try:
         timeout = ClientTimeout(total=60)
         async with ClientSession(timeout=timeout) as session:
@@ -160,6 +300,9 @@ async def proxy_request(request: web.Request, upstream: str) -> web.StreamRespon
                     headers={k: v for k, v in resp.headers.items()
                              if k.lower() not in ("transfer-encoding", "connection")},
                 )
+                if set_rx:
+                    response.set_cookie(RX_COOKIE, set_rx, max_age=31536000,
+                                        path="/", samesite="Lax")
                 await response.prepare(request)
                 async for chunk in resp.content.iter_chunked(65536):
                     await response.write(chunk)
@@ -202,17 +345,18 @@ async def proxy_websocket(request: web.Request, upstream: str) -> web.WebSocketR
     client_ip = _norm_ip(request.remote)
     _register_ws(client_ip, ws_client)
 
-    ws_url = upstream.replace("http://", "ws://") + str(request.rel_url)
+    ws_url = upstream.replace("http://", "ws://") + _upstream_path(request)
 
     _skip = frozenset(("host", "upgrade", "connection",
                         "sec-websocket-key", "sec-websocket-version",
                         "sec-websocket-protocol", "sec-websocket-extensions"))
     fwd_headers = {k: v for k, v in request.headers.items()
-                   if k.lower() not in _skip}
+                   if k.lower() not in _skip
+                   and k.lower() not in _CLIENT_ID_HEADERS}
     fwd_headers["X-Forwarded-For"]   = request.remote or ""
     fwd_headers["X-Forwarded-Host"]  = request.headers.get("Host", "")
     fwd_headers["X-Forwarded-Proto"] = "ws"
-    fwd_headers["X-Forwarded-Port"]  = str(LISTEN_PORT)
+    fwd_headers["X-Forwarded-Port"]  = str(_local_port(request))
 
     try:
         async with ClientSession() as session:
@@ -234,11 +378,14 @@ async def proxy_websocket(request: web.Request, upstream: str) -> web.WebSocketR
                                 await ws_upstream.send_str(msg.data)
                             elif msg.type == WSMsgType.BINARY:
                                 await ws_upstream.send_bytes(msg.data)
-                            elif msg.type == WSMsgType.CLOSE:
-                                await ws_upstream.close()
-                                break
                             elif msg.type == WSMsgType.ERROR:
                                 break
+                        # The loop ends at the browser's close frame without
+                        # yielding it (aiohttp's iterator swallows it), so the
+                        # close is passed on here, code and all.
+                        if not ws_upstream.closed:
+                            await ws_upstream.close(
+                                code=ws_client.close_code or 1000)
 
                     async def forward_down():
                         """Spectrumserver → Browser"""
@@ -247,14 +394,16 @@ async def proxy_websocket(request: web.Request, upstream: str) -> web.WebSocketR
                                 await ws_client.send_str(msg.data)
                             elif msg.type == WSMsgType.BINARY:
                                 await ws_client.send_bytes(msg.data)
-                            elif msg.type == WSMsgType.CLOSE:
-                                await ws_client.close(
-                                    code=ws_upstream.close_code or 1000,
-                                    message=b"upstream closed",
-                                )
-                                break
                             elif msg.type == WSMsgType.ERROR:
                                 break
+                        # Same here: the server's close frame ends the loop
+                        # unseen, and its code is what the page acts on (4003
+                        # refused by a limit, 4001 kicked by the sysop), so
+                        # it must reach the browser rather than a plain 1000.
+                        if not ws_client.closed:
+                            await ws_client.close(
+                                code=ws_upstream.close_code or 1000,
+                                message=b"upstream closed")
 
                     task_up   = asyncio.ensure_future(forward_up())
                     task_down = asyncio.ensure_future(forward_down())
@@ -291,10 +440,31 @@ async def proxy_websocket(request: web.Request, upstream: str) -> web.WebSocketR
 async def handle(request: web.Request) -> web.StreamResponse:
     if request.path == "/__proxy_control/kick":
         return await handle_kick(request)
-    upstream = ADMIN_UPSTREAM if request.path.startswith("/admin") else SDR_UPSTREAM
+    # spectrumserver's /~~kick is allowed for a loopback TCP peer — and to it,
+    # everything relayed from here is loopback. Without this check anyone who
+    # could reach this port could disconnect and ban any listener.
+    if "~~kick" in request.path and not _is_local(request):
+        return web.json_response({"ok": False, "msg": "forbidden"}, status=403)
+    if request.path.startswith("/admin"):
+        upstream, set_rx = ADMIN_UPSTREAM, ""
+    elif request.path == "/receivers.json" and RECEIVERS:
+        # The receiver list for the page's picker: ids, names and public URLs,
+        # never the internal ports — and only the receivers that are running,
+        # so a stopped one's button disappears. Readable cross-origin, because
+        # a receiver with its own public port serves its page from another
+        # origin.
+        up = await _receivers_up()
+        return web.json_response(
+            [{"id": rid, "name": r["name"], "url": r["url"],
+              "default": rid == DEFAULT_RX}
+             for rid, r in RECEIVERS.items() if up.get(rid, True)],
+            headers={"Cache-Control": "no-cache",
+                     "Access-Control-Allow-Origin": "*"})
+    else:
+        upstream, set_rx = _pick_receiver(request)
     if request.headers.get("Upgrade", "").lower() == "websocket":
         return await proxy_websocket(request, upstream)
-    return await proxy_request(request, upstream)
+    return await proxy_request(request, upstream, set_rx)
 
 
 # ── Access-log noise filter ───────────────────────────────────────────────────
@@ -344,6 +514,8 @@ async def main():
     await runner.setup()
     site = web.TCPSite(runner, LISTEN_HOST, LISTEN_PORT)
     await site.start()
+    if FRONT_PORT and FRONT_PORT != LISTEN_PORT:
+        await web.TCPSite(runner, LISTEN_HOST, FRONT_PORT).start()
 
     print(f"╔══════════════════════════════════════════════════════╗")
     print(f"║  PhantomSDR-Plus Reverse Proxy                       ║")
@@ -351,6 +523,12 @@ async def main():
     print(f"║  /admin*   → Admin panel  (localhost:{int(_cfg['port']):<5})        ║")
     print(f"║  /*        → SDR server   ({_sdr_host}:{_sdr_port:<5})  ║")
     print(f"╚══════════════════════════════════════════════════════╝")
+    if RECEIVERS:
+        if FRONT_PORT and FRONT_PORT != LISTEN_PORT:
+            print(f"  also listening on :{FRONT_PORT} (receivers.toml [front])")
+        for rid, r in RECEIVERS.items():
+            mark = "  (default)" if rid == DEFAULT_RX else ""
+            print(f"  ?rx={rid:<8} → {r['upstream']}  {r['name']}{mark}")
 
     await asyncio.Event().wait()
 

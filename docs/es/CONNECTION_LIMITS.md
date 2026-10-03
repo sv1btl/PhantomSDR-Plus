@@ -107,6 +107,8 @@ per_ip_ban_s=600    # cuánto se rechaza a una dirección que rompe el ritmo
 
 Esto cubre también `proxy.py`: las conexiones a través del proxy llegan a `spectrumserver` desde loopback, y la dirección real del cliente llega en la cabecera `X-Forwarded-For`, que es sobre la que se aplican los límites.
 
+Desde la v5.0.0 esa cabecera se cree **solo si viene de un par loopback** — un proxy en la misma máquina. Enviada por cualquier otro se ignora y cuenta la dirección TCP, porque de lo contrario un visitante directo podría escribir `X-Forwarded-For: 127.0.0.1` y pasar como loopback por encima de todos los límites de esta página. `proxy.py` además descarta cualquier `X-Forwarded-For` o `X-Real-IP` que envíe un cliente antes de añadir los suyos, y solo responde a la expulsión del sysop (`/~~kick`) para clientes de la misma máquina. Una estación con varios receptores detrás del proxy se describe en [Varios receptores](MULTI_RECEIVER.md); allí los límites se aplican por receptor.
+
 ---
 
 ## 4. Conexiones inactivas

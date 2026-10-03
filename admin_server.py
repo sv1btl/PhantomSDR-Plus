@@ -497,6 +497,31 @@ def get_cpu_frequency():
     return (None, None, None)
 
 
+def _receivers_toml():
+    """receivers.toml next to proxy.py (several receivers on one port), or {}."""
+    try:
+        import tomllib
+        with open(BASE_DIR / "receivers.toml", "rb") as f:
+            return tomllib.load(f)
+    except Exception:
+        return {}
+
+
+def _sdr_ports():
+    """Every spectrumserver port on this box: public_port first, then any other
+    receiver receivers.toml lists. One entry on a single-receiver station."""
+    cfg = load_admin_config()
+    ports = [int(cfg.get("public_port", PUBLIC_PORT))]
+    for r in _receivers_toml().get("receiver", []):
+        try:
+            p = int(r.get("port"))
+        except (TypeError, ValueError):
+            continue
+        if p not in ports:
+            ports.append(p)
+    return ports
+
+
 def count_connected_users():
     """Number of clients currently on the WebSDR, or None if it cannot be read.
 
@@ -504,16 +529,17 @@ def count_connected_users():
     rather than counting sockets with 'ss', which cannot see past the proxy.
     """
     import urllib.request
-    try:
-        cfg = load_admin_config()
-        port = int(cfg.get("public_port", PUBLIC_PORT))
-        with urllib.request.urlopen("http://127.0.0.1:%d/users" % port, timeout=2) as r:
-            d = json.loads(r.read().decode())
-        if isinstance(d.get("total"), int):
-            return d["total"]
-        return len(d.get("users", []))
-    except Exception:
-        return None
+    total, seen = 0, False
+    # Summed over every receiver; one that is down just adds nothing.
+    for port in _sdr_ports():
+        try:
+            with urllib.request.urlopen("http://127.0.0.1:%d/users" % port, timeout=2) as r:
+                d = json.loads(r.read().decode())
+        except Exception:
+            continue
+        seen = True
+        total += d["total"] if isinstance(d.get("total"), int) else len(d.get("users", []))
+    return total if seen else None
 
 
 def _graph_sampler():
@@ -1341,7 +1367,7 @@ table.markers input:focus{background:#071207;outline:1px solid var(--border);}
     <div class="sidebar-logo">
       <div class="icon">📡</div>
       <div class="title">PHANTOM<span style="color:var(--amber)">SDR</span></div>
-      <div class="sub">ADMIN v4.1.0</div>
+      <div class="sub">ADMIN v5.0.0</div>
     </div>
     <div class="nav-section">
       <div class="nav-label">MAIN</div>
@@ -4661,7 +4687,10 @@ def api_users():
     cfg = load_admin_config()
     proxy_port  = int(cfg.get("proxy_port") or 0)
     public_port = int(cfg.get("public_port", 8900))
-    ports = [p for p in {proxy_port, public_port} if p]
+    # With receivers.toml the listeners' sockets end on its [front] port (the
+    # proxy now owns the public port), so that one is scanned as well.
+    front_port  = int((_receivers_toml().get("front") or {}).get("port") or 0)
+    ports = [p for p in {proxy_port, public_port, front_port} if p]
     # Connections the proxy itself opens to spectrumserver originate from
     # sdr_host — never a real client, so drop them.
     relay_ip = (cfg.get("sdr_host") or "").strip()
@@ -4735,17 +4764,22 @@ def _server_kick(ip, ban_s=0):
     """
     import urllib.request, urllib.parse
     cfg = load_admin_config()
-    port = cfg.get("public_port")
-    if not port:
+    if not cfg.get("public_port"):
         return (False, None, "no public_port configured")
-    url = "http://127.0.0.1:%d/~~kick?%s" % (
-        int(port), urllib.parse.urlencode({"ip": ip, "secs": int(ban_s)}))
-    try:
-        with urllib.request.urlopen(url, timeout=5) as resp:
-            d = json.loads(resp.read().decode())
-        return (bool(d.get("ok")), int(d.get("count", 0)), None)
-    except Exception as e:
-        return (False, None, str(e))
+    # Every receiver: the listener may be on any of them, or on several.
+    query = urllib.parse.urlencode({"ip": ip, "secs": int(ban_s)})
+    ok, count, err = False, None, None
+    for port in _sdr_ports():
+        url = "http://127.0.0.1:%d/~~kick?%s" % (port, query)
+        try:
+            with urllib.request.urlopen(url, timeout=5) as resp:
+                d = json.loads(resp.read().decode())
+        except Exception as e:
+            err = err or str(e)
+            continue
+        ok = ok or bool(d.get("ok"))
+        count = (count or 0) + int(d.get("count", 0))
+    return (ok, count, None if count is not None else err)
 
 
 @app.route("/admin/api/kick", methods=["POST"])

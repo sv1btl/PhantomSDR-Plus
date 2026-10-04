@@ -8833,7 +8833,7 @@
                     <ul style="font-size: 0.91rem; text-align: left;">
                     <b>Setup &amp; Configuration:</b>
                       <img
-                        src="https://img.shields.io/badge/version- 4.2.0-cyan?logo=github"
+                        src="https://img.shields.io/badge/version- 5.0.0-cyan?logo=github"
                         alt="Version"
                         class="inline-block align-middle ml-2"
                       />

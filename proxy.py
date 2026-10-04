@@ -484,7 +484,7 @@ async def handle(request: web.Request) -> web.StreamResponse:
 # nothing about who used the receiver, which is the point of an access log.
 _QUIET_PATHS = ("/admin/api/status", "/admin/api/thermal", "/admin/api/logs",
                 "/admin/api/logs/clear",
-                "/admin/api/autorun/status", "/admin/api/users",
+                "/admin/api/autorun/status", "/admin/api/users", "/admin/api/sdr-users",
                 "/admin/api/graph-stats", "/admin/api/chat")
 _ACCESS_RE = re.compile(r'"[A-Z]+ (?P<path>[^ ?"]+)[^"]*" (?P<status>\d{3})')
 

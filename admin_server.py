@@ -1940,6 +1940,7 @@ table.markers input:focus{background:#071207;outline:1px solid var(--border);}
             <thead>
               <tr>
                 <th style="color:var(--text3);font-weight:normal;letter-spacing:.1em;padding:.4rem .6rem;border-bottom:1px solid var(--border);text-align:left;white-space:nowrap;">IP / LOCATION</th>
+                <th id="users-rx-th" style="display:none;color:var(--text3);font-weight:normal;letter-spacing:.1em;padding:.4rem .6rem;border-bottom:1px solid var(--border);text-align:left;white-space:nowrap;">RECEIVER</th>
                 <th style="color:var(--text3);font-weight:normal;letter-spacing:.1em;padding:.4rem .6rem;border-bottom:1px solid var(--border);text-align:left;white-space:nowrap;">FREQUENCY</th>
                 <th style="color:var(--text3);font-weight:normal;letter-spacing:.1em;padding:.4rem .6rem;border-bottom:1px solid var(--border);text-align:left;white-space:nowrap;">MODE</th>
                 <th style="color:var(--text3);font-weight:normal;letter-spacing:.1em;padding:.4rem .6rem;border-bottom:1px solid var(--border);text-align:left;white-space:nowrap;">DURATION</th>
@@ -3587,16 +3588,22 @@ async function loadUsers() {
   function msgRow(msg, color) {
     tbody.innerHTML = '';
     var tr = document.createElement('tr'); var td = document.createElement('td');
-    td.colSpan = 5;
+    td.colSpan = 6;
     td.style.cssText = 'color:' + (color||'var(--text3)') + ';text-align:center;padding:.8rem;';
     td.textContent = msg; tr.appendChild(td); tbody.appendChild(tr);
   }
   if (tbody) msgRow('Loading...', 'var(--text3)');
   try {
-    var r = await fetch('/users', {cache: 'no-store'});
+    // Through the admin API, not /users: proxy.py would route that by the rx
+    // cookie and show only the receiver last opened with ?rx=.
+    var r = await fetch('/admin/api/sdr-users', {cache: 'no-store'});
     if (!r.ok) throw new Error('HTTP ' + r.status);
     var data = await r.json();
+    if (!data.ok) throw new Error(data.error || 'no receiver answered');
     var users = data.users || [];
+    var multi = !!data.multi;
+    var rxTh = document.getElementById('users-rx-th');
+    if (rxTh) rxTh.style.display = multi ? '' : 'none';
     if (errEl) errEl.style.display = 'none';
     if (info)  info.textContent = users.length + ' connected';
     if (!tbody) return;
@@ -3619,6 +3626,13 @@ async function loadUsers() {
         tdGeo.textContent = u.ip || '--';
       }
       tr.appendChild(tdGeo);
+      // Receiver (only with several receivers)
+      if (multi) {
+        var tdRx = document.createElement('td');
+        tdRx.style.cssText = CL + 'color:var(--text2);font-size:.7rem;';
+        tdRx.textContent = u.rx || '--';
+        tr.appendChild(tdRx);
+      }
       // Frequency
       var tdF = document.createElement('td');
       tdF.style.cssText = CL + 'color:var(--amber);';
@@ -3656,7 +3670,7 @@ async function loadUsers() {
       if (!liveIds.has(id)) delete _uConnTimes[id];
     });
   } catch(e) {
-    if (errEl) { errEl.textContent = 'Cannot reach /users: ' + e.message; errEl.style.display = 'block'; }
+    if (errEl) { errEl.textContent = 'Cannot read the users list: ' + e.message; errEl.style.display = 'block'; }
     if (tbody)  msgRow('Error: ' + e.message, 'var(--red)');
   }
 }
@@ -4671,6 +4685,41 @@ def _get_public_port():
     cfg = load_admin_config()
     return int(cfg.get("proxy_port") or cfg.get("public_port", 8900))
 
+@app.route("/admin/api/sdr-users")
+@login_required
+def api_sdr_users():
+    """Every receiver's /users list merged into one, each listener tagged with
+    its receiver. Asked of each spectrumserver directly on loopback: the page
+    used to fetch /users through proxy.py, which routes by the listener's rx
+    cookie — so after the sysop once opened ?rx=vhf the panel kept showing the
+    2 m listeners, even back on HF."""
+    import urllib.request
+    labels = {}
+    for r in _receivers_toml().get("receiver", []):
+        try:
+            labels[int(r.get("port"))] = str(r.get("id") or "").upper()
+        except (TypeError, ValueError):
+            continue
+    users, seen, errors = [], 0, []
+    for port in _sdr_ports():
+        label = labels.get(port, "")
+        try:
+            with urllib.request.urlopen("http://127.0.0.1:%d/users" % port, timeout=2) as r:
+                d = json.loads(r.read().decode())
+        except Exception as e:
+            errors.append("%s: %s" % (label or port, e))
+            continue
+        seen += 1
+        for u in d.get("users", []):
+            u = dict(u)
+            u["rx"] = label
+            # Session ids are per server; keep them unique across receivers.
+            u["id"] = "%d:%s" % (port, u.get("id", ""))
+            users.append(u)
+    if not seen:
+        return jsonify({"ok": False, "users": [], "error": "; ".join(errors) or "no receiver"})
+    return jsonify({"ok": True, "users": users, "multi": len(labels) > 1, "errors": errors})
+
 @app.route("/admin/api/users")
 @login_required
 def api_users():
@@ -4900,7 +4949,7 @@ def api_kick():
 # always left one fresh line behind and the pane looked like it had not cleared.
 _QUIET_PATHS = ("/admin/api/status", "/admin/api/thermal", "/admin/api/logs",
                 "/admin/api/logs/clear",
-                "/admin/api/autorun/status", "/admin/api/users",
+                "/admin/api/autorun/status", "/admin/api/users", "/admin/api/sdr-users",
                 "/admin/api/graph-stats", "/admin/api/chat")
 _ACCESS_RE = re.compile(r'"[A-Z]+ (?P<path>[^ ?"]+)[^"]*" (?P<status>\d{3})')
 

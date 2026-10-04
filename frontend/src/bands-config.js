@@ -36,7 +36,7 @@ const bands = [
             modes: [{ mode: MODES.USB, startFreq: 283500, endFreq: 472000 }]
 	},
 	{ ITU: 123,
-	    name: '630m', min: -30, max: 110, initFreq: '474200', publishBand: '1', startFreq: 472000, endFreq: 479000,  stepi: 100, color: 'rgba(50, 168, 72, 0.6)', 
+	    name: '630m', min: -20, max: 110, initFreq: '474200', publishBand: '1', startFreq: 472000, endFreq: 479000,  stepi: 100, color: 'rgba(50, 168, 72, 0.6)', 
             modes: [
               { mode: MODES.CW, startFreq: 472000, endFreq: 474000 },
               { mode: MODES.USB, startFreq: 474100, endFreq: 479000 }]
@@ -212,7 +212,7 @@ const bands = [
             modes: [{ mode: MODES.USB, startFreq: 9900000, endFreq: 10100000 }]
 	},
 	{ ITU: 123,
-            name: '30m', min: -30, max: 110, initFreq: '10136000', publishBand: '1', startFreq: 10100000, endFreq: 10150000,  stepi: 1000, color: 'rgba(50, 168, 72, 0.6)', 
+            name: '30m', min: -40, max: 110, initFreq: '10136000', publishBand: '1', startFreq: 10100000, endFreq: 10150000,  stepi: 1000, color: 'rgba(50, 168, 72, 0.6)', 
 	    modes: [{ mode: MODES.CW, startFreq: 10100000, endFreq: 10150000 }]
 	},
 	{ ITU: 123,
@@ -236,7 +236,7 @@ const bands = [
             modes: [{ mode: MODES.USB, startFreq: 13870000, endFreq: 13870000 }]
 	},
 	{ ITU: 123,
-            name: '20m', min: -30, max: 110, initFreq: '14280000', publishBand: '1', startFreq: 14000000, endFreq: 14350000,  stepi: 1000, color: 'rgba(50, 168, 72, 0.6)', 
+            name: '20m', min: -40, max: 110, initFreq: '14280000', publishBand: '1', startFreq: 14000000, endFreq: 14350000,  stepi: 1000, color: 'rgba(50, 168, 72, 0.6)', 
 	    modes: [
               { mode: MODES.CW, startFreq: 14000000, endFreq: 14070000 },
               { mode: MODES.USB, startFreq: 14070000, endFreq: 14350000 }]
@@ -262,7 +262,7 @@ const bands = [
             modes: [{ mode: MODES.USB, startFreq: 17900000, endFreq: 18068000 }]
 	},
 	{ ITU: 123,
-            name: '17m', min: -30, max: 110, initFreq: '18100000', publishBand: '1', startFreq: 18068000, endFreq: 18168000,  stepi: 1000, color: 'rgba(50, 168, 72, 0.6)', 
+            name: '17m', min: -40, max: 110, initFreq: '18100000', publishBand: '1', startFreq: 18068000, endFreq: 18168000,  stepi: 1000, color: 'rgba(50, 168, 72, 0.6)', 
             modes: [
               { mode: MODES.CW, startFreq: 18068000, endFreq: 18099000 },
               { mode: MODES.USB, startFreq: 18100000, endFreq: 18168000 }]
@@ -280,7 +280,7 @@ const bands = [
             modes: [{ mode: MODES.USB, startFreq: 19020000, endFreq: 21000000 }]
 	},
 	{ ITU: 123,
-            name: '15m', min: -30, max: 110, initFreq: '21074000', publishBand: '1', startFreq: 21000000, endFreq: 21450000,  stepi: 1000, color: 'rgba(50, 168, 72, 0.6)', 
+            name: '15m', min: -60, max: 110, initFreq: '21074000', publishBand: '1', startFreq: 21000000, endFreq: 21450000,  stepi: 1000, color: 'rgba(50, 168, 72, 0.6)', 
 	    modes: [
               { mode: MODES.CW, startFreq: 21000000, endFreq: 21070000 },
               { mode: MODES.USB, startFreq: 21070000, endFreq: 21450000 }]
@@ -294,7 +294,7 @@ const bands = [
             modes: [{ mode: MODES.USB, startFreq: 21850000, endFreq: 24890000 }]
 	},
 	{ ITU: 123,
-            name: '12m', min: -30, max: 110, initFreq: '24915000', publishBand: '1', startFreq: 24890000, endFreq: 24990000,  stepi: 1000, color: 'rgba(50, 168, 72, 0.6)', 
+            name: '12m', min: -60, max: 110, initFreq: '24915000', publishBand: '1', startFreq: 24890000, endFreq: 24990000,  stepi: 1000, color: 'rgba(50, 168, 72, 0.6)', 
             modes: [
               { mode: MODES.CW, startFreq: 24890000, endFreq: 24914000 },
               { mode: MODES.USB, startFreq: 24915000, endFreq: 24990000 }]
@@ -312,7 +312,7 @@ const bands = [
             modes: [{ mode: MODES.AM, startFreq: 26100000, endFreq: 26965000 }]
 	},
 	{ ITU: 1,
-            name: 'CB', min: -30, max: 110, initFreq: '27335000', publishBand: '1', startFreq: 26965000, endFreq: 27405000, stepi: 5000, color: 'rgba(3, 227, 252, 0.6)',
+            name: 'CB', min: -60, max: 110, initFreq: '27335000', publishBand: '1', startFreq: 26965000, endFreq: 27405000, stepi: 5000, color: 'rgba(3, 227, 252, 0.6)',
             modes: [{ mode: MODES.AM, startFreq: 26965000, endFreq: 27405000 }]          
         },
         { ITU: 2,
@@ -323,11 +323,11 @@ const bands = [
           ]
         },
         { ITU: 123,
-            name: '11m SSB', min: -30, max: 110, initFreq: '27665000', publishBand: '1', startFreq: 27405000, endFreq: 28000000, stepi: 1000, color: 'rgba(19, 106, 236, 0.6)',
+            name: '11m SSB', min: -60, max: 110, initFreq: '27665000', publishBand: '1', startFreq: 27405000, endFreq: 28000000, stepi: 1000, color: 'rgba(19, 106, 236, 0.6)',
             modes: [{ mode: MODES.USB, startFreq: 27405000, endFreq: 28000000 }]
         },
         { ITU: 123,
-            name: '10m', min: -30, max: 110, initFreq: '28585000', publishBand: '1', startFreq: 28000000, endFreq: 29700000,  stepi: 1000, color: 'rgba(50, 168, 72, 0.6)', 
+            name: '10m', min: -60, max: 110, initFreq: '28585000', publishBand: '1', startFreq: 28000000, endFreq: 29700000,  stepi: 1000, color: 'rgba(50, 168, 72, 0.6)', 
 	    modes: [
               { mode: MODES.CW, startFreq: 28000000, endFreq: 28070000 },
               { mode: MODES.USB, startFreq: 28070000, endFreq: 29700000 }]
@@ -355,9 +355,9 @@ const bands = [
 	{ ITU: 1,
             name: '2m', min: -30, max: 110, initFreq: '', publishBand: '1', startFreq: 144000000, endFreq: 146000000,  stepi: 12500, color: 'rgba(50, 168, 72, 0.6)',
             modes: [
-              { mode: MODES.CW, startFreq: 144000000, endFreq: 144150000 },
-              { mode: MODES.USB, startFreq: 144150000, endFreq: 144930000 },
-              { mode: MODES.FM, startFreq: 144975000, endFreq: 146000000 }]
+              { mode: MODES.CW, startFreq: 144000000, endFreq: 144150000 },   // CW, EME
+              { mode: MODES.USB, startFreq: 144150000, endFreq: 144794000 },  // SSB (calling 144.300), beacons, narrowband digital
+              { mode: MODES.FM, startFreq: 144794000, endFreq: 146000000 }]   // APRS 144.800, repeaters, FM simplex (145.500), satellites
         },
 	{ ITU: 2,
             name: '2m', min: -30, max: 110, initFreq: '', publishBand: '1', startFreq: 144000000, endFreq: 148000000,  stepi: 12500, color: 'rgba(50, 168, 72, 0.6)', 

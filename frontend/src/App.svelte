@@ -6205,6 +6205,30 @@
     }
     showEmojiPicker = !showEmojiPicker;
   }
+  // Warm the emoji picker in the background once the page has settled:
+  // define the custom element and let emoji-picker-element's Database fetch
+  // the emoji list from jsdelivr into IndexedDB. The picker then reads the
+  // same store, so the first click on the emoji button opens instantly.
+  function preloadEmojiData() {
+    const run = async () => {
+      try {
+        await import("emoji-picker-element");
+        const { default: Database } = await import(
+          "emoji-picker-element/database.js"
+        );
+        const db = new Database();
+        await db.ready();
+        await db.close();
+      } catch (e) {
+        // Offline or CDN blocked: the picker just loads on first open as before.
+      }
+    };
+    const idle = () =>
+      window.requestIdleCallback
+        ? requestIdleCallback(run, { timeout: 10000 })
+        : run();
+    setTimeout(idle, 5000);
+  }
   let socket;
 
   let username = `user${Math.floor(Math.random() * 10000)}`;
@@ -7118,6 +7142,7 @@
     }
 
     document.addEventListener("click", handleEmojiOutsideClick);
+    preloadEmojiData();
 
     return () => {
       document.removeEventListener("click", handleEmojiOutsideClick);

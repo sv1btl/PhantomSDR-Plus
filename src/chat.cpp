@@ -25,6 +25,62 @@ std::atomic<bool> ChatClient::admin_listener_running_{false};
 int               ChatClient::admin_listener_fd_{-1};
 std::thread       ChatClient::admin_listener_thread_;
 
+// Chat text goes out as WebSocket TEXT frames, which must be valid UTF-8 —
+// browsers fail the whole /chat socket on a bad byte, so one broken line in
+// the history blanks the chat window for every listener. A plain byte
+// substr() at the length limit used to cut an emoji in half and do exactly
+// that. These helpers keep every string we store or send well-formed.
+namespace {
+
+// Drop any byte that is not part of a well-formed UTF-8 sequence
+// (stray continuation bytes, truncated sequences, overlongs, surrogates).
+std::string utf8_sanitize(const std::string& in) {
+    std::string out;
+    out.reserve(in.size());
+    const auto* p = reinterpret_cast<const unsigned char*>(in.data());
+    const size_t n = in.size();
+    size_t i = 0;
+    while (i < n) {
+        unsigned char c = p[i];
+        size_t len = 0;
+        unsigned char lo = 0x80, hi = 0xBF;   // allowed range of the 2nd byte
+        if (c < 0x80)                 len = 1;
+        else if (c >= 0xC2 && c <= 0xDF) len = 2;
+        else if (c == 0xE0)           { len = 3; lo = 0xA0; }
+        else if (c == 0xED)           { len = 3; hi = 0x9F; }
+        else if (c >= 0xE1 && c <= 0xEF) len = 3;
+        else if (c == 0xF0)           { len = 4; lo = 0x90; }
+        else if (c == 0xF4)           { len = 4; hi = 0x8F; }
+        else if (c >= 0xF1 && c <= 0xF3) len = 4;
+        bool ok = len > 0 && i + len <= n;
+        for (size_t k = 1; ok && k < len; ++k) {
+            unsigned char b = p[i + k];
+            ok = (k == 1) ? (b >= lo && b <= hi) : (b >= 0x80 && b <= 0xBF);
+        }
+        if (ok) {
+            out.append(in, i, len);
+            i += len;
+        } else {
+            ++i;   // skip the bad lead byte and resync on the next one
+        }
+    }
+    return out;
+}
+
+// Cut a well-formed UTF-8 string to at most max_chars characters (code
+// points, not bytes), so a Greek message gets the same length as an English
+// one and a character is never split.
+std::string utf8_truncate(const std::string& s, size_t max_chars) {
+    size_t chars = 0;
+    for (size_t i = 0; i < s.size(); ++i) {
+        if ((static_cast<unsigned char>(s[i]) & 0xC0) == 0x80) continue;
+        if (chars++ == max_chars) return s.substr(0, i);
+    }
+    return s;
+}
+
+} // namespace
+
 const std::set<std::string> ChatClient::blocked_usernames = {
     "admin", "operator", "host", "root", "system", "moderator"
 };
@@ -151,13 +207,8 @@ void ChatClient::on_chat_message(connection_hdl sender_hdl, std::string& usernam
             username.clear();
     }
 
-    if (username.length() > MAX_USERNAME_LENGTH) {
-        username = username.substr(0, MAX_USERNAME_LENGTH);
-    }
-
-    if (message.length() > MAX_MESSAGE_LENGTH) {
-        message = message.substr(0, MAX_MESSAGE_LENGTH);
-    }
+    username = utf8_truncate(utf8_sanitize(username), MAX_USERNAME_LENGTH);
+    message  = utf8_truncate(utf8_sanitize(message), MAX_MESSAGE_LENGTH);
 
     // Check if the username is blocked
     if (!is_valid_username(username)) {
@@ -245,7 +296,8 @@ void ChatClient::load_chat_history() {
     std::ifstream file("chat_history.txt");
     std::string line;
     while (std::getline(file, line) && chat_messages_history.size() < 20) {
-        chat_messages_history.push_back(line);
+        // Heal a history file written before the UTF-8-safe truncation.
+        chat_messages_history.push_back(utf8_sanitize(line));
     }
     file.close();
 }

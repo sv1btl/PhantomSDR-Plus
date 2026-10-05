@@ -2966,7 +2966,8 @@ async function loadChat() {
 
     const txt = document.createElement('span');
     txt.className = 'chat-msg-text';
-    txt.innerHTML = `<span class="chat-time">[${m.time||'?'}]</span> <span class="chat-nick">&lt;${m.nick||'?'}&gt;</span> ${escHtml(m.msg||'')}`;
+    const rxTag = (d.multi && m.rx) ? `<span class="chat-time">${escHtml(m.rx)}</span> ` : '';
+    txt.innerHTML = `${rxTag}<span class="chat-time">[${m.time||'?'}]</span> <span class="chat-nick">&lt;${m.nick||'?'}&gt;</span> ${escHtml(m.msg||'')}`;
 
     const delBtn = document.createElement('button');
     delBtn.className = 'chat-del-btn';
@@ -2978,7 +2979,7 @@ async function loadChat() {
         const res = await fetch('/admin/api/chat/delete', {
           method: 'POST',
           headers: {'Content-Type': 'application/json'},
-          body: JSON.stringify({line: m.raw})
+          body: JSON.stringify({line: m.raw, rx: m.rx || ''})
         });
         const rd = await res.json();
         if (rd.ok) { div.remove(); toast('Message deleted'); }
@@ -4335,46 +4336,6 @@ def api_logs_clear():
     return jsonify({"ok": not failed, "cleared": cleared,
                     "skipped": skipped, "failed": failed})
 
-# ── API: Chat ─────────────────────────────────────────────────────────────────
-@app.route("/admin/api/chat")
-@login_required
-def api_chat():
-    base = get_sdr_dir()
-    chat_file = base / "chat_history.txt"
-    messages = []
-    if chat_file.exists():
-        try:
-            with open(chat_file, encoding="utf-8", errors="replace") as f:
-                for line in f.readlines()[-200:]:
-                    line = line.strip()
-                    if not line:
-                        continue
-                    # Try parse: [time] <nick> msg  or  nick: msg
-                    m = re.match(r'\[([^\]]+)\]\s+<([^>]+)>\s+(.*)', line)
-                    if m:
-                        messages.append({"time": m.group(1), "nick": m.group(2), "msg": m.group(3), "raw": line})
-                    else:
-                        m2 = re.match(r'(\S+):\s+(.*)', line)
-                        if m2:
-                            messages.append({"time": "", "nick": m2.group(1), "msg": m2.group(2), "raw": line})
-                        else:
-                            messages.append({"time": "", "nick": "system", "msg": line, "raw": line})
-        except Exception as e:
-            messages = [{"time": "", "nick": "error", "msg": str(e)}]
-    return jsonify({"messages": messages})
-
-@app.route("/admin/api/chat/clear", methods=["POST"])
-@login_required
-def api_chat_clear():
-    base = get_sdr_dir()
-    chat_file = base / "chat_history.txt"
-    try:
-        with open(chat_file, "w") as f:
-            f.write("")
-        return jsonify({"ok": True, "msg": "Chat history cleared"})
-    except Exception as e:
-        return jsonify({"ok": False, "msg": str(e)})
-
 # ── Chat admin IPC ────────────────────────────────────────────────────────────
 # Communicates with the Unix domain socket started by ChatClient::start_admin_listener()
 # inside spectrumserver.  This lets the admin panel send real-time commands
@@ -4384,7 +4345,7 @@ import socket as _socket
 
 CHAT_ADMIN_SOCK = "/tmp/phantomsdr_chat.sock"
 
-def _send_chat_admin_cmd(cmd: str):
+def _send_chat_admin_cmd(cmd: str, sock_path: str = CHAT_ADMIN_SOCK):
     """Send a single newline-terminated command to spectrumserver's chat socket.
 
     Returns (True, "ok") on success, or (False, error_message) on failure.
@@ -4392,7 +4353,7 @@ def _send_chat_admin_cmd(cmd: str):
     try:
         with _socket.socket(_socket.AF_UNIX, _socket.SOCK_STREAM) as s:
             s.settimeout(2.0)
-            s.connect(CHAT_ADMIN_SOCK)
+            s.connect(sock_path)
             s.sendall((cmd + "\n").encode())
         return True, "ok"
     except FileNotFoundError:
@@ -4402,6 +4363,83 @@ def _send_chat_admin_cmd(cmd: str):
     except Exception as e:
         return False, str(e)
 
+
+# ── API: Chat ─────────────────────────────────────────────────────────────────
+def _chat_sources():
+    """(label, chat_history.txt, admin socket) for every receiver. Each
+    spectrumserver writes chat_history.txt in its own working directory: the
+    main receiver in the base dir, a named instance in instances/<name>/, with
+    its admin socket at /tmp/phantomsdr_chat-<name>.sock (spectrumserver.cpp)."""
+    base = get_sdr_dir()
+    rxs = _receivers_toml().get("receiver", [])
+    main_label = ""
+    out = []
+    for r in rxs:
+        inst = str(r.get("instance") or "").strip()
+        label = str(r.get("id") or inst).upper()
+        if not inst or inst == "main":
+            main_label = label
+            continue
+        out.append((label, base / "instances" / inst / "chat_history.txt",
+                    "/tmp/phantomsdr_chat-%s.sock" % inst))
+    return [(main_label, base / "chat_history.txt", CHAT_ADMIN_SOCK)] + out
+
+def _chat_source(rx):
+    """The _chat_sources() entry for label rx; the main receiver when empty."""
+    srcs = _chat_sources()
+    for src in srcs:
+        if src[0] == (rx or "").upper():
+            return src
+    return srcs[0] if not rx else None
+
+def _parse_chat_line(line):
+    # Try parse: [time] <nick> msg  or  nick: msg
+    m = re.match(r'\[([^\]]+)\]\s+<([^>]+)>\s+(.*)', line)
+    if m:
+        return {"time": m.group(1), "nick": m.group(2), "msg": m.group(3), "raw": line}
+    m2 = re.match(r'(\S+):\s+(.*)', line)
+    if m2:
+        return {"time": "", "nick": m2.group(1), "msg": m2.group(2), "raw": line}
+    return {"time": "", "nick": "system", "msg": line, "raw": line}
+
+@app.route("/admin/api/chat")
+@login_required
+def api_chat():
+    """Every receiver's chat history, each message tagged with its receiver."""
+    messages = []
+    srcs = _chat_sources()
+    for label, chat_file, _sock in srcs:
+        if not chat_file.exists():
+            continue
+        try:
+            with open(chat_file, encoding="utf-8", errors="replace") as f:
+                for line in f.readlines()[-200:]:
+                    line = line.strip()
+                    if line:
+                        m = _parse_chat_line(line)
+                        m["rx"] = label
+                        messages.append(m)
+        except Exception as e:
+            messages.append({"time": "", "nick": "error", "msg": "%s: %s" % (label or "chat", e), "rx": label})
+    # The lines start with "YYYY-MM-DD HH:MM:SS", so a stable sort on the raw
+    # text interleaves the receivers in time order.
+    if len(srcs) > 1:
+        messages.sort(key=lambda m: m.get("raw", ""))
+    return jsonify({"messages": messages, "multi": len(srcs) > 1})
+
+@app.route("/admin/api/chat/clear", methods=["POST"])
+@login_required
+def api_chat_clear():
+    data = request.get_json(silent=True) or {}
+    src = _chat_source(data.get("rx", ""))
+    if not src:
+        return jsonify({"ok": False, "msg": "Unknown receiver"})
+    try:
+        with open(src[1], "w") as f:
+            f.write("")
+        return jsonify({"ok": True, "msg": "Chat history cleared"})
+    except Exception as e:
+        return jsonify({"ok": False, "msg": str(e)})
 
 @app.route("/admin/api/chat/delete", methods=["POST"])
 @login_required
@@ -4421,7 +4459,11 @@ def api_chat_delete():
     line = data.get("line", "").strip()
     if not line:
         return jsonify({"ok": False, "msg": "No line specified"})
-    ok, msg = _send_chat_admin_cmd("DELETE:" + line)
+    # Each receiver has its own spectrumserver and its own admin socket.
+    src = _chat_source(data.get("rx", ""))
+    if not src:
+        return jsonify({"ok": False, "msg": "Unknown receiver"})
+    ok, msg = _send_chat_admin_cmd("DELETE:" + line, src[2])
     return jsonify({"ok": ok, "msg": msg})
 
 # ── Waterfall Message — static file helper ─────────────────────────────────────

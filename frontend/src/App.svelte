@@ -8988,10 +8988,19 @@
                     <br> <br>
                     <b>SDR Receivers &amp; Antenna</b>
                     <br>
-                    <span style="/*text-decoration: line-through*/">Receiver: {siteReceiver}</span>
+                    <span style="/*text-decoration: line-through*/">Receiver: <a href={receiverHref} target="new" style="color:rgba(0, 225, 255, 0.993)">{siteReceiver}</a></span>
                     <br>                    
-                    <span style="/*text-decoration: line-through*/">Antenna: {siteAntenna}</span> <br>
+                    <span style="/*text-decoration: line-through*/">Antenna: {#if antennaHref}<a href={antennaHref} target="new" style="color:rgba(0, 225, 255, 0.993)"> {siteAntenna} </a>{:else}<span style="color:rgba(0, 225, 255, 0.993)"> {siteAntenna} </span>{/if}</span> <br>
                     <span>Github: <a href="https://github.com/sv1btl/PhantomSDR-Plus" target="new" style="color:rgba(0, 225, 255, 0.993)"> {siteInformation} </a></span>
+                    <button
+                      type="button"
+                      class="glass-button text-white py-1 px-2 ml-2 rounded text-xs"
+                      on:click={() => window.open("https://phantomsdr.psychomed.gr/index.html", "_blank", "noopener,noreferrer")}
+                      title="Open the PhantomSDR+ project website"
+                      style="color:rgba(0, 225, 255, 0.993); font-size: 0.75rem;"
+                    >
+                      🌐 Website
+                    </button>
                     <br><br>
 
                     <b>Note:</b> <br> 

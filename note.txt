@@ -113,6 +113,8 @@ Optional, off by default: above 60 MHz the meters can rest at 0 on an empty chan
 
 - Admin panel, Users page: with several receivers it now lists the listeners of all of them in one table, with a RECEIVER column. Before, it showed only one receiver's listeners, and after the sysop had once opened another receiver's page (for example ?rx=vhf) it kept showing that receiver's listeners. Takes effect when the admin panel restarts.
 
+- Admin panel, Chat page: with several receivers it now shows the chat of all of them, in time order, each message marked with its receiver (HF, VHF, ...). Each receiver keeps its own chat_history.txt — the main one in the PhantomSDR-Plus folder, an extra one in instances/<name>/ — and the page used to read only the main receiver's file, so messages written on a second receiver never appeared there. The DEL button now also removes a message from the receiver it was written on. Takes effect when the admin panel restarts.
+
 - The version is now 5.0.0: in the page, in the admin panel's sidebar, and in what the receiver reports to the directories.
 
 - The documentation, in all seven languages: a new chapter "Several Receivers" (docs/MULTI_RECEIVER.md), and new sections in the User Guide (choosing a receiver, the VHF S-meter), the Admin Panel guide (start-all.sh), Connection Limits (the X-Forwarded-For rule), Installation and Project Structure, and the CTCSS subtone picker in the User Guide. The seven offline PDFs are rebuilt and now have sixteen chapters.

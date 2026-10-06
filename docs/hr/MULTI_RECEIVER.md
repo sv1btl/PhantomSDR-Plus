@@ -1,5 +1,7 @@
 # Više prijemnika — Priručnik za sysopa
 
+> **Brojevi portova.** Primjeri niže koriste portove stanice postavljene prije pitanja o stanici (8900, 8901, …). Na stanici postavljenoj s `configure-station.sh`, `proxy.py` već drži javni port 9000, a glavni prijemnik je na 9001, pa daljnjim prijemnicima dajte 9002, 9003 i tako dalje.
+
 **Dva ili više prijemnika na jednom računalu, s izbornikom prijemnika na stranici.**
 
 Od v5.0.0 jedno PhantomSDR-Plus računalo može istodobno pokretati više prijemnika — na primjer RX-888 za kratki val i RTL-SDR za 2 m — a slušatelji prelaze s jednog na drugi gumbima u zaglavlju stranice, kao što OpenWebRX nudi svoje profile. Svaki prijemnik zadržava vlastiti vodopad, chat, oznake, popis slušatelja i podatke o stanici; nitko na jednom prijemniku nikada ne smeta nikome na drugom.

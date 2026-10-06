@@ -89,29 +89,22 @@ PhantomSDR-Plus prend en charge une large gamme de récepteurs SDR :
 ### Installation
 
 ```bash
-# Cloner le dépôt
-git clone --recursive https://github.com/sv1btl/PhantomSDR-Plus
+git clone https://github.com/sv1btl/PhantomSDR-Plus
 cd PhantomSDR-Plus
-
-# Rendre les scripts exécutables
-chmod +x *.sh
-
-# Lancer l'installation automatique
-./install.sh
+bash install.sh
 ```
 
-**Remarque :** après avoir exécuté `install.sh`, redémarrez votre terminal avant de continuer.
+L'installateur pose toutes les questions d'abord — le récepteur, ce qu'il doit recevoir, votre station, votre adresse sur internet et les compléments —, puis il installe tout seul, démarre le récepteur et affiche l'unique port à ouvrir sur le routeur (9000). Pas de `chmod`, et pas de terminal à redémarrer. Les questions de la station sont décrites dans [INSTALLATION.md](INSTALLATION.md).
 
-> **PhantomSDR-Plus tourne déjà chez vous ?** Ne le réinstallez pas : mettez-le à jour. Récupérez l'outil une fois et lancez-le ; votre configuration, vos marqueurs, le mot de passe d'administration, la liste des fréquences et l'historique du chat ne sont jamais touchés, et ce que vous avez modifié vous est soumis au lieu d'être écrasé :
+> **PhantomSDR-Plus tourne déjà ?** Ne le réinstallez pas : mettez-le à jour. Récupérez une fois l'outil de mise à jour et lancez-le ; il montre ce qui changerait et demande avant d'écrire quoi que ce soit, et votre configuration, vos marqueurs, le mot de passe d'administration, la liste de fréquences et l'historique du chat ne sont jamais touchés :
 >
 > ```bash
 > cd ~/PhantomSDR-Plus
 > curl -fLO https://raw.githubusercontent.com/sv1btl/PhantomSDR-Plus/main/update.sh
-> chmod +x update.sh
-> ./update.sh
+> bash update.sh
 > ```
 >
-> Cette dernière ligne ne fait que *signaler* ce qui changerait, sans rien écrire ; `./update.sh --apply` l'exécute. Les détails sont dans le chapitre *Mise à jour de PhantomSDR-Plus*. Repasser l'installateur sur une station en service n'est nécessaire que si la recompilation échoue faute de paquets système.
+> Les détails sont dans le chapitre *Mise à jour de PhantomSDR-Plus*.
 
 Utilisez `install_fedora.sh` sur Fedora, `install_arch.sh` sur Arch ou `install_opensuse.sh` sur openSUSE Tumbleweed : ils font le même travail avec un autre gestionnaire de paquets. Toutes les versions de Debian et d'Ubuntu sont couvertes par `install.sh` lui-même.
 

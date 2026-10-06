@@ -72,6 +72,8 @@ chmod +x setup_admin.sh manage_admin.sh
 ./setup_admin.sh
 ```
 
+> **Sin panel de administración:** `bash setup_admin.sh --proxy-only` instala solo `proxy.py` en el puerto público, con los puertos de `station.conf`. Es lo que hace el instalador cuando rechaza el panel, porque al proxy llegan los oyentes — y `/rade`, `/stats`, `/relay`.
+
 El script hará lo siguiente:
 
 1. Comprobar que Python 3 está instalado
@@ -83,6 +85,7 @@ que se acepta con un simple Enter, de modo que una instalación normal son tres 
      que es justo el que trae cada `config-*.toml` del repositorio)
    - **Puerto interno del panel de administración** — donde `admin_server.py` se enlaza localmente (predeterminado `3000`)
    - **Puerto público del proxy** — el único puerto externo que combina SDR y administración (predeterminado `8902`)
+   En una estación configurada con las preguntas de la estación (`configure-station.sh`), los tres valores por defecto son los puertos propios de la estación en `station.conf` — 9001, 9010 y 9000 —, así que Enter es lo correcto, y el script de arranque ya está preseleccionado.
 
 Las respuestas no válidas se rechazan y se vuelven a pedir, pero solo cinco veces; después se usa el valor predeterminado. Una ejecución cuya entrada no es un terminal (por tubería, cron, desatendida) toma los valores predeterminados de inmediato en lugar de esperar una entrada que nunca llegará.
 5. Instalar `flask`, `psutil`, `aiohttp` y `tomli-w` mediante pip

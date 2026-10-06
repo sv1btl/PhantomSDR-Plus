@@ -1,5 +1,5 @@
 [server]
-port=9002 # Server port
+port=9001 # Server port — spectrumserver, behind proxy.py on the public port 9000 (configure-station.sh sets both)
 html_root="frontend/dist/" # HTML files to be hosted
 otherusers=1 # Send where other users are listening, 0 to disable
 

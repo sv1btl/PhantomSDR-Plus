@@ -1,5 +1,7 @@
 # Voz digital RADE v1 para PhantomSDR-Plus
 
+> **En una estación configurada con las preguntas de la estación (`configure-station.sh`)** el sidecar escucha solo dentro del ordenador, en `PORT_RADE` (9012), y la página lo alcanza como `/rade` en el puerto público a través de `proxy.py`; el puerto 8074 de más abajo ni se usa ni se redirige. En una estación configurada antes del asistente, todo lo que sigue vale tal como está escrito.
+
 **RADE** (Radio AutoencoDEr) es el modo estrella de voz digital en HF de FreeDV. Utiliza un híbrido de aprendizaje automático y DSP (el vocoder neuronal FARGAN) para ofrecer voz de alta calidad por HF con relaciones señal/ruido de hasta −2 dB, en apenas 1500 Hz de ancho de banda de RF: más estrecho que una señal de BLU.
 
 Este documento cubre la integración completa de la recepción de RADE v1 en PhantomSDR-Plus, implementada como un proceso sidecar de Python (`rade_helper.py`) que conecta el navegador con la cadena de decodificación `radae_rxe.py` + `lpcnet_demo`.

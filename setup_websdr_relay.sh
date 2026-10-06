@@ -33,9 +33,23 @@ SOURCE_JS="$SCRIPT_DIR/frontend/src/webSdrSource.js"
 UNIT_NAME="phantomsdr-websdr-relay"
 UNIT_PATH="/etc/systemd/system/$UNIT_NAME.service"
 
-DEFAULT_PORT=9000
+DEFAULT_PORT=9013
 DEFAULT_CAP=10
 DEFAULT_TOTAL=60
+
+# On a station set up with configure-station.sh the relay sits behind proxy.py:
+# it listens on loopback at PORT_RELAY, and the page reaches it as /relay on
+# the public port (siteRelay in site_information.json). Then no port of its
+# own has to be forwarded, and nothing in the frontend has to be rebuilt.
+BEHIND_PROXY=n
+if [ -f "$SCRIPT_DIR/station.conf" ]; then
+    # shellcheck disable=SC1091
+    . "$SCRIPT_DIR/station.conf"
+    if [ -n "${PORT_RELAY:-}" ]; then
+        DEFAULT_PORT="$PORT_RELAY"
+        BEHIND_PROXY=y
+    fi
+fi
 
 # ── Prompt helpers ────────────────────────────────────────────────────────────
 # Same house style as setup_admin.sh: the default letter capitalised and
@@ -175,15 +189,27 @@ echo "----------------------------------------------------------"
 echo " Network"
 echo "----------------------------------------------------------"
 echo ""
-echo " The relay listens on its own port. Visitors' browsers connect to it"
-echo " DIRECTLY — it is not proxied through the spectrumserver — so this port"
-echo " has to be reachable from wherever your listeners are."
+if [ "$BEHIND_PROXY" = y ]; then
+    echo " The relay listens on this computer only (127.0.0.1). proxy.py carries"
+    echo " it to the public port ${PORT_PUBLIC:-} as /relay, so no extra port has"
+    echo " to be opened on the router."
+else
+    echo " The relay listens on its own port. Visitors' browsers connect to it"
+    echo " DIRECTLY — it is not proxied through the spectrumserver — so this port"
+    echo " has to be reachable from wherever your listeners are."
+fi
 echo ""
 
 # Whatever the frontend was built with is the honest default: change one
 # without the other and the panel reports "the relay is not reachable".
-BUILT_PORT="$(grep -oP 'DEFAULT_RELAY_PORT\s*=\s*\K[0-9]+' "$SOURCE_JS" 2>/dev/null || true)"
-[ -n "$BUILT_PORT" ] || BUILT_PORT="$DEFAULT_PORT"
+# (Behind the proxy the page uses /relay instead, so the port is free to be
+# whatever station.conf says.)
+if [ "$BEHIND_PROXY" = y ]; then
+    BUILT_PORT="$DEFAULT_PORT"
+else
+    BUILT_PORT="$(grep -oP 'DEFAULT_RELAY_PORT\s*=\s*\K[0-9]+' "$SOURCE_JS" 2>/dev/null || true)"
+    [ -n "$BUILT_PORT" ] || BUILT_PORT="$DEFAULT_PORT"
+fi
 
 ask_value " Relay port" "$BUILT_PORT" PORT
 if ! [[ "$PORT" =~ ^[0-9]+$ ]] || [ "$PORT" -lt 1 ] || [ "$PORT" -gt 65535 ]; then
@@ -202,7 +228,7 @@ fi
 # two disagree the feature simply cannot work, so offer to fix it here rather
 # than leaving a mismatch to be discovered later in the panel.
 REBUILD_NEEDED=n
-if [ "$PORT" != "$BUILT_PORT" ]; then
+if [ "$BEHIND_PROXY" != y ] && [ "$PORT" != "$BUILT_PORT" ]; then
     echo ""
     echo "[!]  The frontend is built to look for the relay on port $BUILT_PORT,"
     echo "     but you chose $PORT. They must match."
@@ -238,12 +264,14 @@ if [ -f "$CONFIG" ]; then
     echo "[OK] Previous config saved as websdr_relay.json.bak"
 fi
 
-python3 - "$CONFIG" "$PORT" "$CAP" "$TOTAL" "$SITE_URL" "$OPERATOR" <<'PY'
+BIND="0.0.0.0"
+[ "$BEHIND_PROXY" = y ] && BIND="127.0.0.1"
+python3 - "$CONFIG" "$PORT" "$CAP" "$TOTAL" "$SITE_URL" "$OPERATOR" "$BIND" <<'PY'
 import json, sys
-path, port, cap, total, site, operator = sys.argv[1:7]
+path, port, cap, total, site, operator, bind = sys.argv[1:8]
 cfg = {
     "port": int(port),
-    "bind": "0.0.0.0",
+    "bind": bind,
     "max_per_host": int(cap),
     "max_total": int(total),
     "site": site,
@@ -257,7 +285,8 @@ echo "[OK] Wrote $CONFIG"
 echo ""
 
 # ── 5. Firewall ───────────────────────────────────────────────────────────────
-if command -v ufw >/dev/null 2>&1 && sudo -n ufw status 2>/dev/null | grep -q "Status: active"; then
+if [ "$BEHIND_PROXY" != y ] && command -v ufw >/dev/null 2>&1 \
+   && sudo -n ufw status 2>/dev/null | grep -q "Status: active"; then
     echo "----------------------------------------------------------"
     echo " Firewall"
     echo "----------------------------------------------------------"
@@ -378,12 +407,18 @@ echo "=========================================================="
 echo "  Done"
 echo "=========================================================="
 echo ""
+if [ "$BEHIND_PROXY" = y ]; then
+echo " Nothing to forward: the page reaches the relay as /relay on the public"
+echo " port ${PORT_PUBLIC:-}, which is already open for the receiver itself."
+echo ""
+else
 echo " Still to do by hand:"
 echo ""
 echo "  1. FORWARD TCP $PORT on your router to this machine."
 echo "     Listeners' browsers reach the relay directly, so without this"
 echo "     WebSDR diversity works only from inside your own network."
 echo ""
+fi
 if [ "$REBUILD_NEEDED" = "y" ]; then
 echo "  2. REBUILD THE FRONTEND — the relay port changed:"
 echo "        cd $SCRIPT_DIR && ./recompile.sh      (option 2)"

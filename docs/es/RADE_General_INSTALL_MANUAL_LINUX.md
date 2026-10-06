@@ -1,4 +1,6 @@
 # RADE v1 — Guía de instalación manual
+
+> **En una estación configurada con las preguntas de la estación (`configure-station.sh`)** el sidecar escucha solo dentro del ordenador, en `PORT_RADE` (9012), y la página lo alcanza como `/rade` en el puerto público a través de `proxy.py`; el puerto 8074 de más abajo ni se usa ni se redirige. En una estación configurada antes del asistente, todo lo que sigue vale tal como está escrito.
 ### Todo Linux — Ubuntu / Debian / Fedora / Arch / Raspberry Pi OS · PhantomSDR-Plus
 
 > **Requisito previo:** los archivos parcheados (`rade_helper.py`, `rade.sh`, `audio.js`, `App.svelte`) ya están colocados en el árbol de directorios de PhantomSDR-Plus. Esta guía construye todo lo demás a su alrededor.

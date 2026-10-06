@@ -11,12 +11,20 @@
 #  history.
 #
 #  Usage:
-#    ./update.sh                   report what would change; writes NOTHING
+#    ./update.sh                   report what would change, then ask whether
+#                                  to update now (ENTER = no: nothing written)
+#    ./update.sh --check           report only, never ask (for cron)
 #    ./update.sh --apply           actually update, asking about your own edits
 #    ./update.sh --apply --yes     unattended; anything you edited is KEPT
 #    ./update.sh --ref v5.0.0      a tag, branch or commit instead of main
+#    ./update.sh --from FILE|DIR   the new version from a .tar.gz / .zip or a
+#                                  folder (a USB stick, a download) — no network
 #    ./update.sh --apply --prune   also offer to delete files GitHub removed
 #    ./update.sh --list-excludes   print the exclusion rules as resolved here
+#    ./update.sh --make-known [DIR...]   (source tree only) write update-known.txt:
+#                                  the fingerprint of every version of every
+#                                  file ever published, plus the files in each
+#                                  DIR (copies that were published as they are)
 #    ./update.sh --restore LAST    put back the files the last run overwrote
 #    ./update.sh --restore 20260923-164530   ... from that run
 #    ./update.sh --verbose         list every file, not just the first 40
@@ -35,7 +43,8 @@
 #  Env overrides (all optional, same contract as install.sh):
 #    PHANTOM_NONINTERACTIVE=1      never ask; use the unattended defaults
 #    PHANTOM_STOP_SERVICES=y|n     stop the receiver + panel before writing
-#    PHANTOM_RECOMPILE=y|n         run recompile.sh afterwards
+#    PHANTOM_RECOMPILE=y|n         rebuild what changed afterwards
+#    PHANTOM_UPDATE_NOW=y|n        answer "update now?" after a report
 #    UPDATE_REF=main               same as --ref
 # ─────────────────────────────────────────────────────────────────────────────
 
@@ -78,6 +87,7 @@ KEEP_BACKUPS=3
 EXCLUDE_FILE="$PHANTOM_DIR/update-exclude.txt"
 
 MODE="check"          # check | apply | list-excludes | restore
+ASK_TO_APPLY=true     # a plain run offers to apply after the report; --check never does
 ASSUME_YES=false
 PRUNE=false
 VERBOSE=false
@@ -153,15 +163,19 @@ confirm() {
 # ------------------------------------------------------------------------------
 # Arguments
 # ------------------------------------------------------------------------------
-usage() { sed -n '2,39p' "$SCRIPT_PATH" | sed 's/^# \?//'; }
+usage() { awk 'NR > 2 && /^# ─/ { exit } NR > 2 { sub(/^# ?/, ""); print }' "$SCRIPT_PATH"; }
 
 while [ $# -gt 0 ]; do
     case "$1" in
         --apply)          MODE="apply"; shift ;;
-        --check)          MODE="check"; shift ;;
+        --check)          MODE="check"; ASK_TO_APPLY=false; shift ;;
         --list-excludes)  MODE="list-excludes"; shift ;;
+        --make-known)     MODE="make-known"; shift
+                          KNOWN_EXTRA=()
+                          while [ $# -gt 0 ] && [ "${1#-}" = "$1" ]; do KNOWN_EXTRA+=("$1"); shift; done ;;
         --restore)        MODE="restore"; RESTORE_ARG="${2:-LAST}"; shift 2 ;;
         --ref)            REF="${2:?--ref needs a branch, tag or commit}"; shift 2 ;;
+        --from)           FROM="${2:?--from needs a .tar.gz, .zip or folder}"; shift 2 ;;
         --yes|-y)         ASSUME_YES=true; shift ;;
         --prune)          PRUNE=true; shift ;;
         --verbose|-v)     VERBOSE=true; shift ;;
@@ -232,6 +246,9 @@ TIER_A=(
     # Tier B instead — see below.
     'config.toml' 'config-*.toml'
     'admin_config.json' 'markers.json' 'mymarkers.json'
+    # The station wizard's answers (configure-station.sh), and the dated copy
+    # it keeps of every file before changing it.
+    'station.conf' '*.bak-*'
     # The sysop's callsign, locator, city, hardware and antenna — what visitors
     # see. The repository ships the placeholder version of this file, so leaving
     # it out of this list would reset a working site to "your name or callsign".
@@ -314,6 +331,72 @@ tier_of() {
     if matches_any "$path" "${TIER_B[@]}"; then echo B; return; fi
     echo C
 }
+
+# ------------------------------------------------------------------------------
+# update-known.txt — what every published version of every file looked like
+# ------------------------------------------------------------------------------
+# On a first update there is no manifest, so a file that differs from the new
+# release could be the sysop's edit or simply an older release. This list tells
+# them apart: the SHA-256 of every version of every file that was ever
+# published (from the git history of the source tree, plus any folder given —
+# the public copies of files whose repository version is this site's own). A
+# local file that matches one of them was never edited here, and is updated
+# without asking. It ships with each release; written here, before uploading.
+if [ "$MODE" = "make-known" ]; then
+    [ "$IS_SOURCE" = true ] || die "--make-known runs in the source tree only (it reads the git history)."
+    command -v git >/dev/null 2>&1 || die "git is needed for --make-known"
+    python3 - "$PHANTOM_DIR" ${KNOWN_EXTRA[@]+"${KNOWN_EXTRA[@]}"} <<'PY' || die "could not write update-known.txt"
+import hashlib, os, subprocess, sys
+root, extras = sys.argv[1], sys.argv[2:]
+skip = ("frequencylist/", "tools/", "subprojects/packagecache/", "update-known.txt")
+log = subprocess.run(["git", "-C", root, "log", "--all", "--format=", "--raw",
+                      "--no-abbrev", "--no-renames"],
+                     capture_output=True, text=True, check=True).stdout
+pairs = set()
+for line in log.splitlines():
+    if not line.startswith(":") or "\t" not in line:
+        continue
+    meta, path = line.split("\t", 1)
+    f = meta.split()
+    for blob in (f[2], f[3]):
+        if blob.strip("0"):
+            pairs.add((path, blob))
+known = set()
+cat = subprocess.Popen(["git", "-C", root, "cat-file", "--batch"],
+                       stdin=subprocess.PIPE, stdout=subprocess.PIPE)
+for path, blob in sorted(pairs):
+    cat.stdin.write((blob + "\n").encode()); cat.stdin.flush()
+    head = cat.stdout.readline().split()
+    if len(head) < 3 or head[1] != b"blob":
+        continue
+    data = cat.stdout.read(int(head[2])); cat.stdout.read(1)
+    if not path.startswith(skip):
+        known.add((hashlib.sha256(data).hexdigest(), path))
+cat.stdin.close(); cat.wait()
+for extra in extras:
+    for dirpath, _, files in os.walk(extra):
+        for name in files:
+            full = os.path.join(dirpath, name)
+            rel = os.path.relpath(full, extra)
+            if rel.startswith(skip):
+                continue
+            with open(full, "rb") as fh:
+                known.add((hashlib.sha256(fh.read()).hexdigest(), rel))
+out = os.path.join(root, "update-known.txt")
+# Keep what the list already held: a public copy published once (from a folder
+# given back then) must stay recognisable in every release after it.
+if os.path.exists(out):
+    with open(out) as fh:
+        for line in fh:
+            parts = line.rstrip("\n").split("  ", 1)
+            if len(parts) == 2 and len(parts[0]) == 64:
+                known.add((parts[0], parts[1]))
+with open(out, "w") as fh:
+    fh.write("".join(f"{sha}  {path}\n" for sha, path in sorted(known, key=lambda k: (k[1], k[0]))))
+print(f"  update-known.txt: {len(known)} fingerprints of {len({p for _, p in known})} files")
+PY
+    exit 0
+fi
 
 if [ "$MODE" = "list-excludes" ]; then
     banner "Exclusion rules for $PHANTOM_DIR"
@@ -490,20 +573,41 @@ trap cleanup EXIT
 # Fetch
 # ------------------------------------------------------------------------------
 TARBALL="$TMP/tree.tar.gz"
-URL="https://codeload.github.com/${REPO_SLUG}/tar.gz/${REF}"
-printf '  ⬇  fetching %s ... ' "$REF"
-if ! curl -fsSL --retry 2 --connect-timeout 20 -o "$TARBALL" "$URL"; then
-    echo ""
-    die "Could not download $URL
-     Check the network, and that '${REF}' exists in the repository."
-fi
-green "$(du -h "$TARBALL" | cut -f1)"
-
 UP="$TMP/upstream"
 mkdir -p "$UP"
-# GitHub wraps everything in one <repo>-<ref> directory; strip it.
-tar -xzf "$TARBALL" -C "$UP" --strip-components=1 \
-    || die "The download is not a readable tar.gz — the ref may not exist."
+if [ -n "${FROM:-}" ]; then
+    # A new version brought by hand: a folder, a .tar.gz or a .zip. Whatever
+    # one top-level directory it may be wrapped in is looked through.
+    FROM="$(cd "$(dirname "$FROM")" 2>/dev/null && pwd)/$(basename "$FROM")"
+    printf '  📂 reading %s ... ' "$FROM"
+    case "$FROM" in
+        *.tar.gz|*.tgz) tar -xzf "$FROM" -C "$UP" || die "$FROM is not a readable .tar.gz" ;;
+        *.zip)          command -v unzip >/dev/null || die "unzip is needed for a .zip"
+                        unzip -q "$FROM" -d "$UP" || die "$FROM is not a readable .zip" ;;
+        *)              [ -d "$FROM" ] || die "$FROM is neither a folder nor a .tar.gz/.zip"
+                        cp -r "$FROM/." "$UP/" ;;
+    esac
+    if [ ! -f "$UP/meson.build" ]; then
+        inner=("$UP"/*/)
+        if [ ${#inner[@]} -eq 1 ] && [ -f "${inner[0]}meson.build" ]; then
+            mv "$UP" "$TMP/wrapped" && mv "$TMP/wrapped/$(basename "${inner[0]}")" "$UP"
+        fi
+    fi
+    green "ok"
+    REF="local copy"
+else
+    URL="https://codeload.github.com/${REPO_SLUG}/tar.gz/${REF}"
+    printf '  ⬇  fetching %s ... ' "$REF"
+    if ! curl -fsSL --retry 2 --connect-timeout 20 -o "$TARBALL" "$URL"; then
+        echo ""
+        die "Could not download $URL
+     Check the network, and that '${REF}' exists in the repository."
+    fi
+    green "$(du -h "$TARBALL" | cut -f1)"
+    # GitHub wraps everything in one <repo>-<ref> directory; strip it.
+    tar -xzf "$TARBALL" -C "$UP" --strip-components=1 \
+        || die "The download is not a readable tar.gz — the ref may not exist."
+fi
 [ -f "$UP/meson.build" ] && [ -d "$UP/src" ] \
     || die "The downloaded tree does not look like PhantomSDR-Plus. Refusing to touch anything."
 
@@ -538,6 +642,14 @@ while read -r sha path; do
     [ -n "$path" ] && UP_SHA["$path"]="$sha"
 done < <(cd "$UP" && printf '%s\0' "${UP_FILES[@]}" | xargs -0 sha256sum)
 
+# Every version ever published (see --make-known), from the NEW release.
+declare -A KNOWN=()
+if [ -f "$UP/update-known.txt" ]; then
+    while read -r sha path; do
+        [ -n "$path" ] && KNOWN["$sha $path"]=1
+    done < "$UP/update-known.txt"
+fi
+
 declare -a F_NEW=() F_UPDATE=() F_CONFLICT=() F_SAME=() F_SKIP=() F_GONE=()
 
 printf '  🔍 comparing %d files ... ' "${#UP_FILES[@]}"
@@ -551,7 +663,10 @@ for rel in "${UP_FILES[@]}"; do
 
     lsha="$(sha256sum "$local_f" | cut -d' ' -f1)"
     prev="${PREV_SHA[$rel]:-}"
-    if [ -n "$prev" ] && [ "$prev" = "$lsha" ]; then
+    if [ -n "${KNOWN[$lsha $rel]:-}" ]; then
+        # Exactly a published version — older, never edited here.
+        F_UPDATE+=("$rel")
+    elif [ -n "$prev" ] && [ "$prev" = "$lsha" ]; then
         # Untouched copy of the previous release — a plain update, whatever tier.
         F_UPDATE+=("$rel")
     elif [ -z "$prev" ] && [ "$tier" = "C" ]; then
@@ -689,12 +804,21 @@ if [ "$PENDING" -eq 0 ] && { [ "$PRUNE" != true ] || [ ${#F_GONE[@]} -eq 0 ]; };
     exit 0
 fi
 
+# A plain run reports first and then offers to go ahead — the report is what
+# the sysop says yes to. ENTER, a closed stdin, cron and --check all say no, so
+# a run nobody answers still writes nothing and still exits 10.
+if [ "$MODE" != "apply" ] && [ "$IS_SOURCE" != true ] && [ "$ASK_TO_APPLY" = true ]; then
+    if confirm PHANTOM_UPDATE_NOW n n "Update these files now? (everything replaced is backed up first)"; then
+        MODE="apply"
+    fi
+fi
+
 if [ "$MODE" != "apply" ]; then
     if [ "$IS_SOURCE" = true ]; then
         echo "     Nothing was written, and --apply is refused here. The files above"
         echo "     are what still has to go up to ${REPO_SLUG}."
     else
-        echo "     Nothing was written. To do it:  ./update.sh --apply"
+        echo "     Nothing was written. To do it:  bash update.sh  (and answer y)"
     fi
     exit 10
 fi
@@ -901,6 +1025,10 @@ place() {
     # A script arriving from a tarball keeps its upstream mode, but a file that
     # was executable here must stay executable even if the archive disagrees.
     [ -x "$BACKUP_DIR/$rel" ] && chmod +x "$PHANTOM_DIR/$rel"
+    # The published tree has no exec bits at all when it was uploaded through
+    # GitHub's web page, and a start script without one cannot restart itself
+    # as its watchdog. Every script arrives executable.
+    case "$rel" in *.sh) chmod +x "$PHANTOM_DIR/$rel" ;; esac
     return 0
 }
 
@@ -1002,13 +1130,23 @@ done < <(list_backups | head -n -"$KEEP_BACKUPS")
 # ------------------------------------------------------------------------------
 # Rebuild and restart
 # ------------------------------------------------------------------------------
-NEEDS_BUILD=false
+# Only what changed is rebuilt: the backend for server sources, the site for
+# the frontend. recompile.sh is driven with flags, so it asks nothing.
+BUILD_BACKEND=false
+BUILD_FRONTEND=false
 for rel in ${APPLIED[@]+"${APPLIED[@]}"}; do
     case "$rel" in
-        src/*|frontend/*|jsdsp/*|subprojects/*|meson.build|meson_options.txt|*.hpp|*.cpp)
-            NEEDS_BUILD=true; break ;;
+        src/*|subprojects/*|meson.build|meson_options.txt|*.hpp|*.cpp) BUILD_BACKEND=true ;;
+        frontend/*|jsdsp/*) BUILD_FRONTEND=true ;;
     esac
 done
+NEEDS_BUILD=false
+BUILD_FLAG=""
+if [ "$BUILD_BACKEND" = true ] && [ "$BUILD_FRONTEND" = true ]; then BUILD_FLAG="--both"
+elif [ "$BUILD_BACKEND" = true ]; then BUILD_FLAG="--backend"
+elif [ "$BUILD_FRONTEND" = true ]; then BUILD_FLAG="--frontend"
+fi
+[ -n "$BUILD_FLAG" ] && NEEDS_BUILD=true
 
 SELF_UPDATED=false
 for rel in ${APPLIED[@]+"${APPLIED[@]}"}; do
@@ -1018,17 +1156,25 @@ done
 if [ "$NEEDS_BUILD" = true ]; then
     banner "A rebuild is needed"
     echo ""
-    echo "     Source, frontend or build files changed, so the running site will"
-    echo "     not show any of this until it is compiled again."
+    case "$BUILD_FLAG" in
+        --both)     echo "     Server sources and the web page changed: both are rebuilt." ;;
+        --backend)  echo "     Server sources changed: the backend is rebuilt (the page is not)." ;;
+        --frontend) echo "     The web page changed: it is rebuilt (the server is not)." ;;
+    esac
+    echo "     It takes a few minutes and asks nothing."
     echo ""
-    if confirm PHANTOM_RECOMPILE y n "Run ./recompile.sh now? (it asks its own questions)"; then
-        if [ -x "$PHANTOM_DIR/recompile.sh" ]; then
-            ( cd "$PHANTOM_DIR" && ./recompile.sh ) || warn "recompile.sh did not finish cleanly — run it by hand."
+    if confirm PHANTOM_RECOMPILE y n "Rebuild now?"; then
+        # A recompile.sh kept from before --both/--backend/--frontend existed
+        # would sit waiting for an answer; the new release's copy knows them.
+        RECOMPILE="$PHANTOM_DIR/recompile.sh"
+        grep -q -- '--both' "$RECOMPILE" 2>/dev/null || RECOMPILE="$UP/recompile.sh"
+        if ( cd "$PHANTOM_DIR" && bash "$RECOMPILE" "$BUILD_FLAG" ); then
+            green "  ✅ Rebuilt."
         else
-            warn "recompile.sh is not executable here — run: bash recompile.sh"
+            warn "The rebuild did not finish cleanly — run it by hand:  ./recompile.sh $BUILD_FLAG"
         fi
     else
-        yellow "     Remember to run ./recompile.sh before the changes take effect."
+        yellow "     Remember to run ./recompile.sh $BUILD_FLAG before the changes take effect."
     fi
 fi
 

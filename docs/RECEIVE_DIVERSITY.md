@@ -1,5 +1,7 @@
 # PhantomSDR-Plus — Receive Diversity
 
+> **On a station set up with the station questions (`configure-station.sh`)** the WebSDR relay listens only inside the computer, on `PORT_RELAY` (9013), and the page reaches it as `/relay` on the public port through `proxy.py` — there is no relay port to forward, and the frontend needs no rebuild for it. On a station set up before the wizard, the port settings below apply as written.
+
 Combine your receiver with a **second receiver somewhere else** and listen to whichever of the two currently has the better signal. When one site drops into a fade, the other usually has not, and you keep copy through it.
 
 The second receiver can be another PhantomSDR-Plus, a KiwiSDR, an UberSDR or a WebSDR. For the first three, everything runs in the browser: no server changes, no configuration files, nothing to install, and no special access to the other receiver. A WebSDR is the exception and needs one small piece of software on your own server — see [Using a WebSDR](#using-a-websdr) below.

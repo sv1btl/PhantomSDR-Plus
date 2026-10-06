@@ -1,5 +1,7 @@
 # RADE v1 Digitalsprache für PhantomSDR-Plus
 
+> **Auf einer mit den Stationsfragen (`configure-station.sh`) eingerichteten Station** lauscht der Sidecar nur im Rechner, auf `PORT_RADE` (9012), und die Seite erreicht ihn als `/rade` auf dem öffentlichen Port über `proxy.py` — Port 8074 weiter unten wird dann weder benutzt noch weitergeleitet. Auf einer Station, die vor dem Assistenten eingerichtet wurde, gilt alles Folgende wie beschrieben.
+
 **RADE** (Radio AutoencoDEr) ist FreeDVs führende Betriebsart für digitale Sprache auf Kurzwelle. Sie nutzt einen Hybrid aus maschinellem Lernen und DSP (den neuronalen FARGAN-Vocoder) und liefert hochwertige Sprache über Kurzwelle bei Signal-Rausch-Abständen bis hinunter zu −2 dB, in nur 1500 Hz HF-Bandbreite — schmaler als ein SSB-Signal.
 
 Dieses Dokument beschreibt die vollständige Integration des RADE-v1-Empfangs in PhantomSDR-Plus, umgesetzt als Python-Sidecar (`rade_helper.py`), der den Browser mit der Dekodierkette `radae_rxe.py` + `lpcnet_demo` verbindet.

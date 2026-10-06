@@ -45,4 +45,6 @@ export const {
   siteSDRBandwidth,
   siteRegion,
   siteChatEnabled,
+  siteRade,
+  siteRelay,
 } = siteInfo

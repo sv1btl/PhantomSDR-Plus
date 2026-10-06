@@ -47,14 +47,44 @@ except ImportError:
     sys.exit(1)
 
 # ── Load configuration ─────────────────────────────────────────────────────────
+# Two sources. station.conf is written by configure-station.sh on a station set
+# up with it, and gives the ports of the whole station. admin_config.json is
+# written by setup_admin.sh and wins wherever both name the same port, so a
+# station installed before station.conf existed behaves exactly as it did.
+_STATION_KEYS = {
+    "PORT_PUBLIC": "proxy_port",   # the one port listeners use
+    "PORT_SDR":    "public_port",  # spectrumserver, on loopback behind us
+    "PORT_ADMIN":  "port",         # admin panel, on loopback behind us
+    "PORT_RADE":   "rade_port",
+    "PORT_STATS":  "stats_port",
+    "PORT_RELAY":  "relay_port",
+}
+
+
+def _read_station_conf(path: Path) -> dict:
+    """The ports in station.conf (shell KEY=value lines), as admin_config keys."""
+    out = {}
+    try:
+        lines = path.read_text().splitlines()
+    except OSError:
+        return out
+    for line in lines:
+        m = re.match(r'\s*([A-Z_]+)=["\']?(\d+)["\']?\s*(#.*)?$', line)
+        if m and m.group(1) in _STATION_KEYS:
+            out[_STATION_KEYS[m.group(1)]] = int(m.group(2))
+    return out
+
+
+_cfg = _read_station_conf(Path(__file__).parent / "station.conf")
 _cfg_path = Path(__file__).parent / "admin_config.json"
 try:
     with open(_cfg_path) as _f:
-        _cfg = json.load(_f)
+        _cfg.update(json.load(_f))
 except FileNotFoundError:
-    print(f"[ERROR] admin_config.json not found at {_cfg_path}", file=sys.stderr)
-    print("        Run setup_admin.sh first.", file=sys.stderr)
-    sys.exit(1)
+    if not _cfg:
+        print(f"[ERROR] admin_config.json not found at {_cfg_path}", file=sys.stderr)
+        print("        Run configure-station.sh or setup_admin.sh first.", file=sys.stderr)
+        sys.exit(1)
 except json.JSONDecodeError as _e:
     print(f"[ERROR] admin_config.json is invalid JSON: {_e}", file=sys.stderr)
     sys.exit(1)
@@ -62,7 +92,7 @@ except json.JSONDecodeError as _e:
 for _key in ("port", "public_port", "proxy_port"):
     if _key not in _cfg:
         print(f"[ERROR] Missing '{_key}' in admin_config.json.", file=sys.stderr)
-        print("        Re-run setup_admin.sh to reconfigure.", file=sys.stderr)
+        print("        Re-run configure-station.sh or setup_admin.sh.", file=sys.stderr)
         sys.exit(1)
 
 
@@ -76,6 +106,30 @@ LISTEN_HOST    = "0.0.0.0"
 LISTEN_PORT    = int(_cfg["proxy_port"])
 ADMIN_UPSTREAM = f"http://127.0.0.1:{int(_cfg['port'])}"
 SDR_UPSTREAM   = f"http://{_sdr_host}:{_sdr_port}"
+
+# ── Side services behind the same public port ──────────────────────────────────
+# A station set up with configure-station.sh forwards ONE port on its router.
+# The RADE sidecar, the statistics server and the WebSDR relay then listen on
+# loopback, and the page reaches each of them here under a path prefix that is
+# stripped on the way through (/stats/api/system-stats → /api/system-stats).
+# A station whose config names none of these ports gets no such route, and
+# those paths go to spectrumserver exactly as before.
+SIDE_SERVICES: "dict[str, str]" = {}
+for _prefix, _key in (("/rade", "rade_port"), ("/stats", "stats_port"),
+                      ("/relay", "relay_port")):
+    if _cfg.get(_key):
+        SIDE_SERVICES[_prefix] = f"http://127.0.0.1:{int(_cfg[_key])}"
+
+
+def _side_service(request: web.Request) -> "tuple[str, str] | None":
+    """(upstream, path for it) when the request is for a side service."""
+    path = request.path
+    for prefix, upstream in SIDE_SERVICES.items():
+        if path == prefix or path.startswith(prefix + "/"):
+            rest = path[len(prefix):] or "/"
+            qs = request.rel_url.query_string
+            return upstream, rest + ("?" + qs if qs else "")
+    return None
 
 # ── Several receivers behind one port (receivers.toml) ─────────────────────────
 # Optional. Without the file there is one SDR upstream, exactly as before. With
@@ -273,8 +327,8 @@ def _is_local(request: web.Request) -> bool:
 # ─────────────────────────────────────────────────────────────────────────────
 
 async def proxy_request(request: web.Request, upstream: str,
-                        set_rx: str = "") -> web.StreamResponse:
-    url = upstream + _upstream_path(request)
+                        set_rx: str = "", path: str = "") -> web.StreamResponse:
+    url = upstream + (path or _upstream_path(request))
     headers = {k: v for k, v in request.headers.items()
                if k.lower() not in ("host", "content-length", "accept-encoding")
                and k.lower() not in _CLIENT_ID_HEADERS}
@@ -309,7 +363,9 @@ async def proxy_request(request: web.Request, upstream: str,
                 await response.write_eof()
                 return response
     except aiohttp.ClientConnectorError:
-        target = "Admin panel" if upstream == ADMIN_UPSTREAM else "Spectrumserver"
+        names = {u: p.strip("/").upper() + " service" for p, u in SIDE_SERVICES.items()}
+        target = ("Admin panel" if upstream == ADMIN_UPSTREAM
+                  else names.get(upstream, "Spectrumserver"))
         return web.Response(
             status=502,
             text=f"502 Bad Gateway — {target} is not running on {upstream}",
@@ -318,7 +374,8 @@ async def proxy_request(request: web.Request, upstream: str,
         return web.Response(status=500, text=f"Proxy error: {e}")
 
 
-async def proxy_websocket(request: web.Request, upstream: str) -> web.WebSocketResponse:
+async def proxy_websocket(request: web.Request, upstream: str,
+                          path: str = "") -> web.WebSocketResponse:
     """Bidirectional WebSocket tunnel.
 
     Key fixes vs the original:
@@ -345,7 +402,7 @@ async def proxy_websocket(request: web.Request, upstream: str) -> web.WebSocketR
     client_ip = _norm_ip(request.remote)
     _register_ws(client_ip, ws_client)
 
-    ws_url = upstream.replace("http://", "ws://") + _upstream_path(request)
+    ws_url = upstream.replace("http://", "ws://") + (path or _upstream_path(request))
 
     _skip = frozenset(("host", "upgrade", "connection",
                         "sec-websocket-key", "sec-websocket-version",
@@ -445,6 +502,12 @@ async def handle(request: web.Request) -> web.StreamResponse:
     # could reach this port could disconnect and ban any listener.
     if "~~kick" in request.path and not _is_local(request):
         return web.json_response({"ok": False, "msg": "forbidden"}, status=403)
+    side = _side_service(request)
+    if side:
+        upstream, path = side
+        if request.headers.get("Upgrade", "").lower() == "websocket":
+            return await proxy_websocket(request, upstream, path)
+        return await proxy_request(request, upstream, path=path)
     if request.path.startswith("/admin"):
         upstream, set_rx = ADMIN_UPSTREAM, ""
     elif request.path == "/receivers.json" and RECEIVERS:
@@ -523,6 +586,8 @@ async def main():
     print(f"║  /admin*   → Admin panel  (localhost:{int(_cfg['port']):<5})        ║")
     print(f"║  /*        → SDR server   ({_sdr_host}:{_sdr_port:<5})  ║")
     print(f"╚══════════════════════════════════════════════════════╝")
+    for prefix, upstream in SIDE_SERVICES.items():
+        print(f"  {prefix + '/*':<9} → {upstream}")
     if RECEIVERS:
         if FRONT_PORT and FRONT_PORT != LISTEN_PORT:
             print(f"  also listening on :{FRONT_PORT} (receivers.toml [front])")

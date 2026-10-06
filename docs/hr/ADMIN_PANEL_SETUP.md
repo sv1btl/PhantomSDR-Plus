@@ -72,6 +72,8 @@ chmod +x setup_admin.sh manage_admin.sh
 ./setup_admin.sh
 ```
 
+> **Bez administratorske ploče:** `bash setup_admin.sh --proxy-only` instalira samo `proxy.py` na javnom portu, s portovima iz `station.conf`. To radi instalacijski program kad odbijete ploču, jer do proxyja stižu slušatelji — i `/rade`, `/stats`, `/relay`.
+
 Skripta će:
 
 1. Provjeriti je li instaliran Python 3
@@ -83,6 +85,7 @@ prihvaća običan Enter, pa je uobičajeno postavljanje pitanje triju pritisaka 
      upravo ono što donosi svaki `config-*.toml` u repozitoriju)
    - **Interni port administratorske ploče** — gdje se `admin_server.py` lokalno veže (zadano `3000`)
    - **Javni port proxyja** — jedini vanjski port koji objedinjuje SDR + administraciju (zadano `8902`)
+   Na stanici postavljenoj s pitanjima o stanici (`configure-station.sh`) tri zadane vrijednosti su vlastiti portovi stanice iz `station.conf` — 9001, 9010 i 9000 — pa je Enter ispravan, a skripta za pokretanje je već unaprijed odabrana.
 
 Neispravni odgovori odbijaju se i pitanje se ponavlja, ali samo pet puta — nakon toga uzima se zadana vrijednost. Izvođenje čiji ulaz nije terminal (kroz cijev, cron, bez nadzora) odmah uzima zadane vrijednosti umjesto da čeka unos koji nikad neće stići.
 5. Instalirati `flask`, `psutil`, `aiohttp` i `tomli-w` putem pipa

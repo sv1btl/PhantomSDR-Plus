@@ -8,6 +8,12 @@
 #  and how far the CPU over-temperature guard may act on its own. Everything
 #  here can be changed later in the panel (Settings) — nothing is one-way.
 #
+#  On a station set up with configure-station.sh the ports and the start
+#  script come from station.conf and are the defaults, so ENTER through every
+#  question — or no terminal at all, as when install.sh runs this — is right.
+#  --proxy-only installs just the proxy on the public port, for a station that
+#  wants no admin panel.
+#
 #  Thermal guard manual: docs/THERMAL_GUARD.md
 # ============================================================
 
@@ -23,6 +29,92 @@ if [ "$(id -u)" -eq 0 ] && ! command -v sudo >/dev/null 2>&1; then
 fi
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# ── station.conf (configure-station.sh) ──────────────────────────────────────
+# Its ports and start script become this script's defaults (see the header).
+STATION_CONF="$SCRIPT_DIR/station.conf"
+if [ -f "$STATION_CONF" ]; then
+    # shellcheck disable=SC1090
+    . "$STATION_CONF"
+fi
+
+# ── The proxy's systemd unit ─────────────────────────────────────────────────
+# Written by the full setup and by --proxy-only alike. The proxy owns the public
+# port, so without its unit a reboot leaves the receiver unreachable even when
+# everything behind it came back.
+write_proxy_unit() {
+    local python_bin; python_bin="$(command -v python3)"
+    sudo tee /etc/systemd/system/phantomsdr-proxy.service > /dev/null << UNIT
+[Unit]
+Description=PhantomSDR Reverse Proxy
+After=network.target phantomsdr-admin.service
+
+[Service]
+Type=simple
+User=$(whoami)
+WorkingDirectory=$SCRIPT_DIR
+ExecStart=$python_bin -u $SCRIPT_DIR/proxy.py
+StandardOutput=append:$SCRIPT_DIR/proxy.log
+StandardError=append:$SCRIPT_DIR/proxy.log
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+UNIT
+}
+
+# ── --proxy-only ─────────────────────────────────────────────────────────────
+# A station from configure-station.sh that declined the admin panel still has
+# one public port, and proxy.py is what listens on it (carrying /rade, /stats
+# and /relay to the services behind it). This installs that and nothing else.
+# proxy.py reads its ports from station.conf when admin_config.json is absent.
+proxy_only() {
+    echo ""
+    echo "PhantomSDR-Plus — public-port proxy only (no admin panel)"
+    echo ""
+    if [ ! -f "$STATION_CONF" ]; then
+        echo "[ERROR] --proxy-only needs station.conf — run configure-station.sh first."
+        exit 1
+    fi
+    command -v python3 >/dev/null 2>&1 || { echo "[ERROR] python3 not found"; exit 1; }
+    if ! python3 -c 'import aiohttp' 2>/dev/null; then
+        # The distribution's own package first: a fresh system often has no
+        # pip at all (Fedora, Arch), and the packaged aiohttp is updated with it.
+        echo "[*] Installing aiohttp..."
+        if command -v apt-get >/dev/null 2>&1; then
+            sudo env DEBIAN_FRONTEND=noninteractive apt-get install -y python3-aiohttp >/dev/null 2>&1 || true
+        elif command -v dnf >/dev/null 2>&1; then
+            sudo dnf install -y python3-aiohttp >/dev/null 2>&1 || true
+        elif command -v pacman >/dev/null 2>&1; then
+            sudo pacman -S --noconfirm --needed python-aiohttp >/dev/null 2>&1 || true
+        elif command -v zypper >/dev/null 2>&1; then
+            sudo zypper -n install python3-aiohttp >/dev/null 2>&1 || true
+        fi
+        if ! python3 -c 'import aiohttp' 2>/dev/null; then
+            pip3 install aiohttp --break-system-packages 2>/dev/null \
+                || pip3 install aiohttp --user 2>/dev/null \
+                || { echo "[ERROR] Could not install aiohttp — install python3-aiohttp, then re-run."; exit 1; }
+        fi
+        echo "[OK] aiohttp installed"
+    fi
+    echo "[OK] proxy.py will listen on port ${PORT_PUBLIC} → spectrumserver on ${PORT_SDR}"
+    if [ -d /run/systemd/system ] && sudo true; then
+        write_proxy_unit
+        sudo touch "$SCRIPT_DIR/proxy.log"
+        sudo chown "$(id -un):$(id -gn)" "$SCRIPT_DIR/proxy.log"
+        sudo systemctl daemon-reload
+        sudo systemctl enable phantomsdr-proxy
+        sudo systemctl restart phantomsdr-proxy
+        echo "[OK] phantomsdr-proxy installed and started (starts at boot)"
+    else
+        echo "[–] No systemd here — starting the proxy in the background instead."
+        pkill -f "python3 -u $SCRIPT_DIR/proxy.py" 2>/dev/null || true
+        setsid nohup python3 -u "$SCRIPT_DIR/proxy.py" >> "$SCRIPT_DIR/proxy.log" 2>&1 < /dev/null &
+        echo "[OK] proxy.py started (PID $!) — it does not come back after a reboot"
+    fi
+    exit 0
+}
 
 # ── Sudoers drop-in ───────────────────────────────────────────────────────────
 # Every restart of the two units needs a sudo password. Fine at a terminal, but
@@ -111,14 +203,19 @@ case "${1:-}" in
         install_sudoers_rule
         exit $?
         ;;
+    --proxy-only)
+        proxy_only
+        ;;
     --help|-h)
-        echo "Usage: $0 [--sudoers]"
+        echo "Usage: $0 [--sudoers | --proxy-only]"
         echo ""
         echo "  (no arguments)  full interactive setup: ports, scripts, thermal"
         echo "                  guard, optional systemd units"
         echo "  --sudoers       install only /etc/sudoers.d/phantomsdr, so the"
         echo "                  two units can be restarted without a password."
         echo "                  For installs that already have the units."
+        echo "  --proxy-only    install just proxy.py on the public port from"
+        echo "                  station.conf, for a station without the panel."
         exit 0
         ;;
     "") ;;
@@ -259,13 +356,13 @@ ask_yn() {
 }
 
 # ── Ports ─────────────────────────────────────────────────────────────────────
-# Defaults are the worked example in docs/ADMIN_PANEL_SETUP.md: 8900 is what
-# every config-*.toml in the repository ships with.
+# Defaults: station.conf when configure-station.sh wrote one (9001 / 9010 /
+# 9000 on a new station), else the worked example in docs/ADMIN_PANEL_SETUP.md.
 echo "Enter the port numbers for your setup (Enter accepts the default):"
 echo ""
-ask_port "PhantomSDR server port (spectrumserver)"  SDR_PORT   8900
-ask_port "Admin panel internal port"                ADMIN_PORT 3000
-ask_port "Proxy public port (combines SDR + admin)" PROXY_PORT 8902
+ask_port "PhantomSDR server port (spectrumserver)"  SDR_PORT   "${PORT_SDR:-8900}"
+ask_port "Admin panel internal port"                ADMIN_PORT "${PORT_ADMIN:-3000}"
+ask_port "Proxy public port (combines SDR + admin)" PROXY_PORT "${PORT_PUBLIC:-8902}"
 echo ""
 
 # ── Python dependencies ───────────────────────────────────────────────────────
@@ -300,25 +397,30 @@ fi
 # ── Start / stop scripts ──────────────────────────────────────────────────────
 # The panel drives the receiver through these two, and so does the thermal guard:
 # its stop+restart mode can only restart if start_script is set here.
+# CHOICE_DEFAULT, when set to one of the options, is what ENTER (or no
+# terminal) picks; unset, ENTER picks "none" as it always did.
 ask_choice() {
     local label="$1" varname="$2"; shift 2
-    local opts=("$@") i ans
+    local opts=("$@") i ans def=0
     if [ ${#opts[@]} -eq 0 ]; then
         eval "$varname=''"
         echo "[WARN] $label: no candidates found — set it later in Settings"
         return
     fi
     echo "$label"
-    for i in "${!opts[@]}"; do printf "   %d) %s\n" $((i+1)) "${opts[$i]}"; done
+    for i in "${!opts[@]}"; do
+        printf "   %d) %s\n" $((i+1)) "${opts[$i]}"
+        [ -n "${CHOICE_DEFAULT:-}" ] && [ "${opts[$i]}" = "$CHOICE_DEFAULT" ] && def=$((i+1))
+    done
     echo "   0) none — set it later in the panel (Settings)"
     local tries=0
     while true; do
-        if ! read -rp "   choice [0-${#opts[@]}]: " ans; then
+        if ! read -rp "   choice [0-${#opts[@]}, Enter = $def]: " ans; then
             echo ""
-            echo "   (no input — choosing none)"
-            ans=0
+            echo "   (no input — choosing $def)"
+            ans=$def
         fi
-        [ -z "$ans" ] && ans=0
+        [ -z "$ans" ] && ans=$def
         if [[ "$ans" =~ ^[0-9]+$ ]] && [ "$ans" -le "${#opts[@]}" ]; then
             if [ "$ans" -eq 0 ]; then
                 eval "$varname=''"; echo "   [OK] none"
@@ -342,8 +444,11 @@ echo ""
 echo "── Receiver control scripts ──────────────────────────────────────────"
 mapfile -t START_OPTS < <(cd "$SCRIPT_DIR" && ls -1 start-*.sh 2>/dev/null)
 mapfile -t STOP_OPTS  < <(cd "$SCRIPT_DIR" && ls -1 stop-*.sh 2>/dev/null)
+CHOICE_DEFAULT="${STATION_LAUNCHER:-}"
 ask_choice "Script that STARTS the receiver:" START_SCRIPT "${START_OPTS[@]}"
 echo ""
+CHOICE_DEFAULT=""
+[ -n "${STATION_LAUNCHER:-}" ] && CHOICE_DEFAULT="stop-websdr.sh"
 ask_choice "Script that STOPS the receiver:"  STOP_SCRIPT  "${STOP_OPTS[@]}"
 
 # ── CPU over-temperature guard ────────────────────────────────────────────────
@@ -507,7 +612,7 @@ case "$SVC_CHOICE" in
         # we cannot write to /etc/systemd/system — a failed 'sudo tee' would
         # otherwise leave a half-installed pair and still report success.
         SUDO_OK=true
-        if ! sudo -v; then
+        if ! sudo true; then
             SUDO_OK=false
             echo "[!] No sudo access — cannot install the systemd units."
             echo "    Start the panel by hand instead:  ./manage_admin.sh start"
@@ -550,24 +655,7 @@ WantedBy=multi-user.target
 UNIT
         # The proxy gets its own unit. Leaving it to manage_admin.sh would mean
         # the panel returns after a reboot but the public port stays dead.
-        sudo tee /etc/systemd/system/phantomsdr-proxy.service > /dev/null << UNIT
-[Unit]
-Description=PhantomSDR Reverse Proxy
-After=network.target phantomsdr-admin.service
-
-[Service]
-Type=simple
-User=$(whoami)
-WorkingDirectory=$SCRIPT_DIR
-ExecStart=$PYTHON_BIN -u $SCRIPT_DIR/proxy.py
-StandardOutput=append:$SCRIPT_DIR/proxy.log
-StandardError=append:$SCRIPT_DIR/proxy.log
-Restart=always
-RestartSec=5
-
-[Install]
-WantedBy=multi-user.target
-UNIT
+        write_proxy_unit
         # ── Keep admin.log / proxy.log writable by the panel ─────────────────
         # StandardOutput=append: is opened by PID 1 *before* it drops to User=,
         # so a log that does not exist yet is created root:root 0644 and the

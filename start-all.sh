@@ -52,12 +52,12 @@ while read -r launcher instance; do
         start-*.sh) ;;
         *) echo "  skipped: $launcher (not a start-*.sh)" >&2; continue ;;
     esac
-    if [ ! -x "$PHANTOMDIR/$launcher" ]; then
+    if [ ! -f "$PHANTOMDIR/$launcher" ]; then
         echo "  skipped: $launcher not found" >&2
         continue
     fi
     echo "── $launcher${instance:+ (instance $instance)}"
-    INSTANCE="$instance" "$PHANTOMDIR/$launcher" -q
+    INSTANCE="$instance" bash "$PHANTOMDIR/$launcher" -q
     started=$(( started + 1 ))
 done <<< "$entries"
 

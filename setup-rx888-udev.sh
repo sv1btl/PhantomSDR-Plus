@@ -46,6 +46,8 @@ fi
 
 # ── 2) Install the udev rules ────────────────────────────────────────────────
 echo "Writing $RULES"
+# A minimal system (a container, some VPS images) has no rules.d yet.
+mkdir -p "$(dirname "$RULES")"
 cat > "$RULES" <<'RULES_EOF'
 # RX-888 MkII — allow rx888_stream to run without sudo.
 # Cypress FX3: bootloader PID is 00f1 or 00f3 (varies by last shutdown state);
@@ -74,8 +76,11 @@ fi
 
 # ── 4) Reload rules and apply to already-connected devices ───────────────────
 echo "Reloading udev rules…"
-udevadm control --reload-rules
-udevadm trigger --subsystem-match=usb
+# No udev daemon (a container, a chroot): the rules simply apply from the
+# next boot, which is no reason to fail the whole setup.
+if ! { udevadm control --reload-rules && udevadm trigger --subsystem-match=usb; } 2>/dev/null; then
+    echo "  (udev is not running here — the rules take effect at the next boot)"
+fi
 
 echo
 echo "✔ Done. RX-888 udev rules installed."

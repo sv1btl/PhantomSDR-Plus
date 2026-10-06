@@ -1,5 +1,7 @@
 # Digitalni glas RADE v1 za PhantomSDR-Plus
 
+> **Na stanici postavljenoj s pitanjima o stanici (`configure-station.sh`)** sidecar sluša samo unutar računala, na `PORT_RADE` (9012), a stranica ga doseže kao `/rade` na javnom portu preko `proxy.py` — port 8074 niže tada se niti koristi niti prosljeđuje. Na stanici postavljenoj prije čarobnjaka sve u nastavku vrijedi kako je napisano.
+
 **RADE** (Radio AutoencoDEr) vodeći je FreeDV-ov način rada digitalnog glasa na kratkim valovima. Koristi hibrid strojnog učenja i DSP-a (neuronski vokoder FARGAN) i pruža govor visoke kvalitete na KV-u pri omjerima signal/šum do −2 dB, u tek 1500 Hz RF širine pojasa — uže od SSB signala.
 
 Ovaj dokument obrađuje potpunu integraciju prijama RADE v1 u PhantomSDR-Plus, izvedenu kao sidecar proces u Pythonu (`rade_helper.py`) koji povezuje preglednik s lancem dekodiranja `radae_rxe.py` + `lpcnet_demo`.

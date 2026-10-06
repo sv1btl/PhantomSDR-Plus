@@ -16,9 +16,9 @@
 #    3. sudo cp phantomsdr-websdr-relay.service /etc/systemd/system/
 #    4. sudo systemctl daemon-reload
 #    5. sudo systemctl enable --now phantomsdr-websdr-relay
-#    6. curl -s localhost:9000/status        # should answer
+#    6. curl -s localhost:9013/status        # should answer
 #
-#  The relay listens on the port in websdr_relay.json (9000 by default) and
+#  The relay listens on the port in websdr_relay.json (9013 by default; behind proxy.py it is reached as /relay) and
 #  listeners' browsers reach it DIRECTLY — it is not proxied through the
 #  spectrumserver — so that port has to be forwarded and open in the firewall,
 #  and it must match DEFAULT_RELAY_PORT in frontend/src/webSdrSource.js.

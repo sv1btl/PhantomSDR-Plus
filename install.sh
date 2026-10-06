@@ -75,6 +75,12 @@ set -euo pipefail
 #   PHANTOM_KIWI=y|n           Kiwi client emulation  (default y interactive, n unattended)
 #   PHANTOM_RECOMPILE=y|n      final rebuild                      (default y)
 #   PHANTOM_ADD_RECEIVER=y|n   offer add-receiver.sh at the end   (default n)
+#   PHANTOM_START_RECEIVER=y|n start the receiver at the end, after the
+#                              station questions                (default y)
+#   PHANTOM_CLASSIC=1          skip the station questions (configure-station.sh)
+#                              and ask everything on the way, as before
+#   STATION_*=...              any station.conf answer, e.g. STATION_RECEIVER=rtl
+#                              STATION_CALLSIGN=SV1XYZ — see configure-station.sh
 #   PHANTOM_FIX_CLOCK_SKEW=y|n reset source timestamps that are dated in
 #                              the future, so meson can build   (default y)
 #
@@ -324,7 +330,7 @@ step_state() {
 # sync when adding or removing a step() call.
 
 STEP_NO=0
-STEP_TOTAL=20
+STEP_TOTAL=22
 STEP_T0=0
 
 # Frame drawing. Every framed line is padded to STEP_W visible columns, so the
@@ -684,6 +690,74 @@ ask_menu() {
     prompt_fence
     read -rp "  ❓ ${q}: " MENU_ANSWER
     MENU_ANSWER="${MENU_ANSWER:-$def}"
+}
+
+# ------------------------------------------------------------------------------
+# The station wizard (configure-station.sh)
+# ------------------------------------------------------------------------------
+# On a new station every question is asked once, at the start, by
+# configure-station.sh and saved in station.conf. From then on the run needs
+# nobody at the keyboard: the PHANTOM_* answers come from station.conf, and the
+# sub-installers (admin panel, relay, RADE, statistics, Kiwi) read their ports
+# from it and take its answers as their defaults, so they run with no terminal.
+# PHANTOM_CLASSIC=1 keeps the old one-question-at-a-time run.
+USE_STATION=false
+SUB_IN=/dev/stdin            # where the sub-installers read their answers from
+STATION_WIZARD="$SCRIPT_DIR/configure-station.sh"
+STATION_CONF_FILE="$SCRIPT_DIR/station.conf"
+
+# The hint a step shows next to its name: with the wizard, nothing is asked.
+ask_hint() {
+    if [ "$USE_STATION" = true ]; then
+        echo "no input needed — answered at the start"
+    else
+        echo "$1"
+    fi
+}
+
+# station_value KEY — one answer from station.conf, without touching ours.
+station_value() {
+    (
+        # shellcheck disable=SC1090
+        . "$STATION_CONF_FILE" 2>/dev/null
+        eval "printf '%s' \"\${$1:-}\""
+    )
+}
+
+# The station's answers become this installer's.
+station_to_phantom_env() {
+    local rx; rx="$(station_value STATION_RECEIVER)"
+    case "$rx" in
+        rx888mk2)       PHANTOM_SDR="${PHANTOM_SDR:-1}" ;;
+        rtl)            PHANTOM_SDR="${PHANTOM_SDR:-2}" ;;
+        rsp1a)          PHANTOM_SDR="${PHANTOM_SDR:-3}" ;;
+        fobos|fobos-hf) PHANTOM_SDR="${PHANTOM_SDR:-5}" ;;
+        airspyhf)       PHANTOM_SDR="${PHANTOM_SDR:-6}" ;;
+        hackrf)         PHANTOM_SDR="${PHANTOM_SDR:-7}" ;;
+    esac
+    PHANTOM_RTLSDR_V4="${PHANTOM_RTLSDR_V4:-$(station_value STATION_RTL_V4)}"
+    PHANTOM_SITE_EDIT=n
+    PHANTOM_ADMIN="${PHANTOM_ADMIN:-$(station_value STATION_ADMIN)}"
+    PHANTOM_WEBSDR_RELAY="${PHANTOM_WEBSDR_RELAY:-$(station_value STATION_RELAY)}"
+    PHANTOM_RADE="${PHANTOM_RADE:-$(station_value STATION_RADE)}"
+    PHANTOM_STATS="${PHANTOM_STATS:-$(station_value STATION_STATS)}"
+    PHANTOM_KIWI="${PHANTOM_KIWI:-y}"
+    PHANTOM_OPENCL="${PHANTOM_OPENCL:-y}"
+    PHANTOM_RECOMPILE="${PHANTOM_RECOMPILE:-y}"
+    PHANTOM_ADD_RECEIVER="${PHANTOM_ADD_RECEIVER:-n}"
+    PHANTOM_NONINTERACTIVE=1
+    SUB_IN=/dev/null
+}
+
+# This computer's address on the local network, for the closing message.
+lan_ip() {
+    local ip=""
+    ip="$(hostname -I 2>/dev/null | awk '{print $1}')" || true
+    if [ -z "$ip" ] && command -v ip >/dev/null 2>&1; then
+        ip="$(ip -4 route get 1.1.1.1 2>/dev/null \
+              | awk '{for (i = 1; i < NF; i++) if ($i == "src") print $(i + 1)}')" || true
+    fi
+    printf '%s' "${ip:-localhost}"
 }
 
 # pause <message> — a plain "press ENTER" acknowledgement.
@@ -1365,6 +1439,44 @@ fact "Unattended run" "$([ "$PHANTOM_NONINTERACTIVE" = "1" ] && echo 'yes' || ec
 # Printed once, up front, so nobody has to babysit the whole run wondering when
 # the next question lands.
 
+# ------------------------------------------------------------------------------
+# Your station — every question, now
+# ------------------------------------------------------------------------------
+# configure-station.sh asks about the receiver, the band, the station and the
+# extras, and saves the answers in station.conf (see the helpers above). After
+# this the installer asks nothing more. The sudo password, if one is needed,
+# is asked once here and kept alive for the rest of the run, so a long build
+# cannot stop half-way to ask for it again.
+if [ -f "$STATION_WIZARD" ] && [ "${PHANTOM_CLASSIC:-0}" != "1" ]; then
+    banner "Your station"
+    if ! bash "$STATION_WIZARD" --ask; then
+        die "The station questions were not finished — nothing has been installed yet.
+       Run the installer again to answer them."
+    fi
+    USE_STATION=true
+    station_to_phantom_env
+    fact "Station" "$(station_value STATION_CALLSIGN) — $(station_value STATION_RECEIVER), public port $(station_value PORT_PUBLIC)"
+    if [ -n "$SUDO" ]; then
+        echo ""
+        echo "The installer needs your sudo password once, now — not again later."
+        sudo true || die "sudo is needed to install the packages."
+        ( while kill -0 $$ 2>/dev/null; do sudo -n true 2>/dev/null; sleep 50; done ) &
+    fi
+fi
+
+if [ "$USE_STATION" = true ]; then
+banner "Ready to install"
+echo ""
+echo "Target: ${OS_LABEL}"
+echo ""
+echo "That was every question. The installation now runs its ${STEP_TOTAL} steps"
+echo "on its own — roughly 20 to 60 minutes, most of it compiling and, if you"
+echo "chose it, the RADE download. Nothing more will be asked."
+echo ""
+echo "When the run ends — whether it succeeds or fails — a full report is"
+echo "written to install.txt in the PhantomSDR-Plus directory."
+echo ""
+else
 banner "Before we start"
 echo ""
 echo "Target: ${OS_LABEL}"
@@ -1393,6 +1505,7 @@ if [ "$PHANTOM_NONINTERACTIVE" = "1" ]; then
     yellow "Running UNATTENDED — every question takes its default answer."
     yellow "See the header of this script for the PHANTOM_* overrides."
     echo ""
+fi
 fi
 
 # ------------------------------------------------------------------------------
@@ -1551,6 +1664,13 @@ find_phantom_dir() {
 
 find_phantom_dir
 
+# A tree uploaded through GitHub's web page, unzipped from an archive or copied
+# off a FAT/exFAT stick has lost every exec bit, and the start scripts re-run
+# themselves as their own watchdog — without the bit the receiver silently
+# never starts. Set them here, once, for every script in the tree.
+find "$PHANTOM_DIR" -maxdepth 2 -name '*.sh' -not -path '*/node_modules/*' \
+    -exec chmod +x {} + 2>/dev/null || true
+
 # Before anything long-running: does this checkout even contain the headers the
 # build needs? (See the websocketpp notes near the top of this file.)
 check_wspp_sources
@@ -1668,7 +1788,7 @@ echo ""
 # STEP 7 — SDR hardware driver
 # ------------------------------------------------------------------------------
 
-step "SDR hardware driver" "⌨️  YOU WILL BE ASKED which receiver to set up"
+step "SDR hardware driver" "$(ask_hint "⌨️  YOU WILL BE ASKED which receiver to set up")"
 
 echo ""
 echo "Which SDR would you like to set up?"
@@ -1794,8 +1914,12 @@ case $option in
 
         else
             echo "Setting up standard RTL-SDR..."
+            # No library by name: it is librtlsdr0 on Jammy and Debian, but
+            # librtlsdr2 on Noble, and rtl-sdr / librtlsdr-dev pull in the right
+            # one on every release. Naming librtlsdr0 failed the whole install
+            # on Ubuntu 24.04 ("Unable to locate package librtlsdr0").
             run $SUDO env DEBIAN_FRONTEND=noninteractive apt-get install -y \
-                libusb-1.0-0-dev librtlsdr0 librtlsdr-dev rtl-sdr
+                libusb-1.0-0-dev librtlsdr-dev rtl-sdr
             green "✅ Standard RTL-SDR drivers installed"
         fi
         ;;
@@ -1882,7 +2006,7 @@ echo ""
 # STEP 8 — Site information
 # ------------------------------------------------------------------------------
 
-step "Site information" "⌨️  YOU WILL EDIT frontend/site_information.json"
+step "Site information" "$(ask_hint "⌨️  YOU WILL EDIT frontend/site_information.json")"
 
 SITE_INFO_PATH="$PHANTOM_DIR/frontend/site_information.json"
 
@@ -1895,7 +2019,18 @@ echo "callsign, location, grid square, antenna and hardware description."
 echo "   $SITE_INFO_PATH"
 echo ""
 
-if confirm PHANTOM_SITE_EDIT y n "Open it in an editor now?"; then
+if [ "$USE_STATION" = true ]; then
+    echo "Writing it — and the receiver's .toml — from your answers in station.conf."
+    echo "Change them later with:  bash configure-station.sh"
+    echo ""
+    if bash "$STATION_WIZARD" --apply; then
+        component "Site information" "written from station.conf — change with: bash configure-station.sh"
+    else
+        step_state PARTIAL "configure-station.sh --apply failed"
+        warn "The station settings could not be written — run: bash configure-station.sh --apply"
+        component "Site information" "FAILED — run: bash configure-station.sh --apply"
+    fi
+elif confirm PHANTOM_SITE_EDIT y n "Open it in an editor now?"; then
     if command -v nano >/dev/null 2>&1; then
         VISUAL_EDITOR="nano"
     elif command -v vim >/dev/null 2>&1; then
@@ -2261,7 +2396,7 @@ opencl_install_pocl() {
 
 detect_opencl_hardware
 
-step "OpenCL support (optional)" "⌨️  YOU WILL BE ASKED whether to install it"
+step "OpenCL support (optional)" "$(ask_hint "⌨️  YOU WILL BE ASKED whether to install it")"
 
 echo ""
 echo "OpenCL accelerates the FFT on Intel/AMD CPUs and integrated GPUs."
@@ -2337,7 +2472,7 @@ echo ""
 # STEP 12 — Admin panel (optional)
 # ------------------------------------------------------------------------------
 
-step "Admin panel (optional)" "⌨️  YOU WILL BE ASKED — and setup asks its own questions"
+step "Admin panel (optional)" "$(ask_hint "⌨️  YOU WILL BE ASKED — and setup asks its own questions")"
 
 if [ -f "$PHANTOM_DIR/setup_admin.sh" ]; then
     echo ""
@@ -2364,13 +2499,24 @@ if [ -f "$PHANTOM_DIR/setup_admin.sh" ]; then
         fi
         chmod +x "$PHANTOM_DIR/setup_admin.sh" "$PHANTOM_DIR/manage_admin.sh" 2>/dev/null || true
         echo ""
-        if ( cd "$PHANTOM_DIR" && ./setup_admin.sh ); then
+        if ( cd "$PHANTOM_DIR" && ./setup_admin.sh ) < "$SUB_IN"; then
             ADMIN_INSTALLED=true
             component "Admin panel" "installed — http://YOUR_IP:<proxy_port>/admin, password 'admin'"
         else
             step_state PARTIAL "setup_admin.sh did not finish"
             warn "Admin panel setup did not finish — run ./setup_admin.sh again later"
             component "Admin panel" "FAILED — re-run ./setup_admin.sh"
+        fi
+    elif [ "$USE_STATION" = true ]; then
+        # No panel — but proxy.py still owns the public port and carries /rade,
+        # /stats and /relay to the services behind it.
+        echo "No admin panel — installing just the proxy on the public port."
+        if ( cd "$PHANTOM_DIR" && ./setup_admin.sh --proxy-only ) < "$SUB_IN"; then
+            component "Admin panel" "not installed — proxy.py alone on the public port; ./setup_admin.sh adds the panel later"
+        else
+            step_state PARTIAL "proxy did not install"
+            warn "The proxy did not install — run: ./setup_admin.sh --proxy-only"
+            component "Admin panel" "not installed; proxy FAILED — run ./setup_admin.sh --proxy-only"
         fi
     else
         echo "Skipping the admin panel — run ./setup_admin.sh later if you change your mind."
@@ -2388,7 +2534,7 @@ fi
 # ------------------------------------------------------------------------------
 
 if [ -f "$PHANTOM_DIR/setup_websdr_relay.sh" ]; then
-    step "WebSDR diversity relay (optional)" "⌨️  YOU WILL BE ASKED — and setup asks its own questions"
+    step "WebSDR diversity relay (optional)" "$(ask_hint "⌨️  YOU WILL BE ASKED — and setup asks its own questions")"
     echo ""
     echo "Receive diversity combines this receiver with a second one to ride"
     echo "through fading. PhantomSDR+, KiwiSDR and UberSDR partners work"
@@ -2410,7 +2556,7 @@ if [ -f "$PHANTOM_DIR/setup_websdr_relay.sh" ]; then
     if [[ ! ${install_relay:-y} =~ ^[Nn] ]]; then
         chmod +x "$PHANTOM_DIR/setup_websdr_relay.sh" 2>/dev/null || true
         echo ""
-        if ( cd "$PHANTOM_DIR" && ./setup_websdr_relay.sh ); then
+        if ( cd "$PHANTOM_DIR" && ./setup_websdr_relay.sh ) < "$SUB_IN"; then
             RELAY_INSTALLED=true
             component "WebSDR relay" "installed"
         else
@@ -2432,7 +2578,7 @@ echo ""
 # and offers to hand over, but that is an extra prompt in the middle of an
 # install — call the right script directly and skip the question.
 
-step "RADE / FreeDV decoder (optional)" "⌨️  YOU WILL BE ASKED — and setup asks its own questions"
+step "RADE / FreeDV decoder (optional)" "$(ask_hint "⌨️  YOU WILL BE ASKED — and setup asks its own questions")"
 
 if [ "$OS_KEY" = "ubuntu:jammy" ] && [ -f "$PHANTOM_DIR/install_rade_ubuntu22.sh" ]; then
     RADE_SCRIPT="$PHANTOM_DIR/install_rade_ubuntu22.sh"
@@ -2465,7 +2611,7 @@ if [ -f "$RADE_SCRIPT" ]; then
         # a second time.
         if ( cd "$PHANTOM_DIR" \
              && PHANTOM_DIR="$PHANTOM_DIR" PHANTOM_SKIP_RECOMPILE=1 \
-                PHANTOM_SKIP_ADMIN_OFFER=1 "$RADE_SCRIPT" ); then
+                PHANTOM_SKIP_ADMIN_OFFER=1 "$RADE_SCRIPT" ) < "$SUB_IN"; then
             RADE_INSTALLED=true
             green "✅ RADE installed"
             component "RADE / FreeDV" "installed via $(basename "$RADE_SCRIPT") — sidecar on port 8074"
@@ -2490,7 +2636,7 @@ echo ""
 # STEP 15 — Statistics server
 # ------------------------------------------------------------------------------
 
-step "System statistics server (optional)" "⌨️  YOU WILL BE ASKED — and setup asks its own questions"
+step "System statistics server (optional)" "$(ask_hint "⌨️  YOU WILL BE ASKED — and setup asks its own questions")"
 
 if [ -f "$PHANTOM_DIR/install-stats-server.sh" ]; then
     echo ""
@@ -2505,7 +2651,7 @@ if [ -f "$PHANTOM_DIR/install-stats-server.sh" ]; then
         chmod +x "$PHANTOM_DIR/install-stats-server.sh" 2>/dev/null || true
         echo ""
         if ( cd "$PHANTOM_DIR" \
-             && PHANTOM_SKIP_ADMIN_OFFER=1 ./install-stats-server.sh ); then
+             && PHANTOM_SKIP_ADMIN_OFFER=1 ./install-stats-server.sh ) < "$SUB_IN"; then
             STATS_INSTALLED=true
             green "✅ Statistics server installed"
             component "Statistics server" "installed — see the directory and port it printed"
@@ -2579,7 +2725,7 @@ echo ""
 # state, not a fault, so it skips quietly; kiwi_install.sh present WITHOUT the
 # header is a broken pair and does warn.
 
-step "Kiwi client emulation (optional)" "⌨️  YOU WILL BE ASKED — patches source for the KiwiSDR protocol"
+step "Kiwi client emulation (optional)" "$(ask_hint "⌨️  YOU WILL BE ASKED — patches source for the KiwiSDR protocol")"
 
 KIWI_INSTALL_SRC=""
 for cand in "$SCRIPT_DIR/kiwi_install.sh" "$PHANTOM_DIR/kiwi_install.sh"; do
@@ -2621,7 +2767,7 @@ if [ -n "$KIWI_INSTALL_SRC" ] && [ -n "$KIWI_BRIDGE_SRC" ]; then
         # report said "kiwi_install.sh did not finish" and nothing about why,
         # while the reason had scrolled off the terminal hours earlier.
         KIWI_LOG="$(mktemp "${TMPDIR:-/tmp}/phantom-kiwi-XXXXXX.log")"
-        if ( cd "$PHANTOM_DIR" && ./kiwi_install.sh ) 2>&1 | tee "$KIWI_LOG"; then
+        if ( cd "$PHANTOM_DIR" && ./kiwi_install.sh ) < "$SUB_IN" 2>&1 | tee "$KIWI_LOG"; then
             rm -f "$KIWI_LOG"
             KIWI_INSTALLED=true
             # Our staged copy has served its purpose; kiwi_install.sh has put
@@ -2671,17 +2817,19 @@ echo ""
 # headers and the frontend is built from whatever RADE and the admin panel just
 # added.
 
-step "Final rebuild" "⌨️  YOU WILL BE ASKED — recompile.sh then asks three questions"
+step "Final rebuild" "$(ask_hint "⌨️  YOU WILL BE ASKED — recompile.sh then asks three questions")"
 
 echo ""
 echo "This rebuilds everything one last time, so the backend picks up the"
 echo "patched headers and the frontend includes anything the optional"
 echo "components added."
 echo ""
-yellow "   recompile.sh will ask you three questions. Answer:"
-yellow "      [3] Both backend and frontend"
-yellow "      → your default variant"
-yellow "      [1] build-all.sh"
+if [ "$PHANTOM_NONINTERACTIVE" != "1" ]; then
+    yellow "   recompile.sh will ask you three questions. Answer:"
+    yellow "      [3] Both backend and frontend"
+    yellow "      → your default variant"
+    yellow "      [1] build-all.sh"
+fi
 
 if confirm PHANTOM_RECOMPILE y y "Run the final rebuild now?"; then
     if [ "$PHANTOM_NONINTERACTIVE" = "1" ]; then
@@ -2726,6 +2874,93 @@ echo ""
 component "Reboot required" "$([ "$NEEDS_REBOOT" = true ] \
     && echo 'YES — udev rules and/or OpenCL drivers take effect after a reboot' \
     || echo 'no')"
+
+# ------------------------------------------------------------------------------
+# Finishing a station set up with the wizard: the FFT accelerator, start at
+# boot, and the receiver itself
+# ------------------------------------------------------------------------------
+# accelerator = "opencl" makes spectrumserver throw at start when no OpenCL
+# device answers, so it is written only when clinfo lists one right now. A
+# GPU that needs the reboot first can be switched on afterwards with:
+#   STATION_ACCELERATOR=opencl bash configure-station.sh --apply
+AUTOSTART_INSTALLED=false
+RECEIVER_STARTED=false
+STATION_LAUNCHER_NOW=""
+STATION_ACC=""
+
+step "Finishing the station" "FFT accelerator and start at boot — no input needed"
+
+if [ "$USE_STATION" = true ]; then
+    STATION_LAUNCHER_NOW="$(station_value STATION_LAUNCHER)"
+    if command -v clinfo >/dev/null 2>&1 && clinfo -l 2>/dev/null | grep -qi 'device'; then
+        STATION_ACC=opencl
+    else
+        STATION_ACC=none
+    fi
+    if PHANTOM_NONINTERACTIVE=1 STATION_ACCELERATOR="$STATION_ACC" \
+           bash "$STATION_WIZARD" > /dev/null 2>&1; then
+        if [ "$STATION_ACC" = opencl ]; then
+            green "✅ FFT on the GPU (OpenCL)"
+            component "FFT accelerator" "opencl — an OpenCL device answered"
+        else
+            echo "FFT on the CPU (FFTW) — no OpenCL device answered."
+            component "FFT accelerator" "none (FFTW) — after a reboot, if 'clinfo -l' lists a device: STATION_ACCELERATOR=opencl bash configure-station.sh --apply"
+        fi
+    else
+        warn "Could not record the FFT accelerator — check accelerator= in your .toml"
+    fi
+
+    if [[ $(station_value STATION_AUTOSTART) =~ ^[Yy] ]]; then
+        if bash "$PHANTOM_DIR/setup-autostart.sh" "$STATION_LAUNCHER_NOW" < "$SUB_IN"; then
+            if [ -f /etc/systemd/system/phantomsdr-receiver.service ]; then
+                AUTOSTART_INSTALLED=true
+                component "Start at boot" "yes — phantomsdr-receiver.service runs ./${STATION_LAUNCHER_NOW}"
+            else
+                component "Start at boot" "not possible here (no systemd) — start it by hand after a boot"
+            fi
+        else
+            step_state PARTIAL "setup-autostart.sh failed"
+            warn "Start at boot could not be set up — run: bash setup-autostart.sh"
+            component "Start at boot" "FAILED — run: bash setup-autostart.sh"
+        fi
+    else
+        component "Start at boot" "not chosen — bash setup-autostart.sh adds it later"
+    fi
+else
+    step_state SKIPPED "run without the station questions"
+fi
+echo ""
+
+step "Starting the receiver" "no input needed"
+
+if [ "$USE_STATION" = true ] && [[ ${PHANTOM_START_RECEIVER:-y} =~ ^[Yy] ]] \
+   && [ -n "$STATION_LAUNCHER_NOW" ] && [ -f "$PHANTOM_DIR/$STATION_LAUNCHER_NOW" ] \
+   && [ -x "$PHANTOM_DIR/build/spectrumserver" ]; then
+    echo "Starting ./${STATION_LAUNCHER_NOW} ..."
+    if [ "$AUTOSTART_INSTALLED" = true ]; then
+        if $SUDO systemctl restart phantomsdr-receiver; then RECEIVER_STARTED=true; fi
+    elif id -nG | grep -qw plugdev || ! getent group plugdev 2>/dev/null | grep -qw "$(id -un)"; then
+        if ( cd "$PHANTOM_DIR" && bash "./$STATION_LAUNCHER_NOW" -q ); then RECEIVER_STARTED=true; fi
+    else
+        # Added to plugdev by this run: this shell does not have the group yet,
+        # but sg gives it to the receiver without logging out and back in.
+        if ( cd "$PHANTOM_DIR" && sg plugdev -c "bash ./$STATION_LAUNCHER_NOW -q" ); then
+            RECEIVER_STARTED=true
+        fi
+    fi
+    if [ "$RECEIVER_STARTED" = true ]; then
+        # Already up — the summary must not start it a second time.
+        STOPPED_RECEIVER=""
+        component "Receiver" "started — ./${STATION_LAUNCHER_NOW}"
+    else
+        step_state PARTIAL "the receiver did not start"
+        warn "The receiver did not start — is it plugged in? Then: ./${STATION_LAUNCHER_NOW}"
+        component "Receiver" "NOT started — plug it in and run ./${STATION_LAUNCHER_NOW}"
+    fi
+else
+    step_state SKIPPED "not requested"
+fi
+echo ""
 
 step "Installation summary" ""
 restart_stopped_phantom
@@ -2782,9 +3017,13 @@ if [ "$RELAY_INSTALLED" = true ]; then
     echo ""
     green "✅ WebSDR diversity relay:"
     echo "   • Settings in websdr_relay.json — port, caps, and who you identify as"
-    echo "   • FORWARD ITS TCP PORT on your router, or only listeners on your own"
-    echo "     network can use it: browsers reach the relay directly, not through"
-    echo "     the receiver"
+    if [ "$USE_STATION" = true ]; then
+        echo "   • Reached as /relay on the public port — nothing extra to forward"
+    else
+        echo "   • FORWARD ITS TCP PORT on your router, or only listeners on your own"
+        echo "     network can use it: browsers reach the relay directly, not through"
+        echo "     the receiver"
+    fi
     echo "   • Manual: docs/RECEIVE_DIVERSITY.md"
 fi
 
@@ -2792,7 +3031,11 @@ if [ "$RADE_INSTALLED" = true ]; then
     echo ""
     green "✅ RADE / FreeDV:"
     echo "   • radae built in ~/radae, sidecar started with ./rade.sh"
-    echo "   • Forward TCP port 8074 for remote RADE decoding"
+    if [ "$USE_STATION" = true ]; then
+        echo "   • Reached as /rade on the public port — nothing extra to forward"
+    else
+        echo "   • Forward TCP port 8074 for remote RADE decoding"
+    fi
 fi
 
 if [ "$STATS_INSTALLED" = true ]; then
@@ -2823,6 +3066,35 @@ fi
 # Next steps
 # ------------------------------------------------------------------------------
 
+if [ "$USE_STATION" = true ]; then
+    ST_LAN="$(lan_ip)"
+    ST_HOST="$(station_value STATION_PUBLIC_HOST)"
+    ST_PORT="$(station_value PORT_PUBLIC)"
+    banner "Your receiver"
+    echo ""
+    if [ "$RECEIVER_STARTED" = true ]; then
+        green "✅ The receiver is running."
+    else
+        yellow "The receiver is not running yet. Plug it in, then:"
+        echo "      cd $PHANTOM_DIR && ./${STATION_LAUNCHER_NOW}"
+    fi
+    echo ""
+    echo "🌐 On this network:    http://${ST_LAN}:${ST_PORT}/        (phones: /mobile)"
+    [ -n "$ST_HOST" ] && echo "🌍 From the internet:  http://${ST_HOST}:${ST_PORT}/"
+    echo ""
+    yellow "   Forward TCP port ${ST_PORT} on your router to ${ST_LAN} — it is the"
+    yellow "   only port listeners need. RADE, statistics and the relay share it."
+    if [ "$ADMIN_INSTALLED" = true ]; then
+        echo ""
+        echo "🛠  Admin panel:  http://${ST_LAN}:${ST_PORT}/admin"
+        echo "    Log in with the password 'admin' — it then asks you to choose your own."
+    fi
+    echo ""
+    echo "🔁 Restart the receiver:  ./${STATION_LAUNCHER_NOW}      Stop it:  ./stop-websdr.sh"
+    echo "⚙️  Change the station:    bash configure-station.sh"
+    echo "⬆️  Update later:          bash update.sh"
+    echo ""
+else
 banner "Next Steps"
 
 echo ""
@@ -2885,6 +3157,7 @@ if [ "$KIWI_INSTALLED" = true ]; then
     echo "      same host/port as above, paths /kiwi/<id>/SND and /kiwi/<id>/W/F."
 fi
 
+fi
 echo ""
 echo "📄 A full report of this run has been written to:"
 echo "      ${PHANTOM_DIR}/install.txt"

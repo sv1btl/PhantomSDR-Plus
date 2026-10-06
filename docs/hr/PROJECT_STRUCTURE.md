@@ -49,6 +49,7 @@ PhantomSDR-Plus
 ├── config-rtl.toml
 ├── config-rx888mk2.toml
 ├── config.toml
+├── configure-station.sh       # čarobnjak stanice: pita jednom, zapisuje station.conf, .toml i site_information.json
 ├── connection_impl.hpp
 ├── docs
 │   ├── ADMIN_PANEL_SETUP.md
@@ -291,6 +292,7 @@ PhantomSDR-Plus
 │   │   │   ├── receivers.js           # podaci izbornika prijemnika (/receivers.json)
 │   │   │   ├── rnnoise.js     # učitava RNNoise za smanjenje šuma umjetnom inteligencijom
 │   │   │   ├── rx.js                  # kojem prijemniku stranica pripada (?rx=)
+│   │   │   ├── sideService.js         # gdje stranica nalazi RADE i relay (siteRade / siteRelay)
 │   │   │   ├── SMeterAnalog.svelte
 │   │   │   ├── SMeterDigital.svelte
 │   │   │   ├── Spectrogram.svelte
@@ -474,18 +476,19 @@ PhantomSDR-Plus
 ├── phantomsdr-admin.service   # ogledna systemd jedinica za ploču (pokreće se pri dizanju sustava, ponovno nakon pada)
 ├── phantomsdr-proxy.service   # ogledna systemd jedinica za proxy, instalira se zajedno s jedinicom ploče
 ├── phantomsdr-websdr-relay.service  # primjer systemd unita za WebSDR diverziti relej
-├── proxy.py
+├── proxy.py                   # jedini javni port: stranica, /admin, /rade, /stats, /relay i prijemnici ?rx=
 ├── rade_helper.py
 ├── rade_loadtest.csv          # izlaz rade_loadtest.py (jedan redak po koraku opterećenja)
 ├── rade_loadtest.py           # RADE test opterećenja: koliko istodobnih dekodera stroj podnosi — vidi docs/RADE_README.md
 ├── rade.sh
 ├── README.md
-├── recompile.sh
+├── recompile.sh               # izgradnja; --backend / --frontend / --both ništa ne pitaju
 ├── receivers.toml.example     # popis prijemnika za proxy.py — kopirati u receivers.toml
 ├── _relaunch.sh               # staro: pomoćnik odgođenog ponovnog pokretanja lanca go.sh
 ├── request.hpp
 ├── setup_admin.sh
 ├── setup-airspyhf.sh          # lanac upravljačkog programa Airspy HF+: libairspyhf + SoapyAirspyHF + rx_sdr + udev
+├── setup-autostart.sh         # pokretanje pri podizanju: phantomsdr-receiver.service za skriptu iz station.conf
 ├── setup-cpufreq-perms.sh     # daje grupi pravo pisanja u scaling_max_freq kako bi zaštita mogla usporiti bez roota
 ├── setup-firewall.sh          # neobvezna nftables zaštita — vidi docs/CONNECTION_LIMITS.md
 ├── setup-fobos.sh             # lanac upravljačkog programa Fobos: libfobos + SoapyFobosSDR + rx_sdr + cf32_to_real + udev
@@ -546,6 +549,7 @@ PhantomSDR-Plus
 ├── start-rsp1a.sh
 ├── start-rtl.sh
 ├── start-rx888mk2.sh
+├── station.conf               # odgovori stanice čarobnjaku (nije u gitu, update.sh ga nikad ne dira)
 ├── stop-websdr.sh
 ├── subprojects
 │   ├── fftw3.wrap
@@ -778,7 +782,8 @@ PhantomSDR-Plus
 ├── thermal-guard.service      # primjer systemd jedinice za čuvara, bez administratorske ploče
 ├── tmpfiles
 │   └── phantomsdr-logs.conf   # drži admin.log + proxy.log u vlasništvu korisnika ploče (prije instalacije prilagodite putanje)
-├── update.sh
+├── update-known.txt           # otisci svake objavljene verzije — update.sh razlikuje stare od uređenih datoteka
+├── update.sh                  # ažuriranje: izvješće, zatim „update now?“; --check, --from, --make-known
 ├── waterfall.sh
 ├── websdr_relay.json.example  # predložak konfiguracije (port, ograničenja, identitet stanice)
 ├── websdr_relay.py            # sam relej — vidi docs/RECEIVE_DIVERSITY.md
@@ -804,6 +809,7 @@ PhantomSDR-Plus
 | `config-hackrf.toml` | Konfiguracija za HackRF One | Pri korištenju HackRF-a |
 | `config-rx888mk2.toml` | Konfiguracija za RX888 MK2 | Pri korištenju RX888 |
 | `config.example.hackrf.toml` | Primjer za HackRF One | Pri korištenju HackRF-a |
+| `station.conf` | Odgovori čarobnjaku stanice — prijemnik, pojas, stanica, portovi, dodaci. Zapisuje ga `configure-station.sh`; čitaju ga skripte za pokretanje i `proxy.py`. Nikad u gitu, `update.sh` ga nikad ne dira | Kroz `bash configure-station.sh` |
 
 ### Skripte za pokretanje/zaustavljanje i održavanje
 
@@ -811,7 +817,9 @@ Svaka od donjih `start-*.sh` skripti samostalan je **pokretač + watchdog + zapi
 
 | Skripta | Svrha |
 |---------|-------|
-| `install.sh` | Automatizirana instalacija i izgradnja |
+| `install.sh` | Automatska instalacija i izgradnja — prvo pitanja o stanici, zatim sve bez nadzora (također `install_fedora.sh`, `install_arch.sh`, `install_opensuse.sh`) |
+| `configure-station.sh` | Čarobnjak stanice: prijemnik, pojas, stanica, internet, portovi i dodaci, pitani jednom i spremljeni u `station.conf`; iz njega zapisuje `.toml` prijemnika, `site_information.json` i postavke relaya, mijenjajući samo vlastite ključeve i prije toga spremajući kopiju svake datoteke. `--show` ispisuje odgovore, `--apply` iz njih ponovno zapisuje datoteke — vidi [Vodič za instalaciju](INSTALLATION.md) |
+| `setup-autostart.sh` | Pokretanje pri podizanju sustava: instalira `phantomsdr-receiver.service`, koji pri podizanju pokreće skriptu iz `station.conf` (ili navedenu), a pri gašenju `stop-websdr.sh`, s grupom `plugdev`; `--remove` to poništava |
 | `add-receiver.sh` | Dodaje još jedan prijemnik ovom računalu: pita koji prijemnik i što pokriva, instalira njegov upravljački program, stvara `instances/<ime>/` i unos u `receivers.toml` te nudi da ga pokrene i ponovno pokrene proxy. Instalacijske skripte nude ga na kraju — vidi [Više prijemnika](MULTI_RECEIVER.md) |
 | `start-rtl.sh` | Pokretanje + watchdog poslužitelja s RTL-SDR-om (`rtl_sdr`) |
 | `start-rsp1a.sh` | Pokretanje + watchdog poslužitelja sa SDRplay RSP1A (`rx_sdr`); koristi libmirisdr-5, ili SDRplay API kad je instaliran (`RX_DRIVER` nameće jedan) |
@@ -829,8 +837,9 @@ Svaka od donjih `start-*.sh` skripti samostalan je **pokretač + watchdog + zapi
 | `setup-rtlsdr.sh` | Instalira RTL-SDR upravljački program na bilo kojoj od četiri podržane distribucije — paket `rtl-sdr` distribucije ili, s `RTL_V4=y`, upravljački program za RTL-SDR Blog V4 izgrađen iz izvornog koda — blokira DVB-T upravljački program i dodaje udev pravilo; pokreće ga `add-receiver.sh` |
 | `setup-firewall.sh` | Neobvezna zaštita od poplave na razini jezgre: učitava nftables tablicu s gornjom granicom istodobnih veza i brzinom po izvorišnoj adresi na priključcima prijemnika, kočnicom za grubo pogađanje SSH lozinki i Windows dijeljenjem datoteka zatvorenim izvan privatnih raspona. Treba root, ne može vas zaključati vani (policy accept, uspostavljene veze prihvaćaju se prve), a `--apply` se sam poništi ako se ne potvrdi unutar 60 s — vidi [Ograničenja veza](CONNECTION_LIMITS.md) |
 | `setup-cpufreq-perms.sh` | Daje grupi `cpufreq` pravo pisanja na ograničenje frekvencije procesora, kako bi throttle faza čuvara radila bez roota. Instalira `tmpfiles.d` pravilo da preživi ponovno pokretanje; `--revoke` sve poništava |
-| `update.sh` | Ažuriranje instalacije iz objavljenog stabla, bez diranja vaše konfiguracije, oznaka, popisa frekvencija i vlastitih izmjena — vidi [Vodič za instalaciju](INSTALLATION.md) |
-| `recompile.sh` | Ponovna izgradnja backenda i/ili frontenda te odabir varijante koja se poslužuje na `/` |
+| `update.sh` | Ažurira instalaciju iz objavljenog stabla, ne dirajući vaše postavke, markere, popis frekvencija i lokalne izmjene: izvješće, pitanje „Update these files now?“ (ENTER = ne), sigurnosna kopija, primjena i izgradnja samo onoga što se promijenilo. `--check` za cron, `--from` iz ZIP-a, tarballa ili mape bez mreže — vidi [Vodič za instalaciju](INSTALLATION.md) |
+| `update-known.txt` | SHA-256 svake verzije svake datoteke koja je ikad objavljena, isporučen sa svakom verzijom, kako bi `update.sh` bez pitanja ažurirao datoteku koja je samo starija. Zapisuje se s `bash update.sh --make-known` u izvornom stablu |
+| `recompile.sh` | Ponovno gradi backend i/ili frontend i bira varijantu na `/`. S `--backend`, `--frontend` ili `--both` ništa ne pita i zadržava trenutnu varijantu — tako ga pozivaju `install.sh` i `update.sh` |
 | `smeter_theme.sh` | Postavi zadani izgled analognog S-metra (dark / amber / vintage) za sve korisnike i ponudi ponovnu izgradnju frontenda — vidi [Uređivanje varijanti](EDITING_VARIANTS.md) |
 | `waterfall.sh` | Mijenja zadanu minimalnu razinu slapa (dB) u `waterfall.js` + `App.svelte` — vidi [README](README.md) |
 | `kiwi_install.sh` | Instalira emulaciju KiwiSDR klijenata na stablo koje je nema: zakrpava izvorni kod pozadinskog dijela, kopira `src/kiwi_bridge.h` i dodaje dokumentirani `[kiwi_emulation]` blok u konfiguracijske datoteke u korijenu. Idempotentan je i sprema kopiju svake datoteke koje se dotakne — vidi [Emulacija KiwiSDR klijenata](Aether_config.md) |
@@ -854,6 +863,7 @@ Svaka od donjih `start-*.sh` skripti samostalan je **pokretač + watchdog + zapi
 |----------|-------|
 | `admin_server.py` | Sama administratorska ploča. Uz stranice za upravljanje pokreće i uzorkivač stranice **Grafikoni**: pozadinska dretva svake 2 sekunde bilježi frekvenciju procesora, opterećenje, temperaturu i broj korisnika te ih drži samo u memoriji — 1 sat u punoj razlučivosti plus 24 sata prosjeka po 30 sekundi. Ništa se ne zapisuje na disk pa se povijest gubi pri ponovnom pokretanju. |
 | `admin_config.json` | Postavke administratorske ploče (hash lozinke, portovi, opcije, pragovi toplinske zaštite) |
+| `proxy.py` | Javni port. Poslužuje stranicu i prosljeđuje `/admin` ploči te — na stanici postavljenoj čarobnjakom — `/rade`, `/stats` i `/relay` uslugama iza sebe, tako da se prosljeđuje samo jedan port. Portove čita iz `admin_config.json`, ili iz `station.conf` kad nema ploče (`setup_admin.sh --proxy-only`) |
 | `thermal_guard.py` | Zaštita od pregrijavanja procesora. Zaustavlja poslužitelj kada procesor postane prevruć i ponovno ga pokreće kad se ohladi, izvodeći pragove iz kritičnog praga koji objavljuje vaš vlastiti procesor umjesto iz fiksnog broja. Nikada ne pokušava prepoznati što nadzire poslužitelj — dok je pregrijan, ponavlja zaustavljanje svake 2 s, pa je watchdog, systemd jedinica ili cron zadatak koji ga oživi poništen dok se stroj ne ohladi. Samo standardna biblioteka; uvozi ga `admin_server.py` (takt daje uzorkivač Grafikona), a radi i samostalno za instalacije bez ploče. Zadano samo zapisuje, pa ni na što ne djeluje dok se ne uključi — vidi [Administratorska ploča]vidi [priručnik Thermal Guard](THERMAL_GUARD.md) |
 | `autorun/` | Daemon za prijavljivanje spotova — vidi [Autorun Spot Reporter](INSTALLATION.md#autorun-spot-reporter-ft8ft4wspr) |
 | `autorun.json` | Pojasevi/načini rada za dekodiranje, identitet i odredišta |
@@ -1338,6 +1348,18 @@ cd ..
 - Sustav izgradnje (`meson.build`, `meson_options.txt`)
 - Dokumentacija (`*.md`, `docs/`)
 - Skripte (`*.sh`)
+
+### Objava nove verzije (održavatelj)
+
+Prije prijenosa datoteka osvježite popis otisaka, kako bi `update.sh` na svakoj stanici prepoznao verzije koje ima kao objavljene:
+
+```bash
+# 1. kopirajte promijenjene datoteke u kopiju za prijenos, zatim:
+bash update.sh --make-known /path/to/the/upload/copy
+# 2. napravite commit za update-known.txt i kopirajte ga također u kopiju za prijenos
+```
+
+Popis samo raste: unosi ranijih verzija se zadržavaju, pa jednom objavljena javna kopija ostaje prepoznatljiva u svakoj kasnijoj verziji.
 
 ### Datoteke koje treba zanemariti (`.gitignore`)
 

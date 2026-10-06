@@ -365,28 +365,28 @@ clinfo
 
 ## Instalacija PhantomSDR-Plusa
 
-### Kloniranje repozitorija, izvršne skripte, pokretanje instalacije
+### Kloniranje repozitorija i pokretanje instalacijskog programa
 
 ```bash
 cd ~
-git clone --recursive https://github.com/sv1btl/PhantomSDR-Plus
+git clone https://github.com/sv1btl/PhantomSDR-Plus
 cd PhantomSDR-Plus
-chmod +x *.sh
-./install.sh
+bash install.sh
 ```
 
-**⚠️ VAŽNO:** kada instalacija završi, **ponovno pokrenite terminal** — tek tada su novoinstalirani Node.js i Rust u vašem `PATH`-u.
+Instalacijski program najprije postavi nekoliko pitanja o vašoj stanici — prijemnik, što primati, vaš pozivni znak i lokator, vašu adresu na internetu i koje dodatke želite — a zatim sve instalira sam, bez daljnjih pitanja. Na kraju pokreće prijemnik i prikazuje adresu kojom se slušatelji služe te jedini port koji treba otvoriti na usmjerniku (9000, osim ako ste odabrali drugi). Pitanja su opisana dva odjeljka niže, u *Pitanja o stanici*.
 
-> **Već vam radi PhantomSDR-Plus?** Nemojte ga instalirati ponovno — ažurirajte ga. Dohvatite alat za ažuriranje jednom i pokrenite ga; vaša konfiguracija, oznake, administratorska lozinka, popis frekvencija i povijest razgovora nikada se ne diraju, a ono što ste sami mijenjali predočava vam se umjesto da bude prepisano:
+Upišite `bash install.sh` točno tako: nema koraka `chmod`. Kopija preuzeta kao ZIP ili preko web-stranice GitHuba nema prava izvršavanja, a instalacijski program ih postavlja sam.
+
+> **PhantomSDR-Plus već radi?** Nemojte ga instalirati ponovno — ažurirajte ga. Jednom preuzmite alat za ažuriranje i pokrenite ga; prikazuje što bi se promijenilo i pita prije nego što bilo što zapiše. Vaše postavke, markeri, administratorska lozinka, popis frekvencija i povijest chata nikad se ne diraju:
 >
 > ```bash
 > cd ~/PhantomSDR-Plus
 > curl -fLO https://raw.githubusercontent.com/sv1btl/PhantomSDR-Plus/main/update.sh
-> chmod +x update.sh
-> ./update.sh
+> bash update.sh
 > ```
 >
-> Posljednji redak samo *prijavljuje* što bi se promijenilo i ništa ne zapisuje; `./update.sh --apply` to i obavi. Pojedinosti su u poglavlju *Ažuriranje PhantomSDR-Plusa*. Ponovno pokretanje instalacijske skripte na postaji koja radi potrebno je jedino ako izgradnja padne zbog nedostajućih sistemskih paketa.
+> Pojedinosti su u poglavlju *Ažuriranje PhantomSDR-Plusa*. Ponovno pokretanje instalacijskog programa na stanici koja radi potrebno je samo kad ponovna izgradnja ne uspije jer nedostaju paketi sustava.
 
 Uzmite skriptu koja odgovara vašem sustavu. Sve rade isti posao i postavljaju ista pitanja; razlikuje se samo upravitelj paketa:
 
@@ -399,32 +399,72 @@ Uzmite skriptu koja odgovara vašem sustavu. Sve rade isti posao i postavljaju i
 
 > **Jedan instalacijski program za svako izdanje Debiana i Ubuntua.** `install.sh` čita `/etc/os-release` i instaliranu inačicu Boosta te se sam prilagođava; stari `install_ubuntu22.sh`, `install-Deb12.sh` i `install_ubuntu26.sh` više ne postoje. Postavlja `DEBIAN_FRONTEND=noninteractive`, kako `tzdata` koji stiže uz `python3-matplotlib` ne bi mogao zaustaviti izvođenje pitanjem o vašoj vremenskoj zoni, a zatim progutati odgovor namijenjen sljedećem pitanju. Na Jammyju izravno poziva `install_rade_ubuntu22.sh`, jer je Jammyjev `python3-websockets` 10.1, a RADE traži 11.0 ili noviji. Zna gdje se `intel-opencl-icd` nalazi na svakom izdanju: u repozitorijima na 22.04 i 26.04, u `non-free` na Debianu 12 te u Intelovu vlastitom grafičkom repozitoriju na 24.04 i Debianu 13. A ondje gdje je Boost 1.87 ili noviji, zakrpa websocketpp zaglavlja prestaje biti neobavezna — instalacijski program provjerava da je primijenjena i bez nje odbija graditi. Noviji prevoditelj nikada nije potreban: tvornički GCC prihvaća `-std=c++23` na svih pet izdanja, pa zbog toga nemojte instalirati `gcc-12`.
 
-Instalacija teče u 17 jasno numeriranih koraka, a svaka točka na kojoj se čeka na vas uokvirena je natpisom **⌨️  POTREBAN JE VAŠ UNOS**, tako da se pitanje ne može zamijeniti s ispisom koji promiče. Sedam pitanja navedeno je odmah na početku, prije nego što se išta instalira. `PHANTOM_NONINTERACTIVE=1` odgovara na sva njihovim zadanim vrijednostima; pogledajte zaglavlje `install.sh` za varijable `PHANTOM_*`.
+Instalacija se odvija u 22 numerirana koraka. Budući da se pitanja o stanici odgovaraju na početku, nijedan korak ne staje da bi nešto pitao; traži se samo lozinka za sudo, jednom, odmah nakon pitanja, i vrijedi za cijelo izvođenje. S `PHANTOM_CLASSIC=1` vraća se stari način — svako pitanje u svom koraku, uokvireno natpisom **⌨️  YOUR INPUT IS NEEDED**. Svaki odgovor može se zadati i kroz okruženje, za potpuno samostalno izvođenje (`PHANTOM_NONINTERACTIVE=1`); vidi *Instalacija bez nadzora* niže.
 
-**Svako pokretanje zapisuje `install.txt`.** Kada instalacijski program završi — ili prekine na pola puta — zapisuje izvještaj u `install.txt` u mapi PhantomSDR-Plus: rezultat, svaki od 17 koraka kao OK / SKIPPED / PARTIAL / FAILED, što je otkrio (distribuciju, Boost, prevoditelj, Node.js), koje su komponente instalirane i svako upozorenje koje se pojavilo. Neuspjelo pokretanje ostavlja izvještaj koji završava na koraku koji je pao, s razlogom i napomenom da se instalacijski program smije sigurno ponovno pokrenuti. To je prva datoteka koju treba pročitati kada nešto nije uspjelo i prva koju treba priložiti prijavi greške. Svako pokretanje je prepisuje, pa sačuvajte kopiju ako želite usporediti dvije instalacije.
+**Svako pokretanje zapisuje `install.txt`.** Kada instalacijski program završi — ili prekine na pola puta — zapisuje izvještaj u `install.txt` u mapi PhantomSDR-Plus: rezultat, svaki od 22 koraka kao OK / SKIPPED / PARTIAL / FAILED, što je otkrio (distribuciju, Boost, prevoditelj, Node.js), koje su komponente instalirane i svako upozorenje koje se pojavilo. Neuspjelo pokretanje ostavlja izvještaj koji završava na koraku koji je pao, s razlogom i napomenom da se instalacijski program smije sigurno ponovno pokrenuti. To je prva datoteka koju treba pročitati kada nešto nije uspjelo i prva koju treba priložiti prijavi greške. Svako pokretanje je prepisuje, pa sačuvajte kopiju ako želite usporediti dvije instalacije.
 
 > **Ubuntu 26.04, Arch i openSUSE Tumbleweed se prevode, ali nisu isprobani u stvarnom radu.** Sva tri donose Boost noviji od 1.87, koji je uklonio `io_service` API za koji je pisan ugrađeni websocketpp 0.8.2. Zakrpana zaglavlja koja instalacijski program kopira premošćuju taj jaz (`io_context`, `executor_work_guard`, `boost::asio::post`, moderni resolver), a ondje gdje je Boost 1.87 ili noviji program tu zakrpu smatra obveznom, a ne neobaveznom — provjerava da su kopije stigle i bez njih odbija graditi. Potpuna instalacija, uključujući upravljački program prijamnika i sve neobavezne komponente, provjerena je od početka do kraja u kontejnerima na Boostu 1.90 (Ubuntu 26.04), 1.91 (openSUSE Tumbleweed) i 1.92 (Arch). To dokazuje da se poslužitelj prevodi i pokreće — ne i da satima poslužuje prijamnik. Smatrajte sva tri neprovjerenima u produkciji dok netko ne javi.
 
 > **openSUSE ovdje znači Tumbleweed.** Ondje je `install_opensuse.sh` provjeren. Leap 15.6 ne radi: u njegovim repozitorijima uopće nema `liquid-dsp-devel` koji poslužitelj treba, a Boost postoji samo pod verzioniranim nazivima paketa. Podrška za Leap značila bi dodavanje vanjskih OBS repozitorija, pa je zasad izvan opsega.
 
+### Pitanja o stanici
+
+`configure-station.sh` — pokreće ga instalacijski program na početku, a može se pokrenuti i sam u bilo kojem trenutku — postavlja pet skupina pitanja. ENTER prihvaća vrijednost u uglatim zagradama; pri ponovnom pokretanju prethodni odgovori su zadane vrijednosti.
+
+| # | Pitanje | Napomene |
+|---|---|---|
+| 1 | Koji prijemnik | Prepoznaje i predlaže onaj koji je priključen (RX888, RTL-SDR, RSP1A, Airspy HF+, HackRF, Fobos). Za RTL-SDR pita i je li to Blog V4. |
+| 2 | Što primati | Gotovi izbori za svaki prijemnik (npr. *HF 0–30 MHz* za RX888, *2 m* za RTL-SDR) ili vlastita središnja frekvencija i brzina uzorkovanja. |
+| 3 | Vaša stanica | Pozivni znak, ime, e-pošta, QTH lokator, grad i država, antena, računalo, ITU regija (predložena prema lokatoru). |
+| 4 | Internet | Vaša javna adresa (IP ili DNS ime) te treba li prijemnik biti na sdr-list.xyz i na karti websdr.org. |
+| 5 | Portovi i dodaci | Administratorska ploča, FreeDV RADE, statistika, WebSDR relay, pokretanje pri podizanju sustava — i javni port. |
+
+Odgovori se spremaju u **`station.conf`**, a iz njega čarobnjak zapisuje sve što se mora slagati: `config-<prijemnik>.toml` prijemnika (brzina uzorkovanja, frekvencija, port, upisi u imenike, websdr.org), `frontend/site_information.json` i postavke relaya. Skripte za pokretanje same čitaju frekvenciju i brzinu uzorkovanja iz `station.conf`, pa se nikad ne uređuju. Mijenjaju se samo postavke koje pripadaju čarobnjaku, a svaka se datoteka prije promjene kopira u `<ime>.bak-<datum>`.
+
+**Na usmjerniku mora biti otvoren samo jedan port.** Sve čime se slušatelji služe prolazi kroz njega:
+
+| Port | Što | Otvoren na usmjerniku |
+|---|---|---|
+| 9000 | stranica prijemnika — `proxy.py`, koji prosljeđuje i `/admin`, `/rade`, `/stats` i `/relay` | **da, samo ovaj** |
+| 9001 | spectrumserver | ne |
+| 9010 | administratorska ploča | ne |
+| 9011 | poslužitelj statistike | ne |
+| 9012 | FreeDV RADE dekoder | ne |
+| 9013 | WebSDR diversity relay | ne |
+
+Port koji je na računalu već zauzet preskače se u korist sljedećeg slobodnog. Za kasnije promjene:
+
+```bash
+bash configure-station.sh          # ponovno pitaj (ENTER zadržava svaki odgovor)
+bash configure-station.sh --show   # prikaži trenutne odgovore
+./recompile.sh --frontend          # nakon ovoga stranica prikazuje nove podatke
+./start-rtl.sh                     # ponovno pokreni prijemnik (vlastitom skriptom)
+```
+
+Stanica instalirana prije nego što je čarobnjak postojao zadržava svoje portove: pokrenut ondje, čarobnjak predlaže portove koje ta stanica već koristi.
+
 ### Što instalacijska skripta radi
 
-Ništa se ne mora pripremati ručno unaprijed — nema popisa paketa za kopiranje, nema Node.js-a za dohvaćanje, nema traženja OpenCL paketa. Teče u 19 numeriranih koraka i zaustavlja se uz najviše deset pitanja, svako uokvireno natpisom „POTREBAN JE VAŠ UNOS" — pa ili ostanite za tipkovnicom ili postavite `PHANTOM_NONINTERACTIVE=1` i pustite ga da na sve odgovori zadanim vrijednostima (vidi niže), a računajte na dvadesetak minuta do znatno više od sat vremena, ovisno o stroju i o tome koliko dodataka zadržite.
+Ništa ne treba ručno pripremati — nema popisa ovisnosti za lijepljenje, nema Node.js-a za preuzimanje, nema paketa OpenCL za traženje. Računajte s dvadesetak minuta do znatno više od sat vremena, ovisno o računalu i o tome instalira li se RADE (njegovo preuzimanje je dugi dio).
 
-| # | Korak | Što vas pita |
-|---|---|---|
-| 1 | Popisuje PhantomSDR-Plus servise koji su trenutačno pokrenuti — administratorska ploča, obrnuti proxy, poslužitelj statistike, prijamnik — i nudi da ih zaustavi prije nego što išta dirne. Kao prijamnik računa se samo pokrenuta skripta za pokretanje; ona koja je samo otvorena u uređivaču ostaje netaknuta. | potvrda, **zadano da** |
-| 2–6 | Prepoznaje distribuciju i instalira sve ovisnosti za građenje (prevoditelj, meson/ninja, FFTW, Boost, FLAC, Opus, liquid-dsp, zlib/zstd, libcurl …), uz Node.js 22 preko nvm-a ako ga sustav nema ili je prestar | ništa |
-| 7 | Gradi backend pomoću mesona | ništa |
-| 8 | Gradi upravljački program za vaš prijamnik — RX888 MkII / RX888, RTL-SDR (Blog V4 se pita zasebno), SDRplay RSP1A, RigExpert Fobos SDR, Airspy HF+, HackRF One ili nijedan. Uz RX888 **instalira i udev pravila**, pa poslužitelju nikad ne treba `sudo` za uređaj. RSP1A, Fobos i Airspy HF+ rade preko SoapySDR-a: njihov izbor pokreće `setup-rsp1a.sh`, `setup-fobos.sh` ili `setup-airspyhf.sh`, koji grade upravljački program i `rx_sdr` te također instaliraju udev pravilo (vidi [Prijamnici preko SoapySDR-a (RSP1A, Fobos, Airspy HF+)](#prijamnici-preko-soapysdr-a-rsp1a-fobos-airspy-hf)) HackRF One ne treba SoapySDR: njegov izbor pokreće `setup-hackrf.sh`, koji instalira paket `hackrf` iz distribucije i udev pravilo. | koji SDR imate |
-| 9 | Otvara `frontend/site_information.json` u vašem uređivaču | pozivni znak, lokator, oprema, antena — **nemojte preskočiti** |
-| 10–11 | Instalira ovisnosti frontenda i gradi stranice za računalo i `/mobile` | ništa |
-| 12 | Instalira OpenCL i bira pružatelja prema pronađenom hardveru (Intel / AMD / NVIDIA GPU ili x86 CPU runtime). Ako nema uređaja s podrškom, to kaže i nastavlja dalje | potvrda, zadano da |
-| 13–15 | Instalira **administratorsku ploču**, **FreeDV RADE V1 dekoder** i **poslužitelj statistike** — sva tri prema zadanome | potvrda za svaki, zadano da; svaki ima svoja pitanja |
-| 16 | Ponovno primjenjuje pet zakrpanih websocketpp zaglavlja preko meson podprojekta i provjerava da su stigla. Tri od njih su rad na kompatibilnosti s Boostom ≥ 1.87, bez kojega se backend ne prevodi na Boostu 1.90; druga dva su vlastite izmjene projekta, od kojih je jedna ispravak koji treba registracija na websdr.org | ništa |
-| 17 | Instalira **emulaciju KiwiSDR klijenata** pokretanjem `kiwi_install.sh`, kako bi se Kiwi klijenti poput AetherSDR-a mogli spojiti na ovaj prijamnik. Zakrpava izvore i dodaje `[kiwi_emulation]` u konfiguracijske datoteke u korijenu repozitorija — vidi [Emulacija KiwiSDR klijenata](Aether_config.md) | potvrda, zadano da |
-| 18 | Pokreće `recompile.sh`, da se sve izgradi iz zakrpanih izvora | `[3] Both backend and frontend` → početna varijanta → `[1] build-all.sh` |
-| 19 | Ispisuje sažetak: svaki korak s ishodom i svaku komponentu s time što je instalirano | ništa |
+| # | Korak |
+|---|---|
+| 1 | Prikazuje usluge PhantomSDR-Plusa koje upravo rade i nudi da ih zaustavi prije nego što išta dira (samo na računalu koje ih već ima) |
+| 2 | Prepoznaje distribuciju — slijede pitanja o stanici i, jednom, lozinka za sudo |
+| 3–6 | Instalira sve ovisnosti za izgradnju, s Node.js 22 preko nvm-a ako sistemski Node nedostaje ili je prestar |
+| 7 | Gradi backend s meson |
+| 8 | Gradi upravljački program vašeg prijemnika s njegovim udev pravilom, tako da poslužitelj nikad ne treba `sudo` za uređaj |
+| 9 | Zapisuje `.toml` prijemnika i `site_information.json` iz vaših odgovora |
+| 10–11 | Instalira ovisnosti frontenda i gradi stranicu za računalo i `/mobile` |
+| 12 | Instalira OpenCL za pronađeni hardver |
+| 13 | Instalira administratorsku ploču — ili, bez nje, samo proxy na javnom portu |
+| 14–16 | Instalira WebSDR relay, FreeDV RADE i poslužitelj statistike, ako ste ih odabrali |
+| 17 | Ponovno primjenjuje zakrpane websocketpp zaglavlja i provjerava ih |
+| 18 | Instalira emulaciju KiwiSDR klijenta, kako bi se Kiwi klijenti poput AetherSDR-a mogli spojiti |
+| 19 | Ponovno gradi backend iz zakrpanih izvora |
+| 20 | Bira FFT ubrzivač — OpenCL samo kad uređaj stvarno odgovara, inače procesor — i instalira pokretanje pri podizanju sustava ako ste ga odabrali |
+| 21 | Pokreće prijemnik |
+| 22 | Ispisuje sažetak: adresu za slušatelje, port koji treba proslijediti i svaki korak s rezultatom |
 
 #### Instalacija bez nadzora
 
@@ -445,6 +485,11 @@ Svako pitanje ima varijablu okoline koja ga nadjačava, a instalacijski program 
 | `PHANTOM_RECOMPILE=y\|n` | final rebuild (default y) |
 | `PHANTOM_CURLPP=y\|n` | nastavi bez curlpp-a — samo Arch i openSUSE (zadano y) |
 | `PHANTOM_FIX_CLOCK_SKEW=y\|n` | poništi vremenske oznake izvornih datoteka datirane u budućnost, kako bi meson mogao graditi (zadano y) |
+| `PHANTOM_START_RECEIVER=y\|n` | pokreni prijemnik na kraju (zadano y) |
+| `PHANTOM_CLASSIC=1` | bez pitanja o stanici: sve se pita usput, kao prije |
+| `STATION_…=…` | bilo koji odgovor na pitanja o stanici, npr. `STATION_RECEIVER=rtl STATION_CALLSIGN=SV1XYZ` — vidi zaglavlje `configure-station.sh` |
+
+S pitanjima o stanici odabrani dodaci uzimaju svoje odgovore iz `station.conf` i rade bez terminala, pa ih izvođenje bez nadzora uključuje a da ih ovdje ne treba navoditi.
 
 Tri pod-instalacijska programa označena s *n bez nadzora* i sami su interaktivni, pa ih izvođenje bez nadzora preskače umjesto da zapne na njihovim pitanjima. Navedite ih izrijekom da bi bili uključeni:
 
@@ -640,6 +685,8 @@ Instalacijski program to nudi kao korak 17; `./kiwi_install.sh` primjenjuje most
 
 ## Konfiguracija
 
+> **Instalirali ste s pitanjima o stanici?** Tada je sve u ovom poglavlju već napravljeno iz vaših odgovora — `.toml`, `site_information.json` te frekvencija i brzina uzorkovanja skripte za pokretanje. Mijenjate ih s `bash configure-station.sh`. Koraci u nastavku služe za ono što čarobnjak ne pokriva ili za ručno postavljenu stanicu.
+
 ### 1. Odaberite konfiguracijsku datoteku
 
 Odaberite odgovarajuću konfiguracijsku datoteku za svoj SDR:
@@ -756,6 +803,8 @@ Dodajte svoje omiljene frekvencije, repetitore i radiodifuzijske postaje.
 ```bash
 nano start-rtl.sh
 ```
+
+> Na stanici postavljenoj s pitanjima o stanici frekvencija i brzina uzorkovanja dolaze iz `STATION_FREQ` i `STATION_SPS` u `station.conf`: mijenja ih `bash configure-station.sh`, a blok iznad ostaje kakav je isporučen.
 
 Početna skripta samostalan je pokretač s watchdogom. Uredite samo blok **RECEIVER CONFIGURATION** pri vrhu kako bi argumenti prijamnika odgovarali vašoj postavi:
 
@@ -993,6 +1042,17 @@ Poslužitelj radi u pozadini pod watchdogom, pa ga **Ctrl+C neće zaustaviti** (
 ---
 
 ## Postavljanje automatskog pokretanja
+
+Jednostavan način — i ono što instalacijski program radi kad potvrdite *pokretanje pri podizanju sustava*:
+
+```bash
+bash setup-autostart.sh                # skripta za pokretanje iz station.conf
+bash setup-autostart.sh start-rtl.sh   # ili je navedite
+bash setup-autostart.sh --remove       # više ne pokretati pri podizanju
+```
+
+Instalira `phantomsdr-receiver.service`, koji pri podizanju sustava pokreće vašu skriptu, a pri gašenju `stop-websdr.sh`, s grupom `plugdev`, tako da se USB prijemnik otvara i kad nitko nije prijavljen. Ostatak ovog poglavlja pokazuje isto ručno.
+
 
 ### Pomoću systemd (preporučeno)
 
@@ -1352,7 +1412,7 @@ device_id = 0  # Try 0, 1, 2, etc.
 ```bash
 # Check firewall
 sudo ufw status
-sudo ufw allow 9002/tcp
+sudo ufw allow 9000/tcp
 
 # Or disable firewall temporarily for testing
 sudo ufw disable
@@ -1466,67 +1526,49 @@ Od verzije 4.1.0 repozitorij donosi **`update.sh`**, alat koji instalirani prija
 
 ### Ako vaša instalacija još nema update.sh
 
-Starije stablo ne sadrži skriptu. Dohvatite je jednom — to je jedini korak cijelog ovog postupka koji ćete ikada obaviti ručno:
+Starije stablo ne sadrži skriptu. Preuzmite je jednom — to je jedini korak koji ćete ikad raditi ručno:
 
 ```bash
 cd ~/PhantomSDR-Plus
 curl -fLO https://raw.githubusercontent.com/sv1btl/PhantomSDR-Plus/main/update.sh
-chmod +x update.sh
 ```
 
-Od tada sve — izvorni kod, frontend, dokumentacija, instalacijske skripte i sam `update.sh` — dolazi preko alata.
+Od tada sve — izvori, frontend, dokumentacija, instalacijski programi i sam `update.sh` — stiže preko alata.
 
-### Korak 1 — pogledajte što bi se promijenilo (ništa se ne zapisuje)
+### Pokretanje
 
 ```bash
 cd ~/PhantomSDR-Plus
-./update.sh
+bash update.sh
 ```
 
-Preuzima objavljeno stablo, uspoređuje ga s vašim i ispisuje izvještaj. Ne zapisuje baš ništa, pa ga je sigurno pokrenuti u bilo kojem trenutku, i dok je prijamnik u eteru. Izlazni je kod
-`0` kada ste ažurni i `10` kada ažuriranje čeka, pa vas cron posao može obavijestiti kada ima
-posla.
+Preuzima objavljeno stablo, uspoređuje ga s vašim i ispisuje izvješće. Zatim pita **Update these files now?** — ENTER znači *ne*, i tada ništa nije zapisano. Odgovorite `y` i alat:
 
-### Korak 2 — primijenite ga
+1. zaustavlja prijemnik, administratorsku ploču, proxy i relay **ove instalacije** (druga instalacija na istom računalu nastavlja raditi),
+2. sprema svaku datoteku koju će zamijeniti u datiranu arhivu u `update-backups/`,
+3. zapisuje nove datoteke,
+4. ponovno gradi samo ono što se promijenilo — poslužitelj, stranicu ili oboje — bez ikakvih pitanja,
+5. ponovno pokreće točno ono što je zaustavio.
 
-```bash
-./update.sh --apply
-```
-
-Tri se vrste datoteka tretiraju različito, i upravo je u toj razlici cijela poanta:
+Tri vrste datoteka obrađuju se različito:
 
 | Datoteke | Što se događa |
 |---|---|
-| `config.toml`, `config-<prijamnik>.toml`, `markers.json`, `admin_config.json`, `autorun.json`, `frequencylist/`, `chat_history.txt`, `frontend/variant.json`, `frontend/site_information.json`, zapisnici, `build/`, `frontend/dist/` | **Nikada se ne diraju** niti se ikada pojavljuju u pitanju. Upravo one od stroja čine *vaš* prijamnik. |
-| `start-*.sh`, `stop-websdr.sh`, `*.service` jedinice, `install*.sh`, `recompile.sh`, `setup_admin.sh`, `smeter_theme.sh`, `proxy.py`, `admin_server.py`, `thermal_guard.py`, `websdr_relay.py`, `frontend/src/bands-config.js`, ogledne konfiguracije `config.example.*.toml` | **Uvijek se pita**, jer su to datoteke koje operator s razlogom može biti izmijenio. |
-| Sve ostalo | Ažurira se, nakon što se kopija stare datoteke spremi u arhivu sigurnosne kopije (vidi *Poništavanje ažuriranja*). |
+| `station.conf`, `config.toml`, `config-<prijemnik>.toml`, `markers.json`, `admin_config.json`, `autorun.json`, `frontend/site_information.json`, `frontend/variant.json`, `frequencylist/`, `chat_history.txt`, logovi, `build/`, `frontend/dist/` | **Nikad se ne diraju**, niti se prikazuju u pitanju. One čine računalo *vašim* prijemnikom. |
+| `start-*.sh`, `stop-websdr.sh`, jedinice `*.service`, `install*.sh`, `recompile.sh`, `setup_admin.sh`, `proxy.py`, `admin_server.py`, `frontend/src/bands-config.js` i druge datoteke koje sysop ima razloga uređivati | **Ažuriraju se ako ih nikad niste uređivali; pita se ako jeste.** |
+| Sve ostalo | Ažurira se. |
 
-Za svaku datoteku iz srednje skupine prikazuju se razlike i nude tri izbora:
+Svaka verzija donosi `update-known.txt`, otisak svake verzije svake datoteke koja je ikad objavljena. Vaša datoteka koja odgovara jednoj od njih jednostavno je starija i ažurira se bez pitanja — tako čak i prvo ažuriranje pita samo za datoteke koje ste stvarno promijenili. Za svaku od njih birate:
 
 ```
   ❓ start-rx888mk2.sh  [K]eep mine / [u]pstream / [b]oth  (ENTER = Keep mine)
 ```
 
-* **Keep mine** — vaša datoteka ostaje točno onakva kakva jest.
-* **upstream** — instalira se nova inačica, a vaša se prethodno sigurnosno pohranjuje.
-* **both** — nova se inačica zapisuje uz vašu kao `start-rx888mk2.sh.new`, da svoje izmjene
-prenesete kada vam odgovara.
+* **Keep mine** — vaša datoteka ostaje točno kakva jest.
+* **upstream** — instalira se nova verzija; vaša je u sigurnosnoj kopiji.
+* **both** — nova verzija zapisuje se pokraj vaše kao `start-rx888mk2.sh.new`, za spajanje kad vam odgovara.
 
-**Kako izgleda prvo pokretanje.** Prvi put ne postoji zapis o tome iz koje inačice potječu
-vaše datoteke, pa vam se predočava svaka datoteka iz srednje skupine — desetak pitanja. Odgovarajte ovako:
-
-| Vaša situacija | Odgovor |
-|---|---|
-| Tu datoteku nikada niste mijenjali | `u` — uzmite novu inačicu. Uobičajen slučaj. |
-| Mijenjali ste je (vlastiti `RX888_ARGS`, prikvačivanje na jezgre, prilagođena jedinica) | `b` — vaša ostaje, a nova dolazi uz nju kao `<datoteka>.new`. |
-| Niste sigurni | ENTER — vaša ostaje, ništa se ne gubi, usporedit ćete poslije. |
-
-Vaša konfiguracija u tome nikada ne sudjeluje: pitanja se uvijek tiču samo skripti i uslužnih jedinica.
-
-`update.sh` u `.update-state/` bilježi inačicu svake datoteke koju instalira. Već od drugog
-pokretanja zato razlikuje datoteku koju ste **vi** mijenjali od one koja je naprosto stara, i zaustavlja se samo kod onih kojih ste se doista dotakli.
-
-Prije nego išta zapiše zaustavlja prijamnik, administratorsku ploču, obrnuti proxy i WebSDR diversity relej **instalacije koju ažurira** — ono što poslužuje drugi direktorij navodi se i ostavlja raditi, pa se drugi klon može ažurirati dok prvi ostaje u eteru — a na kraju pokreće natrag točno ono što je zaustavio. Ako su se promijenile izvorne ili frontend datoteke, ponudit će da za vas pokrene `recompile.sh`. Ništa se nikada ne briše: datoteke kojih više nema u repozitoriju samo se prijavljuju, a uklanjaju se jedino ako to zatražite s `--prune`.
+Ništa se nikad ne briše: datoteke koje su nestale iz repozitorija se prijavljuju, a uklanjaju se samo ako to zatražite s `--prune`. Izvođenje koje ništa ne zapisuje završava s `0` kad je sve ažurno i s `10` kad čeka ažuriranje, pa vas cron zadatak s `bash update.sh --check` može obavijestiti kad ima posla.
 
 ### Poništavanje ažuriranja
 
@@ -1555,6 +1597,8 @@ Sigurnosne kopije od prije 23. rujna 2026. nalaze se u skrivenoj mapi `.update-b
 
 ```bash
 ./update.sh --apply --yes     # nikada ne pita; svaka vaša izmijenjena datoteka OSTAJE
+./update.sh --check           # samo izvješće, nikad pitanje — za cron (10 = čeka ažuriranje)
+./update.sh --from FILE|DIR   # nova verzija iz .zip/.tar.gz ili mape — bez mreže
 ./update.sh --ref v5.0.0      # oznaka, grana ili commit umjesto trenutnog stabla
 ./update.sh --list-excludes   # ispisuje pravila "ne diraj" kako vrijede ovdje
 ./update.sh --verbose         # nabraja sve datoteke, ne samo prvih 40
@@ -1572,6 +1616,16 @@ izgradnja sada traži biblioteke kojih nemate, `recompile.sh` će stati s grešk
 ```
 
 Instalacijska skripta i sama se ažurira istim pokretanjem, a vaša konfiguracija preživljava i nju.
+
+### Bez internetske veze na prijemniku
+
+Preuzmite cijeli repozitorij na drugom računalu (GitHub → *Code* → *Download ZIP*), prenesite ga, i:
+
+```bash
+bash update.sh --from ~/PhantomSDR-Plus-main.zip
+```
+
+Sve ostalo je točno kao gore — izvješće, pitanje, sigurnosna kopija, izgradnja, ponovno pokretanje.
 
 ### Ručno ažuriranje
 
@@ -1632,7 +1686,7 @@ tar -xzf phantomsdr-backup-YYYYMMDD.tar.gz
 
 ```bash
 # Allow only necessary ports
-sudo ufw allow 9002/tcp
+sudo ufw allow 9000/tcp
 sudo ufw enable
 ```
 

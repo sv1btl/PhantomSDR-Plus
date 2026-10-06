@@ -3,8 +3,36 @@
 # PhantomSDR-Plus Recompile Script (Enhanced)
 # This script helps you recompile backend and/or frontend components
 # with support for selecting default App.svelte variant
+#
+# Without arguments it asks what to build. With one it asks nothing, so
+# install.sh and update.sh can call it:
+#   ./recompile.sh --backend     backend only
+#   ./recompile.sh --frontend    the whole site (desktop + /mobile)
+#   ./recompile.sh --both        both
+# The starting variant is then kept as frontend/variant.json has it (analog
+# S-meter, layout v1 when there is none); --variant 1-4 chooses another.
 
 set -e  # Exit on error
+
+NONINTERACTIVE_MODE=""
+VARIANT_ARG=""
+while [ $# -gt 0 ]; do
+    case "$1" in
+        --backend)  NONINTERACTIVE_MODE=1; shift ;;
+        --frontend) NONINTERACTIVE_MODE=2; shift ;;
+        --both)     NONINTERACTIVE_MODE=3; shift ;;
+        --variant)  VARIANT_ARG="${2:-}"; shift 2 ;;
+        -h|--help)  sed -n '3,16p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+        *) echo "Unknown option: $1 (try --help)"; exit 1 ;;
+    esac
+done
+
+# npm comes from nvm on most stations, and a shell that did not read ~/.bashrc
+# (cron, systemd, ssh -c, another script) does not have it on PATH.
+if ! command -v npm >/dev/null 2>&1 && [ -s "${NVM_DIR:-$HOME/.nvm}/nvm.sh" ]; then
+    # shellcheck disable=SC1091
+    . "${NVM_DIR:-$HOME/.nvm}/nvm.sh" >/dev/null 2>&1 || true
+fi
 
 echo "=========================================="
 echo "  PhantomSDR-Plus Recompile Script"
@@ -70,7 +98,23 @@ select_default_app() {
     echo "  [3] V2 Analog S-Meter   (smeter=analog,  layout=v2)"
     echo "  [4] V2 Digital S-Meter  (smeter=digital, layout=v2)"
     echo ""
-    read -p "Select default variant [1-4]: " default_choice
+    if [ -n "$VARIANT_ARG" ]; then
+        default_choice="$VARIANT_ARG"
+    elif [ -n "$NONINTERACTIVE_MODE" ]; then
+        # Keep the variant this site already starts with.
+        local sm ly
+        sm="$(grep -o '"smeter": *"[a-z]*"' "$PHANTOM_DIR/frontend/variant.json" 2>/dev/null | grep -o '[a-z]*"$' | tr -d '"')"
+        ly="$(grep -o '"layout": *"[a-z0-9]*"' "$PHANTOM_DIR/frontend/variant.json" 2>/dev/null | grep -o '[a-z0-9]*"$' | tr -d '"')"
+        case "${sm:-analog}/${ly:-v1}" in
+            digital/v1) default_choice=2 ;;
+            analog/v2)  default_choice=3 ;;
+            digital/v2) default_choice=4 ;;
+            *)          default_choice=1 ;;
+        esac
+        echo "Keeping the starting variant: [$default_choice]"
+    else
+        read -p "Select default variant [1-4]: " default_choice
+    fi
     
     FRONTEND_SRC="$PHANTOM_DIR/frontend/src"
     FRONTEND_ROOT="$PHANTOM_DIR/frontend"
@@ -247,7 +291,11 @@ recompile_frontend() {
     echo "        by its own script.  [1] builds it after the desktop page;"
     echo "        [3] rebuilds ONLY it (needs a dist/ to already exist)."
     echo ""
-    read -p "Select an option [0-3]: " frontend_option
+    if [ -n "$NONINTERACTIVE_MODE" ]; then
+        frontend_option=1
+    else
+        read -p "Select an option [0-3]: " frontend_option
+    fi
     
     case $frontend_option in
         0)
@@ -327,7 +375,11 @@ echo "  [2] Frontend only (with default variant selection)"
 echo "  [3] Both backend and frontend"
 echo "  [0] Exit"
 echo ""
-read -p "Select an option [0-3]: " main_option
+if [ -n "$NONINTERACTIVE_MODE" ]; then
+    main_option="$NONINTERACTIVE_MODE"
+else
+    read -p "Select an option [0-3]: " main_option
+fi
 
 case $main_option in
     1)

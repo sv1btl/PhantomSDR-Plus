@@ -49,6 +49,7 @@ PhantomSDR-Plus
 ├── config-rtl.toml
 ├── config-rx888mk2.toml
 ├── config.toml
+├── configure-station.sh       # the station wizard: asks once, writes station.conf, the .toml and site_information.json
 ├── connection_impl.hpp
 ├── docs
 │   ├── ADMIN_PANEL_SETUP.md
@@ -291,6 +292,7 @@ PhantomSDR-Plus
 │   │   │   ├── receivers.js           # receiver picker data (/receivers.json)
 │   │   │   ├── rnnoise.js     # loads RNNoise for the AI noise reduction
 │   │   │   ├── rx.js                  # which receiver a page belongs to (?rx=)
+│   │   │   ├── sideService.js         # where the page finds RADE and the relay (siteRade / siteRelay)
 │   │   │   ├── SMeterAnalog.svelte
 │   │   │   ├── SMeterDigital.svelte
 │   │   │   ├── Spectrogram.svelte
@@ -474,18 +476,19 @@ PhantomSDR-Plus
 ├── phantomsdr-admin.service   # sample systemd unit for the admin panel (starts at boot, restarts after a crash)
 ├── phantomsdr-proxy.service   # sample systemd unit for the proxy, installed alongside the panel unit
 ├── phantomsdr-websdr-relay.service  # sample systemd unit for the WebSDR diversity relay
-├── proxy.py
+├── proxy.py                   # the one public port: the page, /admin, /rade, /stats, /relay, and ?rx= receivers
 ├── rade_helper.py
 ├── rade_loadtest.csv          # output of rade_loadtest.py (one row per ramp step)
 ├── rade_loadtest.py           # RADE concurrency knee test — see docs/RADE_README.md
 ├── rade.sh
 ├── README.md
-├── recompile.sh
+├── recompile.sh               # rebuild; --backend / --frontend / --both ask nothing
 ├── receivers.toml.example     # receiver list for proxy.py — copy to receivers.toml
 ├── _relaunch.sh               # legacy: delayed re-launch helper for the go.sh chain
 ├── request.hpp
 ├── setup_admin.sh
 ├── setup-airspyhf.sh          # Airspy HF+ driver chain: libairspyhf + SoapyAirspyHF + rx_sdr + udev
+├── setup-autostart.sh         # start at boot: phantomsdr-receiver.service for the start script in station.conf
 ├── setup-cpufreq-perms.sh     # grants group write on scaling_max_freq so the guard can throttle without root
 ├── setup-firewall.sh          # optional nftables flood guard — see docs/CONNECTION_LIMITS.md
 ├── setup-fobos.sh             # Fobos driver chain: libfobos + SoapyFobosSDR + rx_sdr + cf32_to_real + udev
@@ -546,6 +549,7 @@ PhantomSDR-Plus
 ├── start-rsp1a.sh
 ├── start-rtl.sh
 ├── start-rx888mk2.sh
+├── station.conf               # this station's answers to the wizard (not in git, never touched by update.sh)
 ├── stop-websdr.sh
 ├── subprojects
 │   ├── fftw3.wrap
@@ -778,7 +782,8 @@ PhantomSDR-Plus
 ├── thermal-guard.service      # sample systemd unit for the guard, for installs without the admin panel
 ├── tmpfiles
 │   └── phantomsdr-logs.conf   # keeps admin.log + proxy.log owned by the panel's user (edit paths before installing)
-├── update.sh
+├── update-known.txt           # fingerprints of every published version — lets update.sh tell old files from edited ones
+├── update.sh                  # updater: report, then "update now?"; --check, --from, --make-known
 ├── waterfall.sh
 ├── websdr_relay.json.example  # its config template (port, caps, station identity)
 ├── websdr_relay.py            # the relay itself — see docs/RECEIVE_DIVERSITY.md
@@ -804,6 +809,7 @@ PhantomSDR-Plus
 | `config-hackrf.toml` | HackRF One config | Using a HackRF |
 | `config-rx888mk2.toml` | RX888 MK2 config | Using RX888 device |
 | `config.example.hackrf.toml` | HackRF One example | Using HackRF device |
+| `station.conf` | The station wizard's answers — receiver, band, station, ports, extras. Written by `configure-station.sh`; the start scripts and `proxy.py` read it. Never in git, never touched by `update.sh` | Through `bash configure-station.sh` |
 
 ### Start/Stop and Maintenance Scripts
 
@@ -811,7 +817,9 @@ Each `start-*.sh` below is a **self-contained launcher + watchdog + logger**: it
 
 | Script | Purpose |
 |--------|---------|
-| `install.sh` | Automated installation and build |
+| `install.sh` | Automated installation and build — the station questions first, then everything unattended (also `install_fedora.sh`, `install_arch.sh`, `install_opensuse.sh`) |
+| `configure-station.sh` | The station wizard: receiver, band, station, internet, ports and extras, asked once and saved in `station.conf`; from it writes the receiver's `.toml`, `site_information.json` and the relay settings, changing only the keys it owns and backing each file up first. `--show` prints the answers, `--apply` rewrites the files from them — see [Installation Guide](INSTALLATION.md) |
+| `setup-autostart.sh` | Start at boot: installs `phantomsdr-receiver.service`, which runs the start script from `station.conf` (or the one named) at boot and `stop-websdr.sh` at shutdown, with the `plugdev` group; `--remove` undoes it |
 | `add-receiver.sh` | Adds one more receiver to this computer: asks which receiver and what it covers, installs its driver, creates `instances/<name>/` and the `receivers.toml` entry, and offers to start it and restart the proxy. The installers offer it at the end — see [Several Receivers](MULTI_RECEIVER.md) |
 | `start-rtl.sh` | Launch + watchdog server with RTL-SDR (`rtl_sdr`) |
 | `start-rsp1a.sh` | Launch + watchdog server with SDRplay RSP1A (`rx_sdr`); uses libmirisdr-5, or SDRplay's API when that is installed (`RX_DRIVER` forces one) |
@@ -829,8 +837,9 @@ Each `start-*.sh` below is a **self-contained launcher + watchdog + logger**: it
 | `setup-rtlsdr.sh` | Installs the RTL-SDR driver on any of the four supported distributions — the distribution's `rtl-sdr` package, or with `RTL_V4=y` the RTL-SDR Blog V4 driver built from source — blacklists the DVB-T driver and adds a udev rule; `add-receiver.sh` runs it |
 | `setup-firewall.sh` | Optional kernel-level flood guard: loads an nftables table with a per-source connection ceiling and rate on the receiver ports, an SSH brute-force brake, and Windows file sharing closed outside private ranges. Needs root, cannot lock you out (policy accept, established accepted first) and `--apply` rolls itself back unless confirmed within 60 s — see [Connection Limits](CONNECTION_LIMITS.md) |
 | `setup-cpufreq-perms.sh` | Grants a `cpufreq` group write access to the per-CPU frequency limit, so the thermal guard's throttle stage works without running the panel as root. Installs a `tmpfiles.d` rule so it survives a reboot; `--revoke` undoes it |
-| `update.sh` | Update the installation from the published tree, leaving your configuration, markers, frequency list and local edits alone — see [Installation Guide](INSTALLATION.md) |
-| `recompile.sh` | Rebuild the backend and/or the frontend, and pick the variant served at `/` |
+| `update.sh` | Update the installation from the published tree, leaving your configuration, markers, frequency list and local edits alone: it reports, asks "Update these files now?" (ENTER = no), backs up, applies and rebuilds only what changed. `--check` for cron, `--from` a ZIP, tarball or folder without network — see [Installation Guide](INSTALLATION.md) |
+| `update-known.txt` | The SHA-256 of every version of every file ever published, shipped with each release, so `update.sh` updates a file that is merely old without asking. Written by `bash update.sh --make-known` in the source tree |
+| `recompile.sh` | Rebuild the backend and/or the frontend, and pick the variant served at `/`. With `--backend`, `--frontend` or `--both` it asks nothing and keeps the current variant — how `install.sh` and `update.sh` call it |
 | `smeter_theme.sh` | Set the default analog S-meter face (dark / amber / vintage) for all users, and offer the frontend rebuild — see [Editing Variants](EDITING_VARIANTS.md) |
 | `waterfall.sh` | Change the default minimum waterfall level (dB) in `waterfall.js` + `App.svelte` — see [README](README.md) |
 | `kiwi_install.sh` | Install the KiwiSDR client-emulation bridge into a tree that has not got it: patches the backend sources, copies `src/kiwi_bridge.h`, and adds a documented `[kiwi_emulation]` block to the config files in the repository root. Idempotent, and backs up every file it touches — see [KiwiSDR Client Emulation](Aether_config.md) |
@@ -854,6 +863,7 @@ Each `start-*.sh` below is a **self-contained launcher + watchdog + logger**: it
 |------|---------|
 | `admin_server.py` | The admin panel itself. Besides the management pages it runs the **Graphs** sampler: a background thread takes CPU frequency, load, temperature and users online every 2 seconds and keeps them in memory only — 1 hour at full resolution plus 24 hours of 30-second averages. Nothing is written to disk, so the history is lost on restart. |
 | `admin_config.json` | Admin panel settings (password hash, ports, options, thermal guard thresholds) |
+| `proxy.py` | The public port. Serves the page and carries `/admin` to the panel and — on a station set up with the wizard — `/rade`, `/stats` and `/relay` to the services behind it, so only one port is forwarded. Reads its ports from `admin_config.json`, or from `station.conf` when there is no panel (`setup_admin.sh --proxy-only`) |
 | `thermal_guard.py` | CPU over-temperature guard. Stops the server when the CPU gets too hot and restarts it once cool, deriving its thresholds from the critical trip point your own CPU publishes instead of a fixed number. It never identifies what supervises the server — while over-temp it re-issues the stop every 2 s, so a watchdog, systemd unit or cron job that revives it is undone until the machine cools. Stdlib-only; imported by `admin_server.py` (ticked from the Graphs sampler) and also runnable standalone for installations without the panel. Defaults to log-only, so it acts on nothing until enabled — see the [Thermal Guard manual](THERMAL_GUARD.md) |
 | `autorun/` | The spot-reporting daemon — see [Autorun Spot Reporter](INSTALLATION.md#autorun-spot-reporter-ft8ft4wspr) |
 | `autorun.json` | Which bands/modes to decode, identity and destinations |
@@ -1336,6 +1346,18 @@ cd ..
 - Build system (`meson.build`, `meson_options.txt`)
 - Documentation (`*.md`, `docs/`)
 - Scripts (`*.sh`)
+
+### Publishing a release (maintainer)
+
+Before the files are uploaded, refresh the fingerprint list, so that `update.sh` on every station recognises the versions it has as published ones:
+
+```bash
+# 1. copy the changed files to the upload copy, then:
+bash update.sh --make-known /path/to/the/upload/copy
+# 2. commit update-known.txt and copy it to the upload copy as well
+```
+
+The list only grows: entries from earlier releases are kept, so a public copy published once stays recognisable in every later release.
 
 ### Files to Ignore (`.gitignore`)
 

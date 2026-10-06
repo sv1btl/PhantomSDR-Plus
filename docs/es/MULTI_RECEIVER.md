@@ -1,5 +1,7 @@
 # Varios receptores — Manual del sysop
 
+> **Números de puerto.** Los ejemplos de abajo usan los puertos de una estación configurada antes de las preguntas de la estación (8900, 8901, …). En una estación configurada con `configure-station.sh`, `proxy.py` ya ocupa el puerto público 9000 y el receptor principal está en 9001, así que dé a los receptores siguientes 9002, 9003, etc.
+
 **Dos o más receptores en un mismo ordenador, con un selector de receptor en la página.**
 
 Desde la v5.0.0 un ordenador PhantomSDR-Plus puede hacer funcionar varios receptores a la vez — por ejemplo un RX-888 para HF y un RTL-SDR para 2 m — y los oyentes pasan de uno a otro con botones en la cabecera de la página, igual que OpenWebRX ofrece sus perfiles. Cada receptor conserva su propia cascada, chat, marcadores, lista de oyentes y datos de estación; nadie en un receptor resulta nunca molestado por alguien en otro.

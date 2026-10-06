@@ -89,29 +89,22 @@ PhantomSDR-Plus podržava širok raspon SDR prijamnika:
 ### Instalacija
 
 ```bash
-# Kloniranje repozitorija
-git clone --recursive https://github.com/sv1btl/PhantomSDR-Plus
+git clone https://github.com/sv1btl/PhantomSDR-Plus
 cd PhantomSDR-Plus
-
-# Postavljanje skripti kao izvršnih
-chmod +x *.sh
-
-# Pokretanje automatske instalacije
-./install.sh
+bash install.sh
 ```
 
-**Napomena:** nakon pokretanja `install.sh` ponovno pokrenite terminal prije nastavka.
+Instalacijski program postavlja sva pitanja na početku — prijemnik, što primati, vašu stanicu, vašu adresu na internetu i dodatke — zatim sve instalira sam, pokreće prijemnik i prikazuje jedini port koji treba otvoriti na usmjerniku (9000). Bez `chmod` i bez ponovnog pokretanja terminala. Pitanja o stanici opisana su u [INSTALLATION.md](INSTALLATION.md).
 
-> **Već vam radi PhantomSDR-Plus?** Nemojte ga instalirati ponovno — ažurirajte ga. Dohvatite alat za ažuriranje jednom i pokrenite ga; vaša konfiguracija, oznake, administratorska lozinka, popis frekvencija i povijest razgovora nikada se ne diraju, a ono što ste sami mijenjali predočava vam se umjesto da bude prepisano:
+> **PhantomSDR-Plus već radi?** Nemojte ga instalirati ponovno — ažurirajte ga. Jednom preuzmite alat za ažuriranje i pokrenite ga; prikazuje što bi se promijenilo i pita prije nego što bilo što zapiše, a vaše postavke, markeri, administratorska lozinka, popis frekvencija i povijest chata nikad se ne diraju:
 >
 > ```bash
 > cd ~/PhantomSDR-Plus
 > curl -fLO https://raw.githubusercontent.com/sv1btl/PhantomSDR-Plus/main/update.sh
-> chmod +x update.sh
-> ./update.sh
+> bash update.sh
 > ```
 >
-> Posljednji redak samo *prijavljuje* što bi se promijenilo i ništa ne zapisuje; `./update.sh --apply` to i obavi. Pojedinosti su u poglavlju *Ažuriranje PhantomSDR-Plusa*. Ponovno pokretanje instalacijske skripte na postaji koja radi potrebno je jedino ako izgradnja padne zbog nedostajućih sistemskih paketa.
+> Pojedinosti su u poglavlju *Ažuriranje PhantomSDR-Plusa*.
 
 Na Fedori koristite `install_fedora.sh`, na Archu `install_arch.sh`, a na openSUSE Tumbleweedu `install_opensuse.sh` — rade isti posao s drugim upraviteljem paketa. Svako izdanje Debiana i Ubuntua pokriva sam `install.sh`.
 

@@ -4,6 +4,8 @@ import { RemoteSource } from './remoteSource'
 import { KiwiSource } from './kiwiSource'
 import { UberSource } from './uberSource'
 import { WebSdrSource } from './webSdrSource'
+import { sideServiceBase, sideServiceWhere } from './lib/sideService'
+import { siteRade } from './siteInfo.js'
 import { ConnectionRefused, isRefusal, isKick, defaultReason } from './refused'
 import { loadRnnoise, RNNOISE_FRAME, RNNOISE_RATE, RNNOISE_DELAY } from './lib/rnnoise'
 // Opus ML decoder — loaded ON DEMAND, not at startup.
@@ -6934,7 +6936,8 @@ js8Pending() {
    * Enable or disable RADE v1 decoding via the rade_helper.py sidecar.
    * @param {boolean} enabled
    * @param {string}  sideband  'USB' (RADEU) or 'LSB' (RADEL)
-   * @param {string}  [uri]     Sidecar WebSocket URI; default ws://host:8074
+   * @param {string}  [uri]     Sidecar WebSocket URI; default siteRade from
+   *                            site_information.json, else ws://host:8074
    */
   setRADEDecoding(enabled, sideband, uri) {
     if (!enabled) {
@@ -6963,7 +6966,7 @@ js8Pending() {
     }
 
     this._radeSideband = sideband || 'USB';
-    var helperUri = uri || ('ws://' + window.location.hostname + ':8074');
+    var helperUri = uri || sideServiceBase(siteRade, 8074).ws;
 
     try {
       var ws = new WebSocket(helperUri);
@@ -7022,7 +7025,7 @@ js8Pending() {
       ws.onerror = () => {
         console.warn('[RADE] sidecar socket error');
         if (this._radeCallback)
-          this._radeCallback({ type: 'error', msg: 'RADE sidecar unreachable — is rade_helper.py running on port 8074?' });
+          this._radeCallback({ type: 'error', msg: 'RADE sidecar unreachable — is rade_helper.py running ' + sideServiceWhere(siteRade, 8074) + '?' });
       };
 
       ws.onclose = () => {

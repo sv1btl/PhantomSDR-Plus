@@ -38,7 +38,8 @@
  */
 
 import { WebSdrCodec } from './webSdrCodec.js'
-import { siteSysop } from './siteInfo.js'
+import { siteSysop, siteRelay } from './siteInfo.js'
+import { sideServiceBase } from './lib/sideService.js'
 
 const CONNECT_TIMEOUT_MS = 12000
 // A socket still CONNECTING has not reached the server yet: Firefox holds a
@@ -83,7 +84,8 @@ export class WebSdrSource {
   /**
    * @param {string} url    the WebSDR's own address, e.g. http://websdr.example:8901
    * @param {object} opts   onPcm, onState, and optionally relay ('host:port' or a
-   *                        full URL) if the relay is not on this host's port 8898
+   *                        full URL); default siteRelay from site_information.json,
+   *                        else this host's port 8898
    */
   constructor (url, { onPcm, onState, relay = null, name = LISTED_NAME } = {}) {
     this.host = webSdrHost(url)
@@ -107,7 +109,7 @@ export class WebSdrSource {
     this._reconnectArmed = false
   }
 
-  /** Where the relay lives. Same host as the page unless told otherwise. */
+  /** Where the relay lives: siteRelay, else this host's port 8898. */
   _relayBase (relay) {
     const loc = (typeof window !== 'undefined' && window.location) || null
     const secure = loc ? loc.protocol === 'https:' : false
@@ -119,12 +121,7 @@ export class WebSdrSource {
         return { http: `${u.protocol.replace('ws', 'http')}//${u.host}`, ws: `${secure ? 'wss' : 'ws'}://${u.host}` }
       } catch (_) { /* fall through */ }
     }
-    const host = loc ? loc.hostname : '127.0.0.1'
-    const netloc = `${host}:${DEFAULT_RELAY_PORT}`
-    return {
-      http: `${secure ? 'https' : 'http'}://${netloc}`,
-      ws: `${secure ? 'wss' : 'ws'}://${netloc}`
-    }
+    return sideServiceBase(siteRelay, DEFAULT_RELAY_PORT)
   }
 
   connect () {

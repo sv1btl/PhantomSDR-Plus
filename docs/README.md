@@ -89,29 +89,22 @@ PhantomSDR-Plus supports a wide range of SDR receivers:
 ### Installation
 
 ```bash
-# Clone the repository
-git clone --recursive https://github.com/sv1btl/PhantomSDR-Plus
+git clone https://github.com/sv1btl/PhantomSDR-Plus
 cd PhantomSDR-Plus
-
-# Make scripts executable
-chmod +x *.sh
-
-# Run the installer
-./install.sh
+bash install.sh
 ```
 
-**Note:** After running `install.sh`, restart your terminal before proceeding.
+The installer asks every question first — the receiver, what to receive, your station, your address on the internet and the extras — then installs everything on its own, starts the receiver, and shows the one port to open on your router (9000). No `chmod`, and no terminal to restart. The station questions are described in [INSTALLATION.md](INSTALLATION.md).
 
-> **Already running PhantomSDR-Plus?** Do not install it again — update it. Fetch the updater once and run it; your configuration, markers, admin password, frequency list and chat history are never touched, and anything you edited yourself is put to you rather than overwritten:
+> **Already running PhantomSDR-Plus?** Do not install it again — update it. Fetch the updater once and run it; it shows what would change and asks before writing anything, and your configuration, markers, admin password, frequency list and chat history are never touched:
 >
 > ```bash
 > cd ~/PhantomSDR-Plus
 > curl -fLO https://raw.githubusercontent.com/sv1btl/PhantomSDR-Plus/main/update.sh
-> chmod +x update.sh
-> ./update.sh
+> bash update.sh
 > ```
 >
-> That last line only *reports* what would change and writes nothing; `./update.sh --apply` does it. The *Updating PhantomSDR-Plus* chapter has the details. Re-running the installer over a working site is only needed when a rebuild fails because system packages are missing.
+> The *Updating PhantomSDR-Plus* chapter has the details.
 
 Use `install_fedora.sh` on Fedora, `install_arch.sh` on Arch or `install_opensuse.sh` on openSUSE Tumbleweed — they do the same work with a different package manager. Every Debian and Ubuntu release is covered by `install.sh` itself.
 

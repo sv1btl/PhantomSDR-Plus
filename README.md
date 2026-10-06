@@ -122,25 +122,33 @@ The SV1BTL WebSDR: http://phantomsdr.no-ip.org:8900/
 
 ## Installation
 
-Everything is installed by one script. Nothing has to be prepared by hand first — no dependency list to paste, no Node.js to fetch, no OpenCL packages to hunt down.
+Everything is installed by one script, and every question comes first:
 
 ```
-git clone --recursive https://github.com/sv1btl/PhantomSDR-Plus
+git clone https://github.com/sv1btl/PhantomSDR-Plus
 cd PhantomSDR-Plus
-chmod +x *.sh
-./install.sh
+bash install.sh
 ```
 
-**Restart your terminal after the installer finishes**, otherwise the newly installed Node.js and Rust are not yet on your `PATH`.
+1. **The station questions** (about two minutes): which receiver — the one plugged in is recognised — what to receive, your callsign, locator, city and antenna, your address on the internet and whether to be listed on sdr-list.xyz and the websdr.org map, and which extras you want (admin panel, FreeDV RADE, statistics, WebSDR relay, start at boot).
+2. **Your sudo password, once.**
+3. **Then it installs everything on its own** — twenty minutes to an hour, depending on the machine and on RADE — and asks nothing more.
+4. **At the end it starts the receiver** and shows the address listeners use, and the **one port** to open on your router: **9000**.
 
-> **Already running PhantomSDR-Plus? Do not install it again.** The installer is for a machine that has none. To bring an existing receiver up to date, fetch the updater once and let it do the work — your `.toml` configuration, markers, admin password, frequency list and chat history are never touched, and anything you edited yourself is put to you rather than overwritten: <br />
+There is no `chmod` step and no terminal to restart: a copy downloaded as a ZIP or through the GitHub page has no executable bits, and the installer sets them itself. The answers are kept in `station.conf`, and from it the installer writes your `.toml`, `site_information.json` and the frequency and sample rate your start script uses, so they always agree. Change them at any time with `bash configure-station.sh` (ENTER keeps each answer). The full description, with every step and every port, is in [docs/INSTALLATION.md](docs/INSTALLATION.md).
+
+| Port | What | Open on the router |
+|---|---|---|
+| 9000 | the receiver page — `proxy.py`, which also carries `/admin`, `/rade`, `/stats` and `/relay` | **yes, only this one** |
+| 9001 / 9010 / 9011 / 9012 / 9013 | spectrumserver / admin panel / statistics / RADE / WebSDR relay | no — inside the computer |
+
+> **Already running PhantomSDR-Plus? Do not install it again.** Fetch the updater once and run it. It shows what would change and then asks before writing anything; your `.toml` configuration, markers, admin password, frequency list and chat history are never touched, and nothing on your station moves to the new ports: <br />
 > ```
 > cd ~/PhantomSDR-Plus
 > curl -fLO https://raw.githubusercontent.com/sv1btl/PhantomSDR-Plus/main/update.sh
-> chmod +x update.sh
-> ./update.sh
+> bash update.sh
 > ```
-> That last line only *reports* what would change and writes nothing; `./update.sh --apply` does it. Full details in **[The update tool](#the-update-tool)**. Re-running `install.sh` over a working site is only needed when a rebuild fails because system packages are missing.
+> Full details in **[The update tool](#the-update-tool)**. Re-running `install.sh` over a working site is only needed when a rebuild fails because system packages are missing.
 
 Pick the installer that matches your system. They do the same work and ask the same questions; only the package manager differs:
 
@@ -153,46 +161,21 @@ Pick the installer that matches your system. They do the same work and ask the s
 
 > **One installer for every Debian and Ubuntu release.** `install.sh` reads `/etc/os-release` and the installed Boost version and adapts itself; the old `install_ubuntu22.sh`, `install-Deb12.sh` and `install_ubuntu26.sh` are gone. It sets `DEBIAN_FRONTEND=noninteractive`, so the `tzdata` that arrives with `python3-matplotlib` cannot stop the run to ask for your time zone and then swallow the answer meant for the next question. On Jammy it calls `install_rade_ubuntu22.sh` directly, because Jammy's `python3-websockets` is 10.1 and RADE needs 11.0 or newer. It knows where `intel-opencl-icd` lives on each release: in the repositories on 22.04 and 26.04, in `non-free` on Debian 12, and in Intel's own graphics repository on 24.04 and Debian 13. And where Boost is 1.87 or newer, the websocketpp header patch stops being optional — the installer verifies it landed and refuses to build without it. No newer compiler is ever needed: the stock GCC accepts `-std=c++23` on all five releases, so do not install `gcc-12` for this.
 
-The installation runs in 17 clearly numbered steps, and every point where it waits for you is fenced by a **⌨️  YOUR INPUT IS NEEDED** banner, so a question cannot be mistaken for progress output scrolling past. The seven questions are listed up front, before anything is installed. Setting `PHANTOM_NONINTERACTIVE=1` answers all of them with their defaults; see the header of `install.sh` for the `PHANTOM_*` overrides.
+The installation runs in 22 numbered steps. With the station questions answered at the start, none of them stops to ask anything. `PHANTOM_CLASSIC=1` brings back the old way, each question asked at its own step; `PHANTOM_NONINTERACTIVE=1` with `STATION_*` variables runs it fully unattended (see the header of `install.sh` and of `configure-station.sh`).
 
-**Every run writes `install.txt`.** When the installer finishes — or dies halfway — it writes a report to `install.txt` in the PhantomSDR-Plus directory: the result, each of the 17 steps as OK / SKIPPED / PARTIAL / FAILED, what it detected (distribution, Boost, compiler, Node.js), which components were installed, and every warning that came up. A run that fails leaves a report ending at the step that failed, with the reason and a note that the installer is safe to re-run. It is the first file to read when something did not work, and the first to attach to a bug report. Each run overwrites it, so keep a copy if you want to compare two installations.
+**Every run writes `install.txt`.** When the installer finishes — or dies halfway — it writes a report to `install.txt` in the PhantomSDR-Plus directory: the result, each of the 22 steps as OK / SKIPPED / PARTIAL / FAILED, what it detected (distribution, Boost, compiler, Node.js), which components were installed, and every warning that came up. A run that fails leaves a report ending at the step that failed, with the reason and a note that the installer is safe to re-run. It is the first file to read when something did not work, and the first to attach to a bug report. Each run overwrites it, so keep a copy if you want to compare two installations.
 
 > **Ubuntu 26.04, Arch and openSUSE Tumbleweed build, but have not been run on air.** All three ship a Boost newer than 1.87, which removed the `io_service` API that the vendored websocketpp 0.8.2 was written against. The patched headers the installer copies in bridge that gap (`io_context`, `executor_work_guard`, `boost::asio::post`, the modern resolver), and where Boost is 1.87 or newer the installer treats that patch as mandatory rather than optional — it verifies the copies landed and refuses to build without them. A complete install, receiver driver and all optional components included, has been verified end to end in containers on Boost 1.90 (Ubuntu 26.04), 1.91 (openSUSE Tumbleweed) and 1.92 (Arch). That proves the server compiles and starts — not that it serves a receiver for hours. Treat all three as untested in production until someone reports back.
 
 > **openSUSE means Tumbleweed.** That is where `install_opensuse.sh` is verified. Leap 15.6 does not work: its repositories carry no `liquid-dsp-devel` at all, which the backend needs, and Boost is only available under versioned package names. Supporting Leap would mean adding third-party OBS repositories, so it is out of scope for now.
 
-### What the installer does — read this before you start
-
-It runs as 18 numbered steps and stops to ask you eight questions, each fenced by a "YOUR INPUT IS NEEDED" banner — so either stay at the keyboard, or set `PHANTOM_NONINTERACTIVE=1` and let it answer everything with its defaults. Depending on your machine and on how many extras you keep, expect anywhere from about twenty minutes to well over an hour — the torch download and the radae build are the long parts. In order, the script:
-
-1. **Stops a running PhantomSDR-Plus first.** It lists what is live on the machine — the admin panel, the reverse proxy, the statistics server and the receiver itself — and offers to stop it, defaulting to yes; whatever it stopped, it starts again as its last action. Answer `n` and it prints the commands and waits while you stop them yourself, in which case it leaves them alone at the end. Installing on top of a live receiver overwrites a binary that is still running and lets the watchdog restart the half-written copy mid-compile, which then reads as a broken build. Only a running start script counts as the receiver; one that is merely open in an editor is left alone.
-2. **Detects your distribution** and installs every build dependency with your own package manager: compiler and build tools, meson/ninja, FFTW, Boost, FLAC, Opus, liquid-dsp, zlib/zstd, libcurl and the rest.
-3. **Installs Node.js 22 through nvm** if the system does not already have it, or has a version that is too old.
-4. **Builds the backend** with meson.
-5. **Sets up your receiver.** It asks which SDR you have — RX888 MkII / RX888, RTL-SDR (with a separate question for the Blog V4), SDRplay RSP1A, RigExpert Fobos SDR, Airspy HF+, HackRF One, or none — and builds the driver for it. The RSP1A, Fobos and Airspy HF+ run through SoapySDR and `rx_sdr`; for them it runs `setup-rsp1a.sh`, `setup-fobos.sh` or `setup-airspyhf.sh`, which also install a udev rule. For the HackRF One it runs `setup-hackrf.sh`, which installs the distribution's `hackrf` package and a udev rule. Choosing the **RX888 also installs the udev rules** for you (`setup-rx888-udev.sh`), so `rx888_stream` and the start scripts never need `sudo` to open the device. You have to log out and back in once for that to take effect.
-6. **Opens `frontend/site_information.json` in your editor** so you can fill in your callsign, locator, hardware and antenna. **Do not skip this** — it is what your visitors see. The fields are explained further down this page.
-7. **Installs the frontend dependencies and builds the pages**, desktop and `/mobile`.
-8. **Installs OpenCL.** It first looks at what the machine actually has — an Intel, AMD or NVIDIA GPU, or an x86 CPU runtime — and then picks the provider that suits your distribution on its own, with no menu to answer. If there is no OpenCL-capable device it tells you so plainly and carries on; the server runs perfectly well on FFTW, just leave `accelerator="none"` in your `.toml`.
-9. **Offers the three extras, all of which are installed by default.** Answer `n` to any you do not want:
-   * the **admin panel** (`setup_admin.sh`) — dashboard, log viewer, config editor,
-     connected users with a kick button, chat moderation and the thermal guard,
-   * the **FreeDV RADE V1 decoder** (`install_rade.sh`) — builds radae and starts the
-     sidecar; it works on apt, pacman, dnf and zypper systems,
-   * the **statistics server** (`install-stats-server.sh`) — the CPU, RAM and
-     temperature feed shown on the receiver page.
-10. **Re-applies the five patched websocketpp headers** over the meson subproject and verifies they landed. `request.hpp` (the fix websdr.org registration needs) and `connection_impl.hpp` are the project's own changes; the three `websocketpp_asio*.hpp` files are the Boost ≥ 1.87 compatibility work, without which the backend cannot compile against Boost 1.90 at all. All of it used to be a manual step; it is not any more, and where Boost is 1.87 or newer the installer treats a missing or reverted patch as a hard failure rather than a warning.
-11. **Runs `recompile.sh` as its very last action**, so the backend is built from the
-    patched headers and the frontend from whatever the extras added. Answer
-    `[3] Both backend and frontend`, choose the S-meter/layout variant a first-time
-    visitor should see, then `[1] build-all.sh`.
-
-Each extra is a normal script you can also run on its own at any time — `./setup_admin.sh`, `./install_rade.sh`, `./install-stats-server.sh`, `./setup-rx888-udev.sh`, and for the receivers `./setup-rsp1a.sh`, `./setup-fobos.sh`, `./setup-airspyhf.sh` and `./setup-hackrf.sh` — they are exactly what the installer calls.
+Each extra is a normal script you can also run on its own at any time — `./setup_admin.sh` (`--proxy-only` for the public port without the panel), `./install_rade.sh`, `./install-stats-server.sh`, `./setup_websdr_relay.sh`, `./setup-autostart.sh`, `./setup-rx888-udev.sh`, and for the receivers `./setup-rsp1a.sh`, `./setup-fobos.sh`, `./setup-airspyhf.sh` and `./setup-hackrf.sh` — they are exactly what the installer calls.
 
 > [!NOTE]
 >
 > **🎯 Registering on the websdr.org map**
 >
-> The header patch that registration depends on is applied by the installer, so all that is left is your `.toml` — prepare it as described in the section "The .toml file":
+> The station questions write this block for you when you answer yes to the websdr.org question, with `public_port` set to your public port (9000). To set it by hand, prepare your `.toml` as described in the section "The .toml file":
 >
 > [websdr.org] <br />
 > enabled     = true # or false <br />
@@ -203,13 +186,11 @@ Each extra is a normal script you can also run on its own at any time — `./set
 > email       = "mail@domain.com" <br />
 > logo        = "logo.jpg" <br />
 >
-> If you change the `.toml` after the installation, only a backend rebuild is needed:
-> ```
-> cd PhantomSDR-Plus/ && ./recompile.sh
-> ```
+> The `.toml` is read when the server starts, so after changing it restart the receiver with its start script (for example `./start-rtl.sh`).
 
 
 ## Examples
+On a station set up with the station questions all of this is already done — the frequency and sample rate come from `station.conf`, and `bash configure-station.sh` changes them. The examples below are for setting a receiver up by hand. <br />
 Remember to set the frequency and sample rate correctly in the start script for your receiver (e.g. `start-rtl.sh`). In each start script these live in the **RECEIVER CONFIGURATION** block near the top — edit the `RX_ARGS` line (for `start-rx888mk2.sh` it is `RX888_ARGS`). The command examples below show what those arguments become. <br />
 You also need to modify the .toml file, e.g. config-rtl.toml
 
@@ -293,7 +274,8 @@ The scripts are fully self-contained (they derive their own directory, no hard-c
 - `RX_DRIVER=miri ./start-rsp1a.sh` (or `sdrplay`) — choose the RSP1A driver instead of letting the script pick: libmirisdr-5, or SDRplay's own API.
 
 
-## During installation, the script will open the site_information.json file in your favourite editor for you to edit and save. Don't skip this step!
+## The site_information.json file
+The station questions write this file for you — callsign, locator, city, antenna, receiver, address, band edges and region. Edit it by hand only for what they do not cover (`siteNote`, `siteHardware`, `siteAntennaURL` and the like), then rebuild the page with `./recompile.sh --frontend`.
 
 	"siteSysop": "your name or callsign",
 	"siteSysopEmailAddress": "mail@mail.net",
@@ -316,8 +298,9 @@ The scripts are fully self-contained (they derive their own directory, no hard-c
 Where: <br />
 
 **"siteInformation"**: "https://github.com/sv1btl/PhantomSDR-Plus" — please don't change this. It points to the project's GitHub repository.<br />
-**"siteIP": "http://Your site IP:port"** — e.g. http://mysite.com:9002 <br />
-**"siteStats": "http://Your site IP:3001"** — e.g. http://mysite.com:3001, or any other port you chose during the monitor tool setup. <br />
+**"siteIP": "http://Your site IP:port"** — e.g. http://mysite.com:9000 <br />
+**"siteStats"** — `/stats` on a station set up with the station questions (the proxy carries it on the public port); on an older station the full address, e.g. http://mysite.com:3001. <br />
+**"siteRade"**, **"siteRelay"** — `/rade` and `/relay` on a station set up with the station questions; left out on an older one, where the page uses ports 8074 and 8898 as before. <br />
 **"siteSDRBandwidth"**: enter the usable bandwidth of your receiver — e.g. 2048000 for the RTL, or 60000000 or 1200000000 for the RX-888, etc.<br />
 
 **"siteRegion"**: select your IARU region, where:<br />
@@ -441,68 +424,47 @@ The page is built by **frontend/build-mobile.sh**, which `build-all.sh` also cal
 ## The update tool
 The **update.sh** script updates an installed receiver from the published tree at
 **https://github.com/sv1btl/PhantomSDR-Plus**, without touching the files that make it *your* site. It lives in
-the root folder and is run in a terminal: <br />
+the root folder: <br />
 ```
-./update.sh                 tells you what WOULD change; writes nothing
-./update.sh --apply         does it, asking about anything you have edited
-./update.sh --restore LAST  puts back whatever the last run overwrote
+bash update.sh                    shows what would change, then asks "Update these files now?"
+bash update.sh --check            the report only, never asks — for cron (exit 10 = update waiting)
+bash update.sh --from FILE|DIR    the new version from a .zip/.tar.gz or a folder — no network
+bash update.sh --restore LAST     puts back whatever the last run overwrote
 ```
-**If your installation does not have `update.sh` yet**, an older tree will not contain the script — fetch it once, the only step of this procedure you ever do by hand: <br />
+**If your installation does not have `update.sh` yet**, fetch it once — the only step of this procedure you ever do by hand: <br />
 ```
 cd ~/PhantomSDR-Plus
 curl -fLO https://raw.githubusercontent.com/sv1btl/PhantomSDR-Plus/main/update.sh
-chmod +x update.sh
 ```
 From then on everything, `update.sh` included, is brought in by the tool. <br />
 
-Run without `--apply` it is completely safe — it downloads, compares, prints the report and writes nothing at all.
-That is the way to try it the first time. <br />
+At the question, **ENTER means no** and nothing at all is written. Answer `y` and it stops the receiver, admin panel, proxy and relay **of this installation**, saves every file it replaces in a dated archive in `update-backups/`, writes the new files, **rebuilds only what changed** (the server, the web page, or both — without asking anything) and starts back exactly what it stopped. <br />
 
-It does not use git and does not need it: the published tree is downloaded as a tarball and compared with yours
-file by file, so it behaves the same whether you cloned the repository, unpacked an `update.zip`, or copied the
-tree off a USB stick. It works on the directory it is sitting in, so a second clone updates itself and not the
-one on air. <br />
+It does not use git: the published tree is downloaded as a tarball and compared with yours file by file, so it behaves the same whether you cloned the repository, unpacked a ZIP or copied the tree off a USB stick. It works on the directory it is sitting in, so a second clone updates itself and not the one on air. <br />
 
-**Three kinds of file, and the difference is the whole point:** <br />
+**Three kinds of file:** <br />
 
 | | |
 |---|---|
-| **Never touched, never asked about** | your `config.toml` and `config-<receiver>.toml`, `markers.json`, `admin_config.json`, `autorun.json`, `frequencylist/`, `chat_history.txt`, `frontend/variant.json`, the logs, `build/` and `frontend/dist/`. These are what make your machine your receiver. |
-| **Always asked about** | `start-*.sh`, `stop-websdr.sh`, the `*.service` units, `install*.sh`, `recompile.sh`, `setup_admin.sh`, `smeter_theme.sh`, `proxy.py`, `admin_server.py`, `thermal_guard.py`, `websdr_relay.py`, `frontend/src/bands-config.js`, the sample configs `config.example.*.toml` — the files a sysop has a reason to have edited. |
-| **Everything else** | updated, after a copy of the old file goes into a dated backup archive in `update-backups/`. |
+| **Never touched, never asked about** | `station.conf`, your `config.toml` and `config-<receiver>.toml`, `markers.json`, `admin_config.json`, `autorun.json`, `frontend/site_information.json`, `frontend/variant.json`, `frequencylist/`, `chat_history.txt`, the logs, `build/` and `frontend/dist/`. These are what make your machine your receiver. |
+| **Updated if you never edited them, asked about if you did** | `start-*.sh`, `stop-websdr.sh`, the `*.service` units, `install*.sh`, `recompile.sh`, `setup_admin.sh`, `smeter_theme.sh`, `proxy.py`, `admin_server.py`, `thermal_guard.py`, `websdr_relay.py`, `frontend/src/bands-config.js`, the sample configs `config.example.*.toml`. |
+| **Everything else** | updated, after a copy of the old file goes into the backup archive. |
 
-For each file in the middle group you get the diff and three choices: <br />
+Every release carries **`update-known.txt`**, the fingerprint of every version of every file ever published. A file of yours that matches one is simply older and is updated without a question — so even a first update asks only about files you really changed. For each of those: <br />
 ```
   ❓ start-rx888mk2.sh  [K]eep mine / [u]pstream / [b]oth  (ENTER = Keep mine)
 ```
-**Keep mine** leaves your file alone. **Upstream** takes the new one (the old one is backed up first). **Both**
-writes the new version beside yours as `<file>.new`, so you can merge your own changes into it in your own time. <br />
-
-**A first run asks more than later ones.** There is no record yet of which version your files came from, so every file in the middle group is put to you — about ten questions. If you never edited that file press `u`; if you did (your own `RX888_ARGS`, CPU pinning, a tweaked unit) press `b` and merge the `.new` later; if you are not sure press ENTER and nothing is lost. Your configuration is never part of this — the questions are only ever about scripts and service units. <br />
-
-It records the version of every file it installs in `.update-state/`, so from the second run on it can tell a file
-**you** edited from a file that is merely old, and only stops to ask about the ones you actually touched. Add your
-own never-touch rules by putting one glob per line in `update-exclude.txt` in the root folder; `./update.sh
---list-excludes` prints the rules as they resolve on your machine. <br />
-
-Before writing anything it stops the receiver, the admin panel, the reverse proxy and the WebSDR diversity relay **of the installation it is
-updating** — a component serving another directory is listed and left running, so a second clone can be updated
-while the first one stays on the air — and when it has finished it starts back exactly what it stopped — updating a live tree is the most effective way to
-get a broken result that only *looks* like a broken build. If source or frontend files changed it offers to run
-`recompile.sh` for you. Nothing is ever deleted: files that have gone from the repository are reported, and
-removed only if you ask with `--prune`. <br />
+**Keep mine** leaves your file alone. **Upstream** takes the new one (yours is in the backup). **Both** writes the new version beside yours as `<file>.new`, to merge in your own time. Add your own never-touch rules, one glob per line, in `update-exclude.txt` in the root folder; `bash update.sh --list-excludes` prints them as they resolve. Nothing is ever deleted: files gone from the repository are reported, and removed only with `--prune`. <br />
 
 For a machine you do not sit at: <br />
 ```
-./update.sh --apply --yes   never asks; every file you have edited is KEPT
-./update.sh --ref v5.0.0    a tag, branch or commit instead of the current tree
+bash update.sh --apply --yes   never asks; every file you have edited is KEPT
+bash update.sh --ref v5.0.0    a tag, branch or commit instead of the current tree
 ```
-A plain `./update.sh` exits **0** when you are up to date and **10** when an update is waiting, so cron can tell
-you when there is something to do. <br />
 
-**On a very old installation the rebuild may fail**, because `update.sh` updates files and not system packages. If `recompile.sh` stops with a compiler or meson error, the tree needed libraries that are not installed: run `./install.sh` — itself brought up to date by the same run — and your configuration survives that too. <br />
+**On a very old installation the rebuild may fail**, because `update.sh` updates files and not system packages. If the rebuild stops with a compiler or meson error, run `bash install.sh` — itself brought up to date by the same run — and your configuration survives that too. <br />
 
-> **Note:** every run saves the files it overwrites as one dated archive in the plain, visible folder `update-backups/` — for example `update-backups/phantomsdr-backup-20260923-164530.zip` (`.tar.gz` where `zip` is not installed) — and the three most recent are kept. `./update.sh --restore LAST`, or `--restore` with the archive's name, puts them back; each archive also carries its own `restore.sh` that works even if `update.sh` is the problem. Backups from before 23 September 2026 are still in the hidden `.update-backups/` and restore the same way. Neither folder nor `.update-state/` is ever distributed.
+> **Note:** every run saves the files it overwrites as one dated archive in the plain, visible folder `update-backups/` — for example `update-backups/phantomsdr-backup-20260923-164530.zip` (`.tar.gz` where `zip` is not installed) — and the three most recent are kept. `bash update.sh --restore LAST`, or `--restore` with the archive's name, puts them back; each archive also carries its own `restore.sh` that works even if `update.sh` is the problem. Backups from before 23 September 2026 are still in the hidden `.update-backups/` and restore the same way. Neither folder nor `.update-state/` is ever distributed.
 
 
 ## The recompile tool

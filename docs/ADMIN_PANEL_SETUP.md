@@ -58,7 +58,7 @@ setup_admin.sh
 proxy.py
 ```
 
-`chmod +x *.sh` after cloning (which the installation instructions already tell you to do) makes the scripts executable.
+The installer sets the executable bits itself. On a tree copied by hand, run the script as `bash setup_admin.sh`.
 
 ---
 
@@ -67,6 +67,8 @@ proxy.py
 ```bash
 ./setup_admin.sh
 ```
+
+> **Without the admin panel:** `bash setup_admin.sh --proxy-only` installs only `proxy.py` on the public port, with the ports from `station.conf`. It is what the installer does when you decline the panel, because the proxy is what listeners — and `/rade`, `/stats`, `/relay` — reach.
 
 The script will:
 
@@ -79,6 +81,7 @@ accepts, so a normal setup is three keystrokes:
      which is what every `config-*.toml` in the repository ships with)
    - **Admin panel internal port** — where `admin_server.py` binds locally (default `3000`)
    - **Proxy public port** — the single external port that combines SDR + admin (default `8902`)
+   On a station set up with the station questions (`configure-station.sh`), the three defaults are that station's own ports from `station.conf` — 9001, 9010 and 9000 — so Enter is right, and the start script is already preselected.
 
 Invalid answers are rejected and re-asked, but only five times — after that the default is used. A run whose input is not a terminal (piped, cron, unattended) takes the defaults straight away instead of waiting for input that never comes.
 5. Install `flask`, `psutil`, `aiohttp` and `tomli-w` via pip

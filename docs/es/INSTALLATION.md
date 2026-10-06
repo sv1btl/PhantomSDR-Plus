@@ -364,28 +364,28 @@ clinfo
 
 ## Instalación de PhantomSDR-Plus
 
-### Clonar el repositorio, dar permisos a los scripts y ejecutar el instalador
+### Clonar el repositorio y ejecutar el instalador
 
 ```bash
 cd ~
-git clone --recursive https://github.com/sv1btl/PhantomSDR-Plus
+git clone https://github.com/sv1btl/PhantomSDR-Plus
 cd PhantomSDR-Plus
-chmod +x *.sh
-./install.sh
+bash install.sh
 ```
 
-**⚠️ IMPORTANTE:** Cuando termine el instalador, **reinicie el terminal**: hasta entonces Node.js y Rust recién instalados no están en su `PATH`.
+El instalador hace primero unas pocas preguntas sobre su estación — el receptor, qué recibir, su indicativo y su locator, su dirección en internet y qué extras desea — y después lo instala todo por sí solo, sin preguntar nada más. Al final arranca el receptor y muestra la dirección que usan los oyentes y el único puerto que hay que abrir en el router (9000, salvo que elija otro). Las preguntas se describen dos secciones más abajo, en *Las preguntas de la estación*.
 
-> **¿Ya tiene PhantomSDR-Plus en marcha?** No lo instale otra vez: actualícelo. Descargue la herramienta de actualización una vez y ejecútela; su configuración, marcadores, contraseña de administración, lista de frecuencias e historial de chat nunca se tocan, y lo que usted haya modificado se le pregunta en lugar de sobrescribirse:
+Escriba `bash install.sh` exactamente así: no hay paso `chmod`. Una copia descargada como ZIP o desde la página de GitHub no tiene permisos de ejecución, y el instalador los pone él mismo.
+
+> **¿Ya tiene PhantomSDR-Plus funcionando?** No lo instale de nuevo: actualícelo. Descargue el actualizador una vez y ejecútelo; muestra lo que cambiaría y pregunta antes de escribir nada. Su configuración, marcadores, contraseña de administración, lista de frecuencias e historial del chat no se tocan nunca:
 >
 > ```bash
 > cd ~/PhantomSDR-Plus
 > curl -fLO https://raw.githubusercontent.com/sv1btl/PhantomSDR-Plus/main/update.sh
-> chmod +x update.sh
-> ./update.sh
+> bash update.sh
 > ```
 >
-> Esa última línea sólo *informa* de lo que cambiaría y no escribe nada; `./update.sh --apply` lo hace. Los detalles están en el capítulo *Actualización de PhantomSDR-Plus*. Volver a pasar el instalador sobre una estación en marcha sólo hace falta si la reconstrucción falla por paquetes del sistema que faltan.
+> Los detalles están en el capítulo *Actualización de PhantomSDR-Plus*. Volver a ejecutar el instalador sobre una estación que funciona solo hace falta cuando una recompilación falla porque faltan paquetes del sistema.
 
 Use el script que corresponda a su sistema. Todos hacen el mismo trabajo y hacen las mismas preguntas; solo cambia el gestor de paquetes:
 
@@ -398,32 +398,72 @@ Use el script que corresponda a su sistema. Todos hacen el mismo trabajo y hacen
 
 > **Un único instalador para todas las versiones de Debian y Ubuntu.** `install.sh` lee `/etc/os-release` y la versión de Boost instalada y se adapta solo; los antiguos `install_ubuntu22.sh`, `install-Deb12.sh` e `install_ubuntu26.sh` han desaparecido. Establece `DEBIAN_FRONTEND=noninteractive`, para que el `tzdata` que llega con `python3-matplotlib` no pueda detener la ejecución preguntando por su zona horaria y tragarse después la respuesta destinada a la siguiente pregunta. En Jammy llama directamente a `install_rade_ubuntu22.sh`, porque el `python3-websockets` de Jammy es 10.1 y RADE necesita 11.0 o posterior. Sabe dónde vive `intel-opencl-icd` en cada versión: en los repositorios en 22.04 y 26.04, en `non-free` en Debian 12, y en el propio repositorio gráfico de Intel en 24.04 y Debian 13. Y donde Boost es 1.87 o posterior, el parche de cabeceras de websocketpp deja de ser opcional: el instalador verifica que se aplicó y se niega a compilar sin él. Nunca hace falta un compilador más nuevo: el GCC de serie acepta `-std=c++23` en las cinco versiones, así que no instale `gcc-12` para esto.
 
-La instalación transcurre en 17 pasos claramente numerados, y cada punto en el que se le espera va enmarcado por un recuadro **⌨️  SE NECESITA SU RESPUESTA**, de modo que una pregunta no pueda confundirse con la salida que va pasando. Las siete preguntas se enumeran al principio, antes de instalar nada. `PHANTOM_NONINTERACTIVE=1` las responde todas con sus valores por defecto; consulte la cabecera de `install.sh` para las variables `PHANTOM_*`.
+La instalación transcurre en 22 pasos numerados. Como las preguntas de la estación se responden al principio, ningún paso se detiene a preguntar nada; solo se pide la contraseña de sudo, una vez, justo después de las preguntas, y se mantiene activa durante toda la ejecución. Con `PHANTOM_CLASSIC=1` vuelve el modo anterior: cada pregunta en su propio paso, enmarcada por un aviso **⌨️  YOUR INPUT IS NEEDED**. Cada respuesta puede darse también desde el entorno para una ejecución totalmente desatendida (`PHANTOM_NONINTERACTIVE=1`); vea *Instalación desatendida* más abajo.
 
-**Cada ejecución escribe `install.txt`.** Cuando el instalador termina —o muere a medio camino— escribe un informe en `install.txt` dentro del directorio PhantomSDR-Plus: el resultado, cada uno de los 17 pasos como OK / SKIPPED / PARTIAL / FAILED, lo que detectó (distribución, Boost, compilador, Node.js), qué componentes se instalaron, y cada aviso que apareció. Una ejecución fallida deja un informe que termina en el paso que falló, con el motivo y la nota de que el instalador puede volver a ejecutarse sin riesgo. Es el primer archivo que hay que leer cuando algo no funcionó, y el primero que adjuntar a un informe de error. Cada ejecución lo sobrescribe, así que guarde una copia si quiere comparar dos instalaciones.
+**Cada ejecución escribe `install.txt`.** Cuando el instalador termina —o muere a medio camino— escribe un informe en `install.txt` dentro del directorio PhantomSDR-Plus: el resultado, cada uno de los 22 pasos como OK / SKIPPED / PARTIAL / FAILED, lo que detectó (distribución, Boost, compilador, Node.js), qué componentes se instalaron, y cada aviso que apareció. Una ejecución fallida deja un informe que termina en el paso que falló, con el motivo y la nota de que el instalador puede volver a ejecutarse sin riesgo. Es el primer archivo que hay que leer cuando algo no funcionó, y el primero que adjuntar a un informe de error. Cada ejecución lo sobrescribe, así que guarde una copia si quiere comparar dos instalaciones.
 
 > **Ubuntu 26.04, Arch y openSUSE Tumbleweed compilan, pero no se han puesto en el aire.** Los tres traen un Boost más nuevo que 1.87, que eliminó la API `io_service` para la que se escribió el websocketpp 0.8.2 incluido. Las cabeceras parcheadas que copia el instalador salvan esa distancia (`io_context`, `executor_work_guard`, `boost::asio::post`, el resolver moderno), y donde Boost es 1.87 o posterior el instalador trata ese parche como obligatorio y no opcional: verifica que las copias se aplicaron y se niega a compilar sin ellas. Una instalación completa, con el driver del receptor y todos los componentes opcionales, se ha verificado de principio a fin en contenedores con Boost 1.90 (Ubuntu 26.04), 1.91 (openSUSE Tumbleweed) y 1.92 (Arch). Eso demuestra que el servidor compila y arranca, no que sirva un receptor durante horas. Considere los tres sin probar en producción hasta que alguien informe.
 
 > **openSUSE aquí significa Tumbleweed.** Ahí es donde está verificado `install_opensuse.sh`. Leap 15.6 no funciona: sus repositorios no incluyen `liquid-dsp-devel`, que el backend necesita, y Boost solo está disponible con nombres de paquete versionados. Dar soporte a Leap exigiría añadir repositorios OBS de terceros, así que queda fuera del alcance por ahora.
 
+### Las preguntas de la estación
+
+`configure-station.sh` — lo ejecuta el instalador al principio y puede ejecutarse solo en cualquier momento — hace cinco grupos de preguntas. ENTER acepta el valor entre corchetes; al ejecutarlo de nuevo, las respuestas anteriores son las predeterminadas.
+
+| # | Pregunta | Notas |
+|---|---|---|
+| 1 | Qué receptor | Reconoce y propone el que está conectado (RX888, RTL-SDR, RSP1A, Airspy HF+, HackRF, Fobos). Para un RTL-SDR pregunta además si es un Blog V4. |
+| 2 | Qué recibir | Opciones listas para cada receptor (por ejemplo *HF 0–30 MHz* para el RX888, *2 m* para un RTL-SDR), o su propia frecuencia central y tasa de muestreo. |
+| 3 | Su estación | Indicativo, nombre, e-mail, QTH locator, ciudad y país, antena, ordenador, región UIT (propuesta a partir del locator). |
+| 4 | Internet | Su dirección pública (IP o nombre DNS), y si el receptor aparecerá en sdr-list.xyz y en el mapa de websdr.org. |
+| 5 | Puertos y extras | Panel de administración, FreeDV RADE, estadísticas, relay WebSDR, arranque al encender — y el puerto público. |
+
+Las respuestas se guardan en **`station.conf`**, y a partir de él el asistente escribe todo lo que debe coincidir: el `config-<receptor>.toml` del receptor (tasa de muestreo, frecuencia, puerto, listados en directorios, websdr.org), `frontend/site_information.json` y la configuración del relay. Los scripts de arranque leen ellos mismos la frecuencia y la tasa de muestreo de `station.conf`, así que nunca se editan. Solo cambian los ajustes que pertenecen al asistente, y cada archivo se copia a `<nombre>.bak-<fecha>` antes de tocarlo.
+
+**En el router solo hay que abrir un puerto.** Todo lo que usan los oyentes pasa por él:
+
+| Puerto | Qué | Abierto en el router |
+|---|---|---|
+| 9000 | la página del receptor — `proxy.py`, que lleva también `/admin`, `/rade`, `/stats` y `/relay` | **sí, solo este** |
+| 9001 | spectrumserver | no |
+| 9010 | panel de administración | no |
+| 9011 | servidor de estadísticas | no |
+| 9012 | decodificador FreeDV RADE | no |
+| 9013 | relay de diversidad WebSDR | no |
+
+Un puerto que ya está en uso en el ordenador se salta en favor del siguiente libre. Para cambiar algo más adelante:
+
+```bash
+bash configure-station.sh          # preguntar de nuevo (ENTER conserva cada respuesta)
+bash configure-station.sh --show   # mostrar las respuestas actuales
+./recompile.sh --frontend          # después de esto la página muestra los datos nuevos
+./start-rtl.sh                     # reiniciar el receptor (con su propio script de arranque)
+```
+
+Una estación instalada antes de que existiera el asistente conserva sus propios puertos: ejecutado allí, el asistente propone los puertos que esa estación ya usa.
+
 ### Qué hace el instalador
 
-No hay que preparar nada a mano de antemano: ninguna lista de paquetes que pegar, ningún Node.js que descargar, ningún paquete de OpenCL que buscar. Transcurre en 19 pasos numerados y se detiene a hacerle hasta diez preguntas, cada una enmarcada por un recuadro «SE NECESITA SU RESPUESTA»: quédese al teclado, o bien ponga `PHANTOM_NONINTERACTIVE=1` y deje que responda todo con sus valores por defecto (véase más abajo), y cuente entre unos veinte minutos y bastante más de una hora según la máquina y según cuántos extras conserve.
+No hay que preparar nada a mano: ninguna lista de dependencias que pegar, ningún Node.js que descargar, ningún paquete OpenCL que buscar. Cuente desde unos veinte minutos hasta bastante más de una hora, según el ordenador y según se instale o no RADE (su descarga es la parte larga).
 
-| # | Paso | Qué se le pregunta |
-|---|---|---|
-| 1 | Enumera los servicios de PhantomSDR-Plus que están en marcha en ese momento — panel de administración, proxy inverso, servidor de estadísticas, receptor — y ofrece detenerlos antes de tocar nada. Solo cuenta como receptor un script de arranque en ejecución; uno que solo está abierto en un editor no se toca. | confirmar, **sí por defecto** |
-| 2–6 | Detecta la distribución e instala todas las dependencias de compilación (compilador, meson/ninja, FFTW, Boost, FLAC, Opus, liquid-dsp, zlib/zstd, libcurl …), instalando Node.js 22 mediante nvm si el sistema no lo tiene o lo tiene demasiado antiguo | nada |
-| 7 | Compila el backend con meson | nada |
-| 8 | Compila el driver de su receptor — RX888 MkII / RX888, RTL-SDR (el Blog V4 se pregunta aparte), SDRplay RSP1A, RigExpert Fobos SDR, Airspy HF+, HackRF One o ninguno. Al elegir el RX888 **también instala las reglas udev**, para que el servidor nunca necesite `sudo` para el dispositivo. El RSP1A, el Fobos y el Airspy HF+ funcionan a través de SoapySDR: su opción ejecuta `setup-rsp1a.sh`, `setup-fobos.sh` o `setup-airspyhf.sh`, que compilan el driver y `rx_sdr` e instalan también una regla udev (vea [Receptores sobre SoapySDR (RSP1A, Fobos, Airspy HF+)](#receptores-sobre-soapysdr-rsp1a-fobos-airspy-hf)) El HackRF One no necesita SoapySDR: su opción ejecuta `setup-hackrf.sh`, que instala el paquete `hackrf` de la distribución y una regla udev. | qué SDR tiene |
-| 9 | Abre `frontend/site_information.json` en su editor | indicativo, locator, hardware, antena — **no se lo salte** |
-| 10–11 | Instala las dependencias del frontend y compila las páginas de escritorio y `/mobile` | nada |
-| 12 | Instala OpenCL eligiendo el proveedor según el hardware que encuentra (GPU Intel / AMD / NVIDIA, o el runtime de CPU x86). Si no hay ningún dispositivo compatible, lo dice y continúa | confirmar, sí por defecto |
-| 13–15 | Instala el **panel de administración**, el **decodificador FreeDV RADE V1** y el **servidor de estadísticas** — los tres por defecto | confirmar cada uno, sí por defecto; cada uno tiene sus preguntas |
-| 16 | Vuelve a aplicar las cinco cabeceras parcheadas de websocketpp sobre el subproyecto de meson y verifica que se copiaron. Tres de ellas son el trabajo de compatibilidad con Boost ≥ 1.87, sin el cual el backend no compila con Boost 1.90; las otras dos son cambios propios del proyecto, uno de ellos la corrección que necesita el registro en websdr.org | nada |
-| 17 | Instala la **emulación de clientes KiwiSDR** ejecutando `kiwi_install.sh`, para que clientes Kiwi como AetherSDR puedan conectarse a este receptor. Parchea las fuentes y añade `[kiwi_emulation]` a los ficheros de configuración de la raíz del repositorio — véase [Emulación de clientes KiwiSDR](Aether_config.md) | confirmar, sí por defecto |
-| 18 | Ejecuta `recompile.sh`, para que todo se compile a partir de las fuentes parcheadas | `[3] Both backend and frontend` → variante inicial → `[1] build-all.sh` |
-| 19 | Imprime el resumen: cada paso con su veredicto y cada componente con lo que se instaló | nada |
+| # | Paso |
+|---|---|
+| 1 | Muestra los servicios de PhantomSDR-Plus que están en marcha y ofrece detenerlos antes de tocar nada (solo en un ordenador que ya los tiene) |
+| 2 | Detecta la distribución — luego vienen las preguntas de la estación y, una vez, la contraseña de sudo |
+| 3–6 | Instala todas las dependencias de compilación, con Node.js 22 mediante nvm si el Node del sistema falta o es antiguo |
+| 7 | Compila el backend con meson |
+| 8 | Compila el controlador de su receptor con su regla udev, para que el servidor nunca necesite `sudo` para el dispositivo |
+| 9 | Escribe el `.toml` del receptor y `site_information.json` a partir de sus respuestas |
+| 10–11 | Instala las dependencias del frontend y construye la página de escritorio y `/mobile` |
+| 12 | Instala OpenCL para el hardware que encuentra |
+| 13 | Instala el panel de administración — o, sin él, solo el proxy en el puerto público |
+| 14–16 | Instala el relay WebSDR, FreeDV RADE y el servidor de estadísticas, si los eligió |
+| 17 | Vuelve a aplicar las cabeceras parcheadas de websocketpp y las comprueba |
+| 18 | Instala la emulación de cliente KiwiSDR, para que clientes Kiwi como AetherSDR puedan conectarse |
+| 19 | Recompila el backend a partir de las fuentes parcheadas |
+| 20 | Elige el acelerador FFT — OpenCL solo cuando un dispositivo responde de verdad, si no la CPU — e instala el arranque al encender si lo eligió |
+| 21 | Arranca el receptor |
+| 22 | Muestra el resumen: la dirección de los oyentes, el puerto que hay que redirigir y cada paso con su resultado |
 
 #### Instalación desatendida
 
@@ -444,6 +484,11 @@ Cada pregunta tiene una variable de entorno que la sustituye, y el instalador pa
 | `PHANTOM_RECOMPILE=y\|n` | final rebuild (default y) |
 | `PHANTOM_CURLPP=y\|n` | continuar sin curlpp — solo Arch y openSUSE (por defecto y) |
 | `PHANTOM_FIX_CLOCK_SKEW=y\|n` | restablecer las marcas de tiempo de los fuentes fechadas en el futuro, para que meson pueda compilar (por defecto y) |
+| `PHANTOM_START_RECEIVER=y\|n` | arrancar el receptor al final (por defecto y) |
+| `PHANTOM_CLASSIC=1` | sin preguntas de la estación: todo se pregunta por el camino, como antes |
+| `STATION_…=…` | cualquier respuesta a las preguntas de la estación, p. ej. `STATION_RECEIVER=rtl STATION_CALLSIGN=SV1XYZ` — vea la cabecera de `configure-station.sh` |
+
+Con las preguntas de la estación, los extras elegidos toman sus respuestas de `station.conf` y se ejecutan sin terminal, así que una ejecución desatendida los incluye sin nombrarlos aquí.
 
 Los tres sub-instaladores marcados *n desatendido* son guiones interactivos por su cuenta, así que una ejecución desatendida los omite en lugar de quedarse esperando. Nómbrelos explícitamente para incluirlos:
 
@@ -639,6 +684,8 @@ El instalador lo ofrece como paso 17; `./kiwi_install.sh` lo aplica a un árbol 
 
 ## Configuración
 
+> **¿Instaló con las preguntas de la estación?** Entonces todo lo de este capítulo ya está hecho a partir de sus respuestas: el `.toml`, `site_information.json`, y la frecuencia y la tasa de muestreo del script de arranque. Cámbielos con `bash configure-station.sh`. Los pasos siguientes son para lo que el asistente no cubre, o para una estación configurada a mano.
+
 ### 1. Elija su archivo de configuración
 
 Seleccione el archivo de configuración adecuado para su SDR:
@@ -755,6 +802,8 @@ Añada sus frecuencias favoritas, repetidores y emisoras de radiodifusión.
 ```bash
 nano start-rtl.sh
 ```
+
+> En una estación configurada con las preguntas de la estación, la frecuencia y la tasa de muestreo vienen de `STATION_FREQ` y `STATION_SPS` en `station.conf`: `bash configure-station.sh` las cambia, y el bloque de arriba se queda tal como se distribuye.
 
 El script de arranque es un lanzador autónomo con watchdog integrado. Edite únicamente el bloque **RECEIVER CONFIGURATION** cerca del principio, para que los argumentos del receptor coincidan con su instalación:
 
@@ -992,6 +1041,17 @@ El servidor se ejecuta en segundo plano bajo un watchdog, así que **Ctrl+C no l
 ---
 
 ## Configuración del arranque automático
+
+La forma sencilla — y lo que hace el instalador cuando responde sí a *arranque al encender*:
+
+```bash
+bash setup-autostart.sh                # el script de arranque de station.conf
+bash setup-autostart.sh start-rtl.sh   # o indíquelo
+bash setup-autostart.sh --remove       # dejar de arrancar al encender
+```
+
+Instala `phantomsdr-receiver.service`, que ejecuta su script de arranque al encender y `stop-websdr.sh` al apagar, con el grupo `plugdev`, de modo que el receptor USB se abre sin que nadie haya iniciado sesión. El resto de este capítulo muestra lo mismo a mano.
+
 
 ### Con systemd (recomendado)
 
@@ -1354,7 +1414,7 @@ device_id = 0  # Try 0, 1, 2, etc.
 ```bash
 # Check firewall
 sudo ufw status
-sudo ufw allow 9002/tcp
+sudo ufw allow 9000/tcp
 
 # Or disable firewall temporarily for testing
 sudo ufw disable
@@ -1465,68 +1525,51 @@ waterfall_compression = "zstd"  # Efficient compression
 
 Desde la versión 4.1.0 el repositorio incluye **`update.sh`**, una herramienta que pone al día una instalación con el árbol publicado **sin tocar los archivos que la hacen ser su estación**. Sustituye al script `git pull` que las ediciones anteriores de esta guía le pedían escribir, y no necesita git en absoluto: el árbol publicado se descarga como tarball y se compara con el suyo archivo por archivo, de modo que funciona igual tanto si clonó el repositorio como si descomprimió un `update.zip` o copió el árbol desde una memoria USB.
 
-### Si su instalación aún no tiene update.sh
+### Si su instalación todavía no tiene update.sh
 
-Un árbol antiguo no contiene el script. Descárguelo una vez: es el único paso de todo este procedimiento que hará a mano:
+Un árbol antiguo no contiene el script. Descárguelo una vez; es el único paso que hará nunca a mano:
 
 ```bash
 cd ~/PhantomSDR-Plus
 curl -fLO https://raw.githubusercontent.com/sv1btl/PhantomSDR-Plus/main/update.sh
-chmod +x update.sh
 ```
 
-A partir de ahí todo — código, frontend, documentación, instaladores y el propio
-`update.sh` — llega a través de la herramienta.
+A partir de ahí todo — fuentes, frontend, documentación, instaladores y el propio `update.sh` — llega a través de la herramienta.
 
-### Paso 1 — ver qué cambiaría (no escribe nada)
+### Ejecución
 
 ```bash
 cd ~/PhantomSDR-Plus
-./update.sh
+bash update.sh
 ```
 
-Descarga el árbol publicado, lo compara con el suyo e imprime un informe. No escribe absolutamente nada, así que puede ejecutarlo en cualquier momento, incluso con el receptor en el aire. El código de salida es `0` si ya está al día y `10` si hay una actualización esperando, de forma que una tarea de cron puede avisarle cuando haya algo que hacer.
+Descarga el árbol publicado, lo compara con el suyo e imprime un informe. Después pregunta **Update these files now?** — ENTER significa *no*, y entonces no se ha escrito absolutamente nada. Responda `y` y:
 
-### Paso 2 — aplicarla
+1. detiene el receptor, el panel de administración, el proxy y el relay **de esta instalación** (otra instalación en el mismo ordenador sigue funcionando),
+2. guarda cada archivo que va a sustituir en un archivo fechado en `update-backups/`,
+3. escribe los archivos nuevos,
+4. recompila solo lo que cambió — el servidor, la página o ambos — sin preguntar nada,
+5. vuelve a arrancar exactamente lo que detuvo.
 
-```bash
-./update.sh --apply
-```
-
-Hay tres clases de archivo y se tratan de forma distinta; esa diferencia es lo esencial:
+Hay tres tipos de archivo que se tratan de forma distinta:
 
 | Archivos | Qué ocurre |
 |---|---|
-| `config.toml`, `config-<receptor>.toml`, `markers.json`, `admin_config.json`, `autorun.json`, `frequencylist/`, `chat_history.txt`, `frontend/variant.json`, `frontend/site_information.json`, los registros, `build/`, `frontend/dist/` | **Nunca se tocan** ni aparecen en ninguna pregunta. Son los que hacen que la máquina sea *su* receptor. |
-| `start-*.sh`, `stop-websdr.sh`, las unidades `*.service`, `install*.sh`, `recompile.sh`, `setup_admin.sh`, `smeter_theme.sh`, `proxy.py`, `admin_server.py`, `thermal_guard.py`, `websdr_relay.py`, `frontend/src/bands-config.js`, las configuraciones de ejemplo `config.example.*.toml` | **Siempre se pregunta**, porque son los archivos que un sysop tiene motivos para haber modificado. |
-| Todo lo demás | Se actualiza, tras guardar una copia del archivo antiguo en el archivo de copia de seguridad (vea *Deshacer una actualización*). |
+| `station.conf`, `config.toml`, `config-<receptor>.toml`, `markers.json`, `admin_config.json`, `autorun.json`, `frontend/site_information.json`, `frontend/variant.json`, `frequencylist/`, `chat_history.txt`, los logs, `build/`, `frontend/dist/` | **Nunca se tocan**, ni siquiera aparecen en una pregunta. Son lo que hace del ordenador *su* receptor. |
+| `start-*.sh`, `stop-websdr.sh`, las unidades `*.service`, `install*.sh`, `recompile.sh`, `setup_admin.sh`, `proxy.py`, `admin_server.py`, `frontend/src/bands-config.js` y los demás archivos que un sysop tiene motivos para editar | **Se actualizan si nunca los editó; se pregunta si los editó.** |
+| Todo lo demás | Se actualiza. |
 
-Para cada archivo del grupo intermedio se muestran las diferencias y se ofrecen tres opciones:
+Cada versión trae `update-known.txt`, la huella de cada versión de cada archivo publicada alguna vez. Un archivo suyo que coincide con una de ellas simplemente es más antiguo y se actualiza sin preguntar; así, incluso una primera actualización pregunta solo por los archivos que usted cambió de verdad. Para cada uno elige:
 
 ```
   ❓ start-rx888mk2.sh  [K]eep mine / [u]pstream / [b]oth  (ENTER = Keep mine)
 ```
 
-* **Keep mine** — su archivo se deja exactamente como está.
-* **upstream** — se instala la versión nueva, después de respaldar la suya.
-* **both** — la versión nueva se escribe junto a la suya como `start-rx888mk2.sh.new`, para que
-incorpore sus propios cambios cuando quiera.
+* **Keep mine** — su archivo queda exactamente como está.
+* **upstream** — se instala la versión nueva; la suya queda en la copia de seguridad.
+* **both** — la versión nueva se escribe junto a la suya como `start-rx888mk2.sh.new`, para fusionarlas cuando quiera.
 
-**Cómo es la primera ejecución.** La primera vez no hay registro de qué versión tenían sus
-archivos, así que se le presenta cada archivo del grupo intermedio: unas diez preguntas. Respóndalas así:
-
-| Su situación | Respuesta |
-|---|---|
-| Nunca tocó ese archivo | `u` — tome la versión nueva. El caso habitual. |
-| Lo modificó (sus `RX888_ARGS`, fijación de CPU, una unidad ajustada) | `b` — se conserva el suyo y el nuevo queda al lado como `<archivo>.new`. |
-| No está seguro | ENTER — se conserva el suyo, no se pierde nada y podrá comparar después. |
-
-Su configuración nunca entra en esto: las preguntas son siempre sobre scripts y unidades de servicio.
-
-`update.sh` anota en `.update-state/` la versión de cada archivo que instala. Por eso, a partir
-de la segunda ejecución distingue un archivo que **usted** editó de otro que simplemente es antiguo, y sólo se detiene a preguntar por los que realmente tocó.
-
-Antes de escribir nada detiene el receptor, el panel de administración, el proxy inverso y el relé de diversidad WebSDR **de la instalación que está actualizando**: lo que sirve a otro directorio se enumera y se deja en marcha, de modo que un segundo clon puede actualizarse mientras el primero sigue en el aire. Al terminar vuelve a arrancar exactamente lo que detuvo. Si han cambiado archivos de código o del frontend, le ofrece ejecutar `recompile.sh`. Nunca borra nada: los archivos que han desaparecido del repositorio se comunican y sólo se eliminan si lo pide con `--prune`.
+Nunca se borra nada: los archivos que han desaparecido del repositorio se notifican, y solo se eliminan si lo pide con `--prune`. Una ejecución que no escribe nada termina con `0` si todo está al día y con `10` si hay una actualización esperando, así que una tarea cron con `bash update.sh --check` puede avisarle cuando haya algo que hacer.
 
 ### Deshacer una actualización
 
@@ -1555,6 +1598,8 @@ Las copias anteriores al 23 de septiembre de 2026 están en la carpeta oculta `.
 
 ```bash
 ./update.sh --apply --yes     # no pregunta nunca; TODO lo que usted editó se CONSERVA
+./update.sh --check           # solo informe, nunca pregunta — para cron (10 = hay actualización)
+./update.sh --from FILE|DIR   # la versión nueva desde .zip/.tar.gz o una carpeta — sin red
 ./update.sh --ref v5.0.0      # una etiqueta, rama o commit en lugar del árbol actual
 ./update.sh --list-excludes   # imprime las reglas de "no tocar" tal como se aplican aquí
 ./update.sh --verbose         # lista todos los archivos, no sólo los 40 primeros
@@ -1573,6 +1618,16 @@ compilación necesita bibliotecas que no tiene, `recompile.sh` se detendrá con 
 ```
 
 El instalador se actualiza en la misma ejecución, y su configuración también sobrevive a él.
+
+### Sin conexión a internet en el receptor
+
+Descargue el repositorio completo en otro ordenador (GitHub → *Code* → *Download ZIP*), llévelo, y:
+
+```bash
+bash update.sh --from ~/PhantomSDR-Plus-main.zip
+```
+
+Todo lo demás es exactamente como arriba: informe, pregunta, copia de seguridad, recompilación, reinicio.
 
 ### Actualizar a mano
 
@@ -1633,7 +1688,7 @@ tar -xzf phantomsdr-backup-YYYYMMDD.tar.gz
 
 ```bash
 # Allow only necessary ports
-sudo ufw allow 9002/tcp
+sudo ufw allow 9000/tcp
 sudo ufw enable
 ```
 

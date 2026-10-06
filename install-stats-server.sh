@@ -28,6 +28,17 @@ NC='\033[0m' # No Color
 DEFAULT_PORT=3001
 DEFAULT_INSTALL_DIR="$HOME/sdr-stats-server"
 
+# On a station set up with configure-station.sh the port is already decided
+# (PORT_STATS, 9011 on a new station) and the receiver page reaches the server
+# as /stats through the public port — so ENTER through every question, or no
+# terminal at all as when install.sh runs this, is right.
+STATION_CONF="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/station.conf"
+if [ -f "$STATION_CONF" ]; then
+    # shellcheck disable=SC1090
+    . "$STATION_CONF"
+    DEFAULT_PORT="${PORT_STATS:-$DEFAULT_PORT}"
+fi
+
 # ── Prompt helpers ────────────────────────────────────────────────────────────
 # Every question below used to be a bare `read`, which meant a run whose stdin
 # is not a terminal either hung or died. EOF returned an empty answer, and an
@@ -346,7 +357,8 @@ print_info "What is your server's public address?"
 echo "Examples: mydomain.no-ip.org, 192.168.1.100, localhost"
 # Default to this machine's first LAN address, then its hostname, then
 # localhost — so an unattended run has something usable rather than aborting.
-DEFAULT_SERVER_ADDRESS="$(hostname -I 2>/dev/null | awk '{print $1}')"
+DEFAULT_SERVER_ADDRESS="${STATION_PUBLIC_HOST:-}"
+[ -n "$DEFAULT_SERVER_ADDRESS" ] || DEFAULT_SERVER_ADDRESS="$(hostname -I 2>/dev/null | awk '{print $1}')"
 [ -n "$DEFAULT_SERVER_ADDRESS" ] || DEFAULT_SERVER_ADDRESS="$(hostname -f 2>/dev/null)"
 [ -n "$DEFAULT_SERVER_ADDRESS" ] || DEFAULT_SERVER_ADDRESS="localhost"
 ask_text "Server address" "$DEFAULT_SERVER_ADDRESS" SERVER_ADDRESS
@@ -904,15 +916,22 @@ fi
 echo ""
 echo -e "${YELLOW}Next steps:${NC}"
 echo ""
-echo "1. Add this line to your site_information.json:"
-echo -e "   ${BLUE}\"siteStats\": \"http://$SERVER_ADDRESS:$PORT\"${NC}"
-echo ""
-echo "2. Update your App.svelte file with the 4 changes from the guide"
-echo ""
-echo "3. Rebuild your Svelte application"
-echo ""
-echo "4. Test the API:"
-echo -e "   ${BLUE}curl http://localhost:$PORT/api/system-stats${NC}"
+if [ -n "${PORT_STATS:-}" ] && [ "$PORT" = "$PORT_STATS" ]; then
+    echo "Nothing to edit: configure-station.sh already pointed the receiver page"
+    echo "at /stats, which the proxy on port ${PORT_PUBLIC:-9000} carries to this"
+    echo "server. No extra port has to be opened on the router."
+    echo ""
+    echo "Test the API:"
+    echo -e "   ${BLUE}curl http://localhost:$PORT/api/system-stats${NC}"
+else
+    echo "1. Add this line to your site_information.json:"
+    echo -e "   ${BLUE}\"siteStats\": \"http://$SERVER_ADDRESS:$PORT\"${NC}"
+    echo ""
+    echo "2. Rebuild the frontend (./recompile.sh)"
+    echo ""
+    echo "3. Test the API:"
+    echo -e "   ${BLUE}curl http://localhost:$PORT/api/system-stats${NC}"
+fi
 echo ""
 echo -e "${YELLOW}Service management commands:${NC}"
 echo "  Start:   sudo systemctl start sdr-stats.service"
@@ -926,7 +945,9 @@ echo ""
 echo ""
 echo -e "${BLUE}╔════════════════════════════════════════════════╗${NC}"
 echo -e "${BLUE}║          Installation Complete! ✓              ║${NC}"
+if [ -z "${PORT_STATS:-}" ] || [ "$PORT" != "$PORT_STATS" ]; then
 echo -e "${BLUE}║          Open the route's port! ✓              ║${NC}"
+fi
 echo -e "${BLUE}╚════════════════════════════════════════════════╝${NC}"
 echo ""
 echo -e "${GREEN}Thank you for using SDR System Stats Server!${NC}"

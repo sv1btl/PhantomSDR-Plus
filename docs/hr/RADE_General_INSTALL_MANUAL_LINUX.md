@@ -1,4 +1,6 @@
 # RADE v1 — Vodič za ručnu instalaciju
+
+> **Na stanici postavljenoj s pitanjima o stanici (`configure-station.sh`)** sidecar sluša samo unutar računala, na `PORT_RADE` (9012), a stranica ga doseže kao `/rade` na javnom portu preko `proxy.py` — port 8074 niže tada se niti koristi niti prosljeđuje. Na stanici postavljenoj prije čarobnjaka sve u nastavku vrijedi kako je napisano.
 ### Svi Linuxi — Ubuntu / Debian / Fedora / Arch / Raspberry Pi OS · PhantomSDR-Plus
 
 > **Preduvjet:** zakrpane datoteke (`rade_helper.py`, `rade.sh`, `audio.js`, `App.svelte`) već se nalaze u stablu direktorija PhantomSDR-Plusa. Ovaj vodič gradi sve ostalo oko njih.

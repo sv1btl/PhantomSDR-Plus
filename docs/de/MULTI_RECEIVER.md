@@ -1,5 +1,7 @@
 # Mehrere Empfänger — Sysop-Handbuch
 
+> **Portnummern.** Die Beispiele unten verwenden die Ports einer Station, die vor den Stationsfragen eingerichtet wurde (8900, 8901, …). Auf einer mit `configure-station.sh` eingerichteten Station belegt `proxy.py` bereits den öffentlichen Port 9000 und der Hauptempfänger 9001; geben Sie weiteren Empfängern also 9002, 9003 und so weiter.
+
 **Zwei oder mehr Empfänger auf einem Rechner, mit einer Empfängerauswahl auf der Seite.**
 
 Seit v5.0.0 kann ein PhantomSDR-Plus-Rechner mehrere Empfänger gleichzeitig betreiben — zum Beispiel einen RX-888 für Kurzwelle und einen RTL-SDR für 2 m — und die Hörer wechseln mit Schaltflächen im Seitenkopf zwischen ihnen, so wie OpenWebRX seine Profile anbietet. Jeder Empfänger behält seinen eigenen Wasserfall, Chat, seine Markierungen, Hörerliste und Stationsangaben; niemand auf einem Empfänger wird je von jemandem auf einem anderen gestört.

@@ -35,13 +35,34 @@
 PHANTOMDIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SELF="$PHANTOMDIR/$(basename "${BASH_SOURCE[0]}")"
 
+# ── station.conf (written by configure-station.sh) ───────────────────────────
+# A station set up with the wizard keeps its choices there. For the main
+# receiver, and only for the launcher the wizard was run for, STATION_FREQ and
+# STATION_SPS replace the default tuning and sample rate the receiver is
+# started with; RX_ARGS / RX888_ARGS given on the command line still win, and
+# a named instance keeps using its own instance.env. The RADE sidecar then
+# listens on loopback at PORT_RADE, because proxy.py carries it to the public
+# port as /rade. Without station.conf nothing here changes anything.
+if [ -f "$PHANTOMDIR/station.conf" ] && { [ -z "${INSTANCE:-}" ] || [ "${INSTANCE:-}" = "main" ]; }; then
+    # shellcheck disable=SC1091
+    . "$PHANTOMDIR/station.conf"
+    if [ "${STATION_LAUNCHER:-}" != "$(basename "$SELF")" ]; then
+        unset STATION_FREQ STATION_SPS             # chosen for another receiver
+    fi
+    if [ -n "${PORT_RADE:-}" ]; then
+        export RADE_HELPER_PORT="${RADE_HELPER_PORT:-$PORT_RADE}"
+        export RADE_HELPER_HOST="${RADE_HELPER_HOST:-127.0.0.1}"
+    fi
+    if [ "${STATION_RADE:-}" = "n" ]; then RADE_ENABLED="${RADE_ENABLED:-0}"; fi
+fi
+
 # ═══ RECEIVER CONFIGURATION (the only receiver-specific part) ═════════════════
 RX_LABEL="HackRF One"
 RX_COMM="hackrf_transfer"                          # process name to monitor/kill
 CONFIG="$PHANTOMDIR/config-hackrf.toml"
 FIFO="$PHANTOMDIR/hackrf.fifo"
 # Keep -f / -s in step with frequency= / sps= in config-hackrf.toml.
-RX_ARGS="${RX_ARGS:--r - -f 98000000 -s 20000000 -l 16 -g 16 -a 0}"
+RX_ARGS="${RX_ARGS:--r - -f ${STATION_FREQ:-98000000} -s ${STATION_SPS:-20000000} -l 16 -g 16 -a 0}"
 RX_CMD=(hackrf_transfer)                           # binary; args come from RX_ARGS
 prestart() { :; }
 # ═════════════════════════════════════════════════════════════════════════════
@@ -523,7 +544,7 @@ launch() {
 
     echo "PhantomSDR-Plus ($RX_LABEL${INSTANCE:+, instance $INSTANCE})"
     echo "  stopping instance $PHANTOMSDR_INSTANCE if it is running..."
-    [ -x "$STOP" ] && "$STOP" "$PHANTOMSDR_INSTANCE" >/dev/null 2>&1
+    [ -f "$STOP" ] && bash "$STOP" "$PHANTOMSDR_INSTANCE" >/dev/null 2>&1
     sleep 5                        # let the device fully release after a kill
 
     # Mirror only what this run appends (-n 0), started before the watchdog so
@@ -539,9 +560,9 @@ launch() {
     fi
 
     if command -v setsid >/dev/null 2>&1; then
-        setsid "$SELF" --watchdog >/dev/null 2>&1 &
+        setsid bash "$SELF" --watchdog >/dev/null 2>&1 &
     else
-        nohup "$SELF" --watchdog >/dev/null 2>&1 &
+        nohup bash "$SELF" --watchdog >/dev/null 2>&1 &
     fi
     disown 2>/dev/null
 

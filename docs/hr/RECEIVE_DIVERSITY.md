@@ -1,5 +1,7 @@
 # PhantomSDR-Plus — Diverziti prijam (Receive Diversity)
 
+> **Na stanici postavljenoj s pitanjima o stanici (`configure-station.sh`)** WebSDR relay sluša samo unutar računala, na `PORT_RELAY` (9013), a stranica ga doseže kao `/relay` na javnom portu preko `proxy.py` — nema porta relaya za prosljeđivanje, a frontend zbog toga ne treba ponovno graditi. Na stanici postavljenoj prije čarobnjaka postavke portova niže vrijede kako su napisane.
+
 Povežite svoj prijamnik s **drugim prijamnikom na drugoj lokaciji** i slušajte onaj koji u tom trenutku ima bolji signal. Kad jedna lokacija upadne u fading, druga obično nije, pa prijam teče dalje.
 
 Drugi prijamnik može biti još jedan PhantomSDR-Plus, KiwiSDR, UberSDR ili WebSDR. Za prva tri sve se izvodi u pregledniku: bez izmjena na poslužitelju, bez konfiguracijskih datoteka, bez ičega za instalirati i bez posebnog pristupa drugom prijamniku. WebSDR je iznimka i traži mali program na vašem vlastitom poslužitelju — vidi [Korištenje WebSDR-a](#korištenje-websdr-a) niže.

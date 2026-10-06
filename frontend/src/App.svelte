@@ -165,7 +165,9 @@
     siteSDRBandwidth,
     siteRegion,
     siteChatEnabled,
+    siteRade,
   } from "./siteInfo.js";
+  import { sideServiceWhere } from "./lib/sideService.js";
   // End of Information Area import //
 
   // Import to detect mobile devices //
@@ -12517,7 +12519,7 @@ Slider: share of denoised audio, the rest is the original"
                           <code class="text-red-200 font-mono"
                             >python3 rade_helper.py</code
                           >
-                          &nbsp;(listens on port 8074)
+                          &nbsp;(looked for it {sideServiceWhere(siteRade, 8074)})
                         </div>
                       {/if}
 
@@ -16903,7 +16905,7 @@ Slider: share of denoised audio, the rest is the original"
                           <code class="text-red-200 font-mono"
                             >python3 rade_helper.py</code
                           >
-                          &nbsp;(listens on port 8074)
+                          &nbsp;(looked for it {sideServiceWhere(siteRade, 8074)})
                         </div>
                       {/if}
 

@@ -1,6 +1,7 @@
 #include "compression.h"
 #include "spectrumserver.h"
 
+#include <atomic>
 #include <filesystem>
 #include <fstream>
 #include <sstream>
@@ -592,9 +593,18 @@ void broadcast_server::on_http(connection_hdl hdl) {
                 int  last_users = current_users();
                 int  last_cfg   = first_cfg;
                 unsigned polls  = 0;
-                std::cout << "[WebSDROrg] /~~orgstatus config=" << first_cfg
-                          << " users=" << last_users
-                          << " bytes=" << body.size() << std::endl;
+                unsigned served = 0;     // polls answered after the first
+                // Behind proxy.py every poll arrives on a connection of its
+                // own, so "first poll of a connection" is every poll there.
+                // Remembered across connections, the line is written only
+                // when the listeners or the config actually changed.
+                static std::atomic<int> logged_users{-1}, logged_cfg{-1};
+                if (logged_users.exchange(last_users) != last_users ||
+                    logged_cfg.exchange(first_cfg) != first_cfg) {
+                    std::cout << "[WebSDROrg] /~~orgstatus config=" << first_cfg
+                              << " users=" << last_users
+                              << " bytes=" << body.size() << std::endl;
+                }
                 if (!send_resp(body)) { close(raw_fd); return; }
 
                 std::string buf;
@@ -604,7 +614,11 @@ void broadcast_server::on_http(connection_hdl hdl) {
                     while (buf.find("\r\n\r\n") == std::string::npos) {
                         ssize_t n = recv(raw_fd, tmp, sizeof(tmp) - 1, 0);
                         if (n == 0) {
-                            std::cout << "[WebSDROrg] /~~orgstatus peer closed callback connection" << std::endl;
+                            // Only worth a line for a connection that carried
+                            // polls: through proxy.py each one carries one.
+                            if (served > 0) {
+                                std::cout << "[WebSDROrg] /~~orgstatus peer closed callback connection" << std::endl;
+                            }
                             alive = false;
                             break;
                         }
@@ -643,8 +657,11 @@ void broadcast_server::on_http(connection_hdl hdl) {
                                   << " bytes=" << body.size() << std::endl;
                         last_users = users_now;
                         last_cfg   = req_cfg;
+                        logged_users = users_now;
+                        logged_cfg   = req_cfg;
                     }
                     if (!send_resp(body)) break;
+                    ++served;
                 }
                 close(raw_fd);
             }).detach();

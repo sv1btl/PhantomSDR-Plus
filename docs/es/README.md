@@ -89,29 +89,22 @@ PhantomSDR-Plus es compatible con una amplia gama de receptores SDR:
 ### Instalación
 
 ```bash
-# Clonar el repositorio
-git clone --recursive https://github.com/sv1btl/PhantomSDR-Plus
+git clone https://github.com/sv1btl/PhantomSDR-Plus
 cd PhantomSDR-Plus
-
-# Hacer ejecutables los scripts
-chmod +x *.sh
-
-# Ejecutar la instalación automática
-./install.sh
+bash install.sh
 ```
 
-**Nota:** después de ejecutar `install.sh`, reinicie el terminal antes de continuar.
+El instalador hace todas las preguntas primero — el receptor, qué recibir, su estación, su dirección en internet y los extras —, después lo instala todo por sí solo, arranca el receptor y muestra el único puerto que hay que abrir en el router (9000). Sin `chmod` y sin reiniciar la terminal. Las preguntas de la estación se describen en [INSTALLATION.md](INSTALLATION.md).
 
-> **¿Ya tiene PhantomSDR-Plus en marcha?** No lo instale otra vez: actualícelo. Descargue la herramienta de actualización una vez y ejecútela; su configuración, marcadores, contraseña de administración, lista de frecuencias e historial de chat nunca se tocan, y lo que usted haya modificado se le pregunta en lugar de sobrescribirse:
+> **¿Ya tiene PhantomSDR-Plus funcionando?** No lo instale de nuevo: actualícelo. Descargue el actualizador una vez y ejecútelo; muestra lo que cambiaría y pregunta antes de escribir nada, y su configuración, marcadores, contraseña de administración, lista de frecuencias e historial del chat no se tocan nunca:
 >
 > ```bash
 > cd ~/PhantomSDR-Plus
 > curl -fLO https://raw.githubusercontent.com/sv1btl/PhantomSDR-Plus/main/update.sh
-> chmod +x update.sh
-> ./update.sh
+> bash update.sh
 > ```
 >
-> Esa última línea sólo *informa* de lo que cambiaría y no escribe nada; `./update.sh --apply` lo hace. Los detalles están en el capítulo *Actualización de PhantomSDR-Plus*. Volver a pasar el instalador sobre una estación en marcha sólo hace falta si la reconstrucción falla por paquetes del sistema que faltan.
+> Los detalles están en el capítulo *Actualización de PhantomSDR-Plus*.
 
 Use `install_fedora.sh` en Fedora, `install_arch.sh` en Arch o `install_opensuse.sh` en openSUSE Tumbleweed: hacen el mismo trabajo con otro gestor de paquetes. Todas las versiones de Debian y Ubuntu las cubre el propio `install.sh`.
 

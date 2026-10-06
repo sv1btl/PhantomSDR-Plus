@@ -1,5 +1,7 @@
 # Plusieurs récepteurs — Manuel du sysop
 
+> **Numéros de port.** Les exemples ci-dessous utilisent les ports d'une station configurée avant les questions de la station (8900, 8901, …). Sur une station configurée avec `configure-station.sh`, `proxy.py` occupe déjà le port public 9000 et le récepteur principal est sur 9001 ; donnez donc aux récepteurs suivants 9002, 9003, etc.
+
 **Deux récepteurs ou plus sur un même ordinateur, avec un sélecteur de récepteur sur la page.**
 
 Depuis la v5.0.0, un ordinateur PhantomSDR-Plus peut faire tourner plusieurs récepteurs en même temps — par exemple un RX-888 pour les ondes courtes et un RTL-SDR pour le 2 m — et les auditeurs passent de l'un à l'autre par des boutons dans l'en-tête de la page, comme OpenWebRX propose ses profils. Chaque récepteur garde sa propre cascade, son chat, ses repères, sa liste d'auditeurs et ses informations de station ; personne sur un récepteur n'est jamais gêné par quelqu'un sur un autre.

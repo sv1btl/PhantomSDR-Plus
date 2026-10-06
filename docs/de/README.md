@@ -89,29 +89,22 @@ PhantomSDR-Plus unterstützt eine breite Palette von SDR-Empfängern:
 ### Installation
 
 ```bash
-# Das Repository klonen
-git clone --recursive https://github.com/sv1btl/PhantomSDR-Plus
+git clone https://github.com/sv1btl/PhantomSDR-Plus
 cd PhantomSDR-Plus
-
-# Skripte ausführbar machen
-chmod +x *.sh
-
-# Automatische Installation ausführen
-./install.sh
+bash install.sh
 ```
 
-**Hinweis:** Starten Sie nach dem Ausführen von `install.sh` Ihr Terminal neu, bevor Sie fortfahren.
+Der Installer stellt alle Fragen zuerst — Empfänger, was empfangen werden soll, Ihre Station, Ihre Adresse im Internet und die Zusatzmodule —, installiert danach alles selbstständig, startet den Empfänger und zeigt den einen Port, der am Router geöffnet werden muss (9000). Kein `chmod` und kein Terminal-Neustart. Die Stationsfragen sind in [INSTALLATION.md](INSTALLATION.md) beschrieben.
 
-> **Läuft PhantomSDR-Plus bei Ihnen schon?** Dann nicht neu installieren, sondern aktualisieren. Holen Sie das Update-Werkzeug einmal und starten Sie es; Konfiguration, Marker, Admin-Passwort, Frequenzliste und Chatverlauf werden nie angerührt, und was Sie selbst geändert haben, wird Ihnen vorgelegt statt überschrieben:
+> **PhantomSDR-Plus läuft bereits?** Nicht neu installieren — aktualisieren. Holen Sie den Updater einmal und starten Sie ihn; er zeigt, was sich ändern würde, und fragt, bevor er etwas schreibt. Konfiguration, Marker, Admin-Passwort, Frequenzliste und Chatverlauf werden nie angetastet:
 >
 > ```bash
 > cd ~/PhantomSDR-Plus
 > curl -fLO https://raw.githubusercontent.com/sv1btl/PhantomSDR-Plus/main/update.sh
-> chmod +x update.sh
-> ./update.sh
+> bash update.sh
 > ```
 >
-> Die letzte Zeile *meldet* nur, was sich ändern würde, und schreibt nichts; `./update.sh --apply` führt es aus. Einzelheiten im Kapitel *PhantomSDR-Plus aktualisieren*. Den Installer über eine laufende Station zu wiederholen ist nur nötig, wenn der Neubau an fehlenden Systempaketen scheitert.
+> Einzelheiten im Kapitel *PhantomSDR-Plus aktualisieren*.
 
 Nehmen Sie `install_fedora.sh` auf Fedora, `install_arch.sh` auf Arch oder `install_opensuse.sh` auf openSUSE Tumbleweed — sie leisten dieselbe Arbeit mit einem anderen Paketmanager. Jede Debian- und Ubuntu-Version deckt `install.sh` selbst ab.
 

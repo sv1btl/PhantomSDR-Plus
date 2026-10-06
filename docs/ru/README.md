@@ -331,6 +331,7 @@ segments = round((value + 100) x 35 / 100) + DIGITAL_BAR_TRIM
 - **[THERMAL_GUARD.md](THERMAL_GUARD.md)** - Руководство сисопа по защите от перегрева процессора: четыре режима и что делать в каждом
 - **[CONNECTION_LIMITS.md](CONNECTION_LIMITS.md)** - Руководство сисопа по ограничениям подключений: защита публичного приёмника от лавины подключений
 - **[MULTI_RECEIVER.md](MULTI_RECEIVER.md)** - Руководство сисопа по нескольким приёмникам на одном компьютере: экземпляры, `receivers.toml`, выбор приёмника и `start-all.sh`
+- **[HTTPS.md](HTTPS.md)** - Безопасный доступ: приёмник по https:// с Caddy и бесплатным сертификатом Let's Encrypt, `setup-https.sh`, режим локальной сети и уже работающий nginx или Apache
 - **[PROJECT_STRUCTURE.md](PROJECT_STRUCTURE.md)** — структура каталогов и организация кода
 - **[EDITING_VARIANTS.md](EDITING_VARIANTS.md)** — как редактировать варианты фронтенда (S-метр и компоновка) и пересобирать их
 
@@ -386,7 +387,7 @@ segments = round((value + 100) x 35 / 100) + DIGITAL_BAR_TRIM
 
 ## 👥 Авторы и благодарности
 
-- **SV1BTL и SV2AMK** — разработка и доработки PhantomSDR-Plus
+- **SV1BTL, A7AOF, F1NSK и SV2AMK** — разработка и доработки PhantomSDR-Plus
 - Основано на исходном проекте PhantomSDR
 
 ---
@@ -416,6 +417,6 @@ segments = round((value + 100) x 35 / 100) + DIGITAL_BAR_TRIM
 
 ---
 
-**73 de SV1BTL & SV2AMK**
+**73 de SV1BTL, A7AOF, F1NSK & SV2AMK**
 
 *Подробные инструкции по настройке см. в INSTALLATION.md* *Руководство по эксплуатации для конечного пользователя см. в USER_GUIDE.md*

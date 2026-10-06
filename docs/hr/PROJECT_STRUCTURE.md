@@ -61,6 +61,7 @@ PhantomSDR-Plus
 │   │   ├── CONNECTION_LIMITS.md
 │   │   ├── DECODERS.md
 │   │   ├── EDITING_VARIANTS.md
+│   │   ├── HTTPS.md
 │   │   ├── INSTALLATION.md
 │   │   ├── MULTI_RECEIVER.md
 │   │   ├── PhantomSDR-Plus-Documentation-DE.pdf
@@ -80,6 +81,7 @@ PhantomSDR-Plus
 │   │   ├── CONNECTION_LIMITS.md
 │   │   ├── DECODERS.md
 │   │   ├── EDITING_VARIANTS.md
+│   │   ├── HTTPS.md
 │   │   ├── INSTALLATION.md
 │   │   ├── MULTI_RECEIVER.md
 │   │   ├── PhantomSDR-Plus-Documentation-EL.pdf
@@ -97,6 +99,7 @@ PhantomSDR-Plus
 │   │   ├── CONNECTION_LIMITS.md
 │   │   ├── DECODERS.md
 │   │   ├── EDITING_VARIANTS.md
+│   │   ├── HTTPS.md
 │   │   ├── INSTALLATION.md
 │   │   ├── MULTI_RECEIVER.md
 │   │   ├── PhantomSDR-Plus-Documentation-ES.pdf
@@ -114,6 +117,7 @@ PhantomSDR-Plus
 │   │   ├── CONNECTION_LIMITS.md
 │   │   ├── DECODERS.md
 │   │   ├── EDITING_VARIANTS.md
+│   │   ├── HTTPS.md
 │   │   ├── INSTALLATION.md
 │   │   ├── MULTI_RECEIVER.md
 │   │   ├── PhantomSDR-Plus-Documentation-FR.pdf
@@ -131,6 +135,7 @@ PhantomSDR-Plus
 │   │   ├── CONNECTION_LIMITS.md
 │   │   ├── DECODERS.md
 │   │   ├── EDITING_VARIANTS.md
+│   │   ├── HTTPS.md
 │   │   ├── INSTALLATION.md
 │   │   ├── MULTI_RECEIVER.md
 │   │   ├── PhantomSDR-Plus-Documentation-HR.pdf
@@ -142,6 +147,7 @@ PhantomSDR-Plus
 │   │   ├── RIG_CONTROL.md
 │   │   ├── THERMAL_GUARD.md
 │   │   └── USER_GUIDE.md
+│   ├── HTTPS.md
 │   ├── INSTALLATION.md
 │   ├── MULTI_RECEIVER.md
 │   ├── PhantomSDR-Plus-Documentation-EN.pdf
@@ -157,6 +163,7 @@ PhantomSDR-Plus
 │   │   ├── CONNECTION_LIMITS.md
 │   │   ├── DECODERS.md
 │   │   ├── EDITING_VARIANTS.md
+│   │   ├── HTTPS.md
 │   │   ├── INSTALLATION.md
 │   │   ├── MULTI_RECEIVER.md
 │   │   ├── PhantomSDR-Plus-Documentation-RU.pdf
@@ -493,6 +500,7 @@ PhantomSDR-Plus
 ├── setup-firewall.sh          # neobvezna nftables zaštita — vidi docs/CONNECTION_LIMITS.md
 ├── setup-fobos.sh             # lanac upravljačkog programa Fobos: libfobos + SoapyFobosSDR + rx_sdr + cf32_to_real + udev
 ├── setup-hackrf.sh            # HackRF: paket hackrf iz distribucije + udev (ništa se ne gradi)
+├── setup-https.sh             # https:// ispred: Caddy na 443 s Let's Encrypt certifikatom — vidi docs/HTTPS.md
 ├── setup-rsp1a.sh             # lanac upravljačkog programa RSP1A: libmirisdr-5 + SoapyMiri + rx_sdr + crna lista msi2500 + udev
 ├── setup-rtlsdr.sh            # RTL-SDR upravljački program: paket distribucije ili Blog V4 iz izvornog koda + blokada DVB + udev
 ├── setup-rx888-udev.sh
@@ -820,6 +828,7 @@ Svaka od donjih `start-*.sh` skripti samostalan je **pokretač + watchdog + zapi
 | `install.sh` | Automatska instalacija i izgradnja — prvo pitanja o stanici, zatim sve bez nadzora (također `install_fedora.sh`, `install_arch.sh`, `install_opensuse.sh`) |
 | `configure-station.sh` | Čarobnjak stanice: prijemnik, pojas, stanica, internet, portovi i dodaci, pitani jednom i spremljeni u `station.conf`; iz njega zapisuje `.toml` prijemnika, `site_information.json` i postavke relaya, mijenjajući samo vlastite ključeve i prije toga spremajući kopiju svake datoteke. `--show` ispisuje odgovore, `--apply` iz njih ponovno zapisuje datoteke — vidi [Vodič za instalaciju](INSTALLATION.md) |
 | `setup-autostart.sh` | Pokretanje pri podizanju sustava: instalira `phantomsdr-receiver.service`, koji pri podizanju pokreće skriptu iz `station.conf` (ili navedenu), a pri gašenju `stop-websdr.sh`, s grupom `plugdev`; `--remove` to poništava |
+| `setup-https.sh` | Poslužuje prijemnik preko https:// uz http://: instalira Caddy na port 443 s Let's Encrypt certifikatom za DNS ime stanice (sam se obnavlja) i usmjerava ga na loopback port `PORT_TLS` u `proxy.py`, gdje proxy od Caddyja preuzima stvarnu adresu svakog posjetitelja. `--lan` za lokalnu mrežu s Caddyjevim vlastitim certifikatom, `--status`, `--remove`; pitanja o stanici pokreću ga kad se odabere https — vidi [Siguran pristup](HTTPS.md) |
 | `add-receiver.sh` | Dodaje još jedan prijemnik ovom računalu: pita koji prijemnik i što pokriva, instalira njegov upravljački program, stvara `instances/<ime>/` i unos u `receivers.toml` te nudi da ga pokrene i ponovno pokrene proxy. Instalacijske skripte nude ga na kraju — vidi [Više prijemnika](MULTI_RECEIVER.md) |
 | `start-rtl.sh` | Pokretanje + watchdog poslužitelja s RTL-SDR-om (`rtl_sdr`) |
 | `start-rsp1a.sh` | Pokretanje + watchdog poslužitelja sa SDRplay RSP1A (`rx_sdr`); koristi libmirisdr-5, ili SDRplay API kad je instaliran (`RX_DRIVER` nameće jedan) |
@@ -1375,4 +1384,4 @@ Popis samo raste: unosi ranijih verzija se zadržavaju, pa jednom objavljena jav
 
 Za upute o postavljanju pogledajte [INSTALLATION.md](INSTALLATION.md). Za informacije o korištenju pogledajte [USER_GUIDE.md](USER_GUIDE.md).
 
-**73 de SV1BTL & SV2AMK**
+**73 de SV1BTL, A7AOF, F1NSK & SV2AMK**

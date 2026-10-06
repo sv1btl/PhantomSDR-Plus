@@ -359,6 +359,7 @@ UNIT
     # config, so read-only is right — but say so, because a future change that
     # needs to write will fail in a way that looks like a permissions bug.
     sudo cp "$TMP_UNIT" "$UNIT_PATH"
+    sudo chmod 644 "$UNIT_PATH"      # mktemp made it 0600; units are world-readable
     rm -f "$TMP_UNIT"
     sudo systemctl daemon-reload
 

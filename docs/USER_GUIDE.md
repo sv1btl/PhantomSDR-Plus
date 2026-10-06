@@ -1111,6 +1111,6 @@ A: Band plan overlay showing frequency allocations.
 
 **Enjoy exploring the radio spectrum with PhantomSDR-Plus!**
 
-**73 (Best regards) de SV1BTL & SV2AMK**
+**73 (Best regards) de SV1BTL, A7AOF, F1NSK & SV2AMK**
 
 For installation instructions, see [INSTALLATION.md](INSTALLATION.md). For technical details, see [PROJECT_STRUCTURE.md](PROJECT_STRUCTURE.md).

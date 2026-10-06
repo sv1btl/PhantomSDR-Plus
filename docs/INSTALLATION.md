@@ -416,7 +416,7 @@ The installation runs in 22 numbered steps. With the station questions answered 
 | 1 | Which receiver | The one plugged in is recognised and suggested (RX888, RTL-SDR, RSP1A, Airspy HF+, HackRF, Fobos). For an RTL-SDR it also asks whether it is a Blog V4. |
 | 2 | What to receive | Ready choices for each receiver (for example *HF 0–30 MHz* for the RX888, *2 m* for an RTL-SDR), or your own centre frequency and sample rate. |
 | 3 | Your station | Callsign, name, e-mail, QTH locator, city and country, antenna, computer, ITU region (suggested from the locator). |
-| 4 | Internet | Your public address (IP or DNS name), and whether to list the receiver on sdr-list.xyz and on the websdr.org map. |
+| 4 | Internet | Your public address (IP or DNS name), and whether to list the receiver on sdr-list.xyz and on the websdr.org map. Also whether to serve the receiver over https:// as well (needs a DNS name). |
 | 5 | Ports and extras | Admin panel, FreeDV RADE, statistics, WebSDR relay, start at boot — and the public port. |
 
 The answers are saved in **`station.conf`**, and from it the wizard writes everything that has to agree: the receiver's `config-<receiver>.toml` (sample rate, frequency, port, directory listings, websdr.org), `frontend/site_information.json` and the relay's settings. The start scripts read the frequency and sample rate from `station.conf` themselves, so they are never edited. Only the settings the wizard owns are changed, and each file is copied to `<name>.bak-<date>` before it is touched.
@@ -437,9 +437,9 @@ A port that is already in use on the computer is skipped for the next free one. 
 ```bash
 bash configure-station.sh          # ask again (ENTER keeps each answer)
 bash configure-station.sh --show   # print the current answers
-./recompile.sh --frontend          # the page shows new station details after this
-./start-rtl.sh                     # restart the receiver (use your own start script)
 ```
+
+On an installed station the wizard then carries the change everywhere it is needed — new ports into `admin_config.json` and the statistics service, a new receiver into start at boot — and asks once whether to rebuild the page and restart what runs. Changing a port is therefore this one command, plus the forwarding on your router if the public port moved. The public port must be 1024 or more, because the proxy does not run as root: to be reached on port 80, keep 9000 here and forward the router's outside port 80 to it.
 
 A station installed before the wizard existed keeps its own ports: run there, the wizard offers the ports that station already uses.
 
@@ -462,7 +462,7 @@ Nothing has to be prepared by hand first — no dependency list to paste, no Nod
 | 17 | Re-applies the patched websocketpp headers and verifies them |
 | 18 | Installs the KiwiSDR client emulation, so Kiwi clients such as AetherSDR can connect |
 | 19 | Rebuilds the backend from the patched sources |
-| 20 | Chooses the FFT accelerator — OpenCL only when a device actually answers, otherwise the CPU — and installs start at boot if you chose it |
+| 20 | Chooses the FFT accelerator — OpenCL only when a device actually answers, otherwise the CPU — and installs start at boot if you chose it, and sets up https:// if you chose it |
 | 21 | Starts the receiver |
 | 22 | Prints the summary: the address listeners use, the port to forward, and every step with its verdict |
 
@@ -1843,4 +1843,4 @@ modulation = "WBFM"
 
 **Installation complete! You should now have a fully functional PhantomSDR-Plus server.**
 
-**73 de SV1BTL & SV2AMK**
+**73 de SV1BTL, A7AOF, F1NSK & SV2AMK**

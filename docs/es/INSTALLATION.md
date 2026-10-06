@@ -415,7 +415,7 @@ La instalación transcurre en 22 pasos numerados. Como las preguntas de la estac
 | 1 | Qué receptor | Reconoce y propone el que está conectado (RX888, RTL-SDR, RSP1A, Airspy HF+, HackRF, Fobos). Para un RTL-SDR pregunta además si es un Blog V4. |
 | 2 | Qué recibir | Opciones listas para cada receptor (por ejemplo *HF 0–30 MHz* para el RX888, *2 m* para un RTL-SDR), o su propia frecuencia central y tasa de muestreo. |
 | 3 | Su estación | Indicativo, nombre, e-mail, QTH locator, ciudad y país, antena, ordenador, región UIT (propuesta a partir del locator). |
-| 4 | Internet | Su dirección pública (IP o nombre DNS), y si el receptor aparecerá en sdr-list.xyz y en el mapa de websdr.org. |
+| 4 | Internet | Su dirección pública (IP o nombre DNS), y si el receptor aparecerá en sdr-list.xyz y en el mapa de websdr.org. También si servir el receptor además por https:// (necesita un nombre DNS). |
 | 5 | Puertos y extras | Panel de administración, FreeDV RADE, estadísticas, relay WebSDR, arranque al encender — y el puerto público. |
 
 Las respuestas se guardan en **`station.conf`**, y a partir de él el asistente escribe todo lo que debe coincidir: el `config-<receptor>.toml` del receptor (tasa de muestreo, frecuencia, puerto, listados en directorios, websdr.org), `frontend/site_information.json` y la configuración del relay. Los scripts de arranque leen ellos mismos la frecuencia y la tasa de muestreo de `station.conf`, así que nunca se editan. Solo cambian los ajustes que pertenecen al asistente, y cada archivo se copia a `<nombre>.bak-<fecha>` antes de tocarlo.
@@ -436,9 +436,9 @@ Un puerto que ya está en uso en el ordenador se salta en favor del siguiente li
 ```bash
 bash configure-station.sh          # preguntar de nuevo (ENTER conserva cada respuesta)
 bash configure-station.sh --show   # mostrar las respuestas actuales
-./recompile.sh --frontend          # después de esto la página muestra los datos nuevos
-./start-rtl.sh                     # reiniciar el receptor (con su propio script de arranque)
 ```
+
+En una estación ya instalada, el asistente lleva después el cambio a todos los sitios necesarios — puertos nuevos a `admin_config.json` y al servicio de estadísticas, un receptor nuevo al arranque al encender — y pregunta una vez si recompilar la página y reiniciar lo que está en marcha. Cambiar un puerto es por tanto esta única orden, más la redirección en el router si cambió el puerto público. El puerto público debe ser 1024 o mayor, porque el proxy no se ejecuta como root: para ser accesible en el puerto 80, mantenga aquí el 9000 y redirija a él el puerto exterior 80 del router.
 
 Una estación instalada antes de que existiera el asistente conserva sus propios puertos: ejecutado allí, el asistente propone los puertos que esa estación ya usa.
 
@@ -461,7 +461,7 @@ No hay que preparar nada a mano: ninguna lista de dependencias que pegar, ningú
 | 17 | Vuelve a aplicar las cabeceras parcheadas de websocketpp y las comprueba |
 | 18 | Instala la emulación de cliente KiwiSDR, para que clientes Kiwi como AetherSDR puedan conectarse |
 | 19 | Recompila el backend a partir de las fuentes parcheadas |
-| 20 | Elige el acelerador FFT — OpenCL solo cuando un dispositivo responde de verdad, si no la CPU — e instala el arranque al encender si lo eligió |
+| 20 | Elige el acelerador FFT — OpenCL solo cuando un dispositivo responde de verdad, si no la CPU — e instala el arranque al encender si lo eligió, y configura https:// si lo eligió |
 | 21 | Arranca el receptor |
 | 22 | Muestra el resumen: la dirección de los oyentes, el puerto que hay que redirigir y cada paso con su resultado |
 
@@ -1844,4 +1844,4 @@ modulation = "WBFM"
 
 **¡Instalación completada! Ya debería tener un servidor PhantomSDR-Plus plenamente funcional.**
 
-**73 de SV1BTL & SV2AMK**
+**73 de SV1BTL, A7AOF, F1NSK & SV2AMK**

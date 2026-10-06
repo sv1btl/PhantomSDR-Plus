@@ -416,7 +416,7 @@ Instalacija se odvija u 22 numerirana koraka. Budući da se pitanja o stanici od
 | 1 | Koji prijemnik | Prepoznaje i predlaže onaj koji je priključen (RX888, RTL-SDR, RSP1A, Airspy HF+, HackRF, Fobos). Za RTL-SDR pita i je li to Blog V4. |
 | 2 | Što primati | Gotovi izbori za svaki prijemnik (npr. *HF 0–30 MHz* za RX888, *2 m* za RTL-SDR) ili vlastita središnja frekvencija i brzina uzorkovanja. |
 | 3 | Vaša stanica | Pozivni znak, ime, e-pošta, QTH lokator, grad i država, antena, računalo, ITU regija (predložena prema lokatoru). |
-| 4 | Internet | Vaša javna adresa (IP ili DNS ime) te treba li prijemnik biti na sdr-list.xyz i na karti websdr.org. |
+| 4 | Internet | Vaša javna adresa (IP ili DNS ime) te treba li prijemnik biti na sdr-list.xyz i na karti websdr.org. Također hoće li se prijemnik posluživati i preko https:// (treba DNS ime). |
 | 5 | Portovi i dodaci | Administratorska ploča, FreeDV RADE, statistika, WebSDR relay, pokretanje pri podizanju sustava — i javni port. |
 
 Odgovori se spremaju u **`station.conf`**, a iz njega čarobnjak zapisuje sve što se mora slagati: `config-<prijemnik>.toml` prijemnika (brzina uzorkovanja, frekvencija, port, upisi u imenike, websdr.org), `frontend/site_information.json` i postavke relaya. Skripte za pokretanje same čitaju frekvenciju i brzinu uzorkovanja iz `station.conf`, pa se nikad ne uređuju. Mijenjaju se samo postavke koje pripadaju čarobnjaku, a svaka se datoteka prije promjene kopira u `<ime>.bak-<datum>`.
@@ -437,9 +437,9 @@ Port koji je na računalu već zauzet preskače se u korist sljedećeg slobodnog
 ```bash
 bash configure-station.sh          # ponovno pitaj (ENTER zadržava svaki odgovor)
 bash configure-station.sh --show   # prikaži trenutne odgovore
-./recompile.sh --frontend          # nakon ovoga stranica prikazuje nove podatke
-./start-rtl.sh                     # ponovno pokreni prijemnik (vlastitom skriptom)
 ```
+
+Na već instaliranoj stanici čarobnjak zatim prenosi promjenu svugdje gdje treba — nove portove u `admin_config.json` i u uslugu statistike, novi prijemnik u pokretanje pri podizanju sustava — i jednom pita treba li ponovno izgraditi stranicu i ponovno pokrenuti ono što radi. Promjena porta je dakle ova jedna naredba, uz prosljeđivanje na usmjerniku ako se javni port promijenio. Javni port mora biti 1024 ili veći, jer proxy ne radi kao root: da bi stanica bila dostupna na portu 80, ovdje zadržite 9000 i na usmjerniku proslijedite vanjski port 80 na njega.
 
 Stanica instalirana prije nego što je čarobnjak postojao zadržava svoje portove: pokrenut ondje, čarobnjak predlaže portove koje ta stanica već koristi.
 
@@ -462,7 +462,7 @@ Ništa ne treba ručno pripremati — nema popisa ovisnosti za lijepljenje, nema
 | 17 | Ponovno primjenjuje zakrpane websocketpp zaglavlja i provjerava ih |
 | 18 | Instalira emulaciju KiwiSDR klijenta, kako bi se Kiwi klijenti poput AetherSDR-a mogli spojiti |
 | 19 | Ponovno gradi backend iz zakrpanih izvora |
-| 20 | Bira FFT ubrzivač — OpenCL samo kad uređaj stvarno odgovara, inače procesor — i instalira pokretanje pri podizanju sustava ako ste ga odabrali |
+| 20 | Bira FFT ubrzivač — OpenCL samo kad uređaj stvarno odgovara, inače procesor — i instalira pokretanje pri podizanju sustava ako ste ga odabrali, te postavlja https:// ako ste ga odabrali |
 | 21 | Pokreće prijemnik |
 | 22 | Ispisuje sažetak: adresu za slušatelje, port koji treba proslijediti i svaki korak s rezultatom |
 
@@ -1842,4 +1842,4 @@ modulation = "WBFM"
 
 **Instalacija je gotova! Sada biste trebali imati potpuno funkcionalan PhantomSDR-Plus poslužitelj.**
 
-**73 de SV1BTL & SV2AMK**
+**73 de SV1BTL, A7AOF, F1NSK & SV2AMK**

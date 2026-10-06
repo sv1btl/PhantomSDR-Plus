@@ -1111,6 +1111,6 @@ R: La superposición del plan de bandas, que muestra las atribuciones de frecuen
 
 **¡Disfrute explorando el espectro radioeléctrico con PhantomSDR-Plus!**
 
-**73 (saludos cordiales) de SV1BTL & SV2AMK**
+**73 (saludos cordiales) de SV1BTL, A7AOF, F1NSK & SV2AMK**
 
 Para las instrucciones de instalación, consulte [INSTALLATION.md](INSTALLATION.md). Para los detalles técnicos, consulte [PROJECT_STRUCTURE.md](PROJECT_STRUCTURE.md).

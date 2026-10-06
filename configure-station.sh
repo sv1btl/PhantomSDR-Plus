@@ -29,8 +29,11 @@
 #    bash configure-station.sh --show     print the current answers
 #
 #  Run it again at any time: the previous answers are the defaults, so ENTER
-#  through everything keeps them. After a change, rebuild the web page and
-#  restart the receiver (the wizard says when that is needed).
+#  through everything keeps them. On an installed station it then carries a
+#  change everywhere it is needed — new ports into admin_config.json and the
+#  statistics service, a new receiver into start at boot — and, after one
+#  question, rebuilds the page and restarts what runs. Changing a port is
+#  therefore this one command.
 #
 #  install.sh runs --ask before it installs anything and --apply once Python
 #  is there, so a new station answers every question in the first two minutes
@@ -40,7 +43,8 @@
 #  Every answer can be given in the environment instead (same names as in
 #  station.conf, e.g. STATION_RECEIVER=rtl STATION_CALLSIGN=SV1XYZ), and with
 #  PHANTOM_NONINTERACTIVE=1 — assumed when stdin is not a terminal — every
-#  question takes its default without asking.
+#  question takes its default without asking. PHANTOM_PUT_NOW=y also rebuilds
+#  and restarts after such a run (unattended, the default is not to).
 #
 #  PORTS (a new station)
 #    9000  the ONE public port: proxy.py, which serves the receiver page and
@@ -48,6 +52,8 @@
 #    9001  spectrumserver            9010  admin panel   9011  statistics
 #    9012  RADE sidecar              9013  WebSDR relay
 #  A port already taken on this computer is skipped for the next free one.
+#  The public port must be 1024 or more (the proxy does not run as root); to
+#  be reached on port 80, forward the router's port 80 to 9000 instead.
 # ─────────────────────────────────────────────────────────────────────────────
 
 if [ -z "${BASH_VERSINFO[0]}" ] || [ "${BASH_VERSINFO[0]}" -lt 4 ]; then
@@ -104,7 +110,7 @@ VARS=(STATION_RECEIVER STATION_LAUNCHER STATION_CONFIG STATION_RTL_V4
       STATION_PUBLIC_HOST STATION_SDR_LIST STATION_WEBSDR_ORG
       PORT_PUBLIC PORT_SDR PORT_ADMIN PORT_STATS PORT_RADE PORT_RELAY
       STATION_ADMIN STATION_RADE STATION_STATS STATION_RELAY STATION_AUTOSTART
-      STATION_ACCELERATOR)
+      STATION_ACCELERATOR STATION_HTTPS PORT_TLS)
 declare -A FROM_ENV=()
 for v in "${VARS[@]}"; do
     [ -n "${!v+x}" ] && FROM_ENV[$v]="${!v}"
@@ -114,6 +120,13 @@ if [ -f "$STATION_CONF" ]; then
     . "$STATION_CONF"
 fi
 SAVED_RECEIVER="${STATION_RECEIVER:-}"      # before the environment overrides it
+SAVED_LAUNCHER="${STATION_LAUNCHER:-}"
+SAVED_HTTPS="${STATION_HTTPS:-n}"
+SAVED_TLS="${PORT_TLS:-}"
+SAVED_HOST="${STATION_PUBLIC_HOST:-}"
+# The ports this station runs on now, to tell afterwards whether they moved.
+SAVED_PORTS=""
+[ -f "$STATION_CONF" ] && SAVED_PORTS="${PORT_PUBLIC:-} ${PORT_SDR:-} ${PORT_ADMIN:-} ${PORT_STATS:-} ${PORT_RADE:-} ${PORT_RELAY:-}"
 for v in "${!FROM_ENV[@]}"; do
     printf -v "$v" '%s' "${FROM_ENV[$v]}"
 done
@@ -369,6 +382,14 @@ save_conf() {
         echo "PORT_RADE=$PORT_RADE"
         echo "PORT_RELAY=$PORT_RELAY"
         echo ""
+        echo "# https:// through Caddy on port 443 (setup-https.sh): y, lan or n"
+        echo "STATION_HTTPS=$(q "${STATION_HTTPS:-n}")"
+        if [ "${STATION_HTTPS:-n}" != n ]; then
+            echo "PORT_TLS=$PORT_TLS          # loopback port Caddy hands visitors to"
+        else
+            echo "# PORT_TLS=$PORT_TLS"
+        fi
+        echo ""
         echo "# Extras (y/n)"
         echo "STATION_ADMIN=$(q "$STATION_ADMIN")"
         echo "STATION_RADE=$(q "$STATION_RADE")"
@@ -520,6 +541,20 @@ ask_everything() {
         warn "Both need the public address — they stay off until you set it."
         STATION_SDR_LIST=n; STATION_WEBSDR_ORG=n
     fi
+    # https needs a certificate, and Let's Encrypt issues one for a name, not
+    # for a bare IP address. "lan" (setup-https.sh --lan) is kept as it is.
+    if [ "${STATION_HTTPS:-}" != "lan" ]; then
+        say "  https:// as well as http:// — a free certificate from Let's Encrypt,"
+        say "  renewed by itself. Needs a DNS name above, and ports 443 and 80 open"
+        say "  on the router. The http:// address keeps working."
+        ask_yn STATION_HTTPS "Also serve the receiver over https://?" n
+        if [ "$STATION_HTTPS" = y ] && { [ -z "$STATION_PUBLIC_HOST" ] \
+             || [[ $STATION_PUBLIC_HOST =~ ^[0-9.]+$ ]] || [[ $STATION_PUBLIC_HOST == *:* ]]; }; then
+            warn "https needs a DNS name (e.g. myname.ddns.net), not an IP address — left off."
+            say "    Get a free name from a dynamic-DNS service, then: bash setup-https.sh"
+            STATION_HTTPS=n
+        fi
+    fi
 
     # ── 5. ports and extras ──────────────────────────────────────────────────
     title "5/5  Ports and extras"
@@ -559,9 +594,22 @@ ask_everything() {
     else pub_def="$(next_free_port 9000)"; fi
     while true; do
         ask PORT_PUBLIC "Public port" "$pub_def"
-        if [[ $PORT_PUBLIC =~ ^[0-9]+$ ]] && [ "$PORT_PUBLIC" -ge 1 ] && [ "$PORT_PUBLIC" -le 65535 ]; then break; fi
-        warn "A port is a number from 1 to 65535."; PORT_PUBLIC=""
-        [ "$PHANTOM_NONINTERACTIVE" = "1" ] && die "PORT_PUBLIC is not a port"
+        if ! [[ $PORT_PUBLIC =~ ^[0-9]+$ ]] || [ "$PORT_PUBLIC" -lt 1 ] || [ "$PORT_PUBLIC" -gt 65535 ]; then
+            warn "A port is a number from 1 to 65535."; PORT_PUBLIC=""
+            [ "$PHANTOM_NONINTERACTIVE" = "1" ] && die "PORT_PUBLIC is not a port"
+            continue
+        fi
+        # Below 1024 only root may listen, and proxy.py runs as you. The router
+        # can do it instead: forward its outside port 80 (say) to 9000 here.
+        if [ "$PORT_PUBLIC" -lt 1024 ]; then
+            warn "Ports below 1024 need root, and the proxy runs as your user."
+            say "    Keep a port of 1024 or more here (9000), and on your router forward"
+            say "    the outside port $PORT_PUBLIC to it: listeners then use :$PORT_PUBLIC."
+            PORT_PUBLIC=""
+            [ "$PHANTOM_NONINTERACTIVE" = "1" ] && die "PORT_PUBLIC below 1024 — forward it on the router instead"
+            continue
+        fi
+        break
     done
     TAKEN=([$PORT_PUBLIC]=1)
     suggest_port PORT_SDR   $((PORT_PUBLIC + 1))
@@ -569,12 +617,18 @@ ask_everything() {
     suggest_port PORT_STATS $((PORT_PUBLIC + 11))
     suggest_port PORT_RADE  $((PORT_PUBLIC + 12))
     suggest_port PORT_RELAY $((PORT_PUBLIC + 13))
+    suggest_port PORT_TLS   $((PORT_PUBLIC + 14))
     printf '\n    %-6s %s\n' "$PORT_PUBLIC" "public — the receiver page; forward this one"
     printf '    %-6s %s\n' "$PORT_SDR"   "spectrumserver (inside this computer)"
     printf '    %-6s %s\n' "$PORT_ADMIN" "admin panel    (reached as /admin)"
     printf '    %-6s %s\n' "$PORT_STATS" "statistics     (reached as /stats)"
     printf '    %-6s %s\n' "$PORT_RADE"  "RADE decoder   (reached as /rade)"
-    printf '    %-6s %s\n\n' "$PORT_RELAY" "WebSDR relay   (reached as /relay)"
+    printf '    %-6s %s\n' "$PORT_RELAY" "WebSDR relay   (reached as /relay)"
+    if [ "${STATION_HTTPS:-n}" != n ]; then
+        printf '    %-6s %s\n' "$PORT_TLS" "https front    (Caddy on 443 hands visitors to it)"
+        printf '    %-6s %s\n' "443, 80" "https, and the certificate check — forward these too"
+    fi
+    say ""
     CHANGE_PORTS=n
     ask_yn CHANGE_PORTS "Change any of the internal ports?" n
     if [ "$CHANGE_PORTS" = y ]; then
@@ -611,6 +665,7 @@ summary() {
         "Station" "${STATION_CALLSIGN:-—}  ${STATION_LOCATOR}  ${STATION_CITY}" \
         "Address" "${STATION_PUBLIC_HOST:-(not set)}:$PORT_PUBLIC" \
         "Listings" "sdr-list.xyz: $STATION_SDR_LIST   websdr.org: $STATION_WEBSDR_ORG" \
+        "https" "$( [ "${STATION_HTTPS:-n}" = y ] && echo "yes — https://$STATION_PUBLIC_HOST/" || { [ "${STATION_HTTPS:-n}" = lan ] && echo "local network only" || echo no; } )" \
         "Extras" "admin: $STATION_ADMIN  RADE: $STATION_RADE  stats: $STATION_STATS  relay: $STATION_RELAY  autostart: $STATION_AUTOSTART"
 }
 
@@ -768,7 +823,9 @@ info.update({
                      "rsp1a": "SDRplay RSP1A", "airspyhf": "Airspy HF+", "hackrf": "HackRF One",
                      "fobos": "RigExpert Fobos SDR", "fobos-hf": "RigExpert Fobos SDR"}.get(E["STATION_RECEIVER"], ""),
     "siteAntenna": E.get("STATION_ANTENNA", ""),
-    "siteIP": f"http://{host}:{port_public}" if host else "",
+    # The page embeds {siteIP}/users.html; an http frame inside an https page is
+    # blocked, so with https on, siteIP is the https address.
+    "siteIP": (f"https://{host}" if E.get("STATION_HTTPS") == "y" else f"http://{host}:{port_public}") if host else "",
     "siteStats": "/stats" if yes("STATION_STATS") else "",
     "siteRade": "/rade",
     "siteRelay": "/relay",
@@ -811,6 +868,128 @@ PY
 }
 
 # ═════════════════════════════════════════════════════════════════════════════
+#  PUTTING A CHANGE INTO SERVICE (an installed station, run on its own)
+# ═════════════════════════════════════════════════════════════════════════════
+# The .toml, site_information.json and the relay settings are written above.
+# What else holds a port or the start script is brought along here, so that
+# changing a port is one command: admin_config.json (the proxy and the panel
+# prefer it to station.conf), the statistics service, and the start-at-boot
+# unit. Then, after one question, the page is rebuilt and whatever runs is
+# restarted.
+SUDO=""
+if [ "$(id -u)" -ne 0 ] && command -v sudo >/dev/null 2>&1; then SUDO="sudo"; fi
+unit_exists() { [ -f "/etc/systemd/system/$1.service" ] && [ -d /run/systemd/system ]; }
+# A unit is this station's only when it runs from this folder: a second copy of
+# PhantomSDR-Plus on the computer (a test tree, another station) must never
+# restart or move the one on the air.
+unit_ours() {
+    unit_exists "$1" \
+        && [ "$(systemctl show -p WorkingDirectory --value "$1" 2>/dev/null)" = "$PHANTOMDIR" ]
+}
+# The statistics server runs from its own folder, so it is recognised by the
+# port it serves: the one this station's page used until now.
+stats_ours() {
+    unit_exists sdr-stats || return 1
+    local old_stats; old_stats="$(set -- $SAVED_PORTS; printf '%s' "${4:-}")"
+    [ -n "$old_stats" ] || return 1
+    grep -q -E "Environment=PORT=$old_stats\b" /etc/systemd/system/sdr-stats.service.d/*.conf 2>/dev/null \
+        || grep -q -E "process\.env\.PORT \|\| $old_stats\b" "$(systemctl show -p WorkingDirectory --value sdr-stats 2>/dev/null)/system-stats-server.js" 2>/dev/null
+}
+
+carry_ports() {
+    local now="$PORT_PUBLIC $PORT_SDR $PORT_ADMIN $PORT_STATS $PORT_RADE $PORT_RELAY"
+    PORTS_MOVED=n
+    [ -n "$SAVED_PORTS" ] && [ "$SAVED_PORTS" != "$now" ] && PORTS_MOVED=y
+    # https on/off or its loopback port: the proxy has to open or close that
+    # listener, so it needs the restart even when no page file changed.
+    if [ "${STATION_HTTPS:-n}" != "$SAVED_HTTPS" ] \
+       || { [ "${STATION_HTTPS:-n}" != n ] && [ "${PORT_TLS:-}" != "$SAVED_TLS" ]; }; then
+        PORTS_MOVED=y
+    fi
+    if [ "$PORTS_MOVED" = y ] && [ -f "$PHANTOMDIR/admin_config.json" ]; then
+        python3 - "$PHANTOMDIR/admin_config.json" "$PORT_ADMIN" "$PORT_SDR" "$PORT_PUBLIC" <<'PY' \
+            && ok "admin_config.json — panel $PORT_ADMIN, spectrumserver $PORT_SDR, public $PORT_PUBLIC"
+import json, sys
+p, admin, sdr, pub = sys.argv[1], int(sys.argv[2]), int(sys.argv[3]), int(sys.argv[4])
+cfg = json.load(open(p))
+cfg.update({"port": admin, "public_port": sdr, "proxy_port": pub})
+json.dump(cfg, open(p, "w"), indent=2)
+PY
+    fi
+    # The statistics server takes PORT from its environment before its own
+    # default, so a drop-in moves it without touching the installed server.
+    local old_stats; old_stats="$(set -- $SAVED_PORTS; printf '%s' "${4:-}")"
+    STATS_MOVED=n
+    if [ -n "$old_stats" ] && [ "$old_stats" != "$PORT_STATS" ] && stats_ours; then
+        STATS_MOVED=y
+        if $SUDO mkdir -p /etc/systemd/system/sdr-stats.service.d 2>/dev/null \
+           && printf '[Service]\nEnvironment=PORT=%s\n' "$PORT_STATS" \
+              | $SUDO tee /etc/systemd/system/sdr-stats.service.d/port.conf >/dev/null 2>&1; then
+            $SUDO systemctl daemon-reload 2>/dev/null
+            ok "statistics server — port $PORT_STATS"
+        else
+            warn "could not move the statistics server — sudo is needed"
+        fi
+    fi
+    # Start at boot follows a change of receiver.
+    if [ -n "$SAVED_LAUNCHER" ] && [ "$SAVED_LAUNCHER" != "$STATION_LAUNCHER" ] \
+       && unit_ours phantomsdr-receiver; then
+        bash "$PHANTOMDIR/setup-autostart.sh" "$STATION_LAUNCHER" >/dev/null 2>&1 \
+            && ok "start at boot — now $STATION_LAUNCHER"
+    fi
+}
+
+put_into_service() {
+    local changed="$1" page=n
+    [[ $changed == *site_information.json* ]] && page=y
+    [ -n "$changed" ] || [ "$PORTS_MOVED" = y ] || return 0
+    say ""
+    say "  To take effect:"
+    [ "$page" = y ] && say "    • the page is rebuilt (a few minutes)"
+    say "    • the receiver, and the proxy, panel, statistics and relay that run, are restarted"
+    [ "$PORTS_MOVED" = y ] && [ -n "$SAVED_PORTS" ] && [ "${SAVED_PORTS%% *}" != "$PORT_PUBLIC" ] \
+        && say "    • ${Y}the public port is now $PORT_PUBLIC — change the forwarding on your router too${N}"
+    # PHANTOM_PUT_NOW=y|n answers this unattended (default there: no).
+    PUT_NOW="${PHANTOM_PUT_NOW:-}"
+    if [ -z "$PUT_NOW" ] && [ "$PHANTOM_NONINTERACTIVE" != "1" ]; then
+        ask_yn PUT_NOW "Do this now? (listeners are cut off for a moment)" y
+    fi
+    [[ ${PUT_NOW:-n} =~ ^[Yy] ]] && PUT_NOW=y || PUT_NOW=n
+    if [ "$PUT_NOW" != y ]; then
+        say "  Later, by hand:"
+        [ "$page" = y ] && say "      ./recompile.sh --frontend"
+        say "      ./$STATION_LAUNCHER       (and: sudo systemctl restart phantomsdr-proxy phantomsdr-admin)"
+        return 0
+    fi
+    if [ "$page" = y ]; then
+        ( cd "$PHANTOMDIR" && bash ./recompile.sh --frontend >/dev/null 2>&1 ) \
+            && ok "page rebuilt" || warn "the page did not rebuild — run: ./recompile.sh --frontend"
+    fi
+    local u
+    for u in phantomsdr-proxy phantomsdr-admin phantomsdr-websdr-relay; do
+        unit_ours "$u" || continue
+        systemctl is-active --quiet "$u" 2>/dev/null || continue
+        $SUDO systemctl restart "$u" 2>/dev/null && ok "restarted $u" || warn "could not restart $u"
+    done
+    if [ "${STATS_MOVED:-n}" = y ]; then
+        $SUDO systemctl restart sdr-stats 2>/dev/null && ok "restarted sdr-stats" || warn "could not restart sdr-stats"
+    fi
+    # A proxy started by hand (no systemd) is not ours to restart.
+    if ! unit_ours phantomsdr-proxy && pgrep -f "$PHANTOMDIR/proxy\.py" >/dev/null 2>&1; then
+        warn "proxy.py runs without systemd — restart it by hand (bash manage_admin.sh stop; bash manage_admin.sh start)"
+    fi
+    # Only this folder's receiver: its watchdog runs "bash <this folder>/start-X.sh".
+    local here; here="$(printf '%s' "$PHANTOMDIR" | sed 's/[][\.*^$+?(){}|/]/\\&/g')"
+    if unit_ours phantomsdr-receiver && systemctl is-active --quiet phantomsdr-receiver; then
+        $SUDO systemctl restart phantomsdr-receiver && ok "restarted the receiver"
+    elif pgrep -f "$here/start-[a-z0-9-]+\.sh --watchdog" >/dev/null 2>&1; then
+        ( cd "$PHANTOMDIR" && bash "./$STATION_LAUNCHER" -q >/dev/null 2>&1 ) && ok "restarted the receiver"
+    else
+        say "  The receiver is not running — start it with: ./$STATION_LAUNCHER"
+    fi
+}
+
+# ═════════════════════════════════════════════════════════════════════════════
 case "$MODE" in
     ask|all)
         ask_everything
@@ -829,15 +1008,23 @@ case "$MODE" in
         apply_files
         changed="$(cat "$PHANTOMDIR/.station-changed" 2>/dev/null)"
         rm -f "$PHANTOMDIR/.station-changed"
+        # Only on an installed station run on its own: the installer calls
+        # --ask and --apply and starts everything itself at the end.
         if [ "$MODE" = all ] && [ -x "$PHANTOMDIR/build/spectrumserver" ]; then
-            say ""
-            if [[ $changed == *site_information.json* ]]; then
-                say "  The page shows the new station details after a frontend rebuild:"
-                say "      ${B}./recompile.sh${N}   (choose the frontend)"
-            fi
-            if [ -n "$changed" ]; then
-                say "  Then restart the receiver so it reads the new settings:"
-                say "      ${B}./$STATION_LAUNCHER${N}"
+            carry_ports
+            put_into_service "$changed"
+            # https switched on, off, or moved to another loopback port: Caddy
+            # follows (setup-https.sh calls back here with PHANTOM_FROM_HTTPS).
+            if [ -z "${PHANTOM_FROM_HTTPS:-}" ]; then
+                if [ "${STATION_HTTPS:-n}" != "$SAVED_HTTPS" ] \
+                   || { [ "${STATION_HTTPS:-n}" != n ] && [ "${PORT_TLS:-}" != "$SAVED_TLS" ]; } \
+                   || { [ "${STATION_HTTPS:-n}" = y ] && [ "${STATION_PUBLIC_HOST:-}" != "$SAVED_HOST" ]; }; then
+                    case "${STATION_HTTPS:-n}" in
+                        y)   bash "$PHANTOMDIR/setup-https.sh" ;;
+                        lan) bash "$PHANTOMDIR/setup-https.sh" --lan ;;
+                        *)   bash "$PHANTOMDIR/setup-https.sh" --remove ;;
+                    esac
+                fi
             fi
         fi
         ;;

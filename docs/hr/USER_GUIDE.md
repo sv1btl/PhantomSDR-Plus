@@ -1111,6 +1111,6 @@ O: Preklop plana pojaseva koji prikazuje dodjelu frekvencija.
 
 **Uživajte u istraživanju radijskog spektra uz PhantomSDR-Plus!**
 
-**73 (srdačni pozdravi) de SV1BTL & SV2AMK**
+**73 (srdačni pozdravi) de SV1BTL, A7AOF, F1NSK & SV2AMK**
 
 Za upute o instalaciji pogledajte [INSTALLATION.md](INSTALLATION.md). Za tehničke pojedinosti pogledajte [PROJECT_STRUCTURE.md](PROJECT_STRUCTURE.md).

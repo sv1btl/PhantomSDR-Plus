@@ -331,6 +331,7 @@ Las cuatro variantes de la interfaz (S-meter analógico/digital x disposición v
 - **[THERMAL_GUARD.md](THERMAL_GUARD.md)** - Manual del sysop para la protección contra sobrecalentamiento de la CPU: los cuatro modos y qué hacer con cada uno
 - **[CONNECTION_LIMITS.md](CONNECTION_LIMITS.md)** - Manual del sysop para los límites de conexión: proteger un receptor público frente a avalanchas de conexiones
 - **[MULTI_RECEIVER.md](MULTI_RECEIVER.md)** - Manual del sysop para varios receptores en un ordenador: instancias, `receivers.toml`, el selector de receptor y `start-all.sh`
+- **[HTTPS.md](HTTPS.md)** - Acceso seguro: servir el receptor por https:// con Caddy y un certificado gratuito de Let's Encrypt, `setup-https.sh`, el modo de red local y un nginx o Apache ya existente
 - **[PROJECT_STRUCTURE.md](PROJECT_STRUCTURE.md)**: estructura de directorios y organización del código
 - **[EDITING_VARIANTS.md](EDITING_VARIANTS.md)**: cómo editar las variantes del frontend (S-meter y disposición) y reconstruirlas
 
@@ -386,7 +387,7 @@ Este proyecto se distribuye bajo la Licencia Pública General de GNU v3.0; consu
 
 ## 👥 Autores y créditos
 
-- **SV1BTL y SV2AMK**: desarrollo y mejoras de PhantomSDR-Plus
+- **SV1BTL, A7AOF, F1NSK y SV2AMK**: desarrollo y mejoras de PhantomSDR-Plus
 - Basado en el proyecto original PhantomSDR
 
 ---
@@ -416,6 +417,6 @@ Este proyecto se distribuye bajo la Licencia Pública General de GNU v3.0; consu
 
 ---
 
-**73 de SV1BTL & SV2AMK**
+**73 de SV1BTL, A7AOF, F1NSK & SV2AMK**
 
 *Para instrucciones de configuración detalladas, consulte INSTALLATION.md* *Para la guía de manejo del usuario final, consulte USER_GUIDE.md*

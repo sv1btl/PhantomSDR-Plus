@@ -1112,6 +1112,6 @@ PhantomSDR-Plus отлично работает на мобильных устр
 
 **Приятного исследования радиоспектра с PhantomSDR-Plus!**
 
-**73 (наилучшие пожелания) de SV1BTL & SV2AMK**
+**73 (наилучшие пожелания) de SV1BTL, A7AOF, F1NSK & SV2AMK**
 
 Инструкции по установке см. в [INSTALLATION.md](INSTALLATION.md). Технические подробности см. в [PROJECT_STRUCTURE.md](PROJECT_STRUCTURE.md).

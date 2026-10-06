@@ -61,6 +61,7 @@ PhantomSDR-Plus
 │   │   ├── CONNECTION_LIMITS.md
 │   │   ├── DECODERS.md
 │   │   ├── EDITING_VARIANTS.md
+│   │   ├── HTTPS.md
 │   │   ├── INSTALLATION.md
 │   │   ├── MULTI_RECEIVER.md
 │   │   ├── PhantomSDR-Plus-Documentation-DE.pdf
@@ -80,6 +81,7 @@ PhantomSDR-Plus
 │   │   ├── CONNECTION_LIMITS.md
 │   │   ├── DECODERS.md
 │   │   ├── EDITING_VARIANTS.md
+│   │   ├── HTTPS.md
 │   │   ├── INSTALLATION.md
 │   │   ├── MULTI_RECEIVER.md
 │   │   ├── PhantomSDR-Plus-Documentation-EL.pdf
@@ -97,6 +99,7 @@ PhantomSDR-Plus
 │   │   ├── CONNECTION_LIMITS.md
 │   │   ├── DECODERS.md
 │   │   ├── EDITING_VARIANTS.md
+│   │   ├── HTTPS.md
 │   │   ├── INSTALLATION.md
 │   │   ├── MULTI_RECEIVER.md
 │   │   ├── PhantomSDR-Plus-Documentation-ES.pdf
@@ -114,6 +117,7 @@ PhantomSDR-Plus
 │   │   ├── CONNECTION_LIMITS.md
 │   │   ├── DECODERS.md
 │   │   ├── EDITING_VARIANTS.md
+│   │   ├── HTTPS.md
 │   │   ├── INSTALLATION.md
 │   │   ├── MULTI_RECEIVER.md
 │   │   ├── PhantomSDR-Plus-Documentation-FR.pdf
@@ -131,6 +135,7 @@ PhantomSDR-Plus
 │   │   ├── CONNECTION_LIMITS.md
 │   │   ├── DECODERS.md
 │   │   ├── EDITING_VARIANTS.md
+│   │   ├── HTTPS.md
 │   │   ├── INSTALLATION.md
 │   │   ├── MULTI_RECEIVER.md
 │   │   ├── PhantomSDR-Plus-Documentation-HR.pdf
@@ -142,6 +147,7 @@ PhantomSDR-Plus
 │   │   ├── RIG_CONTROL.md
 │   │   ├── THERMAL_GUARD.md
 │   │   └── USER_GUIDE.md
+│   ├── HTTPS.md
 │   ├── INSTALLATION.md
 │   ├── MULTI_RECEIVER.md
 │   ├── PhantomSDR-Plus-Documentation-EN.pdf
@@ -157,6 +163,7 @@ PhantomSDR-Plus
 │   │   ├── CONNECTION_LIMITS.md
 │   │   ├── DECODERS.md
 │   │   ├── EDITING_VARIANTS.md
+│   │   ├── HTTPS.md
 │   │   ├── INSTALLATION.md
 │   │   ├── MULTI_RECEIVER.md
 │   │   ├── PhantomSDR-Plus-Documentation-RU.pdf
@@ -493,6 +500,7 @@ PhantomSDR-Plus
 ├── setup-firewall.sh          # garde nftables optionnelle — voir docs/CONNECTION_LIMITS.md
 ├── setup-fobos.sh             # chaîne de pilote Fobos : libfobos + SoapyFobosSDR + rx_sdr + cf32_to_real + udev
 ├── setup-hackrf.sh            # HackRF : paquet hackrf de la distribution + udev (rien de compilé)
+├── setup-https.sh             # https:// devant : Caddy sur 443 avec un certificat Let's Encrypt — voir docs/HTTPS.md
 ├── setup-rsp1a.sh             # chaîne de pilote RSP1A : libmirisdr-5 + SoapyMiri + rx_sdr + liste noire msi2500 + udev
 ├── setup-rtlsdr.sh            # pilote RTL-SDR : paquet de la distribution, ou pilote Blog V4 compilé + blocage DVB + udev
 ├── setup-rx888-udev.sh
@@ -820,6 +828,7 @@ Chaque `start-*.sh` ci-dessous est un **lanceur autonome + chien de garde + jour
 | `install.sh` | Installation et compilation automatiques — d'abord les questions de la station, puis tout sans surveillance (aussi `install_fedora.sh`, `install_arch.sh`, `install_opensuse.sh`) |
 | `configure-station.sh` | L'assistant de station : récepteur, bande, station, internet, ports et compléments, demandés une fois et enregistrés dans `station.conf` ; il en tire le `.toml` du récepteur, `site_information.json` et les réglages du relais, en ne changeant que ses propres clés et en sauvegardant chaque fichier d'abord. `--show` affiche les réponses, `--apply` réécrit les fichiers à partir d'elles — voir le [Guide d'installation](INSTALLATION.md) |
 | `setup-autostart.sh` | Démarrage au boot : installe `phantomsdr-receiver.service`, qui lance au boot le script de démarrage de `station.conf` (ou celui indiqué) et `stop-websdr.sh` à l'arrêt, avec le groupe `plugdev` ; `--remove` l'annule |
+| `setup-https.sh` | Sert le récepteur en https:// en plus de http:// : installe Caddy sur le port 443 avec un certificat Let's Encrypt pour le nom DNS de la station (renouvelé tout seul) et le dirige vers le port loopback `PORT_TLS` de `proxy.py`, où le proxy prend auprès de Caddy l'adresse réelle de chaque visiteur. `--lan` pour le réseau local avec le certificat propre de Caddy, `--status`, `--remove` ; les questions de la station le lancent quand https est choisi — voir [Accès sécurisé](HTTPS.md) |
 | `add-receiver.sh` | Ajoute un récepteur de plus à cet ordinateur : demande quel récepteur et ce qu'il couvre, installe son pilote, crée `instances/<nom>/` et l'entrée de `receivers.toml`, et propose de le démarrer et de redémarrer le proxy. Les installeurs le proposent à la fin — voir [Plusieurs récepteurs](MULTI_RECEIVER.md) |
 | `start-rtl.sh` | Lancement + chien de garde du serveur avec RTL-SDR (`rtl_sdr`) |
 | `start-rsp1a.sh` | Lancement + chien de garde du serveur avec SDRplay RSP1A (`rx_sdr`) ; utilise libmirisdr-5, ou l'API SDRplay quand elle est installée (`RX_DRIVER` en impose un) |
@@ -1374,4 +1383,4 @@ La liste ne fait que grandir : les entrées des versions précédentes sont cons
 
 Pour les instructions d'installation, voir [INSTALLATION.md](INSTALLATION.md). Pour les informations d'utilisation, voir [USER_GUIDE.md](USER_GUIDE.md).
 
-**73 de SV1BTL & SV2AMK**
+**73 de SV1BTL, A7AOF, F1NSK & SV2AMK**

@@ -1112,6 +1112,6 @@ A: Das Bandplan-Overlay mit den Frequenzzuweisungen.
 
 **Viel Freude beim Erkunden des Funkspektrums mit PhantomSDR-Plus!**
 
-**73 (beste Grüße) de SV1BTL & SV2AMK**
+**73 (beste Grüße) de SV1BTL, A7AOF, F1NSK & SV2AMK**
 
 Installationsanweisungen finden Sie in [INSTALLATION.md](INSTALLATION.md). Technische Einzelheiten finden Sie in [PROJECT_STRUCTURE.md](PROJECT_STRUCTURE.md).

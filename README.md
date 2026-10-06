@@ -135,12 +135,14 @@ bash install.sh
 3. **Then it installs everything on its own** — twenty minutes to an hour, depending on the machine and on RADE — and asks nothing more.
 4. **At the end it starts the receiver** and shows the address listeners use, and the **one port** to open on your router: **9000**.
 
-There is no `chmod` step and no terminal to restart: a copy downloaded as a ZIP or through the GitHub page has no executable bits, and the installer sets them itself. The answers are kept in `station.conf`, and from it the installer writes your `.toml`, `site_information.json` and the frequency and sample rate your start script uses, so they always agree. Change them at any time with `bash configure-station.sh` (ENTER keeps each answer). The full description, with every step and every port, is in [docs/INSTALLATION.md](docs/INSTALLATION.md).
+There is no `chmod` step and no terminal to restart: a copy downloaded as a ZIP or through the GitHub page has no executable bits, and the installer sets them itself. The answers are kept in `station.conf`, and from it the installer writes your `.toml`, `site_information.json` and the frequency and sample rate your start script uses, so they always agree. Change them at any time with `bash configure-station.sh` (ENTER keeps each answer): on an installed station it also moves the ports in the admin panel and the statistics service and restarts what runs, so changing a port is one command. The public port must be 1024 or more — to be reached on port 80, forward the router's port 80 to 9000. The full description, with every step and every port, is in [docs/INSTALLATION.md](docs/INSTALLATION.md).
 
 | Port | What | Open on the router |
 |---|---|---|
 | 9000 | the receiver page — `proxy.py`, which also carries `/admin`, `/rade`, `/stats` and `/relay` | **yes, only this one** |
 | 9001 / 9010 / 9011 / 9012 / 9013 | spectrumserver / admin panel / statistics / RADE / WebSDR relay | no — inside the computer |
+
+**https:// as well** — padlock, encryption, and the browsers' better audio path — is one more station question, or later `bash setup-https.sh`. It needs a DNS name (a free dynamic-DNS name is fine) and ports 443 and 80 forwarded; Caddy obtains and renews a Let's Encrypt certificate by itself, and the http address keeps working. See **[Secure Access (HTTPS)](docs/HTTPS.md)**.
 
 > **Already running PhantomSDR-Plus? Do not install it again.** Fetch the updater once and run it. It shows what would change and then asks before writing anything; your `.toml` configuration, markers, admin password, frequency list and chat history are never touched, and nothing on your station moves to the new ports: <br />
 > ```
@@ -708,6 +710,7 @@ For detailed information about installation, usage, and the project structure, p
   - Reading the logs and counters
 
 - **[Several Receivers](docs/MULTI_RECEIVER.md)** - full sysop manual for running two or more receivers on one computer
+- **[Secure Access (HTTPS)](docs/HTTPS.md)** - serving the receiver over https:// with Caddy and a free Let's Encrypt certificate: `setup-https.sh`, the local-network mode, and an existing nginx or Apache
   - How the proxy picks a receiver, and the two ways to publish them
   - Adding a second receiver, step by step (an RTL-SDR for 2 m as the example)
   - `receivers.toml`, `start-all.sh` and the instance folders
@@ -736,7 +739,7 @@ For detailed information about installation, usage, and the project structure, p
 
 ### 📄 Offline PDF editions:
 
-Every document above, in one printable file — sixteen chapters in reading order, with a linked table of contents and working cross-references. Handy for reading away from the machine, or for printing the parts you keep coming back to.
+Every document above, in one printable file — seventeen chapters in reading order, with a linked table of contents and working cross-references. Handy for reading away from the machine, or for printing the parts you keep coming back to.
 
 | Language | Download |
 |---|---|
@@ -759,4 +762,4 @@ The PDFs are generated from the same Markdown files and are refreshed when the d
 
 ---
 
-## -- 73 de SV1BTL & SV2AMK --
+## -- 73 de SV1BTL, A7AOF, F1NSK & SV2AMK --

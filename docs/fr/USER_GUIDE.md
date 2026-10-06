@@ -1112,6 +1112,6 @@ R : La superposition du plan de bandes, qui montre les attributions de fréquenc
 
 **Bonne exploration du spectre radio avec PhantomSDR-Plus !**
 
-**73 (meilleures salutations) de SV1BTL & SV2AMK**
+**73 (meilleures salutations) de SV1BTL, A7AOF, F1NSK & SV2AMK**
 
 Pour les instructions d'installation, voir [INSTALLATION.md](INSTALLATION.md). Pour les détails techniques, voir [PROJECT_STRUCTURE.md](PROJECT_STRUCTURE.md).

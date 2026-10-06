@@ -2553,6 +2553,18 @@ else
 fi
 echo ""
 
+# https:// through Caddy, when the station questions asked for it.
+if [ "$USE_STATION" = true ] && [ "$(station_value STATION_HTTPS)" = y ]; then
+    echo "Setting up https:// (Caddy + a Let's Encrypt certificate)..."
+    if bash "$PHANTOM_DIR/setup-https.sh" < "$SUB_IN"; then
+        component "https" "on — https://$(station_value STATION_PUBLIC_HOST)/ (Caddy on 443; forward 443 and 80 too)"
+    else
+        warn "https could not be set up — run later: bash setup-https.sh"
+        component "https" "NOT set up — run: bash setup-https.sh"
+    fi
+fi
+echo ""
+
 step "Starting the receiver" "no input needed"
 
 if [ "$USE_STATION" = true ] && [[ ${PHANTOM_START_RECEIVER:-y} =~ ^[Yy] ]] \
@@ -2700,6 +2712,8 @@ if [ "$USE_STATION" = true ]; then
     echo ""
     echo "🌐 On this network:    http://${ST_LAN}:${ST_PORT}/        (phones: /mobile)"
     [ -n "$ST_HOST" ] && echo "🌍 From the internet:  http://${ST_HOST}:${ST_PORT}/"
+    [ -n "$ST_HOST" ] && [ "$(station_value STATION_HTTPS)" = y ] \
+        && echo "🔒 and over https:     https://${ST_HOST}/      (forward 443 and 80 as well)"
     echo ""
     yellow "   Forward TCP port ${ST_PORT} on your router to ${ST_LAN} — it is the"
     yellow "   only port listeners need. RADE, statistics and the relay share it."

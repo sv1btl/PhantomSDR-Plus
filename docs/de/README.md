@@ -331,6 +331,7 @@ Alle vier GUI-Varianten (analoges/digitales S-Meter x Layout v1/v2) stecken in e
 - **[THERMAL_GUARD.md](THERMAL_GUARD.md)** - Sysop-Handbuch für den CPU-Überhitzungsschutz: die vier Modi und was bei jedem zu tun ist
 - **[CONNECTION_LIMITS.md](CONNECTION_LIMITS.md)** - Sysop-Handbuch für Verbindungslimits: einen öffentlichen Empfänger vor Verbindungsfluten schützen
 - **[MULTI_RECEIVER.md](MULTI_RECEIVER.md)** - Sysop-Handbuch für mehrere Empfänger auf einem Rechner: Instanzen, `receivers.toml`, die Empfängerauswahl und `start-all.sh`
+- **[HTTPS.md](HTTPS.md)** - Sicherer Zugang: den Empfänger über https:// mit Caddy und einem kostenlosen Let's-Encrypt-Zertifikat anbieten, `setup-https.sh`, der Modus für das lokale Netz und ein vorhandenes nginx oder Apache
 - **[PROJECT_STRUCTURE.md](PROJECT_STRUCTURE.md)** – Verzeichnisstruktur und Codeorganisation
 - **[EDITING_VARIANTS.md](EDITING_VARIANTS.md)** – wie man die Frontend-Varianten (S-Meter und Layout) bearbeitet und neu baut
 
@@ -386,7 +387,7 @@ Dieses Projekt steht unter der GNU General Public License v3.0 – Einzelheiten 
 
 ## 👥 Autoren und Danksagungen
 
-- **SV1BTL und SV2AMK** – Entwicklung und Erweiterungen von PhantomSDR-Plus
+- **SV1BTL, A7AOF, F1NSK und SV2AMK** – Entwicklung und Erweiterungen von PhantomSDR-Plus
 - Basierend auf dem ursprünglichen PhantomSDR-Projekt
 
 ---
@@ -416,6 +417,6 @@ Dieses Projekt steht unter der GNU General Public License v3.0 – Einzelheiten 
 
 ---
 
-**73 de SV1BTL & SV2AMK**
+**73 de SV1BTL, A7AOF, F1NSK & SV2AMK**
 
 *Ausführliche Einrichtungsanweisungen finden Sie in INSTALLATION.md* *Die Bedienungsanleitung für Endnutzer finden Sie in USER_GUIDE.md*

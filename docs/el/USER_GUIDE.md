@@ -1111,6 +1111,6 @@
 
 **Καλή εξερεύνηση του ραδιοφωνικού φάσματος με το PhantomSDR-Plus!**
 
-**73 (θερμούς χαιρετισμούς) de SV1BTL & SV2AMK**
+**73 (θερμούς χαιρετισμούς) de SV1BTL, A7AOF, F1NSK & SV2AMK**
 
 Για οδηγίες εγκατάστασης, δείτε το [INSTALLATION.md](INSTALLATION.md). Για τεχνικές λεπτομέρειες, δείτε το [PROJECT_STRUCTURE.md](PROJECT_STRUCTURE.md).

@@ -58,6 +58,7 @@ _STATION_KEYS = {
     "PORT_RADE":   "rade_port",
     "PORT_STATS":  "stats_port",
     "PORT_RELAY":  "relay_port",
+    "PORT_TLS":    "tls_port",     # loopback port the https front (Caddy) uses
 }
 
 
@@ -321,7 +322,33 @@ _CLIENT_ID_HEADERS = frozenset(("x-forwarded-for", "x-forwarded-host",
                                 "x-real-ip", "forwarded"))
 
 
+# ── The https front ───────────────────────────────────────────────────────────
+# setup-https.sh puts Caddy on port 443 and points it at tls_port, a second
+# listener of this proxy on loopback only. Everything arriving there comes from
+# Caddy, so request.remote is 127.0.0.1 for every visitor — which this proxy
+# (and spectrumserver behind it) would otherwise take for "this computer":
+# allowed to kick, exempt from the per-IP limits. On that listener the visitor
+# is the address Caddy reports in X-Forwarded-For (the last entry, the one
+# Caddy itself appended), and the request is never local.
+TLS_PORT = int(_cfg.get("tls_port") or 0)
+
+
+def _via_tls(request: web.Request) -> bool:
+    return bool(TLS_PORT) and _local_port(request) == TLS_PORT
+
+
+def _client(request: web.Request) -> str:
+    """The visitor's address, whichever listener the request came in on."""
+    if _via_tls(request):
+        fwd = request.headers.get("X-Forwarded-For", "")
+        last = fwd.split(",")[-1].strip() if fwd else ""
+        return last or "0.0.0.0"
+    return request.remote or ""
+
+
 def _is_local(request: web.Request) -> bool:
+    if _via_tls(request):
+        return False
     return _norm_ip(request.remote) in ("127.0.0.1", "::1")
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -333,10 +360,10 @@ async def proxy_request(request: web.Request, upstream: str,
                if k.lower() not in ("host", "content-length", "accept-encoding")
                and k.lower() not in _CLIENT_ID_HEADERS}
     headers["Accept-Encoding"]   = "identity"
-    headers["X-Forwarded-For"]   = request.remote or ""
+    headers["X-Forwarded-For"]   = _client(request)
     headers["X-Forwarded-Host"]  = request.headers.get("Host", "")
-    headers["X-Forwarded-Proto"] = "http"
-    headers["X-Forwarded-Port"]  = str(_local_port(request))
+    headers["X-Forwarded-Proto"] = "https" if _via_tls(request) else "http"
+    headers["X-Forwarded-Port"]  = "443" if _via_tls(request) else str(_local_port(request))
     try:
         timeout = ClientTimeout(total=60)
         async with ClientSession(timeout=timeout) as session:
@@ -399,7 +426,7 @@ async def proxy_websocket(request: web.Request, upstream: str,
 
     # Register for the admin kick (see handle_kick). request.remote is the real
     # client IP because the browser connects to this proxy directly.
-    client_ip = _norm_ip(request.remote)
+    client_ip = _norm_ip(_client(request))
     _register_ws(client_ip, ws_client)
 
     ws_url = upstream.replace("http://", "ws://") + (path or _upstream_path(request))
@@ -410,10 +437,10 @@ async def proxy_websocket(request: web.Request, upstream: str,
     fwd_headers = {k: v for k, v in request.headers.items()
                    if k.lower() not in _skip
                    and k.lower() not in _CLIENT_ID_HEADERS}
-    fwd_headers["X-Forwarded-For"]   = request.remote or ""
+    fwd_headers["X-Forwarded-For"]   = _client(request)
     fwd_headers["X-Forwarded-Host"]  = request.headers.get("Host", "")
-    fwd_headers["X-Forwarded-Proto"] = "ws"
-    fwd_headers["X-Forwarded-Port"]  = str(_local_port(request))
+    fwd_headers["X-Forwarded-Proto"] = "wss" if _via_tls(request) else "ws"
+    fwd_headers["X-Forwarded-Port"]  = "443" if _via_tls(request) else str(_local_port(request))
 
     try:
         async with ClientSession() as session:
@@ -579,6 +606,9 @@ async def main():
     await site.start()
     if FRONT_PORT and FRONT_PORT != LISTEN_PORT:
         await web.TCPSite(runner, LISTEN_HOST, FRONT_PORT).start()
+    if TLS_PORT:
+        # loopback only: nothing but the https front may reach it
+        await web.TCPSite(runner, "127.0.0.1", TLS_PORT).start()
 
     print(f"╔══════════════════════════════════════════════════════╗")
     print(f"║  PhantomSDR-Plus Reverse Proxy                       ║")
@@ -588,6 +618,8 @@ async def main():
     print(f"╚══════════════════════════════════════════════════════╝")
     for prefix, upstream in SIDE_SERVICES.items():
         print(f"  {prefix + '/*':<9} → {upstream}")
+    if TLS_PORT:
+        print(f"  https front (Caddy) → 127.0.0.1:{TLS_PORT}, visitors by X-Forwarded-For")
     if RECEIVERS:
         if FRONT_PORT and FRONT_PORT != LISTEN_PORT:
             print(f"  also listening on :{FRONT_PORT} (receivers.toml [front])")

@@ -331,6 +331,7 @@ Sve četiri varijante sučelja (analogni/digitalni S-metar x raspored v1/v2) nal
 - **[THERMAL_GUARD.md](THERMAL_GUARD.md)** - Priručnik za sysopa o zaštiti od pregrijavanja procesora: četiri načina rada i što učiniti u svakome
 - **[CONNECTION_LIMITS.md](CONNECTION_LIMITS.md)** - Priručnik za sysopa o ograničenjima veza: zaštita javnog prijemnika od poplave veza
 - **[MULTI_RECEIVER.md](MULTI_RECEIVER.md)** - Priručnik za sysopa o više prijemnika na jednom računalu: instance, `receivers.toml`, izbornik prijemnika i `start-all.sh`
+- **[HTTPS.md](HTTPS.md)** - Siguran pristup: prijemnik preko https:// s Caddyjem i besplatnim Let's Encrypt certifikatom, `setup-https.sh`, način rada za lokalnu mrežu te postojeći nginx ili Apache
 - **[PROJECT_STRUCTURE.md](PROJECT_STRUCTURE.md)** – struktura direktorija i organizacija koda
 - **[EDITING_VARIANTS.md](EDITING_VARIANTS.md)** – kako uređivati varijante frontenda (S-metar i raspored) i ponovno ih izgraditi
 
@@ -386,7 +387,7 @@ Ovaj projekt licenciran je pod GNU General Public License v3.0 – pojedinosti p
 
 ## 👥 Autori i zasluge
 
-- **SV1BTL i SV2AMK** – razvoj i poboljšanja projekta PhantomSDR-Plus
+- **SV1BTL, A7AOF, F1NSK i SV2AMK** – razvoj i poboljšanja projekta PhantomSDR-Plus
 - Temeljeno na izvornom projektu PhantomSDR
 
 ---
@@ -416,6 +417,6 @@ Ovaj projekt licenciran je pod GNU General Public License v3.0 – pojedinosti p
 
 ---
 
-**73 de SV1BTL & SV2AMK**
+**73 de SV1BTL, A7AOF, F1NSK & SV2AMK**
 
 *Za detaljne upute o postavljanju vidi INSTALLATION.md* *Za vodič za rad namijenjen krajnjem korisniku vidi USER_GUIDE.md*

@@ -35,7 +35,7 @@ PhantomSDR-Plus je fork projekta PhantomSDR koji pruža web-poslužitelj softver
 - **Smanjenje šuma umjetnom inteligencijom**: neuronska mreža RNNoise u pregledniku slušatelja, uklanja šum pojasa iz govora (samo govorni načini; vidi [Korisnički priručnik](USER_GUIDE.md))
 
 ### Napredne značajke
-- **Digitalni dekoderi**: FT8, FT4, FT2, JS8, CW, QRSS Grabber, WSPR, HF FAX, SSTV, NAVTEX, FSK/RTTY, PSK31, Olivia i FreeDV RADE, svaki radi u vlastitoj pozadinskoj dretvi pa dekodiranje nikada ne prekida zvuk (vidi [Dekoderi](DECODERS.md))
+- **Digitalni dekoderi**: FT8, FT4, FT2, JS8, CW, QRSS Grabber, WSPR, HF FAX, SSTV, NAVTEX, FSK/RTTY, PSK31, Olivia, Packet (AX.25), APRS (s kartom čutih postaja uživo) i FreeDV RADE, svaki radi u vlastitoj pozadinskoj dretvi pa dekodiranje nikada ne prekida zvuk (vidi [Dekoderi](DECODERS.md))
 - **Decoder ID**: imenuje digitalni način rada u propusnom pojasu i jednim klikom nudi odgovarajući dekoder, na temelju izmjerene širine pojasa, razmaka tonova, simbolske brzine i vremenskog rasporeda emisija, uzimajući frekvenciju u obzir kao dodatni pokazatelj — što ujedno razdvaja **FT8 od JS8**, dva načina rada s istovjetnim signalom. Samo predlaže, nikada ne prebacuje sam od sebe, i radije šuti nego nagađa kada je signal preslab. Slabljenje ga ne ušutkava: kada QSB razlomi dvominutnu WSPR emisiju na komade, i dalje imenuje način rada, čitajući ritam iz cijele povijesti slušanja, i snižava prikazanu pouzdanost kako bi naznačio da je dokaz slabiji. Između otprilike 400 Hz i 2700 Hz položaj u propusnom pojasu nije važan; izvan toga pojavljuje se jantarni gumb **Recentre & retry**, koji jednom pomakne ugađanje i pokreće novo mjerenje. Kada prihvatite prijedlog, prijamnik se namjesti za taj način rada: ugođena frekvencija dolazi na sredinu slapa, pogled se postavlja na oko 100 kHz oko nje, a bočni pojas i propusni pojas postaju oni s kojima se taj način radi — podpojas od 3 kHz za obitelj FT8, 1350–1650 Hz za WSPR, ±250 Hz i CW za telegrafiju, i tako dalje. Isključeno po zadanome, a u radu oko 0,5 % jedne jezgre (vidi [Dekoderi](DECODERS.md))
 - **Predlošci digitalnih modova**: pritisak na FT8, FT4, FT2, JS8 ili WSPR postavlja i bočni pojas i propusni pojas
 - **JS8 prozor razgovora**: poruke iz više okvira sastavljaju se u cijele rečenice
@@ -387,7 +387,7 @@ Ovaj projekt licenciran je pod GNU General Public License v3.0 – pojedinosti p
 
 ## 👥 Autori i zasluge
 
-- **SV1BTL, A7AOF, F1NSK i SV2AMK** – razvoj i poboljšanja projekta PhantomSDR-Plus
+- **SV1BTL, 9A7AOF, F1NSK i SV2AMK** – razvoj i poboljšanja projekta PhantomSDR-Plus
 - Temeljeno na izvornom projektu PhantomSDR
 
 ---
@@ -417,6 +417,6 @@ Ovaj projekt licenciran je pod GNU General Public License v3.0 – pojedinosti p
 
 ---
 
-**73 de SV1BTL, A7AOF, F1NSK & SV2AMK**
+**73 de SV1BTL, 9A7AOF, F1NSK & SV2AMK**
 
 *Za detaljne upute o postavljanju vidi INSTALLATION.md* *Za vodič za rad namijenjen krajnjem korisniku vidi USER_GUIDE.md*

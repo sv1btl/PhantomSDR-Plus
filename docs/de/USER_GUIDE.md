@@ -155,7 +155,7 @@ Weitere Bedienelemente:
 - **SQL**: Rauschsperre
 - **AI**: KI-Rauschunterdrückung (nur Sprache)
 - **Zoom**: Vergrößerungsstufe des Wasserfalls
-- **Wheel Tuning Steps**: Schrittweite des Mausrads
+- **Wheel Tuning Steps**: Schrittweite des Mausrads, von 10 Hz bis 12,5 kHz (12,5 kHz ist der Kanalabstand auf VHF/UHF)
 - **Decoders**: Tasten, die jeden Decoder mit einem Druck starten und stoppen
 
 ### 6. Bandplan-Overlay
@@ -300,7 +300,7 @@ Die AGC passt die Audiopegel automatisch an:
 
 NR, NB, NS und AN sind getrennte Ein/Aus-Schalter, die jeweils eine andere Art von Störung angehen. Sie sind unabhängig voneinander — einer schaltet keinen anderen mit ein — und lassen sich beliebig kombinieren.
 
-Keiner von ihnen erreicht die Decoder: FT8, CW, WSPR, SSTV, FAX, NAVTEX, RTTY/PSK31/Olivia und der QRSS-Grabber lesen das Audio *vor* diesen Filtern. Sie können sie also rein nach Gehör einstellen, ohne zu beeinflussen, was decodiert wird. Siehe das [Decoder-Handbuch](DECODERS.md#12-allgemeine-tipps).
+Keiner von ihnen erreicht die Decoder: FT8, CW, WSPR, SSTV, FAX, NAVTEX, RTTY/PSK31/Olivia/Packet/APRS und der QRSS-Grabber lesen das Audio *vor* diesen Filtern. Sie können sie also rein nach Gehör einstellen, ohne zu beeinflussen, was decodiert wird. Siehe das [Decoder-Handbuch](DECODERS.md#12-allgemeine-tipps).
 
 ### Rauschminderung (NR)
 
@@ -661,11 +661,13 @@ NAVTEX ist das internationale seefunkgestützte Aussendungssystem für küstenna
 
 ---
 
-### FSK / RTTY, PSK31 und Olivia
+### FSK / RTTY, PSK31, Olivia, Packet und APRS
 
-Ein universeller Decoder für schmalbandige Textbetriebsarten mit fünf Varianten in einem Fenster: maritimes FSK (SITOR), Wetter-RTTY, Amateur-RTTY, **PSK31** (Phasenumtastung, 31,25 Baud) und **Olivia** (Mehrton-FSK mit Vorwärtsfehlerkorrektur). Das Bedienfeld passt sich der Variante an — die Regler für Shift, Baud und Rahmung verschwinden bei PSK31 und Olivia, und Olivia ergänzt einen Mode-Wähler und einen Squelch-Regler.
+Ein universeller Decoder für schmalbandige Textbetriebsarten mit sieben Varianten in einem Fenster: maritimes FSK (SITOR), Wetter-RTTY, Amateur-RTTY, **PSK31** (Phasenumtastung, 31,25 Baud), **Olivia** (Mehrton-FSK mit Vorwärtsfehlerkorrektur), **Packet (AX.25)** und **APRS**. Er öffnet sich über die Schaltfläche **RTTY** oder über **FSK / RTTY / PACKET / APRS** im Decoder-Menü. Das Bedienfeld passt sich der Variante an — die Regler für Shift, Baud und Rahmung verschwinden bei PSK31 und Olivia, und Olivia ergänzt einen Mode-Wähler und einen Squelch-Regler.
 
 Amateur-RTTY und Wetter-RTTY haben einen Regler **Squelch (SNR)**, der verhindert, dass Rauschen als zufällige Buchstaben ausgegeben wird, und alle Varianten außer Olivia zeigen eine echte SNR auf derselben 3-kHz-Skala. Zwei Dinge sind wichtig: PSK31 korrigiert seinen Abstimmfehler über etwa ±25 Hz selbst, Sie müssen also nur in die Nähe kommen; Olivia braucht einen **Mode** (Töne / Bandbreite), der exakt zur Aussendung passt, sendet keine Präambel und benötigt daher einige Sekunden zur Synchronisierung, bevor Text erscheint. Das Bedienfeld startet mit Olivia **8 / 250**.
+
+**Packet** gibt jeden gehörten AX.25-Frame aus, wie ein TNC-Monitor; **APRS** macht aus APRS-Paketen Klartext — Position mit Locator, Geschwindigkeit, Höhe, Wetter, Nachrichten, Objekte und Status. Wählen Sie die **Speed**: **1200 Bd** für VHF/UHF, wobei der Empfänger auf **FM** im Kanal umschaltet (144,800 MHz für Europa steht in der Frequenzliste), oder **300 Bd** für KW, in USB. Nur Pakete mit korrekter Prüfsumme werden ausgegeben, auf einem ruhigen Kanal erscheint also nichts. Unter dem Text zeigt eine Karte alle gehörten Stationen mit Position, mit Spuren für bewegte Stationen und Ihrem Empfänger in Bernstein; sie lässt sich verkleinern, und ein Klick auf eine dekodierte Zeile zoomt auf diese Station. Siehe das [Decoder-Handbuch](DECODERS.md#hinweise-zu-packet-und-aprs).
 
 ---
 
@@ -1112,6 +1114,6 @@ A: Das Bandplan-Overlay mit den Frequenzzuweisungen.
 
 **Viel Freude beim Erkunden des Funkspektrums mit PhantomSDR-Plus!**
 
-**73 (beste Grüße) de SV1BTL, A7AOF, F1NSK & SV2AMK**
+**73 (beste Grüße) de SV1BTL, 9A7AOF, F1NSK & SV2AMK**
 
 Installationsanweisungen finden Sie in [INSTALLATION.md](INSTALLATION.md). Technische Einzelheiten finden Sie in [PROJECT_STRUCTURE.md](PROJECT_STRUCTURE.md).

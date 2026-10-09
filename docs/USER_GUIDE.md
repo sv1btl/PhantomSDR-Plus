@@ -155,7 +155,7 @@ Additional controls:
 - **SQL**: Squelch
 - **AI**: AI noise reduction (voice modes)
 - **Zoom**: Waterfall zoom level
-- **Wheel Tuning Steps**: step size used by the mouse wheel
+- **Wheel Tuning Steps**: step size used by the mouse wheel, from 10 Hz to 12.5 kHz (12.5 kHz is the VHF/UHF channel spacing)
 - **Decoders**: one-touch buttons that start and stop each decoder
 
 ### 6. Band Plan Overlay
@@ -299,7 +299,7 @@ AGC automatically adjusts audio levels:
 
 NR, NB, NS and AN are separate on/off buttons that each attack a different kind of noise. They are independent — switching one on does not switch on another — and they can be combined freely.
 
-None of them reach the decoders: FT8, CW, WSPR, SSTV, FAX, NAVTEX, RTTY/PSK31/ Olivia and the QRSS grabber all read the audio *before* these filters, so you can set them purely by ear without affecting what decodes. See the
+None of them reach the decoders: FT8, CW, WSPR, SSTV, FAX, NAVTEX, RTTY/PSK31/Olivia/Packet/APRS and the QRSS grabber all read the audio *before* these filters, so you can set them purely by ear without affecting what decodes. See the
 [Decoder manual](DECODERS.md#12-general-tips).
 
 ### Noise Reduction (NR)
@@ -660,11 +660,13 @@ NAVTEX is the international maritime broadcast system for coastal safety informa
 
 ---
 
-### FSK / RTTY, PSK31 and Olivia
+### FSK / RTTY, PSK31, Olivia, Packet and APRS
 
-A general-purpose decoder for narrow-band text modes, with five variants in one window: Maritime FSK (SITOR), Weather RTTY, Amateur RTTY, **PSK31** (phase-shift keying, 31.25 baud) and **Olivia** (multi-tone FSK with forward error correction). The panel adapts to the variant — the shift, baud and framing controls disappear for PSK31 and Olivia, and Olivia adds a Mode selector and a squelch slider.
+A general-purpose decoder for narrow-band text modes, with seven variants in one window: Maritime FSK (SITOR), Weather RTTY, Amateur RTTY, **PSK31** (phase-shift keying, 31.25 baud), **Olivia** (multi-tone FSK with forward error correction), **Packet (AX.25)** and **APRS**. It opens from the **RTTY** button, or from **FSK / RTTY / PACKET / APRS** in the decoder dropdown. The panel adapts to the variant — the shift, baud and framing controls disappear for PSK31 and Olivia, and Olivia adds a Mode selector and a squelch slider.
 
 Amateur RTTY and Weather RTTY have a **Squelch (SNR)** slider that stops noise from printing as random letters, and every variant except Olivia shows a real SNR on the same 3 kHz scale. Two things to know: PSK31 corrects its own tuning error over about ±25 Hz, so you only need to get close; Olivia needs its **Mode** (tones / bandwidth) set to exactly match the transmission, sends no preamble, and therefore takes a few seconds to synchronise before any text appears. The panel opens on Olivia **8 / 250**.
+
+**Packet** prints every AX.25 frame it hears, like a TNC monitor; **APRS** turns APRS packets into plain text — position with locator, speed, altitude, weather, messages, objects and status. Choose the **Speed**: **1200 Bd** for VHF/UHF, which switches the receiver to **FM** on the channel (144.800 MHz in Europe is in the frequency list), or **300 Bd** for HF, in USB. Only packets with a correct checksum are printed, so nothing appears on a quiet channel. Under the text, a map shows every station heard with a position, with tracks for moving ones and your receiver in amber; it can be minimised, and clicking a decoded line zooms to that station. See the [Decoder manual](DECODERS.md#packet-and-aprs-notes).
 
 ---
 
@@ -1111,6 +1113,6 @@ A: Band plan overlay showing frequency allocations.
 
 **Enjoy exploring the radio spectrum with PhantomSDR-Plus!**
 
-**73 (Best regards) de SV1BTL, A7AOF, F1NSK & SV2AMK**
+**73 (Best regards) de SV1BTL, 9A7AOF, F1NSK & SV2AMK**
 
 For installation instructions, see [INSTALLATION.md](INSTALLATION.md). For technical details, see [PROJECT_STRUCTURE.md](PROJECT_STRUCTURE.md).

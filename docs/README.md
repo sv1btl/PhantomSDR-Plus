@@ -35,7 +35,7 @@ PhantomSDR-Plus is a fork of PhantomSDR that provides a high-performance Softwar
 - **AI noise reduction**: RNNoise neural network in the listener's browser, removes band noise from speech (voice modes only; see [User Guide](USER_GUIDE.md))
 
 ### Advanced Features
-- **Digital decoders**: FT8, FT4, FT2, JS8, CW, QRSS Grabber, WSPR, HF FAX, SSTV, NAVTEX, FSK/RTTY, PSK31, Olivia and FreeDV RADE, each running on its own background thread so decoding never interrupts the audio (see [Decoders](DECODERS.md))
+- **Digital decoders**: FT8, FT4, FT2, JS8, CW, QRSS Grabber, WSPR, HF FAX, SSTV, NAVTEX, FSK/RTTY, PSK31, Olivia, Packet (AX.25), APRS (with a live map of the stations heard) and FreeDV RADE, each running on its own background thread so decoding never interrupts the audio (see [Decoders](DECODERS.md))
 - **Decoder ID**: names the digital mode in the passband and offers the matching decoder in one click, from measured bandwidth, tone spacing, symbol rate and burst timing, with the frequency taken into account as supporting evidence — which is also what separates **FT8 from JS8**, two modes whose signals are identical. It only suggests, never switches by itself, and stays quiet rather than guessing when the signal is too weak. Fading does not silence it: when QSB breaks a two-minute WSPR transmission into fragments it still names the mode, reading the cadence from the whole listening history, and lowers the confidence it shows to say that the evidence is weaker. Between about 400 Hz and 2700 Hz the position in the passband makes no difference; outside that an amber **Recentre & retry** button appears, which moves the dial once and starts a fresh measurement. When you do accept a suggestion, the receiver is set up to work that mode: the tuned frequency moves to the middle of the waterfall, the view becomes about 100 kHz wide around it, and the sideband and passband become the ones the mode is worked with — the 3 kHz sub-band for the FT8 family, 1350–1650 Hz for WSPR, ±250 Hz and CW for Morse, and so on. Off by default, and about 0.5% of one core while running (see [Decoders](DECODERS.md))
 - **Digital mode presets**: pressing FT8, FT4, FT2, JS8 or WSPR sets both the sideband and the passband
 - **JS8 conversation panel**: multi-frame messages are reassembled into whole sentences
@@ -387,7 +387,7 @@ This project is licensed under the GNU General Public License v3.0 - see the [LI
 
 ## 👥 Authors & Credits
 
-- **SV1BTL, A7AOF, F1NSK & SV2AMK** - PhantomSDR-Plus development and enhancements
+- **SV1BTL, 9A7AOF, F1NSK & SV2AMK** - PhantomSDR-Plus development and enhancements
 - Based on the original PhantomSDR project
 
 ---
@@ -417,6 +417,6 @@ This project is licensed under the GNU General Public License v3.0 - see the [LI
 
 ---
 
-**73 de SV1BTL, A7AOF, F1NSK & SV2AMK**
+**73 de SV1BTL, 9A7AOF, F1NSK & SV2AMK**
 
 *For detailed setup instructions, see INSTALLATION.md* *For end-user operation guide, see USER_GUIDE.md* *For other translations in various languages, please refer to the folders in this section*

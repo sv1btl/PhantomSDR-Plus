@@ -155,7 +155,7 @@ Commandes supplémentaires :
 - **SQL** : squelch
 - **AI** : réduction de bruit par IA (modes phonie)
 - **Zoom** : niveau de zoom de la cascade
-- **Wheel Tuning Steps** : pas d'accord de la molette de la souris
+- **Wheel Tuning Steps** : pas d'accord de la molette de la souris, de 10 Hz à 12,5 kHz (12,5 kHz est l'espacement des canaux en VHF/UHF)
 - **Decoders** : boutons qui démarrent et arrêtent chaque décodeur en une pression
 
 ### 6. Superposition du plan de bandes
@@ -299,7 +299,7 @@ L'AGC ajuste automatiquement les niveaux audio :
 
 NR, NB, NS et AN sont des boutons marche/arrêt distincts, chacun s'attaquant à un type de bruit différent. Ils sont indépendants — en activer un n'en active aucun autre — et se combinent librement.
 
-Aucun n'atteint les décodeurs : FT8, CW, WSPR, SSTV, FAX, NAVTEX, RTTY/PSK31/Olivia et le grabber QRSS lisent l'audio *avant* ces filtres. Vous pouvez donc les régler purement à l'oreille sans influer sur ce qui est décodé. Voir le [manuel des décodeurs](DECODERS.md#12-conseils-généraux).
+Aucun n'atteint les décodeurs : FT8, CW, WSPR, SSTV, FAX, NAVTEX, RTTY/PSK31/Olivia/Packet/APRS et le grabber QRSS lisent l'audio *avant* ces filtres. Vous pouvez donc les régler purement à l'oreille sans influer sur ce qui est décodé. Voir le [manuel des décodeurs](DECODERS.md#12-conseils-généraux).
 
 ### Réduction de bruit (NR)
 
@@ -661,11 +661,13 @@ NAVTEX est le système international de diffusion maritime des informations de s
 
 ---
 
-### FSK / RTTY, PSK31 et Olivia
+### FSK / RTTY, PSK31, Olivia, Packet et APRS
 
-Un décodeur polyvalent pour les modes texte à bande étroite, avec cinq variantes dans une seule fenêtre : FSK maritime (SITOR), RTTY météo, RTTY amateur, **PSK31** (modulation par déplacement de phase, 31,25 bauds) et **Olivia** (FSK multitonalité avec correction d'erreurs). Le panneau s'adapte à la variante — les commandes de shift, de bauds et de trame disparaissent pour PSK31 et Olivia, et Olivia ajoute un sélecteur Mode et un curseur de squelch.
+Un décodeur polyvalent pour les modes texte à bande étroite, avec sept variantes dans une seule fenêtre : FSK maritime (SITOR), RTTY météo, RTTY amateur, **PSK31** (modulation par déplacement de phase, 31,25 bauds), **Olivia** (FSK multitonalité avec correction d'erreurs), **Packet (AX.25)** et **APRS**. Il s'ouvre par le bouton **RTTY**, ou par **FSK / RTTY / PACKET / APRS** dans le menu des décodeurs. Le panneau s'adapte à la variante — les commandes de shift, de bauds et de trame disparaissent pour PSK31 et Olivia, et Olivia ajoute un sélecteur Mode et un curseur de squelch.
 
 Le RTTY amateur et le RTTY météo ont un curseur **Squelch (SNR)** qui empêche le bruit de s'afficher en lettres aléatoires, et toutes les variantes sauf Olivia affichent un vrai SNR sur la même échelle de 3 kHz. Deux points à retenir : PSK31 corrige lui-même son erreur d'accord sur environ ±25 Hz, il suffit donc de s'approcher ; Olivia exige que **Mode** (tonalités / largeur de bande) corresponde exactement à l'émission, n'envoie pas de préambule et met donc quelques secondes à se synchroniser avant que du texte apparaisse. Le panneau s'ouvre sur Olivia **8 / 250**.
+
+**Packet** affiche chaque trame AX.25 entendue, comme un moniteur de TNC ; **APRS** transforme les paquets APRS en texte clair — position avec locator, vitesse, altitude, météo, messages, objets et état. Choisissez la **Speed** : **1200 Bd** pour les VHF/UHF, qui passe le récepteur en **FM** sur le canal (le 144,800 MHz européen est dans la liste des fréquences), ou **300 Bd** pour les HF, en USB. Seuls les paquets dont la somme de contrôle est correcte sont affichés, donc rien n'apparaît sur un canal calme. Sous le texte, une carte montre chaque station entendue avec une position, avec des traces pour celles qui se déplacent et votre récepteur en ambre ; elle peut être réduite, et un clic sur une ligne décodée centre la carte sur cette station. Voir le [manuel des décodeurs](DECODERS.md#notes-sur-packet-et-aprs).
 
 ---
 
@@ -1112,6 +1114,6 @@ R : La superposition du plan de bandes, qui montre les attributions de fréquenc
 
 **Bonne exploration du spectre radio avec PhantomSDR-Plus !**
 
-**73 (meilleures salutations) de SV1BTL, A7AOF, F1NSK & SV2AMK**
+**73 (meilleures salutations) de SV1BTL, 9A7AOF, F1NSK & SV2AMK**
 
 Pour les instructions d'installation, voir [INSTALLATION.md](INSTALLATION.md). Pour les détails techniques, voir [PROJECT_STRUCTURE.md](PROJECT_STRUCTURE.md).

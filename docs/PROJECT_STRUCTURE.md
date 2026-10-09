@@ -252,6 +252,7 @@ PhantomSDR-Plus
 │   │   │   └── svelte.png
 │   │   ├── audio.js
 │   │   ├── audio-stream-worklet.js
+│   │   ├── ax25.js
 │   │   ├── bands-config.js
 │   │   ├── broadcastSchedules.js
 │   │   ├── clientVersion.js
@@ -273,6 +274,7 @@ PhantomSDR-Plus
 │   │   ├── fskWorkerProxy.js
 │   │   ├── kiwiSource.js
 │   │   ├── lib
+│   │   │   ├── aprsMap.js
 │   │   │   ├── backend.js
 │   │   │   ├── BandSelector.svelte
 │   │   │   ├── catsync.js
@@ -978,7 +980,7 @@ Each of the heavy mode decoders runs in its own Web Worker so that decoding neve
 |---------|--------|--------|-------------------|
 | SSTV | `sstv.js` | `sstv.worker.js` | `sstvWorkerProxy.js` |
 | HF FAX | `fax.js` | `fax.worker.js` | `faxWorkerProxy.js` |
-| NAVTEX + FSK/RTTY + PSK31 + Olivia | `fsk.js`, `psk31.js`, `olivia.js` | `fsk.worker.js` | `fskWorkerProxy.js` |
+| NAVTEX + FSK/RTTY + PSK31 + Olivia + Packet/APRS | `fsk.js`, `psk31.js`, `olivia.js`, `ax25.js` | `fsk.worker.js` | `fskWorkerProxy.js` |
 | CW | `cwDecoder.js` | `cw.worker.js` | `cwWorkerProxy.js` |
 
 - The **engine** is plain DSP code with no knowledge of workers, so it can also be run directly (unit tests, or the in-thread fallback).
@@ -989,10 +991,12 @@ Two details are load-bearing: PCM is **copied** into a fresh buffer before being
 
 `fsk.js` serves both NAVTEX and FSK/RTTY from one engine, selected per instance by a `role` field; each instance owns its own state, so the two can run independently.
 
-The `fsk` role additionally hosts two decoders that are not FSK at all. Selecting the `psk31` or `olivia` variant makes `fsk.js` hand the audio to `psk31.js` or `olivia.js` instead of its own discriminator chain, while still borrowing its configuration, worker and event plumbing — so `fsk.worker.js`, `fskWorkerProxy.js` and `audio.js` need no knowledge of either mode, and the UI consumes the same `char`/`status`/`metrics` events throughout.
+The `fsk` role additionally hosts decoders that do not use its FSK chain at all. Selecting the `psk31`, `olivia`, `packet` or `aprs` variant makes `fsk.js` hand the audio to `psk31.js`, `olivia.js` or `ax25.js` instead of its own discriminator chain, while still borrowing its configuration, worker and event plumbing — so `fsk.worker.js` and `fskWorkerProxy.js` need no knowledge of these modes, and the UI consumes the same `char`/`status`/`metrics` events throughout, plus a `line` event that carries one whole decoded packet.
 
 - `psk31.js` — BPSK31: complex baseband, matched filter, differential detection and varicode, with a spectral coarse acquisition plus a fine AFC covering about ±25 Hz.
 - `olivia.js` — Olivia MFSK: a port of Pawel Jalocha's MFSK receiver from fldigi (`pj_mfsk.h`, GPL-3, as is this project), including the Walsh/Hadamard FEC and the blind synchronisation search over block phase and frequency offset.
+- `ax25.js` — Packet radio and APRS: an AFSK demodulator for 1200 Bd (Bell 202, received in FM) and 300 Bd HF packet (received in USB), with five slicers at different tone balances and a clock-recovery loop each, then NRZI/HDLC deframing, the CRC-16 frame check, AX.25 address and control-field parsing, and an APRS parser (positions including compressed and Mic-E, weather, messages, objects, items, status, telemetry). Only frames that pass the checksum and carry a well-formed address are reported. `packet` prints every frame like a TNC monitor; `aprs` prints APRS frames decoded into plain text.
+- `lib/aprsMap.js` — the APRS map: keeps every station with a decoded position (objects and items under their own name, killed ones removed, a track for moving ones) and draws them with Leaflet on OpenStreetMap tiles, with the receiver's own position taken from `siteGridSquare`. Leaflet is imported only when the map is first shown, so it costs nothing to listeners who never open APRS. Text received over the air reaches the page only through `textContent` or escaping. `App.svelte` places the map under the APRS text pane and opens and closes it with the pane.
 - `broadcastSchedules.js` — the UTC timetables the FAX, NAVTEX and RTTY decoders offer as presets, taken from the NOAA/NWS marine radiofacsimile schedules and the published NAVTEX station lists
 
 #### 4b. Receive Diversity (`diversity.js`)
@@ -1075,6 +1079,8 @@ frequencylist/
     { "frequency": 2485000, "name": "Vanuatu Broadcasting", "mode": "AM" }
 ]
 ```
+
+`mode` is a receiver mode (`USB`, `LSB`, `AM`, `FM`, `CW`, …) or the name of a digital mode — `FT8`, `FT4`, `FT2`, `JS8`, `WSPR`, `SSTV`, `NAVTEX`, `FAX`, `RTTY`, `RTTY-WX`, `SITOR`, `PSK31`, `OLIVIA`, `PACKET` or `APRS` — in which case a click on the marker starts that decoder ([details](DECODERS.md#starting-a-decoder-from-a-frequency-marker)).
 
 ---
 
@@ -1385,4 +1391,4 @@ The list only grows: entries from earlier releases are kept, so a public copy pu
 
 For setup instructions, see [INSTALLATION.md](INSTALLATION.md). For usage information, see [USER_GUIDE.md](USER_GUIDE.md). For the KiwiSDR client bridge, see [Aether_config.md](Aether_config.md).
 
-**73 de SV1BTL, A7AOF, F1NSK & SV2AMK**
+**73 de SV1BTL, 9A7AOF, F1NSK & SV2AMK**

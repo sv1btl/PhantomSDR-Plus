@@ -15,7 +15,7 @@ Dieses Handbuch behandelt alle in PhantomSDR-Plus integrierten Decoder. Alle Dec
 7. [WSPR](#7-wspr)
 8. [HF-FAX / WEFAX](#8-hf-fax--wefax)
 9. [NAVTEX](#9-navtex)
-10. [FSK / RTTY — einschließlich PSK31 und Olivia](#10-fsk--rtty--einschließlich-psk31-und-olivia)
+10. [FSK / RTTY — einschließlich PSK31, Olivia, Packet und APRS](#10-fsk--rtty--einschließlich-psk31-olivia-packet-und-aprs)
 11. [SSTV](#11-sstv)
 12. [Allgemeine Tipps](#12-allgemeine-tipps)
 
@@ -40,7 +40,7 @@ Das Dropdown-Menü ist nicht der einzige Weg. Das Hauptpanel enthält eine Taste
 |---|---|---|---|
 | **FT8** | FT8 | **SSTV** | SSTV |
 | **FT4** | FT4 | **NAVTEX** | NAVTEX |
-| **FT2** | FT2 | **RTTY** | FSK / RTTY |
+| **FT2** | FT2 | **RTTY** | FSK / RTTY, PSK31, Olivia, Packet, APRS |
 | **CW** | CW | | |
 | **WSPR** | WSPR | **FAX** | HF FAX / WEFAX |
 
@@ -49,6 +49,21 @@ Ein Tastendruck erledigt den ganzen Ablauf: Er wählt den Decoder aus, schaltet 
 **RADEL** und **RADEU** fehlen in dieser Reihe absichtlich. Sie sind Digital-Voice-Betriebsarten und keine Text-Decoder, deshalb haben sie ein eigenes Tastenpaar neben der Überschrift **Modes selector** sowie in den Popup-Fenstern **Modes** und **Bands**. Diese verhalten sich genau gleich — drücken zum Starten, erneut drücken zum Stoppen. Siehe das [RADE-Handbuch](RADE_README.md).
 
 Die Tasten, das Dropdown-Menü und die ON/OFF-Taste steuern denselben Zustand — was Sie auch benutzen, das Übrige folgt.
+
+### Einen Decoder über eine Frequenzmarkierung starten
+
+Eine Frequenzmarkierung (die gelben Beschriftungen über dem Wasserfall, aus `markers.json`) stimmt den Empfänger normalerweise ab und stellt die darin eingetragene Betriebsart ein. Ist diese Betriebsart der Name einer digitalen Betriebsart, startet ein Klick auf die Markierung stattdessen deren Decoder, genau so, als hätten Sie dessen Taste gedrückt:
+
+| Betriebsart der Markierung | Startet | Die Frequenz der Markierung ist |
+|---|---|---|
+| `FT8`, `FT4`, `FT2`, `JS8`, `WSPR`, `SSTV` | diesen Decoder | die Skalenfrequenz |
+| `NAVTEX` | NAVTEX | die Signalfrequenz (die Skala geht 500 Hz tiefer) |
+| `FAX`, `WEFAX` | HF-FAX | die veröffentlichte Mittenfrequenz (die Skala geht 1900 Hz tiefer) |
+| `RTTY`, `RTTY-WX`, `SITOR` | FSK / RTTY als Amateur, Wetter oder Maritim | die Signalfrequenz (die Skala geht um die Audiomitte des Panels tiefer) |
+| `PSK31`, `OLIVIA` | FSK / RTTY in dieser Variante | wie oben |
+| `PACKET`, `APRS` | FSK / RTTY in dieser Variante | der Kanal; 300 Bd (USB) unter 30 MHz, 1200 Bd (FM) darüber |
+
+Ein bereits laufender Decoder bleibt an. `CW` bleibt eine normale Empfänger-Betriebsart, da Baken und Stationen sie verwenden — sie startet nicht den CW-Decoder. Markierungen werden nur angezeigt, solange der Wasserfall 3,5 MHz oder weniger umfasst.
 
 > Es kann immer nur ein Decoder aktiv sein. Der Wechsel zu einem anderen Decoder beendet den vorherigen automatisch.
 >
@@ -525,9 +540,9 @@ Klicken Sie auf **Clear**, um den Meldungspuffer zu löschen.
 
 ---
 
-## 10. FSK / RTTY — einschließlich PSK31 und Olivia
+## 10. FSK / RTTY — einschließlich PSK31, Olivia, Packet und APRS
 
-**Worum es geht:** Ein universeller Decoder für schmalbandige Textbetriebsarten mit fünf Varianten, die über ein einziges Auswahlmenü erreichbar sind. Drei davon sind echtes FSK (Frequency-Shift Keying): maritimes FSK (SITOR), Wetter-RTTY und Amateur-RTTY. Die anderen beiden sind überhaupt kein FSK, teilen sich aber dasselbe Fenster: **PSK31**, eine Phasenumtastung, und **Olivia**, ein Mehrton-FSK mit Vorwärtsfehlerkorrektur. Jede Variante bringt eine auf ihre Standardparameter abgestimmte Voreinstellung mit.
+**Worum es geht:** Ein universeller Decoder für schmalbandige Textbetriebsarten mit sieben Varianten, die über ein einziges Auswahlmenü erreichbar sind. Drei davon sind echtes FSK (Frequency-Shift Keying): maritimes FSK (SITOR), Wetter-RTTY und Amateur-RTTY. Die übrigen sind überhaupt kein FSK, teilen sich aber dasselbe Fenster: **PSK31**, eine Phasenumtastung, **Olivia**, ein Mehrton-FSK mit Vorwärtsfehlerkorrektur, sowie **Packet (AX.25)** und **APRS**, die AFSK-Packet-Radio dekodieren — das 1200-Baud-Packet auf VHF/UHF und das 300-Baud-Packet auf KW. Jede Variante bringt eine auf ihre Standardparameter abgestimmte Voreinstellung mit.
 
 ### Varianten und Voreinstellungen
 
@@ -538,15 +553,17 @@ Klicken Sie auf **Clear**, um den Meldungspuffer zu löschen.
 | Amateur-RTTY | 1000 Hz | 170 Hz | 45.45 | 5N1.5 | ITA2 |
 | PSK31 (BPSK) | 1000 Hz | — | 31.25 | — | Varicode |
 | Olivia (MFSK) | 1000 Hz | — | siehe Mode | — | 7 Bit + FEC |
+| Packet (AX.25) | Töne 1200 / 2200 Hz, oder 1700 Hz bei 300 Bd | 1000 Hz, oder 200 Hz bei 300 Bd | 1200 oder 300 | HDLC | AX.25 |
+| APRS | wie Packet | wie Packet | 1200 oder 300 | HDLC | AX.25 + APRS |
 
-Das Bedienfeld passt sich der gewählten Variante an. **Shift**, **Baud**, **Framing**, **Encoding**, **Invert mark / space** und **Auto shift detect** werden bei PSK31 und Olivia ausgeblendet, da keine der beiden Betriebsarten ein Mark/Space-Tonpaar oder eine UART-artige Rahmung besitzt. Stattdessen wird **Center audio** zu einem frei beschreibbaren Zahlenfeld (der Träger kann überall im Durchlassbereich liegen), und Olivia erhält zusätzlich einen **Mode**-Wähler und einen **Squelch**-Regler.
+Das Bedienfeld passt sich der gewählten Variante an. **Shift**, **Baud**, **Framing**, **Encoding**, **Invert mark / space** und **Auto shift detect** werden bei PSK31 und Olivia ausgeblendet, da keine der beiden Betriebsarten ein Mark/Space-Tonpaar oder eine UART-artige Rahmung besitzt. Stattdessen wird **Center audio** zu einem frei beschreibbaren Zahlenfeld (der Träger kann überall im Durchlassbereich liegen), und Olivia erhält zusätzlich einen **Mode**-Wähler und einen **Squelch**-Regler. Packet und APRS blenden dieselben FSK-Regler aus und zeigen stattdessen eine Auswahl **Speed**; APRS hat zusätzlich das Kästchen **Show raw packet**.
 
 ### Einrichtung
 
-1. Aktivieren Sie den Decoder und wählen Sie **FSK / RTTY** aus dem Menü. Oder drücken Sie einfach die Schaltfläche **RTTY**.
-2. Das Decoder-Bedienfeld erscheint. Sein Titel richtet sich nach der Variante — *FSK / RTTY Decoder*, *PSK31 Decoder* oder *Olivia Decoder*.
+1. Aktivieren Sie den Decoder und wählen Sie **FSK / RTTY / PACKET / APRS** aus dem Menü. Oder drücken Sie einfach die Schaltfläche **RTTY**.
+2. Das Decoder-Bedienfeld erscheint. Sein Titel richtet sich nach der Variante — *FSK / RTTY Decoder*, *PSK31 Decoder*, *Olivia Decoder*, *Packet (AX.25) Decoder* oder *APRS Decoder*.
 3. Wählen Sie die **Variant**. Die Parameter werden automatisch aktualisiert.
-4. Stellen Sie bei Olivia den **Mode** (Töne / Bandbreite) passend zur Aussendung ein — siehe die Olivia-Hinweise weiter unten.
+4. Stellen Sie bei Olivia den **Mode** (Töne / Bandbreite) passend zur Aussendung ein — siehe die Olivia-Hinweise weiter unten. Wählen Sie bei Packet und APRS die **Speed** — siehe die Hinweise zu Packet und APRS weiter unten.
 5. Wählen Sie im Menü **Known frequency** eine gebräuchliche Frequenz für die gewählte Variante und klicken Sie dann auf **Tune**, um dorthin zu springen.
 6. Feinabstimmen, bis der dekodierte Text stabil und lesbar wird.
 
@@ -569,11 +586,20 @@ Das Bedienfeld passt sich der gewählten Variante an. **Shift**, **Baud**, **Fra
 **Olivia**
 - 3577,75 kHz (80 m), 7073,75 kHz (40 m), 10142,25 kHz (30 m), 14075,5 kHz (20 m), 18103,75 kHz (17 m), 21075,75 kHz (15 m), 24921,75 kHz (12 m), 28123,75 kHz (10 m)
 
+**Packet und APRS** (dieselbe Liste für beide; jeder Eintrag stellt auch die passende Geschwindigkeit ein)
+- 144,800 MHz — APRS in Europa (IARU Region 1)
+- 144,390 MHz — APRS in Nordamerika
+- 145,175 MHz — APRS in Australien
+- 144,640 MHz — APRS in China
+- 144,660 MHz — APRS in Japan
+- 145,825 MHz — der Packet-Digipeater der ISS
+- 10147,6 kHz — KW-APRS auf 30 m, USB-Skalenfrequenz (300 Bd)
+
 ### Parameter
 
 | Parameter | Gilt für | Beschreibung |
 |-----------|----------|--------------|
-| Center audio (Hz) | alle | Die Audiofrequenz der Mitte zwischen Mark und Space; bei PSK31 der Träger, bei Olivia die Mitte des Tonblocks. Ein Auswahlmenü bei den FSK-Varianten, ein freies Eingabefeld bei PSK31 und Olivia |
+| Center audio (Hz) | alle | Die Audiofrequenz der Mitte zwischen Mark und Space; bei PSK31 der Träger, bei Olivia die Mitte des Tonblocks. Ein Auswahlmenü bei den FSK-Varianten, ein freies Eingabefeld bei PSK31 und Olivia. Bei Packet und APRS ein freies Eingabefeld nur bei 300 Bd; bei 1200 Bd liegen die Töne fest auf 1200 / 2200 Hz und das Feld zeigt sie nur an |
 | Shift (Hz) | nur FSK | Frequenzunterschied zwischen Mark- und Space-Ton |
 | Baud | nur FSK | Symbolrate |
 | Framing | nur FSK | Datenbits, Parität, Stoppbits (z. B. 7N1 = 7 Daten, keine Parität, 1 Stopp) |
@@ -582,6 +608,8 @@ Das Bedienfeld passt sich der gewählten Variante an. **Shift**, **Baud**, **Fra
 | Auto shift detect | nur FSK | Versucht, den Shift automatisch aus dem eingehenden Signal zu messen |
 | Mode (Töne / Hz) | nur Olivia | Anzahl der Töne und Bandbreite — muss exakt zur Aussendung passen |
 | Squelch (FEC S/N) | nur Olivia | Wie stark die Übereinstimmung der Fehlerkorrektur sein muss, bevor Text ausgegeben wird |
+| Speed | Packet und APRS | **1200 Bd · VHF/UHF (FM)** oder **300 Bd · HF (USB)**. Damit wird auch die Betriebsart des Empfängers gewählt |
+| Show raw packet | nur APRS | Gibt zusätzlich über jeder dekodierten Zeile das Paket so aus, wie es empfangen wurde (TNC2-Format) |
 | Squelch (SNR) | Amateur- und Wetter-RTTY | Verhindert, dass Rauschen als zufällige Buchstaben ausgegeben wird. Beginnt bei −5 dB für Amateur-RTTY und −8 dB für Wetter-RTTY; ganz links (**off**) ist sie abgeschaltet. Die SNR-Anzeige wird grau, solange die Squelch geschlossen ist |
 
 ### Signalmesswerte
@@ -593,6 +621,7 @@ Die Statuszeile zeigt Live-Messwerte, und die Felder wechseln mit der Variante:
 | FSK-Varianten | **Mark / Space** (gemessene Tonfrequenzen), **SNR**, **Lock**, **Timing** |
 | PSK31 | **Carrier** (Hz, nach automatischer Frequenzkorrektur), **IMD** (dB), **SNR**, **Lock**, **Timing** |
 | Olivia | **Centre** (Hz), **Mode**, **S/N**, **FEC** (%), **Sync** |
+| Packet und APRS | **Tones** (Hz), **DCD** (leuchtet, solange ein Paket gesendet wird), **Frames** (dekodierte Pakete), **Stations** (verschiedene gehörte Rufzeichen), **Audio** (Eingangspegel, dBFS) |
 
 `Timing`/`Sync` zeigt `LOCKED`/`SYNCED`, sobald der Decoder dem Signal folgt, und `SEARCH`, solange er noch sucht.
 
@@ -602,8 +631,8 @@ Amateur-RTTY (45,45 Baud, 170 Hz) wird bis herab zu etwa 0 dB fehlerfrei gelesen
 
 ### Weitere Bedienelemente
 
-- **⇒ Set IF Band-Pass** — verengt den Durchlassbereich des Empfängers so, dass er das Signal eng umschließt. Die Breite richtet sich nach der Variante: 300 Hz für Amateur-RTTY (schmal genug, um eine stärkere Station 250 Hz daneben zu entfernen, und dennoch lesbar bei einem 40 Hz verstimmten Signal), 594 Hz für Wetter-RTTY, Mark/Space plus Reserve für Maritime FSK, etwa ±100 Hz für PSK31 und die volle Breite des Tonblocks plus Reserve für Olivia. Der Durchlassbereich folgt dem Decoder, wenn **Auto-tune** oder **Auto shift detect** die Töne verschiebt, und wenn Sie die **Baud**-Einstellung ändern.
-- **⟳ Auto-tune Center** — automatische Suche nach dem Signal. Bei den FSK-Varianten sucht sie ein ausgewogenes Tonpaar, bei PSK31 findet sie den Träger, bei Olivia den stärksten Block der gewählten Bandbreite. **Auto shift detect** ändert die Shift nur, wenn ein echtes Zweitonsignal vorhanden ist, und springt daher nicht mehr auf Rauschen.
+- **⇒ Set IF Band-Pass** — verengt den Durchlassbereich des Empfängers so, dass er das Signal eng umschließt. Die Breite richtet sich nach der Variante: 300 Hz für Amateur-RTTY (schmal genug, um eine stärkere Station 250 Hz daneben zu entfernen, und dennoch lesbar bei einem 40 Hz verstimmten Signal), 594 Hz für Wetter-RTTY, Mark/Space plus Reserve für Maritime FSK, etwa ±100 Hz für PSK31 und die volle Breite des Tonblocks plus Reserve für Olivia. Der Durchlassbereich folgt dem Decoder, wenn **Auto-tune** oder **Auto shift detect** die Töne verschiebt, und wenn Sie die **Baud**-Einstellung ändern. Bei Packet mit 300 Bd sind es etwa ±400 Hz, bei Packet mit 1200 Bd der normale FM-Kanal.
+- **⟳ Auto-tune Center** — automatische Suche nach dem Signal. Bei den FSK-Varianten sucht sie ein ausgewogenes Tonpaar, bei PSK31 findet sie den Träger, bei Olivia den stärksten Block der gewählten Bandbreite. **Auto shift detect** ändert die Shift nur, wenn ein echtes Zweitonsignal vorhanden ist, und springt daher nicht mehr auf Rauschen. Bei Packet mit 300 Bd findet sie das stärkste Tonpaar im Abstand von 200 Hz. Bei Packet mit 1200 Bd ist die Schaltfläche ausgeblendet, da die Töne dort fest liegen.
 
 ### Hinweise zu PSK31
 
@@ -622,9 +651,21 @@ Olivia tauscht Geschwindigkeit gegen Robustheit. Es ist deutlich langsamer als P
 - Die Fehlerkorrektur arbeitet blockweise, der Text trifft daher **schubweise statt gleichmäßig** ein, mit einer Verzögerung von mehreren Blöcken zwischen Aussendung und Anzeige.
 - **Squelch (FEC S/N)** legt fest, wie sicher sich die Fehlerkorrektur sein muss, bevor sie ausgibt. Die Voreinstellung 4,0 hält Rauschen fern; 3,0 ist die Untergrenze, unterhalb derer zufälliges Rauschen vereinzelt Zeichen ausgibt. Ein gutes Signal erreicht 8–9 auf der **FEC**-Anzeige, es bleibt also reichlich Spielraum, den Squelch auf einem belegten Band anzuheben.
 
-> **Hinweis zur Betriebsart:** Der Decoder übernimmt die Kontrolle über Demodulationsart und ZF-Durchlassbereich, solange er aktiv ist. Beides wird beim Abschalten automatisch wiederhergestellt. Alle fünf Varianten verwenden **USB**.
+### Hinweise zu Packet und APRS
+
+Packet Radio überträgt Daten in kurzen Blöcken, den Frames. Jeder Frame enthält das Rufzeichen des Absenders, das Ziel, die durchlaufenen Digipeater und eine Prüfsumme. **APRS** (Automatic Packet Reporting System) nutzt diese Frames, um Positionen, Wetterdaten, Nachrichten und Statusmeldungen zu verbreiten, meist auf einer gemeinsamen Frequenz je Region.
+
+- **Packet** gibt jeden Frame aus, wie es ein TNC-Monitor tut: Uhrzeit (UTC), `QUELLE>ZIEL,PFAD`, den Frame-Typ in spitzen Klammern, dann den Text. Neben Aussendungen an alle erscheint auch Verkehr im Connected-Modus (SABM, UA, I-Frames, RR, DISC).
+- **APRS** gibt nur die von APRS verwendeten Rundsende-Frames aus und macht aus jedem Klartext: Position mit Maidenhead-Locator, Symbol (Auto, Haus, Wetterstation, …), Geschwindigkeit und Kurs, Höhe, Kommentar, Wetterwerte in metrischen Einheiten, Nachrichten und Bestätigungen, Objekte, Items, Status und Telemetrie. Auch komprimierte und Mic-E-Positionen werden dekodiert. Mit **Show raw packet** erscheint das empfangene Paket über seiner dekodierten Zeile.
+- **APRS-Karte.** Unter dem dekodierten Text zeigt die APRS-Variante eine Karte aller gehörten Stationen mit Position, so breit und so hoch wie das Textfenster: eine beschriftete Markierung je Station (Objekte und Items unter ihrem eigenen Namen), eine Spurlinie für bewegte Stationen und eine bernsteinfarbene Markierung für diesen Empfänger, gesetzt nach seinem Locator. Ein Klick auf eine Station zeigt ihre dekodierte Zeile, wann sie zuletzt gehört wurde sowie Entfernung und Richtung vom Empfänger; ein Klick auf eine dekodierte Zeile im Textfenster zoomt die Karte auf diese Station. **Auto fit** (standardmäßig an) passt den Ausschnitt an, wenn Stationen hinzukommen oder sich bewegen; Verschieben oder Zoomen von Hand schaltet es ab, ein Haken schaltet es wieder ein. **Fit all** zeigt einmal alles, **Clear** leert die Karte, und **–** verkleinert sie auf ihre Titelleiste (**□** holt sie zurück) — Stationen werden währenddessen weiter gesammelt. Die Kartenbilder kommen von OpenStreetMap, der Browser des Hörers braucht also Internetzugang, um sie zu zeichnen; die Dekodierung selbst bleibt lokal.
+- **Speed 1200 Bd** ist der VHF/UHF-Standard (Bell-202-Töne, 1200 / 2200 Hz). Der Decoder schaltet den Empfänger auf **FM** und stimmt ihn direkt auf den Kanal ab: Wählen Sie in Europa **144,800 MHz**, oder stimmen Sie einen beliebigen Packet-Kanal ab und drücken Sie **⇒ Set IF Band-Pass**. Mit dem **Wheel Tuning Step** von 12,5 kHz bewegen Sie sich im VHF-Kanalraster.
+- **Speed 300 Bd** ist KW-Packet, zwei Töne im Abstand von 200 Hz. Der Empfänger geht auf **USB**, und die Skalenfrequenz ist die veröffentlichte Frequenz; die Töne liegen bei 1600 / 1800 Hz. Liegt das Signal etwas daneben, verwenden Sie **⟳ Auto-tune Center**.
+- **Nur Frames mit korrekter Prüfsumme werden ausgegeben**, Rauschen erscheint also nie als Zeichensalat — ein leeres Fenster bedeutet einen ruhigen Kanal. Leuchtet **DCD**, ohne dass **Frames** weiterzählt, sind Signale vorhanden, aber zu schwach oder zu verzerrt, um die Prüfsumme zu bestehen.
+- Der Decoder arbeitet mit FM-Empfängern mit und ohne Deemphasis und mit Sendern, die einen Ton stärker anheben als den anderen.
+
+> **Hinweis zur Betriebsart:** Der Decoder übernimmt die Kontrolle über Demodulationsart und ZF-Durchlassbereich, solange er aktiv ist. Beides wird beim Abschalten automatisch wiederhergestellt. Alle Varianten verwenden **USB**, außer Packet und APRS mit 1200 Bd, die **FM** verwenden.
 >
-> **Hinweis zur Polarität (nur FSK-Varianten):** Bei Wetter-RTTY muss meist **Invert mark / space** aktiviert werden. Bei maritimem FSK (SITOR/NAVTEX-Art) und Amateur-RTTY lassen Sie es deaktiviert — Amateur-RTTY sendet Mark als die höhere Hochfrequenz, und USB behält sie als den höheren Audioton bei, was genau dem deaktivierten Fall entspricht. Ist der dekodierte Text verstümmelt, sollten Sie zuerst dieses Kästchen umschalten. Bei PSK31 und Olivia ist es ausgeblendet, da sie kein Mark/Space-Paar besitzen.
+> **Hinweis zur Polarität (nur FSK-Varianten):** Bei Wetter-RTTY muss meist **Invert mark / space** aktiviert werden. Bei maritimem FSK (SITOR/NAVTEX-Art) und Amateur-RTTY lassen Sie es deaktiviert — Amateur-RTTY sendet Mark als die höhere Hochfrequenz, und USB behält sie als den höheren Audioton bei, was genau dem deaktivierten Fall entspricht. Ist der dekodierte Text verstümmelt, sollten Sie zuerst dieses Kästchen umschalten. Bei PSK31 und Olivia ist es ausgeblendet, da sie kein Mark/Space-Paar besitzen. Auch bei Packet und APRS ist es ausgeblendet, denn die Packet-Dekodierung hängt nicht davon ab, welcher Ton welcher ist.
 >
 > **Hinweis zu Buchstaben/Ziffern (nur FSK-Varianten):** Baudot führt Buchstaben und Ziffern in zwei getrennten Zuständen, und Rauschen kann den Decoder in den falschen kippen — wodurch nicht nur das gestörte, sondern jedes folgende Zeichen verstümmelt wird. Der Decoder kehrt deshalb bei jedem Leerzeichen zu Buchstaben zurück; das ist übliche Praxis und repariert eine verfälschte Umschaltung innerhalb von ein bis zwei Wörtern statt einer ganzen Zeile. Der Preis: Zifferngruppen, die durch Leerzeichen getrennt sind, erfordern, dass die Gegenstelle die Ziffernumschaltung nach jedem Leerzeichen wiederholt — was Sender normalerweise tun.
 
@@ -717,7 +758,7 @@ Da Force sämtliche Sicherheitsprüfungen überspringt, malt es bereitwillig Rau
 **Die Genauigkeit der Systemuhr zählt.** FT8, FT4 und WSPR sind zeitkritisch. Sie dekodieren in festen, an UTC ausgerichteten Fenstern. Weicht Ihre Rechneruhr um mehr als 1–2 Sekunden ab, sinken die Dekodierraten deutlich. Halten Sie Ihre Uhr mit einem NTP-Client genau.
 
 **Die Rauschfilter erreichen die Decoder nicht.** NR, NB, NS und AN sind
-Hörhilfen, ausschließlich für Ihre Ohren. Jeder Decoder — FT8, FT4/FT2, CW, WSPR, FAX, NAVTEX, FSK/RTTY/PSK31/Olivia, SSTV und der QRSS-Grabber — greift das Audio *vor* diesen Filtern ab; stellen Sie sie also so ein, wie es am besten klingt, ohne sich um die Decodierqualität zu sorgen. Aus demselben Grund laufen die Decoder weiter, während der Empfänger stummgeschaltet oder zugerauscht ist: Sie können den Lautsprecher abschalten und einen Decoder oder eine Nacht-QRSS-Aufzeichnung weiterlaufen lassen. Was dem Gehörten tatsächlich folgt, ist allein das Audio-Spektrogramm, das bewusst das gefilterte Audio zeigt.
+Hörhilfen, ausschließlich für Ihre Ohren. Jeder Decoder — FT8, FT4/FT2, CW, WSPR, FAX, NAVTEX, FSK/RTTY/PSK31/Olivia/Packet/APRS, SSTV und der QRSS-Grabber — greift das Audio *vor* diesen Filtern ab; stellen Sie sie also so ein, wie es am besten klingt, ohne sich um die Decodierqualität zu sorgen. Aus demselben Grund laufen die Decoder weiter, während der Empfänger stummgeschaltet oder zugerauscht ist: Sie können den Lautsprecher abschalten und einen Decoder oder eine Nacht-QRSS-Aufzeichnung weiterlaufen lassen. Was dem Gehörten tatsächlich folgt, ist allein das Audio-Spektrogramm, das bewusst das gefilterte Audio zeigt.
 
 **Signalqualität schlägt Signalstärke.** Die meisten dieser Decoder sind für schwache Signale ausgelegt. Ein ruhigeres Band mit geringerem Rauschen ist oft ergiebiger als ein lautes, störungsreiches Signal. Nutzen Sie Wasserfall und Durchlassbereichseinstellungen, um QRM zu erkennen und zu meiden, bevor Sie einen Decoder aktivieren.
 

@@ -252,6 +252,7 @@ PhantomSDR-Plus
 │   │   │   └── svelte.png
 │   │   ├── audio.js
 │   │   ├── audio-stream-worklet.js
+│   │   ├── ax25.js
 │   │   ├── bands-config.js
 │   │   ├── broadcastSchedules.js
 │   │   ├── clientVersion.js
@@ -273,6 +274,7 @@ PhantomSDR-Plus
 │   │   ├── fskWorkerProxy.js
 │   │   ├── kiwiSource.js
 │   │   ├── lib
+│   │   │   ├── aprsMap.js
 │   │   │   ├── backend.js
 │   │   │   ├── BandSelector.svelte
 │   │   │   ├── catsync.js
@@ -979,7 +981,7 @@ Jeder der rechenintensiven Betriebsartendecoder läuft in einem eigenen Web Work
 |---------|--------|--------|------------------------|
 | SSTV | `sstv.js` | `sstv.worker.js` | `sstvWorkerProxy.js` |
 | HF-FAX | `fax.js` | `fax.worker.js` | `faxWorkerProxy.js` |
-| NAVTEX + FSK/RTTY + PSK31 + Olivia | `fsk.js`, `psk31.js`, `olivia.js` | `fsk.worker.js` | `fskWorkerProxy.js` |
+| NAVTEX + FSK/RTTY + PSK31 + Olivia + Packet/APRS | `fsk.js`, `psk31.js`, `olivia.js`, `ax25.js` | `fsk.worker.js` | `fskWorkerProxy.js` |
 | CW | `cwDecoder.js` | `cw.worker.js` | `cwWorkerProxy.js` |
 
 - Die **Engine** ist reiner DSP-Code ohne Kenntnis von Workern und lässt sich daher auch direkt ausführen (Unit-Tests oder der Rückfall in den Haupt-Thread).
@@ -990,10 +992,12 @@ Zwei Details sind tragend: Das PCM wird in einen frischen Puffer **kopiert**, be
 
 `fsk.js` bedient sowohl NAVTEX als auch FSK/RTTY aus einer Engine, je Instanz über ein `role`-Feld gewählt; jede Instanz besitzt ihren eigenen Zustand, sodass beide unabhängig laufen können.
 
-Die Rolle `fsk` beherbergt zusätzlich zwei Decoder, die überhaupt kein FSK sind. Wird die Variante `psk31` oder `olivia` gewählt, übergibt `fsk.js` das Audio an `psk31.js` bzw. `olivia.js` statt an die eigene Diskriminatorkette, nutzt aber weiterhin dessen Konfiguration, Worker und Ereignis-Infrastruktur — `fsk.worker.js`, `fskWorkerProxy.js` und `audio.js` müssen von beiden Betriebsarten nichts wissen, und die Oberfläche verarbeitet durchgehend dieselben `char`/`status`/`metrics`-Ereignisse.
+Die Rolle `fsk` beherbergt zusätzlich Decoder, die ihre FSK-Kette überhaupt nicht benutzen. Wird die Variante `psk31`, `olivia`, `packet` oder `aprs` gewählt, übergibt `fsk.js` das Audio an `psk31.js`, `olivia.js` bzw. `ax25.js` statt an die eigene Diskriminatorkette, nutzt aber weiterhin dessen Konfiguration, Worker und Ereignis-Infrastruktur — `fsk.worker.js` und `fskWorkerProxy.js` müssen von diesen Betriebsarten nichts wissen, und die Oberfläche verarbeitet durchgehend dieselben `char`/`status`/`metrics`-Ereignisse, dazu ein Ereignis `line`, das ein ganzes dekodiertes Paket trägt.
 
 - `psk31.js` — BPSK31: komplexes Basisband, angepasstes Filter, Differenzdemodulation und Varicode, mit spektraler Grobsuche und einer Feinregelung über etwa ±25 Hz.
 - `olivia.js` — Olivia MFSK: eine Portierung des MFSK-Empfängers von Pawel Jalocha aus fldigi (`pj_mfsk.h`, GPL-3, wie auch dieses Projekt), einschließlich der Walsh/Hadamard-Fehlerkorrektur und der blinden Synchronisationssuche über Blockphase und Frequenzversatz.
+- `ax25.js` — Packet Radio und APRS: ein AFSK-Demodulator für 1200 Bd (Bell 202, in FM empfangen) und 300-Bd-KW-Packet (in USB empfangen), mit fünf Entscheidern bei unterschiedlicher Tonbalance und je einer Taktrückgewinnung, danach NRZI/HDLC-Entrahmung, die CRC-16-Rahmenprüfung, die Auswertung von AX.25-Adress- und Steuerfeld sowie ein APRS-Parser (Positionen einschließlich komprimierter und Mic-E, Wetter, Nachrichten, Objekte, Items, Status, Telemetrie). Gemeldet werden nur Frames, die die Prüfsumme bestehen und eine gültige Adresse tragen. `packet` gibt jeden Frame wie ein TNC-Monitor aus; `aprs` gibt APRS-Frames als dekodierten Klartext aus.
+- `lib/aprsMap.js` — die APRS-Karte: hält jede Station mit dekodierter Position fest (Objekte und Items unter ihrem eigenen Namen, gelöschte werden entfernt, eine Spur für bewegte) und zeichnet sie mit Leaflet auf OpenStreetMap-Kacheln; die eigene Position des Empfängers stammt aus `siteGridSquare`. Leaflet wird erst geladen, wenn die Karte zum ersten Mal erscheint, und kostet Hörern, die APRS nie öffnen, nichts. Über Funk empfangener Text gelangt nur über `textContent` oder Escaping auf die Seite. `App.svelte` setzt die Karte unter das APRS-Textfenster und öffnet und schließt sie mit ihm.
 - `broadcastSchedules.js` — die UTC-Sendepläne, die FAX-, NAVTEX- und RTTY-Decoder als Voreinstellungen anbieten, aus den NOAA/NWS-Marine-Faxplänen und den veröffentlichten NAVTEX-Stationslisten
 
 #### 4b. Empfangsdiversität (`diversity.js`)
@@ -1076,6 +1080,8 @@ frequencylist/
     { "frequency": 2485000, "name": "Vanuatu Broadcasting", "mode": "AM" }
 ]
 ```
+
+`mode` ist eine Empfänger-Betriebsart (`USB`, `LSB`, `AM`, `FM`, `CW`, …) oder der Name einer digitalen Betriebsart — `FT8`, `FT4`, `FT2`, `JS8`, `WSPR`, `SSTV`, `NAVTEX`, `FAX`, `RTTY`, `RTTY-WX`, `SITOR`, `PSK31`, `OLIVIA`, `PACKET` oder `APRS` —; dann startet ein Klick auf die Markierung diesen Decoder ([Einzelheiten](DECODERS.md#einen-decoder-über-eine-frequenzmarkierung-starten)).
 
 ---
 
@@ -1386,4 +1392,4 @@ Die Liste wächst nur: Einträge früherer Versionen bleiben erhalten, sodass ei
 
 Einrichtungsanweisungen finden Sie in [INSTALLATION.md](INSTALLATION.md). Hinweise zur Bedienung finden Sie in [USER_GUIDE.md](USER_GUIDE.md).
 
-**73 de SV1BTL, A7AOF, F1NSK & SV2AMK**
+**73 de SV1BTL, 9A7AOF, F1NSK & SV2AMK**

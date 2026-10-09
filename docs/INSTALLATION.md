@@ -796,7 +796,7 @@ Edit the following fields:
 nano markers.json
 ```
 
-Add your favorite frequencies, repeaters, and broadcast stations.
+Add your favorite frequencies, repeaters, and broadcast stations. A marker whose mode is a digital mode, such as `FT8` or `APRS`, starts that decoder when clicked — see [Decoders](DECODERS.md#starting-a-decoder-from-a-frequency-marker).
 
 ### 5. Edit Start Script
 
@@ -1843,4 +1843,4 @@ modulation = "WBFM"
 
 **Installation complete! You should now have a fully functional PhantomSDR-Plus server.**
 
-**73 de SV1BTL, A7AOF, F1NSK & SV2AMK**
+**73 de SV1BTL, 9A7AOF, F1NSK & SV2AMK**

@@ -35,7 +35,7 @@ PhantomSDR-Plus ist ein Fork von PhantomSDR und stellt einen leistungsstarken So
 - **KI-Rauschunterdrückung**: neuronales Netz RNNoise im Browser des Hörers, entfernt Bandrauschen aus Sprache (nur Sprachbetriebsarten; siehe [Benutzerhandbuch](USER_GUIDE.md))
 
 ### Erweiterte Funktionen
-- **Digitale Decoder**: FT8, FT4, FT2, JS8, CW, QRSS Grabber, WSPR, HF-FAX, SSTV, NAVTEX, FSK/RTTY, PSK31, Olivia und FreeDV RADE, jeweils in einem eigenen Hintergrund-Thread, sodass die Dekodierung das Audio nie unterbricht (siehe [Decoder](DECODERS.md))
+- **Digitale Decoder**: FT8, FT4, FT2, JS8, CW, QRSS Grabber, WSPR, HF-FAX, SSTV, NAVTEX, FSK/RTTY, PSK31, Olivia, Packet (AX.25), APRS (mit einer Live-Karte der gehörten Stationen) und FreeDV RADE, jeweils in einem eigenen Hintergrund-Thread, sodass die Dekodierung das Audio nie unterbricht (siehe [Decoder](DECODERS.md))
 - **Decoder ID**: benennt die digitale Betriebsart im Durchlassbereich und bietet mit einem Klick den passenden Decoder an — aus gemessener Bandbreite, Tonabstand, Symbolrate und Burst-Timing, wobei die Frequenz als zusätzlicher Hinweis einfließt, was zugleich **FT8 von JS8** trennt, zwei Betriebsarten mit identischem Signal. Es schlägt nur vor, schaltet nie von selbst um, und schweigt lieber, als bei zu schwachem Signal zu raten. Schwund bringt es nicht zum Verstummen: Zerlegt QSB eine zweiminütige WSPR-Aussendung in Bruchstücke, benennt es die Betriebsart weiterhin, liest den Takt aus dem gesamten Beobachtungszeitraum und senkt die angezeigte Sicherheit, um den schwächeren Beleg kenntlich zu machen. Zwischen etwa 400 Hz und 2700 Hz spielt die Lage im Durchlassbereich keine Rolle; außerhalb erscheint eine bernsteinfarbene Schaltfläche **Recentre & retry**, die die Abstimmung einmal verschiebt und neu misst. Nehmen Sie einen Vorschlag an, wird der Empfänger auf diese Betriebsart eingestellt: Die Abstimmfrequenz rückt in die Mitte des Wasserfalls, die Ansicht wird rund 100 kHz breit, und Seitenband und Durchlassbereich werden die, mit denen diese Betriebsart gearbeitet wird — das 3-kHz-Teilband für die FT8-Familie, 1350–1650 Hz für WSPR, ±250 Hz und CW für Morsetelegrafie, und so weiter. Standardmäßig aus, im Betrieb etwa 0,5 % eines Kerns (siehe [Decoder](DECODERS.md))
 - **Voreinstellungen für digitale Betriebsarten**: FT8, FT4, FT2, JS8 oder WSPR setzen Seitenband und Durchlassbereich zugleich
 - **JS8-Gesprächsfenster**: Nachrichten aus mehreren Frames werden zu ganzen Sätzen zusammengesetzt
@@ -387,7 +387,7 @@ Dieses Projekt steht unter der GNU General Public License v3.0 – Einzelheiten 
 
 ## 👥 Autoren und Danksagungen
 
-- **SV1BTL, A7AOF, F1NSK und SV2AMK** – Entwicklung und Erweiterungen von PhantomSDR-Plus
+- **SV1BTL, 9A7AOF, F1NSK und SV2AMK** – Entwicklung und Erweiterungen von PhantomSDR-Plus
 - Basierend auf dem ursprünglichen PhantomSDR-Projekt
 
 ---
@@ -417,6 +417,6 @@ Dieses Projekt steht unter der GNU General Public License v3.0 – Einzelheiten 
 
 ---
 
-**73 de SV1BTL, A7AOF, F1NSK & SV2AMK**
+**73 de SV1BTL, 9A7AOF, F1NSK & SV2AMK**
 
 *Ausführliche Einrichtungsanweisungen finden Sie in INSTALLATION.md* *Die Bedienungsanleitung für Endnutzer finden Sie in USER_GUIDE.md*

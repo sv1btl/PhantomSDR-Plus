@@ -252,6 +252,7 @@ PhantomSDR-Plus
 │   │   │   └── svelte.png
 │   │   ├── audio.js
 │   │   ├── audio-stream-worklet.js
+│   │   ├── ax25.js
 │   │   ├── bands-config.js
 │   │   ├── broadcastSchedules.js
 │   │   ├── clientVersion.js
@@ -273,6 +274,7 @@ PhantomSDR-Plus
 │   │   ├── fskWorkerProxy.js
 │   │   ├── kiwiSource.js
 │   │   ├── lib
+│   │   │   ├── aprsMap.js
 │   │   │   ├── backend.js
 │   │   │   ├── BandSelector.svelte
 │   │   │   ├── catsync.js
@@ -979,7 +981,7 @@ Svaki od zahtjevnih dekodera načina rada izvodi se u vlastitom Web Workeru, pa 
 |---------|-----------|--------|--------------------------|
 | SSTV | `sstv.js` | `sstv.worker.js` | `sstvWorkerProxy.js` |
 | HF FAX | `fax.js` | `fax.worker.js` | `faxWorkerProxy.js` |
-| NAVTEX + FSK/RTTY + PSK31 + Olivia | `fsk.js`, `psk31.js`, `olivia.js` | `fsk.worker.js` | `fskWorkerProxy.js` |
+| NAVTEX + FSK/RTTY + PSK31 + Olivia + Packet/APRS | `fsk.js`, `psk31.js`, `olivia.js`, `ax25.js` | `fsk.worker.js` | `fskWorkerProxy.js` |
 | CW | `cwDecoder.js` | `cw.worker.js` | `cwWorkerProxy.js` |
 
 - **Mehanizam** je čisti DSP kod koji ništa ne zna o workerima, pa se može pokrenuti i izravno (jedinični testovi ili rezervni rad u istoj dretvi).
@@ -990,10 +992,12 @@ Dvije su pojedinosti ključne: PCM se **kopira** u novi međuspremnik prije prij
 
 `fsk.js` iz jednog mehanizma poslužuje i NAVTEX i FSK/RTTY, uz odabir po instanci pomoću polja `role`; svaka instanca ima vlastito stanje, pa oba mogu raditi neovisno.
 
-Uloga `fsk` dodatno ugošćuje dva dekodera koji uopće nisu FSK. Odabirom inačice `psk31` ili `olivia`, `fsk.js` predaje zvuk modulu `psk31.js` odnosno `olivia.js` umjesto vlastitom diskriminatorskom lancu, ali i dalje posuđuje njegovu konfiguraciju, worker i sustav događaja — pa `fsk.worker.js`, `fskWorkerProxy.js` i `audio.js` ne moraju znati ništa ni o jednom od ta dva načina rada, a sučelje posvuda prima iste događaje `char`/`status`/`metrics`.
+Uloga `fsk` dodatno ugošćuje dekodere koji uopće ne koriste njezin FSK lanac. Odabirom inačice `psk31`, `olivia`, `packet` ili `aprs`, `fsk.js` predaje zvuk modulu `psk31.js`, `olivia.js` odnosno `ax25.js` umjesto vlastitom diskriminatorskom lancu, ali i dalje posuđuje njegovu konfiguraciju, worker i sustav događaja — pa `fsk.worker.js` i `fskWorkerProxy.js` ne moraju znati ništa o tim načinima rada, a sučelje posvuda prima iste događaje `char`/`status`/`metrics`, uz događaj `line` koji nosi cijeli dekodirani paket.
 
 - `psk31.js` — BPSK31: kompleksni osnovni pojas, prilagođeni filtar, diferencijalna detekcija i varicode, uz spektralno grubo hvatanje i fini AFC raspona približno ±25 Hz.
 - `olivia.js` — Olivia MFSK: prijenos MFSK prijamnika Pawela Jaloche iz fldigija (`pj_mfsk.h`, GPL-3, kao i ovaj projekt), uključujući Walsh/Hadamard korekciju pogrešaka i slijepo traženje sinkronizacije po fazi bloka i frekvencijskom pomaku.
+- `ax25.js` — Packet radio i APRS: AFSK demodulator za 1200 Bd (Bell 202, prijem u FM-u) i za KV packet od 300 Bd (prijem u USB-u), s pet odlučivača pri različitoj ravnoteži tonova i po jednom petljom za obnovu takta, zatim NRZI/HDLC razokvirivanje, CRC-16 provjera okvira, raščlamba AX.25 adresnog i upravljačkog polja te APRS parser (položaji, uključujući komprimirane i Mic-E, vrijeme, poruke, objekti, itemi, stanje, telemetrija). Prijavljuju se samo okviri koji prođu kontrolni zbroj i nose ispravnu adresu. `packet` ispisuje svaki okvir kao TNC monitor; `aprs` ispisuje APRS okvire dekodirane u običan tekst.
+- `lib/aprsMap.js` — APRS karta: pamti svaku postaju s dekodiranim položajem (objekti i itemi pod vlastitim imenom, obrisani se uklanjaju, putanja za one u pokretu) i crta ih pomoću Leafleta na OpenStreetMap pločicama; položaj samog prijemnika dolazi iz `siteGridSquare`. Leaflet se učitava tek kad se karta prvi put prikaže, pa ništa ne stoji slušatelje koji nikad ne otvore APRS. Tekst primljen iz etera stiže na stranicu samo kroz `textContent` ili escapiranje. `App.svelte` smješta kartu ispod APRS prozora s tekstom te je otvara i zatvara zajedno s njim.
 - `broadcastSchedules.js` — UTC rasporedi koje FAX, NAVTEX i RTTY dekoderi nude kao pripremljene postavke, iz NOAA/NWS rasporeda pomorskog faksimila i objavljenih popisa NAVTEX postaja
 
 #### 4b. Diverziti prijam (`diversity.js`)
@@ -1077,6 +1081,8 @@ frequencylist/
     { "frequency": 2485000, "name": "Vanuatu Broadcasting", "mode": "AM" }
 ]
 ```
+
+`mode` je način rada prijemnika (`USB`, `LSB`, `AM`, `FM`, `CW`, …) ili ime digitalnog načina rada — `FT8`, `FT4`, `FT2`, `JS8`, `WSPR`, `SSTV`, `NAVTEX`, `FAX`, `RTTY`, `RTTY-WX`, `SITOR`, `PSK31`, `OLIVIA`, `PACKET` ili `APRS` — i tada klik na oznaku pokreće taj dekoder ([pojedinosti](DECODERS.md#pokretanje-dekodera-s-oznake-frekvencije)).
 
 ---
 
@@ -1387,4 +1393,4 @@ Popis samo raste: unosi ranijih verzija se zadržavaju, pa jednom objavljena jav
 
 Za upute o postavljanju pogledajte [INSTALLATION.md](INSTALLATION.md). Za informacije o korištenju pogledajte [USER_GUIDE.md](USER_GUIDE.md).
 
-**73 de SV1BTL, A7AOF, F1NSK & SV2AMK**
+**73 de SV1BTL, 9A7AOF, F1NSK & SV2AMK**

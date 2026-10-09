@@ -795,7 +795,7 @@ Edite los siguientes campos:
 nano markers.json
 ```
 
-Añada sus frecuencias favoritas, repetidores y emisoras de radiodifusión.
+Añada sus frecuencias favoritas, repetidores y emisoras de radiodifusión. Un marcador cuyo modo es un modo digital, como `FT8` o `APRS`, inicia ese decodificador al pulsarlo — véase [Decodificadores](DECODERS.md#iniciar-un-decodificador-desde-un-marcador-de-frecuencia).
 
 ### 5. Edite el script de arranque
 
@@ -1844,4 +1844,4 @@ modulation = "WBFM"
 
 **¡Instalación completada! Ya debería tener un servidor PhantomSDR-Plus plenamente funcional.**
 
-**73 de SV1BTL, A7AOF, F1NSK & SV2AMK**
+**73 de SV1BTL, 9A7AOF, F1NSK & SV2AMK**

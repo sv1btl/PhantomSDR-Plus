@@ -35,7 +35,7 @@ PhantomSDR-Plus es un fork de PhantomSDR que ofrece un servidor web de radio def
 - **Reducción de ruido por IA**: red neuronal RNNoise en el navegador del oyente, elimina el ruido de banda de la voz (solo modos de voz; véase la [Guía del usuario](USER_GUIDE.md))
 
 ### Funciones avanzadas
-- **Decodificadores digitales**: FT8, FT4, FT2, JS8, CW, QRSS Grabber, WSPR, FAX de HF, SSTV, NAVTEX, FSK/RTTY, PSK31, Olivia y FreeDV RADE, cada uno ejecutándose en su propio hilo en segundo plano para que la decodificación nunca interrumpa el audio (véase [Decodificadores](DECODERS.md))
+- **Decodificadores digitales**: FT8, FT4, FT2, JS8, CW, QRSS Grabber, WSPR, FAX de HF, SSTV, NAVTEX, FSK/RTTY, PSK31, Olivia, Packet (AX.25), APRS (con un mapa en vivo de las estaciones oídas) y FreeDV RADE, cada uno ejecutándose en su propio hilo en segundo plano para que la decodificación nunca interrumpa el audio (véase [Decodificadores](DECODERS.md))
 - **Decoder ID**: nombra el modo digital presente en el paso de banda y ofrece el decodificador adecuado con un clic, a partir del ancho de banda, la separación de tonos, la velocidad de símbolo y la temporización de las ráfagas medidos, teniendo en cuenta además la frecuencia como indicio adicional, que es también lo que distingue **FT8 de JS8**, dos modos de señal idéntica. Solo sugiere, nunca cambia por su cuenta, y prefiere callar a adivinar cuando la señal es demasiado débil. El desvanecimiento no lo silencia: cuando el QSB parte en trozos una transmisión WSPR de dos minutos, sigue nombrando el modo, leyendo la cadencia de todo el historial de escucha, y baja la confianza mostrada para indicar que la prueba es más débil. Entre unos 400 Hz y 2700 Hz la posición en el paso de banda es indiferente; fuera de ese margen aparece un botón ámbar **Recentre & retry**, que mueve el dial una vez e inicia una medición nueva. Cuando acepta una sugerencia, el receptor queda preparado para trabajar ese modo: la frecuencia sintonizada pasa al centro de la cascada, la vista queda en unos 100 kHz a su alrededor, y la banda lateral y el paso de banda pasan a ser los propios del modo — la subbanda de 3 kHz para la familia FT8, 1350–1650 Hz para WSPR, ±250 Hz y CW para la telegrafía, etcétera. Desactivado por defecto, y en torno al 0,5 % de un núcleo mientras funciona (véase [Decodificadores](DECODERS.md))
 - **Preajustes de modos digitales**: pulsar FT8, FT4, FT2, JS8 o WSPR ajusta a la vez la banda lateral y el paso de banda
 - **Panel de conversación JS8**: los mensajes de varias tramas se reensamblan en frases completas
@@ -387,7 +387,7 @@ Este proyecto se distribuye bajo la Licencia Pública General de GNU v3.0; consu
 
 ## 👥 Autores y créditos
 
-- **SV1BTL, A7AOF, F1NSK y SV2AMK**: desarrollo y mejoras de PhantomSDR-Plus
+- **SV1BTL, 9A7AOF, F1NSK y SV2AMK**: desarrollo y mejoras de PhantomSDR-Plus
 - Basado en el proyecto original PhantomSDR
 
 ---
@@ -417,6 +417,6 @@ Este proyecto se distribuye bajo la Licencia Pública General de GNU v3.0; consu
 
 ---
 
-**73 de SV1BTL, A7AOF, F1NSK & SV2AMK**
+**73 de SV1BTL, 9A7AOF, F1NSK & SV2AMK**
 
 *Para instrucciones de configuración detalladas, consulte INSTALLATION.md* *Para la guía de manejo del usuario final, consulte USER_GUIDE.md*

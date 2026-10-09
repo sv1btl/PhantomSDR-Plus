@@ -155,7 +155,7 @@ Dodatne kontrole:
 - **SQL**: squelch
 - **AI**: smanjenje šuma umjetnom inteligencijom (samo govor)
 - **Zoom**: razina uvećanja slapa
-- **Wheel Tuning Steps**: korak ugađanja kotačićem miša
+- **Wheel Tuning Steps**: korak ugađanja kotačićem miša, od 10 Hz do 12,5 kHz (12,5 kHz je razmak kanala na VHF/UHF)
 - **Decoders**: gumbi koji jednim pritiskom pokreću i zaustavljaju svaki dekoder
 
 ### 6. Preklop plana pojaseva
@@ -299,7 +299,7 @@ AGC automatski podešava razine zvuka:
 
 NR, NB, NS i AN zasebni su prekidači, svaki protiv druge vrste šuma. Neovisni su — uključivanje jednoga ne uključuje drugi — i mogu se slobodno kombinirati.
 
-Nijedan ne doseže dekodere: FT8, CW, WSPR, SSTV, FAX, NAVTEX, RTTY/PSK31/Olivia i QRSS grabber čitaju zvuk *prije* ovih filtara, pa ih možete namještati isključivo po sluhu bez utjecaja na dekodiranje. Vidjeti
+Nijedan ne doseže dekodere: FT8, CW, WSPR, SSTV, FAX, NAVTEX, RTTY/PSK31/Olivia/Packet/APRS i QRSS grabber čitaju zvuk *prije* ovih filtara, pa ih možete namještati isključivo po sluhu bez utjecaja na dekodiranje. Vidjeti
 [priručnik za dekodere](DECODERS.md#12-opći-savjeti).
 
 ### Smanjenje šuma (NR)
@@ -660,11 +660,13 @@ NAVTEX je međunarodni pomorski sustav emitiranja obavijesti o sigurnosti u prio
 
 ---
 
-### FSK / RTTY, PSK31 i Olivia
+### FSK / RTTY, PSK31, Olivia, Packet i APRS
 
-Univerzalni dekoder za uskopojasne tekstualne načine rada, s pet inačica u jednom prozoru: pomorski FSK (SITOR), meteorološki RTTY, amaterski RTTY, **PSK31** (fazno ključanje, 31,25 bauda) i **Olivia** (viševalni FSK s korekcijom pogrešaka). Ploča se prilagođava inačici — kontrole za shift, baud i okvir nestaju za PSK31 i Oliviju, a Olivia dodaje birač Mode i klizač squelcha.
+Univerzalni dekoder za uskopojasne tekstualne načine rada, sa sedam inačica u jednom prozoru: pomorski FSK (SITOR), meteorološki RTTY, amaterski RTTY, **PSK31** (fazno ključanje, 31,25 bauda), **Olivia** (viševalni FSK s korekcijom pogrešaka), **Packet (AX.25)** i **APRS**. Otvara se gumbom **RTTY** ili stavkom **FSK / RTTY / PACKET / APRS** u izborniku dekodera. Ploča se prilagođava inačici — kontrole za shift, baud i okvir nestaju za PSK31 i Oliviju, a Olivia dodaje birač Mode i klizač squelcha.
 
 Amaterski i meteorološki RTTY imaju klizač **Squelch (SNR)** koji sprječava da se šum ispisuje kao nasumična slova, a sve varijante osim Olivije prikazuju pravi SNR na istoj ljestvici od 3 kHz. Dvije stvari treba znati: PSK31 sam ispravlja pogrešku ugađanja u rasponu od otprilike ±25 Hz, pa se dovoljno samo približiti; Olivia traži da **Mode** (tonovi / širina pojasa) točno odgovara emisiji, ne šalje preambulu i stoga joj treba nekoliko sekundi za sinkronizaciju prije nego što se pojavi tekst. Ploča se otvara na Olivia **8 / 250**.
+
+**Packet** ispisuje svaki AX.25 okvir koji čuje, kao TNC monitor; **APRS** pretvara APRS pakete u običan tekst — položaj s lokatorom, brzinu, visinu, vrijeme, poruke, objekte i stanje. Odaberite **Speed**: **1200 Bd** za VHF/UHF, čime se prijemnik prebacuje na **FM** na kanalu (europskih 144,800 MHz nalazi se na popisu frekvencija), ili **300 Bd** za KV, u USB-u. Ispisuju se samo paketi s ispravnim kontrolnim zbrojem, pa se na mirnom kanalu ništa ne pojavljuje. Ispod teksta karta prikazuje svaku čutu postaju s položajem, s putanjama za one u pokretu i vašim prijemnikom u jantarnoj boji; može se smanjiti, a klik na dekodirani redak približi kartu toj postaji. Vidi [priručnik za dekodere](DECODERS.md#napomene-o-packetu-i-aprs-u).
 
 ---
 
@@ -1111,6 +1113,6 @@ O: Preklop plana pojaseva koji prikazuje dodjelu frekvencija.
 
 **Uživajte u istraživanju radijskog spektra uz PhantomSDR-Plus!**
 
-**73 (srdačni pozdravi) de SV1BTL, A7AOF, F1NSK & SV2AMK**
+**73 (srdačni pozdravi) de SV1BTL, 9A7AOF, F1NSK & SV2AMK**
 
 Za upute o instalaciji pogledajte [INSTALLATION.md](INSTALLATION.md). Za tehničke pojedinosti pogledajte [PROJECT_STRUCTURE.md](PROJECT_STRUCTURE.md).

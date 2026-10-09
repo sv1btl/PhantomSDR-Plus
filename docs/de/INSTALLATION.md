@@ -795,7 +795,7 @@ Bearbeiten Sie die folgenden Felder:
 nano markers.json
 ```
 
-Fügen Sie Ihre bevorzugten Frequenzen, Relaisfunkstellen und Rundfunksender hinzu.
+Fügen Sie Ihre bevorzugten Frequenzen, Relaisfunkstellen und Rundfunksender hinzu. Eine Markierung, deren Betriebsart eine digitale ist, etwa `FT8` oder `APRS`, startet beim Anklicken diesen Decoder — siehe [Decoder](DECODERS.md#einen-decoder-über-eine-frequenzmarkierung-starten).
 
 ### 5. Startskript bearbeiten
 
@@ -1844,4 +1844,4 @@ modulation = "WBFM"
 
 **Installation abgeschlossen! Sie sollten nun einen voll funktionsfähigen PhantomSDR-Plus-Server haben.**
 
-**73 de SV1BTL, A7AOF, F1NSK & SV2AMK**
+**73 de SV1BTL, 9A7AOF, F1NSK & SV2AMK**

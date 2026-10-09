@@ -796,7 +796,7 @@ Uredite sljedeća polja:
 nano markers.json
 ```
 
-Dodajte svoje omiljene frekvencije, repetitore i radiodifuzijske postaje.
+Dodajte svoje omiljene frekvencije, repetitore i radiodifuzijske postaje. Oznaka čiji je način rada digitalan, poput `FT8` ili `APRS`, pokreće taj dekoder kada je kliknete — vidi [Dekoderi](DECODERS.md#pokretanje-dekodera-s-oznake-frekvencije).
 
 ### 5. Uredite početnu skriptu
 
@@ -1842,4 +1842,4 @@ modulation = "WBFM"
 
 **Instalacija je gotova! Sada biste trebali imati potpuno funkcionalan PhantomSDR-Plus poslužitelj.**
 
-**73 de SV1BTL, A7AOF, F1NSK & SV2AMK**
+**73 de SV1BTL, 9A7AOF, F1NSK & SV2AMK**

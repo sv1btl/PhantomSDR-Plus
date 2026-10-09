@@ -15,7 +15,7 @@ Ovaj vodič obuhvaća sve ugrađene dekodere dostupne u PhantomSDR-Plusu. Svi se
 7. [WSPR](#7-wspr)
 8. [HF FAX / WEFAX](#8-hf-fax--wefax)
 9. [NAVTEX](#9-navtex)
-10. [FSK / RTTY — uključujući PSK31 i Oliviju](#10-fsk--rtty--uključujući-psk31-i-oliviju)
+10. [FSK / RTTY — uključujući PSK31, Oliviju, Packet i APRS](#10-fsk--rtty--uključujući-psk31-oliviju-packet-i-aprs)
 11. [SSTV](#11-sstv)
 12. [Opći savjeti](#12-opći-savjeti)
 
@@ -40,7 +40,7 @@ Padajući izbornik nije jedini put. Glavna ploča ima red gumba **Decoders** —
 |---|---|---|---|
 | **FT8** | FT8 | **SSTV** | SSTV |
 | **FT4** | FT4 | **NAVTEX** | NAVTEX |
-| **FT2** | FT2 | **RTTY** | FSK / RTTY |
+| **FT2** | FT2 | **RTTY** | FSK / RTTY, PSK31, Olivia, Packet, APRS |
 | **CW** | CW | | |
 | **WSPR** | WSPR | **FAX** | HF FAX / WEFAX |
 
@@ -49,6 +49,21 @@ Pritisak na gumb odrađuje cijeli slijed odjednom: odabire dekoder, uključuje d
 **RADEL** i **RADEU** namjerno nisu u ovom redu. To su načini digitalnog glasa, a ne tekstualni dekoderi, pa imaju vlastiti par gumba uz naslov **Modes selector** te u skočnim prozorima **Modes** i **Bands**. Ponašaju se posve jednako — pritisak za pokretanje, ponovni pritisak za zaustavljanje. Pogledajte [priručnik za RADE](RADE_README.md).
 
 Gumbi, padajući izbornik i gumb ON/OFF upravljaju istim stanjem, pa što god upotrijebili, ostalo ga slijedi.
+
+### Pokretanje dekodera s oznake frekvencije
+
+Oznaka frekvencije (žute oznake iznad vodopada, iz `markers.json`) inače ugađa prijemnik i postavlja način rada upisan u nju. Kada je taj način ime digitalnog načina rada, klik na oznaku umjesto toga pokreće njegov dekoder, točno kao da ste pritisnuli njegov gumb:
+
+| Način rada oznake | Pokreće | Frekvencija oznake je |
+|---|---|---|
+| `FT8`, `FT4`, `FT2`, `JS8`, `WSPR`, `SSTV` | taj dekoder | frekvencija na skali |
+| `NAVTEX` | NAVTEX | frekvencija signala (skala ide 500 Hz niže) |
+| `FAX`, `WEFAX` | HF FAX | objavljeno središte (skala ide 1900 Hz niže) |
+| `RTTY`, `RTTY-WX`, `SITOR` | FSK / RTTY kao amaterski, meteorološki ili pomorski | frekvencija signala (skala ide niže za audio središte ploče) |
+| `PSK31`, `OLIVIA` | FSK / RTTY u toj inačici | kao gore |
+| `PACKET`, `APRS` | FSK / RTTY u toj inačici | kanal; 300 Bd (USB) ispod 30 MHz, 1200 Bd (FM) iznad |
+
+Dekoder koji već radi ostaje uključen. `CW` ostaje običan način rada prijemnika, jer ga koriste radiofarovi i postaje — ne pokreće CW dekoder. Oznake se prikazuju samo dok vodopad obuhvaća 3,5 MHz ili manje.
 
 > Istodobno može biti aktivan samo jedan dekoder. Prelazak na drugi dekoder automatski zaustavlja prethodni.
 >
@@ -525,9 +540,9 @@ Kliknite **Clear** da izbrišete međuspremnik poruka.
 
 ---
 
-## 10. FSK / RTTY — uključujući PSK31 i Oliviju
+## 10. FSK / RTTY — uključujući PSK31, Oliviju, Packet i APRS
 
-**Što je to:** univerzalni dekoder za uskopojasne tekstualne načine rada, s pet radnih inačica koje se biraju iz jednog izbornika. Tri su pravi FSK (frekvencijsko pomično ključanje): pomorski FSK (SITOR), meteorološki RTTY i amaterski RTTY. Druge dvije uopće nisu FSK, ali dijele isti prozor: **PSK31**, koji je fazno ključanje, i **Olivia**, koja je viševalni FSK s korekcijom pogrešaka. Svaka inačica dolazi s postavkom prilagođenom svojim standardnim parametrima.
+**Što je to:** univerzalni dekoder za uskopojasne tekstualne načine rada, sa sedam radnih inačica koje se biraju iz jednog izbornika. Tri su pravi FSK (frekvencijsko pomično ključanje): pomorski FSK (SITOR), meteorološki RTTY i amaterski RTTY. Ostale uopće nisu FSK, ali dijele isti prozor: **PSK31**, koji je fazno ključanje, **Olivia**, koja je viševalni FSK s korekcijom pogrešaka, te **Packet (AX.25)** i **APRS**, koji dekodiraju AFSK packet radio — packet od 1200 bauda na VHF/UHF i packet od 300 bauda na KV. Svaka inačica dolazi s postavkom prilagođenom svojim standardnim parametrima.
 
 ### Inačice i postavke
 
@@ -538,15 +553,17 @@ Kliknite **Clear** da izbrišete međuspremnik poruka.
 | Amaterski RTTY | 1000 Hz | 170 Hz | 45.45 | 5N1.5 | ITA2 |
 | PSK31 (BPSK) | 1000 Hz | — | 31.25 | — | Varicode |
 | Olivia (MFSK) | 1000 Hz | — | vidi Mode | — | 7 bita + FEC |
+| Packet (AX.25) | tonovi 1200 / 2200 Hz, ili 1700 Hz pri 300 Bd | 1000 Hz, ili 200 Hz pri 300 Bd | 1200 ili 300 | HDLC | AX.25 |
+| APRS | kao Packet | kao Packet | 1200 ili 300 | HDLC | AX.25 + APRS |
 
-Ploča se prilagođava odabranoj inačici. **Shift**, **Baud**, **Framing**, **Encoding**, **Invert mark / space** i **Auto shift detect** skriveni su za PSK31 i Oliviju jer nijedan od ta dva načina nema par tonova mark/space niti okvir tipa UART. Umjesto toga **Center audio** postaje polje za slobodan unos broja (nosilac može biti bilo gdje u propusnom pojasu), a Olivia dobiva birač **Mode** i klizač **Squelch**.
+Ploča se prilagođava odabranoj inačici. **Shift**, **Baud**, **Framing**, **Encoding**, **Invert mark / space** i **Auto shift detect** skriveni su za PSK31 i Oliviju jer nijedan od ta dva načina nema par tonova mark/space niti okvir tipa UART. Umjesto toga **Center audio** postaje polje za slobodan unos broja (nosilac može biti bilo gdje u propusnom pojasu), a Olivia dobiva birač **Mode** i klizač **Squelch**. Packet i APRS skrivaju iste FSK kontrole i umjesto njih prikazuju birač **Speed**; APRS uz to ima okvir **Show raw packet**.
 
 ### Postavljanje
 
-1. Uključite dekoder i odaberite **FSK / RTTY** iz izbornika. Ili jednostavno pritisnite gumb **RTTY**.
-2. Pojavljuje se ploča dekodera. Naslov prati inačicu — *FSK / RTTY Decoder*, *PSK31 Decoder* ili *Olivia Decoder*.
+1. Uključite dekoder i odaberite **FSK / RTTY / PACKET / APRS** iz izbornika. Ili jednostavno pritisnite gumb **RTTY**.
+2. Pojavljuje se ploča dekodera. Naslov prati inačicu — *FSK / RTTY Decoder*, *PSK31 Decoder*, *Olivia Decoder*, *Packet (AX.25) Decoder* ili *APRS Decoder*.
 3. Odaberite **Variant**. Parametri se ažuriraju automatski.
-4. Za Oliviju postavite **Mode** (tonovi / širina pojasa) tako da odgovara emisiji — vidi napomene o Oliviji niže.
+4. Za Oliviju postavite **Mode** (tonovi / širina pojasa) tako da odgovara emisiji — vidi napomene o Oliviji niže. Za Packet i APRS postavite **Speed** — vidi napomene o Packetu i APRS-u niže.
 5. Iz izbornika **Known frequency** odaberite uobičajenu frekvenciju za odabranu inačicu i kliknite **Tune** da skočite na nju.
 6. Fino ugađajte dok dekodirani tekst ne postane stabilan i čitljiv.
 
@@ -569,11 +586,20 @@ Ploča se prilagođava odabranoj inačici. **Shift**, **Baud**, **Framing**, **E
 **Olivia**
 - 3577,75 kHz (80 m), 7073,75 kHz (40 m), 10142,25 kHz (30 m), 14075,5 kHz (20 m), 18103,75 kHz (17 m), 21075,75 kHz (15 m), 24921,75 kHz (12 m), 28123,75 kHz (10 m)
 
+**Packet i APRS** (isti popis za oba; svaka stavka postavlja i odgovarajuću brzinu)
+- 144,800 MHz — APRS u Europi (IARU Regija 1)
+- 144,390 MHz — APRS u Sjevernoj Americi
+- 145,175 MHz — APRS u Australiji
+- 144,640 MHz — APRS u Kini
+- 144,660 MHz — APRS u Japanu
+- 145,825 MHz — packet digipeater na ISS-u
+- 10147,6 kHz — KV APRS na 30 m, frekvencija na skali u USB-u (300 Bd)
+
 ### Parametri
 
 | Parametar | Odnosi se na | Opis |
 |-----------|--------------|------|
-| Center audio (Hz) | sve | Audio frekvencija sredine između mark i space; za PSK31 nosilac, za Oliviju središte bloka tonova. Padajući izbornik za FSK inačice, polje za slobodan unos za PSK31 i Oliviju |
+| Center audio (Hz) | sve | Audio frekvencija sredine između mark i space; za PSK31 nosilac, za Oliviju središte bloka tonova. Padajući izbornik za FSK inačice, polje za slobodan unos za PSK31 i Oliviju. Za Packet i APRS polje za slobodan unos samo pri 300 Bd; pri 1200 Bd tonovi su fiksni, 1200 / 2200 Hz, i polje ih samo prikazuje |
 | Shift (Hz) | samo FSK | Frekvencijska razlika između tonova mark i space |
 | Baud | samo FSK | Brzina simbola |
 | Framing | samo FSK | Podatkovni bitovi, paritet, stop bitovi (npr. 7N1 = 7 podataka, bez pariteta, 1 stop) |
@@ -582,6 +608,8 @@ Ploča se prilagođava odabranoj inačici. **Shift**, **Baud**, **Framing**, **E
 | Auto shift detect | samo FSK | Pokušava automatski izmjeriti shift iz dolaznog signala |
 | Mode (tonovi / Hz) | samo Olivia | Broj tonova i širina pojasa — mora točno odgovarati emisiji |
 | Squelch (FEC S/N) | samo Olivia | Koliko jako podudaranje korekcije pogrešaka mora biti prije ispisa teksta |
+| Speed | Packet i APRS | **1200 Bd · VHF/UHF (FM)** ili **300 Bd · HF (USB)**. Bira i način rada prijemnika |
+| Show raw packet | samo APRS | Iznad svakog dekodiranog retka ispisuje i paket kako je primljen (format TNC2) |
 | Squelch (SNR) | Amaterski i meteorološki RTTY | Sprječava da se šum ispisuje kao nasumična slova. Počinje na −5 dB za amaterski RTTY i na −8 dB za meteorološki; skroz lijevo (**off**) je isključen. Brojka SNR postaje siva dok je squelch zatvoren |
 
 ### Mjerenja signala
@@ -593,6 +621,7 @@ Statusna traka prikazuje mjerenja uživo, a polja se mijenjaju s inačicom:
 | FSK inačice | **Mark / Space** (izmjerene frekvencije tonova), **SNR**, **Lock**, **Timing** |
 | PSK31 | **Carrier** (Hz, nakon automatske korekcije frekvencije), **IMD** (dB), **SNR**, **Lock**, **Timing** |
 | Olivia | **Centre** (Hz), **Mode**, **S/N**, **FEC** (%), **Sync** |
+| Packet i APRS | **Tones** (Hz), **DCD** (svijetli dok je paket u eteru), **Frames** (dekodirani paketi), **Stations** (različiti čuti pozivni znakovi), **Audio** (ulazna razina, dBFS) |
 
 `Timing`/`Sync` pokazuje `LOCKED`/`SYNCED` kada dekoder prati signal, a `SEARCH` dok ga još traži.
 
@@ -602,8 +631,8 @@ Amaterski RTTY (45,45 bauda, 170 Hz) čita se bez pogrešaka do oko 0 dB, s oko 
 
 ### Dodatne kontrole
 
-- **⇒ Set IF Band-Pass** — sužava propusni pojas prijamnika tako da tijesno obuhvati signal. Širina prati varijantu: 300 Hz za amaterski RTTY (dovoljno usko da ukloni jaču stanicu 250 Hz dalje, a i dalje čita signal razdešen za 40 Hz), 594 Hz za meteorološki RTTY, mark/space plus rezerva za pomorski FSK, oko ±100 Hz za PSK31 i cijela širina bloka tonova plus rezerva za Oliviju. Propusni pojas prati dekoder kad **Auto-tune** ili **Auto shift detect** pomakne tonove te kad promijenite postavku **Baud**.
-- **⟳ Auto-tune Center** — automatsko traženje signala. Za FSK inačice traži uravnotežen par tonova, za PSK31 pronalazi nosilac, a za Oliviju najjači blok odabrane širine pojasa. **Auto shift detect** mijenja shift samo kad je prisutan pravi dvotonski signal, pa više ne skače na šum.
+- **⇒ Set IF Band-Pass** — sužava propusni pojas prijamnika tako da tijesno obuhvati signal. Širina prati varijantu: 300 Hz za amaterski RTTY (dovoljno usko da ukloni jaču stanicu 250 Hz dalje, a i dalje čita signal razdešen za 40 Hz), 594 Hz za meteorološki RTTY, mark/space plus rezerva za pomorski FSK, oko ±100 Hz za PSK31 i cijela širina bloka tonova plus rezerva za Oliviju. Propusni pojas prati dekoder kad **Auto-tune** ili **Auto shift detect** pomakne tonove te kad promijenite postavku **Baud**. Za packet od 300 Bd oko ±400 Hz, a za packet od 1200 Bd uobičajeni FM kanal.
+- **⟳ Auto-tune Center** — automatsko traženje signala. Za FSK inačice traži uravnotežen par tonova, za PSK31 pronalazi nosilac, a za Oliviju najjači blok odabrane širine pojasa. **Auto shift detect** mijenja shift samo kad je prisutan pravi dvotonski signal, pa više ne skače na šum. Za packet od 300 Bd pronalazi najjači par tonova razmaknutih 200 Hz. Za packet od 1200 Bd gumb je skriven, jer su tonovi tamo fiksni.
 
 ### Napomene o PSK31
 
@@ -622,9 +651,21 @@ Olivia žrtvuje brzinu za otpornost. Znatno je sporija od PSK31, ali dekodira si
 - Korekcija pogrešaka radi po blokovima, pa tekst stiže **u naletima, a ne u ravnomjernom toku**, uz kašnjenje od nekoliko blokova između emitiranja i prikaza.
 - **Squelch (FEC S/N)** određuje koliko sigurna korekcija pogrešaka mora biti prije ispisa. Zadana vrijednost 4,0 drži šum vani; 3,0 je donja granica ispod koje slučajni šum počinje ispisivati pokoji znak. Dobar signal pokazuje 8–9 na mjeraču **FEC**, pa ima dosta prostora za podizanje squelcha na prometnom opsegu.
 
-> **Napomena o načinu rada:** dekoder preuzima upravljanje načinom demodulacije i propusnim pojasom MF dok je aktivan. Oboje se automatski vraća kada ga isključite. Svih pet inačica koristi **USB**.
+### Napomene o Packetu i APRS-u
+
+Packet radio šalje podatke u kratkim naletima koji se zovu okviri (frames). Svaki okvir nosi pozivni znak pošiljatelja, odredište, digipeatere kroz koje je prošao i kontrolni zbroj. **APRS** (Automatic Packet Reporting System) koristi te okvire za objavu položaja, meteoroloških podataka, poruka i stanja, najčešće na jednoj zajedničkoj frekvenciji po regiji.
+
+- **Packet** ispisuje svaki okvir, kao TNC monitor: vrijeme (UTC), `IZVOR>ODREDIŠTE,PUTANJA`, vrstu okvira u šiljastim zagradama, zatim tekst. Uz emisije za sve pojavljuje se i promet u spojenom načinu rada (SABM, UA, I-okviri, RR, DISC).
+- **APRS** ispisuje samo okvire za objavu koje APRS koristi i svaki pretvara u običan tekst: položaj s Maidenhead lokatorom, simbol (automobil, kuća, meteorološka postaja, …), brzinu i kurs, visinu, komentar, meteorološka očitanja u metričkim jedinicama, poruke i potvrde, objekte, iteme, stanje i telemetriju. Dekodiraju se i komprimirani i Mic-E položaji. Uz uključen **Show raw packet** primljeni paket ispisuje se iznad svog dekodiranog retka.
+- **APRS karta.** Ispod dekodiranog teksta inačica APRS prikazuje kartu svih čutih postaja s položajem, iste širine i visine kao prozor s tekstom: oznaku s pozivnim znakom za svaku postaju (objekti i itemi pod vlastitim imenom), liniju putanje za postaje u pokretu i jantarnu oznaku za ovaj prijemnik, postavljenu prema njegovom lokatoru. Kliknite postaju za njezin dekodirani redak, kada je zadnji put čuta te udaljenost i smjer od prijemnika; kliknite dekodirani redak u prozoru i karta se približi toj postaji. **Auto fit** (uključen po zadanom) prilagođava kadar kako postaje stižu i kreću se; pomicanje ili zumiranje rukom ga isključuje, a kvačica ga ponovno uključuje. **Fit all** jednom prikaže sve, **Clear** prazni kartu, a **–** je smanjuje na traku s naslovom (**□** je vraća) — postaje se u međuvremenu i dalje prikupljaju. Slike karte dolaze s OpenStreetMapa, pa preglednik slušatelja treba pristup internetu da bi ih iscrtao; samo dekodiranje ostaje lokalno.
+- **Speed 1200 Bd** standard je za VHF/UHF (Bell 202 tonovi, 1200 / 2200 Hz). Dekoder prebacuje prijemnik na **FM** i ugađa ga na sam kanal: u Europi odaberite **144,800 MHz**, ili ugodite bilo koji packet kanal i pritisnite **⇒ Set IF Band-Pass**. **Wheel Tuning Step** od 12,5 kHz kreće se po VHF kanalnom rasteru.
+- **Speed 300 Bd** je KV packet, dva tona razmaknuta 200 Hz. Prijemnik prelazi na **USB**, a frekvencija na skali je objavljena frekvencija; tonovi su na 1600 / 1800 Hz. Ako je signal malo pomaknut, upotrijebite **⟳ Auto-tune Center**.
+- **Ispisuju se samo okviri s ispravnim kontrolnim zbrojem**, pa se šum nikad ne pojavljuje kao besmislica — prazan prozor znači miran kanal. Ako **DCD** svijetli, a **Frames** ne raste, signali postoje, ali su preslabi ili previše izobličeni da prođu provjeru.
+- Dekoder radi s FM prijemnicima sa i bez deemfaze, te s odašiljačima koji jedan ton naglašavaju više od drugoga.
+
+> **Napomena o načinu rada:** dekoder preuzima upravljanje načinom demodulacije i propusnim pojasom MF dok je aktivan. Oboje se automatski vraća kada ga isključite. Sve inačice koriste **USB**, osim Packeta i APRS-a pri 1200 Bd, koji koriste **FM**.
 >
-> **Napomena o polaritetu (samo FSK inačice):** za meteorološki RTTY obično treba označiti **Invert mark / space**. Za pomorski FSK (tipa SITOR/NAVTEX) i amaterski RTTY ostavite neoznačeno — amaterski RTTY šalje mark kao višu radiofrekvenciju, a USB je zadržava kao viši audio ton, što je upravo neoznačeni slučaj. Ako je dekodirani tekst iskrivljen, prvo što treba probati jest prebaciti ovaj okvir. Okvir je skriven za PSK31 i Oliviju, koje nemaju par mark/space.
+> **Napomena o polaritetu (samo FSK inačice):** za meteorološki RTTY obično treba označiti **Invert mark / space**. Za pomorski FSK (tipa SITOR/NAVTEX) i amaterski RTTY ostavite neoznačeno — amaterski RTTY šalje mark kao višu radiofrekvenciju, a USB je zadržava kao viši audio ton, što je upravo neoznačeni slučaj. Ako je dekodirani tekst iskrivljen, prvo što treba probati jest prebaciti ovaj okvir. Okvir je skriven za PSK31 i Oliviju, koje nemaju par mark/space. Skriven je i za Packet i APRS, jer dekodiranje packeta ne ovisi o tome koji je ton koji.
 >
 > **Napomena o slovima/brojkama (samo FSK inačice):** Baudot drži slova i brojke u dva odvojena stanja, a šum može prebaciti dekoder u pogrešno — što izobličuje svaki sljedeći znak, ne samo oštećeni. Zato se dekoder na svakom razmaku vraća na slova; to je uobičajena praksa i popravlja pokvareno prebacivanje unutar jedne do dvije riječi umjesto cijelog retka. Cijena je da skupine brojki odvojene razmacima traže da pošiljatelj ponovi prebacivanje na brojke nakon svakog razmaka, kako odašiljači inače i rade.
 
@@ -717,7 +758,7 @@ Budući da Force preskače svaku sigurnosnu provjeru, rado će nacrtati šum ako
 **Točnost sata sustava je važna.** FT8, FT4 i WSPR vremenski su kritični. Dekodiraju u fiksnim prozorima usklađenima s UTC-om. Ako sat vašeg računala odstupa više od 1–2 sekunde, stopa dekodiranja znatno će pasti. Koristite NTP klijent kako bi sat bio točan.
 
 **Filtri šuma ne dopiru do dekodera.** NR, NB, NS i AN pomagala su za slušanje,
-namijenjena samo vašim ušima. Svaki dekoder — FT8, FT4/FT2, CW, WSPR, FAX, NAVTEX, FSK/RTTY/PSK31/Olivia, SSTV i QRSS grabber — uzima zvuk *prije* tih filtara, pa ih slobodno namjestite kako najbolje zvuči, bez brige za kvalitetu dekodiranja. Iz istog razloga dekoderi rade i dok je prijamnik utišan ili pod squelchom: možete ugasiti zvučnik i pustiti da dekoder, ili noćno QRSS snimanje, nastavi prikupljati. Jedino što doista prati ono što čujete jest audio spektrogram, koji namjerno prikazuje filtrirani zvuk.
+namijenjena samo vašim ušima. Svaki dekoder — FT8, FT4/FT2, CW, WSPR, FAX, NAVTEX, FSK/RTTY/PSK31/Olivia/Packet/APRS, SSTV i QRSS grabber — uzima zvuk *prije* tih filtara, pa ih slobodno namjestite kako najbolje zvuči, bez brige za kvalitetu dekodiranja. Iz istog razloga dekoderi rade i dok je prijamnik utišan ili pod squelchom: možete ugasiti zvučnik i pustiti da dekoder, ili noćno QRSS snimanje, nastavi prikupljati. Jedino što doista prati ono što čujete jest audio spektrogram, koji namjerno prikazuje filtrirani zvuk.
 
 **Kvaliteta signala važnija je od njegove jakosti.** Većina je ovih dekodera namijenjena slabim signalima. Mirniji pojas s manje šuma često je plodonosniji od glasnog signala punog smetnji. Prije uključivanja dekodera koristite slap i kontrole propusnog pojasa kako biste prepoznali i izbjegli QRM.
 

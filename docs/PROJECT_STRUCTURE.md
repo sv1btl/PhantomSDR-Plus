@@ -20,6 +20,7 @@ This document provides a comprehensive overview of the PhantomSDR-Plus directory
 ```
 PhantomSDR-Plus
 ├── add-receiver.sh            # adds one more receiver: driver, instances/<name>/, receivers.toml — see docs/MULTI_RECEIVER.md
+├── ADDITIONAL_TERMS.md        # GPL v3 section 7 additional terms: the "original from" line must stay
 ├── admin_config.json
 ├── admin_server.py
 ├── autorun
@@ -307,6 +308,7 @@ PhantomSDR-Plus
 │   │   │   ├── storage.js
 │   │   │   ├── sUnits.js              # S-unit scale by frequency (S9 = −93 dBm above 30 MHz)
 │   │   │   ├── Tooltip.svelte
+│   │   │   ├── version.js             # VERSION + ORIGIN_URL for the receiver page and /mobile
 │   │   │   ├── VersionSelector.svelte
 │   │   │   ├── VideoAreaSelector.svelte
 │   │   │   └── wrappers.js
@@ -941,6 +943,7 @@ The web-based user interface built with Svelte and Vite.
 - Layout structure
 - Component orchestration
 - **Decoders button row** — one button per decoder, on the main panel directly under the Modes selector; press to start the decoder and open its window, press again to stop. It replaced the former Bandwidth row. RADEL/RADEU live in `lib/ModesSelector.svelte` instead, beside the Modes selector and inside the Modes and Bands pop-ups.
+- **Version line** — "PhantomSDR+ | v5.0.0 original from github.com/sv1btl/PhantomSDR-Plus", with the address as a link; the same line is on the /mobile page. The version number and the address live in `lib/version.js`; the line is an author attribution covered by `ADDITIONAL_TERMS.md`.
 
 #### 2. Waterfall Display (`waterfall.js` + `lib/`)
 - Canvas-based spectrum and waterfall rendering, colormaps and the adaptive auto-adjust, all in `waterfall.js` (plain JS, not a component)

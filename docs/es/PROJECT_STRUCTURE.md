@@ -20,6 +20,7 @@ Este documento ofrece una visión general completa de la estructura de directori
 ```
 PhantomSDR-Plus
 ├── add-receiver.sh            # añade un receptor más: controlador, instances/<nombre>/, receivers.toml — vea docs/MULTI_RECEIVER.md
+├── ADDITIONAL_TERMS.md        # términos adicionales según la sección 7 de la GPL v3: se conserva la línea «original from»
 ├── admin_config.json
 ├── admin_server.py
 ├── autorun
@@ -307,6 +308,7 @@ PhantomSDR-Plus
 │   │   │   ├── storage.js
 │   │   │   ├── sUnits.js              # escala de unidades S según la frecuencia (S9 = −93 dBm por encima de 30 MHz)
 │   │   │   ├── Tooltip.svelte
+│   │   │   ├── version.js             # VERSION + ORIGIN_URL para la página del receptor y /mobile
 │   │   │   ├── VersionSelector.svelte
 │   │   │   ├── VideoAreaSelector.svelte
 │   │   │   └── wrappers.js
@@ -941,6 +943,7 @@ La interfaz de usuario web construida con Svelte y Vite.
 - Estructura del diseño
 - Orquestación de componentes
 - **Fila de botones de decodificador** — un botón por decodificador en el panel principal, justo debajo del selector de modos; una pulsación inicia el decodificador y abre su ventana, una segunda lo detiene. Sustituyó a la antigua fila de ancho de banda. RADEL/RADEU están en `lib/ModesSelector.svelte`, junto al selector de modos y dentro de las ventanas emergentes **Modes** y **Bands**.
+- **Línea de versión** — «PhantomSDR+ | v5.0.0 original from github.com/sv1btl/PhantomSDR-Plus», con la dirección como enlace; la misma línea aparece en la página /mobile. El número de versión y la dirección están en `lib/version.js`; la línea es una atribución de autoría cubierta por `ADDITIONAL_TERMS.md`.
 
 #### 2. Cascada (`waterfall.js` + `lib/`)
 - Representación del espectro y de la cascada en canvas, mapas de color y el ajuste automático adaptativo, todo en `waterfall.js` (JS puro, no un componente)

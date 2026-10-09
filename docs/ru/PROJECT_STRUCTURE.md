@@ -20,6 +20,7 @@
 ```
 PhantomSDR-Plus
 ├── add-receiver.sh            # добавляет ещё один приёмник: драйвер, instances/<имя>/, receivers.toml — см. docs/MULTI_RECEIVER.md
+├── ADDITIONAL_TERMS.md        # дополнительные условия по разделу 7 GPL v3: строка «original from» сохраняется
 ├── admin_config.json
 ├── admin_server.py
 ├── autorun
@@ -307,6 +308,7 @@ PhantomSDR-Plus
 │   │   │   ├── storage.js
 │   │   │   ├── sUnits.js              # шкала баллов S по частоте (S9 = −93 дБм выше 30 МГц)
 │   │   │   ├── Tooltip.svelte
+│   │   │   ├── version.js             # VERSION + ORIGIN_URL для страницы приёмника и /mobile
 │   │   │   ├── VersionSelector.svelte
 │   │   │   ├── VideoAreaSelector.svelte
 │   │   │   └── wrappers.js
@@ -942,6 +944,7 @@ PhantomSDR-Plus
 - Структура компоновки
 - Оркестрация компонентов
 - **Ряд кнопок декодеров** — по одной кнопке на декодер на главной панели, сразу под селектором режимов; одно нажатие запускает декодер и открывает его окно, второе — останавливает. Он заменил прежний ряд полосы пропускания. RADEL/RADEU находятся в `lib/ModesSelector.svelte` — рядом с селектором режимов и во всплывающих окнах **Modes** и **Bands**.
+- **Строка версии** — «PhantomSDR+ | v5.0.0 original from github.com/sv1btl/PhantomSDR-Plus», адрес — ссылка; та же строка есть на странице /mobile. Номер версии и адрес находятся в `lib/version.js`; строка — указание авторства, на которое распространяется `ADDITIONAL_TERMS.md`.
 
 #### 2. Отображение водопада (`waterfall.js` + `lib/`)
 - Отрисовка спектра и водопада на canvas, цветовые палитры и адаптивная автоподстройка — всё в `waterfall.js` (обычный JS, не компонент)

@@ -7,6 +7,8 @@
 **https://github.com/sv1btl/PhantomSDR-Plus** — that is the one to clone, link to
 and report issues against.
 
+PhantomSDR-Plus is licensed under the GPL v3 with the [additional terms](ADDITIONAL_TERMS.md) its section 7 allows: copies and forks must keep the "original from github.com/sv1btl/PhantomSDR-Plus" line visible on the receiver page and on /mobile.
+
 🌐 **Website: [phantomsdr.psychomed.gr](https://phantomsdr.psychomed.gr)** — what PhantomSDR-Plus does, the decoders, the Desktop PhantomSDR+ app, and the documentation PDFs in seven languages.
 
 ## Note: Tested on Debian 12 (Bookworm), Debian 13 (Trixie), Ubuntu 22.04, Ubuntu 24.04.

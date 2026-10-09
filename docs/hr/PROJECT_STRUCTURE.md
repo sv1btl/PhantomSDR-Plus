@@ -20,6 +20,7 @@ Ovaj dokument daje sveobuhvatan pregled strukture direktorija PhantomSDR-Plusa, 
 ```
 PhantomSDR-Plus
 ├── add-receiver.sh            # dodaje još jedan prijemnik: upravljački program, instances/<ime>/, receivers.toml — vidi docs/MULTI_RECEIVER.md
+├── ADDITIONAL_TERMS.md        # dodatni uvjeti prema odjeljku 7 GPL v3: redak „original from” ostaje
 ├── admin_config.json
 ├── admin_server.py
 ├── autorun
@@ -307,6 +308,7 @@ PhantomSDR-Plus
 │   │   │   ├── storage.js
 │   │   │   ├── sUnits.js              # ljestvica S-jedinica prema frekvenciji (S9 = −93 dBm iznad 30 MHz)
 │   │   │   ├── Tooltip.svelte
+│   │   │   ├── version.js             # VERSION + ORIGIN_URL za stranicu prijemnika i /mobile
 │   │   │   ├── VersionSelector.svelte
 │   │   │   ├── VideoAreaSelector.svelte
 │   │   │   └── wrappers.js
@@ -941,6 +943,7 @@ Web-sučelje izgrađeno pomoću Sveltea i Vitea.
 - Struktura rasporeda
 - Usklađivanje komponenti
 - **Red gumba dekodera** — po jedan gumb za svaki dekoder na glavnoj ploči, odmah ispod izbornika načina rada; jedan pritisak pokreće dekoder i otvara njegov prozor, drugi ga zaustavlja. Zamijenio je dotadašnji red za širinu pojasa. RADEL/RADEU su u `lib/ModesSelector.svelte`, uz izbornik načina rada te u skočnim prozorima **Modes** i **Bands**.
+- **Redak verzije** — „PhantomSDR+ | v5.0.0 original from github.com/sv1btl/PhantomSDR-Plus”, s adresom kao poveznicom; isti redak nalazi se i na stranici /mobile. Broj verzije i adresa nalaze se u `lib/version.js`; redak je navođenje autorstva obuhvaćeno datotekom `ADDITIONAL_TERMS.md`.
 
 #### 2. Prikaz slapa (`waterfall.js` + `lib/`)
 - Iscrtavanje spektra i slapa na platnu (canvas), palete boja i prilagodljivo automatsko podešavanje — sve u `waterfall.js` (čisti JS, nije komponenta)

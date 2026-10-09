@@ -20,6 +20,7 @@ Ce document offre une vue d'ensemble complète de la structure de répertoires d
 ```
 PhantomSDR-Plus
 ├── add-receiver.sh            # ajoute un récepteur de plus : pilote, instances/<nom>/, receivers.toml — voir docs/MULTI_RECEIVER.md
+├── ADDITIONAL_TERMS.md        # conditions supplémentaires selon la section 7 de la GPL v3 : la ligne « original from » est conservée
 ├── admin_config.json
 ├── admin_server.py
 ├── autorun
@@ -307,6 +308,7 @@ PhantomSDR-Plus
 │   │   │   ├── storage.js
 │   │   │   ├── sUnits.js              # échelle des points S selon la fréquence (S9 = −93 dBm au-dessus de 30 MHz)
 │   │   │   ├── Tooltip.svelte
+│   │   │   ├── version.js             # VERSION + ORIGIN_URL pour la page du récepteur et /mobile
 │   │   │   ├── VersionSelector.svelte
 │   │   │   ├── VideoAreaSelector.svelte
 │   │   │   └── wrappers.js
@@ -941,6 +943,7 @@ L'interface utilisateur web construite avec Svelte et Vite.
 - Structure de la mise en page
 - Orchestration des composants
 - **Rangée de boutons de décodeur** — un bouton par décodeur sur le panneau principal, juste sous le sélecteur de modes ; une pression démarre le décodeur et ouvre sa fenêtre, une seconde l'arrête. Elle a remplacé l'ancienne rangée de largeur de bande. RADEL/RADEU se trouvent dans `lib/ModesSelector.svelte`, à côté du sélecteur de modes et dans les fenêtres **Modes** et **Bands**.
+- **Ligne de version** — « PhantomSDR+ | v5.0.0 original from github.com/sv1btl/PhantomSDR-Plus », l'adresse servant de lien ; la même ligne figure sur la page /mobile. Le numéro de version et l'adresse se trouvent dans `lib/version.js` ; la ligne est une attribution d'auteur couverte par `ADDITIONAL_TERMS.md`.
 
 #### 2. Affichage en cascade (`waterfall.js` + `lib/`)
 - Rendu du spectre et de la cascade sur canevas, palettes de couleurs et ajustement automatique adaptatif, le tout dans `waterfall.js` (JS pur, pas un composant)

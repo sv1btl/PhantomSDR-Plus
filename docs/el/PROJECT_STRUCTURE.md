@@ -20,6 +20,7 @@
 ```
 PhantomSDR-Plus
 ├── add-receiver.sh            # προσθέτει έναν ακόμη δέκτη: οδηγός, instances/<όνομα>/, receivers.toml — δείτε docs/MULTI_RECEIVER.md
+├── ADDITIONAL_TERMS.md        # πρόσθετοι όροι κατά την ενότητα 7 της GPL v3: η γραμμή «original from» διατηρείται
 ├── admin_config.json
 ├── admin_server.py
 ├── autorun
@@ -307,6 +308,7 @@ PhantomSDR-Plus
 │   │   │   ├── storage.js
 │   │   │   ├── sUnits.js              # κλίμακα μονάδων S ανά συχνότητα (S9 = −93 dBm πάνω από 30 MHz)
 │   │   │   ├── Tooltip.svelte
+│   │   │   ├── version.js             # VERSION + ORIGIN_URL για τη σελίδα του δέκτη και το /mobile
 │   │   │   ├── VersionSelector.svelte
 │   │   │   ├── VideoAreaSelector.svelte
 │   │   │   └── wrappers.js
@@ -941,6 +943,7 @@ PhantomSDR-Plus
 - Δομή διάταξης
 - Ενορχήστρωση στοιχείων
 - **Σειρά κουμπιών αποκωδικοποιητών** — ένα κουμπί ανά αποκωδικοποιητή στον κύριο πίνακα, ακριβώς κάτω από τον επιλογέα τρόπων· ένα πάτημα ξεκινά τον αποκωδικοποιητή και ανοίγει το παράθυρό του, δεύτερο πάτημα τον σταματά. Αντικατέστησε την παλιά σειρά Bandwidth. Τα RADEL/RADEU βρίσκονται στο `lib/ModesSelector.svelte`, δίπλα στον επιλογέα τρόπων και μέσα στα αναδυόμενα παράθυρα **Modes** και **Bands**.
+- **Γραμμή έκδοσης** — «PhantomSDR+ | v5.0.0 original from github.com/sv1btl/PhantomSDR-Plus», με τη διεύθυνση ως σύνδεσμο· η ίδια γραμμή υπάρχει και στη σελίδα /mobile. Ο αριθμός έκδοσης και η διεύθυνση βρίσκονται στο `lib/version.js`· η γραμμή είναι αναφορά δημιουργού που καλύπτεται από το `ADDITIONAL_TERMS.md`.
 
 #### 2. Οθόνη καταρράκτη (`waterfall.js` + `lib/`)
 - Σχεδίαση φάσματος και καταρράκτη σε canvas, χρωματικοί χάρτες και η προσαρμοστική αυτόματη ρύθμιση, όλα στο `waterfall.js` (καθαρή JS, όχι στοιχείο)

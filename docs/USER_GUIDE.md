@@ -555,7 +555,7 @@ The same ±250 Hz Morse filter as **CW**, but the tone is taken from below the c
 
 PhantomSDR-Plus includes built-in decoders for digital modes. For a complete guide, see [Decoders](DECODERS.md).
 
-The quickest way in is the **Decoders** button row on the main panel, just below **Wheel Tuning Steps**: ten buttons — **FT8, FT4, FT2, JS8, CW, WSPR, FAX, SSTV, NAVTX, RTTY** — that each start their decoder, switch the master Decoder toggle ON and scroll the decoder's window into view in a single press. The button stays blue while the decoder runs; press it again to stop the decoder and close its window. The **Decoder Options** dropdown still works exactly as before and stays in sync with the buttons.
+The quickest way in is the **Decoders** button row on the main panel, just below **Wheel Tuning Steps**: ten buttons — **FT8, FT4, FT2, JS8, CW, WSPR, FAX, SSTV, NAVTX, FLDIGI** — that each start their decoder, switch the master Decoder toggle ON and scroll the decoder's window into view in a single press. The button stays blue while the decoder runs; press it again to stop the decoder and close its window. The **Decoder Options** dropdown still works exactly as before and stays in sync with the buttons.
 
 **RADEL** and **RADEU** (RADE v1 digital voice) have their own buttons next to the **Modes selector** heading and inside the **Modes** and **Bands** popup windows, and work the same press-on / press-off way.
 
@@ -660,11 +660,11 @@ NAVTEX is the international maritime broadcast system for coastal safety informa
 
 ---
 
-### FSK / RTTY, PSK31, Olivia, Packet and APRS
+### FLDIGI — RTTY, PSK31, Olivia, MFSK, DominoEX, THOR, THROB, Hellschreiber, MT63, Packet and APRS
 
-A general-purpose decoder for narrow-band text modes, with seven variants in one window: Maritime FSK (SITOR), Weather RTTY, Amateur RTTY, **PSK31** (phase-shift keying, 31.25 baud), **Olivia** (multi-tone FSK with forward error correction), **Packet (AX.25)** and **APRS**. It opens from the **RTTY** button, or from **FSK / RTTY / PACKET / APRS** in the decoder dropdown. The panel adapts to the variant — the shift, baud and framing controls disappear for PSK31 and Olivia, and Olivia adds a Mode selector and a squelch slider.
+One window for the narrow-band keyboard modes fldigi made popular, with thirteen variants: Maritime FSK (SITOR), Weather RTTY, Amateur RTTY, **PSK31** (phase-shift keying, 31.25 baud), **Olivia** and **MFSK16/32/64** (multi-tone with forward error correction), **DominoEX** and **THOR** (incremental frequency keying, THOR with error correction), **THROB**, **Hellschreiber** (painted as a picture), **MT63** (64 carriers), **Packet (AX.25)** and **APRS**. It opens from the **FLDIGI** button, or from **FLDIGI** in the decoder dropdown; fldigi itself is not needed. The panel adapts to the variant — the shift, baud and framing controls disappear for everything but the three FSK variants, and the other modes add a Mode selector and, except Hellschreiber, a squelch slider.
 
-Amateur RTTY and Weather RTTY have a **Squelch (SNR)** slider that stops noise from printing as random letters, and every variant except Olivia shows a real SNR on the same 3 kHz scale. Two things to know: PSK31 corrects its own tuning error over about ±25 Hz, so you only need to get close; Olivia needs its **Mode** (tones / bandwidth) set to exactly match the transmission, sends no preamble, and therefore takes a few seconds to synchronise before any text appears. The panel opens on Olivia **8 / 250**.
+Amateur RTTY and Weather RTTY have a **Squelch (SNR)** slider that stops noise from printing as random letters, and every variant except Olivia shows a real SNR on the same 3 kHz scale. Two things to know: PSK31 corrects its own tuning error over about ±25 Hz, so you only need to get close; Olivia needs its **Mode** (tones / bandwidth) set to exactly match the transmission, sends no preamble, and therefore takes a few seconds to synchronise before any text appears. The panel opens on Olivia **8 / 250**. For the other fldigi modes, put the signal on the centre frequency or press **⟳ Auto-tune Center** and pick the matching **Mode**: THROB needs tuning within ±3 Hz, DominoEX, THOR and MT63 forgive much more, and MFSK, THOR and MT63 print a few seconds behind the signal. Hellschreiber shows a picture, not text.
 
 **Packet** prints every AX.25 frame it hears, like a TNC monitor; **APRS** turns APRS packets into plain text — position with locator, speed, altitude, weather, messages, objects and status. Choose the **Speed**: **1200 Bd** for VHF/UHF, which switches the receiver to **FM** on the channel (144.800 MHz in Europe is in the frequency list), or **300 Bd** for HF, in USB. Only packets with a correct checksum are printed, so nothing appears on a quiet channel. Under the text, a map shows every station heard with a position, with tracks for moving ones and your receiver in amber; it can be minimised, and clicking a decoded line zooms to that station. See the [Decoder manual](DECODERS.md#packet-and-aprs-notes).
 
@@ -1074,6 +1074,8 @@ A: Band plan overlay showing frequency allocations.
 **DX**: Long distance communication
 
 **FFT**: Fast Fourier Transform - converts time to frequency domain
+
+**FLDIGI**: the decoder window for RTTY, PSK31, Olivia, MFSK, DominoEX, THOR, THROB, Hellschreiber, MT63, Packet and APRS, named after the fldigi program that made these modes popular
 
 **FM**: Frequency Modulation - voice mode for VHF/UHF
 

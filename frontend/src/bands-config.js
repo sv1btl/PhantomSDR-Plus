@@ -12,37 +12,37 @@ const MODES = {
 
 const bands = [
 	{ ITU: 123,
-	    name: 'VLF', min: -30, max: 110, initFreq: '', publishBand: '2', startFreq: 3000, endFreq: 30000,  stepi: 1000, color: 'rgba(199, 12, 193, 0.6)',
+	    name: 'VLF', min: -20, max: 110, initFreq: '', publishBand: '2', startFreq: 3000, endFreq: 30000,  stepi: 1000, color: 'rgba(199, 12, 193, 0.6)',
 	    modes: [{ mode:MODES.CW, startFreq: 3000, endFreq: 30000 }]
 	},
 	{ ITU: 123,
-	    name: 'LF', min: -30, max: 110, initFreq: '77500', publishBand: '2', startFreq: 30000, endFreq: 135000,  stepi: 1000, color: 'rgba(199, 12, 193, 0.6)',
+	    name: 'LF', min: -20, max: 110, initFreq: '77500', publishBand: '2', startFreq: 30000, endFreq: 135000,  stepi: 1000, color: 'rgba(199, 12, 193, 0.6)',
 	    modes: [{ mode: MODES.CW, startFreq: 30000, endFreq: 135000 }]
 	},
 	{ ITU: 123,
-	    name: '2200m', min: -30, max: 110, initFreq: '135700', publishBand: '1', startFreq: 135700, endFreq: 137800,  stepi: 100, color: 'rgba(50, 168, 72, 0.6)',
+	    name: '2200m', min: -20, max: 110, initFreq: '135700', publishBand: '1', startFreq: 135700, endFreq: 137800,  stepi: 100, color: 'rgba(50, 168, 72, 0.6)',
             modes: [{ mode: MODES.CW, startFreq: 135700, endFreq: 137800 }]
 	},
 	{ ITU: 123,
-	    name: '', min: -30, max: 110, initFreq: '', publishBand: '', startFreq: 137800, endFreq: 148500, stepi: 1000, color: '#ffffff00',
+	    name: '', min: -20, max: 110, initFreq: '', publishBand: '', startFreq: 137800, endFreq: 148500, stepi: 1000, color: '#ffffff00',
             modes: [{ mode: MODES.USB, startFreq: 137800, endFreq: 148500 }]
 	},
 	{ ITU: 123,
-	    name: 'LW', min: -30, max: 110, initFreq: '225000', publishBand: '2', startFreq: 148500, endFreq: 283500,  stepi: 9000, color: 'rgba(199, 12, 193, 0.6)',
+	    name: 'LW', min: -20, max: 110, initFreq: '225000', publishBand: '2', startFreq: 148500, endFreq: 283500,  stepi: 9000, color: 'rgba(199, 12, 193, 0.6)',
             modes: [{ mode: MODES.AM, startFreq: 148500, endFreq: 283500 }]
 	},
 	{ ITU: 123,
-	    name: '', min: -30, max: 110, initFreq: '', publishBand: '', startFreq: 283500, endFreq: 472000, stepi: 1000, color: '#ffffff00',
+	    name: '', min: -20, max: 110, initFreq: '', publishBand: '', startFreq: 283500, endFreq: 472000, stepi: 1000, color: '#ffffff00',
             modes: [{ mode: MODES.USB, startFreq: 283500, endFreq: 472000 }]
 	},
 	{ ITU: 123,
-	    name: '630m', min: -20, max: 110, initFreq: '474200', publishBand: '1', startFreq: 472000, endFreq: 479000,  stepi: 100, color: 'rgba(50, 168, 72, 0.6)', 
+	    name: '630m', min: -15, max: 110, initFreq: '474200', publishBand: '1', startFreq: 472000, endFreq: 479000,  stepi: 100, color: 'rgba(50, 168, 72, 0.6)', 
             modes: [
               { mode: MODES.CW, startFreq: 472000, endFreq: 474000 },
               { mode: MODES.USB, startFreq: 474100, endFreq: 479000 }]
 	},
 	{ ITU: 123,
-	    name: '600m', min: -30, max: 110, initFreq: '', publishBand: '1', startFreq: 501000, endFreq: 504000,  stepi: 100, color: 'rgba(50, 168, 72, 0.6)', 
+	    name: '600m', min: -15, max: 110, initFreq: '', publishBand: '1', startFreq: 501000, endFreq: 504000,  stepi: 100, color: 'rgba(50, 168, 72, 0.6)', 
             modes: [{ mode: MODES.CW, startFreq: 501000, endFreq: 504000 }]
 	},
         { ITU: 1,
@@ -212,7 +212,7 @@ const bands = [
             modes: [{ mode: MODES.USB, startFreq: 9900000, endFreq: 10100000 }]
 	},
 	{ ITU: 123,
-            name: '30m', min: -40, max: 110, initFreq: '10136000', publishBand: '1', startFreq: 10100000, endFreq: 10150000,  stepi: 1000, color: 'rgba(50, 168, 72, 0.6)', 
+            name: '30m', min: -30, max: 110, initFreq: '10136000', publishBand: '1', startFreq: 10100000, endFreq: 10150000,  stepi: 1000, color: 'rgba(50, 168, 72, 0.6)', 
 	    modes: [{ mode: MODES.CW, startFreq: 10100000, endFreq: 10150000 }]
 	},
 	{ ITU: 123,

@@ -238,6 +238,55 @@ def get_allowed_scripts():
     return find_sh_files()
 # ─── First-run / Setup helpers ─────────────────────────────────────────────────
 
+# ─── Where this copy came from ─────────────────────────────────────────────────
+# PhantomSDR-Plus is developed at ORIGIN_REPO. A sysop who cloned a fork may not
+# know that, so the panel shows a notice while the tree's origin remote points
+# elsewhere — the same check the installers and update.sh make. A notice only:
+# the GPL allows forks. The remote is read from .git/config directly when git
+# is missing or refuses the tree (another user's checkout).
+ORIGIN_REPO = "https://github.com/sv1btl/PhantomSDR-Plus"
+
+def _origin_norm(url):
+    u = url.strip().lower()
+    u = re.sub(r"^[a-z+]+://", "", u)
+    u = re.sub(r"^[^@/]*@", "", u)
+    u = re.sub(r"^github\.com:", "github.com/", u)
+    u = u.rstrip("/")
+    if u.endswith(".git"):
+        u = u[:-4]
+    return u
+
+def tree_origin():
+    """The tree's origin remote, credentials stripped, or "" when there is none."""
+    url = ""
+    try:
+        url = subprocess.run(["git", "-C", str(BASE_DIR), "config", "--get",
+                              "remote.origin.url"], capture_output=True,
+                             text=True, timeout=5).stdout.strip()
+    except Exception:
+        url = ""
+    if not url:
+        try:
+            section = None
+            for line in (BASE_DIR / ".git" / "config").read_text(errors="replace").splitlines():
+                line = line.strip()
+                if line.startswith("["):
+                    section = line
+                elif section == '[remote "origin"]' and re.match(r"url\s*=", line):
+                    url = line.split("=", 1)[1].strip()
+                    break
+        except Exception:
+            url = ""
+    # Never show a token: https://user:token@github.com/... -> https://github.com/...
+    return re.sub(r"^([a-z+]+://)[^@/]*@", r"\1", url)
+
+def fork_origin():
+    """The fork this tree was cloned from, or None for the original / no git."""
+    url = tree_origin()
+    if url and _origin_norm(url) != "github.com/sv1btl/phantomsdr-plus":
+        return url
+    return None
+
 def is_first_run():
     if not ADMIN_CONFIG_FILE.exists():
         return True
@@ -1117,6 +1166,9 @@ body{background-image:repeating-linear-gradient(0deg,transparent,transparent 2px
 .btn-red{color:var(--red);border-color:#ff404055;}
 .btn-red:hover{background:rgba(255,64,64,0.1);box-shadow:var(--glow-red);}
 .btn-amber{color:var(--amber);border-color:#ffb00055;}
+.fork-notice{margin-bottom:1rem;padding:.7rem 1rem;border:1px solid #ffb00077;border-radius:4px;
+  background:#ffb0000f;color:var(--amber);font-size:.8rem;line-height:1.5;overflow-wrap:anywhere;}
+.fork-notice a{color:var(--amber);text-decoration:underline;}
 .btn-amber:hover{background:rgba(255,176,0,0.1);box-shadow:var(--glow-amber);}
 .btn-blue{color:var(--blue);border-color:#00ccff55;}
 .btn-blue:hover{background:rgba(0,204,255,0.1);}
@@ -1367,7 +1419,7 @@ table.markers input:focus{background:#071207;outline:1px solid var(--border);}
     <div class="sidebar-logo">
       <div class="icon">📡</div>
       <div class="title">PHANTOM<span style="color:var(--amber)">SDR</span></div>
-      <div class="sub">ADMIN v5.0.0</div>
+      <div class="sub">ADMIN v5.1.0</div>
     </div>
     <div class="nav-section">
       <div class="nav-label">MAIN</div>
@@ -1434,6 +1486,18 @@ table.markers input:focus{background:#071207;outline:1px solid var(--border);}
     </div>
 
     <div class="content">
+
+      {% if fork_origin %}
+      <!-- Installed from a fork — see fork_origin() -->
+      <div class="fork-notice">
+        &#9432; This copy of PhantomSDR-Plus was installed from a fork:
+        <b>{{ fork_origin }}</b><br>
+        The original PhantomSDR-Plus is developed at
+        <a href="{{ origin_repo }}" target="_blank" rel="noopener noreferrer">{{ origin_repo }}</a>.
+        A fork may be older than the original or changed by its owner; updates,
+        documentation and support come from the original.
+      </div>
+      {% endif %}
 
       <!-- ══════ DASHBOARD PAGE ══════ -->
       <div class="page active" id="page-dashboard">
@@ -3795,7 +3859,8 @@ def login_post():
 @login_required
 def dashboard():
     from flask import make_response
-    resp = make_response(render_template_string(MAIN_HTML))
+    resp = make_response(render_template_string(MAIN_HTML, fork_origin=fork_origin(),
+                                                origin_repo=ORIGIN_REPO))
     resp.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
     resp.headers['Pragma'] = 'no-cache'
     return resp

@@ -773,7 +773,7 @@ Edit the following fields:
   "siteCity": "Your City, Country",
   "siteInformation": "https://github.com/sv1btl/PhantomSDR-Plus",
   "siteHardware": "Computer specifications",
-  "siteSoftware": "PhantomSDR-Plus v5.0.0",
+  "siteSoftware": "PhantomSDR-Plus v5.1.0",
   "siteReceiver": "Your SDR model",
   "siteAntenna": "Antenna description",
   "siteNote": "Additional information",
@@ -1600,7 +1600,7 @@ Backups made before 23 September 2026 sit in the hidden folder `.update-backups/
 ./update.sh --apply --yes     # never asks; every file you edited is KEPT
 ./update.sh --check           # report only, never ask — for cron (10 = update waiting)
 ./update.sh --from FILE|DIR   # the new version from a .zip/.tar.gz or a folder — no network
-./update.sh --ref v5.0.0      # a tag, branch or commit instead of the current tree
+./update.sh --ref v5.1.0      # a tag, branch or commit instead of the current tree
 ./update.sh --list-excludes   # print the never-touch rules as they resolve here
 ./update.sh --verbose         # list every file, not only the first 40
 ```

@@ -55,10 +55,12 @@ PhantomSDR-Plus
 ├── docs
 │   ├── ADMIN_PANEL_SETUP.md
 │   ├── Aether_config.md
+│   ├── Appendix.md
 │   ├── CONNECTION_LIMITS.md
 │   ├── de
 │   │   ├── ADMIN_PANEL_SETUP.md
 │   │   ├── Aether_config.md
+│   │   ├── Appendix.md
 │   │   ├── CONNECTION_LIMITS.md
 │   │   ├── DECODERS.md
 │   │   ├── EDITING_VARIANTS.md
@@ -79,6 +81,7 @@ PhantomSDR-Plus
 │   ├── el
 │   │   ├── ADMIN_PANEL_SETUP.md
 │   │   ├── Aether_config.md
+│   │   ├── Appendix.md
 │   │   ├── CONNECTION_LIMITS.md
 │   │   ├── DECODERS.md
 │   │   ├── EDITING_VARIANTS.md
@@ -97,6 +100,7 @@ PhantomSDR-Plus
 │   ├── es
 │   │   ├── ADMIN_PANEL_SETUP.md
 │   │   ├── Aether_config.md
+│   │   ├── Appendix.md
 │   │   ├── CONNECTION_LIMITS.md
 │   │   ├── DECODERS.md
 │   │   ├── EDITING_VARIANTS.md
@@ -115,6 +119,7 @@ PhantomSDR-Plus
 │   ├── fr
 │   │   ├── ADMIN_PANEL_SETUP.md
 │   │   ├── Aether_config.md
+│   │   ├── Appendix.md
 │   │   ├── CONNECTION_LIMITS.md
 │   │   ├── DECODERS.md
 │   │   ├── EDITING_VARIANTS.md
@@ -133,6 +138,7 @@ PhantomSDR-Plus
 │   ├── hr
 │   │   ├── ADMIN_PANEL_SETUP.md
 │   │   ├── Aether_config.md
+│   │   ├── Appendix.md
 │   │   ├── CONNECTION_LIMITS.md
 │   │   ├── DECODERS.md
 │   │   ├── EDITING_VARIANTS.md
@@ -161,6 +167,7 @@ PhantomSDR-Plus
 │   ├── ru
 │   │   ├── ADMIN_PANEL_SETUP.md
 │   │   ├── Aether_config.md
+│   │   ├── Appendix.md
 │   │   ├── CONNECTION_LIMITS.md
 │   │   ├── DECODERS.md
 │   │   ├── EDITING_VARIANTS.md
@@ -239,6 +246,7 @@ PhantomSDR-Plus
 │   │   ├── users.html
 │   │   └── wf-message.json
 │   ├── README.md
+│   ├── site_information.example.json # opći predložak, siguran za distribuciju; kopirajte ga u site_information.json
 │   ├── site_information.json
 │   ├── src
 │   │   ├── app.css
@@ -269,9 +277,12 @@ PhantomSDR-Plus
 │   │   ├── faxWorkerProxy.js
 │   │   ├── fft.js
 │   │   ├── flacLowLatency.js         # FLAC dekoder koji reproducira svaki paket čim stigne
+│   │   ├── fldigiFec.js              # Viterbijev dekoder i pomoćne funkcije obitelji fldigi
 │   │   ├── fsk.js
 │   │   ├── fsk.worker.js
 │   │   ├── fskWorkerProxy.js
+│   │   ├── hell.js
+│   │   ├── ifk.js                    # DominoEX i THOR
 │   │   ├── kiwiSource.js
 │   │   ├── lib
 │   │   │   ├── aprsMap.js
@@ -345,6 +356,8 @@ PhantomSDR-Plus
 │   │   │   ├── phantomsdrdsp.js
 │   │   │   ├── phantomsdrdsp_router.js
 │   │   │   └── wspr.js
+│   │   ├── mfsk.js
+│   │   ├── mt63.js
 │   │   ├── olivia.js
 │   │   ├── playoutControl.js         # mjeri vezu, drži spremnik reprodukcije malim
 │   │   ├── psk31.js
@@ -355,6 +368,7 @@ PhantomSDR-Plus
 │   │   ├── sstv.js
 │   │   ├── sstv.worker.js
 │   │   ├── sstvWorkerProxy.js
+│   │   ├── throb.js
 │   │   ├── uberSource.js
 │   │   ├── unused
 │   │   │   ├── AudioProcessor.js
@@ -945,7 +959,7 @@ Web-sučelje izgrađeno pomoću Sveltea i Vitea.
 - Struktura rasporeda
 - Usklađivanje komponenti
 - **Red gumba dekodera** — po jedan gumb za svaki dekoder na glavnoj ploči, odmah ispod izbornika načina rada; jedan pritisak pokreće dekoder i otvara njegov prozor, drugi ga zaustavlja. Zamijenio je dotadašnji red za širinu pojasa. RADEL/RADEU su u `lib/ModesSelector.svelte`, uz izbornik načina rada te u skočnim prozorima **Modes** i **Bands**.
-- **Redak verzije** — „PhantomSDR+ | v5.0.0 original from github.com/sv1btl/PhantomSDR-Plus”, s adresom kao poveznicom; isti redak nalazi se i na stranici /mobile. Broj verzije i adresa nalaze se u `lib/version.js`; redak je navođenje autorstva obuhvaćeno datotekom `ADDITIONAL_TERMS.md`.
+- **Redak verzije** — „PhantomSDR+ | v5.1.0 original from github.com/sv1btl/PhantomSDR-Plus”, s adresom kao poveznicom; isti redak nalazi se i na stranici /mobile. Broj verzije i adresa nalaze se u `lib/version.js`; redak je navođenje autorstva obuhvaćeno datotekom `ADDITIONAL_TERMS.md`.
 
 #### 2. Prikaz slapa (`waterfall.js` + `lib/`)
 - Iscrtavanje spektra i slapa na platnu (canvas), palete boja i prilagodljivo automatsko podešavanje — sve u `waterfall.js` (čisti JS, nije komponenta)
@@ -981,7 +995,7 @@ Svaki od zahtjevnih dekodera načina rada izvodi se u vlastitom Web Workeru, pa 
 |---------|-----------|--------|--------------------------|
 | SSTV | `sstv.js` | `sstv.worker.js` | `sstvWorkerProxy.js` |
 | HF FAX | `fax.js` | `fax.worker.js` | `faxWorkerProxy.js` |
-| NAVTEX + FSK/RTTY + PSK31 + Olivia + Packet/APRS | `fsk.js`, `psk31.js`, `olivia.js`, `ax25.js` | `fsk.worker.js` | `fskWorkerProxy.js` |
+| NAVTEX + FLDIGI (FSK/RTTY, PSK31, Olivia, MFSK, DominoEX, THOR, THROB, Hellschreiber, MT63, Packet/APRS) | `fsk.js`, `psk31.js`, `olivia.js`, `mfsk.js`, `ifk.js`, `throb.js`, `hell.js`, `mt63.js`, `fldigiFec.js`, `ax25.js` | `fsk.worker.js` | `fskWorkerProxy.js` |
 | CW | `cwDecoder.js` | `cw.worker.js` | `cwWorkerProxy.js` |
 
 - **Mehanizam** je čisti DSP kod koji ništa ne zna o workerima, pa se može pokrenuti i izravno (jedinični testovi ili rezervni rad u istoj dretvi).
@@ -992,10 +1006,16 @@ Dvije su pojedinosti ključne: PCM se **kopira** u novi međuspremnik prije prij
 
 `fsk.js` iz jednog mehanizma poslužuje i NAVTEX i FSK/RTTY, uz odabir po instanci pomoću polja `role`; svaka instanca ima vlastito stanje, pa oba mogu raditi neovisno.
 
-Uloga `fsk` dodatno ugošćuje dekodere koji uopće ne koriste njezin FSK lanac. Odabirom inačice `psk31`, `olivia`, `packet` ili `aprs`, `fsk.js` predaje zvuk modulu `psk31.js`, `olivia.js` odnosno `ax25.js` umjesto vlastitom diskriminatorskom lancu, ali i dalje posuđuje njegovu konfiguraciju, worker i sustav događaja — pa `fsk.worker.js` i `fskWorkerProxy.js` ne moraju znati ništa o tim načinima rada, a sučelje posvuda prima iste događaje `char`/`status`/`metrics`, uz događaj `line` koji nosi cijeli dekodirani paket.
+Uloga `fsk` dodatno ugošćuje dekodere koji uopće ne koriste njezin FSK lanac. Odabirom inačice `psk31`, `olivia`, `packet` ili `aprs`, ili jednog od modema obitelji fldigi (`mfsk`, `dominoex`, `thor`, `throb`, `hell`, `mt63`, navedenih u `FLDIGI_MODEMS`), `fsk.js` predaje zvuk modulu `psk31.js`, `olivia.js`, `ax25.js`, `mfsk.js`, `ifk.js`, `throb.js`, `hell.js` odnosno `mt63.js` umjesto vlastitom diskriminatorskom lancu, ali i dalje posuđuje njegovu konfiguraciju, worker i sustav događaja — pa `fsk.worker.js` i `fskWorkerProxy.js` ne moraju znati ništa o tim načinima rada, a sučelje posvuda prima iste događaje `char`/`status`/`metrics`, uz događaj `line` koji nosi cijeli dekodirani paket. Postoji i događaj `hell` koji nosi jedan iscrtani stupac Hellschreibera. Svi modemi primaju istu konfiguraciju — podnačin (`modemMode`), squelch (`modemSquelch`) i središte — a promjena samo squelcha podešava dekoder koji radi umjesto da ga ponovno gradi.
 
 - `psk31.js` — BPSK31: kompleksni osnovni pojas, prilagođeni filtar, diferencijalna detekcija i varicode, uz spektralno grubo hvatanje i fini AFC raspona približno ±25 Hz.
 - `olivia.js` — Olivia MFSK: prijenos MFSK prijamnika Pawela Jaloche iz fldigija (`pj_mfsk.h`, GPL-3, kao i ovaj projekt), uključujući Walsh/Hadamard korekciju pogrešaka i slijepo traženje sinkronizacije po fazi bloka i frekvencijskom pomaku.
+- `mfsk.js` — MFSK16/32/64: prijenos fldigijeva IZ8BLY MFSK prijamnika (`mfsk.cxx`, GPL-3) — klizni DFT, preplitač dubine 10, Viterbijev dekoder s K=7, IZ8BLY varicode, petlje sinkronizacije simbola i AFC-a. fldigi svoje dvije funkcije Grayeva koda imenuje obrnuto od udžbenika; `mfsk.js` slijedi fldigi, jer se to emitira.
+- `ifk.js` — DominoEX i THOR: prijenos fldigijeva IFK+ prijamnika (`dominoex.cxx`, `thor.cxx`, GPL-3) — tri klizna DFT-a razmaknuta za trećinu pretinca, takt simbola iz vrha prethodnog tona, DominoEX-ov varicode po polubajtovima te za THOR meke odluke, otkrivanje preambule, preplitanje i Viterbijev dekoder s K=7 ili K=15. Njegov squelch mjeri ton prema ostalim pretincima umjesto fldigijeva broja, koji je na nekim čistim signalima prenizak.
+- `throb.js` — THROB i THROBX: fldigijev `throb.cxx` — reference tonova oblikovane impulsom, korelirane s decimiranim signalom, traženje najjačeg para tonova, takt iz vrha ovojnice i AFC.
+- `hell.js` — Hellschreiber (Feld, Slow, X5, X9, FSK Hell 245/105, Hell 80): prijamna strana fldigijeva `feld.cxx`; daje stupce od 2 × 20 piksela koje `App.svelte` iscrtava na canvas.
+- `mt63.js` — MT63-500/1000/2000, kratko i dugo preplitanje: MT63 prijamnik Pawela Jaloche kakav nosi fldigi (`mt63base.cxx`, `dsp.cxx`) — I/Q filtar za razdvajanje, FFT od 512 točaka uzorkovan četiri puta po simbolu, korelacijski sinkronizator za vrijeme i frekvenciju, diferencijalna demodulacija i Walshova korekcija pogrešaka s pretragom ±8 nosilaca.
+- `fldigiFec.js` — ono što dijele: Viterbijev dekoder s mekim odlukama za bilo koju duljinu ograničenja (Int32 metrike, pa K=15 stane u 24 MB), klizni prosjeci i preuzorkovač.
 - `ax25.js` — Packet radio i APRS: AFSK demodulator za 1200 Bd (Bell 202, prijem u FM-u) i za KV packet od 300 Bd (prijem u USB-u), s pet odlučivača pri različitoj ravnoteži tonova i po jednom petljom za obnovu takta, zatim NRZI/HDLC razokvirivanje, CRC-16 provjera okvira, raščlamba AX.25 adresnog i upravljačkog polja te APRS parser (položaji, uključujući komprimirane i Mic-E, vrijeme, poruke, objekti, itemi, stanje, telemetrija). Prijavljuju se samo okviri koji prođu kontrolni zbroj i nose ispravnu adresu. `packet` ispisuje svaki okvir kao TNC monitor; `aprs` ispisuje APRS okvire dekodirane u običan tekst.
 - `lib/aprsMap.js` — APRS karta: pamti svaku postaju s dekodiranim položajem (objekti i itemi pod vlastitim imenom, obrisani se uklanjaju, putanja za one u pokretu) i crta ih pomoću Leafleta na OpenStreetMap pločicama; položaj samog prijemnika dolazi iz `siteGridSquare`. Leaflet se učitava tek kad se karta prvi put prikaže, pa ništa ne stoji slušatelje koji nikad ne otvore APRS. Tekst primljen iz etera stiže na stranicu samo kroz `textContent` ili escapiranje. `App.svelte` smješta kartu ispod APRS prozora s tekstom te je otvara i zatvara zajedno s njim.
 - `broadcastSchedules.js` — UTC rasporedi koje FAX, NAVTEX i RTTY dekoderi nude kao pripremljene postavke, iz NOAA/NWS rasporeda pomorskog faksimila i objavljenih popisa NAVTEX postaja
@@ -1082,7 +1102,7 @@ frequencylist/
 ]
 ```
 
-`mode` je način rada prijemnika (`USB`, `LSB`, `AM`, `FM`, `CW`, …) ili ime digitalnog načina rada — `FT8`, `FT4`, `FT2`, `JS8`, `WSPR`, `SSTV`, `NAVTEX`, `FAX`, `RTTY`, `RTTY-WX`, `SITOR`, `PSK31`, `OLIVIA`, `PACKET` ili `APRS` — i tada klik na oznaku pokreće taj dekoder ([pojedinosti](DECODERS.md#pokretanje-dekodera-s-oznake-frekvencije)).
+`mode` je način rada prijemnika (`USB`, `LSB`, `AM`, `FM`, `CW`, …) ili ime digitalnog načina rada — `FT8`, `FT4`, `FT2`, `JS8`, `WSPR`, `SSTV`, `NAVTEX`, `FAX`, `RTTY`, `RTTY-WX`, `SITOR`, `PSK31`, `OLIVIA`, `MFSK`, `MFSK16`, `MFSK32`, `MFSK64`, `DOMINOEX`, `THOR`, `THROB`, `HELL`, `FELDHELL`, `MT63`, `PACKET` ili `APRS` — i tada klik na oznaku pokreće taj dekoder ([pojedinosti](DECODERS.md#pokretanje-dekodera-s-oznake-frekvencije)).
 
 ---
 

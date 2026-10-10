@@ -80,6 +80,9 @@ import { FAXWorkerProxy }  from './faxWorkerProxy.js';
 // NAVTEX and FSK/RTTY are one shared engine (fsk.js); each role gets its own
 // decoder instance and its own worker.  See fsk.worker.js.
 import { FSKWorkerProxy }  from './fskWorkerProxy.js';
+// fsk.js is in this bundle already (the proxy's in-thread fallback imports it).
+import { FLDIGI_MODEMS } from './fsk.js';
+const FSK_MODEM_VARIANTS = Object.keys(FLDIGI_MODEMS);
 import { ModeIdWorkerProxy } from './modeIdWorkerProxy.js';
 import { VideoRecorder } from './videoRecorder.js';
 // CW runs in its own Worker too; the proxy keeps the CWDecoder surface that
@@ -7387,7 +7390,8 @@ js8Pending() {
   setFSKVariant(variant = 'maritime') {
     const v = String(variant || 'maritime').toLowerCase();
     if (v !== 'weather' && v !== 'maritime' && v !== 'ham' &&
-        v !== 'psk31' && v !== 'olivia') {
+        v !== 'psk31' && v !== 'olivia' && v !== 'packet' && v !== 'aprs' &&
+        !FSK_MODEM_VARIANTS.includes(v)) {
       console.warn('[FSK] unknown variant:', variant, '— using maritime');
       this.fskVariant = 'maritime';
     } else {

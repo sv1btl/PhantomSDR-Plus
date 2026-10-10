@@ -15,7 +15,7 @@ Esta guía cubre todos los decodificadores integrados disponibles en PhantomSDR-
 7. [WSPR](#7-wspr)
 8. [FAX de HF / WEFAX](#8-fax-de-hf--wefax)
 9. [NAVTEX](#9-navtex)
-10. [FSK / RTTY — incluidos PSK31, Olivia, Packet y APRS](#10-fsk--rtty--incluidos-psk31-olivia-packet-y-aprs)
+10. [FLDIGI — RTTY, PSK31, Olivia, MFSK, DominoEX, THOR, THROB, Hellschreiber, MT63, Packet y APRS](#10-fldigi--rtty-psk31-olivia-mfsk-dominoex-thor-throb-hellschreiber-mt63-packet-y-aprs)
 11. [SSTV](#11-sstv)
 12. [Consejos generales](#12-consejos-generales)
 
@@ -40,7 +40,7 @@ El desplegable no es la única vía. El panel principal incluye una fila de boto
 |---|---|---|---|
 | **FT8** | FT8 | **SSTV** | SSTV |
 | **FT4** | FT4 | **NAVTEX** | NAVTEX |
-| **FT2** | FT2 | **RTTY** | FSK / RTTY, PSK31, Olivia, Packet, APRS |
+| **FT2** | FT2 | **FLDIGI** | RTTY, SITOR, PSK31, Olivia, MFSK, DominoEX, THOR, THROB, Hellschreiber, MT63, Packet, APRS |
 | **CW** | CW | | |
 | **WSPR** | WSPR | **FAX** | HF FAX / WEFAX |
 
@@ -59,9 +59,10 @@ Un marcador de frecuencia (las etiquetas amarillas sobre la cascada, de `markers
 | `FT8`, `FT4`, `FT2`, `JS8`, `WSPR`, `SSTV` | ese decodificador | la frecuencia del dial |
 | `NAVTEX` | NAVTEX | la frecuencia de la señal (el dial baja 500 Hz) |
 | `FAX`, `WEFAX` | HF FAX | el centro publicado (el dial baja 1900 Hz) |
-| `RTTY`, `RTTY-WX`, `SITOR` | FSK / RTTY como aficionado, meteorológico o marítimo | la frecuencia de la señal (el dial baja el centro de audio del panel) |
-| `PSK31`, `OLIVIA` | FSK / RTTY en esa variante | como arriba |
-| `PACKET`, `APRS` | FSK / RTTY en esa variante | el canal; 300 Bd (USB) por debajo de 30 MHz, 1200 Bd (FM) por encima |
+| `RTTY`, `RTTY-WX`, `SITOR` | FLDIGI como aficionado, meteorológico o marítimo | la frecuencia de la señal (el dial baja el centro de audio del panel) |
+| `PSK31`, `OLIVIA`, `MFSK`, `DOMINOEX`, `THOR`, `THROB`, `HELL`, `MT63` | FLDIGI en esa variante | como arriba |
+| `MFSK16`, `MFSK32`, `MFSK64`, `FELDHELL` | FLDIGI en esa variante y ese submodo | como arriba |
+| `PACKET`, `APRS` | FLDIGI en esa variante | el canal; 300 Bd (USB) por debajo de 30 MHz, 1200 Bd (FM) por encima |
 
 Un decodificador que ya está en marcha sigue activo. `CW` sigue siendo un modo normal del receptor, porque lo usan balizas y estaciones — no inicia el decodificador CW. Los marcadores solo se muestran mientras la cascada abarca 3,5 MHz o menos.
 
@@ -69,9 +70,9 @@ Un decodificador que ya está en marcha sigue activo. `CW` sigue siendo un modo 
 >
 > El **grabber QRSS** no forma parte de este menú desplegable: tiene su propia sección **QRSS** y puede funcionar al mismo tiempo que un decodificador.
 
-**La decodificación se ejecuta en segundo plano.** SSTV, FAX de HF, NAVTEX, FSK/RTTY y CW se ejecutan cada uno en un hilo Web Worker independiente, de modo que el trabajo de decodificación nunca compite con la reproducción de audio ni con la cascada. Iniciar o detener un decodificador no interrumpe el audio, y la interfaz sigue respondiendo mientras se recibe una imagen o una página. Todos los decodificadores reciben audio en bruto tomado *antes* del AGC, la reducción de ruido y el silenciado, así que silenciar el receptor o ajustar esos parámetros a su gusto no afecta a la decodificación.
+**La decodificación se ejecuta en segundo plano.** SSTV, FAX de HF, NAVTEX, FLDIGI y CW se ejecutan cada uno en un hilo Web Worker independiente, de modo que el trabajo de decodificación nunca compite con la reproducción de audio ni con la cascada. Iniciar o detener un decodificador no interrumpe el audio, y la interfaz sigue respondiendo mientras se recibe una imagen o una página. Todos los decodificadores reciben audio en bruto tomado *antes* del AGC, la reducción de ruido y el silenciado, así que silenciar el receptor o ajustar esos parámetros a su gusto no afecta a la decodificación.
 
-**Un decodificador en marcha manda sobre el modo y el paso de banda.** Normalmente el modo sigue el plan de bandas de `bands-config.js`: lleve el dial a un segmento marcado LSB o AM y el receptor cambia a él. Mientras un decodificador está en marcha eso ya no ocurre. El decodificador mantiene el modo que necesita (USB en casi todos, el suyo propio en RADE) y el paso de banda que necesita —PSK31 unos ±100 Hz, Olivia todo su ancho, RTTY su shift— y ambos sobreviven a la resintonía, incluso a un salto a otra banda. Sin esto, sintonizar FT8 en 40 m pasaría el receptor a LSB en cuanto se moviera el dial, y los pasos de banda estrechos de los decodificadores se abrirían de nuevo al filtro SSB completo.
+**Un decodificador en marcha manda sobre el modo y el paso de banda.** Normalmente el modo sigue el plan de bandas de `bands-config.js`: lleve el dial a un segmento marcado LSB o AM y el receptor cambia a él. Mientras un decodificador está en marcha eso ya no ocurre. El decodificador mantiene el modo que necesita (USB en casi todos, el suyo propio en RADE) y el paso de banda que necesita —PSK31 unos ±100 Hz, Olivia, MFSK, DominoEX, THOR, THROB, Hellschreiber y MT63 todo su ancho, RTTY su shift— y ambos sobreviven a la resintonía, incluso a un salto a otra banda. Sin esto, sintonizar FT8 en 40 m pasaría el receptor a LSB en cuanto se moviera el dial, y los pasos de banda estrechos de los decodificadores se abrirían de nuevo al filtro SSB completo.
 
 El modo propio de la banda vuelve en cuanto apaga el decodificador. Siempre puede imponer el modo a mano: los botones de modo son una elección deliberada y siempre ganan. El decodificador de CW es la excepción a todo esto: decodifica en el modo en que usted esté escuchando y nunca toma el control del receptor.
 
@@ -540,9 +541,9 @@ Haga clic en **Clear** para borrar el búfer de mensajes.
 
 ---
 
-## 10. FSK / RTTY — incluidos PSK31, Olivia, Packet y APRS
+## 10. FLDIGI — RTTY, PSK31, Olivia, MFSK, DominoEX, THOR, THROB, Hellschreiber, MT63, Packet y APRS
 
-**Qué es:** un decodificador de uso general para modos de texto de banda estrecha, con siete variantes de funcionamiento seleccionables desde un único menú. Tres son FSK auténtico (modulación por desplazamiento de frecuencia): FSK marítimo (SITOR), RTTY meteorológico y RTTY de aficionado. Las demás no son FSK en absoluto, pero comparten la misma ventana: **PSK31**, que es modulación por desplazamiento de fase, **Olivia**, que es FSK multitono con corrección de errores, y **Packet (AX.25)** y **APRS**, que decodifican packet radio AFSK — el packet de 1200 baudios de VHF/UHF y el packet de 300 baudios de HF. Cada variante incluye un preajuste adaptado a sus parámetros estándar.
+**Qué es:** una ventana para los modos de teclado de banda estrecha que popularizó el programa fldigi, con trece variantes seleccionables desde un único menú. Tres son FSK auténtico (modulación por desplazamiento de frecuencia): FSK marítimo (SITOR), RTTY meteorológico y RTTY de aficionado. Las demás comparten la misma ventana: **PSK31**, que es modulación por desplazamiento de fase; **Olivia** y **MFSK16/32/64**, modos multitono con corrección de errores; **DominoEX** y **THOR**, modulación por saltos incrementales de frecuencia (THOR con corrección de errores); **THROB**, dos tonos a la vez, un carácter por pulso; **Hellschreiber**, que pinta el texto como una imagen en lugar de decodificarlo; **MT63**, 64 portadoras a la vez; y **Packet (AX.25)** y **APRS**, que decodifican packet radio AFSK — el packet de 1200 baudios de VHF/UHF y el packet de 300 baudios de HF. Cada variante incluye un preajuste adaptado a sus parámetros estándar. El botón y la entrada del menú se llaman ambos **FLDIGI**; la decodificación se hace aquí, en el navegador, y no hace falta tener fldigi.
 
 ### Variantes y preajustes
 
@@ -552,19 +553,25 @@ Haga clic en **Clear** para borrar el búfer de mensajes.
 | RTTY meteorológico | 1000 Hz | 450 Hz | 50 | 5N1.5 | ITA2 |
 | RTTY de aficionado | 1000 Hz | 170 Hz | 45.45 | 5N1.5 | ITA2 |
 | PSK31 (BPSK) | 1000 Hz | — | 31.25 | — | Varicode |
-| Olivia (MFSK) | 1000 Hz | — | según Mode | — | 7 bits + FEC |
+| Olivia | 1000 Hz | — | ver Mode | — | 7 bits + FEC |
+| MFSK16·32·64 | 1500 Hz | — | ver Mode | — | Varicode + FEC |
+| DominoEX | 1500 Hz | — | ver Mode | — | Varicode por nibbles |
+| THOR | 1500 Hz | — | ver Mode | — | Varicode + FEC |
+| THROB / THROBX | 1500 Hz | — | 1, 2 o 4 | — | pares de tonos |
+| Hellschreiber | 1500 Hz | — | ver Mode | — | imagen |
+| MT63 | 1000 Hz (portadora más baja en 500 Hz) | — | 5, 10 o 20 | — | Walsh + entrelazado |
 | Packet (AX.25) | tonos de 1200 / 2200 Hz, o 1700 Hz a 300 Bd | 1000 Hz, o 200 Hz a 300 Bd | 1200 o 300 | HDLC | AX.25 |
 | APRS | como Packet | como Packet | 1200 o 300 | HDLC | AX.25 + APRS |
 
-El panel se adapta a la variante elegida. **Shift**, **Baud**, **Framing**, **Encoding**, **Invert mark / space** y **Auto shift detect** se ocultan para PSK31 y Olivia, porque ninguno de los dos modos tiene un par de tonos mark/space ni trama de tipo UART. En su lugar, **Center audio** pasa a ser un campo numérico de entrada libre (la portadora puede situarse en cualquier punto del paso de banda), y Olivia añade un selector **Mode** y un deslizador **Squelch**. Packet y APRS ocultan los mismos controles FSK y muestran en su lugar un selector **Speed**; APRS tiene además la casilla **Show raw packet**.
+El panel se adapta a la variante elegida. **Shift**, **Baud**, **Framing**, **Encoding**, **Invert mark / space** y **Auto shift detect** se ocultan en todas las variantes salvo las tres FSK, porque ninguno de los demás modos tiene un par de tonos mark/space ni trama de tipo UART. En su lugar, **Center audio** pasa a ser un campo numérico de entrada libre (la señal puede situarse en cualquier punto del paso de banda), y Olivia, MFSK, DominoEX, THOR, THROB, Hellschreiber y MT63 añaden cada uno un selector **Mode** y — todos salvo Hellschreiber — un deslizador **Squelch** con su propia escala. Packet y APRS ocultan los mismos controles FSK y muestran en su lugar un selector **Speed**; APRS tiene además la casilla **Show raw packet**. La lista **Known frequency** aparece solo en las variantes que la tienen.
 
 ### Configuración
 
-1. Active el decodificador y seleccione **FSK / RTTY / PACKET / APRS** en el menú. O simplemente pulse el botón **RTTY**.
-2. Aparece el panel del decodificador. Su título sigue a la variante — *FSK / RTTY Decoder*, *PSK31 Decoder*, *Olivia Decoder*, *Packet (AX.25) Decoder* o *APRS Decoder*.
+1. Active el decodificador y seleccione **FLDIGI** en el menú desplegable. O simplemente pulse el botón **FLDIGI**.
+2. Aparece el panel del decodificador. Su título sigue a la variante — *FSK / RTTY Decoder*, *PSK31 Decoder*, *Olivia Decoder*, *MFSK Decoder*, *DominoEX Decoder*, *THOR Decoder*, *THROB Decoder*, *Hellschreiber Decoder*, *MT63 Decoder*, *Packet (AX.25) Decoder* o *APRS Decoder*.
 3. Seleccione la **Variant**. Los parámetros se actualizan automáticamente.
-4. Para Olivia, ajuste **Mode** (tonos / ancho de banda) para que coincida con la transmisión — véanse las notas sobre Olivia más abajo. Para Packet y APRS, ajuste **Speed** — véanse las notas sobre Packet y APRS más abajo.
-5. Utilice el menú **Known frequency** para elegir una frecuencia habitual de la variante seleccionada y pulse **Tune** para saltar a ella.
+4. En Olivia, MFSK, DominoEX, THOR, THROB, Hellschreiber y MT63, ajuste **Mode** para que coincida con la transmisión — vea más abajo las notas de cada modo. En Packet y APRS, ajuste **Speed** — vea más abajo las notas sobre Packet y APRS.
+5. Donde la variante la tenga, use la lista desplegable **Known frequency** para elegir una frecuencia habitual y pulse **Tune** para ir a ella. Los demás modos no tienen frecuencias de llamada fijas: busque la señal en la cascada y use **⟳ Auto-tune Center**.
 6. Afine la sintonía hasta que el texto decodificado sea estable y legible.
 
 ### Frecuencias conocidas por variante
@@ -586,6 +593,9 @@ El panel se adapta a la variante elegida. **Shift**, **Baud**, **Framing**, **En
 **Olivia**
 - 3577,75 kHz (80 m), 7073,75 kHz (40 m), 10142,25 kHz (30 m), 14075,5 kHz (20 m), 18103,75 kHz (17 m), 21075,75 kHz (15 m), 24921,75 kHz (12 m), 28123,75 kHz (10 m)
 
+**MFSK, DominoEX, THOR, THROB, Hellschreiber, MT63**
+- Sin frecuencias de llamada fijas; la lista no se muestra. Busque la señal en la cascada.
+
 **Packet y APRS** (la misma lista para ambos; cada entrada fija también la velocidad adecuada)
 - 144,800 MHz — APRS en Europa (Región 1 de la IARU)
 - 144,390 MHz — APRS en Norteamérica
@@ -599,7 +609,7 @@ El panel se adapta a la variante elegida. **Shift**, **Baud**, **Framing**, **En
 
 | Parámetro | Se aplica a | Descripción |
 |-----------|-------------|-------------|
-| Center audio (Hz) | todas | La frecuencia de audio del punto medio entre mark y space; en PSK31 la portadora, en Olivia el centro del bloque de tonos. Un menú desplegable en las variantes FSK, un campo de entrada libre en PSK31 y Olivia. En Packet y APRS un campo de entrada libre solo a 300 Bd; a 1200 Bd los tonos son fijos, 1200 / 2200 Hz, y el campo solo los muestra |
+| Center audio (Hz) | todas | La frecuencia de audio del punto medio entre mark y space; en PSK31 la portadora, en los modos multitono el centro del bloque de tonos o del grupo de portadoras. Un menú desplegable en las variantes FSK, un campo de entrada libre en todas las demás. En Packet y APRS un campo de entrada libre solo a 300 Bd; a 1200 Bd los tonos son fijos, 1200 / 2200 Hz, y el campo solo los muestra |
 | Shift (Hz) | solo FSK | Diferencia de frecuencia entre los tonos mark y space |
 | Baud | solo FSK | Velocidad de símbolo |
 | Framing | solo FSK | Bits de datos, paridad, bits de parada (p. ej. 7N1 = 7 datos, sin paridad, 1 parada) |
@@ -608,6 +618,12 @@ El panel se adapta a la variante elegida. **Shift**, **Baud**, **Framing**, **En
 | Auto shift detect | solo FSK | Intenta medir el shift automáticamente a partir de la señal recibida |
 | Mode (tonos / Hz) | solo Olivia | Número de tonos y ancho de banda — debe coincidir exactamente con la transmisión |
 | Squelch (FEC S/N) | solo Olivia | Cuán fuerte debe ser la coincidencia de la corrección de errores antes de imprimir texto |
+| Mode | MFSK, DominoEX, THOR, THROB, Hellschreiber, MT63 | El submodo (velocidad, ancho, entrelazado) — debe coincidir con la transmisión |
+| Squelch (FEC metric) | MFSK | La calidad de decodificación (0–100) que debe alcanzar la señal antes de imprimir texto; por defecto 22 |
+| Squelch (tone / noise) | DominoEX, THOR | 0–100: el tono actual frente al fondo de las demás posiciones de tono; por defecto 25 |
+| Squelch (S/N) | THROB | En dB; por defecto 4 |
+| Squelch (FEC S/N) | MT63 | La coincidencia del código Walsh; por defecto 4 |
+| Reverse | FSK Hell 245 / 105, Hell 80 | Pinta el otro tono como tinta |
 | Speed | Packet y APRS | **1200 Bd · VHF/UHF (FM)** o **300 Bd · HF (USB)**. También elige el modo del receptor |
 | Show raw packet | solo APRS | Imprime además el paquete tal como se recibió (formato TNC2) encima de cada línea decodificada |
 | Squelch (SNR) | RTTY de aficionados y meteorológico | Evita que el ruido se imprima como letras al azar. Empieza en −5 dB para el RTTY de aficionados y en −8 dB para el meteorológico; del todo a la izquierda (**off**) queda desactivado. La cifra de SNR se vuelve gris mientras el squelch está cerrado |
@@ -621,18 +637,21 @@ La barra de estado muestra medidas en tiempo real, y los campos cambian según l
 | Variantes FSK | **Mark / Space** (frecuencias de tono medidas), **SNR**, **Lock**, **Timing** |
 | PSK31 | **Carrier** (Hz, tras la corrección automática de frecuencia), **IMD** (dB), **SNR**, **Lock**, **Timing** |
 | Olivia | **Centre** (Hz), **Mode**, **S/N**, **FEC** (%), **Sync** |
+| MFSK16 / 32 / 64 | **Centre** (Hz, tras la corrección automática de frecuencia), **Mode**, **S/N**, **FEC** (%), **Sync** |
+| DominoEX, THOR, THROB, MT63 | **Centre** (Hz; en THROB y MT63 tras la corrección automática de frecuencia), **Mode**, **S/N**, **Quality** (%), **Sync** |
+| Hellschreiber | **Centre**, **Mode**, **Audio** (nivel de entrada, dBFS) |
 | Packet y APRS | **Tones** (Hz), **DCD** (encendido mientras hay un paquete en el aire), **Frames** (paquetes decodificados), **Stations** (indicativos distintos escuchados), **Audio** (nivel de entrada, dBFS) |
 
 `Timing`/`Sync` indica `LOCKED`/`SYNCED` cuando el decodificador sigue la señal, y `SEARCH` mientras aún la busca.
 
-La **SNR** de las variantes FSK y de PSK31 se mide sobre la propia señal y se da en 3 kHz de ancho de banda, así que ambas se leen en la misma escala: con un error de 1 dB aproximadamente de +20 dB a −5 dB. Una frecuencia vacía marca unos −12 a −15 dB, y en PSK31 0 dB ya es una señal fuerte. La **S/N** de Olivia es otra cosa: la cifra de calidad de la corrección de errores.
+La **SNR** de las variantes FSK y de PSK31 se mide sobre la propia señal y se da en 3 kHz de ancho de banda, así que ambas se leen en la misma escala: con un error de 1 dB aproximadamente de +20 dB a −5 dB. Una frecuencia vacía marca unos −12 a −15 dB, y en PSK31 0 dB ya es una señal fuerte. La **S/N** de Olivia es otra cosa: la cifra de calidad de la corrección de errores. En MFSK, **S/N** es la relación tono/ruido de fldigi y **FEC** su calidad de decodificación de 0 a 100. En DominoEX y THOR, **S/N** es el tono recibido frente a las demás posiciones de tono y **Quality** la escala del squelch (en THOR, la confianza de la corrección de errores); en THROB la S/N de los dos tonos; en MT63 la coincidencia de la corrección de errores. Ninguna de estas cifras es una SNR en 3 kHz: son las magnitudes sobre las que actúa el squelch.
 
 El RTTY de aficionados (45,45 baudios, 170 Hz) se copia sin errores hasta unos 0 dB, con alrededor de un 1,5 % de caracteres erróneos a −3 dB y un 20 % a −6 dB.
 
 ### Controles adicionales
 
-- **⇒ Set IF Band-Pass** — estrecha la banda de paso del receptor para ceñir la señal. El ancho sigue a la variante: 300 Hz para el RTTY de aficionados (lo bastante estrecho para quitar una estación más fuerte a 250 Hz y aun así copiar una señal desintonizada 40 Hz), 594 Hz para el RTTY meteorológico, mark/space más margen para el FSK marítimo, unos ±100 Hz para PSK31 y todo el ancho del bloque de tonos más margen para Olivia. La banda de paso sigue al decodificador cuando **Auto-tune** o **Auto shift detect** mueven los tonos, y cuando se cambia el ajuste **Baud**. Para packet a 300 Bd, unos ±400 Hz; para packet a 1200 Bd, el canal FM normal.
-- **⟳ Auto-tune Center** — búsqueda automática de la señal. En las variantes FSK busca un par equilibrado de tonos, en PSK31 localiza la portadora, y en Olivia encuentra el bloque más fuerte del ancho de banda seleccionado. **Auto shift detect** solo cambia el desplazamiento cuando hay una verdadera señal de dos tonos, así que ya no salta con el ruido. Para packet a 300 Bd busca el par de tonos más fuerte separados 200 Hz. En packet a 1200 Bd el botón se oculta, porque allí los tonos son fijos.
+- **⇒ Set IF Band-Pass** — estrecha la banda de paso del receptor para ceñir la señal. El ancho sigue a la variante: 300 Hz para el RTTY de aficionados (lo bastante estrecho para quitar una estación más fuerte a 250 Hz y aun así copiar una señal desintonizada 40 Hz), 594 Hz para el RTTY meteorológico, mark/space más margen para el FSK marítimo, unos ±100 Hz para PSK31 y todo el ancho del bloque de tonos más margen para Olivia. La banda de paso sigue al decodificador cuando **Auto-tune** o **Auto shift detect** mueven los tonos, y cuando se cambia el ajuste **Baud**. Para packet a 300 Bd, unos ±400 Hz; para packet a 1200 Bd, el canal FM normal. MFSK, DominoEX, THOR, THROB, Hellschreiber y MT63 reciben todo su ancho más un margen (al menos 60 Hz a cada lado, el 15 % del ancho en los modos anchos).
+- **⟳ Auto-tune Center** — búsqueda automática de la señal. En las variantes FSK busca un par equilibrado de tonos, en PSK31 localiza la portadora, y en Olivia encuentra el bloque más fuerte del ancho de banda seleccionado. **Auto shift detect** solo cambia el desplazamiento cuando hay una verdadera señal de dos tonos, así que ya no salta con el ruido. Para packet a 300 Bd busca el par de tonos más fuerte separados 200 Hz. En packet a 1200 Bd el botón se oculta, porque allí los tonos son fijos. MFSK, DominoEX, THOR, THROB, Hellschreiber y MT63 se buscan como Olivia, sobre su propio ancho.
 
 ### Notas sobre PSK31
 
@@ -651,6 +670,51 @@ Olivia sacrifica velocidad a cambio de robustez. Es mucho más lento que PSK31, 
 - La corrección de errores trabaja por bloques, así que el texto llega **a ráfagas en lugar de en flujo continuo**, con un retardo de varios bloques entre la transmisión y su presentación.
 - **Squelch (FEC S/N)** fija la confianza que debe alcanzar la corrección de errores antes de imprimir. El valor por defecto de 4,0 mantiene fuera el ruido; 3,0 es el mínimo, por debajo del cual el ruido aleatorio empieza a imprimir caracteres sueltos. Una buena señal marca 8–9 en el indicador **FEC**, de modo que hay margen de sobra para subir el squelch en una banda concurrida.
 
+### Notas sobre MFSK16 / MFSK32 / MFSK64
+
+MFSK16, MFSK32 y MFSK64 son los modos IZ8BLY tal como los transmite fldigi: 16 tonos, uno cada vez, separados un baudio entre sí, protegidos por corrección de errores convolucional y entrelazado. Son más rápidos que Olivia y algo menos robustos. MFSK16 (15,625 baudios, 234 Hz de ancho) imprime limpio hasta unos −12 dB de SNR en 2,5 kHz, MFSK32 (31,25 baudios, 469 Hz) hasta unos −10 dB y MFSK64 (62,5 baudios, 938 Hz) hasta unos −7 dB.
+
+- **Elija la variante MFSK16·32·64** y después la velocidad en su lista **Mode**. Los tres modos solo se diferencian en la velocidad, y el ajuste debe coincidir: el equivocado no imprime nada legible.
+- **Sintonía:** coloque el bloque de tonos en la frecuencia **Center audio** o pulse **⟳ Auto-tune Center**. El último cuarto de tono lo corrige el decodificador por sí mismo —unos ±4 Hz en MFSK16, ±8 Hz en MFSK32 y ±16 Hz en MFSK64— y **Centre** muestra dónde se ha asentado.
+- El texto llega un par de segundos por detrás de la señal, el tiempo que necesitan el entrelazado y la corrección de errores. Uno o dos caracteres sueltos al principio de una transmisión son normales; fldigi también los muestra.
+- **Squelch (FEC metric)** retiene la impresión hasta que la calidad de decodificación alcanza el ajuste. El valor por defecto de 22 deja fuera el ruido (el ruido solo llega a unos 20); una buena señal marca 90 % o más en el indicador **FEC**, y 0 desactiva el squelch. Cuando una transmisión termina con la marca de fin de transmisión de fldigi, la impresión se detiene en el acto en lugar de dejar pasar unos segundos de ruido.
+- Las transmisiones de imágenes MFSK no se decodifican.
+
+### Notas sobre DominoEX y THOR
+
+DominoEX y THOR envían 18 tonos, de uno en uno, pero un carácter no es un tono: es el *salto* desde el tono anterior (modulación por saltos incrementales de frecuencia). El mismo tono nunca se repite y una deriva lenta de toda la señal se anula, así que ambos modos perdonan unos hercios de desintonía y un transmisor que deriva. **DominoEX** envía sus caracteres tal cual, sin corrección de errores: un tono erróneo cuesta un carácter. **THOR** añade la misma corrección de errores convolucional y el mismo entrelazado que MFSK, así que atraviesa chasquidos de estática y desvanecimientos a cambio de un par de segundos de retardo.
+
+- **Mode** debe coincidir con la velocidad emitida. DominoEX ofrece Micro, 4, 5, 8, 11, 16, 22, 44 y 88; THOR ofrece Micro, 4, 5, 8, 11, 16, 22 y los rápidos 25 x4, 50 x1, 50 x2 y 100 (estos cuatro usan un código más fuerte y un entrelazador de un segundo). DominoEX 11 y THOR 16 son los que más se oyen.
+- **Sintonía:** ponga el bloque de tonos en **Center audio** o pulse **⟳ Auto-tune Center**. Una desintonía de una cuarta parte del ancho de la señal todavía se copia.
+- **Squelch (tone / noise)** compara el tono recibido con el fondo de todas las demás posiciones de tono, en una escala de 0–100. El ruido solo se queda en 20 o menos; una copia legible marca 35 o más; el valor por defecto es 25. No es la cifra del propio fldigi: esa marca 26 en algunas señales perfectamente limpias, con lo que cualquier valor útil por defecto las habría cortado.
+- El receptor sigue los ajustes por defecto de fldigi: tres caminos separados un tercio de posición FFT, decisiones duras en DominoEX, decisiones suaves y detección de preámbulo en THOR. No se decodifican la corrección de errores MultiPSK opcional de DominoEX (desactivada por defecto en fldigi), el canal de texto secundario (el texto baliza de la estación en las pausas) ni el modo imagen de THOR.
+
+### Notas sobre THROB
+
+THROB envía cada carácter como un pulso de dos tonos a la vez (o de un solo tono para unos pocos caracteres), elegidos entre 9 tonos (THROB) u 11 (THROBX), a 1, 2 o 4 pulsos por segundo. Es lento pero muy robusto frente al desvanecimiento. THROB solo tiene mayúsculas, cifras y algunos signos; THROBX tiene un juego mayor.
+
+- **La sintonía es crítica.** Los tonos de THROB 1 y 2 están a solo 8 Hz, así que el decodificador captura ±3 Hz de desintonía (±6 Hz en THROB 4) y corrige el resto con su propio seguimiento de frecuencia. Pulse primero **⟳ Auto-tune Center**: encuentra la señal con un error de uno o dos hercios.
+- **Mode** debe coincidir, THROB o THROBX y la velocidad.
+- **Squelch (S/N)** — el ruido solo se queda por debajo de 1 dB, una señal legible marca 10 dB o más; el valor por defecto es 4 dB.
+
+### Notas sobre Hellschreiber
+
+Hellschreiber no se decodifica en absoluto: el transmisor recorre cada carácter de una fuente de 7 × 14 columna a columna, y el receptor *pinta* lo que oye. Por eso el panel muestra una imagen en lugar de texto, y es su ojo el que lee las letras. Por eso también Hell sigue legible cuando ningún modo de texto lo es: una letra dañada es una letra emborronada, no una letra equivocada.
+
+- **Mode:** Feld Hell (el habitual, 245 Hz de ancho), Slow Hell, Hell X5 y X9 (más rápidos y anchos), y los modos de dos tonos FSK Hell 245, FSK Hell 105 y Hell 80. La velocidad debe coincidir, o las letras salen estiradas o aplastadas.
+- **Cada línea de texto se pinta dos veces**, una copia encima de la otra, como la pinta fldigi: una pequeña diferencia de velocidad entre las estaciones inclina el texto, y una de las dos copias siempre está entera.
+- No hay squelch: el ruido se ve como moteado, que el ojo ignora. En los modos de dos tonos, **Reverse** intercambia qué tono es la tinta, para una estación con el orden de tonos al revés.
+- **Save Picture** guarda la imagen como PNG; **Clear** empieza una página limpia.
+
+### Notas sobre MT63
+
+MT63 envía 64 portadoras a la vez, cada una con un bit por símbolo, y reparte cada carácter entre todas ellas y en el tiempo sobre 32 (short) o 64 (long) símbolos. Así un carácter sobrevive a la pérdida de buena parte de sus portadoras y a una ráfaga de ruido, y por eso MT63 se usa para tráfico de emergencia: atraviesa interferencias que borran los modos más estrechos.
+
+- **Mode:** MT63-500, -1000 o -2000 (el ancho), cada uno con entrelazado **short** o **long**. Ambos deben coincidir. El más usado es MT63-1000 long.
+- **Sintonía:** fldigi envía la portadora más baja en 500 Hz, así que el centro es 500 Hz más la mitad del ancho: 750, 1000 o 1500 Hz, que se fija automáticamente al elegir el Mode. El decodificador encuentra por sí solo un error de hasta 8 portadoras (±125 Hz en MT63-1000).
+- **El texto llega con retraso** respecto a la señal por el entrelazador: de unos 1,6 s (MT63-2000 short) a 12,8 s (MT63-500 long). Los últimos caracteres de una transmisión llegan cuando la señal ya se ha detenido.
+- **Squelch (FEC S/N)** — el ruido solo marca unos 3, una señal enganchada 4,5 o más; el valor por defecto es 4. El squelch oculta el momento que necesita el sincronizador para engancharse al principio.
+
 ### Notas sobre Packet y APRS
 
 El packet radio envía datos en ráfagas cortas llamadas tramas (frames). Cada trama lleva el indicativo del remitente, el destino, los digipetidores por los que ha pasado y una suma de comprobación. **APRS** (Automatic Packet Reporting System) usa estas tramas para difundir posiciones, datos meteorológicos, mensajes y estados, casi siempre en una frecuencia compartida por región.
@@ -665,7 +729,7 @@ El packet radio envía datos en ráfagas cortas llamadas tramas (frames). Cada t
 
 > **Nota sobre el modo:** el decodificador toma el control del modo de demodulación y del paso de banda de FI mientras está activo. Ambos se restauran automáticamente al desactivarlo. Todas las variantes usan **USB**, salvo Packet y APRS a 1200 Bd, que usan **FM**.
 >
-> **Nota sobre la polaridad (solo variantes FSK):** en RTTY meteorológico normalmente hay que marcar **Invert mark / space**. En FSK marítimo (tipo SITOR/NAVTEX) y RTTY de aficionado, déjelo sin marcar — el RTTY de aficionado envía mark como la radiofrecuencia más alta, y USB la mantiene como el tono de audio más alto, que es justamente el caso sin marcar. Si el texto decodificado sale ilegible, lo primero que conviene probar es cambiar esta casilla. La casilla se oculta en PSK31 y Olivia, que no tienen par mark/space. También se oculta en Packet y APRS, porque la decodificación packet no depende de qué tono es cuál.
+> **Nota sobre la polaridad (solo variantes FSK):** en RTTY meteorológico normalmente hay que marcar **Invert mark / space**. En FSK marítimo (tipo SITOR/NAVTEX) y RTTY de aficionado, déjelo sin marcar — el RTTY de aficionado envía mark como la radiofrecuencia más alta, y USB la mantiene como el tono de audio más alto, que es justamente el caso sin marcar. Si el texto decodificado sale ilegible, lo primero que conviene probar es cambiar esta casilla. La casilla se oculta en todas las variantes salvo las tres FSK: las demás no tienen par mark/space, y la decodificación packet no depende de qué tono es cuál.
 >
 > **Nota sobre letras/cifras (solo variantes FSK):** el código Baudot mantiene letras y cifras en dos estados separados, y el ruido puede llevar al decodificador al estado equivocado, lo que corrompe todos los caracteres siguientes y no solo el dañado. Por eso el decodificador vuelve a letras en cada espacio; es la práctica habitual y repara un cambio corrompido en una o dos palabras en lugar de una línea entera. El coste es que los grupos de cifras separados por espacios exigen que el transmisor repita el cambio a cifras después de cada espacio, como suelen hacer los equipos.
 
@@ -751,14 +815,14 @@ Como Force omite todas las comprobaciones de seguridad, pintará ruido sin más 
 
 **Un decodificador cada vez.** Seleccionar un nuevo decodificador en el desplegable detiene automáticamente el que estuviera activo y deshace los cambios de modo o paso de banda que hubiera hecho.
 
-**El modo se gestiona por usted.** El FAX de HF y NAVTEX ponen el receptor en USB en cuanto los selecciona, SSTV elige la banda lateral según la banda (LSB por debajo de 10 MHz, USB por encima) y FAX, NAVTEX y FSK también ajustan el paso de banda al pulsar su botón Tune. FT8, FT4, FT2, JS8 y WSPR hacen lo mismo en cuanto los selecciona — desde la fila de botones o desde el desplegable: el receptor pasa a USB y toma su propio paso de banda — la subbanda completa de 3 kHz para la familia FT8, 1350-1650 Hz para WSPR. Al detener el decodificador se restaura el modo por defecto de la banda.
+**El modo se gestiona por usted.** El FAX de HF y NAVTEX ponen el receptor en USB en cuanto los selecciona, SSTV elige la banda lateral según la banda (LSB por debajo de 10 MHz, USB por encima) y FAX, NAVTEX y FLDIGI también ajustan el paso de banda al pulsar su botón Tune. FT8, FT4, FT2, JS8 y WSPR hacen lo mismo en cuanto los selecciona — desde la fila de botones o desde el desplegable: el receptor pasa a USB y toma su propio paso de banda — la subbanda completa de 3 kHz para la familia FT8, 1350-1650 Hz para WSPR. Al detener el decodificador se restaura el modo por defecto de la banda.
 
 **Activar un decodificador ya no interrumpe el audio.** Los decodificadores se ejecutan en sus propios hilos, así que no hay huecos, chasquidos ni cortes al iniciar, detener o cambiar de decodificador.
 
 **La precisión del reloj del sistema importa.** FT8, FT4 y WSPR son críticos en el tiempo. Decodifican en ventanas fijas alineadas con UTC. Si el reloj del ordenador se desvía más de 1 o 2 segundos, la tasa de decodificación caerá notablemente. Use un cliente NTP para mantenerlo preciso.
 
 **Los filtros de ruido no llegan a los decodificadores.** NR, NB, NS y AN son
-ayudas de escucha, solo para sus oídos. Todos los decodificadores — FT8, FT4/FT2, CW, WSPR, FAX, NAVTEX, FSK/RTTY/PSK31/Olivia/Packet/APRS, SSTV y el grabber QRSS — toman el audio *antes* de esos filtros, así que ajústelos como mejor suene, sin preocuparse por la calidad de la decodificación. Por la misma razón los decodificadores siguen funcionando con el receptor silenciado o con el squelch cerrado: puede apagar el altavoz y dejar un decodificador, o una captura QRSS nocturna, recogiendo datos. Lo único que sí sigue lo que usted oye es el Espectrograma de Audio, pensado para mostrar el audio filtrado.
+ayudas de escucha, solo para sus oídos. Todos los decodificadores — FT8, FT4/FT2, CW, WSPR, FAX, NAVTEX, todos los modos de FLDIGI, SSTV y el grabber QRSS — toman el audio *antes* de esos filtros, así que ajústelos como mejor suene, sin preocuparse por la calidad de la decodificación. Por la misma razón los decodificadores siguen funcionando con el receptor silenciado o con el squelch cerrado: puede apagar el altavoz y dejar un decodificador, o una captura QRSS nocturna, recogiendo datos. Lo único que sí sigue lo que usted oye es el Espectrograma de Audio, pensado para mostrar el audio filtrado.
 
 **La calidad de la señal importa más que su fuerza.** La mayoría de estos decodificadores están pensados para señales débiles. Una banda más tranquila y con menos ruido suele ser más productiva que una señal fuerte llena de interferencias. Use la cascada y los controles de paso de banda para identificar y evitar el QRM antes de activar un decodificador.
 

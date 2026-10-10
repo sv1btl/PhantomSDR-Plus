@@ -16,7 +16,7 @@
 #    ./update.sh --check           report only, never ask (for cron)
 #    ./update.sh --apply           actually update, asking about your own edits
 #    ./update.sh --apply --yes     unattended; anything you edited is KEPT
-#    ./update.sh --ref v5.0.0      a tag, branch or commit instead of main
+#    ./update.sh --ref v5.1.0      a tag, branch or commit instead of main
 #    ./update.sh --from FILE|DIR   the new version from a .tar.gz / .zip or a
 #                                  folder (a USB stick, a download) — no network
 #    ./update.sh --apply --prune   also offer to delete files GitHub removed
@@ -556,6 +556,48 @@ printf '     %-14s %s\n' "instance"  "$PHANTOM_DIR"
 printf '     %-14s %s\n' "source"    "github.com/${REPO_SLUG} @ ${REF}"
 printf '     %-14s %s\n' "mode"      "$([ "$MODE" = apply ] && echo 'apply — files WILL be written' || echo 'check — nothing will be written')"
 echo ""
+
+# Where this copy and this update come from. PhantomSDR-Plus is developed at
+# ORIGIN_REPO; a sysop on a fork may not know that. Two different things are
+# checked: the update source (UPDATE_REPO, or a fork's edited default) and the
+# remote this tree was cloned from (git, or .git/config read directly). Both
+# are notices, never stops — --check runs from cron and the GPL allows forks.
+ORIGIN_REPO="https://github.com/sv1btl/PhantomSDR-Plus"
+origin_norm() {
+    printf '%s' "$1" | tr '[:upper:]' '[:lower:]' \
+        | sed -E 's#^[a-z+]+://##; s#^[^@/]*@##; s#^github\.com:#github.com/#; s#/+$##; s#\.git$##'
+}
+tree_origin() {
+    local url=""
+    if command -v git >/dev/null 2>&1; then
+        url=$(git -C "$PHANTOM_DIR" config --get remote.origin.url 2>/dev/null) || url=""
+    fi
+    if [ -z "$url" ] && [ -f "$PHANTOM_DIR/.git/config" ]; then
+        url=$(awk '/^\[remote "origin"\]/ { o = 1; next }
+                   /^\[/                  { o = 0 }
+                   o && $1 == "url"       { sub(/^[^=]*=[ \t]*/, ""); print; exit }' \
+              "$PHANTOM_DIR/.git/config") || url=""
+    fi
+    # Never print a token: https://user:token@github.com/... -> https://github.com/...
+    printf '%s' "$url" | sed -E 's#^([a-z+]+://)[^@/]*@#\1#'
+}
+if [ -z "${FROM:-}" ] && [ "$(origin_norm "github.com/$REPO_SLUG")" != "github.com/sv1btl/phantomsdr-plus" ]; then
+    yellow "  ℹ️  This update comes from a fork: github.com/${REPO_SLUG}"
+    yellow "     The original PhantomSDR-Plus is developed at ${ORIGIN_REPO}"
+    yellow "     A fork may be older than the original or changed by its owner."
+    echo ""
+fi
+TREE_ORIGIN="$(tree_origin)"
+if [ -n "$TREE_ORIGIN" ] && [ "$(origin_norm "$TREE_ORIGIN")" != "github.com/sv1btl/phantomsdr-plus" ]; then
+    yellow "  ℹ️  This copy was installed from a fork: ${TREE_ORIGIN}"
+    yellow "     The original PhantomSDR-Plus is developed at ${ORIGIN_REPO}"
+    if [ -z "${FROM:-}" ] && [ "$(origin_norm "github.com/$REPO_SLUG")" = "github.com/sv1btl/phantomsdr-plus" ]; then
+        yellow "     This update brings the original's files: what the fork changed is"
+        yellow "     replaced (each replaced file is saved in update-backups/ first), and"
+        yellow "     the files people usually edit themselves are asked about one by one."
+    fi
+    echo ""
+fi
 
 for c in curl tar sha256sum find; do
     command -v "$c" >/dev/null 2>&1 || die "'$c' is not installed, and this script needs it."

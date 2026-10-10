@@ -15,7 +15,7 @@ Ovaj vodič obuhvaća sve ugrađene dekodere dostupne u PhantomSDR-Plusu. Svi se
 7. [WSPR](#7-wspr)
 8. [HF FAX / WEFAX](#8-hf-fax--wefax)
 9. [NAVTEX](#9-navtex)
-10. [FSK / RTTY — uključujući PSK31, Oliviju, Packet i APRS](#10-fsk--rtty--uključujući-psk31-oliviju-packet-i-aprs)
+10. [FLDIGI — RTTY, PSK31, Olivia, MFSK, DominoEX, THOR, THROB, Hellschreiber, MT63, Packet i APRS](#10-fldigi--rtty-psk31-olivia-mfsk-dominoex-thor-throb-hellschreiber-mt63-packet-i-aprs)
 11. [SSTV](#11-sstv)
 12. [Opći savjeti](#12-opći-savjeti)
 
@@ -40,7 +40,7 @@ Padajući izbornik nije jedini put. Glavna ploča ima red gumba **Decoders** —
 |---|---|---|---|
 | **FT8** | FT8 | **SSTV** | SSTV |
 | **FT4** | FT4 | **NAVTEX** | NAVTEX |
-| **FT2** | FT2 | **RTTY** | FSK / RTTY, PSK31, Olivia, Packet, APRS |
+| **FT2** | FT2 | **FLDIGI** | RTTY, SITOR, PSK31, Olivia, MFSK, DominoEX, THOR, THROB, Hellschreiber, MT63, Packet, APRS |
 | **CW** | CW | | |
 | **WSPR** | WSPR | **FAX** | HF FAX / WEFAX |
 
@@ -59,9 +59,10 @@ Oznaka frekvencije (žute oznake iznad vodopada, iz `markers.json`) inače ugađ
 | `FT8`, `FT4`, `FT2`, `JS8`, `WSPR`, `SSTV` | taj dekoder | frekvencija na skali |
 | `NAVTEX` | NAVTEX | frekvencija signala (skala ide 500 Hz niže) |
 | `FAX`, `WEFAX` | HF FAX | objavljeno središte (skala ide 1900 Hz niže) |
-| `RTTY`, `RTTY-WX`, `SITOR` | FSK / RTTY kao amaterski, meteorološki ili pomorski | frekvencija signala (skala ide niže za audio središte ploče) |
-| `PSK31`, `OLIVIA` | FSK / RTTY u toj inačici | kao gore |
-| `PACKET`, `APRS` | FSK / RTTY u toj inačici | kanal; 300 Bd (USB) ispod 30 MHz, 1200 Bd (FM) iznad |
+| `RTTY`, `RTTY-WX`, `SITOR` | FLDIGI kao amaterski, meteorološki ili pomorski | frekvencija signala (skala ide niže za audio središte ploče) |
+| `PSK31`, `OLIVIA`, `MFSK`, `DOMINOEX`, `THOR`, `THROB`, `HELL`, `MT63` | FLDIGI u toj inačici | kao gore |
+| `MFSK16`, `MFSK32`, `MFSK64`, `FELDHELL` | FLDIGI u toj inačici i tom podnačinu | kao gore |
+| `PACKET`, `APRS` | FLDIGI u toj inačici | kanal; 300 Bd (USB) ispod 30 MHz, 1200 Bd (FM) iznad |
 
 Dekoder koji već radi ostaje uključen. `CW` ostaje običan način rada prijemnika, jer ga koriste radiofarovi i postaje — ne pokreće CW dekoder. Oznake se prikazuju samo dok vodopad obuhvaća 3,5 MHz ili manje.
 
@@ -69,9 +70,9 @@ Dekoder koji već radi ostaje uključen. `CW` ostaje običan način rada prijemn
 >
 > **QRSS grabber** nije dio ovog izbornika — ima vlastiti odjeljak **QRSS** i može raditi istodobno s nekim dekoderom.
 
-**Dekodiranje se odvija u pozadini.** SSTV, HF FAX, NAVTEX, FSK/RTTY i CW rade svaki u zasebnoj dretvi Web Workera, pa se dekodiranje nikada ne natječe s reprodukcijom zvuka ni sa slapom. Pokretanje ili zaustavljanje dekodera ne prekida zvuk, a sučelje ostaje odzivno dok se prima slika ili stranica. Svi dekoderi dobivaju sirovi zvuk uzet *prije* AGC-a, smanjenja šuma i utišavanja — utišavanje prijamnika ili prilagodba tih postavki vlastitom uhu stoga ne utječe na dekodiranje.
+**Dekodiranje se odvija u pozadini.** SSTV, HF FAX, NAVTEX, FLDIGI i CW rade svaki u zasebnoj dretvi Web Workera, pa se dekodiranje nikada ne natječe s reprodukcijom zvuka ni sa slapom. Pokretanje ili zaustavljanje dekodera ne prekida zvuk, a sučelje ostaje odzivno dok se prima slika ili stranica. Svi dekoderi dobivaju sirovi zvuk uzet *prije* AGC-a, smanjenja šuma i utišavanja — utišavanje prijamnika ili prilagodba tih postavki vlastitom uhu stoga ne utječe na dekodiranje.
 
-**Dekoder koji radi drži način rada i propusni pojas.** Uobičajeno način rada slijedi plan opsega iz `bands-config.js`: pomaknite ugađanje u odsječak označen kao LSB ili AM i prijamnik se prebaci na njega. Dok dekoder radi, toga više nema. Dekoder zadržava način rada koji mu treba (USB kod većine, vlastiti kod RADE-a) i propusni pojas koji mu treba — PSK31 oko ±100 Hz, Olivia svoju punu širinu, RTTY svoj shift — i oboje preživljava preugađanje, uključujući skok na drugi opseg. Bez toga bi FT8 na 40 m prebacio prijamnik na LSB čim se ugađanje pomakne, a uski propusni pojasi dekodera opet bi se raširili na puni SSB filtar.
+**Dekoder koji radi drži način rada i propusni pojas.** Uobičajeno način rada slijedi plan opsega iz `bands-config.js`: pomaknite ugađanje u odsječak označen kao LSB ili AM i prijamnik se prebaci na njega. Dok dekoder radi, toga više nema. Dekoder zadržava način rada koji mu treba (USB kod većine, vlastiti kod RADE-a) i propusni pojas koji mu treba — PSK31 oko ±100 Hz, Olivia, MFSK, DominoEX, THOR, THROB, Hellschreiber i MT63 svoju punu širinu, RTTY svoj shift — i oboje preživljava preugađanje, uključujući skok na drugi opseg. Bez toga bi FT8 na 40 m prebacio prijamnik na LSB čim se ugađanje pomakne, a uski propusni pojasi dekodera opet bi se raširili na puni SSB filtar.
 
 Vlastiti način rada opsega vraća se čim isključite dekoder. Način rada uvijek možete nametnuti ručno: gumbi načina rada svjestan su izbor i uvijek pobjeđuju. CW dekoder je iznimka od svega ovoga — dekodira u načinu rada u kojem slušate i nikada ne preuzima prijamnik.
 
@@ -540,9 +541,9 @@ Kliknite **Clear** da izbrišete međuspremnik poruka.
 
 ---
 
-## 10. FSK / RTTY — uključujući PSK31, Oliviju, Packet i APRS
+## 10. FLDIGI — RTTY, PSK31, Olivia, MFSK, DominoEX, THOR, THROB, Hellschreiber, MT63, Packet i APRS
 
-**Što je to:** univerzalni dekoder za uskopojasne tekstualne načine rada, sa sedam radnih inačica koje se biraju iz jednog izbornika. Tri su pravi FSK (frekvencijsko pomično ključanje): pomorski FSK (SITOR), meteorološki RTTY i amaterski RTTY. Ostale uopće nisu FSK, ali dijele isti prozor: **PSK31**, koji je fazno ključanje, **Olivia**, koja je viševalni FSK s korekcijom pogrešaka, te **Packet (AX.25)** i **APRS**, koji dekodiraju AFSK packet radio — packet od 1200 bauda na VHF/UHF i packet od 300 bauda na KV. Svaka inačica dolazi s postavkom prilagođenom svojim standardnim parametrima.
+**Što je to:** jedan prozor za uskopojasne tipkovničke načine rada koje je proslavio program fldigi, s trinaest inačica koje se biraju iz jednog izbornika. Tri su pravi FSK (frekvencijsko pomično ključanje): pomorski FSK (SITOR), meteorološki RTTY i amaterski RTTY. Ostale dijele isti prozor: **PSK31**, fazno ključanje; **Olivia** i **MFSK16/32/64**, višetonski načini s korekcijom pogrešaka; **DominoEX** i **THOR**, inkrementalno frekvencijsko ključanje (THOR s korekcijom pogrešaka); **THROB**, dva tona istodobno, jedan znak po impulsu; **Hellschreiber**, koji tekst slika kao sliku umjesto da ga dekodira; **MT63**, 64 nosioca istodobno; te **Packet (AX.25)** i **APRS**, koji dekodiraju AFSK packet radio — packet od 1200 bauda na VHF/UHF i packet od 300 bauda na KV. Svaka inačica dolazi s postavkom prilagođenom svojim standardnim parametrima. Gumb i stavka izbornika oba se zovu **FLDIGI**; dekodira se ovdje, u pregledniku, a sam fldigi nije potreban.
 
 ### Inačice i postavke
 
@@ -552,19 +553,25 @@ Kliknite **Clear** da izbrišete međuspremnik poruka.
 | Meteorološki RTTY | 1000 Hz | 450 Hz | 50 | 5N1.5 | ITA2 |
 | Amaterski RTTY | 1000 Hz | 170 Hz | 45.45 | 5N1.5 | ITA2 |
 | PSK31 (BPSK) | 1000 Hz | — | 31.25 | — | Varicode |
-| Olivia (MFSK) | 1000 Hz | — | vidi Mode | — | 7 bita + FEC |
+| Olivia | 1000 Hz | — | vidi Mode | — | 7 bita + FEC |
+| MFSK16·32·64 | 1500 Hz | — | vidi Mode | — | Varicode + FEC |
+| DominoEX | 1500 Hz | — | vidi Mode | — | Varicode po polubajtovima |
+| THOR | 1500 Hz | — | vidi Mode | — | Varicode + FEC |
+| THROB / THROBX | 1500 Hz | — | 1, 2 ili 4 | — | parovi tonova |
+| Hellschreiber | 1500 Hz | — | vidi Mode | — | slika |
+| MT63 | 1000 Hz (najniži nosilac na 500 Hz) | — | 5, 10 ili 20 | — | Walsh + preplitanje |
 | Packet (AX.25) | tonovi 1200 / 2200 Hz, ili 1700 Hz pri 300 Bd | 1000 Hz, ili 200 Hz pri 300 Bd | 1200 ili 300 | HDLC | AX.25 |
 | APRS | kao Packet | kao Packet | 1200 ili 300 | HDLC | AX.25 + APRS |
 
-Ploča se prilagođava odabranoj inačici. **Shift**, **Baud**, **Framing**, **Encoding**, **Invert mark / space** i **Auto shift detect** skriveni su za PSK31 i Oliviju jer nijedan od ta dva načina nema par tonova mark/space niti okvir tipa UART. Umjesto toga **Center audio** postaje polje za slobodan unos broja (nosilac može biti bilo gdje u propusnom pojasu), a Olivia dobiva birač **Mode** i klizač **Squelch**. Packet i APRS skrivaju iste FSK kontrole i umjesto njih prikazuju birač **Speed**; APRS uz to ima okvir **Show raw packet**.
+Ploča se prilagođava odabranoj inačici. **Shift**, **Baud**, **Framing**, **Encoding**, **Invert mark / space** i **Auto shift detect** skriveni su za sve inačice osim tri FSK inačice, jer nijedan od ostalih načina nema par tonova mark/space niti okvir tipa UART. Umjesto toga **Center audio** postaje polje za slobodan unos broja (signal može biti bilo gdje u propusnom pojasu), a Olivia, MFSK, DominoEX, THOR, THROB, Hellschreiber i MT63 dobivaju svaki birač **Mode** i — svi osim Hellschreibera — klizač **Squelch** s vlastitom ljestvicom. Packet i APRS skrivaju iste FSK kontrole i umjesto njih prikazuju birač **Speed**; APRS uz to ima okvir **Show raw packet**. Popis **Known frequency** pojavljuje se samo kod inačica koje ga imaju.
 
 ### Postavljanje
 
-1. Uključite dekoder i odaberite **FSK / RTTY / PACKET / APRS** iz izbornika. Ili jednostavno pritisnite gumb **RTTY**.
-2. Pojavljuje se ploča dekodera. Naslov prati inačicu — *FSK / RTTY Decoder*, *PSK31 Decoder*, *Olivia Decoder*, *Packet (AX.25) Decoder* ili *APRS Decoder*.
+1. Uključite dekoder i odaberite **FLDIGI** iz izbornika. Ili jednostavno pritisnite gumb **FLDIGI**.
+2. Pojavljuje se ploča dekodera. Naslov prati inačicu — *FSK / RTTY Decoder*, *PSK31 Decoder*, *Olivia Decoder*, *MFSK Decoder*, *DominoEX Decoder*, *THOR Decoder*, *THROB Decoder*, *Hellschreiber Decoder*, *MT63 Decoder*, *Packet (AX.25) Decoder* ili *APRS Decoder*.
 3. Odaberite **Variant**. Parametri se ažuriraju automatski.
-4. Za Oliviju postavite **Mode** (tonovi / širina pojasa) tako da odgovara emisiji — vidi napomene o Oliviji niže. Za Packet i APRS postavite **Speed** — vidi napomene o Packetu i APRS-u niže.
-5. Iz izbornika **Known frequency** odaberite uobičajenu frekvenciju za odabranu inačicu i kliknite **Tune** da skočite na nju.
+4. Za Oliviju, MFSK, DominoEX, THOR, THROB, Hellschreiber i MT63 postavite **Mode** tako da odgovara emisiji — vidi napomene za svaki način niže. Za Packet i APRS postavite **Speed** — vidi napomene o Packetu i APRS-u niže.
+5. Gdje inačica ima popis, iz izbornika **Known frequency** odaberite uobičajenu frekvenciju i kliknite **Tune** da skočite na nju. Ostali načini nemaju stalnih pozivnih frekvencija: potražite signal na vodopadu i koristite **⟳ Auto-tune Center**.
 6. Fino ugađajte dok dekodirani tekst ne postane stabilan i čitljiv.
 
 ### Poznate frekvencije po inačici
@@ -586,6 +593,9 @@ Ploča se prilagođava odabranoj inačici. **Shift**, **Baud**, **Framing**, **E
 **Olivia**
 - 3577,75 kHz (80 m), 7073,75 kHz (40 m), 10142,25 kHz (30 m), 14075,5 kHz (20 m), 18103,75 kHz (17 m), 21075,75 kHz (15 m), 24921,75 kHz (12 m), 28123,75 kHz (10 m)
 
+**MFSK, DominoEX, THOR, THROB, Hellschreiber, MT63**
+- Nema stalnih pozivnih frekvencija; popis se ne prikazuje. Signal potražite na vodopadu.
+
 **Packet i APRS** (isti popis za oba; svaka stavka postavlja i odgovarajuću brzinu)
 - 144,800 MHz — APRS u Europi (IARU Regija 1)
 - 144,390 MHz — APRS u Sjevernoj Americi
@@ -599,7 +609,7 @@ Ploča se prilagođava odabranoj inačici. **Shift**, **Baud**, **Framing**, **E
 
 | Parametar | Odnosi se na | Opis |
 |-----------|--------------|------|
-| Center audio (Hz) | sve | Audio frekvencija sredine između mark i space; za PSK31 nosilac, za Oliviju središte bloka tonova. Padajući izbornik za FSK inačice, polje za slobodan unos za PSK31 i Oliviju. Za Packet i APRS polje za slobodan unos samo pri 300 Bd; pri 1200 Bd tonovi su fiksni, 1200 / 2200 Hz, i polje ih samo prikazuje |
+| Center audio (Hz) | sve | Audio frekvencija sredine između mark i space; za PSK31 nosilac, za višetonske načine središte bloka tonova ili skupine nosilaca. Padajući izbornik za FSK inačice, polje za slobodan unos za sve ostale. Za Packet i APRS polje za slobodan unos samo pri 300 Bd; pri 1200 Bd tonovi su fiksni, 1200 / 2200 Hz, i polje ih samo prikazuje |
 | Shift (Hz) | samo FSK | Frekvencijska razlika između tonova mark i space |
 | Baud | samo FSK | Brzina simbola |
 | Framing | samo FSK | Podatkovni bitovi, paritet, stop bitovi (npr. 7N1 = 7 podataka, bez pariteta, 1 stop) |
@@ -608,6 +618,12 @@ Ploča se prilagođava odabranoj inačici. **Shift**, **Baud**, **Framing**, **E
 | Auto shift detect | samo FSK | Pokušava automatski izmjeriti shift iz dolaznog signala |
 | Mode (tonovi / Hz) | samo Olivia | Broj tonova i širina pojasa — mora točno odgovarati emisiji |
 | Squelch (FEC S/N) | samo Olivia | Koliko jako podudaranje korekcije pogrešaka mora biti prije ispisa teksta |
+| Mode | MFSK, DominoEX, THOR, THROB, Hellschreiber, MT63 | Podnačin (brzina, širina, preplitanje) — mora odgovarati emisiji |
+| Squelch (FEC metric) | MFSK | Kvaliteta dekodiranja (0–100) koju signal mora dosegnuti prije ispisa teksta; zadano 22 |
+| Squelch (tone / noise) | DominoEX, THOR | 0–100: trenutni ton prema razini ostalih pretinaca tonova; zadano 25 |
+| Squelch (S/N) | THROB | U dB; zadano 4 |
+| Squelch (FEC S/N) | MT63 | Podudaranje Walshova koda; zadano 4 |
+| Reverse | FSK Hell 245 / 105, Hell 80 | Drugi ton slika kao tintu |
 | Speed | Packet i APRS | **1200 Bd · VHF/UHF (FM)** ili **300 Bd · HF (USB)**. Bira i način rada prijemnika |
 | Show raw packet | samo APRS | Iznad svakog dekodiranog retka ispisuje i paket kako je primljen (format TNC2) |
 | Squelch (SNR) | Amaterski i meteorološki RTTY | Sprječava da se šum ispisuje kao nasumična slova. Počinje na −5 dB za amaterski RTTY i na −8 dB za meteorološki; skroz lijevo (**off**) je isključen. Brojka SNR postaje siva dok je squelch zatvoren |
@@ -621,18 +637,21 @@ Statusna traka prikazuje mjerenja uživo, a polja se mijenjaju s inačicom:
 | FSK inačice | **Mark / Space** (izmjerene frekvencije tonova), **SNR**, **Lock**, **Timing** |
 | PSK31 | **Carrier** (Hz, nakon automatske korekcije frekvencije), **IMD** (dB), **SNR**, **Lock**, **Timing** |
 | Olivia | **Centre** (Hz), **Mode**, **S/N**, **FEC** (%), **Sync** |
+| MFSK16 / 32 / 64 | **Centre** (Hz, nakon automatske korekcije frekvencije), **Mode**, **S/N**, **FEC** (%), **Sync** |
+| DominoEX, THOR, THROB, MT63 | **Centre** (Hz; kod THROB-a i MT63 nakon automatske korekcije frekvencije), **Mode**, **S/N**, **Quality** (%), **Sync** |
+| Hellschreiber | **Centre**, **Mode**, **Audio** (ulazna razina, dBFS) |
 | Packet i APRS | **Tones** (Hz), **DCD** (svijetli dok je paket u eteru), **Frames** (dekodirani paketi), **Stations** (različiti čuti pozivni znakovi), **Audio** (ulazna razina, dBFS) |
 
 `Timing`/`Sync` pokazuje `LOCKED`/`SYNCED` kada dekoder prati signal, a `SEARCH` dok ga još traži.
 
-**SNR** FSK varijanti i PSK31 mjeri se na samom signalu i daje u širini pojasa od 3 kHz, pa se oba čitaju na istoj ljestvici: s točnošću od oko 1 dB od +20 dB do −5 dB. Prazna frekvencija pokazuje oko −12 do −15 dB, a kod PSK31 0 dB je već jak signal. **S/N** kod Olivije je nešto drugo: pokazatelj kvalitete ispravljanja pogrešaka.
+**SNR** FSK varijanti i PSK31 mjeri se na samom signalu i daje u širini pojasa od 3 kHz, pa se oba čitaju na istoj ljestvici: s točnošću od oko 1 dB od +20 dB do −5 dB. Prazna frekvencija pokazuje oko −12 do −15 dB, a kod PSK31 0 dB je već jak signal. **S/N** kod Olivije je nešto drugo: pokazatelj kvalitete ispravljanja pogrešaka. Kod MFSK-a **S/N** je fldigijev omjer tona i šuma, a **FEC** njegova kvaliteta dekodiranja od 0 do 100. Kod DominoEX-a i THOR-a **S/N** je primljeni ton prema ostalim pretincima tonova, a **Quality** ljestvica squelcha (kod THOR-a sigurnost korekcije pogrešaka); kod THROB-a dvotonski S/N; kod MT63 podudaranje korekcije pogrešaka. Nijedan od tih brojeva nije SNR u 3 kHz: to su veličine na koje djeluje squelch.
 
 Amaterski RTTY (45,45 bauda, 170 Hz) čita se bez pogrešaka do oko 0 dB, s oko 1,5 % pogrešnih znakova na −3 dB i 20 % na −6 dB.
 
 ### Dodatne kontrole
 
-- **⇒ Set IF Band-Pass** — sužava propusni pojas prijamnika tako da tijesno obuhvati signal. Širina prati varijantu: 300 Hz za amaterski RTTY (dovoljno usko da ukloni jaču stanicu 250 Hz dalje, a i dalje čita signal razdešen za 40 Hz), 594 Hz za meteorološki RTTY, mark/space plus rezerva za pomorski FSK, oko ±100 Hz za PSK31 i cijela širina bloka tonova plus rezerva za Oliviju. Propusni pojas prati dekoder kad **Auto-tune** ili **Auto shift detect** pomakne tonove te kad promijenite postavku **Baud**. Za packet od 300 Bd oko ±400 Hz, a za packet od 1200 Bd uobičajeni FM kanal.
-- **⟳ Auto-tune Center** — automatsko traženje signala. Za FSK inačice traži uravnotežen par tonova, za PSK31 pronalazi nosilac, a za Oliviju najjači blok odabrane širine pojasa. **Auto shift detect** mijenja shift samo kad je prisutan pravi dvotonski signal, pa više ne skače na šum. Za packet od 300 Bd pronalazi najjači par tonova razmaknutih 200 Hz. Za packet od 1200 Bd gumb je skriven, jer su tonovi tamo fiksni.
+- **⇒ Set IF Band-Pass** — sužava propusni pojas prijamnika tako da tijesno obuhvati signal. Širina prati varijantu: 300 Hz za amaterski RTTY (dovoljno usko da ukloni jaču stanicu 250 Hz dalje, a i dalje čita signal razdešen za 40 Hz), 594 Hz za meteorološki RTTY, mark/space plus rezerva za pomorski FSK, oko ±100 Hz za PSK31 i cijela širina bloka tonova plus rezerva za Oliviju. Propusni pojas prati dekoder kad **Auto-tune** ili **Auto shift detect** pomakne tonove te kad promijenite postavku **Baud**. Za packet od 300 Bd oko ±400 Hz, a za packet od 1200 Bd uobičajeni FM kanal. MFSK, DominoEX, THOR, THROB, Hellschreiber i MT63 dobivaju svoju punu širinu uz rezervu (najmanje 60 Hz sa svake strane, 15 % širine za široke načine).
+- **⟳ Auto-tune Center** — automatsko traženje signala. Za FSK inačice traži uravnotežen par tonova, za PSK31 pronalazi nosilac, a za Oliviju najjači blok odabrane širine pojasa. **Auto shift detect** mijenja shift samo kad je prisutan pravi dvotonski signal, pa više ne skače na šum. Za packet od 300 Bd pronalazi najjači par tonova razmaknutih 200 Hz. Za packet od 1200 Bd gumb je skriven, jer su tonovi tamo fiksni. MFSK, DominoEX, THOR, THROB, Hellschreiber i MT63 traže se kao Olivia, preko vlastite širine.
 
 ### Napomene o PSK31
 
@@ -651,6 +670,51 @@ Olivia žrtvuje brzinu za otpornost. Znatno je sporija od PSK31, ali dekodira si
 - Korekcija pogrešaka radi po blokovima, pa tekst stiže **u naletima, a ne u ravnomjernom toku**, uz kašnjenje od nekoliko blokova između emitiranja i prikaza.
 - **Squelch (FEC S/N)** određuje koliko sigurna korekcija pogrešaka mora biti prije ispisa. Zadana vrijednost 4,0 drži šum vani; 3,0 je donja granica ispod koje slučajni šum počinje ispisivati pokoji znak. Dobar signal pokazuje 8–9 na mjeraču **FEC**, pa ima dosta prostora za podizanje squelcha na prometnom opsegu.
 
+### Napomene o MFSK16 / MFSK32 / MFSK64
+
+MFSK16, MFSK32 i MFSK64 su IZ8BLY načini rada kakve emitira fldigi: 16 tonova, jedan po jedan, međusobno razmaknutih za jedan baud, zaštićenih konvolucijskom korekcijom pogrešaka i preplitanjem. Brži su od Olivije i nešto manje otporni. MFSK16 (15,625 bauda, širina 234 Hz) daje čist tekst do otprilike −12 dB SNR u 2,5 kHz, MFSK32 (31,25 bauda, 469 Hz) do otprilike −10 dB, a MFSK64 (62,5 bauda, 938 Hz) do otprilike −7 dB.
+
+- **Odaberite inačicu MFSK16·32·64**, a zatim brzinu na njezinu popisu **Mode**. Tri se načina razlikuju samo po brzini i postavka mora odgovarati: pogrešna ne daje ništa čitljivo.
+- **Ugađanje:** postavite blok tonova na frekvenciju **Center audio** ili pritisnite **⟳ Auto-tune Center**. Posljednju četvrtinu tona dekoder ispravlja sam — otprilike ±4 Hz kod MFSK16, ±8 Hz kod MFSK32 i ±16 Hz kod MFSK64 — a **Centre** pokazuje gdje se ustalio.
+- Tekst kasni za signalom nekoliko sekundi, koliko trebaju preplitanje i korekcija pogrešaka. Jedan ili dva zalutala znaka na samom početku emisije su normalni; fldigi ih također prikazuje.
+- **Squelch (FEC metric)** zadržava ispis dok kvaliteta dekodiranja ne dosegne postavku. Zadana vrijednost 22 drži šum vani (sam šum doseže oko 20); dobar signal pokazuje 90 % ili više na pokazivaču **FEC**, a 0 isključuje squelch. Kad emisija završi fldigijevom oznakom kraja emisije, ispis odmah prestaje umjesto da propusti još nekoliko sekundi šuma.
+- MFSK prijenosi slika se ne dekodiraju.
+
+### Napomene o DominoEX-u i THOR-u
+
+DominoEX i THOR šalju 18 tonova, jedan po jedan, ali znak nije ton: to je *korak* od prethodnog tona (inkrementalno frekvencijsko ključanje). Isti se ton nikad ne ponavlja, a sporo klizanje cijelog signala se poništava, pa oba načina opraštaju nekoliko herca razdešenosti i odašiljač koji klizi. **DominoEX** šalje znakove izravno, bez korekcije pogrešaka: pogrešan ton stoji jedan znak. **THOR** dodaje istu konvolucijsku korekciju pogrešaka i isto preplitanje kao MFSK, pa prolazi kroz statičke pucketaje i fading, uz cijenu od nekoliko sekundi kašnjenja.
+
+- **Mode** mora odgovarati brzini koja se šalje. DominoEX nudi Micro, 4, 5, 8, 11, 16, 22, 44 i 88; THOR nudi Micro, 4, 5, 8, 11, 16, 22 i brze 25 x4, 50 x1, 50 x2 i 100 (ta četiri koriste jači kod i preplitanje od jedne sekunde). DominoEX 11 i THOR 16 čuju se najčešće.
+- **Ugađanje:** postavite blok tonova na **Center audio** ili pritisnite **⟳ Auto-tune Center**. Razdešenost od četvrtine širine signala još se čita.
+- **Squelch (tone / noise)** uspoređuje primljeni ton s razinom svih ostalih pretinaca tonova, na ljestvici 0–100. Sam šum ostaje na 20 ili niže; čitljiv prijam pokazuje 35 i više; zadano je 25. To nije fldigijev vlastiti broj: on na nekim potpuno čistim signalima pokazuje samo 26, pa bi ih svaka korisna zadana vrijednost odrezala.
+- Prijamnik slijedi fldigijeve zadane postavke: tri puta razmaknuta za trećinu FFT pretinca, tvrde odluke za DominoEX, meke odluke i otkrivanje preambule za THOR. Neobavezna MultiPSK korekcija pogrešaka DominoEX-a (u fldigiju zadano isključena) ne dekodira se, kao ni sekundarni tekstni kanal (tekst svjetionika stanice u stankama) ni THOR-ov slikovni način.
+
+### Napomene o THROB-u
+
+THROB šalje svaki znak kao jedan impuls dvaju istodobnih tonova (ili jednog tona za nekoliko znakova), od 9 tonova (THROB) ili 11 (THROBX), s 1, 2 ili 4 impulsa u sekundi. Spor je, ali vrlo otporan na fading. THROB ima samo velika slova, znamenke i nekoliko znakova; THROBX ima veći skup.
+
+- **Ugađanje je kritično.** Tonovi THROB-a 1 i 2 razmaknuti su samo 8 Hz, pa dekoder hvata ±3 Hz razdešenosti (±6 Hz za THROB 4), a ostatak ispravlja vlastitim praćenjem frekvencije. Najprije pritisnite **⟳ Auto-tune Center**: pronalazi signal s točnošću od herca ili dva.
+- **Mode** mora odgovarati, THROB ili THROBX i brzina.
+- **Squelch (S/N)** — sam šum ostaje ispod 1 dB, čitljiv signal pokazuje 10 dB i više; zadano je 4 dB.
+
+### Napomene o Hellschreiberu
+
+Hellschreiber se uopće ne dekodira: odašiljač prelazi svaki znak fonta 7 × 14 stupac po stupac, a prijamnik *slika* ono što čuje. Ploča zato prikazuje sliku umjesto teksta, a slova čita vaše oko. Zato Hell ostaje čitljiv kad nijedan tekstni način više nije: oštećeno slovo je razmazano slovo, a ne pogrešno slovo.
+
+- **Mode:** Feld Hell (uobičajeni, širok 245 Hz), Slow Hell, Hell X5 i X9 (brži i širi) te dvotonski načini FSK Hell 245, FSK Hell 105 i Hell 80. Brzina mora odgovarati, inače slova izlaze razvučena ili stisnuta.
+- **Svaki redak teksta slika se dvaput**, jedna kopija iznad druge, kao što ga slika fldigi: mala razlika u brzini između stanica nagne tekst, a jedna od dvije kopije uvijek je cijela.
+- Nema squelcha: šum se vidi kao točkice koje oko zanemaruje. Kod dvotonskih načina **Reverse** zamjenjuje koji je ton tinta, za stanicu s obrnutim redoslijedom tonova.
+- **Save Picture** sprema sliku kao PNG; **Clear** započinje praznu stranicu.
+
+### Napomene o MT63
+
+MT63 šalje 64 nosioca istodobno, svaki s jednim bitom po simbolu, i raspoređuje svaki znak preko svih njih te vremenski preko 32 (short) ili 64 (long) simbola. Znak tako preživljava gubitak dobrog dijela svojih nosilaca i nalet šuma; zato se MT63 koristi za promet u izvanrednim situacijama: prolazi kroz smetnje koje brišu uže načine.
+
+- **Mode:** MT63-500, -1000 ili -2000 (širina), svaki s preplitanjem **short** ili **long**. Oboje mora odgovarati. Najčešći je MT63-1000 long.
+- **Ugađanje:** fldigi šalje najniži nosilac na 500 Hz, pa je središte 500 Hz plus polovica širine: 750, 1000 ili 1500 Hz, postavljeno automatski kad odaberete Mode. Odstupanje do 8 nosilaca dekoder pronalazi sam (±125 Hz za MT63-1000).
+- **Tekst kasni** za signalom zbog preplitanja: od oko 1,6 s (MT63-2000 short) do 12,8 s (MT63-500 long). Posljednji znakovi emisije stižu nakon što je signal već prestao.
+- **Squelch (FEC S/N)** — sam šum pokazuje oko 3, zaključan signal 4,5 i više; zadano je 4. Squelch skriva trenutak koji sinkronizatoru treba da se na početku zaključa.
+
 ### Napomene o Packetu i APRS-u
 
 Packet radio šalje podatke u kratkim naletima koji se zovu okviri (frames). Svaki okvir nosi pozivni znak pošiljatelja, odredište, digipeatere kroz koje je prošao i kontrolni zbroj. **APRS** (Automatic Packet Reporting System) koristi te okvire za objavu položaja, meteoroloških podataka, poruka i stanja, najčešće na jednoj zajedničkoj frekvenciji po regiji.
@@ -665,7 +729,7 @@ Packet radio šalje podatke u kratkim naletima koji se zovu okviri (frames). Sva
 
 > **Napomena o načinu rada:** dekoder preuzima upravljanje načinom demodulacije i propusnim pojasom MF dok je aktivan. Oboje se automatski vraća kada ga isključite. Sve inačice koriste **USB**, osim Packeta i APRS-a pri 1200 Bd, koji koriste **FM**.
 >
-> **Napomena o polaritetu (samo FSK inačice):** za meteorološki RTTY obično treba označiti **Invert mark / space**. Za pomorski FSK (tipa SITOR/NAVTEX) i amaterski RTTY ostavite neoznačeno — amaterski RTTY šalje mark kao višu radiofrekvenciju, a USB je zadržava kao viši audio ton, što je upravo neoznačeni slučaj. Ako je dekodirani tekst iskrivljen, prvo što treba probati jest prebaciti ovaj okvir. Okvir je skriven za PSK31 i Oliviju, koje nemaju par mark/space. Skriven je i za Packet i APRS, jer dekodiranje packeta ne ovisi o tome koji je ton koji.
+> **Napomena o polaritetu (samo FSK inačice):** za meteorološki RTTY obično treba označiti **Invert mark / space**. Za pomorski FSK (tipa SITOR/NAVTEX) i amaterski RTTY ostavite neoznačeno — amaterski RTTY šalje mark kao višu radiofrekvenciju, a USB je zadržava kao viši audio ton, što je upravo neoznačeni slučaj. Ako je dekodirani tekst iskrivljen, prvo što treba probati jest prebaciti ovaj okvir. Okvir je skriven za sve inačice osim tri FSK inačice: ostale nemaju par mark/space, a dekodiranje packeta ne ovisi o tome koji je ton koji.
 >
 > **Napomena o slovima/brojkama (samo FSK inačice):** Baudot drži slova i brojke u dva odvojena stanja, a šum može prebaciti dekoder u pogrešno — što izobličuje svaki sljedeći znak, ne samo oštećeni. Zato se dekoder na svakom razmaku vraća na slova; to je uobičajena praksa i popravlja pokvareno prebacivanje unutar jedne do dvije riječi umjesto cijelog retka. Cijena je da skupine brojki odvojene razmacima traže da pošiljatelj ponovi prebacivanje na brojke nakon svakog razmaka, kako odašiljači inače i rade.
 
@@ -751,14 +815,14 @@ Budući da Force preskače svaku sigurnosnu provjeru, rado će nacrtati šum ako
 
 **Jedan dekoder istodobno.** Odabir novog dekodera iz izbornika automatski zaustavlja prethodno aktivni i poništava sve promjene načina rada ili propusnog pojasa koje je napravio.
 
-**Načinom rada upravlja se umjesto vas.** HF FAX i NAVTEX prebacuju prijamnik na USB čim ih odaberete, SSTV bira bočni pojas prema pojasu (LSB ispod 10 MHz, USB iznad), a FAX, NAVTEX i FSK usto podešavaju propusni pojas kada kliknete njihov gumb Tune. FT8, FT4, FT2, JS8 i WSPR čine isto čim ih odaberete — iz reda gumba ili s padajućeg izbornika: prijamnik prelazi na USB i dobiva svoj propusni pojas — cijeli podpojas od 3 kHz za obitelj FT8, 1350–1650 Hz za WSPR. Kada zaustavite dekoder, vraća se zadani način rada za taj pojas.
+**Načinom rada upravlja se umjesto vas.** HF FAX i NAVTEX prebacuju prijamnik na USB čim ih odaberete, SSTV bira bočni pojas prema pojasu (LSB ispod 10 MHz, USB iznad), a FAX, NAVTEX i FLDIGI usto podešavaju propusni pojas kada kliknete njihov gumb Tune. FT8, FT4, FT2, JS8 i WSPR čine isto čim ih odaberete — iz reda gumba ili s padajućeg izbornika: prijamnik prelazi na USB i dobiva svoj propusni pojas — cijeli podpojas od 3 kHz za obitelj FT8, 1350–1650 Hz za WSPR. Kada zaustavite dekoder, vraća se zadani način rada za taj pojas.
 
 **Uključivanje dekodera više ne prekida zvuk.** Dekoderi rade u vlastitim dretvama, pa nema praznine, klika ni ispada kada se koji pokrene, zaustavi ili zamijeni drugim.
 
 **Točnost sata sustava je važna.** FT8, FT4 i WSPR vremenski su kritični. Dekodiraju u fiksnim prozorima usklađenima s UTC-om. Ako sat vašeg računala odstupa više od 1–2 sekunde, stopa dekodiranja znatno će pasti. Koristite NTP klijent kako bi sat bio točan.
 
 **Filtri šuma ne dopiru do dekodera.** NR, NB, NS i AN pomagala su za slušanje,
-namijenjena samo vašim ušima. Svaki dekoder — FT8, FT4/FT2, CW, WSPR, FAX, NAVTEX, FSK/RTTY/PSK31/Olivia/Packet/APRS, SSTV i QRSS grabber — uzima zvuk *prije* tih filtara, pa ih slobodno namjestite kako najbolje zvuči, bez brige za kvalitetu dekodiranja. Iz istog razloga dekoderi rade i dok je prijamnik utišan ili pod squelchom: možete ugasiti zvučnik i pustiti da dekoder, ili noćno QRSS snimanje, nastavi prikupljati. Jedino što doista prati ono što čujete jest audio spektrogram, koji namjerno prikazuje filtrirani zvuk.
+namijenjena samo vašim ušima. Svaki dekoder — FT8, FT4/FT2, CW, WSPR, FAX, NAVTEX, svaki FLDIGI način, SSTV i QRSS grabber — uzima zvuk *prije* tih filtara, pa ih slobodno namjestite kako najbolje zvuči, bez brige za kvalitetu dekodiranja. Iz istog razloga dekoderi rade i dok je prijamnik utišan ili pod squelchom: možete ugasiti zvučnik i pustiti da dekoder, ili noćno QRSS snimanje, nastavi prikupljati. Jedino što doista prati ono što čujete jest audio spektrogram, koji namjerno prikazuje filtrirani zvuk.
 
 **Kvaliteta signala važnija je od njegove jakosti.** Većina je ovih dekodera namijenjena slabim signalima. Mirniji pojas s manje šuma često je plodonosniji od glasnog signala punog smetnji. Prije uključivanja dekodera koristite slap i kontrole propusnog pojasa kako biste prepoznali i izbjegli QRM.
 

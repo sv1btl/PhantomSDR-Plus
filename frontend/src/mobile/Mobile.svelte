@@ -8,6 +8,7 @@
   import { loadReceivers, mobileUrl } from '../lib/receivers'
   import { sUnitLiftDb, meterGated } from '../lib/sUnits.js'
   import siteInfo from '../siteInfo.js'
+  import { VERSION, ORIGIN_URL } from '../lib/version.js'
   import copy from 'copy-to-clipboard'
   import {
     parseChatLine, replyMarker, replySnippet, splitReply, stripReplyMarker, threadMessages,
@@ -1770,6 +1771,13 @@
            non-mobile device, so the full desktop layout renders. -->
       <a class="view-btn" href={desktopViewHref}>Full desktop view</a>
     </footer>
+    <!-- GPL v3 section 7(b) attribution, same as the receiver page's version
+         line — see lib/version.js and ADDITIONAL_TERMS.md. -->
+    <div class="origin-line">
+      PhantomSDR+ | v{VERSION} original from
+      <a href={ORIGIN_URL} target="_blank" rel="noopener noreferrer"
+        >{ORIGIN_URL.replace('https://', '')}</a>
+    </div>
   {/if}
 </div>
 
@@ -2127,6 +2135,15 @@
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
   .view-btn:active { background: #1d4a6b; }
+  .origin-line {
+    flex: none;
+    padding: 0 6px 6px;
+    font-size: 0.68rem;
+    text-align: center;
+    color: #6b8299;
+    overflow-wrap: anywhere;
+  }
+  .origin-line a { color: #8ba7bf; }
 
   .tap-start {
     flex: none; margin: 6px; padding: 12px;

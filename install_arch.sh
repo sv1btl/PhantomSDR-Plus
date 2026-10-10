@@ -1052,6 +1052,70 @@ pause() {
 }
 
 # ------------------------------------------------------------------------------
+# Where this copy came from
+# ------------------------------------------------------------------------------
+# PhantomSDR-Plus is developed at ORIGIN_REPO. A sysop who cloned a fork may not
+# know that, so the installer says so once before the questions and again at the
+# end. A notice, never a stop: the GPL allows forks, and some are legitimate.
+# The remote is read from .git/config directly when git is missing (a fresh
+# machine) or refuses the tree (another user's checkout).
+
+ORIGIN_REPO="https://github.com/sv1btl/PhantomSDR-Plus"
+ORIGIN_STATE=""     # original | fork | unknown
+ORIGIN_FROM=""      # the origin remote, credentials stripped
+
+check_origin() {
+    local url="" norm
+    if command -v git >/dev/null 2>&1; then
+        url=$(git -C "$SCRIPT_DIR" config --get remote.origin.url 2>/dev/null) || url=""
+    fi
+    if [ -z "$url" ] && [ -f "$SCRIPT_DIR/.git/config" ]; then
+        url=$(awk '/^\[remote "origin"\]/ { o = 1; next }
+                   /^\[/                  { o = 0 }
+                   o && $1 == "url"       { sub(/^[^=]*=[ \t]*/, ""); print; exit }' \
+              "$SCRIPT_DIR/.git/config")
+    fi
+    if [ -z "$url" ]; then
+        ORIGIN_STATE="unknown"
+        return 0
+    fi
+    # Never print a token: https://user:token@github.com/... -> https://github.com/...
+    ORIGIN_FROM=$(printf '%s' "$url" | sed -E 's#^([a-z+]+://)[^@/]*@#\1#')
+    # https://, ssh://git@ and git@host: forms, any case, with or without .git
+    norm=$(printf '%s' "$url" | tr '[:upper:]' '[:lower:]' \
+        | sed -E 's#^[a-z+]+://##; s#^[^@/]*@##; s#^github\.com:#github.com/#; s#/+$##; s#\.git$##')
+    if [ "$norm" = "github.com/sv1btl/phantomsdr-plus" ]; then
+        ORIGIN_STATE="original"
+    else
+        ORIGIN_STATE="fork"
+    fi
+}
+
+# $1 = "start" pauses on a fork so the notice cannot scroll away unread.
+print_origin_notice() {
+    case "$ORIGIN_STATE" in
+        fork)
+            echo ""
+            yellow "ℹ️  This copy of PhantomSDR-Plus was downloaded from:"
+            yellow "      ${ORIGIN_FROM}"
+            yellow "   The original PhantomSDR-Plus is developed at:"
+            yellow "      ${ORIGIN_REPO}"
+            yellow "   A fork may be older than the original or changed by its owner."
+            yellow "   Updates, documentation and support come from the original."
+            if [ "${1:-}" = "start" ]; then
+                echo ""
+                pause "Press ENTER to continue with this copy (Ctrl-C to stop)..."
+            fi
+            ;;
+        unknown)
+            echo ""
+            echo "ℹ️  This copy has no git information, so where it came from is unknown."
+            echo "   The original PhantomSDR-Plus is developed at ${ORIGIN_REPO}"
+            ;;
+    esac
+}
+
+# ------------------------------------------------------------------------------
 # Running PhantomSDR-Plus components
 # ------------------------------------------------------------------------------
 # Installing on top of a live receiver is the single most effective way to get a
@@ -1307,6 +1371,16 @@ fact "Package manager" "pacman"
 fact "Architecture"   "$(uname -m)"
 fact "Kernel"         "$(uname -r)"
 fact "Unattended run" "$([ "$PHANTOM_NONINTERACTIVE" = "1" ] && echo 'yes' || echo 'no')"
+
+# Where this copy came from — a notice for a fork (check_origin, above).
+check_origin
+case "$ORIGIN_STATE" in
+    original) fact "Downloaded from" "${ORIGIN_FROM} (the original)" ;;
+    fork)     fact "Downloaded from" "${ORIGIN_FROM} — a FORK; the original is ${ORIGIN_REPO}"
+              warn "Installed from a fork (${ORIGIN_FROM}); the original is ${ORIGIN_REPO}" ;;
+    *)        fact "Downloaded from" "unknown (no git information); the original is ${ORIGIN_REPO}" ;;
+esac
+print_origin_notice start
 
 # ------------------------------------------------------------------------------
 # Your station — every question, now
@@ -2778,6 +2852,7 @@ echo "      ${PHANTOM_DIR}/install.txt"
 echo "   It lists every step, everything installed, and every warning."
 echo ""
 echo "📚 Docs / issues: https://github.com/sv1btl/PhantomSDR-Plus"
+print_origin_notice
 
 # ------------------------------------------------------------------------------
 # Reboot warning

@@ -54,6 +54,7 @@
     "@wasm-audio-decoders/opus-ml": "^0.0.2",
     "emoji-picker-element": "^1.29.1",
     "fft-js": "^0.0.12",
+    "leaflet": "1.9.4",
     "qrcode": "^1.5.4",
     "socket.io-client": "^4.8.3",
     "svelte-device-info": "^1.0.6",

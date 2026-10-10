@@ -1,5 +1,8 @@
 <script>
-  const VERSION = "5.0.0 with mobile support and enhancements";
+  // The release version and the "original from" attribution live in
+  // lib/version.js, shared with the /mobile page.  The attribution is a GPL v3
+  // section 7(b) author attribution — see ADDITIONAL_TERMS.md.
+  import { VERSION, ORIGIN_URL } from "./lib/version.js";
 
   // ── Variant selection ────────────────────────────────────────────────────
   //
@@ -71,6 +74,10 @@
   import { fade, fly, scale } from "svelte/transition";
   import copy from "copy-to-clipboard";
   import { withRx } from "./lib/rx";
+  import { AprsMap } from "./lib/aprsMap.js";
+  // Sub-mode lists and squelch defaults of the fldigi-family modems (MFSK,
+  // DominoEX, THOR, THROB, Hell, MT63). fsk.js is in this bundle already.
+  import { FLDIGI_MODEMS } from "./fsk.js";
   import { meterGated } from "./lib/sUnits.js";
   import { loadReceivers } from "./lib/receivers";
   import SMeterAnalog from "./lib/SMeterAnalog.svelte";
@@ -748,7 +755,9 @@
   // Begin Wheel Tuning Steps declarations
   let defaultStep,
     currentTuneStep = 1000; // Default step value / Track current step
-  let tuningsteps = ["10", "50", "100", "500", "1000", "5000", "9000", "10000"];
+  let tuningsteps = [
+    "10", "50", "100", "500", "1000", "5000", "9000", "10000", "12500",
+  ];
 
   // buttons = true for Buttons for Waterfall controls //
   // buttons = false for toggle switches for Waterfall controls //
@@ -3180,29 +3189,126 @@
       encoding: "olivia",
       invert: false,
     },
+    // The fldigi-family modems: a sub-mode and a squelch (FLDIGI_MODEMS);
+    // centre is where fldigi puts them by default. MT63 sends its lowest
+    // carrier at 500 Hz, so its centre follows the bandwidth.
+    mfsk: { center: 1500, shift: 0, baud: 0, framing: "—", encoding: "mfsk", invert: false },
+    dominoex: { center: 1500, shift: 0, baud: 0, framing: "—", encoding: "dominoex", invert: false },
+    thor: { center: 1500, shift: 0, baud: 0, framing: "—", encoding: "thor", invert: false },
+    throb: { center: 1500, shift: 0, baud: 0, framing: "—", encoding: "throb", invert: false },
+    hell: { center: 1500, shift: 0, baud: 0, framing: "—", encoding: "hell", invert: false },
+    mt63: { center: 1000, shift: 0, baud: 0, framing: "—", encoding: "mt63", invert: false },
+    // AX.25 packet (ax25.js): AFSK + HDLC. "packet" prints every frame like a
+    // TNC monitor, "aprs" prints UI frames decoded as APRS. Speed is the real
+    // control (packetBaud below); centre only matters at 300 Bd.
+    packet: {
+      center: 1700,
+      shift: 1000,
+      baud: 1200,
+      framing: "—",
+      encoding: "ax25",
+      invert: false,
+    },
+    aprs: {
+      center: 1700,
+      shift: 1000,
+      baud: 1200,
+      framing: "—",
+      encoding: "ax25",
+      invert: false,
+    },
   };
+
+  // 1200 Bd is Bell 202 (1200 / 2200 Hz) received in FM; 300 Bd is HF packet
+  // (two tones 200 Hz apart) received in USB.
+  const PACKET_BAUD_OPTIONS = [
+    { baud: 1200, label: "1200 Bd · VHF/UHF (FM)" },
+    { baud: 300, label: "300 Bd · HF (USB)" },
+  ];
+  let packetBaud = 1200;
+  // APRS view: also print the raw TNC2 line above the decoded one.
+  let packetShowRaw = true;
 
   // The four configurations that cover essentially all on-air Olivia traffic.
   // The first entry is the default the panel opens with.
   const OLIVIA_MODE_OPTIONS = [
-    { label: "8 / 250", tones: 8, bw: 250 },
-    { label: "16 / 500", tones: 16, bw: 500 },
-    { label: "32 / 1000", tones: 32, bw: 1000 },
-    { label: "16 / 1000", tones: 16, bw: 1000 },
+    { key: "8/250", label: "8 / 250", tones: 8, bw: 250 },
+    { key: "16/500", label: "16 / 500", tones: 16, bw: 500 },
+    { key: "32/1000", label: "32 / 1000", tones: 32, bw: 1000 },
+    { key: "16/1000", label: "16 / 1000", tones: 16, bw: 1000 },
   ];
   let oliviaMode = "8/250";
   // Squelch = the FEC signal-to-noise a block must reach to be printed.
   // 3.0 is the floor below which pure noise starts leaking through.
   let oliviaSquelch = 4.0;
+
+  // ── fldigi-family modems ─────────────────────────────────────────────────
+  // One Mode list and one squelch per variant, remembered per variant while
+  // the page is open. The squelch scale differs by mode, so each carries its
+  // own slider range, units and the measured note shown under it.
+  const MODEM_UI = {
+    mfsk: {
+      name: "MFSK",
+      sq: { min: 0, max: 60, step: 1, label: "Squelch (FEC metric)",
+        fmt: (v) => (v <= 0 ? "off" : Math.round(v)),
+        note: "Noise alone reaches about 20; clean copy reads above 23 on the FEC meter." },
+    },
+    dominoex: {
+      name: "DominoEX",
+      sq: { min: 0, max: 80, step: 1, label: "Squelch (tone / noise)",
+        fmt: (v) => (v <= 0 ? "off" : Math.round(v)),
+        note: "Noise alone stays under 20; readable copy reads 35 and up." },
+    },
+    thor: {
+      name: "THOR",
+      sq: { min: 0, max: 80, step: 1, label: "Squelch (tone / noise)",
+        fmt: (v) => (v <= 0 ? "off" : Math.round(v)),
+        note: "Noise alone stays under 20; readable copy reads 35 and up." },
+    },
+    throb: {
+      name: "THROB",
+      sq: { min: 0, max: 20, step: 0.5, label: "Squelch (S/N)",
+        fmt: (v) => (v <= 0 ? "off" : `${Number(v).toFixed(1)} dB`),
+        note: "Noise alone stays under 1 dB; a copyable signal reads 10 dB and up." },
+    },
+    hell: { name: "Hellschreiber", sq: null },
+    mt63: {
+      name: "MT63",
+      sq: { min: 0, max: 15, step: 0.5, label: "Squelch (FEC S/N)",
+        fmt: (v) => (v <= 0 ? "off" : Number(v).toFixed(1)),
+        note: "Noise alone reads about 3; a locked signal 4.5 and up." },
+    },
+  };
+  const MODEM_VARIANTS = Object.keys(MODEM_UI);
+  let modemModes = Object.fromEntries(
+    MODEM_VARIANTS.map((v) => [v, FLDIGI_MODEMS[v].def]),
+  );
+  let modemSquelches = Object.fromEntries(
+    MODEM_VARIANTS.map((v) => [v, FLDIGI_MODEMS[v].squelch]),
+  );
+  // FSK Hell / Hell 80: paint the other tone as ink, for a station whose
+  // sideband or tone order is the other way round.
+  let hellReverse = false;
+  function _modemModeCfg(v, key) {
+    const m = FLDIGI_MODEMS[v];
+    if (!m) return null;
+    const k = key || modemModes[v];
+    const mode = m.modes.find((x) => x.key === k) || m.modes.find((x) => x.key === m.def);
+    return { ...mode, bw: m.bw(mode.key) };
+  }
   // RTTY squelch in dB SNR (3 kHz reference), for the async ITA2/ASCII
   // variants. Mirrors FSK_SQUELCH_DEFAULT / FSK_SQUELCH_OFF in fsk.js; each
   // variant's starting value is its FSK_VARIANT_PRESETS.squelch.
   const FSK_SQUELCH_DEFAULT = -8;
   const FSK_SQUELCH_OFF = -20;
   let fskSquelch = FSK_SQUELCH_DEFAULT;
-  $: oliviaCfg =
-    OLIVIA_MODE_OPTIONS.find((m) => `${m.tones}/${m.bw}` === oliviaMode) ||
-    OLIVIA_MODE_OPTIONS[0];
+  $: oliviaCfg = _oliviaModeCfg(oliviaMode);
+
+  function _oliviaModeCfg(key) {
+    return (
+      OLIVIA_MODE_OPTIONS.find((m) => m.key === key) || OLIVIA_MODE_OPTIONS[0]
+    );
+  }
 
   // Per-variant option lists for Center / Shift / Baud selects.
   // The first entry in each list matches the variant preset so the
@@ -3288,7 +3394,23 @@
       { label: "24922.50 kHz — 12m Olivia 8/250", khz: 24922.5 },
       { label: "28122.50 kHz — 10m Olivia 8/250", khz: 28122.5 },
     ],
+    // Channel frequencies, not offsets: FM is tuned on the channel, and the
+    // HF entry is the USB dial with the tones at 1600 / 1800 Hz.
+    aprs: _packetKnownFrequencies(),
+    packet: _packetKnownFrequencies(),
   };
+
+  function _packetKnownFrequencies() {
+    return [
+      { label: "144800.00 kHz — APRS (Europe, IARU R1)", khz: 144800, baud: 1200 },
+      { label: "144390.00 kHz — APRS (North America)", khz: 144390, baud: 1200 },
+      { label: "145175.00 kHz — APRS (Australia)", khz: 145175, baud: 1200 },
+      { label: "144640.00 kHz — APRS (China)", khz: 144640, baud: 1200 },
+      { label: "144660.00 kHz — APRS (Japan)", khz: 144660, baud: 1200 },
+      { label: "145825.00 kHz — ISS packet digipeater", khz: 145825, baud: 1200 },
+      { label: "10147.60 kHz — 30m HF APRS dial (300 Bd)", khz: 10147.6, baud: 300 },
+    ];
+  }
 
   let fskEnabled = false;
   let fskVariant = "maritime";
@@ -3326,19 +3448,62 @@
     if (v === "maritime") fskKnownFrequency = "518";
     if (v === "psk31") fskKnownFrequency = "14070.15";
     if (v === "olivia") fskKnownFrequency = "14075.5";
+    if (MODEM_UI[v]) {
+      fskKnownFrequency = "";
+      if (v === "mt63") fskCenter = 500 + _modemModeCfg(v).bw / 2;
+    }
+    if (v === "packet" || v === "aprs") {
+      packetBaud = 1200;
+      fskKnownFrequency = "144800";
+    }
+  }
+
+  // A function, not a $: value: the receiver-control helpers run in the same
+  // tick as a variant change, before reactive statements have caught up.
+  function _fskIsPacket() {
+    return fskVariant === "packet" || fskVariant === "aprs";
   }
 
   $: isPsk = fskVariant === "psk31";
   $: isOlivia = fskVariant === "olivia";
-  // Neither mode has a tone pair or UART framing, so they share the same
+  // MFSK, DominoEX, THOR, THROB, Hell, MT63: a Mode list and a squelch each.
+  $: isModem = !!MODEM_UI[fskVariant];
+  $: isHell = fskVariant === "hell";
+  $: modemUi = MODEM_UI[fskVariant] || null;
+  $: modemCfg = isModem ? _modemModeCfg(fskVariant, modemModes[fskVariant]) : null;
+  // None of these has a tone pair or UART framing, so they share the same
   // "hide the FSK-only controls" branch throughout the panel.
-  $: isMfskLike = isPsk || isOlivia;
+  $: isMfskLike = isPsk || isOlivia || isModem;
+  $: isPacket = fskVariant === "packet";
+  $: isAprs = fskVariant === "aprs";
+  $: isPacketLike = isPacket || isAprs;
   // NAVTEX/SITOR (maritime) has FEC and its own framing; the squelch is RTTY's.
   $: fskHasSquelch = fskVariant === "ham" || fskVariant === "weather";
 
   function _fskEffectiveConfig() {
+    if (_fskIsPacket()) {
+      return {
+        center: Number(packetBaud) === 300 ? Number(fskCenter) || 1700 : 1700,
+        baud: Number(packetBaud) === 300 ? 300 : 1200,
+        encoding: "ax25",
+        showRaw: !!packetShowRaw,
+      };
+    }
     if (fskVariant === "psk31") {
       return { center: Number(fskCenter) || 1000, encoding: "varicode" };
+    }
+    // Read straight from the per-variant maps, not modemCfg: see _fskIsPacket().
+    if (MODEM_UI[fskVariant]) {
+      const v = fskVariant;
+      const sq = Number(modemSquelches[v]);
+      return {
+        center: Number(fskCenter) || 1500,
+        encoding: v,
+        modemMode: modemModes[v],
+        bandwidth: _modemModeCfg(v).bw,
+        modemSquelch: Number.isFinite(sq) ? sq : FLDIGI_MODEMS[v].squelch,
+        reverse: v === "hell" ? !!hellReverse : false,
+      };
     }
     if (fskVariant === "olivia") {
       return {
@@ -3429,6 +3594,19 @@
   function fskApplyBandpass() {
     const cfg = _fskEffectiveConfig();
     const hz = Math.round((Number(frequency) || 0) * 1000);
+    // 1200 Bd packet is FM on the channel: the FM default passband, centred on
+    // the dial (3 kHz deviation + 2.2 kHz tones fits a 12.5 kHz channel).
+    if (_fskIsPacket() && cfg.baud === 1200) {
+      const fm = demodulationDefaults.FM.offsets;
+      const pl = hz - fm[0], pm = hz, ph = hz + fm[1];
+      audio.setAudioRange(
+        ...[pl, pm, ph].map(frequencyToFFTOffset),
+        ...[pl - 200, pm - 750, ph - 200].map(frequencyToFFTOffset),
+      );
+      if (typeof updatePassband === "function") updatePassband();
+      if (typeof updateLink === "function") updateLink();
+      return;
+    }
     // PSK31 occupies ~62 Hz; a narrow window keeps neighbouring signals on the
     // same watering hole out of the decoder. Olivia needs its full bandwidth
     // plus room for the sync search either side.
@@ -3440,9 +3618,15 @@
     // that neighbour is gone, weak-signal copy improves, and a 40 Hz tuning
     // error at 0 dB still copies clean. Narrower (270 Hz) cut a tone at 60 Hz
     // off. NAVTEX/SITOR keeps its width — it can only be checked on air.
-    const halfWidth =
-      fskVariant === "psk31"
+    // 300 Bd packet: the 200 Hz tone pair plus a baud either side.
+    // fldigi-family modems: their occupied width plus a margin for the
+    // decoder's own acquisition (MT63 scans 8 carriers either side).
+    const halfWidth = _fskIsPacket()
+      ? 100 + 300
+      : fskVariant === "psk31"
         ? 100
+        : MODEM_UI[fskVariant]
+          ? (cfg.bandwidth || 500) / 2 + Math.max(60, 0.15 * (cfg.bandwidth || 500))
         : fskVariant === "olivia"
           ? (cfg.bandwidth || 1000) / 2 + 150
           : cfg.encoding === "ccir476"
@@ -3462,13 +3646,15 @@
 
   function _fskTakeReceiverControl() {
     _fskRememberReceiverControl();
-    demodulation = "USB";
+    // Everything here is USB except 1200 Bd packet, which is FM.
+    const mode = _fskIsPacket() && Number(packetBaud) !== 300 ? "FM" : "USB";
+    demodulation = mode;
     // Do NOT call handleDemodulationChange — it runs BFO compensation that
     // shifts the center frequency and moves the cursor.  Just switch the
-    // audio engine to USB; fskApplyBandpass() sets the correct passband.
-    passbandTunerComponent.setMode("USB");
+    // audio engine to the mode; fskApplyBandpass() sets the correct passband.
+    passbandTunerComponent.setMode(mode);
     audio.setFmDeemph(0);
-    audio.setAudioDemodulation("USB");
+    audio.setAudioDemodulation(mode);
     fskApplyBandpass();
   }
 
@@ -3575,6 +3761,16 @@
           _fskPushLine(fskCurrentLine);
           fskCurrentLine = "";
         }
+      } else if (event.type === "hell") {
+        // One painted Hellschreiber column (a picture, not text).
+        hellPaint(event.column);
+        return;
+      } else if (event.type === "line") {
+        // A whole decoded packet: one line, never wrapped at 72 columns.
+        if (fskCurrentLine.trim()) _fskPushLine(fskCurrentLine);
+        fskCurrentLine = "";
+        if (event.text) _fskPushLine(event.text);
+        if (event.pos) _aprsNotePosition(event.text, event.pos);
       } else if (event.type === "status") {
         fskStatusText = event.text || "";
       } else if (event.type === "metrics") {
@@ -3610,9 +3806,165 @@
     audio.setFSKDecoding(true, fskVariant);
   }
 
+  // ── APRS map ────────────────────────────────────────────────────────────
+  // Shown under the decoded text while the APRS variant runs. Positions keep
+  // collecting while it is minimised or the variant is changed; Leaflet itself
+  // is only loaded when the map is first shown.
+  const aprsMap = new AprsMap(siteGridSquare);
+  let aprsStationCount = 0;
+  aprsMap.onChange = (n) => (aprsStationCount = n);
+  let aprsAutoFit = true;
+  aprsMap.onAutoFitChange = (on) => (aprsAutoFit = on);
+  let aprsMapMin = false;
+  let aprsMapError = "";
+  // Decoded line → the station it positions, so a click on the line can zoom
+  // the map there. Pruned to the lines still in the pane.
+  let aprsLineCall = new Map();
+
+  function _aprsNotePosition(text, pos) {
+    aprsMap.add(pos);
+    aprsLineCall.set(text, pos.call);
+    if (aprsLineCall.size > 400) {
+      const keep = new Set(fskTextLines);
+      for (const k of aprsLineCall.keys()) if (!keep.has(k)) aprsLineCall.delete(k);
+    }
+    aprsLineCall = aprsLineCall;
+  }
+
+  // Svelte action on the map element: the map exists exactly as long as the
+  // element does (APRS selected, decoder on), and follows its size.
+  function aprsMapMount(node) {
+    let gone = false;
+    aprsMapError = "";
+    aprsMap.open(node).then(
+      () => { if (gone) aprsMap.close(); },
+      (e) => {
+        console.warn("[APRS] map failed to load", e);
+        aprsMapError = "The map could not be loaded.";
+      },
+    );
+    const ro = new ResizeObserver(() => {
+      if (!aprsMapMin) aprsMap.invalidate();
+    });
+    ro.observe(node);
+    return {
+      destroy() {
+        gone = true;
+        ro.disconnect();
+        aprsMap.close();
+      },
+    };
+  }
+
+  async function toggleAprsMin() {
+    aprsMapMin = !aprsMapMin;
+    if (!aprsMapMin) {
+      await tick();
+      aprsMap.invalidate();
+    }
+  }
+
+  // A click on a decoded line: bring the map back if minimised, then zoom.
+  async function showOnAprsMap(call) {
+    if (aprsMapMin) await toggleAprsMin();
+    aprsMap.focus(call);
+  }
+
   function fskClear() {
     fskTextLines = [];
     fskCurrentLine = "";
+    hellClear();
+  }
+
+  // ── Hellschreiber picture ────────────────────────────────────────────────
+  // hell.js sends one column at a time, 2 x 20 pixels (the column twice, one
+  // above the other, as fldigi paints it), pixel 0 at the bottom. Columns run
+  // left to right, two canvas pixels wide; a full row moves to the next, and
+  // the picture scrolls up once the last row is full.
+  const HELL_COL_W = 2;
+  const HELL_ROW_H = 44; // 40 pixels of column + a 4 pixel gap
+  const HELL_ROWS = 6;
+  const HELL_CANVAS_W = 720;
+  let hellCanvas;
+  let hellX = 0;
+  let hellRow = 0;
+  let hellHasInk = false;
+
+  function _hellColors() {
+    // Panel colours: gray-900 paper, green-300 ink.
+    return { bg: [17, 24, 39], ink: [134, 239, 172] };
+  }
+
+  function hellClear() {
+    hellX = 0;
+    hellRow = 0;
+    hellHasInk = false;
+    if (!hellCanvas) return;
+    const ctx = hellCanvas.getContext("2d");
+    const { bg } = _hellColors();
+    ctx.fillStyle = `rgb(${bg[0]},${bg[1]},${bg[2]})`;
+    ctx.fillRect(0, 0, hellCanvas.width, hellCanvas.height);
+  }
+
+  function hellPaint(column) {
+    if (!hellCanvas || !column) return;
+    const ctx = hellCanvas.getContext("2d");
+    const { bg, ink } = _hellColors();
+    if (hellX + HELL_COL_W > hellCanvas.width) {
+      hellX = 0;
+      hellRow++;
+      if (hellRow >= HELL_ROWS) {
+        const w = hellCanvas.width, h = hellCanvas.height;
+        ctx.drawImage(hellCanvas, 0, HELL_ROW_H, w, h - HELL_ROW_H, 0, 0, w, h - HELL_ROW_H);
+        ctx.fillStyle = `rgb(${bg[0]},${bg[1]},${bg[2]})`;
+        ctx.fillRect(0, h - HELL_ROW_H, w, HELL_ROW_H);
+        hellRow = HELL_ROWS - 1;
+      }
+    }
+    const H = column.length;
+    const img = ctx.createImageData(HELL_COL_W, H);
+    for (let y = 0; y < H; y++) {
+      const a = column[H - 1 - y] / 255;
+      for (let k = 0; k < HELL_COL_W; k++) {
+        const o = (y * HELL_COL_W + k) * 4;
+        img.data[o] = bg[0] + (ink[0] - bg[0]) * a;
+        img.data[o + 1] = bg[1] + (ink[1] - bg[1]) * a;
+        img.data[o + 2] = bg[2] + (ink[2] - bg[2]) * a;
+        img.data[o + 3] = 255;
+      }
+    }
+    ctx.putImageData(img, hellX, hellRow * HELL_ROW_H + 2);
+    hellX += HELL_COL_W;
+    hellHasInk = true;
+  }
+
+  // A canvas that mounts (the variant switched to Hell, or the layout
+  // changed) starts as a clean page.
+  function hellCanvasMount(node) {
+    hellCanvas = node;
+    hellClear();
+    return {
+      destroy() {
+        if (hellCanvas === node) hellCanvas = null;
+      },
+    };
+  }
+
+  function saveHellPicture() {
+    if (!hellCanvas) return;
+    const stamp = new Date().toISOString().replace(/[:.]/g, "-");
+    hellCanvas.toBlob((blob) => {
+      if (!blob) return;
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = `hell-${modemModes.hell}-${stamp}.png`;
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(() => {
+        URL.revokeObjectURL(a.href);
+        a.remove();
+      }, 0);
+    }, "image/png");
   }
 
   function _saveDecoderTextFile(
@@ -3652,7 +4004,13 @@
             ? "psk31"
             : fskVariant === "olivia"
               ? "olivia"
-              : "maritime-fsk";
+              : MODEM_UI[fskVariant]
+                ? modemModes[fskVariant]
+              : fskVariant === "packet"
+                ? "packet"
+                : fskVariant === "aprs"
+                  ? "aprs"
+                  : "maritime-fsk";
     _saveDecoderTextFile(mode, fskTextLines, fskCurrentLine);
   }
 
@@ -3671,7 +4029,20 @@
     audio.setFSKConfig(_fskEffectiveConfig());
   }
 
+  function packetBaudChanged() {
+    fskCenter = 1700;
+    fskApplySettings(true);
+  }
+
+  // Show-raw only changes how frames are printed; applied without a reset.
+  function packetShowRawChanged() {
+    audio.setFSKConfig(_fskEffectiveConfig());
+  }
+
   function fskVariantChanged() {
+    // A status line belongs to the decoder that wrote it ("No signal" from the
+    // RTTY engine would otherwise sit on top of the new mode's panel).
+    fskStatusText = "";
     if (fskEnabled) _fskTickCountdown();
     _applyFskVariantDefaults(fskVariant);
     fskApplySettings(true);
@@ -3690,8 +4061,15 @@
       fskShift = known.shift;
       if (fskEnabled) audio.setFSKConfig(_fskEffectiveConfig());
     }
+    // Packet entries carry their speed, which also decides FM or USB.
+    if (_fskIsPacket() && known && known.baud && Number(packetBaud) !== known.baud) {
+      packetBaud = known.baud;
+      fskCenter = 1700;
+      if (fskEnabled) audio.setFSKConfig(_fskEffectiveConfig());
+    }
     const cfg = _fskEffectiveConfig();
-    const hz = Math.round(khz * 1000 - cfg.center);
+    // Packet frequencies are the channel (FM) or the USB dial, never a tone.
+    const hz = Math.round(khz * 1000 - (_fskIsPacket() ? 0 : cfg.center));
     try {
       if (frequencyInputComponent && frequencyInputComponent.setFrequency)
         frequencyInputComponent.setFrequency(hz);
@@ -4993,7 +5371,12 @@
     { key: "hffax", label: "FAX", title: "HF FAX / WEFAX" },
     { key: "sstv", label: "SSTV", title: "SSTV" },
     { key: "navtex", label: "NAVTX", title: "NAVTEX" },
-    { key: "fsk", label: "RTTY", title: "FSK / RTTY" },
+    {
+      key: "fsk",
+      label: "FLDIGI",
+      title:
+        "fldigi modes: RTTY / SITOR / PSK31 / Olivia / MFSK / DominoEX / THOR / THROB / Hellschreiber / MT63 / Packet / APRS",
+    },
   ];
 
   // Legacy shims — keep for any remaining call sites in the file
@@ -6092,8 +6475,95 @@
 
   // Tune to the frequency when clicked
   let frequencyMarkerComponent;
+  // ── Marker → decoder shortcuts ─────────────────────────────────────────
+  // A markers.json entry whose "mode" names a digital mode, not a receiver
+  // mode, starts that decoder on the marker. The frequency is read the way the
+  // decoder's own Tune button reads its list: dial frequency for the WSJT
+  // modes, SSTV, Packet and APRS; the signal's centre for FAX (dial 1900 Hz
+  // below), NAVTEX (500 Hz below) and RTTY / PSK31 / Olivia (the panel's
+  // audio centre below). CW stays a receiver mode — beacons and stations use it.
+  const MARKER_DECODERS = {
+    FT8: { key: "ft8" },
+    FT4: { key: "ft4" },
+    FT2: { key: "ft2" },
+    JS8: { key: "js8" },
+    WSPR: { key: "wspr" },
+    SSTV: { key: "sstv" },
+    FAX: { key: "hffax", offset: 1900 },
+    WEFAX: { key: "hffax", offset: 1900 },
+    NAVTEX: { key: "navtex", offset: 500 },
+    RTTY: { key: "fsk", variant: "ham" },
+    "RTTY-WX": { key: "fsk", variant: "weather" },
+    SITOR: { key: "fsk", variant: "maritime" },
+    PSK31: { key: "fsk", variant: "psk31" },
+    OLIVIA: { key: "fsk", variant: "olivia" },
+    MFSK: { key: "fsk", variant: "mfsk" },
+    MFSK16: { key: "fsk", variant: "mfsk", modemMode: "mfsk16" },
+    MFSK32: { key: "fsk", variant: "mfsk", modemMode: "mfsk32" },
+    MFSK64: { key: "fsk", variant: "mfsk", modemMode: "mfsk64" },
+    DOMINOEX: { key: "fsk", variant: "dominoex" },
+    THOR: { key: "fsk", variant: "thor" },
+    THROB: { key: "fsk", variant: "throb" },
+    HELL: { key: "fsk", variant: "hell" },
+    FELDHELL: { key: "fsk", variant: "hell", modemMode: "feld" },
+    MT63: { key: "fsk", variant: "mt63" },
+    PACKET: { key: "fsk", variant: "packet" },
+    APRS: { key: "fsk", variant: "aprs" },
+  };
+
+  /** The decoder a marker mode starts, with its dial offset, or null. */
+  function _markerDecoder(mode) {
+    const spec = MARKER_DECODERS[String(mode || "").toUpperCase()];
+    if (!spec) return null;
+    if (spec.key !== "fsk") return { ...spec, offset: spec.offset || 0 };
+    const p = FSK_VARIANT_PRESETS[spec.variant];
+    const packet = spec.variant === "packet" || spec.variant === "aprs";
+    // MT63's centre follows its bandwidth (lowest carrier at 500 Hz).
+    if (spec.variant === "mt63") {
+      return { ...spec, offset: 500 + _modemModeCfg("mt63", spec.modemMode).bw / 2 };
+    }
+    return { ...spec, offset: packet ? 0 : p.center };
+  }
+
+  /**
+   * Start the marker's decoder on the (already tuned) dial. A decoder that is
+   * already running is left running — launchDecoder() would toggle it off —
+   * and the RTTY panel is switched to the marker's variant in place.
+   */
+  function _startDecoderFromMarker(spec, markerHz) {
+    const running = decoderOn && selectedDecoder === spec.key;
+    if (spec.key === "fsk") {
+      fskVariant = spec.variant;
+      _applyFskVariantDefaults(spec.variant);
+      if (spec.variant === "packet" || spec.variant === "aprs") {
+        packetBaud = markerHz < 30e6 ? 300 : 1200;
+      }
+      // A marker that names a sub-mode (MFSK32, FELDHELL…) picks it; one that
+      // names only the mode leaves the operator's last sub-mode alone.
+      if (spec.modemMode) {
+        modemModes[spec.variant] = spec.modemMode;
+        if (spec.variant === "mt63") fskCenter = 500 + _modemModeCfg("mt63").bw / 2;
+      }
+      const khz = markerHz / 1e3;
+      const known = (FSK_KNOWN_FREQUENCIES[spec.variant] || []).find((e) => e.khz === khz);
+      fskKnownFrequency = known ? String(known.khz) : "";
+      if (running && fskEnabled) {
+        fskApplySettings(true);
+        return;
+      }
+    } else if (running) {
+      _decoderReassertReceiver();
+      return;
+    }
+    launchDecoder(spec.key);
+  }
+
   async function handleFrequencyMarkerClick(event) {
-    const targetHz = Number(event.detail.frequency) || 0;
+    const markerHz = Number(event.detail.frequency) || 0;
+    // A digital-mode marker names its decoder; the dial may sit below the
+    // listed frequency (see MARKER_DECODERS).
+    const decoderSpec = _markerDecoder(event.detail.modulation);
+    const targetHz = decoderSpec ? Math.max(0, markerHz - decoderSpec.offset) : markerHz;
 
     // First sync the actual tuned/input frequency so any follow-up logic that
     // reads frequencyInputComponent sees the NEW dial immediately, not the
@@ -6116,8 +6586,11 @@
 
     // Finally apply the marker's requested mode — unless a decoder owns the
     // receiver, in which case the marker is a tuning shortcut only and the
-    // decoder keeps its mode and passband.
-    if (_decoderOwnsReceiver()) {
+    // decoder keeps its mode and passband. A digital-mode marker starts its
+    // decoder instead (see MARKER_DECODERS).
+    if (decoderSpec) {
+      _startDecoderFromMarker(decoderSpec, markerHz);
+    } else if (_decoderOwnsReceiver()) {
       _decoderReassertReceiver();
     } else {
       SetMode(event.detail.modulation);
@@ -8860,7 +9333,7 @@
                     <ul style="font-size: 0.91rem; text-align: left;">
                     <b>Setup &amp; Configuration:</b>
                       <img
-                        src="https://img.shields.io/badge/version- 5.0.0-cyan?logo=github"
+                        src="https://img.shields.io/badge/version- 5.1.0-cyan?logo=github"
                         alt="Version"
                         class="inline-block align-middle ml-2"
                       />
@@ -8883,12 +9356,12 @@
                       📊 System Resources
                     </button>
                     
-                    <!-- Desktop applications: the installers for Desktop PhantomSDR+ live in a
-                         public Dropbox folder, because GitHub cannot host files that size. -->
+                    <!-- Desktop applications: points to the download page on the project website
+                         (the installers themselves are too large for GitHub). -->
                     <button
                       type="button"
                       class="glass-button text-white py-1 px-2 ml-2 rounded text-xs"
-                      on:click={() => window.open("https://www.dropbox.com/scl/fo/kjwj96zg3kj7dgq4fjef9/APnA3c9hhv4hk3YMGIGjH7s?rlkey=jfiwklly63kv73poalx631pk3&st=m37uvaym&dl=0", "_blank", "noopener,noreferrer")}
+                      on:click={() => window.open("https://phantomsdr.psychomed.gr/desktop.html", "_blank", "noopener,noreferrer")}
                       title="Download Desktop PhantomSDR+ for Linux and Windows"
                       style="color:rgba(0, 225, 255, 0.993); font-size: 0.75rem;"
                     >
@@ -11153,11 +11626,11 @@ Slider: share of denoised audio, the rest is the original"
                         <h3 class="text-white text-base font-semibold mb-2">
                           Wheel Tuning Steps
                         </h3>
-                        <div class="grid grid-cols-4 sm:grid-cols-8 gap-2">
+                        <div class="grid grid-cols-3 sm:grid-cols-9 gap-2">
                           {#each tuningsteps as tuningstep (tuningstep)}
                             <button
                               id="tuning-step-selector"
-                              class="text-sm retro-button text-white font-bold h-8 text-sm rounded-md flex items-center justify-center border border-gray-600 shadow-inner transition-all duration-200 ease-in-out {currentTuneStep ==
+                              class="text-[11px] tracking-tight whitespace-nowrap px-0.5 overflow-hidden retro-button text-white font-bold h-8 rounded-md flex items-center justify-center border border-gray-600 shadow-inner transition-all duration-200 ease-in-out {currentTuneStep ==
                               tuningstep
                                 ? 'bg-blue-600 pressed scale-95'
                                 : 'bg-gray-700 hover:bg-gray-600'}"
@@ -11172,6 +11645,7 @@ Slider: share of denoised audio, the rest is the original"
                               {:else if tuningstep == 5000}5 kHz
                               {:else if tuningstep == 9000}9 kHz
                               {:else if tuningstep == 10000}10 kHz
+                              {:else if tuningstep == 12500}12.5 kHz
                               {:else}
                                 {tuningstep}
                               {/if}
@@ -11445,7 +11919,7 @@ Slider: share of denoised audio, the rest is the original"
                           <option value="hffax">HF FAX / WEFAX</option>
                           <option value="sstv">SSTV</option>
                           <option value="navtex">NAVTEX</option>
-                          <option value="fsk">FSK / RTTY</option>
+                          <option value="fsk">FLDIGI</option>
                           <option value="radel">RADE v1 — RADEL (LSB)</option>
                           <option value="radeu">RADE v1 — RADEU (USB)</option>
                         </select>
@@ -12602,7 +13076,13 @@ Slider: share of denoised audio, the rest is the original"
                             ? "PSK31 Decoder"
                             : isOlivia
                               ? "Olivia Decoder"
-                              : "FSK / RTTY Decoder"}
+                              : isModem
+                                ? `${modemUi.name} Decoder`
+                              : isPacket
+                                ? "Packet (AX.25) Decoder"
+                                : isAprs
+                                  ? "APRS Decoder"
+                                  : "FSK / RTTY Decoder"}
                           {#if fskStatusText}
                             <span
                               class="text-xs text-green-300 font-mono font-normal"
@@ -12637,9 +13117,18 @@ Slider: share of denoised audio, the rest is the original"
                             <option value="weather">Weather RTTY</option>
                             <option value="ham">Amateur RTTY</option>
                             <option value="psk31">PSK31 (BPSK)</option>
-                            <option value="olivia">Olivia (MFSK)</option>
+                            <option value="olivia">Olivia</option>
+                            <option value="mfsk">MFSK16·32·64</option>
+                            <option value="dominoex">DominoEX</option>
+                            <option value="thor">THOR</option>
+                            <option value="throb">THROB / THROBX</option>
+                            <option value="hell">Hellschreiber</option>
+                            <option value="mt63">MT63</option>
+                            <option value="packet">Packet (AX.25)</option>
+                            <option value="aprs">APRS</option>
                           </select>
                         </div>
+                        {#if (FSK_KNOWN_FREQUENCIES[fskVariant] || []).length}
                         <div>
                           <label class="text-xs text-gray-300 block mb-1"
                             >Known frequency</label
@@ -12662,6 +13151,7 @@ Slider: share of denoised audio, the rest is the original"
                             >
                           </div>
                         </div>
+                        {/if}
                       </div>
 
                       <!-- Broadcast schedule countdown -->
@@ -12748,7 +13238,15 @@ Slider: share of denoised audio, the rest is the original"
                           <label class="text-xs text-gray-300 block mb-1"
                             >Center audio (Hz)</label
                           >
-                          {#if isMfskLike}
+                          {#if isPacketLike && Number(packetBaud) !== 300}
+                            <!-- 1200 Bd: Bell 202 tones, fixed by the FM
+                                 demodulator — nothing to set. -->
+                            <div
+                              class="glass-select text-gray-400 text-xs px-2 py-1 rounded-md w-full"
+                            >
+                              1200 / 2200 Hz
+                            </div>
+                          {:else if isMfskLike || isPacketLike}
                             <!-- Free entry: a PSK31 carrier (or an Olivia block
                                  centre) can sit anywhere in the passband, and
                                  auto-tune reports an exact value that no fixed
@@ -12774,10 +13272,38 @@ Slider: share of denoised audio, the rest is the original"
                             </select>
                           {/if}
                         </div>
+                        {#if isPacketLike}
+                          <div class="col-span-1 md:col-span-2">
+                            <label class="text-xs text-gray-300 block mb-1"
+                              >Speed</label
+                            >
+                            <select
+                              bind:value={packetBaud}
+                              class="glass-select text-white text-xs px-2 py-1 rounded-md w-full"
+                              on:change={packetBaudChanged}
+                            >
+                              {#each PACKET_BAUD_OPTIONS as o}
+                                <option value={o.baud}>{o.label}</option>
+                              {/each}
+                            </select>
+                          </div>
+                          {#if isAprs}
+                            <label
+                              class="flex items-center gap-2 text-xs text-gray-300 mt-5"
+                            >
+                              <input
+                                type="checkbox"
+                                bind:checked={packetShowRaw}
+                                on:change={packetShowRawChanged}
+                              />
+                              Show raw packet
+                            </label>
+                          {/if}
+                        {/if}
                         {#if isOlivia}
                           <div>
                             <label class="text-xs text-gray-300 block mb-1"
-                              >Mode (tones / Hz)</label
+                              >Mode</label
                             >
                             <select
                               bind:value={oliviaMode}
@@ -12785,8 +13311,7 @@ Slider: share of denoised audio, the rest is the original"
                               on:change={() => fskApplySettings(true)}
                             >
                               {#each OLIVIA_MODE_OPTIONS as m}
-                                <option value="{m.tones}/{m.bw}">{m.label}</option
-                                >
+                                <option value={m.key}>{m.label}</option>
                               {/each}
                             </select>
                           </div>
@@ -12813,6 +13338,63 @@ Slider: share of denoised audio, the rest is the original"
                               reads 8–9 on the FEC meter.
                             </p>
                           </div>
+                        {/if}
+                        {#if isModem}
+                          <div>
+                            <label class="text-xs text-gray-300 block mb-1"
+                              >Mode</label
+                            >
+                            <select
+                              bind:value={modemModes[fskVariant]}
+                              class="glass-select text-white text-xs px-2 py-1 rounded-md w-full"
+                              on:change={() => {
+                                // MT63 sends its lowest carrier at 500 Hz, so
+                                // its centre moves with the bandwidth.
+                                if (fskVariant === "mt63")
+                                  fskCenter = 500 + _modemModeCfg("mt63").bw / 2;
+                                fskApplySettings(true);
+                              }}
+                            >
+                              {#each FLDIGI_MODEMS[fskVariant].modes as m}
+                                <option value={m.key}>{m.label}</option>
+                              {/each}
+                            </select>
+                          </div>
+                          {#if modemUi.sq}
+                            <div class="col-span-2">
+                              <label
+                                class="text-xs text-gray-300 block mb-1 flex justify-between"
+                              >
+                                <span>{modemUi.sq.label}</span>
+                                <span class="text-green-300 font-mono"
+                                  >{modemUi.sq.fmt(Number(modemSquelches[fskVariant]))}</span
+                                >
+                              </label>
+                              <input
+                                type="range"
+                                min={modemUi.sq.min}
+                                max={modemUi.sq.max}
+                                step={modemUi.sq.step}
+                                bind:value={modemSquelches[fskVariant]}
+                                class="w-full accent-green-500"
+                                on:input={fskApplySquelch}
+                              />
+                              <p class="text-gray-500 text-[10px] mt-0.5">
+                                {modemUi.sq.note}
+                              </p>
+                            </div>
+                          {:else if isHell && modemCfg && modemCfg.fsk}
+                            <label
+                              class="flex items-center gap-2 text-xs text-gray-300 mt-5"
+                            >
+                              <input
+                                type="checkbox"
+                                bind:checked={hellReverse}
+                                on:change={fskApplySquelch}
+                              />
+                              Reverse (swap ink and paper tones)
+                            </label>
+                          {/if}
                         {/if}
                         {#if fskHasSquelch}
                           <div class="col-span-2">
@@ -12841,7 +13423,7 @@ Slider: share of denoised audio, the rest is the original"
                             </p>
                           </div>
                         {/if}
-                        {#if !isMfskLike}
+                        {#if !isMfskLike && !isPacketLike}
                           <div>
                             <label class="text-xs text-gray-300 block mb-1"
                               >Shift (Hz)</label
@@ -12895,7 +13477,7 @@ Slider: share of denoised audio, the rest is the original"
                         {/if}
                       </div>
 
-                      {#if !isMfskLike}
+                      {#if !isMfskLike && !isPacketLike}
                         <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3">
                           <div>
                             <label class="text-xs text-gray-300 block mb-1"
@@ -12941,14 +13523,47 @@ Slider: share of denoised audio, the rest is the original"
                           class="text-xs px-3 py-1 rounded bg-green-700 hover:bg-green-600 text-white transition-colors whitespace-nowrap"
                           on:click={fskApplyBandpass}>⇒ Set IF Band-Pass</button
                         >
-                        <button
-                          class="text-xs px-3 py-1 rounded bg-blue-700 hover:bg-blue-600 text-white transition-colors whitespace-nowrap"
-                          on:click={() => {
-                            audio.setFSKAutoCenter(true);
-                            fskStatusText = "Auto-tune scanning…";
-                          }}>⟳ Auto-tune Center</button
-                        >
-                        {#if isPsk}
+                        {#if !(isPacketLike && Number(packetBaud) !== 300)}
+                          <button
+                            class="text-xs px-3 py-1 rounded bg-blue-700 hover:bg-blue-600 text-white transition-colors whitespace-nowrap"
+                            on:click={() => {
+                              audio.setFSKAutoCenter(true);
+                              fskStatusText = "Auto-tune scanning…";
+                            }}>⟳ Auto-tune Center</button
+                          >
+                        {/if}
+                        {#if isPacketLike}
+                          <span class="text-gray-300"
+                            >Tones: <span class="text-green-300 font-mono"
+                              >{Math.round(fskMetrics.markHz || 0)} / {Math.round(
+                                fskMetrics.spaceHz || 0,
+                              )} Hz</span
+                            ></span
+                          >
+                          <span class="text-gray-300"
+                            >DCD: <span
+                              class="{fskMetrics.dcd
+                                ? 'text-green-300'
+                                : 'text-gray-500'} font-mono"
+                              >{fskMetrics.dcd ? "●" : "○"}</span
+                            ></span
+                          >
+                          <span class="text-gray-300"
+                            >Frames: <span class="text-green-300 font-mono"
+                              >{fskMetrics.framesOk || 0}</span
+                            ></span
+                          >
+                          <span class="text-gray-300"
+                            >Stations: <span class="text-green-300 font-mono"
+                              >{fskMetrics.stations || 0}</span
+                            ></span
+                          >
+                          <span class="text-gray-300"
+                            >Audio: <span class="text-green-300 font-mono"
+                              >{Number(fskMetrics.levelDb ?? -120).toFixed(0)} dBFS</span
+                            ></span
+                          >
+                        {:else if isPsk}
                           <span class="text-gray-300"
                             >Carrier: <span class="text-green-300 font-mono"
                               >{Math.round(fskMetrics.centerHz || 0)} Hz</span
@@ -12959,7 +13574,7 @@ Slider: share of denoised audio, the rest is the original"
                               >{Number(fskMetrics.imdDb || 0).toFixed(1)} dB</span
                             ></span
                           >
-                        {:else if isOlivia}
+                        {:else if isOlivia || isModem}
                           <span class="text-gray-300"
                             >Centre: <span class="text-green-300 font-mono"
                               >{Math.round(fskMetrics.centerHz || 0)} Hz</span
@@ -12967,9 +13582,16 @@ Slider: share of denoised audio, the rest is the original"
                           >
                           <span class="text-gray-300"
                             >Mode: <span class="text-green-300 font-mono"
-                              >{oliviaCfg.label}</span
+                              >{isModem ? modemCfg.label : oliviaCfg.label}</span
                             ></span
                           >
+                          {#if isHell}
+                            <span class="text-gray-300"
+                              >Audio: <span class="text-green-300 font-mono"
+                                >{Number(fskMetrics.levelDb ?? -120).toFixed(0)} dBFS</span
+                              ></span
+                            >
+                          {/if}
                         {:else}
                           <span class="text-gray-300"
                             >Mark: <span class="text-green-300 font-mono"
@@ -12982,8 +13604,9 @@ Slider: share of denoised audio, the rest is the original"
                             ></span
                           >
                         {/if}
+                        {#if !isPacketLike && !isHell}
                         <span class="text-gray-300"
-                          >{isOlivia ? "S/N" : "SNR"}: <span
+                          >{isOlivia || isModem ? "S/N" : "SNR"}: <span
                             class="{fskMetrics.squelchOpen === false
                               ? 'text-gray-500'
                               : 'text-green-300'} font-mono"
@@ -12994,34 +13617,73 @@ Slider: share of denoised audio, the rest is the original"
                           ></span
                         >
                         <span class="text-gray-300"
-                          >{isOlivia ? "FEC" : "Lock"}: <span
+                          >{isOlivia ? "FEC" : isModem ? "Quality" : "Lock"}: <span
                             class="text-green-300 font-mono"
                             >{fskMetrics.lockQuality || 0}%</span
                           ></span
                         >
                         <span class="text-gray-300"
-                          >{isOlivia ? "Sync" : "Timing"}: <span
+                          >{isOlivia || isModem ? "Sync" : "Timing"}: <span
                             class="{fskMetrics.timingLocked
                               ? 'text-green-300'
                               : 'text-gray-500'} font-mono"
                             >{fskMetrics.timingLocked
-                              ? isOlivia
+                              ? isOlivia || isModem
                                 ? "SYNCED"
                                 : "LOCKED"
                               : "SEARCH"}</span
                           ></span
                         >
+                        {/if}
                       </div>
 
+                      {#if isHell}
+                        <!-- Hellschreiber is a picture, not text: hell.js
+                             paints columns, the eye reads the letters. -->
+                        <div class="w-full bg-gray-900 rounded p-2 recess-window">
+                          <canvas
+                            use:hellCanvasMount
+                            width={HELL_CANVAS_W}
+                            height={HELL_ROW_H * HELL_ROWS}
+                            class="w-full block"
+                            style="image-rendering: pixelated;"
+                          ></canvas>
+                          {#if !hellHasInk}
+                            <div class="text-gray-500 italic text-xs mt-1">
+                              Hellschreiber decoder has taken control of mode and
+                              IF while active.<br />
+                              Put the signal on the centre frequency (or use
+                              Auto-tune Center). Each letter is painted twice,
+                              one copy above the other; a small speed error
+                              slants the text, and one copy is always whole.
+                            </div>
+                          {/if}
+                        </div>
+                      {:else}
                       <div
                         bind:this={fskScrollEl}
                         class="w-full font-mono text-sm text-green-300 bg-gray-900 rounded p-3 overflow-y-auto max-h-72 custom-scrollbar text-left recess-window"
                         style="letter-spacing:0.04em; word-break:break-word; overflow-wrap:anywhere; white-space:pre-wrap; line-height:1.5; text-align:left;"
                       >
                         {#each fskTextLines as line}
-                          <div class="break-words whitespace-pre-wrap">
-                            {line}
-                          </div>
+                          {#if aprsLineCall.has(line)}
+                            <!-- An APRS position: click to see it on the map. -->
+                            <div
+                              class="break-words whitespace-pre-wrap cursor-pointer hover:text-green-100 hover:underline"
+                              title="Show on the map"
+                              role="button"
+                              tabindex="0"
+                              on:click={() => showOnAprsMap(aprsLineCall.get(line))}
+                              on:keydown={(e) =>
+                                e.key === "Enter" && showOnAprsMap(aprsLineCall.get(line))}
+                            >
+                              {line}
+                            </div>
+                          {:else}
+                            <div class="break-words whitespace-pre-wrap">
+                              {line}
+                            </div>
+                          {/if}
                         {/each}
                         {#if fskCurrentLine}
                           <div
@@ -13030,13 +13692,46 @@ Slider: share of denoised audio, the rest is the original"
                             {fskCurrentLine}<span class="animate-pulse">▋</span>
                           </div>
                         {:else if fskTextLines.length === 0}
-                          <div class="text-gray-500 italic text-xs">
+                          <!-- whitespace-normal: the pane is pre-wrap, and a
+                               hint that starts with an expression keeps its
+                               source line breaks otherwise. -->
+                          <div class="text-gray-500 italic text-xs whitespace-normal">
                             {#if isPsk}
                               PSK31 decoder has taken control of mode and IF
                               while active.<br />
                               Pick a watering hole above, then use Auto-tune Center
                               or set the carrier by hand — the decoder pulls in the
                               last ±25 Hz on its own.
+                            {:else if isPacketLike}
+                              {isAprs ? "APRS" : "Packet"} decoder has taken control
+                              of mode and IF while active.<br />
+                              Pick a channel above (or tune one yourself) — every
+                              frame that passes its checksum is printed, nothing
+                              else, so a quiet pane means a quiet channel.
+                            {:else if isModem}
+                              {modemUi.name} decoder has taken control of mode
+                              and IF while active.<br />
+                              {#if fskVariant === "mfsk"}
+                                Put the tone block on the centre frequency (or
+                                use Auto-tune Center); the decoder pulls in the
+                                last quarter of a tone. The Mode must match:
+                                MFSK16, 32 and 64 differ only in speed.
+                              {:else if fskVariant === "dominoex" || fskVariant === "thor"}
+                                Put the tone block on the centre frequency (or
+                                use Auto-tune Center). Incremental keying makes
+                                it forgiving of a few hertz of error, but the
+                                Mode must match the speed being sent.
+                              {:else if fskVariant === "throb"}
+                                THROB must be tuned within ±3 Hz (±6 Hz for
+                                THROB 4): use Auto-tune Center, then let the
+                                AFC settle. The Mode must match exactly.
+                              {:else if fskVariant === "mt63"}
+                                Put the signal on the centre frequency (MT63
+                                sends its lowest carrier at 500 Hz, so the
+                                centre is 500 Hz plus half the bandwidth); the
+                                decoder finds the last 8 carriers by itself.
+                                Text lags the signal by the interleaver.
+                              {/if}
                             {:else if isOlivia}
                               Olivia decoder has taken control of mode and IF
                               while active.<br />
@@ -13052,6 +13747,71 @@ Slider: share of denoised audio, the rest is the original"
                           </div>
                         {/if}
                       </div>
+                      {/if}
+
+                      <!-- APRS map: right under the decoded text, the same
+                           width and height, minimisable to its title bar. -->
+                      {#if isAprs}
+                        <div class="mt-3">
+                          <div class="flex flex-wrap items-center gap-2 mb-1">
+                            <span class="text-xs text-gray-300 font-semibold flex-1"
+                              >APRS map <span class="text-green-300 font-mono font-normal"
+                                >· {aprsStationCount} station{aprsStationCount === 1
+                                  ? ""
+                                  : "s"}</span
+                              ></span
+                            >
+                            {#if !aprsMapMin}
+                              <label
+                                class="flex items-center gap-1 text-xs text-gray-300 cursor-pointer"
+                                title="Re-frame the map as stations arrive and move. Panning or zooming by hand turns it off."
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={aprsAutoFit}
+                                  on:change={(e) => {
+                                    aprsAutoFit = e.currentTarget.checked;
+                                    aprsMap.setAutoFit(aprsAutoFit);
+                                  }}
+                                />
+                                Auto fit
+                              </label>
+                              <button
+                                class="text-xs px-2 py-0.5 rounded bg-green-700 hover:bg-green-600 text-white"
+                                on:click={() => aprsMap.fitAll()}>Fit all</button
+                              >
+                              <button
+                                class="text-xs px-2 py-0.5 rounded bg-gray-700 hover:bg-gray-600 text-white border border-gray-600"
+                                on:click={() => aprsMap.clear()}>Clear</button
+                              >
+                            {/if}
+                            <button
+                              class="text-xs px-2 py-0.5 rounded bg-gray-700 hover:bg-gray-600 text-white border border-gray-600"
+                              on:click={toggleAprsMin}
+                              title={aprsMapMin ? "Show the map" : "Minimize the map"}
+                              aria-label={aprsMapMin ? "Restore map" : "Minimize map"}
+                              >{aprsMapMin ? "□" : "–"}</button
+                            >
+                          </div>
+                          {#if aprsMapError}
+                            <div class="text-xs text-red-400">{aprsMapError}</div>
+                          {/if}
+                          <!-- Hidden, not removed, while minimised: the map and
+                               its tracks survive. -->
+                          <div
+                            use:aprsMapMount
+                            class="aprs-map w-full h-72 rounded recess-window overflow-hidden"
+                            class:hidden={aprsMapMin}
+                          ></div>
+                          {#if !aprsMapMin}
+                            <p class="text-gray-500 text-[10px] mt-1">
+                              Click a station for details, or a decoded line
+                              above to find it on the map. Amber is this
+                              receiver.
+                            </p>
+                          {/if}
+                        </div>
+                      {/if}
 
                       <!-- Hint -->
                       <p class="text-gray-500 text-xs mt-3 leading-relaxed">
@@ -13062,6 +13822,43 @@ Slider: share of denoised audio, the rest is the original"
                             <br /> and expect IMD better than −20 dB from a clean
                             transmitter</strong
                           >.
+                        {:else if isPacketLike}
+                          <strong class="text-gray-300"
+                            >Mode: {Number(packetBaud) === 300
+                              ? "USB, tones 1600 / 1800 Hz at the dial"
+                              : "FM, tuned on the channel"}. A DCD lamp
+                            with no frames means signals too weak or too
+                            distorted to pass the checksum</strong
+                          >.
+                        {:else if isModem}
+                          <strong class="text-gray-300"
+                            >Mode: USB. {modemCfg.label}, {Math.round(modemCfg.bw)}
+                            Hz wide.
+                            {#if fskVariant === "mfsk" || fskVariant === "thor"}
+                              Text lags the signal by a couple of seconds
+                              (interleaver + FEC),
+                              <br /> and a few stray characters at the start of
+                              a transmission are normal.
+                            {:else if fskVariant === "dominoex"}
+                              No FEC: a bad tone costs one character, so a
+                              static crash shows as a typo,
+                              <br /> and the squelch hides the noise between
+                              overs.
+                            {:else if fskVariant === "throb"}
+                              One character per pulse: slow, but it copies
+                              through heavy fading,
+                              <br /> provided it is tuned within a few hertz.
+                            {:else if fskVariant === "hell"}
+                              There is nothing to decode: read the letters off
+                              the picture,
+                              <br /> which is why Hell stays readable when no
+                              text mode is.
+                            {:else if fskVariant === "mt63"}
+                              Text lags the signal by the interleaver (seconds),
+                              <br /> and the squelch hides the moment the
+                              synchroniser needs to settle.
+                            {/if}</strong
+                          >
                         {:else if isOlivia}
                           <strong class="text-gray-300"
                             >Mode: USB. Pick the right tones / bandwidth — a
@@ -13080,7 +13877,8 @@ Slider: share of denoised audio, the rest is the original"
                       <div class="mt-3 flex justify-end">
                         <button
                           class="text-xs px-3 py-1 rounded bg-green-700 hover:bg-green-600 text-white transition-colors whitespace-nowrap"
-                          on:click={saveFskText}>Save Text</button
+                          on:click={isHell ? saveHellPicture : saveFskText}
+                          >{isHell ? "Save Picture" : "Save Text"}</button
                         >
                       </div>
                     </div>
@@ -13974,7 +14772,14 @@ Slider: share of denoised audio, the rest is the original"
                   </div>
                   <hr class="border-gray-600 my-2" />
                   <span class="text-xs text-gray-400"
-                    >PhantomSDR+ | v{VERSION}</span
+                    >PhantomSDR+ | v{VERSION} original from
+                    <a
+                      href={ORIGIN_URL}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      class="underline hover:text-gray-200"
+                      >{ORIGIN_URL.replace("https://", "")}</a
+                    ></span
                   >
                 </div>
               </div>
@@ -15832,7 +16637,7 @@ Slider: share of denoised audio, the rest is the original"
                         <option value="hffax">HF FAX / WEFAX</option>
                         <option value="sstv">SSTV</option>
                         <option value="navtex">NAVTEX</option>
-                        <option value="fsk">FSK / RTTY</option>
+                        <option value="fsk">FLDIGI</option>
                         <option value="radel">RADE v1 — RADEL (LSB)</option>
                         <option value="radeu">RADE v1 — RADEU (USB)</option>
                       </select>
@@ -16988,7 +17793,13 @@ Slider: share of denoised audio, the rest is the original"
                             ? "PSK31 Decoder"
                             : isOlivia
                               ? "Olivia Decoder"
-                              : "FSK / RTTY Decoder"}
+                              : isModem
+                                ? `${modemUi.name} Decoder`
+                              : isPacket
+                                ? "Packet (AX.25) Decoder"
+                                : isAprs
+                                  ? "APRS Decoder"
+                                  : "FSK / RTTY Decoder"}
                           {#if fskStatusText}
                             <span
                               class="text-xs text-green-300 font-mono font-normal"
@@ -17023,9 +17834,18 @@ Slider: share of denoised audio, the rest is the original"
                             <option value="weather">Weather RTTY</option>
                             <option value="ham">Amateur RTTY</option>
                             <option value="psk31">PSK31 (BPSK)</option>
-                            <option value="olivia">Olivia (MFSK)</option>
+                            <option value="olivia">Olivia</option>
+                            <option value="mfsk">MFSK16·32·64</option>
+                            <option value="dominoex">DominoEX</option>
+                            <option value="thor">THOR</option>
+                            <option value="throb">THROB / THROBX</option>
+                            <option value="hell">Hellschreiber</option>
+                            <option value="mt63">MT63</option>
+                            <option value="packet">Packet (AX.25)</option>
+                            <option value="aprs">APRS</option>
                           </select>
                         </div>
+                        {#if (FSK_KNOWN_FREQUENCIES[fskVariant] || []).length}
                         <div>
                           <label class="text-xs text-gray-300 block mb-1"
                             >Known frequency</label
@@ -17048,6 +17868,7 @@ Slider: share of denoised audio, the rest is the original"
                             >
                           </div>
                         </div>
+                        {/if}
                       </div>
 
                       <!-- Broadcast schedule countdown -->
@@ -17134,7 +17955,15 @@ Slider: share of denoised audio, the rest is the original"
                           <label class="text-xs text-gray-300 block mb-1"
                             >Center audio (Hz)</label
                           >
-                          {#if isMfskLike}
+                          {#if isPacketLike && Number(packetBaud) !== 300}
+                            <!-- 1200 Bd: Bell 202 tones, fixed by the FM
+                                 demodulator — nothing to set. -->
+                            <div
+                              class="glass-select text-gray-400 text-xs px-2 py-1 rounded-md w-full"
+                            >
+                              1200 / 2200 Hz
+                            </div>
+                          {:else if isMfskLike || isPacketLike}
                             <!-- Free entry: a PSK31 carrier (or an Olivia block
                                  centre) can sit anywhere in the passband, and
                                  auto-tune reports an exact value that no fixed
@@ -17160,10 +17989,38 @@ Slider: share of denoised audio, the rest is the original"
                             </select>
                           {/if}
                         </div>
+                        {#if isPacketLike}
+                          <div class="col-span-1 md:col-span-2">
+                            <label class="text-xs text-gray-300 block mb-1"
+                              >Speed</label
+                            >
+                            <select
+                              bind:value={packetBaud}
+                              class="glass-select text-white text-xs px-2 py-1 rounded-md w-full"
+                              on:change={packetBaudChanged}
+                            >
+                              {#each PACKET_BAUD_OPTIONS as o}
+                                <option value={o.baud}>{o.label}</option>
+                              {/each}
+                            </select>
+                          </div>
+                          {#if isAprs}
+                            <label
+                              class="flex items-center gap-2 text-xs text-gray-300 mt-5"
+                            >
+                              <input
+                                type="checkbox"
+                                bind:checked={packetShowRaw}
+                                on:change={packetShowRawChanged}
+                              />
+                              Show raw packet
+                            </label>
+                          {/if}
+                        {/if}
                         {#if isOlivia}
                           <div>
                             <label class="text-xs text-gray-300 block mb-1"
-                              >Mode (tones / Hz)</label
+                              >Mode</label
                             >
                             <select
                               bind:value={oliviaMode}
@@ -17171,8 +18028,7 @@ Slider: share of denoised audio, the rest is the original"
                               on:change={() => fskApplySettings(true)}
                             >
                               {#each OLIVIA_MODE_OPTIONS as m}
-                                <option value="{m.tones}/{m.bw}">{m.label}</option
-                                >
+                                <option value={m.key}>{m.label}</option>
                               {/each}
                             </select>
                           </div>
@@ -17199,6 +18055,63 @@ Slider: share of denoised audio, the rest is the original"
                               reads 8–9 on the FEC meter.
                             </p>
                           </div>
+                        {/if}
+                        {#if isModem}
+                          <div>
+                            <label class="text-xs text-gray-300 block mb-1"
+                              >Mode</label
+                            >
+                            <select
+                              bind:value={modemModes[fskVariant]}
+                              class="glass-select text-white text-xs px-2 py-1 rounded-md w-full"
+                              on:change={() => {
+                                // MT63 sends its lowest carrier at 500 Hz, so
+                                // its centre moves with the bandwidth.
+                                if (fskVariant === "mt63")
+                                  fskCenter = 500 + _modemModeCfg("mt63").bw / 2;
+                                fskApplySettings(true);
+                              }}
+                            >
+                              {#each FLDIGI_MODEMS[fskVariant].modes as m}
+                                <option value={m.key}>{m.label}</option>
+                              {/each}
+                            </select>
+                          </div>
+                          {#if modemUi.sq}
+                            <div class="col-span-2">
+                              <label
+                                class="text-xs text-gray-300 block mb-1 flex justify-between"
+                              >
+                                <span>{modemUi.sq.label}</span>
+                                <span class="text-green-300 font-mono"
+                                  >{modemUi.sq.fmt(Number(modemSquelches[fskVariant]))}</span
+                                >
+                              </label>
+                              <input
+                                type="range"
+                                min={modemUi.sq.min}
+                                max={modemUi.sq.max}
+                                step={modemUi.sq.step}
+                                bind:value={modemSquelches[fskVariant]}
+                                class="w-full accent-green-500"
+                                on:input={fskApplySquelch}
+                              />
+                              <p class="text-gray-500 text-[10px] mt-0.5">
+                                {modemUi.sq.note}
+                              </p>
+                            </div>
+                          {:else if isHell && modemCfg && modemCfg.fsk}
+                            <label
+                              class="flex items-center gap-2 text-xs text-gray-300 mt-5"
+                            >
+                              <input
+                                type="checkbox"
+                                bind:checked={hellReverse}
+                                on:change={fskApplySquelch}
+                              />
+                              Reverse (swap ink and paper tones)
+                            </label>
+                          {/if}
                         {/if}
                         {#if fskHasSquelch}
                           <div class="col-span-2">
@@ -17227,7 +18140,7 @@ Slider: share of denoised audio, the rest is the original"
                             </p>
                           </div>
                         {/if}
-                        {#if !isMfskLike}
+                        {#if !isMfskLike && !isPacketLike}
                           <div>
                             <label class="text-xs text-gray-300 block mb-1"
                               >Shift (Hz)</label
@@ -17281,7 +18194,7 @@ Slider: share of denoised audio, the rest is the original"
                         {/if}
                       </div>
 
-                      {#if !isMfskLike}
+                      {#if !isMfskLike && !isPacketLike}
                         <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3">
                           <div>
                             <label class="text-xs text-gray-300 block mb-1"
@@ -17327,14 +18240,47 @@ Slider: share of denoised audio, the rest is the original"
                           class="text-xs px-3 py-1 rounded bg-green-700 hover:bg-green-600 text-white transition-colors whitespace-nowrap"
                           on:click={fskApplyBandpass}>⇒ Set IF Band-Pass</button
                         >
-                        <button
-                          class="text-xs px-3 py-1 rounded bg-blue-700 hover:bg-blue-600 text-white transition-colors whitespace-nowrap"
-                          on:click={() => {
-                            audio.setFSKAutoCenter(true);
-                            fskStatusText = "Auto-tune scanning…";
-                          }}>⟳ Auto-tune Center</button
-                        >
-                        {#if isPsk}
+                        {#if !(isPacketLike && Number(packetBaud) !== 300)}
+                          <button
+                            class="text-xs px-3 py-1 rounded bg-blue-700 hover:bg-blue-600 text-white transition-colors whitespace-nowrap"
+                            on:click={() => {
+                              audio.setFSKAutoCenter(true);
+                              fskStatusText = "Auto-tune scanning…";
+                            }}>⟳ Auto-tune Center</button
+                          >
+                        {/if}
+                        {#if isPacketLike}
+                          <span class="text-gray-300"
+                            >Tones: <span class="text-green-300 font-mono"
+                              >{Math.round(fskMetrics.markHz || 0)} / {Math.round(
+                                fskMetrics.spaceHz || 0,
+                              )} Hz</span
+                            ></span
+                          >
+                          <span class="text-gray-300"
+                            >DCD: <span
+                              class="{fskMetrics.dcd
+                                ? 'text-green-300'
+                                : 'text-gray-500'} font-mono"
+                              >{fskMetrics.dcd ? "●" : "○"}</span
+                            ></span
+                          >
+                          <span class="text-gray-300"
+                            >Frames: <span class="text-green-300 font-mono"
+                              >{fskMetrics.framesOk || 0}</span
+                            ></span
+                          >
+                          <span class="text-gray-300"
+                            >Stations: <span class="text-green-300 font-mono"
+                              >{fskMetrics.stations || 0}</span
+                            ></span
+                          >
+                          <span class="text-gray-300"
+                            >Audio: <span class="text-green-300 font-mono"
+                              >{Number(fskMetrics.levelDb ?? -120).toFixed(0)} dBFS</span
+                            ></span
+                          >
+                        {:else if isPsk}
                           <span class="text-gray-300"
                             >Carrier: <span class="text-green-300 font-mono"
                               >{Math.round(fskMetrics.centerHz || 0)} Hz</span
@@ -17345,7 +18291,7 @@ Slider: share of denoised audio, the rest is the original"
                               >{Number(fskMetrics.imdDb || 0).toFixed(1)} dB</span
                             ></span
                           >
-                        {:else if isOlivia}
+                        {:else if isOlivia || isModem}
                           <span class="text-gray-300"
                             >Centre: <span class="text-green-300 font-mono"
                               >{Math.round(fskMetrics.centerHz || 0)} Hz</span
@@ -17353,9 +18299,16 @@ Slider: share of denoised audio, the rest is the original"
                           >
                           <span class="text-gray-300"
                             >Mode: <span class="text-green-300 font-mono"
-                              >{oliviaCfg.label}</span
+                              >{isModem ? modemCfg.label : oliviaCfg.label}</span
                             ></span
                           >
+                          {#if isHell}
+                            <span class="text-gray-300"
+                              >Audio: <span class="text-green-300 font-mono"
+                                >{Number(fskMetrics.levelDb ?? -120).toFixed(0)} dBFS</span
+                              ></span
+                            >
+                          {/if}
                         {:else}
                           <span class="text-gray-300"
                             >Mark: <span class="text-green-300 font-mono"
@@ -17368,8 +18321,9 @@ Slider: share of denoised audio, the rest is the original"
                             ></span
                           >
                         {/if}
+                        {#if !isPacketLike && !isHell}
                         <span class="text-gray-300"
-                          >{isOlivia ? "S/N" : "SNR"}: <span
+                          >{isOlivia || isModem ? "S/N" : "SNR"}: <span
                             class="{fskMetrics.squelchOpen === false
                               ? 'text-gray-500'
                               : 'text-green-300'} font-mono"
@@ -17380,34 +18334,73 @@ Slider: share of denoised audio, the rest is the original"
                           ></span
                         >
                         <span class="text-gray-300"
-                          >{isOlivia ? "FEC" : "Lock"}: <span
+                          >{isOlivia ? "FEC" : isModem ? "Quality" : "Lock"}: <span
                             class="text-green-300 font-mono"
                             >{fskMetrics.lockQuality || 0}%</span
                           ></span
                         >
                         <span class="text-gray-300"
-                          >{isOlivia ? "Sync" : "Timing"}: <span
+                          >{isOlivia || isModem ? "Sync" : "Timing"}: <span
                             class="{fskMetrics.timingLocked
                               ? 'text-green-300'
                               : 'text-gray-500'} font-mono"
                             >{fskMetrics.timingLocked
-                              ? isOlivia
+                              ? isOlivia || isModem
                                 ? "SYNCED"
                                 : "LOCKED"
                               : "SEARCH"}</span
                           ></span
                         >
+                        {/if}
                       </div>
 
+                      {#if isHell}
+                        <!-- Hellschreiber is a picture, not text: hell.js
+                             paints columns, the eye reads the letters. -->
+                        <div class="w-full bg-gray-900 rounded p-2 recess-window">
+                          <canvas
+                            use:hellCanvasMount
+                            width={HELL_CANVAS_W}
+                            height={HELL_ROW_H * HELL_ROWS}
+                            class="w-full block"
+                            style="image-rendering: pixelated;"
+                          ></canvas>
+                          {#if !hellHasInk}
+                            <div class="text-gray-500 italic text-xs mt-1">
+                              Hellschreiber decoder has taken control of mode and
+                              IF while active.<br />
+                              Put the signal on the centre frequency (or use
+                              Auto-tune Center). Each letter is painted twice,
+                              one copy above the other; a small speed error
+                              slants the text, and one copy is always whole.
+                            </div>
+                          {/if}
+                        </div>
+                      {:else}
                       <div
                         bind:this={fskScrollEl}
                         class="w-full font-mono text-sm text-green-300 bg-gray-900 rounded p-3 overflow-y-auto max-h-72 custom-scrollbar text-left recess-window"
                         style="letter-spacing:0.04em; word-break:break-word; overflow-wrap:anywhere; white-space:pre-wrap; line-height:1.5; text-align:left;"
                       >
                         {#each fskTextLines as line}
-                          <div class="break-words whitespace-pre-wrap">
-                            {line}
-                          </div>
+                          {#if aprsLineCall.has(line)}
+                            <!-- An APRS position: click to see it on the map. -->
+                            <div
+                              class="break-words whitespace-pre-wrap cursor-pointer hover:text-green-100 hover:underline"
+                              title="Show on the map"
+                              role="button"
+                              tabindex="0"
+                              on:click={() => showOnAprsMap(aprsLineCall.get(line))}
+                              on:keydown={(e) =>
+                                e.key === "Enter" && showOnAprsMap(aprsLineCall.get(line))}
+                            >
+                              {line}
+                            </div>
+                          {:else}
+                            <div class="break-words whitespace-pre-wrap">
+                              {line}
+                            </div>
+                          {/if}
                         {/each}
                         {#if fskCurrentLine}
                           <div
@@ -17416,13 +18409,46 @@ Slider: share of denoised audio, the rest is the original"
                             {fskCurrentLine}<span class="animate-pulse">▋</span>
                           </div>
                         {:else if fskTextLines.length === 0}
-                          <div class="text-gray-500 italic text-xs">
+                          <!-- whitespace-normal: the pane is pre-wrap, and a
+                               hint that starts with an expression keeps its
+                               source line breaks otherwise. -->
+                          <div class="text-gray-500 italic text-xs whitespace-normal">
                             {#if isPsk}
                               PSK31 decoder has taken control of mode and IF
                               while active.<br />
                               Pick a watering hole above, then use Auto-tune Center
                               or set the carrier by hand — the decoder pulls in the
                               last ±25 Hz on its own.
+                            {:else if isPacketLike}
+                              {isAprs ? "APRS" : "Packet"} decoder has taken control
+                              of mode and IF while active.<br />
+                              Pick a channel above (or tune one yourself) — every
+                              frame that passes its checksum is printed, nothing
+                              else, so a quiet pane means a quiet channel.
+                            {:else if isModem}
+                              {modemUi.name} decoder has taken control of mode
+                              and IF while active.<br />
+                              {#if fskVariant === "mfsk"}
+                                Put the tone block on the centre frequency (or
+                                use Auto-tune Center); the decoder pulls in the
+                                last quarter of a tone. The Mode must match:
+                                MFSK16, 32 and 64 differ only in speed.
+                              {:else if fskVariant === "dominoex" || fskVariant === "thor"}
+                                Put the tone block on the centre frequency (or
+                                use Auto-tune Center). Incremental keying makes
+                                it forgiving of a few hertz of error, but the
+                                Mode must match the speed being sent.
+                              {:else if fskVariant === "throb"}
+                                THROB must be tuned within ±3 Hz (±6 Hz for
+                                THROB 4): use Auto-tune Center, then let the
+                                AFC settle. The Mode must match exactly.
+                              {:else if fskVariant === "mt63"}
+                                Put the signal on the centre frequency (MT63
+                                sends its lowest carrier at 500 Hz, so the
+                                centre is 500 Hz plus half the bandwidth); the
+                                decoder finds the last 8 carriers by itself.
+                                Text lags the signal by the interleaver.
+                              {/if}
                             {:else if isOlivia}
                               Olivia decoder has taken control of mode and IF
                               while active.<br />
@@ -17438,6 +18464,71 @@ Slider: share of denoised audio, the rest is the original"
                           </div>
                         {/if}
                       </div>
+                      {/if}
+
+                      <!-- APRS map: right under the decoded text, the same
+                           width and height, minimisable to its title bar. -->
+                      {#if isAprs}
+                        <div class="mt-3">
+                          <div class="flex flex-wrap items-center gap-2 mb-1">
+                            <span class="text-xs text-gray-300 font-semibold flex-1"
+                              >APRS map <span class="text-green-300 font-mono font-normal"
+                                >· {aprsStationCount} station{aprsStationCount === 1
+                                  ? ""
+                                  : "s"}</span
+                              ></span
+                            >
+                            {#if !aprsMapMin}
+                              <label
+                                class="flex items-center gap-1 text-xs text-gray-300 cursor-pointer"
+                                title="Re-frame the map as stations arrive and move. Panning or zooming by hand turns it off."
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={aprsAutoFit}
+                                  on:change={(e) => {
+                                    aprsAutoFit = e.currentTarget.checked;
+                                    aprsMap.setAutoFit(aprsAutoFit);
+                                  }}
+                                />
+                                Auto fit
+                              </label>
+                              <button
+                                class="text-xs px-2 py-0.5 rounded bg-green-700 hover:bg-green-600 text-white"
+                                on:click={() => aprsMap.fitAll()}>Fit all</button
+                              >
+                              <button
+                                class="text-xs px-2 py-0.5 rounded bg-gray-700 hover:bg-gray-600 text-white border border-gray-600"
+                                on:click={() => aprsMap.clear()}>Clear</button
+                              >
+                            {/if}
+                            <button
+                              class="text-xs px-2 py-0.5 rounded bg-gray-700 hover:bg-gray-600 text-white border border-gray-600"
+                              on:click={toggleAprsMin}
+                              title={aprsMapMin ? "Show the map" : "Minimize the map"}
+                              aria-label={aprsMapMin ? "Restore map" : "Minimize map"}
+                              >{aprsMapMin ? "□" : "–"}</button
+                            >
+                          </div>
+                          {#if aprsMapError}
+                            <div class="text-xs text-red-400">{aprsMapError}</div>
+                          {/if}
+                          <!-- Hidden, not removed, while minimised: the map and
+                               its tracks survive. -->
+                          <div
+                            use:aprsMapMount
+                            class="aprs-map w-full h-72 rounded recess-window overflow-hidden"
+                            class:hidden={aprsMapMin}
+                          ></div>
+                          {#if !aprsMapMin}
+                            <p class="text-gray-500 text-[10px] mt-1">
+                              Click a station for details, or a decoded line
+                              above to find it on the map. Amber is this
+                              receiver.
+                            </p>
+                          {/if}
+                        </div>
+                      {/if}
 
                       <!-- Hint -->
                       <p class="text-gray-500 text-xs mt-3 leading-relaxed">
@@ -17448,6 +18539,43 @@ Slider: share of denoised audio, the rest is the original"
                             <br /> and expect IMD better than −20 dB from a clean
                             transmitter</strong
                           >.
+                        {:else if isPacketLike}
+                          <strong class="text-gray-300"
+                            >Mode: {Number(packetBaud) === 300
+                              ? "USB, tones 1600 / 1800 Hz at the dial"
+                              : "FM, tuned on the channel"}. A DCD lamp
+                            with no frames means signals too weak or too
+                            distorted to pass the checksum</strong
+                          >.
+                        {:else if isModem}
+                          <strong class="text-gray-300"
+                            >Mode: USB. {modemCfg.label}, {Math.round(modemCfg.bw)}
+                            Hz wide.
+                            {#if fskVariant === "mfsk" || fskVariant === "thor"}
+                              Text lags the signal by a couple of seconds
+                              (interleaver + FEC),
+                              <br /> and a few stray characters at the start of
+                              a transmission are normal.
+                            {:else if fskVariant === "dominoex"}
+                              No FEC: a bad tone costs one character, so a
+                              static crash shows as a typo,
+                              <br /> and the squelch hides the noise between
+                              overs.
+                            {:else if fskVariant === "throb"}
+                              One character per pulse: slow, but it copies
+                              through heavy fading,
+                              <br /> provided it is tuned within a few hertz.
+                            {:else if fskVariant === "hell"}
+                              There is nothing to decode: read the letters off
+                              the picture,
+                              <br /> which is why Hell stays readable when no
+                              text mode is.
+                            {:else if fskVariant === "mt63"}
+                              Text lags the signal by the interleaver (seconds),
+                              <br /> and the squelch hides the moment the
+                              synchroniser needs to settle.
+                            {/if}</strong
+                          >
                         {:else if isOlivia}
                           <strong class="text-gray-300"
                             >Mode: USB. Pick the right tones / bandwidth — a
@@ -17466,7 +18594,8 @@ Slider: share of denoised audio, the rest is the original"
                       <div class="mt-3 flex justify-end">
                         <button
                           class="text-xs px-3 py-1 rounded bg-green-700 hover:bg-green-600 text-white transition-colors whitespace-nowrap"
-                          on:click={saveFskText}>Save Text</button
+                          on:click={isHell ? saveHellPicture : saveFskText}
+                          >{isHell ? "Save Picture" : "Save Text"}</button
                         >
                       </div>
                     </div>
@@ -17974,7 +19103,14 @@ Slider: share of denoised audio, the rest is the original"
                   </div>
                   <hr class="border-gray-600 my-2" />
                   <span class="text-xs text-gray-400"
-                    >PhantomSDR+ | v{VERSION}</span
+                    >PhantomSDR+ | v{VERSION} original from
+                    <a
+                      href={ORIGIN_URL}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      class="underline hover:text-gray-200"
+                      >{ORIGIN_URL.replace("https://", "")}</a
+                    ></span
                   >
                 </div>
               </div>
@@ -18043,6 +19179,43 @@ Slider: share of denoised audio, the rest is the original"
 </svelte:head>
 
 <style global lang="postcss">
+  /* APRS map (lib/aprsMap.js) */
+  .aprs-map {
+    min-height: 200px;
+    background: #0b1220;
+  }
+  .aprs-map img {
+    max-width: none !important;
+    max-height: none !important;
+  }
+  .leaflet-tooltip.aprs-label {
+    background: rgba(15, 23, 42, 0.85);
+    color: #a7f3d0;
+    border: none;
+    box-shadow: none;
+    padding: 0 4px;
+    font: 600 11px/1.4 ui-monospace, Menlo, monospace;
+  }
+  .leaflet-tooltip.aprs-label::before {
+    display: none;
+  }
+  .leaflet-tooltip.aprs-home {
+    color: #fcd34d;
+  }
+  .aprs-popup {
+    font-size: 12px;
+    line-height: 1.4;
+  }
+  .aprs-popup-call {
+    font-weight: 700;
+    font-family: ui-monospace, Menlo, monospace;
+    margin-bottom: 2px;
+  }
+  .aprs-popup-meta {
+    margin-top: 4px;
+    color: #6b7280;
+    font-size: 11px;
+  }
   /* Plain text everywhere - no shadow effect */
   * {
     text-shadow: none;

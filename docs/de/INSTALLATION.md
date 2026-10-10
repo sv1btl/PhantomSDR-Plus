@@ -772,7 +772,7 @@ Bearbeiten Sie die folgenden Felder:
   "siteCity": "Your City, Country",
   "siteInformation": "https://github.com/sv1btl/PhantomSDR-Plus",
   "siteHardware": "Computer specifications",
-  "siteSoftware": "PhantomSDR-Plus v5.0.0",
+  "siteSoftware": "PhantomSDR-Plus v5.1.0",
   "siteReceiver": "Your SDR model",
   "siteAntenna": "Antenna description",
   "siteNote": "Additional information",
@@ -1601,7 +1601,7 @@ Sicherungen von vor dem 23. September 2026 liegen im versteckten Ordner `.update
 ./update.sh --apply --yes     # fragt nie; jede von Ihnen geänderte Datei BLEIBT
 ./update.sh --check           # nur Bericht, nie Fragen — für Cron (10 = Update wartet)
 ./update.sh --from FILE|DIR   # die neue Fassung aus .zip/.tar.gz oder einem Ordner — ohne Netz
-./update.sh --ref v5.0.0      # ein Tag, Branch oder Commit statt des aktuellen Standes
+./update.sh --ref v5.1.0      # ein Tag, Branch oder Commit statt des aktuellen Standes
 ./update.sh --list-excludes   # zeigt die Nie-anrühren-Regeln, wie sie hier gelten
 ./update.sh --verbose         # listet jede Datei, nicht nur die ersten 40
 ```

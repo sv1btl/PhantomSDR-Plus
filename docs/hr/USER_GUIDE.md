@@ -555,7 +555,7 @@ Isti Morseov filtar od ±250 Hz kao **CW**, ali se ton uzima ispod nosioca umjes
 
 PhantomSDR-Plus uključuje ugrađene dekodere za digitalne načine rada. Za potpuni vodič pogledajte [Dekoderi](DECODERS.md).
 
-Najbrži je put red gumba **Decoders** na glavnoj ploči, odmah ispod **Wheel Tuning Steps**: deset gumba — **FT8, FT4, FT2, JS8, CW, WSPR, FAX, SSTV, NAVTX, RTTY** — od kojih svaki jednim pritiskom pokreće svoj dekoder, uključuje glavni prekidač Decoder i dovodi prozor dekodera na zaslon. Gumb ostaje plav dok dekoder radi; pritisnite ga ponovno da zaustavite dekoder i zatvorite njegov prozor. Padajući izbornik **Decoder Options** radi točno kao i prije te ostaje usklađen s gumbima.
+Najbrži je put red gumba **Decoders** na glavnoj ploči, odmah ispod **Wheel Tuning Steps**: deset gumba — **FT8, FT4, FT2, JS8, CW, WSPR, FAX, SSTV, NAVTX, FLDIGI** — od kojih svaki jednim pritiskom pokreće svoj dekoder, uključuje glavni prekidač Decoder i dovodi prozor dekodera na zaslon. Gumb ostaje plav dok dekoder radi; pritisnite ga ponovno da zaustavite dekoder i zatvorite njegov prozor. Padajući izbornik **Decoder Options** radi točno kao i prije te ostaje usklađen s gumbima.
 
 **RADEL** i **RADEU** (RADE v1 digitalni glas) imaju vlastite gumbe uz naslov **Modes selector** te u skočnim prozorima **Modes** i **Bands**, i rade na isti način: pritisak za pokretanje, ponovni pritisak za zaustavljanje.
 
@@ -660,11 +660,11 @@ NAVTEX je međunarodni pomorski sustav emitiranja obavijesti o sigurnosti u prio
 
 ---
 
-### FSK / RTTY, PSK31, Olivia, Packet i APRS
+### FLDIGI — RTTY, PSK31, Olivia, MFSK, DominoEX, THOR, THROB, Hellschreiber, MT63, Packet i APRS
 
-Univerzalni dekoder za uskopojasne tekstualne načine rada, sa sedam inačica u jednom prozoru: pomorski FSK (SITOR), meteorološki RTTY, amaterski RTTY, **PSK31** (fazno ključanje, 31,25 bauda), **Olivia** (viševalni FSK s korekcijom pogrešaka), **Packet (AX.25)** i **APRS**. Otvara se gumbom **RTTY** ili stavkom **FSK / RTTY / PACKET / APRS** u izborniku dekodera. Ploča se prilagođava inačici — kontrole za shift, baud i okvir nestaju za PSK31 i Oliviju, a Olivia dodaje birač Mode i klizač squelcha.
+Jedan prozor za uskopojasne tipkovničke načine rada koje je proslavio fldigi, s trinaest inačica: pomorski FSK (SITOR), meteorološki RTTY, amaterski RTTY, **PSK31** (fazno ključanje, 31,25 bauda), **Olivia** i **MFSK16/32/64** (višetonski s korekcijom pogrešaka), **DominoEX** i **THOR** (inkrementalno frekvencijsko ključanje, THOR s korekcijom pogrešaka), **THROB**, **Hellschreiber** (iscrtan kao slika), **MT63** (64 nosioca), **Packet (AX.25)** i **APRS**. Otvara se gumbom **FLDIGI** ili stavkom **FLDIGI** u izborniku dekodera; sam fldigi nije potreban. Ploča se prilagođava inačici — kontrole za shift, baud i okvir nestaju za sve osim tri FSK inačice, a ostali načini dodaju birač Mode i, osim Hellschreibera, klizač squelcha.
 
-Amaterski i meteorološki RTTY imaju klizač **Squelch (SNR)** koji sprječava da se šum ispisuje kao nasumična slova, a sve varijante osim Olivije prikazuju pravi SNR na istoj ljestvici od 3 kHz. Dvije stvari treba znati: PSK31 sam ispravlja pogrešku ugađanja u rasponu od otprilike ±25 Hz, pa se dovoljno samo približiti; Olivia traži da **Mode** (tonovi / širina pojasa) točno odgovara emisiji, ne šalje preambulu i stoga joj treba nekoliko sekundi za sinkronizaciju prije nego što se pojavi tekst. Ploča se otvara na Olivia **8 / 250**.
+Amaterski i meteorološki RTTY imaju klizač **Squelch (SNR)** koji sprječava da se šum ispisuje kao nasumična slova, a sve varijante osim Olivije prikazuju pravi SNR na istoj ljestvici od 3 kHz. Dvije stvari treba znati: PSK31 sam ispravlja pogrešku ugađanja u rasponu od otprilike ±25 Hz, pa se dovoljno samo približiti; Olivia traži da **Mode** (tonovi / širina pojasa) točno odgovara emisiji, ne šalje preambulu i stoga joj treba nekoliko sekundi za sinkronizaciju prije nego što se pojavi tekst. Ploča se otvara na Olivia **8 / 250**. Za ostale fldigi načine postavite signal na središnju frekvenciju ili pritisnite **⟳ Auto-tune Center** i odaberite odgovarajući **Mode**: THROB traži ugađanje unutar ±3 Hz, DominoEX, THOR i MT63 opraštaju mnogo više, a MFSK, THOR i MT63 ispisuju tekst nekoliko sekundi iza signala. Hellschreiber prikazuje sliku, a ne tekst.
 
 **Packet** ispisuje svaki AX.25 okvir koji čuje, kao TNC monitor; **APRS** pretvara APRS pakete u običan tekst — položaj s lokatorom, brzinu, visinu, vrijeme, poruke, objekte i stanje. Odaberite **Speed**: **1200 Bd** za VHF/UHF, čime se prijemnik prebacuje na **FM** na kanalu (europskih 144,800 MHz nalazi se na popisu frekvencija), ili **300 Bd** za KV, u USB-u. Ispisuju se samo paketi s ispravnim kontrolnim zbrojem, pa se na mirnom kanalu ništa ne pojavljuje. Ispod teksta karta prikazuje svaku čutu postaju s položajem, s putanjama za one u pokretu i vašim prijemnikom u jantarnoj boji; može se smanjiti, a klik na dekodirani redak približi kartu toj postaji. Vidi [priručnik za dekodere](DECODERS.md#napomene-o-packetu-i-aprs-u).
 
@@ -1074,6 +1074,8 @@ O: Preklop plana pojaseva koji prikazuje dodjelu frekvencija.
 **DX**: veza na veliku udaljenost
 
 **FFT**: brza Fourierova transformacija – pretvara vremensku domenu u frekvencijsku
+
+**FLDIGI**: prozor dekodera za RTTY, PSK31, Oliviju, MFSK, DominoEX, THOR, THROB, Hellschreiber, MT63, Packet i APRS, nazvan po programu fldigi koji je proslavio te načine rada
 
 **FM**: frekvencijska modulacija – govorni način rada za VHF/UHF
 

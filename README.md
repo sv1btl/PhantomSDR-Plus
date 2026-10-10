@@ -1,9 +1,9 @@
-# PhantomSDR-Plus WebSDR (version 5.0.0)
+# PhantomSDR-Plus WebSDR (version 5.1.0)
 
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-cyan.svg)](https://www.gnu.org/licenses/gpl-3.0)
-[![Version](https://img.shields.io/badge/version-5.0.0-cyan.svg)](https://github.com/sv1btl/PhantomSDR-Plus)
+[![Version](https://img.shields.io/badge/version-5.1.0-cyan.svg)](https://github.com/sv1btl/PhantomSDR-Plus)
 
-**Maintained by SV1BTL.** The current version is 5.0.0, and the project lives at
+**Maintained by SV1BTL.** The current version is 5.1.0, and the project lives at
 **https://github.com/sv1btl/PhantomSDR-Plus** — that is the one to clone, link to
 and report issues against.
 
@@ -13,15 +13,17 @@ PhantomSDR-Plus is licensed under the GPL v3 with the [additional terms](ADDITIO
 
 ## Note: Tested on Debian 12 (Bookworm), Debian 13 (Trixie), Ubuntu 22.04, Ubuntu 24.04.
 
-**What's new in v.5.0.0**
+**What's new in v.5.1.0**
 
-* **Several receivers on one computer.** One PhantomSDR-Plus computer can now run two or more receivers at the same time — for example an RX-888 for HF and an RTL-SDR for 2 m — each as a complete server of its own, with its own waterfall, chat, markers, listener list and station details. An extra receiver is started with `INSTANCE=<name> ./start-<radio>.sh` and set up in its own folder, `instances/<name>/`; nothing of it is ever overwritten by an update. All seven start scripts now tell their receivers apart by an instance tag rather than by program name, so two receivers may even run the same program (two RTL-SDRs, or an RSP1A and an Airspy that both use `rx_sdr`) and restarting one never touches the other. A station with one receiver sees no change. The easy way to add one is **`./add-receiver.sh`**, which all four installers now offer at the end: it asks which receiver and what it should cover, installs its driver, writes the instance folder and `receivers.toml`, and offers to start it. Its driver for an RTL-SDR comes from the new **`setup-rtlsdr.sh`** — the distribution's package, or the RTL-SDR Blog V4 driver built from source — on Debian/Ubuntu, Fedora, Arch and openSUSE alike. See **[docs/MULTI_RECEIVER.md](docs/MULTI_RECEIVER.md)**.
-* **A receiver picker on the page.** On a station with several receivers the page header gets a line *Receivers:* with one button per receiver, the current one in yellow; /mobile has the same buttons in its top bar. `proxy.py` reads a new `receivers.toml` and sends each request to the right receiver by `?rx=<id>` in the address, a cookie, or the host name — so the receivers can share one public port, or the main one can keep its own. A page opened on a second receiver loads that receiver's own band buttons, station details and links before it starts.
-* **`start-all.sh`** starts every receiver listed in `receivers.toml`, and `./stop-websdr.sh <name>` stops just one. Set `start-all.sh` as the admin panel's start script and its Restart button and the thermal guard bring back every receiver; the panel's users list, user count and kick cover them all.
-* **The S-meter reads VHF S-units above 30 MHz.** Following IARU Region 1, S9 is −93 dBm above 30 MHz and −73 dBm below it. The analog needle, the digital bar and the /mobile bar now switch with the tuned frequency; the dBm and dBµV figures stay as measured. Optionally, above 60 MHz they can rest at 0 on an empty channel like a VHF/UHF transceiver's meter: add `"siteSMeterGateDb": 6` to that receiver's `site_information.json` (off by default).
-* **CTCSS subtone picker.** Pressing **CTCSS** opens a small window beside it with *Any tone* and the 49 standard subtones; the button then shows the chosen tone (for example *88.5*, or *ANY*), and pressing it again switches tone squelch off. A *Heard:* line in the window shows the tone on the channel, so an unknown repeater tone can be read off, and bookmarks keep the tone. The tone squelch also no longer opens on an empty channel, holds through speech, and catches a station's first words: while it is on, FM audio plays 0.4 s behind the receiver so the squelch is already open when they arrive. See **[docs/USER_GUIDE.md](docs/USER_GUIDE.md)** under *Control Panel*.
-* **Security fixes — please update.** Through `proxy.py` anyone could use the sysop's kick to disconnect and ban any listener, because the proxy relayed it and the server trusted every request coming from the proxy; the proxy now answers it only for clients on the same machine. And the server believed an `X-Forwarded-For` header from anyone, so a visitor could claim to be `127.0.0.1` and ignore the per-IP connection limits; it is now believed only from a proxy on the same machine. A page connected through the proxy also gets the right message again when the server refuses it or the sysop disconnects it — the proxy used to pass both on as an ordinary disconnect.
-* **New server options**, all optional: `[server] host` binds a receiver to one address (`127.0.0.1` keeps it off the network, reachable only through the proxy); `[server] html_fallback_root` lets a receiver keep only its own few page files and take the rest from the shared build; `[websdr] public_port` names the port the directory listing announces when the proxy owns the public one. `site_information.json` gains `siteReceiverURL` and `siteAntennaURL`, so the *Receiver* and *Antenna* links in *Open Additional Info* point to each receiver's own hardware.
+* **An FLDIGI window with five more modes.** The decoder that used to be called RTTY is now **FLDIGI** — button and dropdown entry — and besides RTTY, SITOR, PSK31, Olivia, Packet and APRS it decodes **DominoEX**, **THOR**, **THROB / THROBX**, **Hellschreiber** and **MT63**, all in the listener's browser, with no fldigi installed anywhere. **MFSK16/32/64** have their own entry, right after Olivia. Each new mode is a port of fldigi's own receiver, checked against real fldigi recordings of every sub-mode (DominoEX 4–22, THOR 4–100 including the K=15 modes, THROB and THROBX 1/2/4, all seven Hell modes, MT63-500/1000/2000 short and long). Hellschreiber is shown as the picture it is — two copies of every line, as fldigi paints it — and can be saved as a PNG; every other new mode has its own Mode list and a squelch measured to print nothing from two minutes of noise. See **[docs/DECODERS.md](docs/DECODERS.md)**.
+* **Packet (AX.25) and APRS**, with a live map. 1200 Bd VHF/UHF packet (the receiver goes to FM on the channel) and 300 Bd HF packet; every frame is checked before it is printed. APRS positions, weather, messages, objects and telemetry come out as plain text, and every station heard with a position appears on an OpenStreetMap map under the text, with tracks, distance and bearing from the receiver. The mouse wheel gains a **12.5 kHz** step for the VHF channel grid.
+* **A frequency marker starts its decoder.** A `markers.json` entry whose mode is a digital mode — FT8, FT4, FT2, JS8, WSPR, SSTV, FAX, NAVTEX, RTTY, PSK31, OLIVIA, MFSK, DOMINOEX, THOR, THROB, HELL, MT63, PACKET, APRS and more — tunes to it and starts that decoder in one click.
+* **A station wizard, and every installer question first.** `configure-station.sh` asks about the receiver, band, station and ports once, keeps the answers in `station.conf`, and writes the `.toml`, `site_information.json` and relay config from them, so they can no longer disagree. All four installers start with it and then run unattended. New stations use one public port (9000, `proxy.py`) with everything else on loopback behind it; changing a port later is one command that carries the change everywhere and puts it into service.
+* **https:// alongside http://.** `setup-https.sh` (or one more wizard question) puts Caddy on port 443 with a Let's Encrypt certificate that renews itself; the http address keeps working for websdr.org, Kiwi clients and http-only partners.
+* **`update.sh` without GitHub, and without questions.** `./update.sh --from` takes the new version from a folder, `.tar.gz` or `.zip` — a USB stick, for a station without a direct connection. Each release ships the fingerprint of every file ever published, so a first update recognises old files as old and asks only about real local edits.
+* **Where the project comes from.** The version line on the receiver page and on /mobile reads "original from github.com/sv1btl/PhantomSDR-Plus", kept by the [additional terms](ADDITIONAL_TERMS.md) of the GPL; the installers, `update.sh` and the admin panel say so when a copy comes from a fork.
+* **Documentation:** a new **Appendix** — every command a sysop types, each linked to the page that explains it — closes the offline PDFs, now 18 chapters in each of seven languages. The page gains a **Website** button beside the GitHub link, and **💾 Desktop applications** opens the download page on the [website](https://phantomsdr.psychomed.gr).
+* **Fixes:** chat counts characters, not bytes, so Greek and Cyrillic messages get the full 200 characters, and never cuts a letter in half; the admin panel's Users and Chat pages cover every receiver; the 2 m modes follow the IARU Region 1 band plan (FM from 144.794 MHz, so APRS 144.800 opens in FM).
 
 ------------------
 
@@ -36,8 +38,12 @@ We also provide a wide range of additional **features**:
 * **CATsync** support through the [CATsync Tool for WebSDRs](https://catsyncsdr.wordpress.com/) application, **TCI-CAT** on the receiver page itself (ExpertSDR, AetherSDR, Thetis, or any Hamlib rig through the included bridge), and two-way rig control — frequency, mode and filter — in [Desktop PhantomSDR+](https://www.dropbox.com/scl/fo/kjwj96zg3kj7dgq4fjef9/APnA3c9hhv4hk3YMGIGjH7s?rlkey=jfiwklly63kv73poalx631pk3&st=m37uvaym&dl=0). See [docs/RIG_CONTROL.md](docs/RIG_CONTROL.md).
 * **KiwiSDR client emulation** — an optional bridge that lets Kiwi clients such as **AetherSDR** and `kiwiclient` connect to the receiver directly, on the same host and port, with real retuning, waterfall and S-meter. Off until `[kiwi_emulation] enabled = true` is added to your config. See [docs/Aether_config.md](docs/Aether_config.md).
 * **Receive diversity** — pair the receiver with a second site (another PhantomSDR-Plus, a KiwiSDR, an UberSDR or a WebSDR) and hear whichever of the two currently has the better signal. It runs in the listener's browser; only a WebSDR as the partner needs a small relay on your own server. See [docs/RECEIVE_DIVERSITY.md](docs/RECEIVE_DIVERSITY.md).
+* **Several receivers on one computer** — for example an RX-888 for HF and an RTL-SDR for 2 m, each a complete server of its own with its own waterfall, chat, markers and listeners. `./add-receiver.sh` (also offered at the end of every installer) adds one, with its driver; `start-all.sh` starts them all and `./stop-websdr.sh <name>` stops one. On the page a *Receivers:* line, on /mobile too, switches between them, and `proxy.py` lets them share one public port. See [docs/MULTI_RECEIVER.md](docs/MULTI_RECEIVER.md).
+* An S-meter that reads **VHF S-units above 30 MHz** (IARU Region 1: S9 is −93 dBm there, −73 dBm below), with an optional rest-at-zero on an empty VHF/UHF channel (`"siteSMeterGateDb"`).
+* The sysop's kick and the `X-Forwarded-For` header are trusted only from the same machine, so nobody can kick listeners or slip past the per-IP limits through the proxy.
+* Optional server settings for multi-receiver stations: `[server] host`, `[server] html_fallback_root`, `[websdr] public_port`, and per-receiver `siteReceiverURL` / `siteAntennaURL` links.
 * A full-featured, password-protected Admin Panel for remote server management without requiring direct SSH access. It provides access to server logs, chat moderation, user messaging, chat-message deletion without restarting the server, user disconnection, command execution, file editing, and other administrative functions.
-* Integrated decoders for **FT8, FT4, FT2, JS8, CW, QRSS Grabber, WSPR, HF FAX, SSTV, NAVTEX, FSK/RTTY, PSK31, Olivia, Packet (AX.25), APRS (with a live map of the stations heard), and FreeDV RADE V1**. RTTY, PSK31, FT8, FT4 and FT2 show a real SNR (the FT modes agree with WSJT-X), and RTTY has a squelch. See the [decoder documentation](docs/DECODERS.md).
+* Integrated decoders for **FT8, FT4, FT2, JS8, CW, QRSS Grabber, WSPR, HF FAX, SSTV, NAVTEX, an FLDIGI window with RTTY, PSK31, Olivia, MFSK16/32/64, DominoEX, THOR, THROB, Hellschreiber, MT63, Packet (AX.25) and APRS (with a live map of the stations heard), and FreeDV RADE V1**. RTTY, PSK31, FT8, FT4 and FT2 show a real SNR (the FT modes agree with WSJT-X), and RTTY has a squelch. See the [decoder documentation](docs/DECODERS.md).
 * A **channel scanner** on the tuning row: it sweeps the band — or exactly what the waterfall is showing — and stops on the first channel rising a chosen number of dB above the band noise floor, resumes by itself when the channel goes quiet, keeps the step on the mode's own channel grid, and can skip empty channels by reading the spectrum. Locked-out channels and settings live in the listener's browser.
 * A **Decoder ID** tool that identifies an unknown digital signal and offers the matching decoder in one click. Off by default.
 * Picking a digital mode sets both the sideband and the passband.
@@ -463,7 +469,7 @@ Every release carries **`update-known.txt`**, the fingerprint of every version o
 For a machine you do not sit at: <br />
 ```
 bash update.sh --apply --yes   never asks; every file you have edited is KEPT
-bash update.sh --ref v5.0.0    a tag, branch or commit instead of the current tree
+bash update.sh --ref v5.1.0    a tag, branch or commit instead of the current tree
 ```
 
 **On a very old installation the rebuild may fail**, because `update.sh` updates files and not system packages. If the rebuild stops with a compiler or meson error, run `bash install.sh` — itself brought up to date by the same run — and your configuration survives that too. <br />
@@ -738,10 +744,11 @@ For detailed information about installation, usage, and the project structure, p
   - Mobile device usage
   - Troubleshooting and FAQ
 - **[Decoders](docs/DECODERS.md)** - Complete guide for using the decoders of the PhantomSDR
+- **[Appendix — Command Reference](docs/Appendix.md)** - Every command a sysop uses, with a one-line explanation and a link to where it is documented
 
 ### 📄 Offline PDF editions:
 
-Every document above, in one printable file — seventeen chapters in reading order, with a linked table of contents and working cross-references. Handy for reading away from the machine, or for printing the parts you keep coming back to.
+Every document above, in one printable file — eighteen chapters in reading order, with a linked table of contents and working cross-references. Handy for reading away from the machine, or for printing the parts you keep coming back to.
 
 | Language | Download |
 |---|---|

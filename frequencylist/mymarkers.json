@@ -22,7 +22,7 @@
     {
       "frequency": 136000,
       "name": "WSPR",
-      "mode": "USB"
+      "mode": "WSPR"
     },
     {
       "frequency": 139000,
@@ -30,70 +30,55 @@
       "mode": "CW"
     },
     {
-      "frequency": 472000,
-      "name": "Ham LF>",
-      "mode": "USB"
+      "frequency": 171000,
+      "name": "Medi 1 (Morocco)",
+      "mode": "AM"
+    },
+    {
+      "frequency": 225000,
+      "name": "Polskie R.RP1",
+      "mode": "AM"
+    },
+    {
+      "frequency": 252000,
+      "name": "RTA Algeria",
+      "mode": "AM"
     },
     {
       "frequency": 474200,
       "name": "WSPR",
-      "mode": "USB"
-    },
-    {
-      "frequency": 479000,
-      "name": "<Ham LF",
-      "mode": "USB"
+      "mode": "WSPR"
     },
     {
       "frequency": 490000,
       "name": "NAVTEXT",
-      "mode": "USB"
+      "mode": "NAVTEX"
     },
     {
       "frequency": 518000,
       "name": "NAVTEXT",
-      "mode": "USB"
+      "mode": "NAVTEX"
     },
-    {
-      "frequency": 531000,
-      "name": "R.Yavne (ISR)",
-      "mode": "AM"
-    },
-    {
-      "frequency": 1820000,
-      "name": "SKCC",
-      "mode": "CW"
-    },   
     {
       "frequency": 1836600,
       "name": "WSPR",
-      "mode": "USB"
+      "mode": "WSPR"
     },
     {
       "frequency": 1840000,
       "name": "FT8",
-      "mode": "USB"
+      "mode": "FT8"
     },
     {
       "frequency": 1846000,
       "name": "JS8",
-      "mode": "USB"
+      "mode": "JS8"
     },    
     {
       "frequency": 1843000,
       "name": "FT2",
-      "mode": "USB"
+      "mode": "FT2"
     },    
-    {
-      "frequency": 1850000,
-      "name": "1850",
-      "mode": "LSB"
-    },
-    {
-      "frequency": 1854000,
-      "name": "1854",
-      "mode": "CW"
-    },
     {
       "frequency": 1870000,
       "name": "FreeDV",
@@ -145,44 +130,49 @@
       "mode": "USB"
     },
     {
-      "frequency": 3550000,
-      "name": "SKCC",
-      "mode": "CW"
-    },
-    {
       "frequency": 3568600,
       "name": "WSPR",
-      "mode": "USB"
+      "mode": "WSPR"
     },
     {
       "frequency": 3578000,
       "name": "JS8",
-      "mode": "USB"
+      "mode": "JS8"
     },    
     {
       "frequency": 3573000,
       "name": "FT8",
-      "mode": "USB"
+      "mode": "FT8"
     },
     {
       "frequency": 3578000,
       "name": "FT2",
-      "mode": "USB"
+      "mode": "FT2"
     },    
     {
       "frequency": 3575000,
       "name": "FT4",
-      "mode": "USB"
-    },
+      "mode": "FT4"
+    },        
     {
-      "frequency": 3625000,
+      "frequency": 3767000,
       "name": "FreeDV",
       "mode": "LSB"
-    },        
+    },    
+    {
+      "frequency": 3770000,
+      "name": "3770",
+      "mode": "LSB"
+    },
+    {
+      "frequency": 3785000,
+      "name": "3785",
+      "mode": "LSB"
+    },
     {
       "frequency": 4209500,
       "name": "NAVTEX Heraklion",
-      "mode": "CW"
+      "mode": "NAVTEX"
     },
     {
       "frequency": 4280000,
@@ -227,17 +217,17 @@
     {
       "frequency": 5357000,
       "name": "JS8",
-      "mode": "USB"
+      "mode": "JS8"
     },
     {
       "frequency": 5360000,
       "name": "FT2",
-      "mode": "USB"
+      "mode": "FT2"
     },   
     {
       "frequency": 5364700,
       "name": "WSPR",
-      "mode": "USB"
+      "mode": "WSPR"
     },
     {
       "frequency": 5366500,
@@ -315,6 +305,11 @@
       "mode": "USB"
     },
     {
+      "frequency": 6825000,
+      "name": "M51",
+      "mode": "CW"
+    },
+    {
       "frequency": 6832000,
       "name": "SINPO",
       "mode": "USB"
@@ -327,32 +322,27 @@
     {
       "frequency": 7038600,
       "name": "WSPR",
-      "mode": "USB"
+      "mode": "WSPR"
     },
     {
       "frequency": 7047500,
       "name": "FT4",
-      "mode": "USB"
-    },
-    {
-      "frequency": 7055000,
-      "name": "SKCC",
-      "mode": "CW"
+      "mode": "FT4"
     },
     {
       "frequency": 7062000,
       "name": "FT2",
-      "mode": "USB"
+      "mode": "FT2"
     },        
     {
       "frequency": 7074000,
       "name": "FT8",
-      "mode": "USB"
+      "mode": "FT8"
     },
     {
       "frequency": 7078000,
       "name": "JS8",
-      "mode": "USB"
+      "mode": "JS8"
     },    
     {
       "frequency": 7087000,
@@ -364,6 +354,11 @@
       "name": "FreeDV",
       "mode": "LSB"
     },
+    {
+      "frequency": 7185000,
+      "name": "7185",
+      "mode": "LSB"
+    },   
     {
       "frequency": 8039000,
       "name": "MeteoFax Northwood, U.K GYA",
@@ -412,27 +407,27 @@
     {
       "frequency": 10130000,
       "name": "JS8",
-      "mode": "USB"
+      "mode": "JS8"
     },    
     {
       "frequency": 10136000,
       "name": "FT8",
-      "mode": "USB"
+      "mode": "FT8"
     },
     {
       "frequency": 10140000,
       "name": "FT4",
-      "mode": "USB"
+      "mode": "FT4"
     },    
     {
       "frequency": 10138700,
       "name": "WSPR",
-      "mode": "USB"
+      "mode": "WSPR"
     },
     {
       "frequency": 10144000,
       "name": "FT2",
-      "mode": "USB"
+      "mode": "FT2"
     },   
     {
       "frequency": 12654000,
@@ -455,44 +450,34 @@
       "mode": "USB"
     },
     {
-      "frequency": 14050000,
-      "name": "SKCC",
-      "mode": "CW"
-    },
-    {
       "frequency": 14074000,
       "name": "FT8",
-      "mode": "USB"
+      "mode": "FT8"
     },
     {
       "frequency": 14078000,
       "name": "JS8",
-      "mode": "USB"
+      "mode": "JS8"
     },    
     {
       "frequency": 14080000,
       "name": "FT4",
-      "mode": "USB"
+      "mode": "FT4"
     },
     {
       "frequency": 14084000,
       "name": "FT2",
-      "mode": "USB"
+      "mode": "FT2"
     },       
     {
       "frequency": 14095600,
       "name": "WSPR",
-      "mode": "USB"
-    },
-    {
-      "frequency": 14114000,
-      "name": "SKCC",
-      "mode": "CW"
+      "mode": "WSPR"
     },    
     {
       "frequency": 14230000,
       "name": "SSTV",
-      "mode": "USB"
+      "mode": "SSTV"
     },
     {
       "frequency": 14236000,
@@ -507,67 +492,57 @@
     {
       "frequency": 18100000,
       "name": "FT8",
-      "mode": "USB"
+      "mode": "FT8"
     },
     {
       "frequency": 18104000,
       "name": "FT4",
-      "mode": "USB"
+      "mode": "FT4"
     },
     {
       "frequency": 18104000,
       "name": "JS8",
-      "mode": "USB"
+      "mode": "JS8"
     },       
     {
       "frequency": 18104600,
       "name": "WSPR",
-      "mode": "USB"
+      "mode": "WSPR"
     },
     {
       "frequency": 10108000,
       "name": "FT2",
-      "mode": "USB"
+      "mode": "FT2"
     },   
     {
       "frequency": 18118000,
       "name": "FreeDV",
       "mode": "USB"
-    },
-    {
-      "frequency": 21050000,
-      "name": "SKCC",
-      "mode": "CW"
     },       
     {
       "frequency": 21074000,
       "name": "FT8",
-      "mode": "USB"
+      "mode": "FT8"
     },
     {
       "frequency": 21078000,
       "name": "JS8",
-      "mode": "USB"
+      "mode": "JS8"
     },        
     {
       "frequency": 21094600,
       "name": "WSPR",
-      "mode": "USB"
-    },
-    {
-      "frequency": 21114000,
-      "name": "SKCC",
-      "mode": "CW"
+      "mode": "WSPR"
     },
     {
       "frequency": 21140000,
       "name": "FT4",
-      "mode": "USB"
+      "mode": "FT4"
     },
     {
       "frequency": 21144000,
       "name": "FT2",
-      "mode": "USB"
+      "mode": "FT2"
     },    
     {
       "frequency": 21313000,
@@ -577,27 +552,27 @@
     {
       "frequency": 24915000,
       "name": "FT8",
-      "mode": "USB"
+      "mode": "FT8"
     },
     {
       "frequency": 24919000,
       "name": "FT4",
-      "mode": "USB"
+      "mode": "FT4"
     },
     {
       "frequency": 24922000,
       "name": "JS8",
-      "mode": "USB"
+      "mode": "JS8"
     },   
     {
       "frequency": 24923000,
       "name": "FT2",
-      "mode": "USB"
+      "mode": "FT2"
     },           
     {
       "frequency": 24924600,
       "name": "WSPR",
-      "mode": "USB"
+      "mode": "WSPR"
     },
     {
       "frequency": 24933000,
@@ -805,50 +780,35 @@
       "mode": "FM"
     },
     {
-      "frequency": 28050000,
-      "name": "SKCC",
-      "mode": "CW"
-    },
-    {
       "frequency": 28074000,
       "name": "FT8",
-      "mode": "USB"
+      "mode": "FT8"
     },
     {
       "frequency": 28078000,
       "name": "JS8",
-      "mode": "USB"
+      "mode": "JS8"
     },   
-    {
-      "frequency": 28114000,
-      "name": "SKCC",
-      "mode": "CW"
-    },
     {
       "frequency": 28124600,
       "name": "WSPR",
-      "mode": "USB"
+      "mode": "WSPR"
     },
     {
       "frequency": 28180000,
       "name": "FT4",
-      "mode": "USB"
+      "mode": "FT4"
     },
     {
       "frequency": 28184000,
       "name": "FT2",
-      "mode": "USB"
+      "mode": "FT2"
     },    
     {
       "frequency": 28330000,
       "name": "FreeDV",
       "mode": "USB"
     },    
-    {
-      "frequency": 28585000,
-      "name": "28585",
-      "mode": "USB"
-    },
     {
       "frequency": 29620000,
       "name": "Repeater",

@@ -90,6 +90,7 @@
   import PassbandTuner from "./lib/PassbandTuner.svelte";
   import FreeDVReporter from "./lib/FreeDVReporter.svelte";
   import FrequencyInput from "./lib/FrequencyInput.svelte";
+  import FreqKeypad from "./lib/FreqKeypad.svelte";
   import FrequencyMarkers from "./lib/FrequencyMarkers.svelte";
   import MagicEyeIndicator from "./lib/MagicEyeIndicator.svelte";
   import ModeIdChip from "./lib/ModeIdChip.svelte";
@@ -5737,13 +5738,6 @@
     };
   }
 
-  // Auto-focus helper action used by the frequency manual input
-  function focusOnMount(node) {
-    node.focus();
-    node.select();
-    return { destroy: function () {} };
-  }
-
   // ── Digit-by-digit frequency tuning ─────────────────────────────────────
   // Each entry is the step size in Hz for that digit position (left→right).
   // Display: [d0][d1][d2],[d3][d4][d5].[d6][d7][d8] kHz
@@ -5843,52 +5837,40 @@
     }
   }
 
-  var showFreqInput = false;
-  var freqInputValue = "";
-  var _commitBusy = false; // FIX [3]: guard against double-fire on Enter+blur
+  // Click anywhere in the black frequency / S-meter box = number pad.  The
+  // analog meter keeps its own click (face style), real controls inside the
+  // box (the mobile frequency field) keep theirs, and the digits step instead.
+  var showFreqKeypad = false;
 
-  function handleDigitContextMenu(e) {
-    e.preventDefault();
-    freqInputValue = (parseFloat(frequency) || 0).toFixed(3);
-    _commitBusy = false;
-    showFreqInput = true;
-  }
-
-  function commitFreqInput() {
-    // Guard against double-fire: Enter keydown → commitFreqInput → showFreqInput=false
-    // → blur fires again. The flag blocks the second call.
-    if (_commitBusy) {
+  function openFreqKeypad(e) {
+    var t = e.target;
+    if (
+      t &&
+      t.closest &&
+      t.closest(".smeter-canvas-wrap, #sMeterMobile, input, button, select, a")
+    ) {
       return;
     }
-    _commitBusy = true;
-    var val = parseFloat(freqInputValue);
-    if (!isNaN(val) && val >= 0) {
-      var hz = Math.round(val * 1e3);
-      frequency = (hz / 1e3).toFixed(3);
-      frequencyInputComponent.setFrequency(hz);
-      handleFrequencyChange({ detail: hz });
-    }
-    showFreqInput = false;
-    // FIX [9]: reset after a tick so the blur-triggered second call is still blocked,
-    // but subsequent right-clicks are never permanently locked out.
-    setTimeout(function () {
-      _commitBusy = false;
-    }, 100);
+    showFreqKeypad = true;
   }
 
-  function cancelFreqInput() {
-    // FIX [6]: also deselect digit so cyan highlight doesn't linger
-    showFreqInput = false;
-    selectedDigitIdx = -1;
-    _commitBusy = false;
+  function commitFreqKeypad(e) {
+    showFreqKeypad = false;
+    var hz = Math.max(0, e.detail);
+    frequency = (hz / 1e3).toFixed(3);
+    frequencyInputComponent.setFrequency(hz);
+    handleFrequencyChange({ detail: hz });
   }
 
-  function handleFreqInputKey(e) {
-    if (e.key === "Enter") {
-      commitFreqInput();
-    } else if (e.key === "Escape") {
-      cancelFreqInput();
-    }
+  // Left-click on a digit steps it up by one, right-click steps it down.
+  // The click is stopped here so it does not also open the number pad.
+  function stepDigit(e, idx, delta) {
+    e.preventDefault();
+    e.stopPropagation();
+    var frequencyHz = Math.round(parseFloat(frequency) * 1e3) || 0;
+    frequencyHz = Math.max(0, frequencyHz + delta * DIGIT_POWERS_HZ[idx]);
+    frequency = (frequencyHz / 1e3).toFixed(3);
+    dispatchFrequencyDebounced(frequencyHz);
   }
 
   // FIX [1+2]: debounced server dispatch — UI updates instantly, server
@@ -5996,10 +5978,6 @@
     function onDocClick(e) {
       if (!node.contains(e.target)) {
         selectedDigitIdx = -1;
-        if (showFreqInput) {
-          showFreqInput = false;
-          _commitBusy = false;
-        }
       }
     }
 
@@ -8900,6 +8878,14 @@
   </div>
 {/if}
 
+{#if showFreqKeypad}
+  <FreqKeypad
+    currentKHz={frequency}
+    on:enter={commitFreqKeypad}
+    on:close={() => (showFreqKeypad = false)}
+  />
+{/if}
+
 {#if connectionRefused}
   <div
     class="fixed inset-0 z-[9999] flex items-center justify-center bg-black/80 p-4"
@@ -10748,8 +10734,10 @@ Slider: share of denoised audio, the rest is the original"
                   <div
                     class="bg-black rounded-lg p-8 {isAnalog
                       ? 'min-w-40'
-                      : 'min-w-80 lg:min-h-[227px] lg:flex lg:flex-col lg:justify-center'} lg:min-w-0 lg:p-4 mb-4 w-full"
+                      : 'min-w-80 lg:min-h-[227px] lg:flex lg:flex-col lg:justify-center'} lg:min-w-0 lg:p-4 mb-4 w-full cursor-pointer"
                     id="smeter-tut"
+                    title="Click to enter a frequency"
+                    on:click={openFreqKeypad}
                   >
                     <div
                       class="flex flex-col sm:flex-row items-center justify-between gap-4"
@@ -10775,12 +10763,12 @@ Slider: share of denoised audio, the rest is the original"
                         <!-- Digit-by-digit frequency tuner -->
                         <div class="relative mb-2">
                           <div
-                            class="flex items-center justify-center font-mono select-none rounded-lg px-2 py-1 bg-black border cursor-default focus:outline-none focus:ring-2 focus:ring-cyan-500 transition-colors duration-100 {frameHovered
+                            class="flex items-center justify-center font-mono select-none rounded-lg px-2 py-1 bg-black border cursor-pointer focus:outline-none focus:ring-2 focus:ring-cyan-500 transition-colors duration-100 {frameHovered
                               ? 'border-cyan-500'
                               : 'border-gray-700'}"
                             use:handleDigitWheel
-                            title="Hover a digit and scroll to tune · Right-click to type"
-                            on:contextmenu={handleDigitContextMenu}
+                            title="Hover a digit: scroll or left-click = up, right-click = down · Click elsewhere for the number pad"
+                            on:contextmenu|preventDefault
                             on:mouseenter={handleFreqFrameMouseEnter}
                             on:mouseleave={handleFreqFrameMouseLeave}
                           >
@@ -10795,6 +10783,8 @@ Slider: share of denoised audio, the rest is the original"
                                 on:mouseenter={() =>
                                   handleDigitMouseEnter(d.idx)}
                                 on:mouseleave={handleDigitMouseLeave}
+                                on:click={(e) => stepDigit(e, d.idx, 1)}
+                                on:contextmenu={(e) => stepDigit(e, d.idx, -1)}
                                 >{d.ch}</span
                               >
                               {#if d.idx === 2}
@@ -10811,21 +10801,6 @@ Slider: share of denoised audio, the rest is the original"
                               {/if}
                             {/each}
                           </div>
-                          {#if showFreqInput}
-                            <div
-                              class="absolute inset-0 flex items-center justify-center bg-black rounded-lg border border-cyan-500 z-50"
-                            >
-                              <input
-                                class="w-full text-center bg-transparent text-cyan-300 text-2xl font-mono focus:outline-none px-2"
-                                type="text"
-                                inputmode="decimal"
-                                bind:value={freqInputValue}
-                                on:keydown={handleFreqInputKey}
-                                on:blur={commitFreqInput}
-                                use:focusOnMount
-                              />
-                            </div>
-                          {/if}
                         </div>
 
                         <div
@@ -15305,8 +15280,9 @@ Slider: share of denoised audio, the rest is the original"
                     class="flex flex-col items-center bg-gray-800 sm:p-6 border-l-0 border-r-0 border border-gray-700"
                   >
                     <div
-                      class="bg-black rounded-lg p-2 sm:p-8 min-w-0 lg:min-w-0 lg:p-4 mb-4 w-full"
+                      class="bg-black rounded-lg p-2 sm:p-8 min-w-0 lg:min-w-0 lg:p-4 mb-4 w-full cursor-pointer"
                       id="smeter-tut"
+                      on:click={openFreqKeypad}
                     >
                       <div
                         class="flex flex-col sm:flex-row items-center justify-between gap-4"

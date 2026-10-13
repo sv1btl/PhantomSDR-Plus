@@ -178,20 +178,22 @@ Barres colorées indiquant les attributions de fréquences :
 
 #### Méthode 2 : saisir la fréquence
 
-1. Cliquez sur l'affichage de la fréquence
-2. Tapez la fréquence souhaitée
-3. Appuyez sur Entrée
+1. Cliquez n'importe où dans le cadre noir fréquence / S-mètre — partout sauf sur un chiffre, et sauf sur le S-mètre analogique, dont le clic change le style
+2. Un pavé numérique s'ouvre ; tapez la fréquence avec ses touches ou au clavier (`.` ou `,` pour la virgule décimale)
+3. Appuyez sur **kHz** ou **MHz** pour accorder — la touche choisie fixe l'unité ; au clavier, Entrée vaut kHz et `M` vaut MHz
+
+**C** efface la saisie, **⌫** efface le dernier chiffre, et Échap ou un clic à l'extérieur ferme le pavé sans accorder. Dans la vue mobile étendue, toucher le champ de fréquence lui-même ouvre le clavier numérique du téléphone.
 
 Exemples :
-- `7100` → 7.100 MHz
-- `14200.0` → 14.200 MHz
-- `145.500` → 145.500 MHz
+- `7100` + **kHz** → 7.100 MHz
+- `14.2` + **MHz** → 14.200 MHz
+- `145.5` + **MHz** → 145.500 MHz
 
-#### Méthode 3 : utiliser la molette de la souris
+#### Méthode 3 : la souris sur les chiffres
 
-1. Placez le pointeur sur l'affichage de la fréquence
-2. Molette vers le haut pour augmenter la fréquence
-3. Molette vers le bas pour la diminuer
+1. Placez le pointeur sur un chiffre de l'affichage de fréquence — il s'allume
+2. Molette vers le haut ou **clic gauche** augmente ce chiffre d'une unité ; molette vers le bas ou **clic droit** le diminue
+3. Le pas est la valeur de position du chiffre — 1 kHz sur le chiffre des kHz, 100 Hz sur la première décimale — et un chiffre qui dépasse 9 reporte une retenue sur le chiffre à sa gauche
 
 #### Méthode 4 : boutons de pas
 
@@ -706,13 +708,15 @@ Raccourcis clavier pour une utilisation plus rapide.
 
 ### Commande de fréquence
 
-L'affichage de fréquence est une rangée de chiffres que l'on pilote directement. **Cliquez d'abord sur un chiffre** : cela le sélectionne, et tout ce qui suit agit sur la sélection.
+Les **touches fléchées** accordent depuis n'importe où sur la page :
 
-- **Flèche gauche / droite** : déplace la sélection au chiffre voisin (huit chiffres, de 100 MHz à 10 Hz)
-- **Flèche haut / bas** : incrémente ou décrémente le chiffre *sélectionné* de sa valeur de position — 1 MHz sur le chiffre des MHz, 10 Hz sur le dernier
-- **0 – 9** : saisit ce chiffre directement à la position sélectionnée
+- **Flèche haut / bas** : ±10 Hz ; avec **Shift** ±1 kHz, avec **Ctrl** (ou **Cmd**) ±100 kHz, avec **Shift + Ctrl** ±1 MHz
+- **Flèche gauche / droite** : ±100 Hz ; avec **Shift** ±10 kHz, avec **Ctrl** (ou **Cmd**) ±500 kHz, avec **Shift + Ctrl** ±10 MHz
+- **Ctrl droit** : supprime la partie décimale et accorde sur le kHz entier égal ou inférieur à la fréquence actuelle
 
-**Molette au-dessus de l'affichage de fréquence** : avance du pas d'accord de la bande (1 kHz sauf indication du plan de bandes). **Shift** pour 1 kHz, **Alt** pour 10 kHz.
+Dans la zone de chat, gauche / droite déplacent le curseur à la place.
+
+**Souris sur l'affichage de fréquence** : placez le pointeur sur un chiffre ; molette vers le haut ou clic gauche l'augmente, molette vers le bas ou clic droit le diminue, chaque fois de la valeur de position du chiffre (neuf chiffres, de 100 MHz à 1 Hz). Entre les chiffres, la molette avance du pas d'accord de la bande (1 kHz sauf indication du plan de bandes) ; **Shift** pour 1 kHz, **Alt** pour 10 kHz. Un clic ailleurs dans le cadre noir fréquence / S-mètre ouvre le pavé numérique (Méthode 2 dans *S'accorder sur une fréquence*).
 
 **Molette au-dessus de la cascade** : zoome. Maintenez **Ctrl** (ou **Cmd**) ou **Shift** pour accorder au lieu de zoomer, et **Shift + Ctrl** ensemble pour caler sur le kHz entier le plus proche.
 

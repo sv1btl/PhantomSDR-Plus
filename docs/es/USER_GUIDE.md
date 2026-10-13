@@ -178,20 +178,22 @@ Barras de color que muestran las atribuciones de frecuencia:
 
 #### Método 2: escribir la frecuencia
 
-1. Haga clic en el indicador de frecuencia
-2. Escriba la frecuencia deseada
-3. Pulse Intro
+1. Haga clic en cualquier punto del recuadro negro de frecuencia / S-meter, salvo sobre un dígito y salvo sobre el S-meter analógico, cuyo clic cambia su estilo
+2. Se abre un teclado numérico; escriba la frecuencia con sus teclas o con el teclado (`.` o `,` como separador decimal)
+3. Pulse **kHz** o **MHz** para sintonizar: la tecla que pulse fija la unidad; en el teclado, Intro equivale a kHz y `M` a MHz
+
+**C** borra lo escrito, **⌫** borra el último dígito, y Escape o un clic fuera cierra el teclado sin sintonizar. En la vista móvil ampliada, tocar el propio campo de frecuencia abre el teclado numérico del teléfono.
 
 Ejemplos:
-- `7100` → 7.100 MHz
-- `14200.0` → 14.200 MHz
-- `145.500` → 145.500 MHz
+- `7100` + **kHz** → 7.100 MHz
+- `14.2` + **MHz** → 14.200 MHz
+- `145.5` + **MHz** → 145.500 MHz
 
-#### Método 3: usar la rueda del ratón
+#### Método 3: ratón sobre los dígitos
 
-1. Sitúe el puntero sobre el indicador de frecuencia
-2. Rueda hacia arriba para aumentar la frecuencia
-3. Rueda hacia abajo para reducirla
+1. Sitúe el puntero sobre un dígito del indicador de frecuencia: se ilumina
+2. Rueda hacia arriba o **clic izquierdo** sube ese dígito en uno; rueda hacia abajo o **clic derecho** lo baja
+3. El paso es el valor posicional del dígito (1 kHz en el dígito de los kHz, 100 Hz en el primer decimal), y un dígito que pasa de 9 se lleva una unidad al dígito de su izquierda
 
 #### Método 4: botones de paso
 
@@ -705,13 +707,15 @@ Atajos de teclado para trabajar más rápido.
 
 ### Control de frecuencia
 
-El indicador de frecuencia es una fila de dígitos que se maneja directamente. **Haga clic primero en un dígito**: eso lo selecciona, y todo lo de abajo actúa sobre la selección.
+Las **teclas de flecha** sintonizan desde cualquier punto de la página:
 
-- **Flecha izquierda / derecha**: mueve la selección al dígito contiguo (ocho dígitos, de 100 MHz a 10 Hz)
-- **Flecha arriba / abajo**: sube o baja el dígito *seleccionado* según su valor posicional: 1 MHz en el dígito de los MHz, 10 Hz en el último
-- **0 – 9**: escribe ese dígito directamente en la posición seleccionada
+- **Flecha arriba / abajo**: ±10 Hz; con **Shift** ±1 kHz, con **Ctrl** (o **Cmd**) ±100 kHz, con **Shift + Ctrl** ±1 MHz
+- **Flecha izquierda / derecha**: ±100 Hz; con **Shift** ±10 kHz, con **Ctrl** (o **Cmd**) ±500 kHz, con **Shift + Ctrl** ±10 MHz
+- **Ctrl derecho**: descarta los decimales y sintoniza el kHz entero igual o inferior a la frecuencia actual
 
-**Rueda del ratón sobre el indicador de frecuencia**: avanza con el paso de sintonía de la banda (1 kHz salvo que el plan de bandas indique otro). Mantenga **Shift** para 1 kHz y **Alt** para 10 kHz.
+En el cuadro del chat, izquierda / derecha mueven el cursor en su lugar.
+
+**Ratón sobre el indicador de frecuencia**: sitúe el puntero sobre un dígito; rueda hacia arriba o clic izquierdo lo sube, rueda hacia abajo o clic derecho lo baja, cada vez según el valor posicional del dígito (nueve dígitos, de 100 MHz a 1 Hz). Entre los dígitos, la rueda avanza con el paso de sintonía de la banda (1 kHz salvo que el plan de bandas indique otro); mantenga **Shift** para 1 kHz y **Alt** para 10 kHz. Un clic en cualquier otro punto del recuadro negro de frecuencia / S-meter abre el teclado numérico (Método 2 en *Sintonizar una frecuencia*).
 
 **Rueda del ratón sobre la cascada**: hace zoom. Mantenga **Ctrl** (o **Cmd**) o **Shift** para sintonizar en lugar de ampliar, y **Shift + Ctrl** juntos para ajustar al kHz entero más cercano.
 

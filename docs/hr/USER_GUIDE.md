@@ -178,20 +178,22 @@ Obojene trake koje prikazuju dodjelu frekvencija:
 
 #### Način 2: upis frekvencije
 
-1. Kliknite na prikaz frekvencije
-2. Upišite željenu frekvenciju
-3. Pritisnite Enter
+1. Kliknite bilo gdje u crni okvir frekvencije / S-metra — svugdje osim na znamenku i osim na analogni S-metar, čiji klik mijenja njegov izgled
+2. Otvara se numerička tipkovnica; upišite frekvenciju njezinim tipkama ili tipkovnicom računala (`.` ili `,` za decimalni zarez)
+3. Pritisnite **kHz** ili **MHz** za ugađanje — tipka koju pritisnete određuje jedinicu; na tipkovnici Enter znači kHz, a `M` znači MHz
+
+**C** briše upis, **⌫** briše zadnju znamenku, a Escape ili klik izvan zatvara tipkovnicu bez ugađanja. U proširenom mobilnom prikazu dodir samog polja frekvencije otvara numeričku tipkovnicu telefona.
 
 Primjeri:
-- `7100` → 7.100 MHz
-- `14200.0` → 14.200 MHz
-- `145.500` → 145.500 MHz
+- `7100` + **kHz** → 7.100 MHz
+- `14.2` + **MHz** → 14.200 MHz
+- `145.5` + **MHz** → 145.500 MHz
 
-#### Način 3: kotačić miša
+#### Način 3: miš na znamenkama
 
-1. Postavite pokazivač iznad prikaza frekvencije
-2. Kotačić prema gore povećava frekvenciju
-3. Kotačić prema dolje smanjuje frekvenciju
+1. Postavite pokazivač iznad znamenke prikaza frekvencije — ona zasvijetli
+2. Kotačić prema gore ili **lijevi klik** povećava tu znamenku za jedan; kotačić prema dolje ili **desni klik** je smanjuje
+3. Korak je mjesna vrijednost znamenke — 1 kHz na znamenki kHz, 100 Hz na prvoj decimali — a znamenka koja prijeđe 9 prenosi jedinicu na znamenku lijevo od sebe
 
 #### Način 4: gumbi koraka
 
@@ -705,13 +707,15 @@ Tipkovni prečaci za brži rad.
 
 ### Upravljanje frekvencijom
 
-Prikaz frekvencije je niz znamenki kojima upravljate izravno. **Najprije kliknite znamenku** — time je odabirete, a sve niže djeluje na odabir.
+**Tipke sa strelicama** ugađaju s bilo kojeg mjesta na stranici:
 
-- **Strelica lijevo / desno**: pomiče odabir na susjednu znamenku (osam znamenki, od 100 MHz do 10 Hz)
-- **Strelica gore / dolje**: povećava ili smanjuje *odabranu* znamenku za njezinu mjesnu vrijednost — 1 MHz na znamenki MHz, 10 Hz na zadnjoj
-- **0 – 9**: upisuje tu znamenku izravno na odabrano mjesto
+- **Strelica gore / dolje**: ±10 Hz; uz **Shift** ±1 kHz, uz **Ctrl** (ili **Cmd**) ±100 kHz, uz **Shift + Ctrl** ±1 MHz
+- **Strelica lijevo / desno**: ±100 Hz; uz **Shift** ±10 kHz, uz **Ctrl** (ili **Cmd**) ±500 kHz, uz **Shift + Ctrl** ±10 MHz
+- **Desni Ctrl**: odbacuje decimale i ugađa na cijeli kHz jednak trenutnoj frekvenciji ili ispod nje
 
-**Kotačić miša iznad prikaza frekvencije**: pomiče se korakom ugađanja pojasa (1 kHz osim ako plan pojasa kaže drukčije). Držite **Shift** za 1 kHz, **Alt** za 10 kHz.
+U polju chata lijevo / desno umjesto toga pomiču kursor.
+
+**Miš na prikazu frekvencije**: postavite pokazivač iznad znamenke; kotačić prema gore ili lijevi klik je povećava, kotačić prema dolje ili desni klik je smanjuje, svaki put za mjesnu vrijednost znamenke (devet znamenki, od 100 MHz do 1 Hz). Između znamenki kotačić se pomiče korakom ugađanja pojasa (1 kHz osim ako plan pojasa kaže drukčije); držite **Shift** za 1 kHz, **Alt** za 10 kHz. Klik bilo gdje drugdje u crnom okviru frekvencije / S-metra otvara numeričku tipkovnicu (Način 2 u *Ugađanje na frekvenciju*).
 
 **Kotačić miša iznad slapa**: zumira. Držite **Ctrl** (ili **Cmd**) odnosno **Shift** za ugađanje umjesto zumiranja, a **Shift + Ctrl** zajedno za poravnanje na najbliži cijeli kHz.
 

@@ -178,20 +178,22 @@ Farbige Balken zeigen die Frequenzzuweisungen:
 
 #### Methode 2: Frequenz eingeben
 
-1. Klicken Sie auf die Frequenzanzeige
-2. Geben Sie die gewünschte Frequenz ein
-3. Drücken Sie die Eingabetaste
+1. Klicken Sie irgendwo in den schwarzen Frequenz-/S-Meter-Kasten — überall außer auf eine Ziffer und außer auf das analoge S-Meter, dessen Klick den Stil umschaltet
+2. Ein Ziffernblock öffnet sich; geben Sie die Frequenz über seine Tasten oder die Tastatur ein (`.` oder `,` als Dezimalzeichen)
+3. Drücken Sie **kHz** oder **MHz**, um abzustimmen — die gedrückte Taste legt die Einheit fest; auf der Tastatur bedeutet die Eingabetaste kHz und `M` MHz
+
+**C** löscht die Eingabe, **⌫** löscht die letzte Ziffer, und Escape oder ein Klick daneben schließt den Ziffernblock, ohne abzustimmen. In der erweiterten Mobilansicht öffnet ein Tippen auf das Frequenzfeld selbst die eigene Zifferntastatur des Telefons.
 
 Beispiele:
-- `7100` → 7.100 MHz
-- `14200.0` → 14.200 MHz
-- `145.500` → 145.500 MHz
+- `7100` + **kHz** → 7.100 MHz
+- `14.2` + **MHz** → 14.200 MHz
+- `145.5` + **MHz** → 145.500 MHz
 
-#### Methode 3: Mausrad verwenden
+#### Methode 3: Maus auf den Ziffern
 
-1. Bewegen Sie den Zeiger über die Frequenzanzeige
-2. Rad nach oben: Frequenz erhöhen
-3. Rad nach unten: Frequenz verringern
+1. Bewegen Sie den Zeiger über eine Ziffer der Frequenzanzeige — sie leuchtet auf
+2. Rad nach oben oder **Linksklick** erhöht diese Ziffer um eins; Rad nach unten oder **Rechtsklick** verringert sie
+3. Der Schritt ist der Stellenwert der Ziffer — 1 kHz auf der kHz-Ziffer, 100 Hz auf der ersten Nachkommastelle —, und eine Ziffer, die über 9 hinausgeht, überträgt auf die Ziffer links daneben
 
 #### Methode 4: Schrittschaltflächen
 
@@ -706,13 +708,15 @@ Tastenkürzel für zügigeres Arbeiten.
 
 ### Frequenzsteuerung
 
-Die Frequenzanzeige ist eine Ziffernreihe, die Sie direkt bedienen. **Klicken Sie zuerst auf eine Ziffer** — das wählt sie aus, und alles Folgende wirkt auf die Auswahl.
+Die **Pfeiltasten** stimmen von überall auf der Seite ab:
 
-- **Pfeil links / rechts**: verschiebt die Auswahl zur nächsten Ziffer (acht Ziffern, 100 MHz bis 10 Hz)
-- **Pfeil hoch / runter**: erhöht oder verringert die *ausgewählte* Ziffer um ihren Stellenwert — auf der MHz-Ziffer also 1 MHz, auf der letzten 10 Hz
-- **0 – 9**: schreibt die Ziffer direkt an die ausgewählte Stelle
+- **Pfeil hoch / runter**: ±10 Hz; mit **Shift** ±1 kHz, mit **Ctrl** (oder **Cmd**) ±100 kHz, mit **Shift + Ctrl** ±1 MHz
+- **Pfeil links / rechts**: ±100 Hz; mit **Shift** ±10 kHz, mit **Ctrl** (oder **Cmd**) ±500 kHz, mit **Shift + Ctrl** ±10 MHz
+- **Rechte Ctrl-Taste**: verwirft die Nachkommastellen und stimmt auf das volle kHz auf oder unter der aktuellen Frequenz ab
 
-**Mausrad über der Frequenzanzeige**: schrittet mit der Abstimmschrittweite des Bandes (1 kHz, sofern der Bandplan nichts anderes vorgibt). **Shift** für 1 kHz, **Alt** für 10 kHz.
+Im Chatfeld bewegen Links / Rechts stattdessen den Cursor.
+
+**Maus auf der Frequenzanzeige**: Zeigen Sie auf eine Ziffer; Rad nach oben oder Linksklick erhöht sie, Rad nach unten oder Rechtsklick verringert sie, jeweils um den Stellenwert der Ziffer (neun Ziffern, 100 MHz bis 1 Hz). Zwischen den Ziffern schrittet das Rad mit der Abstimmschrittweite des Bandes (1 kHz, sofern der Bandplan nichts anderes vorgibt); **Shift** für 1 kHz, **Alt** für 10 kHz. Ein Klick an eine andere Stelle des schwarzen Frequenz-/S-Meter-Kastens öffnet den Ziffernblock (Methode 2 unter *Auf eine Frequenz abstimmen*).
 
 **Mausrad über dem Wasserfall**: zoomt. Mit **Ctrl** (oder **Cmd**) bzw. **Shift** wird stattdessen abgestimmt, mit **Shift + Ctrl** auf volle kHz gerundet.
 

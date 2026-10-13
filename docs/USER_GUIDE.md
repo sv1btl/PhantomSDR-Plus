@@ -178,20 +178,22 @@ Colored bars showing frequency allocations:
 
 #### Method 2: Type Frequency
 
-1. Click on the frequency display
-2. Type the desired frequency
-3. Press Enter
+1. Click anywhere in the black frequency / S-meter box — anywhere except on a digit, and except on the analog meter, whose click switches its style
+2. A number pad opens; type the frequency on its keys or on the keyboard (`.` or `,` for the decimal point)
+3. Press **kHz** or **MHz** to tune — the key you press sets the unit; on the keyboard, Enter means kHz and `M` means MHz
+
+**C** clears the entry, **⌫** deletes the last digit, and Escape or a click outside closes the pad without tuning. In the extended mobile view, tapping the frequency field itself brings up the phone's own number keyboard.
 
 Examples:
-- `7100` → 7.100 MHz
-- `14200.0` → 14.200 MHz
-- `145.500` → 145.500 MHz
+- `7100` + **kHz** → 7.100 MHz
+- `14.2` + **MHz** → 14.200 MHz
+- `145.5` + **MHz** → 145.500 MHz
 
-#### Method 3: Use Mouse Wheel
+#### Method 3: Mouse on the Digits
 
-1. Hover over the frequency display
-2. Scroll wheel up to increase frequency
-3. Scroll wheel down to decrease frequency
+1. Hover over a digit of the frequency display — it lights up
+2. Scroll up or **left-click** to raise that digit by one; scroll down or **right-click** to lower it
+3. The step is the digit's own place value — 1 kHz on the kHz digit, 100 Hz on the first decimal — and a digit that passes 9 carries into the one to its left
 
 #### Method 4: Step Buttons
 
@@ -705,13 +707,15 @@ Keyboard shortcuts for faster operation.
 
 ### Frequency Control
 
-The frequency display is a row of digits you drive directly. **Click a digit first** — that selects it, and everything below acts on the selection.
+**Arrow keys** tune from anywhere on the page:
 
-- **Arrow Left / Right**: move the selection to the next digit (eight digits, 100 MHz down to 10 Hz)
-- **Arrow Up / Down**: step the *selected* digit up or down by its own place value — so the step is 1 MHz on the MHz digit, 10 Hz on the last one
-- **0 – 9**: type that digit straight into the selected position
+- **Arrow Up / Down**: ±10 Hz; hold **Shift** for ±1 kHz, **Ctrl** (or **Cmd**) for ±100 kHz, **Shift + Ctrl** for ±1 MHz
+- **Arrow Left / Right**: ±100 Hz; hold **Shift** for ±10 kHz, **Ctrl** (or **Cmd**) for ±500 kHz, **Shift + Ctrl** for ±10 MHz
+- **Right Ctrl**: drops the fraction, tuning to the whole kHz at or below the current frequency
 
-**Mouse wheel over the frequency display**: steps by the band's tuning step (1 kHz unless the band plan sets another). Hold **Shift** for 1 kHz, **Alt** for 10 kHz.
+In the chat box, Left / Right move the cursor instead.
+
+**Mouse on the frequency display**: hover a digit, then scroll up or left-click to raise it and scroll down or right-click to lower it, each time by the digit's own place value (nine digits, 100 MHz down to 1 Hz). Between the digits the wheel steps by the band's tuning step (1 kHz unless the band plan sets another); hold **Shift** for 1 kHz, **Alt** for 10 kHz. A click anywhere else in the black frequency / S-meter box opens the number pad (Method 2 under *Tuning to a Frequency*).
 
 **Mouse wheel over the waterfall**: zooms. Hold **Ctrl** (or **Cmd**) or **Shift** to tune instead of zooming, and **Shift + Ctrl** together to snap to the nearest whole kHz.
 

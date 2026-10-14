@@ -304,6 +304,15 @@ export class DiversityCombiner {
     // as remote sample index i + contentOffset.  null until first lock.
     this.contentOffset = null
     this.lockConfirmed = false      // see _estimateOffset
+    // Offset used while there is no confirmed lock.  The correlator can only
+    // lock when BOTH sites hear the same thing, and the case diversity
+    // matters most — the remote hears a station this receiver does not —
+    // is exactly the case it can never lock on.  So until it does, the two
+    // streams are paired by ARRIVAL (or by the last confirmed offset, if
+    // the lock was lost) and the selector runs anyway.  A switch made on
+    // this pairing can repeat or skip up to the true content offset, which
+    // is nothing when only one site carries the signal.
+    this.freeOffset = null
     this.outPos = 0                 // absolute local index of next output
     this.corrPeak = 0
 
@@ -414,6 +423,7 @@ export class DiversityCombiner {
       // do not try to replay a backlog when it returns.
       this.contentOffset = null
       this.lockConfirmed = false
+      this.freeOffset = null
       this.outPos = this.localBuf.pos
       this._forceLocal()
       return pcm
@@ -421,11 +431,25 @@ export class DiversityCombiner {
 
     const interval = (this.lockConfirmed ? RELOCK_S : RECHECK_S) * 1000
     if (this.contentOffset === null || (now - this.lastCorrAt) > interval) {
+      const wasLocked = this.lockConfirmed
+      const lastGood = this.contentOffset
       this._estimateOffset(now)
+      if (wasLocked && !this.lockConfirmed) this.freeOffset = lastGood
     }
-    if (!this.lockConfirmed) return pcm
+    if (this.lockConfirmed) return this._emit(pcm, now, this.contentOffset)
 
-    return this._emit(pcm, now)
+    // Unaligned: wait until the remote has actually delivered something
+    // worth pairing with, then pin the pairing once.  Re-deriving it every
+    // block would let network jitter slide the remote back and forth.
+    if (this.freeOffset === null) {
+      if (this.remoteBuf.pos < this.sr * TARGET_LAG_S * 2) return pcm
+      this.freeOffset = this.remoteBuf.pos - this.localBuf.pos
+      this.outPos = Math.max(
+        this.outPos,
+        this.localBuf.pos - Math.round(TARGET_LAG_S * this.sr)
+      )
+    }
+    return this._emit(pcm, now, this.freeOffset)
   }
 
   // Cross-correlate the two log envelopes to find the content offset.
@@ -585,9 +609,8 @@ export class DiversityCombiner {
     }
   }
 
-  _emit (localBlock, now) {
+  _emit (localBlock, now, off) {
     const len = localBlock.length
-    const off = this.contentOffset
 
     // We can only output local index n once remote index n+off has landed.
     const limit = Math.min(this.localBuf.pos, this.remoteBuf.pos - off)
@@ -672,6 +695,9 @@ export class DiversityCombiner {
     return {
       active: this.active,
       locked: this.lockConfirmed,
+      // Combining on the arrival pairing: the remote is selectable even
+      // though the two sites have not been content-aligned.
+      unaligned: !this.lockConfirmed && this.freeOffset !== null,
       live: this.fade > 0.5 ? 'local' : 'remote',
       delayMs: this.contentOffset === null
         ? null : (this.contentOffset / this.sr) * 1000,
@@ -690,6 +716,7 @@ export class DiversityCombiner {
   reset () {
     this.contentOffset = null
     this.lockConfirmed = false
+    this.freeOffset = null
     this.outPos = this.localBuf.pos
     this.corrPeak = 0
     this.levelGain = 1

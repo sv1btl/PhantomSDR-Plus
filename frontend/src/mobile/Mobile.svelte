@@ -135,7 +135,9 @@
   // the type selector can move while a session is up, so it cannot go stale.
   $: divLiveAddr = divRunning ? (divEndpoint || '').trim() : ''
   // Two states are what matters at a glance — still working on it, or good.
-  $: divWaiting = divRunning && (divStatus.state !== 'ready' || !divStatus.locked)
+  // Unaligned still counts: the remote is selectable before (or without) a lock.
+  $: divCombining = divStatus.locked || divStatus.unaligned
+  $: divWaiting = divRunning && (divStatus.state !== 'ready' || !divCombining)
 
   function divStartPoll () {
     if (divPoller) return
@@ -1615,10 +1617,10 @@
             <!-- Receive diversity. The second receiver follows this page's
                  tuning by itself; there is no separate tuning control. -->
             <div class="div-head">
-              <span class="dot" class:ok={divRunning && divStatus.locked && divStatus.live !== 'remote'}
+              <span class="dot" class:ok={divRunning && divCombining && divStatus.live !== 'remote'}
                     class:warn={divWaiting}
                     class:bad={divRunning && divStatus.state === 'error'}
-                    class:remote={divRunning && divStatus.locked && divStatus.live === 'remote'}></span>
+                    class:remote={divRunning && divCombining && divStatus.live === 'remote'}></span>
               <span class="div-state">
                 {#if !divRunning}off
                 {:else if divStatus.state === 'error'}{divStatus.errorText || 'link failed'}
@@ -1728,7 +1730,7 @@
               <div class="div-stats">
                 <span>link</span><span>{divStatus.state}</span>
                 <span>aligned</span>
-                <span>{divStatus.locked ? (divStatus.delayMs / 1000).toFixed(2) + ' s' : 'searching'}</span>
+                <span>{divStatus.locked ? (divStatus.delayMs / 1000).toFixed(2) + ' s' : divStatus.unaligned ? 'by arrival, searching' : 'searching'}</span>
                 <span>remote audio</span>
                 <span class:warn-text={!divStatus.remoteSamples}>
                   {divStatus.remoteSamples

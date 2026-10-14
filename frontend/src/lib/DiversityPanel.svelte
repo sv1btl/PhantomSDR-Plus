@@ -422,7 +422,7 @@
 
   $: dotClass = !running
     ? "bg-gray-500"
-    : status.locked
+    : status.locked || status.unaligned
       ? status.live === "remote"
         ? "bg-cyan-400 animate-pulse"
         : "bg-emerald-400 animate-pulse"
@@ -432,8 +432,19 @@
   // go. Which site is currently live is what the coloured dot is for — green
   // for this receiver, cyan for the remote — and the detail rows below carry
   // the rest.
-  $: waiting = running && (status.state !== "ready" || !status.locked);
-  $: summary = !running ? "off" : waiting ? "Please wait…" : "Ready";
+  // Unaligned still counts as ready: the remote is selectable, the alignment
+  // search just has not found shared content yet (and may never, if only one
+  // of the two sites hears the station).
+  $: waiting =
+    running &&
+    (status.state !== "ready" || !(status.locked || status.unaligned));
+  $: summary = !running
+    ? "off"
+    : waiting
+      ? "Please wait…"
+      : status.locked
+        ? "Ready"
+        : "Ready (unaligned)";
   $: summaryClass = !running
     ? "text-gray-400"
     : waiting
@@ -876,7 +887,9 @@
           <span
             >{status.locked
               ? (status.delayMs / 1000).toFixed(2) + " s"
-              : "searching"}</span
+              : status.unaligned
+                ? "by arrival, searching"
+                : "searching"}</span
           >
           <span class="text-gray-400">corr</span>
           <span>{status.locked ? dB(status.corrPeak * 100) + " %" : "—"}</span>

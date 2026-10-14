@@ -479,6 +479,16 @@ footer {
 // ═══════════════════════════════════════════════════════════════
 let LOGS_BASE = null;
 
+// Which receiver we belong to when several share one public port: the app
+// embeds us with its own ?rx=<id>, and every request we make must carry it.
+// Without it proxy.py falls back to the rx cookie, which all tabs share, so
+// an HF tab showed the users and statistics of a 2 m tab opened later.
+const RX = new URLSearchParams(location.search).get('rx') || '';
+function withRx(url) {
+  if (!RX) return url;
+  return url + (url.includes('?') ? '&' : '?') + 'rx=' + encodeURIComponent(RX);
+}
+
 // ── QTH label for local/private connections ──────────────────────────────────
 function isLocalIp(ip) {
   if (!ip) return false;
@@ -533,7 +543,7 @@ async function detectLogsBase() {
   for (const base of candidates) {
     for (const date of probeDates) {
       try {
-        const r = await fetch(`${base}/users_${date}.jsonl`,
+        const r = await fetch(withRx(`${base}/users_${date}.jsonl`),
                               { method: 'HEAD', cache: 'no-store' });
         if (r.ok) {
           console.log(`[PhantomSDR stats] logs found at: ${base}`);
@@ -637,6 +647,7 @@ function tuneTo(hz, serverMode) {
   if (mode) q.set('modulation', mode);
   // './' not '/': resolves next to this page, so installs served under a
   // reverse-proxy subpath land on the app and not on the proxy root.
+  if (RX) q.set('rx', RX);
   window.location.href = './?' + q.toString();
 }
 
@@ -674,7 +685,7 @@ async function fetchLog(date) {
   // Layer 1: return already-parsed events without any I/O
   if (!isToday && logCache.has(date)) return logCache.get(date);
 
-  const url = `${LOGS_BASE}/users_${date}.jsonl`;
+  const url = withRx(`${LOGS_BASE}/users_${date}.jsonl`);
   try {
     const r = await fetch(url, {
       cache: isToday ? 'no-store' : 'force-cache',
@@ -1112,7 +1123,7 @@ async function tryAllDates() {
     d.setUTCDate(d.getUTCDate() - i);
     const ds = d.toISOString().slice(0,10);
     // Use the already-resolved LOGS_BASE instead of hardcoded 'logs'
-    const r  = await fetch(`${LOGS_BASE}/users_${ds}.jsonl`, { method: 'HEAD', cache: 'no-store' });
+    const r  = await fetch(withRx(`${LOGS_BASE}/users_${ds}.jsonl`), { method: 'HEAD', cache: 'no-store' });
     if (r.ok) { from = ds; } else if (i > 7 && from !== todayStr()) break;
   }
   document.getElementById('date-from').value = from;
@@ -1244,7 +1255,7 @@ function gridToLatLng(grid) {
 async function loadStationLatLng() {
   if (stationLatLng) return stationLatLng;
   try {
-    const r = await fetch('/users', { cache: 'no-store' });
+    const r = await fetch(withRx('/users'), { cache: 'no-store' });
     if (!r.ok) return null;
     const d = await r.json();
     stationLatLng = gridToLatLng(d.grid_locator);

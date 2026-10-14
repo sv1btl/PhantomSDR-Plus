@@ -474,9 +474,19 @@ function fmtConnTime(iso) {
 // -----------------------------------------------------------------------
 // Fetch loop
 // -----------------------------------------------------------------------
+// Which receiver we belong to when several share one public port: the app
+// embeds us with its own ?rx=<id>, and every request we make must carry it.
+// Without it proxy.py falls back to the rx cookie, which all tabs share, so
+// an HF tab showed the users and statistics of a 2 m tab opened later.
+const RX = new URLSearchParams(location.search).get('rx') || '';
+function withRx(url) {
+  if (!RX) return url;
+  return url + (url.includes('?') ? '&' : '?') + 'rx=' + encodeURIComponent(RX);
+}
+
 async function fetchUsers() {
   try {
-    const r = await fetch('/users', { cache: 'no-store' });
+    const r = await fetch(withRx('/users'), { cache: 'no-store' });
     if (!r.ok) throw new Error(r.status);
     const data = await r.json();
 
@@ -644,6 +654,7 @@ function tuneTo(hz, serverMode) {
   // './' not '/': resolves next to this page, so installs served under a
   // reverse-proxy subpath (/websdr/users.html) land on /websdr/ and not on
   // the proxy root.
+  if (RX) q.set('rx', RX);
   window.location.href = './?' + q.toString();
 }
 

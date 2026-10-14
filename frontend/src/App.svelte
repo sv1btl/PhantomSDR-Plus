@@ -9250,7 +9250,7 @@
                           >
                             <iframe
                               class="modal-embed"
-                              src="{siteIP}/users.html"
+                              src={withRx(`${siteIP}/users.html`)}
                               title="Connected Users"
                               style="width:100%; height:420px; border:none; background:#0f172a; display:block;"
                               loading="lazy"
@@ -9290,7 +9290,7 @@
                           >
                             <iframe
                               class="modal-embed"
-                              src="{siteIP}/stats.html"
+                              src={withRx(`${siteIP}/stats.html`)}
                               title="User Statistics"
                               style="width:100%; height:420px; border:none; background:#050a07; display:block;"
                               loading="lazy"
@@ -19146,7 +19146,7 @@ Slider: share of denoised audio, the rest is the original"
               style="padding:0; overflow:hidden; position:relative;"
             >
               <iframe
-                src="{siteIP}/users.html"
+                src={withRx(`${siteIP}/users.html`)}
                 title="Connected Users"
                 style="width:100%; height:420px; border:none; background:#0f172a; display:block;"
                 loading="lazy"

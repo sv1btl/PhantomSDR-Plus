@@ -189,6 +189,8 @@ Examples:
 - `14.2` + **MHz** → 14.200 MHz
 - `145.5` + **MHz** → 145.500 MHz
 
+**A typed frequency brings its band.** The receiver goes to the band you typed into the way its band button would: the waterfall zooms to the whole band, brightness and contrast take that band's settings, and the mode follows the band plan — but you stay exactly on the frequency you typed. Outside every defined band only the frequency changes. If the station has another receiver that covers the frequency — `145.5` **MHz** typed on an HF receiver, say — that receiver's page opens instead, already tuned and framed the same way (see *Choosing a receiver* below).
+
 #### Method 3: Mouse on the Digits
 
 1. Hover over a digit of the frequency display — it lights up
@@ -281,6 +283,12 @@ The S-meter shows signal strength:
 ### Choosing a receiver
 
 Some stations run more than one receiver — for example one for HF and one for the 2 m band. They show a line *Receivers:* in the page header with one button per receiver; the one you are on is shown in yellow. Pressing another button opens that receiver's page, with its own waterfall, bands, chat and listener list. On the /mobile page the same buttons sit in the top bar. A station with a single receiver shows no such line.
+
+**Show All.** A **Show All** checkbox follows the receiver buttons. Tick it and every other receiver of the station appears under your waterfall — its spectrum and waterfall, with its own markers and frequency scale and the newest line at the top. Hover over it to read a frequency and the nearest marker; click to open that receiver there, in the same tab: on a marker in the marker's mode, elsewhere in the mode the band plan gives. The checkbox is remembered in your browser and is off until you tick it, because each strip is one more waterfall stream (about 10 KB/s).
+
+**The view you left is kept.** When you leave a receiver's page, its zoom, brightness, contrast, mode and frequency are remembered. Its strip on the other page then shows that same part of the band, with a small green ▼ where you were tuned; the button in the strip's header shows that range and **Full span** — press it for the receiver's whole range, and **Last view** to come back. Click a frequency inside that view and the receiver reopens on it, with the same zoom, levels and mode, instead of its whole range.
+
+**The right receiver by itself.** A frequency that this receiver does not cover but another of the station's receivers does — typed, from a link, a bookmark, a DX spot, a chat message or another listener's label — opens that receiver's page, tuned there. The mouse wheel and the digit steps never switch receivers, and neither does a transceiver connected over CAT.
 
 ---
 
@@ -541,6 +549,8 @@ The same ±250 Hz Morse filter as **CW**, but the tone is taken from below the c
 
 **There is no CW-L button on the desktop page.** Its mode row is `USB · LSB · CW · AM · QUAM · FM`. CW-L is offered on the simplified `/mobile` page, and on the desktop it can still be set by a link or a bookmark that names it.
 
+Links written for KiwiSDR or UberSDR work too: `modulation=CWU` (or `CW-U`) opens in CW and `modulation=CWL` in CW-L.
+
 ### WBFM (Wideband FM)
 
 **Used for:**
@@ -800,6 +810,7 @@ A frequency outside the receiver's coverage is pulled back to the nearest edge, 
 - **Swipe to tune**: Swipe left/right on waterfall
 - **Pinch to zoom**: Pinch waterfall to zoom in/out
 - **Landscape mode**: Rotate for better view
+- **Spectrum and waterfall sized for a phone**: in the extended view both are taller than the desktop proportions would make them
 
 ### Mobile Tips
 

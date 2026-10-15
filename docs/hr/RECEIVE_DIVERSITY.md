@@ -139,6 +139,8 @@ Razlika između jantarne i crvene je ona koja štedi vrijeme: jantarna znači na
 
 Obojena točka dodaje koju lokaciju zapravo slušate — zelena vaš prijamnik, cijan udaljeni.
 
+`Ready (unaligned)` (također zeleno) znači da već bira između dviju lokacija dok se traženje poravnanja nastavlja — vidi sljedeći odjeljak.
+
 ### Poravnanje traje oko 15 sekundi
 
 To je normalno. Dva se toka poravnavaju koreliranjem njihovih **zvučnih ovojnica**, a za to treba prozor zvuka. Traženje ide u dva koraka: usko traženje od ±1,5 sekunde može krenuti čim se prikupi oko 9 sekundi zvuka, a druga, neovisna mjera pet sekundi kasnije mora se **složiti** s prvom prije nego se poravnanje prihvati. Kad su dvije postaje vremenski razmaknutije od toga — sekunda ili dvije dodatnog međuspremanja negdje na putu — na oko 14 sekundi preuzima puno traženje od ±4 sekunde, a potvrda stiže na 19.
@@ -147,7 +149,7 @@ Taj korak potvrde je važan. Kad dvije lokacije blijede u protufazi — nikad is
 
 Još nešto mora biti točno prije nego zaključavanje izdrži: brzine uzorkovanja dvaju prijamnika. Dva prijamnika znače dva takta i dva lanca decimacije, pa im zvučni tokovi **ne** stižu posve istom brzinom čak ni kad oba prijavljuju 12 kHz — razlika od 2% je uobičajena, dakle 240 uzoraka klizanja u sekundi, daleko više od tolerancije poravnanja. Zato se udaljeni tok neprekidno preuzorkuje na brzinu vašeg prijamnika. Taj se omjer mjeri **brojanjem uzoraka**, a ne koreliranjem, pa mu ne treba vlastito zaključavanje i utvrđen je u prvih nekoliko sekundi — prije nego uopće krene prvo traženje poravnanja. Slab ili isprekidan signal može tražiti dva ili tri pokušaja, pa 30 sekundi nije razlog za brigu; minuta bez ičega jest.
 
-Dok piše `searching`, obje vrijednosti SNR-a pokazuju `0.0`. To je namjerno: obje se procjene mjere na **sadržajno poravnatim** uzorcima, pa se ništa ne mjeri prije nego postoji poravnanje. `0.0 / 0.0` znači „još nije zaključano", a ne „nema signala".
+Dok traženje traje, diverziti ga ne čeka. Dva se toka uparuju prema trenutku dolaska njihova zvuka — ili prema posljednjem pronađenom kašnjenju — a bolja se lokacija bira po SNR-u kao i inače; korekcija brzine, izjednačavanje razine i SNR trim i dalje djeluju. Tako prolazi i stanica koju čuje **samo** udaljeni prijemnik: slučaj u kojem diverziti najviše pomaže i u kojem poravnanje uopće nije moguće. Ploča tada prikazuje `Ready (unaligned)`, a redak **aligned** `by arrival, searching`. Dok obje lokacije čuju stanicu, ali još nisu poravnane, prebacivanje može ponoviti ili preskočiti do stvarnog kašnjenja među njima, obično manje od 1,5 s; čim se traženje zaključa, prelazi na točno kašnjenje.
 
 ---
 

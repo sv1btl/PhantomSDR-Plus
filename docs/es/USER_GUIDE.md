@@ -189,6 +189,8 @@ Ejemplos:
 - `14.2` + **MHz** → 14.200 MHz
 - `145.5` + **MHz** → 145.500 MHz
 
+**Una frecuencia escrita trae su banda.** El receptor va a la banda en la que ha escrito igual que lo haría su botón de banda: la cascada muestra la banda completa, el brillo y el contraste toman los ajustes de esa banda y el modo sigue el plan de bandas, pero usted se queda exactamente en la frecuencia escrita. Fuera de las bandas definidas solo cambia la frecuencia. Si la estación tiene otro receptor que cubre esa frecuencia —por ejemplo `145.5` **MHz** escrito en un receptor de HF—, se abre en su lugar la página de ese receptor, ya sintonizada y encuadrada del mismo modo (vea *Elegir un receptor* más abajo).
+
 #### Método 3: ratón sobre los dígitos
 
 1. Sitúe el puntero sobre un dígito del indicador de frecuencia: se ilumina
@@ -282,6 +284,12 @@ El S-metro indica la intensidad de la señal:
 ### Elegir un receptor
 
 Algunas estaciones tienen más de un receptor — por ejemplo uno para HF y otro para la banda de 2 m. Muestran en la cabecera de la página una línea *Receivers:* con un botón por receptor; aquel en el que está aparece en amarillo. Al pulsar otro botón se abre la página de ese receptor, con su propia cascada, bandas, chat y lista de oyentes. En la página /mobile los mismos botones están en la barra superior. Una estación con un solo receptor no muestra esa línea.
+
+**Show All.** Tras los botones de receptor hay una casilla **Show All**. Al marcarla, cada uno de los demás receptores de la estación aparece bajo su cascada —su espectro y su cascada, con sus propios marcadores y su escala de frecuencias, la línea más reciente arriba—. Al pasar el ratón por encima se lee la frecuencia y el marcador más cercano; un clic abre ese receptor ahí, en la misma pestaña: sobre un marcador en el modo del marcador, en otro punto en el modo que da el plan de bandas. Su navegador recuerda la casilla, que está desmarcada hasta que usted la marque, porque cada franja es un flujo de cascada más (unos 10 KB/s).
+
+**Se conserva la vista que dejó.** Al salir de la página de un receptor se guardan su zoom, brillo, contraste, modo y frecuencia. Su franja en la otra página muestra entonces esa misma parte de la banda, con un pequeño ▼ verde donde estaba sintonizado; el botón de la cabecera de la franja muestra ese rango y **Full span** —púlselo para ver todo el rango del receptor, y **Last view** para volver—. Un clic en una frecuencia dentro de esa vista reabre el receptor tal cual, con el mismo zoom, los mismos niveles y el mismo modo, en lugar de todo su rango.
+
+**El receptor adecuado, por sí solo.** Una frecuencia que este receptor no cubre pero sí otro receptor de la estación —escrita, desde un enlace, un marcador, un spot DX, un mensaje del chat o la etiqueta de otro oyente— abre la página de ese receptor, sintonizada ahí. La rueda del ratón y los pasos de los dígitos nunca cambian de receptor, y tampoco un transceptor conectado por CAT.
 
 ---
 
@@ -540,6 +548,8 @@ Las tres últimas filas son nuevas en la 4.1.0; compruebe que una función exist
 El mismo filtro Morse de ±250 Hz que **CW**, pero el tono se toma por debajo de la portadora en lugar de por encima. Úselo cuando una señal se copie mejor por el lado bajo, o cuando una portadora interferente quede justo por encima de la deseada.
 
 **No hay botón CW-L en la página de escritorio.** Su fila de modos es `USB · LSB · CW · AM · QUAM · FM`. CW-L se ofrece en la página simplificada `/mobile`, y en escritorio todavía puede fijarse mediante un enlace o un marcador que lo nombre.
+
+También funcionan los enlaces escritos para KiwiSDR o UberSDR: `modulation=CWU` (o `CW-U`) abre en CW y `modulation=CWL` en CW-L.
 
 ### WBFM (FM de banda ancha)
 
@@ -800,6 +810,7 @@ Una frecuencia fuera de la cobertura del receptor se ajusta al extremo más cerc
 - **Deslizar para sintonizar**: deslice a izquierda/derecha sobre la cascada
 - **Pellizcar para ampliar**: pellizque la cascada para acercar o alejar
 - **Modo horizontal**: gire el dispositivo para ver mejor
+- **Espectro y cascada a la medida del teléfono**: en la vista ampliada ambos son más altos de lo que darían las proporciones de escritorio
 
 ### Consejos para móviles
 

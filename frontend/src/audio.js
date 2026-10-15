@@ -1354,6 +1354,24 @@ async init() {
   return this.promise
 }
 
+  _dropStartOverlayWhenRunning(ctx) {
+    if (!ctx || typeof document === 'undefined') return
+    const drop = () => {
+      if (ctx.state !== 'running') return
+      const el = document.getElementById('startaudio')
+      if (el) el.remove()
+      if (this.userGestureFunc) {
+        document.documentElement.removeEventListener('mousedown', this.userGestureFunc)
+        this.userGestureFunc = null
+      }
+      ctx.removeEventListener('statechange', drop)
+    }
+    try {
+      ctx.addEventListener('statechange', drop)
+      drop()
+    } catch (_) {}
+  }
+
   stop() {
     // Latched before the socket is closed below, so the close handler knows
     // this teardown was deliberate.
@@ -3193,6 +3211,13 @@ setAGC(newAGCSpeed) {
       this._resetInitPromise()
       return
     }
+
+    // "Click to start audio" goes as soon as the browser lets this context
+    // run, not only on a click. After a switch between this station's
+    // receivers Firefox starts it by itself (the listener has already clicked
+    // on this site), and the overlay used to stay up over audio that was
+    // already playing — the constructor's one early look came too soon.
+    this._dropStartOverlayWhenRunning(this.audioCtx)
 
     // ── The worklet cannot resample, so it must not run at the wrong rate ──
     // process() copies samples 1:1 into the output; sampleRateHint sizes the

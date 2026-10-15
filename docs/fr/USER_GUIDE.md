@@ -189,6 +189,8 @@ Exemples :
 - `14.2` + **MHz** → 14.200 MHz
 - `145.5` + **MHz** → 145.500 MHz
 
+**Une fréquence tapée amène sa bande.** Le récepteur va dans la bande où se trouve la fréquence tapée comme le ferait le bouton de cette bande : la cascade montre toute la bande, la luminosité et le contraste prennent les réglages de la bande et le mode suit le plan de bande — mais vous restez exactement sur la fréquence tapée. En dehors des bandes définies, seule la fréquence change. Si la station possède un autre récepteur qui couvre cette fréquence — par exemple `145.5` **MHz** tapé sur un récepteur HF —, c'est la page de ce récepteur qui s'ouvre, déjà accordée et cadrée de la même façon (voir *Choisir un récepteur* plus bas).
+
 #### Méthode 3 : la souris sur les chiffres
 
 1. Placez le pointeur sur un chiffre de l'affichage de fréquence — il s'allume
@@ -281,6 +283,12 @@ Le S-mètre indique la force du signal :
 ### Choisir un récepteur
 
 Certaines stations ont plus d'un récepteur — par exemple un pour les ondes courtes et un pour la bande des 2 m. Elles affichent dans l'en-tête de la page une ligne *Receivers:* avec un bouton par récepteur ; celui sur lequel vous êtes apparaît en jaune. Appuyer sur un autre bouton ouvre la page de ce récepteur, avec sa propre cascade, ses bandes, son chat et sa liste d'auditeurs. Sur la page /mobile, les mêmes boutons se trouvent dans la barre supérieure. Une station à un seul récepteur n'affiche pas cette ligne.
+
+**Show All.** Après les boutons de récepteur se trouve une case **Show All**. Cochée, elle fait apparaître chaque autre récepteur de la station sous votre cascade — son spectre et sa cascade, avec ses propres marqueurs et sa propre échelle de fréquences, la ligne la plus récente en haut. Survolez-la pour lire la fréquence et le marqueur le plus proche ; un clic ouvre ce récepteur à cet endroit, dans le même onglet : sur un marqueur dans le mode du marqueur, ailleurs dans le mode donné par le plan de bande. Votre navigateur retient la case, décochée tant que vous ne la cochez pas, car chaque bande est un flux de cascade de plus (environ 10 Ko/s).
+
+**La vue que vous avez quittée est conservée.** Quand vous quittez la page d'un récepteur, son zoom, sa luminosité, son contraste, son mode et sa fréquence sont mémorisés. Sa bande sur l'autre page montre alors cette même partie de la bande, avec un petit ▼ vert là où vous étiez accordé ; le bouton dans l'en-tête de la bande affiche cette plage et **Full span** — appuyez dessus pour toute la plage du récepteur, et sur **Last view** pour revenir. Un clic sur une fréquence de cette vue rouvre le récepteur tel quel, avec le même zoom, les mêmes niveaux et le même mode, au lieu de toute sa plage.
+
+**Le bon récepteur, tout seul.** Une fréquence que ce récepteur ne couvre pas mais qu'un autre récepteur de la station couvre — tapée, issue d'un lien, d'un signet, d'un spot DX, d'un message du chat ou de l'étiquette d'un autre auditeur — ouvre la page de ce récepteur, accordée à cet endroit. La molette de la souris et les pas des chiffres ne changent jamais de récepteur, pas plus qu'un transceiver relié en CAT.
 
 ---
 
@@ -542,6 +550,8 @@ Le même filtre morse de ±250 Hz que **CW**, mais la tonalité est prise sous l
 
 **Il n'y a pas de bouton CW-L sur la page de bureau.** Sa rangée de modes est `USB · LSB · CW · AM · QUAM · FM`. CW-L est proposé sur la page simplifiée `/mobile` ; sur le bureau il reste accessible par un lien ou un signet qui le nomme.
 
+Les liens écrits pour KiwiSDR ou UberSDR fonctionnent aussi : `modulation=CWU` (ou `CW-U`) ouvre en CW et `modulation=CWL` en CW-L.
+
 ### WBFM (FM à large bande)
 
 **Utilisé pour :**
@@ -801,6 +811,7 @@ Une fréquence hors de la couverture du récepteur est ramenée au bord le plus 
 - **Balayage pour s'accorder** : balayez vers la gauche/droite sur la cascade
 - **Pincement pour zoomer** : pincez la cascade pour zoomer/dézoomer
 - **Mode paysage** : tournez l'appareil pour une meilleure vue
+- **Spectre et cascade à la taille du téléphone** : dans la vue étendue, ils sont plus hauts que ne le donneraient les proportions du bureau
 
 ### Conseils pour mobile
 

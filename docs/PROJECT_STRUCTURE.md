@@ -297,6 +297,7 @@ PhantomSDR-Plus
 │   │   │   ├── fftRadix2.js
 │   │   │   ├── freedv-reporter.js
 │   │   │   ├── FreeDVReporter.svelte
+│   │   │   ├── FreqKeypad.svelte      # number pad for typing a frequency
 │   │   │   ├── FrequencyInput.svelte
 │   │   │   ├── FrequencyMarkers.svelte
 │   │   │   ├── FtxSpectrum.svelte
@@ -310,9 +311,10 @@ PhantomSDR-Plus
 │   │   │   ├── PassbandTuner.svelte
 │   │   │   ├── Popover.svelte
 │   │   │   ├── QrssPanel.svelte
-│   │   │   ├── receivers.js           # receiver picker data (/receivers.json)
+│   │   │   ├── receivers.js           # receiver picker data (/receivers.json), ranges, links between receivers
 │   │   │   ├── rnnoise.js     # loads RNNoise for the AI noise reduction
 │   │   │   ├── rx.js                  # which receiver a page belongs to (?rx=)
+│   │   │   ├── RxStrip.svelte         # “Show All”: live strip of another receiver
 │   │   │   ├── sideService.js         # where the page finds RADE and the relay (siteRade / siteRelay)
 │   │   │   ├── SMeterAnalog.svelte
 │   │   │   ├── SMeterDigital.svelte
@@ -960,7 +962,7 @@ The web-based user interface built with Svelte and Vite.
 - Layout structure
 - Component orchestration
 - **Decoders button row** — one button per decoder, on the main panel directly under the Modes selector; press to start the decoder and open its window, press again to stop. It replaced the former Bandwidth row. RADEL/RADEU live in `lib/ModesSelector.svelte` instead, beside the Modes selector and inside the Modes and Bands pop-ups.
-- **Version line** — "PhantomSDR+ | v5.1.0 original from github.com/sv1btl/PhantomSDR-Plus", with the address as a link; the same line is on the /mobile page. The version number and the address live in `lib/version.js`; the line is an author attribution covered by `ADDITIONAL_TERMS.md`.
+- **Version line** — "PhantomSDR+ | v5.2.0 original from github.com/sv1btl/PhantomSDR-Plus", with the address as a link; the same line is on the /mobile page. The version number and the address live in `lib/version.js`; the line is an author attribution covered by `ADDITIONAL_TERMS.md`.
 
 #### 2. Waterfall Display (`waterfall.js` + `lib/`)
 - Canvas-based spectrum and waterfall rendering and colormaps in `waterfall.js` (plain JS, not a component); the **Auto Adj.** brightness/contrast remap is `lib/wfAutoLevel.js`
@@ -970,6 +972,8 @@ The web-based user interface built with Svelte and Vite.
 
 #### 3. Controls (`App.svelte` + `lib/`)
 - Frequency input/display — `lib/FrequencyInput.svelte`
+- Number pad for typing a frequency — `lib/FreqKeypad.svelte`; the typed frequency is tuned with its band's zoom, Min/Max and mode (`tuneTypedFrequency()` in `App.svelte`), and one another receiver covers opens that receiver
+- **Show All** strips of the other receivers — `lib/RxStrip.svelte`: one `/waterfall?rx=<id>` socket each, every frame decoded and drawn, in the other receiver's own palette and levels, newest line at the top; the receiver ranges and the links between receivers come from `lib/receivers.js`
 - Mode selection (AM/FM/SSB/CW) — `lib/ModesSelector.svelte`, band switching — `lib/BandSelector.svelte`
 - AGC/NR/NB and the remaining controls live in `App.svelte` itself; there is no separate `Controls.svelte`
 

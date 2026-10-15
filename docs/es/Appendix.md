@@ -82,7 +82,7 @@ Todos los comandos que un sysop usa para operar una estación PhantomSDR-Plus, a
 | `./update.sh --apply --yes` | Actualiza sin preguntar; se conserva cada fichero que usted editó. | [Guía de instalación](INSTALLATION.md#otras-opciones) |
 | `./update.sh --apply --prune` | Ofrece además borrar los ficheros eliminados en el repositorio. | [Guía de instalación](INSTALLATION.md#ejecución) |
 | `./update.sh --from FILE` | Toma la nueva versión de un `.zip`/`.tar.gz` o de una carpeta — sin red. | [Guía de instalación](INSTALLATION.md#otras-opciones) |
-| `./update.sh --ref v5.1.0` | Actualiza a una etiqueta, rama o commit en lugar del árbol actual. | [Guía de instalación](INSTALLATION.md#otras-opciones) |
+| `./update.sh --ref v5.2.0` | Actualiza a una etiqueta, rama o commit en lugar del árbol actual. | [Guía de instalación](INSTALLATION.md#otras-opciones) |
 | `./update.sh --list-excludes` | Muestra los ficheros que el actualizador nunca toca. | [Guía de instalación](INSTALLATION.md#otras-opciones) |
 | `./update.sh --verbose` | Lista todos los ficheros, no solo los 40 primeros. | [Guía de instalación](INSTALLATION.md#otras-opciones) |
 | `./update.sh --restore LAST` | Restaura los ficheros que sobrescribió la última actualización. | [Guía de instalación](INSTALLATION.md#deshacer-una-actualización) |

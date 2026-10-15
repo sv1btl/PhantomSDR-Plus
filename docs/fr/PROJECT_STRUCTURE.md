@@ -297,6 +297,7 @@ PhantomSDR-Plus
 │   │   │   ├── fftRadix2.js
 │   │   │   ├── freedv-reporter.js
 │   │   │   ├── FreeDVReporter.svelte
+│   │   │   ├── FreqKeypad.svelte      # pavé numérique pour saisir une fréquence
 │   │   │   ├── FrequencyInput.svelte
 │   │   │   ├── FrequencyMarkers.svelte
 │   │   │   ├── FtxSpectrum.svelte
@@ -310,9 +311,10 @@ PhantomSDR-Plus
 │   │   │   ├── PassbandTuner.svelte
 │   │   │   ├── Popover.svelte
 │   │   │   ├── QrssPanel.svelte
-│   │   │   ├── receivers.js           # données du sélecteur de récepteur (/receivers.json)
+│   │   │   ├── receivers.js           # données du sélecteur de récepteur (/receivers.json), plages, liens entre récepteurs
 │   │   │   ├── rnnoise.js     # charge RNNoise pour la réduction de bruit par IA
 │   │   │   ├── rx.js                  # à quel récepteur appartient une page (?rx=)
+│   │   │   ├── RxStrip.svelte         # « Show All » : bande en direct d'un autre récepteur
 │   │   │   ├── sideService.js         # où la page trouve RADE et le relais (siteRade / siteRelay)
 │   │   │   ├── SMeterAnalog.svelte
 │   │   │   ├── SMeterDigital.svelte
@@ -960,7 +962,7 @@ L'interface utilisateur web construite avec Svelte et Vite.
 - Structure de la mise en page
 - Orchestration des composants
 - **Rangée de boutons de décodeur** — un bouton par décodeur sur le panneau principal, juste sous le sélecteur de modes ; une pression démarre le décodeur et ouvre sa fenêtre, une seconde l'arrête. Elle a remplacé l'ancienne rangée de largeur de bande. RADEL/RADEU se trouvent dans `lib/ModesSelector.svelte`, à côté du sélecteur de modes et dans les fenêtres **Modes** et **Bands**.
-- **Ligne de version** — « PhantomSDR+ | v5.1.0 original from github.com/sv1btl/PhantomSDR-Plus », l'adresse servant de lien ; la même ligne figure sur la page /mobile. Le numéro de version et l'adresse se trouvent dans `lib/version.js` ; la ligne est une attribution d'auteur couverte par `ADDITIONAL_TERMS.md`.
+- **Ligne de version** — « PhantomSDR+ | v5.2.0 original from github.com/sv1btl/PhantomSDR-Plus », l'adresse servant de lien ; la même ligne figure sur la page /mobile. Le numéro de version et l'adresse se trouvent dans `lib/version.js` ; la ligne est une attribution d'auteur couverte par `ADDITIONAL_TERMS.md`.
 
 #### 2. Affichage en cascade (`waterfall.js` + `lib/`)
 - Rendu du spectre et de la cascade sur canevas et palettes de couleurs dans `waterfall.js` (JS pur, pas un composant) ; le remappage luminosité/contraste de **Auto Adj.** est `lib/wfAutoLevel.js`
@@ -970,6 +972,8 @@ L'interface utilisateur web construite avec Svelte et Vite.
 
 #### 3. Commandes (`App.svelte` + `lib/`)
 - Saisie et affichage de la fréquence — `lib/FrequencyInput.svelte`
+- Pavé numérique pour saisir une fréquence — `lib/FreqKeypad.svelte` ; la fréquence tapée est accordée avec le zoom, les Min/Max et le mode de sa bande (`tuneTypedFrequency()` dans `App.svelte`), et une fréquence couverte par un autre récepteur ouvre ce récepteur
+- Bandes **Show All** des autres récepteurs — `lib/RxStrip.svelte` : un socket `/waterfall?rx=<id>` chacune, chaque trame décodée et dessinée, avec la palette et les niveaux de l'autre récepteur, la ligne la plus récente en haut ; les plages des récepteurs et les liens entre eux viennent de `lib/receivers.js`
 - Choix du mode (AM/FM/BLU/CW) — `lib/ModesSelector.svelte`, changement de bande — `lib/BandSelector.svelte`
 - L'AGC, le NR, le NB et les autres commandes se trouvent dans `App.svelte` lui-même ; il n'existe pas de `Controls.svelte` distinct
 

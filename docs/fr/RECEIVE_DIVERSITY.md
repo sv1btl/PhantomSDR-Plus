@@ -139,6 +139,8 @@ La distinction entre ambre et rouge est celle qui fait gagner du temps : ambre v
 
 Le point coloré ajoute quel site vous entendez réellement — vert votre propre récepteur, cyan le distant.
 
+`Ready (unaligned)` (vert lui aussi) signifie qu'il choisit déjà entre les deux sites pendant que la recherche d'alignement continue — voir la section suivante.
+
 ### L'alignement demande environ 15 secondes
 
 C'est normal. Les deux flux sont alignés en corrélant leurs **enveloppes audio**, ce qui exige une fenêtre de son. La recherche se fait en deux temps : une recherche étroite de ±1,5 seconde peut démarrer dès qu'environ 9 secondes de son ont été réunies, et une seconde mesure indépendante, cinq secondes plus tard, doit **concorder** avec la première avant que l'alignement soit accepté. Lorsque les deux stations sont plus éloignées que cela dans le temps — une ou deux secondes de tampon supplémentaire quelque part sur le trajet —, la recherche complète de ±4 secondes prend le relais vers 14 secondes et la confirmation suit à 19.
@@ -147,7 +149,7 @@ Cette étape de confirmation compte. Lorsque deux sites s'évanouissent en oppos
 
 Une seconde chose doit être juste avant qu'un verrouillage tienne : les cadences d'échantillonnage des deux récepteurs. Deux récepteurs, ce sont deux horloges et deux chaînes de décimation : leurs flux audio n'arrivent **pas** tout à fait à la même cadence, même lorsque tous deux annoncent 12 kHz — 2% d'écart est normal, soit 240 échantillons de dérive par seconde, bien au-delà de la tolérance d'alignement. Le flux distant est donc rééchantillonné en continu à la cadence de votre propre récepteur. Ce rapport est obtenu en **comptant les échantillons**, non par corrélation : il n'a donc pas besoin de son propre verrouillage et il est établi dès les premières secondes — avant même la première recherche d'alignement. Un signal faible ou intermittent peut demander deux ou trois tentatives ; 30 secondes ne sont donc pas inquiétantes, une minute sans rien l'est.
 
-Pendant `searching`, les deux valeurs de SNR affichent `0.0`. C'est voulu : les deux estimations sont mesurées sur des échantillons **alignés en contenu**, donc rien n'est mesuré avant qu'il y ait alignement. `0.0 / 0.0` veut dire « pas encore verrouillé », pas « pas de signal ».
+Pendant la recherche, la diversité ne l'attend pas. Les deux flux sont appariés selon l'arrivée de leur audio — ou selon le dernier délai trouvé — et le meilleur site est choisi au SNR comme d'habitude ; la correction de cadence, l'égalisation de niveau et l'ajustement du SNR s'appliquent toujours. C'est ce qui laisse passer une station que **seul** le récepteur distant entend : le cas où la diversité aide le plus, et où aucun alignement n'est possible. Le panneau affiche alors `Ready (unaligned)` et la ligne **aligned** indique `by arrival, searching`. Tant que les deux sites entendent la station sans être encore alignés, un basculement peut répéter ou sauter jusqu'au vrai délai entre eux, en général moins de 1,5 s ; dès que la recherche se verrouille, elle passe au délai exact.
 
 ---
 

@@ -297,6 +297,7 @@ PhantomSDR-Plus
 │   │   │   ├── fftRadix2.js
 │   │   │   ├── freedv-reporter.js
 │   │   │   ├── FreeDVReporter.svelte
+│   │   │   ├── FreqKeypad.svelte      # αριθμητικό πληκτρολόγιο για εισαγωγή συχνότητας
 │   │   │   ├── FrequencyInput.svelte
 │   │   │   ├── FrequencyMarkers.svelte
 │   │   │   ├── FtxSpectrum.svelte
@@ -310,9 +311,10 @@ PhantomSDR-Plus
 │   │   │   ├── PassbandTuner.svelte
 │   │   │   ├── Popover.svelte
 │   │   │   ├── QrssPanel.svelte
-│   │   │   ├── receivers.js           # δεδομένα της επιλογής δέκτη (/receivers.json)
+│   │   │   ├── receivers.js           # δεδομένα της επιλογής δέκτη (/receivers.json), εύρη, σύνδεσμοι μεταξύ δεκτών
 │   │   │   ├── rnnoise.js     # φορτώνει το RNNoise για τη μείωση θορύβου AI
 │   │   │   ├── rx.js                  # σε ποιον δέκτη ανήκει μια σελίδα (?rx=)
+│   │   │   ├── RxStrip.svelte         # «Show All»: ζωντανή λωρίδα άλλου δέκτη
 │   │   │   ├── sideService.js         # πού βρίσκει η σελίδα το RADE και το relay (siteRade / siteRelay)
 │   │   │   ├── SMeterAnalog.svelte
 │   │   │   ├── SMeterDigital.svelte
@@ -960,7 +962,7 @@ PhantomSDR-Plus
 - Δομή διάταξης
 - Ενορχήστρωση στοιχείων
 - **Σειρά κουμπιών αποκωδικοποιητών** — ένα κουμπί ανά αποκωδικοποιητή στον κύριο πίνακα, ακριβώς κάτω από τον επιλογέα τρόπων· ένα πάτημα ξεκινά τον αποκωδικοποιητή και ανοίγει το παράθυρό του, δεύτερο πάτημα τον σταματά. Αντικατέστησε την παλιά σειρά Bandwidth. Τα RADEL/RADEU βρίσκονται στο `lib/ModesSelector.svelte`, δίπλα στον επιλογέα τρόπων και μέσα στα αναδυόμενα παράθυρα **Modes** και **Bands**.
-- **Γραμμή έκδοσης** — «PhantomSDR+ | v5.1.0 original from github.com/sv1btl/PhantomSDR-Plus», με τη διεύθυνση ως σύνδεσμο· η ίδια γραμμή υπάρχει και στη σελίδα /mobile. Ο αριθμός έκδοσης και η διεύθυνση βρίσκονται στο `lib/version.js`· η γραμμή είναι αναφορά δημιουργού που καλύπτεται από το `ADDITIONAL_TERMS.md`.
+- **Γραμμή έκδοσης** — «PhantomSDR+ | v5.2.0 original from github.com/sv1btl/PhantomSDR-Plus», με τη διεύθυνση ως σύνδεσμο· η ίδια γραμμή υπάρχει και στη σελίδα /mobile. Ο αριθμός έκδοσης και η διεύθυνση βρίσκονται στο `lib/version.js`· η γραμμή είναι αναφορά δημιουργού που καλύπτεται από το `ADDITIONAL_TERMS.md`.
 
 #### 2. Οθόνη καταρράκτη (`waterfall.js` + `lib/`)
 - Σχεδίαση φάσματος και καταρράκτη σε canvas και χρωματικοί χάρτες στο `waterfall.js` (καθαρή JS, όχι στοιχείο)· η αναπροσαρμογή φωτεινότητας/αντίθεσης του **Auto Adj.** είναι το `lib/wfAutoLevel.js`
@@ -970,6 +972,8 @@ PhantomSDR-Plus
 
 #### 3. Χειριστήρια (`App.svelte` + `lib/`)
 - Εισαγωγή/ένδειξη συχνότητας — `lib/FrequencyInput.svelte`
+- Αριθμητικό πληκτρολόγιο για εισαγωγή συχνότητας — `lib/FreqKeypad.svelte`· η συχνότητα που πληκτρολογείται συντονίζεται με το zoom, τα Min/Max και τον τρόπο λήψης της ζώνης της (`tuneTypedFrequency()` στο `App.svelte`), και όποια καλύπτει άλλος δέκτης ανοίγει εκείνον τον δέκτη
+- Λωρίδες **Show All** των άλλων δεκτών — `lib/RxStrip.svelte`: ένα socket `/waterfall?rx=<id>` η καθεμία, κάθε frame αποκωδικοποιείται και σχεδιάζεται, με την παλέτα και τα επίπεδα του άλλου δέκτη, η πιο πρόσφατη γραμμή επάνω· τα εύρη των δεκτών και οι σύνδεσμοι μεταξύ τους προέρχονται από το `lib/receivers.js`
 - Επιλογή τρόπου (AM/FM/SSB/CW) — `lib/ModesSelector.svelte`, αλλαγή μπάντας — `lib/BandSelector.svelte`
 - Τα AGC/NR/NB και τα υπόλοιπα χειριστήρια βρίσκονται στο ίδιο το `App.svelte`· δεν υπάρχει ξεχωριστό `Controls.svelte`
 

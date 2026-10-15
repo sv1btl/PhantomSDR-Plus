@@ -139,6 +139,8 @@ The distinction between amber and red is the one that saves time: amber means ke
 
 The coloured dot adds which site you are actually hearing — green for your own receiver, cyan for the remote.
 
+`Ready (unaligned)` (green, too) means it is already choosing between the sites while the alignment search goes on — see the next section.
+
 ### Alignment takes about 15 seconds
 
 This is normal and worth expecting. The two streams are aligned by correlating their **audio envelopes**, and that needs a window of audio to work with. The search runs in two stages: a narrow ±1.5 second search can start once about 9 seconds of audio has been gathered, and a second, independent measurement five seconds later has to **agree** with the first before the alignment is trusted. When the two sites are further apart in time than that — a second or two of extra buffering somewhere along the path — the full ±4 second search takes over at about 14 seconds and confirmation follows at 19.
@@ -147,7 +149,7 @@ The confirmation step matters. When two sites fade in antiphase — never both c
 
 A second thing has to be right before a lock can hold: the two receivers' sample rates. Two receivers are two clocks and two decimation chains, so their audio streams do **not** arrive at quite the same rate even when both declare 12 kHz — 2% apart is normal, which is 240 samples a second of creep, far more than the alignment tolerance. The remote stream is therefore continuously resampled to match your own receiver's rate. That ratio is measured by **counting samples**, not by correlating, so it needs no lock of its own and is settled within the first few seconds — before the first alignment search even runs. A weak or intermittent signal can still take two or three tries to align, so 30 seconds is not a cause for concern; a minute with nothing to show is.
 
-While `searching`, both SNR figures read `0.0`. That is by design: the two signal-to-noise estimates are measured on **content-aligned** samples, so nothing is measured until there is an alignment. `0.0 / 0.0` means "not locked yet", not "no signal".
+While the search runs, diversity does not wait for it. The two streams are paired by when their audio arrives — or by the last delay that was found — and the better site is chosen by SNR as usual; rate correction, level matching and the SNR trim all apply. That is what lets a station heard **only** by the remote come through: the case where diversity helps most, and where no alignment is possible at all. The panel then says `Ready (unaligned)` and the **aligned** row reads `by arrival, searching`. While both sites hear the station but are not aligned yet, a switch between them can repeat or skip up to the real delay between the two, usually under 1.5 s; once the search locks, it moves to the exact delay.
 
 ---
 

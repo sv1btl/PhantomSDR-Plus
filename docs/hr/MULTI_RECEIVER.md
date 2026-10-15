@@ -196,6 +196,12 @@ Pomoćni program RADE pripada samo glavnom prijemniku. Imenovana instanca ga nik
 
 **Izbornik prijemnika.** Na stanici s više prijemnika zaglavlje stranice dobiva vlastiti redak, *Receivers:*, s jednim gumbom po prijemniku; trenutni je prikazan žuto. Stranica /mobile ima iste gumbe kao drugi red u gornjoj traci, a oni otvaraju stranicu /mobile drugog prijemnika.
 
+**Trake Show All.** Kućica *Show All* iza tipki prijemnika prikazuje svaki drugi prijemnik ispod slušateljeva vodopada kao živu traku. Klik na nju otvara taj prijemnik ugođen na kliknutu frekvenciju, a stranica koju je slušatelj napustio ponovno se otvara s prikazom s kojim ju je ostavio. Svaka je traka socket samo za vodopad prema drugom prijemniku (`/waterfall?rx=<id>`): ondje nije slušatelj — ne vide je ni broj korisnika ni ograničenje slušatelja po IP-u, `per_ip_sockets` je vidi — i stoji oko 10 KB/s uploada za svakog slušatelja koji označi kućicu. Zadano je isključena i na poslužitelju ne traži ništa.
+
+**Promjena po frekvenciji.** Frekvencija izvan pokrivanja ovog prijemnika koju pokriva drugi prijemnik — upisana, iz poveznice, oznake ili spota — otvara prijemnik koji je pokriva. Stranica doznaje raspon svakog prijemnika tako da na trenutak otvori njegov `/waterfall` socket, i pamti ga jedan dan.
+
+**Korisnici i statistika po prijemniku.** Prozori *Connected Users* i *User Statistics* prikazuju prijemnik na čijoj se stranici nalaze, čak i kad je više prijemnika otvoreno jedan pokraj drugoga u istom pregledniku. Statistika dolazi iz vlastitih zapisa tog prijemnika — `logs/` za glavni prijemnik, `instances/<id>/logs/` za ostale.
+
 **Vlastiti podaci svakog prijemnika.** Stranica otvorena na drugom prijemniku prije pokretanja učitava `site_information.json` tog prijemnika, pa su gumbi opsega, početna frekvencija, popis slušatelja, podaci o stanici te poveznice Receiver i Antenna svi njegovi. Običan posjet glavnom prijemniku ne šalje nikakav dodatni zahtjev.
 
 Ključevi u `site_information.json` za to:

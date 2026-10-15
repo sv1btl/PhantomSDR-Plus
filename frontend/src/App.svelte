@@ -79,7 +79,13 @@
   // DominoEX, THOR, THROB, Hell, MT63). fsk.js is in this bundle already.
   import { FLDIGI_MODEMS } from "./fsk.js";
   import { meterGated } from "./lib/sUnits.js";
-  import { loadReceivers } from "./lib/receivers";
+  import {
+    loadReceivers,
+    receiverSpan,
+    receiverFor,
+    receiverTuneUrl,
+  } from "./lib/receivers";
+  import RxStrip from "./lib/RxStrip.svelte";
   import SMeterAnalog from "./lib/SMeterAnalog.svelte";
   import SMeterDigital from "./lib/SMeterDigital.svelte";
   import StatusIndicators from "./lib/StatusIndicators.svelte";
@@ -1602,7 +1608,9 @@
     return demodulationDefaults[up] ? up : null;
   }
 
-  function tuneToUserFrequency(hz, mode) {
+  // wholeBand: frame the band as its band button does, centred on the band
+  // (a typed frequency); otherwise centred on where we landed (a user label).
+  function tuneToUserFrequency(hz, mode, wholeBand = false) {
     const f = Number(hz);
     if (!isFinite(f) || f <= 0) return;
     try {
@@ -1666,7 +1674,9 @@
           (band.endFreq / hzPerBin - band.startFreq / hzPerBin) / 2;
         bandSpan += bandSpan * 0.01;
 
-        let m = frequencyToFFTOffset(f);
+        let m = frequencyToFFTOffset(
+          wholeBand ? (band.startFreq + band.endFreq) / 2 : f,
+        );
         m = Math.min(waterfall.waterfallMaxSize - 512, Math.max(512, m));
         if (Number.isFinite(bandSpan) && Number.isFinite(m)) {
           waterfall.setWaterfallRange(
@@ -1801,10 +1811,177 @@
   // Receiver picker (HF / 2 m ...): null — and nothing shown — unless this
   // station runs several receivers behind proxy.py. See lib/receivers.js.
   let receiverPicker = null;
-  loadReceivers().then((p) => (receiverPicker = p));
+  // The frequency span of each OTHER receiver, as far as known — what
+  // switchToReceiverFor() decides with.
+  let receiverSpans = {};
+  function setReceiverPicker(p) {
+    receiverPicker = p;
+    if (!p) return;
+    for (const r of p.receivers) {
+      if (r.id === p.current || receiverSpans[r.id]) continue;
+      receiverSpan(r, p.sameOrigin).then((sp) => {
+        if (sp) receiverSpans = { ...receiverSpans, [r.id]: sp };
+      });
+    }
+  }
+  const receiverPickerReady = loadReceivers().then(setReceiverPicker);
   // Re-read once a minute: the proxy lists only the receivers that are
   // running, so a stopped one's button goes away (and comes back) on its own.
-  setInterval(() => loadReceivers().then((p) => (receiverPicker = p)), 60000);
+  setInterval(() => loadReceivers().then(setReceiverPicker), 60000);
+
+  // A frequency this receiver does not cover but another of the station's
+  // does (typed, keypad, link, bookmark, spot, chat, label ...): open that
+  // receiver's page tuned there, in this tab. Not for the rig over CAT — a
+  // rig moving on its own must not carry the listener off the page.
+  // `arrive`: how that page frames the frequency — 'view' (the view it was
+  // left with) or 'band' (a typed frequency: its band); see applyArrival().
+  let switchingReceiver = false;
+  function switchToReceiverFor(hz, arrive = "view") {
+    if (switchingReceiver || catApplyingRemoteFreq || !receiverPicker) return;
+    const r = receiverFor(
+      hz,
+      receiverPicker.receivers,
+      receiverPicker.current,
+      receiverSpans,
+    );
+    if (!r) return;
+    switchingReceiver = true;
+    window.location.href = receiverTuneUrl(r, hz, "", arrive);
+  }
+
+  // A typed frequency (number pad, mobile frequency box) goes to its band as
+  // a band button would: zoom, Min/Max and the band's mode, but tuned where it
+  // was typed (tuneToUserFrequency). One another receiver covers opens that
+  // receiver's page, framed the same way there.
+  function tuneTypedFrequency(hz) {
+    const f = Number(hz);
+    if (!Number.isFinite(f) || f <= 0) return;
+    const lo = audio.baseFreq;
+    const hi = lo + audio.totalBandwidth;
+    if (!(f >= lo && f < hi)) {
+      switchToReceiverFor(f, "band");
+      return;
+    }
+    tuneToUserFrequency(f, undefined, true);
+  }
+
+  // "Show All": a preview strip of every other receiver under the waterfall
+  // (lib/RxStrip.svelte). Off unless this browser turned it on, because each
+  // strip is one more waterfall stream.
+  let showAllReceivers = false;
+  try {
+    showAllReceivers = localStorage.getItem("showAllReceivers") === "1";
+  } catch (e) {}
+  function setShowAllReceivers(on) {
+    showAllReceivers = on;
+    try {
+      localStorage.setItem("showAllReceivers", on ? "1" : "0");
+    } catch (e) {}
+  }
+
+  // What this page shows — zoom, Min/Max and tuning — saved when the listener
+  // leaves it, so this receiver's strip on the other receivers' pages opens on
+  // the same view (lib/RxStrip.svelte readSaved). One entry per receiver.
+  function saveRxView() {
+    if (!receiverPicker) return;
+    try {
+      const [l, r] = waterfall.getWaterfallRange();
+      const lo = FFTOffsetToFrequency(l);
+      const hi = FFTOffsetToFrequency(r);
+      if (!(hi > lo)) return;
+      localStorage.setItem(
+        "rxView:" + receiverPicker.current,
+        JSON.stringify({
+          lo,
+          hi,
+          min: min_waterfall,
+          max: max_waterfall,
+          f: parseFloat(frequency) * 1e3,
+          m: demodulation,
+        }),
+      );
+    } catch (e) {}
+  }
+  // Arriving from another receiver's page (lib/receivers.js receiverTuneUrl):
+  //   ?band=1  a typed frequency: frame its band — zoom, Min/Max, mode;
+  //   ?view=1  a strip click or the automatic switch: when the frequency lies
+  //            in the view this page was last left with, open on that view —
+  //            zoom, Min/Max and, unless the link names one, the mode.
+  // Either way, instead of the whole span. The flag is then dropped from the
+  // address, so a reload is an ordinary visit.
+  function applyArrival(linkParameters) {
+    let q;
+    try {
+      q = new URLSearchParams(location.search);
+    } catch (e) {
+      return;
+    }
+    if (q.has("band")) {
+      try {
+        if (Number.isFinite(linkParameters.frequency)) {
+          tuneToUserFrequency(linkParameters.frequency, linkParameters.modulation, true);
+        }
+      } catch (e) {}
+      dropArrivalFlags();
+    } else if (q.has("view")) {
+      restoreRxView(linkParameters);
+    }
+  }
+
+  function dropArrivalFlags() {
+    try {
+      const now = new URLSearchParams(location.search);
+      now.delete("view");
+      now.delete("band");
+      history.replaceState(null, "", `${location.pathname}?${now}`);
+    } catch (e) {}
+  }
+
+  async function restoreRxView(linkParameters) {
+    try {
+      await receiverPickerReady;
+      if (!receiverPicker) return;
+      const v = JSON.parse(
+        localStorage.getItem("rxView:" + receiverPicker.current) || "null",
+      );
+      const f = linkParameters.frequency;
+      if (!v || !Number.isFinite(f) || !(f >= v.lo && f <= v.hi)) return;
+      const l = Math.floor(frequencyToFFTOffset(v.lo));
+      const r = Math.ceil(frequencyToFFTOffset(v.hi));
+      if (r > l) waterfall.setWaterfallRange(l, r);
+      if (Number.isFinite(v.min) && Number.isFinite(v.max) && v.max > v.min) {
+        min_waterfall = v.min;
+        max_waterfall = v.max;
+        handleMinMove();
+        handleMaxMove();
+      }
+      if (
+        !linkParameters.modulation &&
+        typeof v.m === "string" &&
+        demodulators.indexOf(v.m) !== -1
+      ) {
+        demodulation = v.m;
+        handleDemodulationChange({}, true);
+      }
+      frequencyMarkerComponent.updateFrequencyMarkerPositions();
+      updatePassband();
+    } catch (e) {
+    } finally {
+      dropArrivalFlags();
+    }
+  }
+
+  onMount(() => {
+    const onHide = () => {
+      if (document.visibilityState === "hidden") saveRxView();
+    };
+    window.addEventListener("pagehide", saveRxView);
+    document.addEventListener("visibilitychange", onHide);
+    return () => {
+      window.removeEventListener("pagehide", saveRxView);
+      document.removeEventListener("visibilitychange", onHide);
+    };
+  });
 
   // Where the info panel's Antenna name links to: siteAntennaURL from this
   // receiver's site_information.json. Absent = the original end-fed kit page;
@@ -5827,10 +6004,10 @@
     mobileFreqFocused = false;
     var val = parseFloat(String(mobileFreqTyped).replace(",", "."));
     if (!isNaN(val) && val >= 0) {
-      var hz = Math.round(val * 1e3);
-      frequency = (hz / 1e3).toFixed(3);
-      frequencyInputComponent.setFrequency(hz);
-      handleFrequencyChange({ detail: hz });
+      tuneTypedFrequency(Math.round(val * 1e3));
+      // Shows where we are: the new frequency, or the old one when nothing
+      // covers what was typed.
+      frequency = (frequencyInputComponent.getFrequency() / 1e3).toFixed(3);
     } else {
       // Restore the readout when the box is left empty or unparseable.
       frequency = (frequencyInputComponent.getFrequency() / 1e3).toFixed(3);
@@ -5856,10 +6033,7 @@
 
   function commitFreqKeypad(e) {
     showFreqKeypad = false;
-    var hz = Math.max(0, e.detail);
-    frequency = (hz / 1e3).toFixed(3);
-    frequencyInputComponent.setFrequency(hz);
-    handleFrequencyChange({ detail: hz });
+    tuneTypedFrequency(Math.max(0, e.detail));
   }
 
   // Left-click on a digit steps it up by one, right-click steps it down.
@@ -7287,6 +7461,7 @@
     updateParameters(storageParameters) */
     const linkParameters = parseLink(location.search.slice(1));
     updateParameters(linkParameters);
+    applyArrival(linkParameters);
 
     // Refresh all the controls to the initial value
     updatePassband();
@@ -9055,6 +9230,18 @@
                       </a>
                       &nbsp;
                     {/each}
+                    <label
+                      class="glass-button text-white py-1 px-3 mb-2 lg:mb-0 rounded-lg text-xs sm:text-sm inline-flex items-center gap-1 cursor-pointer"
+                      style="color:rgba(0, 225, 255, 0.993)"
+                      title="Show the other receivers under the waterfall; click there to switch"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={showAllReceivers}
+                        on:change={(e) => setShowAllReceivers(e.currentTarget.checked)}
+                      />
+                      Show All
+                    </label>
                     </div>
                   {/if}
 
@@ -9330,7 +9517,7 @@
                     <ul style="font-size: 0.91rem; text-align: left;">
                     <b>Setup &amp; Configuration:</b>
                       <img
-                        src="https://img.shields.io/badge/version- 5.1.0-cyan?logo=github"
+                        src="https://img.shields.io/badge/version- 5.2.0-cyan?logo=github"
                         alt="Version"
                         class="inline-block align-middle ml-2"
                       />
@@ -9889,6 +10076,7 @@ Shift + Ctrl + Wheel = snap to .00 KHz"
                     ></canvas>
                     <FrequencyInput
                       bind:this={frequencyInputComponent}
+                      onOutOfRange={switchToReceiverFor}
                       on:change={handleFrequencyChange}
                     ></FrequencyInput>
 
@@ -9959,6 +10147,19 @@ Shift + Ctrl + Wheel = snap to .00 KHz"
                         height="20"
                       ></canvas>
                     </div>
+
+                    {#if receiverPicker && showAllReceivers}
+                      <!-- The other receivers of this station, same size as the main one;
+                           a click opens that one's page (lib/RxStrip.svelte). -->
+                      {#each receiverPicker.receivers.filter((r) => r.id !== receiverPicker.current) as r (r.id)}
+                        <RxStrip
+                          receiver={r}
+                          sameOrigin={receiverPicker.sameOrigin}
+                          refEl={waterfallCanvas}
+                          specRefEl={spectrumCanvas}
+                        />
+                      {/each}
+                    {/if}
 
                     <!-- Spectrogram Display -->
                     <div
@@ -14870,6 +15071,18 @@ Slider: share of denoised audio, the rest is the original"
                             : undefined}>{r.name}</a
                         >
                       {/each}
+                      <label
+                        class="glass-button py-1 px-2 rounded-lg text-xs inline-flex items-center gap-1 cursor-pointer"
+                        style="color:rgba(0, 225, 255, 0.993)"
+                        title="Show the other receivers under the waterfall; click there to switch"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={showAllReceivers}
+                          on:change={(e) => setShowAllReceivers(e.currentTarget.checked)}
+                        />
+                        Show All
+                      </label>
                     </div>
                   {/if}
                 </div>
@@ -14970,6 +15183,7 @@ Slider: share of denoised audio, the rest is the original"
                     ></canvas>
                     <FrequencyInput
                       bind:this={frequencyInputComponent}
+                      onOutOfRange={switchToReceiverFor}
                       on:change={handleFrequencyChange}
                     ></FrequencyInput>
 
@@ -15040,6 +15254,19 @@ Slider: share of denoised audio, the rest is the original"
                         height="20"
                       ></canvas>
                     </div>
+
+                    {#if receiverPicker && showAllReceivers}
+                      <!-- The other receivers of this station, same size as the main one;
+                           a click opens that one's page (lib/RxStrip.svelte). -->
+                      {#each receiverPicker.receivers.filter((r) => r.id !== receiverPicker.current) as r (r.id)}
+                        <RxStrip
+                          receiver={r}
+                          sameOrigin={receiverPicker.sameOrigin}
+                          refEl={waterfallCanvas}
+                          specRefEl={spectrumCanvas}
+                        />
+                      {/each}
+                    {/if}
 
                     <!-- Spectrogram Display -->
                     <div

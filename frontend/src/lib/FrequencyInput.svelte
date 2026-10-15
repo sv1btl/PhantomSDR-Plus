@@ -5,6 +5,9 @@
     import { pan } from "./hammeractions";
   const dispatch = createEventDispatcher();
 
+  // Called with a frequency outside this receiver's span (see elsewhere()).
+  export let onOutOfRange = null;
+
   let frequency = 0;
   let frequencyBFO = 0;
   const frequencyUnit = "MHz";
@@ -43,6 +46,8 @@
 
     if (checkFrequency(enteredFrequency)) {
       changeFrequency(enteredFrequency);
+    } else {
+      elsewhere(enteredFrequency);
     }
     updateDisplay();
   }
@@ -187,6 +192,18 @@
   export function setFrequency(f) {
     if (checkFrequency(f)) {
       frequency = f;
+    } else {
+      elsewhere(f);
+    }
+  }
+
+  // A frequency this receiver does not cover: offered to onOutOfRange (App:
+  // another receiver of the station that covers it opens its page there).
+  // Typed entries and setFrequency() only — never the wheel or the digit
+  // steps, which run past the band edge by accident.
+  function elsewhere(f) {
+    if (typeof onOutOfRange === "function" && Number.isFinite(f) && f > 0) {
+      onOutOfRange(f);
     }
   }
   

@@ -297,6 +297,7 @@ PhantomSDR-Plus
 │   │   │   ├── fftRadix2.js
 │   │   │   ├── freedv-reporter.js
 │   │   │   ├── FreeDVReporter.svelte
+│   │   │   ├── FreqKeypad.svelte      # brojčana tipkovnica za upis frekvencije
 │   │   │   ├── FrequencyInput.svelte
 │   │   │   ├── FrequencyMarkers.svelte
 │   │   │   ├── FtxSpectrum.svelte
@@ -310,9 +311,10 @@ PhantomSDR-Plus
 │   │   │   ├── PassbandTuner.svelte
 │   │   │   ├── Popover.svelte
 │   │   │   ├── QrssPanel.svelte
-│   │   │   ├── receivers.js           # podaci izbornika prijemnika (/receivers.json)
+│   │   │   ├── receivers.js           # podaci izbornika prijemnika (/receivers.json), opsezi, poveznice među prijemnicima
 │   │   │   ├── rnnoise.js     # učitava RNNoise za smanjenje šuma umjetnom inteligencijom
 │   │   │   ├── rx.js                  # kojem prijemniku stranica pripada (?rx=)
+│   │   │   ├── RxStrip.svelte         # „Show All”: živa traka drugog prijemnika
 │   │   │   ├── sideService.js         # gdje stranica nalazi RADE i relay (siteRade / siteRelay)
 │   │   │   ├── SMeterAnalog.svelte
 │   │   │   ├── SMeterDigital.svelte
@@ -960,7 +962,7 @@ Web-sučelje izgrađeno pomoću Sveltea i Vitea.
 - Struktura rasporeda
 - Usklađivanje komponenti
 - **Red gumba dekodera** — po jedan gumb za svaki dekoder na glavnoj ploči, odmah ispod izbornika načina rada; jedan pritisak pokreće dekoder i otvara njegov prozor, drugi ga zaustavlja. Zamijenio je dotadašnji red za širinu pojasa. RADEL/RADEU su u `lib/ModesSelector.svelte`, uz izbornik načina rada te u skočnim prozorima **Modes** i **Bands**.
-- **Redak verzije** — „PhantomSDR+ | v5.1.0 original from github.com/sv1btl/PhantomSDR-Plus”, s adresom kao poveznicom; isti redak nalazi se i na stranici /mobile. Broj verzije i adresa nalaze se u `lib/version.js`; redak je navođenje autorstva obuhvaćeno datotekom `ADDITIONAL_TERMS.md`.
+- **Redak verzije** — „PhantomSDR+ | v5.2.0 original from github.com/sv1btl/PhantomSDR-Plus”, s adresom kao poveznicom; isti redak nalazi se i na stranici /mobile. Broj verzije i adresa nalaze se u `lib/version.js`; redak je navođenje autorstva obuhvaćeno datotekom `ADDITIONAL_TERMS.md`.
 
 #### 2. Prikaz slapa (`waterfall.js` + `lib/`)
 - Iscrtavanje spektra i slapa na platnu (canvas) i palete boja u `waterfall.js` (čisti JS, nije komponenta); preračunavanje svjetline/kontrasta za **Auto Adj.** je `lib/wfAutoLevel.js`
@@ -970,6 +972,8 @@ Web-sučelje izgrađeno pomoću Sveltea i Vitea.
 
 #### 3. Kontrole (`App.svelte` + `lib/`)
 - Unos i prikaz frekvencije — `lib/FrequencyInput.svelte`
+- Brojčana tipkovnica za upis frekvencije — `lib/FreqKeypad.svelte`; upisana se frekvencija ugađa sa zoomom, Min/Max i načinom rada svog pojasa (`tuneTypedFrequency()` u `App.svelte`), a ona koju pokriva drugi prijemnik otvara taj prijemnik
+- Trake **Show All** ostalih prijemnika — `lib/RxStrip.svelte`: po jedan socket `/waterfall?rx=<id>`, svaki okvir dekodiran i nacrtan, u paleti i razinama drugog prijemnika, najnoviji redak na vrhu; rasponi prijemnika i poveznice među njima dolaze iz `lib/receivers.js`
 - Odabir načina rada (AM/FM/SSB/CW) — `lib/ModesSelector.svelte`, promjena pojasa — `lib/BandSelector.svelte`
 - AGC/NR/NB i ostale kontrole nalaze se u samom `App.svelte`; zasebna `Controls.svelte` ne postoji
 

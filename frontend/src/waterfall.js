@@ -245,9 +245,10 @@ export default class SpectrumWaterfall {
     this.canvasElem.width = canvasWidth;
     this.canvasScale = canvasWidth / 1380;
 
-    // Aspect ratio is 1380 to 128px
+    // Aspect ratio is 1380 to 128px; 1.6× taller on the phone layout, where
+    // the plain ratio gives a ~35 px spectrum.
     this.spectrumCanvasElem.width = canvasWidth;
-    this.spectrumCanvasElem.height = (canvasWidth / 1380) * 128;
+    this.spectrumCanvasElem.height = (canvasWidth / 1380) * 128 * (this.mobileLayout ? 1.6 : 1);
 
     // Aspect ratio is 1380 to 20px
     this.graduationCanvasElem.width = canvasWidth;
@@ -1484,9 +1485,13 @@ export default class SpectrumWaterfall {
   // spectrum-on halves the normal height.
   _applyWaterfallHeight(mobile) {
     const dpr = window.devicePixelRatio;
+    // The phone layout (Device.isMobile) — setCanvasWidth() sizes its
+    // spectrum from this too.
+    this.mobileLayout = !!mobile;
     let base;
     if (mobile) {
-      base = this.big ? 150 : (this.spectrum ? 25 : 50);
+      // Was 150 / 25 / 50: on a 412 px phone that left a 23 px waterfall.
+      base = this.big ? 200 : (this.spectrum ? 45 : 90);
     } else {
       base = this.big ? 300 : (this.spectrum ? 100 : 200);
     }

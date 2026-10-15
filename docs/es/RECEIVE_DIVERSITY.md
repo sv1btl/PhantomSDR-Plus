@@ -139,6 +139,8 @@ La distinción entre ámbar y rojo es la que ahorra tiempo: ámbar significa sig
 
 El punto de color añade a qué emplazamiento está escuchando realmente — verde su receptor, cian el remoto.
 
+`Ready (unaligned)` (también en verde) significa que ya elige entre los dos sitios mientras sigue la búsqueda de la alineación; vea la sección siguiente.
+
 ### La alineación tarda unos 15 segundos
 
 Es normal. Los dos flujos se alinean correlando sus **envolventes de audio**, y eso necesita una ventana de audio. La búsqueda se hace en dos etapas: una búsqueda estrecha de ±1,5 segundos puede empezar en cuanto se han reunido unos 9 segundos de sonido, y una segunda medición independiente, cinco segundos más tarde, debe **coincidir** con la primera antes de dar la alineación por buena. Cuando las dos estaciones están más separadas en el tiempo que eso — uno o dos segundos de almacenamiento adicional en algún punto del camino — toma el relevo la búsqueda completa de ±4 segundos, a los 14 segundos, y la confirmación llega a los 19.
@@ -147,7 +149,7 @@ Ese paso de confirmación importa. Cuando dos emplazamientos se desvanecen en an
 
 Una segunda cosa debe ser correcta antes de que un enganche se sostenga: las velocidades de muestreo de los dos receptores. Dos receptores son dos relojes y dos cadenas de diezmado, así que sus flujos de audio **no** llegan exactamente a la misma velocidad aunque ambos declaren 12 kHz — un 2% de diferencia es normal, es decir 240 muestras por segundo de deriva, muy por encima de la tolerancia de alineación. Por eso el flujo remoto se remuestrea continuamente para igualar la velocidad de su propio receptor. Esa relación se mide **contando muestras**, no correlando, así que no necesita enganche propio y queda establecida en los primeros segundos — antes incluso de que se ejecute la primera búsqueda de alineación. Una señal débil o intermitente puede necesitar dos o tres intentos, así que 30 segundos no son motivo de preocupación; un minuto sin nada sí lo es.
 
-Mientras dice `searching`, ambas cifras de SNR marcan `0.0`. Es intencionado: las dos estimaciones se miden sobre muestras **alineadas en contenido**, así que no se mide nada hasta que hay alineación. `0.0 / 0.0` significa «aún no enganchado», no «sin señal».
+Mientras dura la búsqueda, la diversidad no la espera. Los dos flujos se emparejan según cuándo llega su audio —o según el último retardo encontrado— y el mejor sitio se elige por SNR como siempre; la corrección de tasa, el ajuste de nivel y el ajuste de SNR siguen actuando. Así pasa también una estación que **solo** oye el receptor remoto: el caso en que la diversidad más ayuda y en que no hay alineación posible. El panel muestra entonces `Ready (unaligned)` y la fila **aligned** dice `by arrival, searching`. Mientras ambos sitios oyen la estación pero aún no están alineados, un cambio entre ellos puede repetir u omitir hasta el retardo real entre ambos, normalmente menos de 1,5 s; en cuanto la búsqueda se fija, pasa al retardo exacto.
 
 ---
 

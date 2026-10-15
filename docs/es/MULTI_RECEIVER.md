@@ -196,6 +196,12 @@ El auxiliar RADE pertenece solo al receptor principal. Una instancia con nombre 
 
 **El selector de receptor.** En una estación con más de un receptor la cabecera de la página recibe una línea propia, *Receivers:*, con un botón por receptor; el actual aparece en amarillo. La página /mobile tiene los mismos botones como segunda fila de su barra superior, y abren la página /mobile del otro receptor.
 
+**Franjas Show All.** Una casilla *Show All* tras los botones de receptor muestra cada uno de los demás receptores bajo la cascada del oyente como una franja en vivo. Un clic ahí abre ese receptor sintonizado en la frecuencia pulsada, y una página que el oyente dejó se reabre con la vista con la que la dejó. Cada franja es un socket solo de cascada hacia el otro receptor (`/waterfall?rx=<id>`): allí no es un oyente —ni el recuento de usuarios ni el límite de oyentes por IP lo ven; `per_ip_sockets` sí— y cuesta unos 10 KB/s de subida por cada oyente que marque la casilla. Está desactivada por defecto y no necesita nada en el servidor.
+
+**Cambio por frecuencia.** Una frecuencia fuera de la cobertura de este receptor que otro receptor cubre —escrita, desde un enlace, un marcador o un spot— abre el receptor que la cubre. La página conoce el rango de cada receptor abriendo un instante su socket `/waterfall`, y lo recuerda durante un día.
+
+**Usuarios y estadísticas por receptor.** Las ventanas *Connected Users* y *User Statistics* muestran el receptor en cuya página están, aunque haya varios receptores abiertos uno junto a otro en el mismo navegador. Las estadísticas salen de los propios registros de ese receptor: `logs/` para el receptor principal, `instances/<id>/logs/` para los demás.
+
 **Los datos propios de cada receptor.** Una página abierta en un segundo receptor carga el `site_information.json` de ese receptor antes de arrancar, de modo que los botones de banda, la frecuencia inicial, la lista de oyentes, los datos de estación y los enlaces de Receiver y Antenna son todos suyos. Una visita normal al receptor principal no hace ninguna petición adicional.
 
 Las claves de `site_information.json` para esto:

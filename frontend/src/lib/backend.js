@@ -37,8 +37,16 @@ export function sendUserID (id) {
   })
 }
 
+// The WASM side (zstd, codecs) may be started only once. The receiver strips
+// (lib/RxStrip.svelte) need it too and can mount before init() has run.
+let _wrappersReady = null
+export function wrappersReady () {
+  if (!_wrappersReady) _wrappersReady = initWrappers()
+  return _wrappersReady
+}
+
 export async function init (username) {
-  await initWrappers()
+  await wrappersReady()
   await Promise.all([waterfall.init(), audio.init(), events.init()])
   settings = audio.settings
   // Send username immediately after sockets open, before server assigns a random key

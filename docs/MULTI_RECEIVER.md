@@ -196,6 +196,12 @@ The RADE sidecar belongs to the main receiver only. A named instance never start
 
 **The receiver picker.** On a station with more than one receiver the page header gets a line of its own, *Receivers:*, with one button per receiver; the current one is shown in yellow. The /mobile page has the same buttons as a second row in its top bar, and they open the other receiver's /mobile page.
 
+**Show All strips.** A *Show All* checkbox after the receiver buttons puts each other receiver under the listener's waterfall as a live strip. A click there opens that receiver tuned to the frequency clicked, and a page the listener left reopens on the view they left it with. Each strip is a waterfall-only socket to the other receiver (`/waterfall?rx=<id>`): it is not a listener there — the user count and the per-IP listener limit do not see it, `per_ip_sockets` does — and it costs about 10 KB/s of upload for each listener who ticks the box. It is off by default and needs nothing on the server.
+
+**Switching by frequency.** A frequency outside this receiver's coverage that another receiver covers — typed, from a link, a bookmark or a spot — opens the receiver that covers it. The page learns each receiver's range by opening its `/waterfall` socket for a moment, and remembers it for a day.
+
+**Users and statistics per receiver.** The *Connected Users* and *User Statistics* windows show the receiver whose page they are on, even with several receivers open side by side in one browser. The statistics come from that receiver's own logs — `logs/` for the main receiver, `instances/<id>/logs/` for the others.
+
 **Each receiver's own details.** A page opened on a second receiver loads that receiver's `site_information.json` before it starts, so the band buttons, the starting frequency, the users list, the station details and the Receiver and Antenna links are all its own. A plain visit to the main receiver makes no extra request.
 
 Keys in `site_information.json` for this:

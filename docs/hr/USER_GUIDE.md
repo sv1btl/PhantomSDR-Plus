@@ -189,6 +189,8 @@ Primjeri:
 - `14.2` + **MHz** → 14.200 MHz
 - `145.5` + **MHz** → 145.500 MHz
 
+**Upisana frekvencija donosi i svoj pojas.** Prijemnik ide u pojas u koji ste upisali onako kako bi to učinila tipka tog pojasa: vodopad prikazuje cijeli pojas, svjetlina i kontrast preuzimaju postavke tog pojasa, a način rada slijedi plan pojasa — ali ostajete točno na upisanoj frekvenciji. Izvan definiranih pojaseva mijenja se samo frekvencija. Ima li stanica još jedan prijemnik koji pokriva tu frekvenciju — recimo `145.5` **MHz** upisano na KV prijemniku — umjesto toga otvara se stranica tog prijemnika, već ugođena i uokvirena na isti način (vidi *Odabir prijemnika* niže).
+
 #### Način 3: miš na znamenkama
 
 1. Postavite pokazivač iznad znamenke prikaza frekvencije — ona zasvijetli
@@ -281,6 +283,12 @@ S-metar prikazuje jakost signala:
 ### Odabir prijemnika
 
 Neke stanice imaju više od jednog prijemnika — na primjer jedan za kratki val i jedan za opseg od 2 m. U zaglavlju stranice prikazuju redak *Receivers:* s jednim gumbom po prijemniku; onaj na kojem ste prikazan je žuto. Pritiskom na drugi gumb otvara se stranica tog prijemnika, s vlastitim vodopadom, opsezima, chatom i popisom slušatelja. Na stranici /mobile isti gumbi nalaze se u gornjoj traci. Stanica s jednim prijemnikom ne prikazuje takav redak.
+
+**Show All.** Iza tipki prijemnika nalazi se kućica **Show All**. Kad je označena, svaki drugi prijemnik stanice pojavljuje se ispod vašeg vodopada — njegov spektar i vodopad, s vlastitim oznakama i vlastitom ljestvicom frekvencija, najnoviji redak na vrhu. Prelaskom miša očitavate frekvenciju i najbližu oznaku; klik otvara taj prijemnik na tom mjestu, u istoj kartici: na oznaci u načinu rada oznake, drugdje u načinu koji daje plan pojasa. Preglednik pamti kućicu; isključena je dok je ne označite, jer je svaka traka još jedan tok vodopada (oko 10 KB/s).
+
+**Prikaz koji ste ostavili ostaje.** Kad napustite stranicu prijemnika, pamte se njegov zoom, svjetlina, kontrast, način rada i frekvencija. Njegova traka na drugoj stranici tada prikazuje isti dio pojasa, s malim zelenim ▼ ondje gdje ste bili ugođeni; tipka u zaglavlju trake prikazuje taj raspon i **Full span** — pritisnite je za cijeli raspon prijemnika, a **Last view** za povratak. Klik na frekvenciju unutar tog prikaza ponovno otvara prijemnik upravo tako, s istim zoomom, razinama i načinom rada, umjesto cijelog raspona.
+
+**Pravi prijemnik sam od sebe.** Frekvencija koju ovaj prijemnik ne pokriva, a drugi prijemnik stanice pokriva — upisana, iz poveznice, oznake, DX spota, poruke u chatu ili oznake drugog slušatelja — otvara stranicu tog prijemnika, ugođenu na nju. Kotačić miša i koraci po znamenkama nikad ne mijenjaju prijemnik, kao ni primopredajnik spojen preko CAT-a.
 
 ---
 
@@ -541,6 +549,8 @@ Isti Morseov filtar od ±250 Hz kao **CW**, ali se ton uzima ispod nosioca umjes
 
 **Na stolnoj stranici nema gumba CW-L.** Njezin red načina rada je `USB · LSB · CW · AM · QUAM · FM`. CW-L se nudi na pojednostavljenoj stranici `/mobile`, a na stolnoj se i dalje može postaviti poveznicom ili knjižnom oznakom koja ga imenuje.
 
+Rade i poveznice pisane za KiwiSDR ili UberSDR: `modulation=CWU` (ili `CW-U`) otvara u CW-u, a `modulation=CWL` u CW-L-u.
+
 ### WBFM (širokopojasni FM)
 
 **Koristi se za:**
@@ -800,6 +810,7 @@ Frekvencija izvan pokrivenosti prijamnika povlači se na najbliži rub, pa vas s
 - **Povlačenje za ugađanje**: povucite lijevo/desno po slapu
 - **Stiskanje za uvećanje**: stisnite slap za približavanje/udaljavanje
 - **Vodoravni način**: okrenite uređaj za bolji pregled
+- **Spektar i vodopad po mjeri telefona**: u proširenom prikazu oba su viša nego što bi ih učinile proporcije stolne stranice
 
 ### Savjeti za mobilne uređaje
 

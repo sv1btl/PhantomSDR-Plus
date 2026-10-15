@@ -82,7 +82,7 @@ Sve naredbe koje sysop koristi za rad PhantomSDR-Plus stanice, grupirane po zada
 | `./update.sh --apply --yes` | Ažurira bez pitanja; svaka datoteka koju ste uredili ostaje sačuvana. | [Vodič za instalaciju](INSTALLATION.md#ostale-mogućnosti) |
 | `./update.sh --apply --prune` | Nudi i brisanje datoteka uklonjenih u izvornom repozitoriju. | [Vodič za instalaciju](INSTALLATION.md#pokretanje) |
 | `./update.sh --from FILE` | Uzima novu verziju iz `.zip`/`.tar.gz` ili mape — bez mreže. | [Vodič za instalaciju](INSTALLATION.md#ostale-mogućnosti) |
-| `./update.sh --ref v5.1.0` | Ažurira na oznaku, granu ili commit umjesto trenutnog stabla. | [Vodič za instalaciju](INSTALLATION.md#ostale-mogućnosti) |
+| `./update.sh --ref v5.2.0` | Ažurira na oznaku, granu ili commit umjesto trenutnog stabla. | [Vodič za instalaciju](INSTALLATION.md#ostale-mogućnosti) |
 | `./update.sh --list-excludes` | Prikazuje datoteke koje alat za ažuriranje nikad ne dira. | [Vodič za instalaciju](INSTALLATION.md#ostale-mogućnosti) |
 | `./update.sh --verbose` | Prikazuje sve datoteke, ne samo prvih 40. | [Vodič za instalaciju](INSTALLATION.md#ostale-mogućnosti) |
 | `./update.sh --restore LAST` | Vraća datoteke koje je zadnje ažuriranje prepisalo. | [Vodič za instalaciju](INSTALLATION.md#poništavanje-ažuriranja) |

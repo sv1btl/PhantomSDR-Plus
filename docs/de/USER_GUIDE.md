@@ -189,6 +189,8 @@ Beispiele:
 - `14.2` + **MHz** → 14.200 MHz
 - `145.5` + **MHz** → 145.500 MHz
 
+**Eine eingetippte Frequenz bringt ihr Band mit.** Der Empfänger geht in das Band, in das Sie getippt haben, so wie es dessen Bandtaste täte: Der Wasserfall zoomt auf das ganze Band, Helligkeit und Kontrast übernehmen die Einstellungen dieses Bandes, und die Betriebsart folgt dem Bandplan — Sie bleiben aber genau auf der eingetippten Frequenz. Außerhalb aller definierten Bänder ändert sich nur die Frequenz. Hat die Station einen weiteren Empfänger, der die Frequenz abdeckt — etwa `145.5` **MHz**, auf einem KW-Empfänger eingetippt —, öffnet sich stattdessen dessen Seite, schon abgestimmt und genauso eingerahmt (siehe *Einen Empfänger wählen* weiter unten).
+
 #### Methode 3: Maus auf den Ziffern
 
 1. Bewegen Sie den Zeiger über eine Ziffer der Frequenzanzeige — sie leuchtet auf
@@ -282,6 +284,12 @@ Das S-Meter zeigt die Signalstärke:
 ### Einen Empfänger wählen
 
 Manche Stationen betreiben mehr als einen Empfänger — zum Beispiel einen für Kurzwelle und einen für das 2-m-Band. Sie zeigen im Seitenkopf eine Zeile *Receivers:* mit einer Schaltfläche pro Empfänger; der, auf dem Sie gerade sind, erscheint gelb. Ein Druck auf eine andere Schaltfläche öffnet die Seite dieses Empfängers, mit eigenem Wasserfall, eigenen Bändern, Chat und eigener Hörerliste. Auf der Seite /mobile sitzen dieselben Schaltflächen in der oberen Leiste. Eine Station mit nur einem Empfänger zeigt keine solche Zeile.
+
+**Show All.** Hinter den Empfänger-Tasten steht ein Kästchen **Show All**. Ist es angehakt, erscheint jeder andere Empfänger der Station unter Ihrem Wasserfall — sein Spektrum und sein Wasserfall, mit eigenen Markern und eigener Frequenzskala, die neueste Zeile oben. Mit der Maus darüber lesen Sie Frequenz und nächsten Marker ab; ein Klick öffnet diesen Empfänger dort, im selben Tab: auf einem Marker in dessen Betriebsart, anderswo in der Betriebsart des Bandplans. Das Kästchen merkt sich Ihr Browser; es ist aus, bis Sie es anhaken, denn jeder Streifen ist ein weiterer Wasserfall-Datenstrom (etwa 10 KB/s).
+
+**Die verlassene Ansicht bleibt erhalten.** Wenn Sie die Seite eines Empfängers verlassen, werden Zoom, Helligkeit, Kontrast, Betriebsart und Frequenz gespeichert. Sein Streifen auf der anderen Seite zeigt dann genau diesen Teil des Bandes, mit einem kleinen grünen ▼ an der zuletzt eingestellten Frequenz; die Taste im Kopf des Streifens zeigt diesen Bereich und **Full span** — drücken Sie sie für den ganzen Bereich des Empfängers und **Last view**, um zurückzukehren. Ein Klick auf eine Frequenz in dieser Ansicht öffnet den Empfänger wieder genau so, mit demselben Zoom, denselben Pegeln und derselben Betriebsart, statt mit seinem ganzen Bereich.
+
+**Von selbst der richtige Empfänger.** Eine Frequenz, die dieser Empfänger nicht abdeckt, ein anderer Empfänger der Station aber schon — eingetippt, aus einem Link, einem Lesezeichen, einem DX-Spot, einer Chatnachricht oder dem Etikett eines anderen Hörers —, öffnet die Seite jenes Empfängers, dort abgestimmt. Mausrad und Ziffernschritte wechseln nie den Empfänger, ebenso wenig ein über CAT verbundener Transceiver.
 
 ---
 
@@ -542,6 +550,8 @@ Derselbe ±250-Hz-Morsefilter wie **CW**, der Ton wird aber unterhalb statt ober
 
 **Auf der Desktop-Seite gibt es keine CW-L-Taste.** Deren Betriebsartenreihe lautet `USB · LSB · CW · AM · QUAM · FM`. CW-L wird auf der vereinfachten Seite `/mobile` angeboten; am Desktop lässt es sich weiterhin über einen Link oder ein Lesezeichen setzen, das es benennt.
 
+Auch für KiwiSDR oder UberSDR geschriebene Links funktionieren: `modulation=CWU` (oder `CW-U`) öffnet in CW, `modulation=CWL` in CW-L.
+
 ### WBFM (Breitband-FM)
 
 **Verwendet für:**
@@ -801,6 +811,7 @@ Eine Frequenz außerhalb des Empfangsbereichs wird auf die nächste Bereichsgren
 - **Wischen zum Abstimmen**: nach links/rechts über den Wasserfall wischen
 - **Zwei-Finger-Zoom**: den Wasserfall zum Vergrößern/Verkleinern aufziehen
 - **Querformat**: für eine bessere Ansicht drehen
+- **Spektrum und Wasserfall in Telefongröße**: In der erweiterten Ansicht sind beide höher, als es die Proportionen der Desktop-Seite ergäben
 
 ### Tipps für Mobilgeräte
 

@@ -139,6 +139,8 @@ Der Unterschied zwischen bernstein und rot ist der, der Zeit spart: bernstein he
 
 Der farbige Punkt sagt zusätzlich, welchen Standort Sie gerade hören — grün den eigenen Empfänger, cyan den entfernten.
 
+`Ready (unaligned)` (ebenfalls grün) heißt: Es wählt bereits zwischen den Standorten, während die Suche nach der Ausrichtung weiterläuft — siehe nächsten Abschnitt.
+
 ### Das Ausrichten dauert etwa 15 Sekunden
 
 Das ist normal. Die beiden Ströme werden über die Korrelation ihrer **Audio-Hüllkurven** ausgerichtet, und dafür braucht es ein Zeitfenster. Die Suche läuft in zwei Stufen: eine schmale Suche über ±1,5 Sekunden kann beginnen, sobald etwa 9 Sekunden Ton gesammelt sind, und eine zweite, unabhängige Messung fünf Sekunden später muss mit der ersten **übereinstimmen**, bevor die Ausrichtung akzeptiert wird. Liegen die beiden Stationen zeitlich weiter auseinander — ein bis zwei Sekunden zusätzliche Pufferung irgendwo auf dem Weg —, übernimmt bei etwa 14 Sekunden die volle Suche über ±4 Sekunden, und die Bestätigung folgt bei 19.
@@ -147,7 +149,7 @@ Dieser Bestätigungsschritt ist wichtig. Schwinden zwei Standorte gegenphasig �
 
 Eine zweite Sache muss stimmen, bevor eine Ausrichtung hält: die Abtastraten der beiden Empfänger. Zwei Empfänger sind zwei Takte und zwei Dezimierungsketten, ihre Audioströme treffen also **nicht** ganz mit derselben Rate ein, selbst wenn beide 12 kHz melden — 2% Unterschied sind normal, also 240 Abtastwerte pro Sekunde Drift, weit mehr als die Ausrichtungstoleranz. Der entfernte Strom wird deshalb laufend auf die Rate Ihres eigenen Empfängers resampelt. Dieses Verhältnis wird durch **Zählen von Abtastwerten** ermittelt, nicht durch Korrelation; es braucht also keine eigene Einrastung und steht schon in den ersten Sekunden fest — noch bevor die erste Ausrichtungssuche läuft. Ein schwaches oder unterbrochenes Signal kann zwei bis drei Anläufe brauchen, 30 Sekunden sind also kein Grund zur Sorge; eine Minute ohne Ergebnis schon.
 
-Während `searching` zeigen beide SNR-Werte `0.0`. Das ist Absicht: Beide Schätzungen werden an **inhaltlich ausgerichteten** Abtastwerten gemessen, also wird vor einer Ausrichtung nichts gemessen. `0.0 / 0.0` heißt „noch nicht eingerastet", nicht „kein Signal".
+Während die Suche läuft, wartet die Diversität nicht auf sie. Die beiden Datenströme werden nach dem Eintreffen ihres Audios gepaart — oder nach der zuletzt gefundenen Verzögerung —, und der bessere Standort wird wie gewohnt nach SNR gewählt; Ratenkorrektur, Pegelangleichung und SNR-Trimm wirken weiterhin. So kommt auch eine Station durch, die **nur** der entfernte Empfänger hört: der Fall, in dem Diversität am meisten hilft und keine Ausrichtung möglich ist. Das Feld zeigt dann `Ready (unaligned)`, die Zeile **aligned** `by arrival, searching`. Solange beide Standorte die Station hören, aber noch nicht ausgerichtet sind, kann ein Wechsel bis zur tatsächlichen Verzögerung zwischen beiden wiederholen oder überspringen, meist unter 1,5 s; sobald die Suche einrastet, geht sie auf die genaue Verzögerung über.
 
 ---
 

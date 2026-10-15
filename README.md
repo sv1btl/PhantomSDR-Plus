@@ -1,9 +1,9 @@
-# PhantomSDR-Plus WebSDR (version 5.1.0)
+# PhantomSDR-Plus WebSDR (version 5.2.0)
 
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-cyan.svg)](https://www.gnu.org/licenses/gpl-3.0)
-[![Version](https://img.shields.io/badge/version-5.1.0-cyan.svg)](https://github.com/sv1btl/PhantomSDR-Plus)
+[![Version](https://img.shields.io/badge/version-5.2.0-cyan.svg)](https://github.com/sv1btl/PhantomSDR-Plus)
 
-**Maintained by SV1BTL.** The current version is 5.1.0, and the project lives at
+**Maintained by SV1BTL.** The current version is 5.2.0, and the project lives at
 **https://github.com/sv1btl/PhantomSDR-Plus** — that is the one to clone, link to
 and report issues against.
 
@@ -13,27 +13,26 @@ PhantomSDR-Plus is licensed under the GPL v3 with the [additional terms](ADDITIO
 
 ## Note: Tested on Debian 12 (Bookworm), Debian 13 (Trixie), Ubuntu 22.04, Ubuntu 24.04.
 
-**What's new in v.5.1.0**
+**What's new in v.5.2.0**
 
-* **An FLDIGI window with five more modes.** The decoder that used to be called RTTY is now **FLDIGI** — button and dropdown entry — and besides RTTY, SITOR, PSK31, Olivia, Packet and APRS it decodes **DominoEX**, **THOR**, **THROB / THROBX**, **Hellschreiber** and **MT63**, all in the listener's browser, with no fldigi installed anywhere. **MFSK16/32/64** have their own entry, right after Olivia. Each new mode is a port of fldigi's own receiver, checked against real fldigi recordings of every sub-mode (DominoEX 4–22, THOR 4–100 including the K=15 modes, THROB and THROBX 1/2/4, all seven Hell modes, MT63-500/1000/2000 short and long). Hellschreiber is shown as the picture it is — two copies of every line, as fldigi paints it — and can be saved as a PNG; every other new mode has its own Mode list and a squelch measured to print nothing from two minutes of noise. See **[docs/DECODERS.md](docs/DECODERS.md)**.
-* **Packet (AX.25) and APRS**, with a live map. 1200 Bd VHF/UHF packet (the receiver goes to FM on the channel) and 300 Bd HF packet; every frame is checked before it is printed. APRS positions, weather, messages, objects and telemetry come out as plain text, and every station heard with a position appears on an OpenStreetMap map under the text, with tracks, distance and bearing from the receiver. The mouse wheel gains a **12.5 kHz** step for the VHF channel grid.
-* **A frequency marker starts its decoder.** A `markers.json` entry whose mode is a digital mode — FT8, FT4, FT2, JS8, WSPR, SSTV, FAX, NAVTEX, RTTY, PSK31, OLIVIA, MFSK, DOMINOEX, THOR, THROB, HELL, MT63, PACKET, APRS and more — tunes to it and starts that decoder in one click.
-* **A station wizard, and every installer question first.** `configure-station.sh` asks about the receiver, band, station and ports once, keeps the answers in `station.conf`, and writes the `.toml`, `site_information.json` and relay config from them, so they can no longer disagree. All four installers start with it and then run unattended. New stations use one public port (9000, `proxy.py`) with everything else on loopback behind it; changing a port later is one command that carries the change everywhere and puts it into service.
-* **https:// alongside http://.** `setup-https.sh` (or one more wizard question) puts Caddy on port 443 with a Let's Encrypt certificate that renews itself; the http address keeps working for websdr.org, Kiwi clients and http-only partners.
-* **`update.sh` without GitHub, and without questions.** `./update.sh --from` takes the new version from a folder, `.tar.gz` or `.zip` — a USB stick, for a station without a direct connection. Each release ships the fingerprint of every file ever published, so a first update recognises old files as old and asks only about real local edits.
-* **Where the project comes from.** The version line on the receiver page and on /mobile reads "original from github.com/sv1btl/PhantomSDR-Plus", kept by the [additional terms](ADDITIONAL_TERMS.md) of the GPL; the installers, `update.sh` and the admin panel say so when a copy comes from a fork.
-* **AGC like a transceiver.** **Fast**, **Medium** and **Slow** are now real AGC timings inside the server, for each listener separately: Fast recovers in about 0.3 s, Medium holds 0.25 s and recovers in 1.2 s, Slow holds 1 s and recovers in 3 s; **Auto** is the receiver's own AGC as before. All four give the same loudness — measured on air within 0.6 dB — and differ only in what happens between words and after a strong station stops. While a decoder is open the AGC is held on Slow for it, and a **Slow (decoder)** note beside the AGC heading says so. Needs the new backend: `./recompile.sh --both` and a restart. See **[docs/USER_GUIDE.md](docs/USER_GUIDE.md)**.
-* **A new waterfall Auto Adj.** — automatic brightness and contrast. It measures the noise floor across the visible span, turns it into an even dark background and lifts weak signals above it, the same with every colour map; the spectrum trace keeps its true dB scale.
-* **Documentation:** a new **Appendix** — every command a sysop types, each linked to the page that explains it — closes the offline PDFs, now 18 chapters in each of seven languages. The page gains a **Website** button beside the GitHub link, and **💾 Desktop applications** opens the download page on the [website](https://phantomsdr.psychomed.gr).
-* **Fixes:** chat counts characters, not bytes, so Greek and Cyrillic messages get the full 200 characters, and never cuts a letter in half; the admin panel's Users and Chat pages cover every receiver; the 2 m modes follow the IARU Region 1 band plan (FM from 144.794 MHz, so APRS 144.800 opens in FM).
+* **Show All — the station's other receivers under your waterfall.** On a station with more than one receiver, a **Show All** checkbox after the receiver buttons puts each other receiver under the main waterfall as a live strip: its spectrum and waterfall, with its own markers and frequency scale, in its own colours and levels, the newest line at the top. Hover over it to read a frequency and the nearest marker; click and that receiver opens there, in the same tab — on a marker in the marker's mode. It is off until the listener ticks it, and costs about 10 KB/s per listener who does; each strip is a waterfall-only socket, so it is not counted as a listener on the other receiver, and the server needs no change. See **[docs/MULTI_RECEIVER.md](docs/MULTI_RECEIVER.md)**.
+* **Back where you were.** Leaving a receiver's page remembers its zoom, brightness, contrast, mode and frequency. Its strip on the other page opens on that same part of the band, with a green ▼ where you were tuned and a **Full span** / **Last view** button, and clicking inside that view brings the receiver back exactly so — not at its whole range.
+* **The right receiver by itself.** A frequency this receiver does not cover but another of the station's receivers does — typed, from a link, a bookmark, a DX spot, the chat or another listener's label — opens that receiver's page, tuned there. The mouse wheel, the digit steps and a rig connected over CAT never switch receivers.
+* **A number pad, and a typed frequency brings its band.** Click the black frequency box and a number pad opens (or type on the keyboard; the two Enter keys pick kHz or MHz); click a digit to step it up, right-click to step it down. A typed frequency now lands the way that band's button would: the waterfall zoomed to the whole band, the band's brightness and contrast, and the band-plan mode — on this receiver or, through the automatic switch, on the one that covers it. See **[docs/USER_GUIDE.md](docs/USER_GUIDE.md)**.
+* **Receive diversity switches even when only one site hears the station.** Until the two streams are aligned they are paired by arrival, and the better site is chosen by SNR as usual — so a station heard only by the remote now comes through, the case where diversity helps most. The panel shows **Ready (unaligned)** meanwhile. See **[docs/RECEIVE_DIVERSITY.md](docs/RECEIVE_DIVERSITY.md)**.
+* **Connected Users and User Statistics per receiver.** With several receivers open side by side in one browser, each page's windows show its own receiver, from its own logs.
+* **A bigger spectrum and waterfall on phones.** In the extended mobile view the spectrum is 1.6× taller and the waterfall nearly twice as tall as before (on a 412-pixel screen 57 + 42 pixels instead of 35 + 23); the desktop page is unchanged.
+* **Fixes:** the CW filter is centred on the 750 Hz tone (the tone used to sit 50 Hz from the filter's edge), and CW-L reaches the server as LSB; links written for KiwiSDR and UberSDR (`modulation=CWU`, `CW-U`, `CWL`) open in CW and CW-L; websdr.org registration works with sdr-list registration switched off, sends its ping over IPv4, and its callback (`/~~orgstatus`) now gets through `proxy.py`; the installers build the backend with OpenCL whenever the OpenCL step ran.
+* **Documentation:** the User Guide, Several Receivers, Receive Diversity and Project Structure manuals cover all of the above in all seven languages, and the offline PDFs are rebuilt.
 
 ------------------
 
 We also provide a wide range of additional **features**:
 
-* A new `install.sh` installation procedure that simplifies the initial server setup.
+* A new `install.sh` installation procedure that simplifies the initial server setup, starting with a station wizard (`configure-station.sh`): the receiver, band, station and ports are asked once and kept in `station.conf`, every config is written from it, and new stations publish a single public port (9000, `proxy.py`).
+* **https:// alongside http://** — `setup-https.sh` puts Caddy with a self-renewing Let's Encrypt certificate on port 443, while the http address keeps serving websdr.org, Kiwi clients and http-only partners.
 * A `recompile.sh` script for quickly rebuilding the backend, the frontend, or both.
-* An `update.sh` tool that updates the receiver with one command, keeping your configs, markers, logs and edited scripts untouched; each update's backup is one dated archive in `update-backups/`, restorable with `./update.sh --restore LAST`.
+* An `update.sh` tool that updates the receiver with one command, keeping your configs, markers, logs and edited scripts untouched; each update's backup is one dated archive in `update-backups/`, restorable with `./update.sh --restore LAST`; `./update.sh --from` takes the new version from a folder, `.tar.gz` or `.zip` for a station without GitHub, and each release carries the fingerprint of every published file, so only real local edits are asked about.
 * Installers that stop a running receiver first, frame every step with its own verdict, and spell out the default of each question.
 * A **Thermal Protection** function in Admin Panel, to avoid thermal stress of the CPU and take the proper actions.
 * A modern, futuristic user-interface design.
@@ -44,8 +43,8 @@ We also provide a wide range of additional **features**:
 * An S-meter that reads **VHF S-units above 30 MHz** (IARU Region 1: S9 is −93 dBm there, −73 dBm below), with an optional rest-at-zero on an empty VHF/UHF channel (`"siteSMeterGateDb"`).
 * The sysop's kick and the `X-Forwarded-For` header are trusted only from the same machine, so nobody can kick listeners or slip past the per-IP limits through the proxy.
 * Optional server settings for multi-receiver stations: `[server] host`, `[server] html_fallback_root`, `[websdr] public_port`, and per-receiver `siteReceiverURL` / `siteAntennaURL` links.
-* A full-featured, password-protected Admin Panel for remote server management without requiring direct SSH access. It provides access to server logs, chat moderation, user messaging, chat-message deletion without restarting the server, user disconnection, command execution, file editing, and other administrative functions.
-* Integrated decoders for **FT8, FT4, FT2, JS8, CW, QRSS Grabber, WSPR, HF FAX, SSTV, NAVTEX, an FLDIGI window with RTTY, PSK31, Olivia, MFSK16/32/64, DominoEX, THOR, THROB, Hellschreiber, MT63, Packet (AX.25) and APRS (with a live map of the stations heard), and FreeDV RADE V1**. RTTY, PSK31, FT8, FT4 and FT2 show a real SNR (the FT modes agree with WSJT-X), and RTTY has a squelch. See the [decoder documentation](docs/DECODERS.md).
+* A full-featured, password-protected Admin Panel for remote server management without requiring direct SSH access. It provides access to server logs, chat moderation, user messaging, chat-message deletion without restarting the server, user disconnection, command execution, file editing, and other administrative functions; its Users and Chat pages cover every receiver of the station.
+* Integrated decoders for **FT8, FT4, FT2, JS8, CW, QRSS Grabber, WSPR, HF FAX, SSTV, NAVTEX, an FLDIGI window with RTTY, PSK31, Olivia, MFSK16/32/64, DominoEX, THOR, THROB, Hellschreiber, MT63, Packet (AX.25) and APRS (with a live map of the stations heard), and FreeDV RADE V1**. RTTY, PSK31, FT8, FT4 and FT2 show a real SNR (the FT modes agree with WSJT-X), and RTTY has a squelch. The FLDIGI modes are ports of fldigi's own receivers, checked against real fldigi recordings, with no fldigi installed anywhere; Hellschreiber is shown as a picture that can be saved as a PNG. A frequency marker whose mode is a digital mode starts its decoder in one click. See the [decoder documentation](docs/DECODERS.md).
 * A **channel scanner** on the tuning row: it sweeps the band — or exactly what the waterfall is showing — and stops on the first channel rising a chosen number of dB above the band noise floor, resumes by itself when the channel goes quiet, keeps the step on the mode's own channel grid, and can skip empty channels by reading the spectrum. Locked-out channels and settings live in the listener's browser.
 * A **Decoder ID** tool that identifies an unknown digital signal and offers the matching decoder in one click. Off by default.
 * Picking a digital mode sets both the sideband and the passband.
@@ -56,9 +55,9 @@ We also provide a wide range of additional **features**:
   * **FT8, FT4 and JS8 → [PSK Reporter](https://pskreporter.info/)** using the native IPFIX/UDP protocol. Spots are batched and transmitted at the recommended interval of at least five minutes. JS8 is spotted at Normal speed, from heartbeats, compound frames and directed messages; group destinations such as `@ALLCALL` and unresolved callsigns are never reported.
   * **WSPR → [WSPRnet](https://wsprnet.org/)** using the standard WSPRnet upload endpoint. WSPR reports are sent only to WSPRnet to prevent duplicate submissions.
 * Integrated **FreeDV Reporter and DX Cluster tools**.
-* Chat with a **↪ Reply** button on every message; answers appear indented under the message they answer, on the desktop page and on /mobile.
+* Chat with a **↪ Reply** button on every message; answers appear indented under the message they answer, on the desktop page and on /mobile. Messages are measured in characters, so Greek and Cyrillic get the full 200.
 * **Automatic C-QUAM status indication**. When a C-QUAM transmission is detected, the button label turns green. While operating in AM mode, pressing the button again enables synchronous AM detection on the carrier. The label then turns yellow and displays `SAM`. Pressing the button once more returns the receiver to standard AM mode.
-* A configurable band-plan overlay on the waterfall, with independent brightness, frequency-range, and visibility settings for each band.
+* A configurable band-plan overlay on the waterfall, with independent brightness, frequency-range, and visibility settings for each band; the 2 m modes follow the IARU Region 1 band plan.
 * An improved custom colour-map system. A reversed spectrum and waterfall layout is used by default across all interface variants, although this behaviour can be changed manually.
 * Optimized FLAC and Opus encoders with balanced latency. Both operate at 16-bit resolution, providing a theoretical dynamic range of approximately 96 dB. ⭐
 * Numerous redesigned and optimized functions, including:
@@ -71,12 +70,12 @@ We also provide a wide range of additional **features**:
   * AI Noise Reduction (RNNoise, in the listener's browser, voice modes only).
   * All of the above bypass the decoders, which read raw audio.
   * Synchronous AM enabled by default.
-  * Selectable AGC modes.
+  * Transceiver-style AGC: Fast, Medium and Slow timed in the server for each listener, and Auto, the receiver's own; a running decoder holds it on Slow and says so.
   * Automatic squelch.
   * CTCSS tone squelch (FM), with a pop-up picker for the subtone.
   * Configurable buffer settings.
-  * Automatic waterfall-level adjustment.
-  * Mouse-wheel frequency tuning.
+  * Auto Adj.: automatic waterfall brightness and contrast from the measured noise floor, the same with every colour map.
+  * Mouse-wheel frequency tuning, with a 12.5 kHz step for the VHF channel grid.
   * Keyboard shortcuts.
   * Zoom slider.
   * Enhanced mobile GUI.
@@ -98,6 +97,7 @@ We also provide a wide range of additional **features**:
 * **Connection limits, and a flood guard.** The receiver can now cap simultaneous listeners and the rate of new connections per address, and bound the silent half-open connections that no other limit can see. Two keys switch it on — `per_ip` and `per_ip_rate` in `[limits]` — and everything defaults to off, so an existing config behaves as before. A refused listener is told why instead of watching a page that never loads. Below it sits `setup-firewall.sh`, an optional nftables layer that sheds volume before the server reads a byte and cannot lock you out of your own machine. Full manual, in all seven languages and in the offline PDFs: **[docs/CONNECTION_LIMITS.md](docs/CONNECTION_LIMITS.md)** — including how to measure your own traffic before choosing the numbers. **A dropped connection now ends the session.** The audio socket no longer reconnects by itself. On a receiver that was wrong: the waterfall and events sockets never came back with it, so a retried session was live audio attached to a frozen waterfall, and stopping the server stopped clearing it.
 * **TCI-CAT on the receiver page.** A new **TCI-CAT** button beside IF Filters lets the page follow your own transceiver by itself, with no desktop application: the browser talks straight to the TCI server of ExpertSDR, AetherSDR or Thetis on your computer. Frequency, mode and filter width follow in both directions — turn the rig's dial or press its FIL button and the receiver follows, click the waterfall or pick an IF filter and the rig follows — and the page falls silent while you transmit. 
 * **Transceiver control from the desktop app.** [Desktop PhantomSDR+](https://www.dropbox.com/scl/fo/kjwj96zg3kj7dgq4fjef9/APnA3c9hhv4hk3YMGIGjH7s?rlkey=jfiwklly63kv73poalx631pk3&st=m37uvaym&dl=0). **A 💾 Desktop applications button** under Open Additional Info, beside System Resources, opens the download folder of Desktop PhantomSDR+. 
+* The page carries a **Website** button beside the GitHub link, and the version line reads "original from github.com/sv1btl/PhantomSDR-Plus"; the installers, `update.sh` and the admin panel say so when a copy comes from a fork.
 * PhantomSDR is registered with the following WebSDR directories:
   * [sdr-list.xyz](https://sdr-list.xyz)
   * [sdr.shbrg.nl](https://sdr.shbrg.nl/sdr/)
@@ -471,7 +471,7 @@ Every release carries **`update-known.txt`**, the fingerprint of every version o
 For a machine you do not sit at: <br />
 ```
 bash update.sh --apply --yes   never asks; every file you have edited is KEPT
-bash update.sh --ref v5.1.0    a tag, branch or commit instead of the current tree
+bash update.sh --ref v5.2.0    a tag, branch or commit instead of the current tree
 ```
 
 **On a very old installation the rebuild may fail**, because `update.sh` updates files and not system packages. If the rebuild stops with a compiler or meson error, run `bash install.sh` — itself brought up to date by the same run — and your configuration survives that too. <br />
@@ -750,7 +750,7 @@ For detailed information about installation, usage, and the project structure, p
 
 ### 📄 Offline PDF editions:
 
-Every document above, in one printable file — eighteen chapters in reading order, with a linked table of contents and working cross-references. Handy for reading away from the machine, or for printing the parts you keep coming back to.
+Every document above, in one printable file — eighteen chapters in reading order, closing with an Appendix of every command a sysop types, each linked to the page that explains it, with a linked table of contents and working cross-references. Handy for reading away from the machine, or for printing the parts you keep coming back to.
 
 | Language | Download |
 |---|---|

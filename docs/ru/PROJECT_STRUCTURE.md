@@ -297,6 +297,7 @@ PhantomSDR-Plus
 │   │   │   ├── fftRadix2.js
 │   │   │   ├── freedv-reporter.js
 │   │   │   ├── FreeDVReporter.svelte
+│   │   │   ├── FreqKeypad.svelte      # цифровая клавиатура для ввода частоты
 │   │   │   ├── FrequencyInput.svelte
 │   │   │   ├── FrequencyMarkers.svelte
 │   │   │   ├── FtxSpectrum.svelte
@@ -310,9 +311,10 @@ PhantomSDR-Plus
 │   │   │   ├── PassbandTuner.svelte
 │   │   │   ├── Popover.svelte
 │   │   │   ├── QrssPanel.svelte
-│   │   │   ├── receivers.js           # данные выбора приёмника (/receivers.json)
+│   │   │   ├── receivers.js           # данные выбора приёмника (/receivers.json), диапазоны, ссылки между приёмниками
 │   │   │   ├── rnnoise.js     # загружает RNNoise для шумоподавления на основе ИИ
 │   │   │   ├── rx.js                  # к какому приёмнику относится страница (?rx=)
+│   │   │   ├── RxStrip.svelte         # «Show All»: живая полоса другого приёмника
 │   │   │   ├── sideService.js         # где страница находит RADE и relay (siteRade / siteRelay)
 │   │   │   ├── SMeterAnalog.svelte
 │   │   │   ├── SMeterDigital.svelte
@@ -961,7 +963,7 @@ PhantomSDR-Plus
 - Структура компоновки
 - Оркестрация компонентов
 - **Ряд кнопок декодеров** — по одной кнопке на декодер на главной панели, сразу под селектором режимов; одно нажатие запускает декодер и открывает его окно, второе — останавливает. Он заменил прежний ряд полосы пропускания. RADEL/RADEU находятся в `lib/ModesSelector.svelte` — рядом с селектором режимов и во всплывающих окнах **Modes** и **Bands**.
-- **Строка версии** — «PhantomSDR+ | v5.1.0 original from github.com/sv1btl/PhantomSDR-Plus», адрес — ссылка; та же строка есть на странице /mobile. Номер версии и адрес находятся в `lib/version.js`; строка — указание авторства, на которое распространяется `ADDITIONAL_TERMS.md`.
+- **Строка версии** — «PhantomSDR+ | v5.2.0 original from github.com/sv1btl/PhantomSDR-Plus», адрес — ссылка; та же строка есть на странице /mobile. Номер версии и адрес находятся в `lib/version.js`; строка — указание авторства, на которое распространяется `ADDITIONAL_TERMS.md`.
 
 #### 2. Отображение водопада (`waterfall.js` + `lib/`)
 - Отрисовка спектра и водопада на canvas и цветовые палитры — в `waterfall.js` (обычный JS, не компонент); пересчёт яркости/контраста для **Auto Adj.** — `lib/wfAutoLevel.js`
@@ -971,6 +973,8 @@ PhantomSDR-Plus
 
 #### 3. Органы управления (`App.svelte` + `lib/`)
 - Ввод и индикация частоты — `lib/FrequencyInput.svelte`
+- Цифровая клавиатура для ввода частоты — `lib/FreqKeypad.svelte`; введённая частота настраивается с масштабом, Min/Max и видом модуляции своего диапазона (`tuneTypedFrequency()` в `App.svelte`), а частота, которую покрывает другой приёмник, открывает тот приёмник
+- Полосы **Show All** других приёмников — `lib/RxStrip.svelte`: по одному сокету `/waterfall?rx=<id>`, каждый кадр декодируется и рисуется, в палитре и уровнях другого приёмника, самая свежая строка сверху; диапазоны приёмников и ссылки между ними берутся из `lib/receivers.js`
 - Выбор вида модуляции (AM/FM/SSB/CW) — `lib/ModesSelector.svelte`, смена диапазона — `lib/BandSelector.svelte`
 - AGC/NR/NB и остальные органы управления находятся в самом `App.svelte`; отдельного `Controls.svelte` нет
 

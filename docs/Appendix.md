@@ -82,7 +82,7 @@ Every command a sysop uses to run a PhantomSDR-Plus station, grouped by task, ea
 | `./update.sh --apply --yes` | Updates unattended; every file you edited is kept. | [Installation Guide](INSTALLATION.md#other-options) |
 | `./update.sh --apply --prune` | Also offers to delete files that were removed upstream. | [Installation Guide](INSTALLATION.md#running-it) |
 | `./update.sh --from FILE` | Takes the new version from a `.zip`/`.tar.gz` or a folder — no network. | [Installation Guide](INSTALLATION.md#other-options) |
-| `./update.sh --ref v5.1.0` | Updates to a tag, branch or commit instead of the current tree. | [Installation Guide](INSTALLATION.md#other-options) |
+| `./update.sh --ref v5.2.0` | Updates to a tag, branch or commit instead of the current tree. | [Installation Guide](INSTALLATION.md#other-options) |
 | `./update.sh --list-excludes` | Prints the files the updater never touches. | [Installation Guide](INSTALLATION.md#other-options) |
 | `./update.sh --verbose` | Lists every file, not only the first 40. | [Installation Guide](INSTALLATION.md#other-options) |
 | `./update.sh --restore LAST` | Puts back the files the last update overwrote. | [Installation Guide](INSTALLATION.md#undoing-an-update) |

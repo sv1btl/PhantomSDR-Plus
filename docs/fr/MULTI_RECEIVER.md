@@ -196,6 +196,12 @@ L'auxiliaire RADE n'appartient qu'au récepteur principal. Une instance nommée 
 
 **Le sélecteur de récepteur.** Sur une station à plusieurs récepteurs, l'en-tête de la page reçoit une ligne à lui, *Receivers:*, avec un bouton par récepteur ; le récepteur actuel apparaît en jaune. La page /mobile a les mêmes boutons en deuxième rangée de sa barre supérieure, et ils ouvrent la page /mobile de l'autre récepteur.
 
+**Bandes Show All.** Une case *Show All* après les boutons de récepteur affiche chaque autre récepteur sous la cascade de l'auditeur, en bande en direct. Un clic sur elle ouvre ce récepteur accordé sur la fréquence cliquée, et une page que l'auditeur a quittée se rouvre avec la vue dans laquelle il l'a laissée. Chaque bande est un socket de cascade seule vers l'autre récepteur (`/waterfall?rx=<id>`) : ce n'est pas un auditeur là-bas — le décompte des utilisateurs et la limite d'auditeurs par IP ne le voient pas, `per_ip_sockets` si — et elle coûte environ 10 Ko/s d'envoi pour chaque auditeur qui coche la case. Elle est désactivée par défaut et ne demande rien au serveur.
+
+**Changement par la fréquence.** Une fréquence hors de la couverture de ce récepteur mais couverte par un autre — tapée, issue d'un lien, d'un signet ou d'un spot — ouvre le récepteur qui la couvre. La page apprend la plage de chaque récepteur en ouvrant un instant son socket `/waterfall`, et la retient pendant un jour.
+
+**Utilisateurs et statistiques par récepteur.** Les fenêtres *Connected Users* et *User Statistics* montrent le récepteur dont elles occupent la page, même avec plusieurs récepteurs ouverts côte à côte dans le même navigateur. Les statistiques viennent des journaux de ce récepteur — `logs/` pour le récepteur principal, `instances/<id>/logs/` pour les autres.
+
 **Les informations propres à chaque récepteur.** Une page ouverte sur un second récepteur charge le `site_information.json` de ce récepteur avant de démarrer ; les boutons de bande, la fréquence de départ, la liste des auditeurs, les informations de station et les liens Receiver et Antenna sont donc tous les siens. Une visite ordinaire du récepteur principal ne fait aucune requête supplémentaire.
 
 Les clés de `site_information.json` concernées :

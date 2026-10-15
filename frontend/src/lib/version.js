@@ -5,5 +5,5 @@
 // modified copies must keep "original from github.com/sv1btl/PhantomSDR-Plus"
 // visible on both pages with the link intact — see ADDITIONAL_TERMS.md in the
 // repository root for the exact terms.
-export const VERSION = "5.1.0";
+export const VERSION = "5.2.0";
 export const ORIGIN_URL = "https://github.com/sv1btl/PhantomSDR-Plus";

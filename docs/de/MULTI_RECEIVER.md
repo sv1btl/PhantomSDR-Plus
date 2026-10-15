@@ -196,6 +196,12 @@ Der RADE-Helfer gehört nur zum Hauptempfänger. Eine benannte Instanz startet o
 
 **Die Empfängerauswahl.** Auf einer Station mit mehr als einem Empfänger bekommt der Seitenkopf eine eigene Zeile, *Receivers:*, mit einer Schaltfläche pro Empfänger; der aktuelle erscheint gelb. Die Seite /mobile hat dieselben Schaltflächen als zweite Reihe in ihrer oberen Leiste, und sie öffnen die /mobile-Seite des anderen Empfängers.
 
+**Show-All-Streifen.** Ein Kästchen *Show All* hinter den Empfänger-Tasten zeigt jeden anderen Empfänger als Live-Streifen unter dem Wasserfall des Hörers. Ein Klick dort öffnet jenen Empfänger auf der angeklickten Frequenz, und eine Seite, die der Hörer verlassen hat, öffnet sich wieder mit der Ansicht, mit der er sie verlassen hat. Jeder Streifen ist ein reiner Wasserfall-Socket zum anderen Empfänger (`/waterfall?rx=<id>`): Er ist dort kein Hörer — die Hörerzahl und das Hörerlimit pro IP sehen ihn nicht, `per_ip_sockets` schon — und kostet etwa 10 KB/s Upload für jeden Hörer, der das Kästchen anhakt. Er ist standardmäßig aus und braucht auf dem Server nichts.
+
+**Wechsel nach Frequenz.** Eine Frequenz außerhalb des Bereichs dieses Empfängers, die ein anderer Empfänger abdeckt — eingetippt, aus einem Link, einem Lesezeichen oder einem Spot —, öffnet den Empfänger, der sie abdeckt. Den Bereich jedes Empfängers erfährt die Seite, indem sie kurz dessen `/waterfall`-Socket öffnet, und merkt ihn sich einen Tag lang.
+
+**Hörer und Statistik je Empfänger.** Die Fenster *Connected Users* und *User Statistics* zeigen den Empfänger, auf dessen Seite sie liegen, auch wenn mehrere Empfänger nebeneinander im selben Browser offen sind. Die Statistik stammt aus den eigenen Logs jenes Empfängers — `logs/` beim Hauptempfänger, `instances/<id>/logs/` bei den anderen.
+
 **Die eigenen Angaben jedes Empfängers.** Eine Seite, die auf einem zweiten Empfänger geöffnet wird, lädt vor dem Start dessen `site_information.json`; Bandschaltflächen, Startfrequenz, Hörerliste, Stationsangaben sowie die Links bei Receiver und Antenna gehören damit zu ihm. Ein normaler Besuch beim Hauptempfänger stellt keine zusätzliche Anfrage.
 
 Die Schlüssel in `site_information.json` dafür:

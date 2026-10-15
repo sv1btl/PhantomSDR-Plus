@@ -449,7 +449,11 @@ AudioClient::AudioClient(connection_hdl hdl,
       audio_rate(audio_max_sps),
       signal_slices(sender.get_signal_slices()),
       signal_slice_mtx(sender.get_signal_slice_mtx()),
-      agc(0.1f, 100.0f, 30.0f, 100.0f, audio_max_sps) {
+      // Look-ahead 25 ms (was 100 ms): every listener's audio is delayed by
+      // exactly this much. The gain needs ~10 ms to come down (3 ms fast
+      // branch in Auto, 2 ms attack in Fast/Medium/Slow), so 25 ms still
+      // lets it drop before a strong onset arrives.
+      agc(0.1f, 100.0f, 30.0f, 25.0f, audio_max_sps) {
 
     base_audio_compression = audio_compression;
     this->encoder = make_audio_encoder(audio_compression, 1);

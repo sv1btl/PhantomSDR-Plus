@@ -6837,11 +6837,19 @@
     }
     showEmojiPicker = !showEmojiPicker;
   }
-  // Warm the emoji picker in the background once the page has settled:
-  // define the custom element and let emoji-picker-element's Database fetch
-  // the emoji list from jsdelivr into IndexedDB. The picker then reads the
-  // same store, so the first click on the emoji button opens instantly.
+  // Warm the emoji picker in the background when the listener first clicks
+  // into a chat box: define the custom element and let emoji-picker-element's
+  // Database fetch the emoji list from jsdelivr into IndexedDB. The picker then
+  // reads the same store, so the emoji button still opens instantly.
+  //
+  // It used to run 5 s after every page load. Parsing the list and filling
+  // IndexedDB kept the main thread busy for ~100 ms, and the audio frames that
+  // arrived meanwhile queued behind it: a 70-116 ms gap at ~5 s into every
+  // session, often a dropout (measured 2026-10-16). Most listeners never chat.
+  let emojiPreloaded = false;
   function preloadEmojiData() {
+    if (emojiPreloaded) return;
+    emojiPreloaded = true;
     const run = async () => {
       try {
         await import("emoji-picker-element");
@@ -6855,11 +6863,15 @@
         // Offline or CDN blocked: the picker just loads on first open as before.
       }
     };
-    const idle = () =>
-      window.requestIdleCallback
-        ? requestIdleCallback(run, { timeout: 10000 })
-        : run();
-    setTimeout(idle, 5000);
+    if (window.requestIdleCallback) requestIdleCallback(run, { timeout: 2000 });
+    else run();
+  }
+  function onChatFocusPreloadEmoji(e) {
+    const t = e.target;
+    if (t && t.closest && t.closest('[data-role="chat-input"]')) {
+      document.removeEventListener("focusin", onChatFocusPreloadEmoji);
+      preloadEmojiData();
+    }
   }
   let socket;
 
@@ -7781,10 +7793,11 @@
     }
 
     document.addEventListener("click", handleEmojiOutsideClick);
-    preloadEmojiData();
+    document.addEventListener("focusin", onChatFocusPreloadEmoji);
 
     return () => {
       document.removeEventListener("click", handleEmojiOutsideClick);
+      document.removeEventListener("focusin", onChatFocusPreloadEmoji);
       window.removeEventListener("resize", setWidth);
       eventBusUnsubscribers.forEach((unsubscribe) => {
         try {

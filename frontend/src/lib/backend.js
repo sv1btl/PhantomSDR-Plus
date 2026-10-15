@@ -106,7 +106,9 @@ try {
         ` · drift ${d.link.driftPpm === null ? '…' : d.link.driftPpm + ' ppm'}` +
         ` · cushion min/avg/max ${r(d.drain.cushionMinMs)}/${r(d.drain.cushionAvgMs)}/${r(d.drain.cushionMaxMs)}` +
         ` · drain ${d.drain.enabled ? d.drain.windowSec + 's' : 'OFF'} −${r(d.drain.trimmedMs)}/+${r(d.drain.filledMs)}` +
-        ` · gaps ${d.fallbackRestarts} sheds ${d.fallbackDrops}`
+        (d.drain.floorMs !== undefined ? ` floor ${r(d.drain.floorMs)}${d.drain.trimming ? ' trimming' : ''}` : '') +
+        // On the worklet path a gap is a worklet underrun, not a fallback restart.
+        ` · gaps ${d.path === 'worklet' && d.stats ? (d.stats.underruns || 0) : d.fallbackRestarts} sheds ${d.path === 'worklet' && d.stats ? Math.round((d.stats.droppedFrames || 0) / (d.contextSampleRate || 12000) * 1000) + 'ms' : d.fallbackDrops}`
       )
     }, 10000)
   }

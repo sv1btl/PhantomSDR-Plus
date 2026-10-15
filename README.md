@@ -61,7 +61,7 @@ We also provide a wide range of additional **features**:
 * An improved custom colour-map system. A reversed spectrum and waterfall layout is used by default across all interface variants, although this behaviour can be changed manually.
 * Optimized FLAC and Opus encoders with balanced latency. Both operate at 16-bit resolution, providing a theoretical dynamic range of approximately 96 dB. ⭐
 * Numerous redesigned and optimized functions, including:
-  * Reduced end-to-end latency: the browser's own FLAC decoder plays each packet the moment it arrives, and the playback buffer sizes itself to the connection (about 140 ms on a phone over Wi-Fi; add `?diag=1` to the address to see the figures).
+  * Reduced end-to-end latency: the browser's own FLAC decoder plays each packet the moment it arrives, and the playback buffer sizes itself to the connection (about 140 ms on a phone over Wi-Fi; add `?diag=1` to the address to see the figures). On https pages the buffer also trims itself back after a burst, by playing 0.25 % faster for a while, which cannot be heard (`?drain=0` turns it off). See [Audio latency](#audio-latency) for a measured comparison with other web receivers.
   * Noise Reduction (spectral, tone-preserving).
   * Noise Cancellation.
   * Noise Blanker (impulse).
@@ -121,6 +121,20 @@ We also provide a wide range of additional **features**:
 - Ryzen 5* 2600 - All Cores - RX888 MKii with 64MHZ Sample Rate, 32MHZ IQ takes up 38-40% - per User it takes about nothing, 50 Users don't even take 1% of the CPU.
 - RX 580 - RX888 MKII with 64MHZ Sample Rate, 32MHZ IQ takes up 28-35% - same as the Ryzen per User it takes about nothing (should handle many).
 - Intel i5-6500T - RX888 MKII - 60MHz Sample Rate, 30MHz IQ, OpenCL installed and enabled, about 10-12%. 100 users is no problem with OpenCL as the GPU does the heavy lifting.
+
+### Audio latency
+How far behind the air does a listener hear the band? We measured the delay from the antenna to the listener's speaker on four web receivers at the same moment, each through its own web page. All four were tuned to the DCF77 time signal on 77.5 kHz, and every second mark heard was compared with an internet-synchronised clock.
+
+| Receiver | Audio delay | Range over 3 minutes | Location |
+|---|---|---|---|
+| **PhantomSDR-Plus (SV1BTL)** | **0.30 s** | 0.29–0.35 s | Athens |
+| UberSDR | 0.30 s | 0.21–0.31 s | Athens |
+| PA3FWM WebSDR (University of Twente) | 0.35 s | 0.31–0.44 s | Enschede, Netherlands |
+| KiwiSDR (Web-888) | 0.96 s | 0.96 s | Athens |
+
+Measured on 15 October 2026 at 23:10 UTC over 180 seconds, all four at once from the same computer. The delay includes the network and the listener's sound output, and moves by a few hundredths of a second from one session to the next.
+
+Until mid-October 2026 PhantomSDR-Plus measured 0.39 s in the same test. Three changes brought it down: the server's AGC now looks 25 ms ahead instead of 100 ms (enough for the gain to drop before a strong signal arrives); the browser's playback buffer starts with a safe 80 ms and then trims itself slowly to what the connection needs, instead of keeping whatever backlog a burst left (which also cut dropouts from 4–6 to about 1 per session); and the chat's emoji picker is prepared only when a listener first clicks into the chat box, instead of stalling the audio five seconds into every session.
 
 ## Screenshots
 

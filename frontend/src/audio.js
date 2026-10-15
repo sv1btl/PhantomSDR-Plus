@@ -3554,6 +3554,9 @@ setAGC(newAGCSpeed) {
     return {
       maxBufferedSeconds: limit,
       minStartSeconds: Math.min(Math.max(0.03, threshold), limit * 0.5),
+      // The worklet's cushion drain follows the same ?drain=0 switch as the
+      // fallback path's CushionController.
+      drain: !(this._cushionCtl && this._cushionCtl.enabled === false),
     };
   }
 
@@ -3624,7 +3627,12 @@ setAGC(newAGCSpeed) {
       // The link itself (jitter over 10 s and the session's worst, clock
       // drift) and what the cushion drain is doing about it.
       link: this._arrivalMeter.snapshot(),
-      drain: this._cushionCtl.snapshot(),
+      // On the worklet path the drain lives in the worklet and reports through
+      // its stats; the CushionController only runs the fallback path.
+      drain: (this._streamWorkletNode && this._streamStats && this._streamStats.drain)
+        ? Object.assign({ cushionMinMs: this._streamStats.drain.windowMinMs, cushionAvgMs: null, cushionMaxMs: null, filledMs: 0 },
+            this._streamStats.drain)
+        : this._cushionCtl.snapshot(),
       socketOpen: this._isSocketOpen(),
       framesPerPacket: this._pktFrames || 0,
       packetsPerSec: this._pktRate || 0,
@@ -3640,9 +3648,14 @@ setAGC(newAGCSpeed) {
       latency: (() => {
         const ctx = this.audioCtx
         const packet = (this._pktFrames || 0) / (this.audioOutputSps || 12000)
-        const buffered = (ctx && this.playTime)
-          ? Math.max(0, this.playTime - ctx.currentTime)
-          : 0
+        // On the worklet path playTime is only a shadow kept for the S-meter;
+        // the worklet's own count of queued frames is the real buffer.
+        const ws = this._streamWorkletNode && this._streamStats
+        const buffered = ws
+          ? (this._streamStats.bufferedFrames || 0) / ((ctx && ctx.sampleRate) || 12000)
+          : (ctx && this.playTime)
+            ? Math.max(0, this.playTime - ctx.currentTime)
+            : 0
         const base = (ctx && Number.isFinite(ctx.baseLatency)) ? ctx.baseLatency : 0
         const out = (ctx && Number.isFinite(ctx.outputLatency)) ? ctx.outputLatency : 0
         return { packet, buffered, base, output: out, total: packet + buffered + base + out }

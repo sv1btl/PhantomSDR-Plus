@@ -1,3 +1,16 @@
+// Cushion drain tuning (see _resetDrain()).
+const DRAIN_FLOOR_S = 0.070;       // lowest level the drain may leave: 70 + one 35 ms frame covers a ~105 ms gap
+const DRAIN_START_EXTRA_S = 0.010; // start/restart gate = floor + this
+const DRAIN_STEP_S = 0.020;        // floor raised by this after every underrun
+const DRAIN_MAX_EXTRA_S = 0.100;   // ... up to this much in a session
+const DRAIN_GRACE_S = 6;           // the stream's first seconds have their own gaps: no history, no floor steps
+const DRAIN_RELAX_S = 120;         // ... and lowered by one step after this long without one
+const DRAIN_WINDOW_S = 30;         // seconds of per-second minima watched
+const DRAIN_WARMUP_S = 15;         // seconds of history before any trimming
+const DRAIN_SHORT_S = 2;           // the most recent stretch must also be above the floor
+const DRAIN_HYST_S = 0.005;        // trim only while this far above the floor
+const DRAIN_RATE = 0.0025;         // extra frames read per output frame while trimming
+
 class PhantomSDRAudioStreamProcessor extends AudioWorkletProcessor {
   constructor(options) {
     super();
@@ -50,6 +63,7 @@ class PhantomSDRAudioStreamProcessor extends AudioWorkletProcessor {
     this.bufferedFrames = 0;
     this.droppedFrames = 0;
     this.underruns = 0;
+    this._resetDrain();
     this._applyConfig(processorOptions);
     this.started = false;
     this._lastStatsFrame = 0;
@@ -68,6 +82,7 @@ class PhantomSDRAudioStreamProcessor extends AudioWorkletProcessor {
         this.droppedFrames = 0;  // reset per-session — lifetime total would persist across reconnects
         this.underruns = 0;
         this.started = false;
+        this._resetDrain();
       }
     };
   }
@@ -92,9 +107,108 @@ class PhantomSDRAudioStreamProcessor extends AudioWorkletProcessor {
     } else if (!this.minStartFrames) {
       this.minStartFrames = Math.max(256, Math.floor(0.06 * this.sampleRateHint));
     }
+    if (typeof o.drain === 'boolean') this.drainEnabled = o.drain;
+    else if (this.drainEnabled === undefined) this.drainEnabled = true;
+    // The listener's own buffer preset is the drain's lower bound as well.
+    this.presetFloorFrames = Math.floor((typeof o.minStartSeconds === 'number' && o.minStartSeconds > 0
+      ? o.minStartSeconds : (this.presetFloorFrames || 0) / this.sampleRateHint) * this.sampleRateHint);
     // A shrunken ceiling is not enforced retroactively here: the queue drains
     // at real time and the next _pushChunk() trims it, so there is no need to
     // throw away audio that is already buffered and about to be played.
+  }
+
+  // ── Cushion drain ──────────────────────────────────────────────────────────
+  // Without it the ring keeps whatever backlog the start or a late frame left
+  // (measured 2026-10-16: ~115 ms for good, on a stream that needs ~60). The
+  // drain plays very slightly fast (DRAIN_RATE, ~4 cents, inaudible) while the
+  // LOWEST level of the last DRAIN_WINDOW_S seconds is still above the floor,
+  // so a gap seen in that window pauses it. The floor is DRAIN_FLOOR_S — enough
+  // to ride a ~105 ms gap in the 35 ms frame stream (live gaps reached 92 ms) — or the listener's preset if
+  // larger, plus DRAIN_STEP_S for every underrun in the session.
+  _resetDrain() {
+    this.readPhase = 0;          // fractional read position between two frames
+    this.secMinFrames = Infinity; this.secFrames = 0;
+    this.minRing = [];           // per-second minimum levels, newest last
+    this.shortMinFrames = Infinity; this.shortFrames = 0;
+    this.lastShortMin = 0;
+    this.extraFloorFrames = 0;
+    this.secsSinceUnderrun = 0;
+    this.playedFrames = 0;       // since the first start of this stream
+    this.trimmedFrames = 0;
+    this.trimming = false;
+  }
+
+  _floorFrames() {
+    const base = Math.max(DRAIN_FLOOR_S * this.sampleRateHint, this.presetFloorFrames || 0);
+    return Math.floor(base + this.extraFloorFrames);
+  }
+
+  // Start gate: with the drain on, start (and restart after an underrun) at the
+  // floor plus a little, so the first late frames of a session are covered; the
+  // drain removes the surplus later. Without the drain, the old gate.
+  _startFrames() {
+    if (!this.drainEnabled) return this.minStartFrames;
+    return Math.max(this.minStartFrames, Math.floor(this._floorFrames() + DRAIN_START_EXTRA_S * this.sampleRateHint));
+  }
+
+  _windowMinFrames() {
+    let m = Infinity;
+    for (const v of this.minRing) if (v < m) m = v;
+    return m;
+  }
+
+  // Called once per render quantum with the level left after it.
+  _drainTrack(level, frames) {
+    this.playedFrames += frames;
+    if (this.playedFrames < DRAIN_GRACE_S * this.sampleRateHint) { this.trimming = false; return; }
+    if (level < this.secMinFrames) this.secMinFrames = level;
+    if (level < this.shortMinFrames) this.shortMinFrames = level;
+    this.secFrames += frames; this.shortFrames += frames;
+    if (this.shortFrames >= this.sampleRateHint * DRAIN_SHORT_S) {
+      this.lastShortMin = this.shortMinFrames; this.shortMinFrames = Infinity; this.shortFrames = 0;
+    }
+    if (this.secFrames >= this.sampleRateHint) {
+      this.minRing.push(this.secMinFrames);
+      // A one-off long gap should not cost the rest of the session: give the
+      // extra floor back step by step once the link has been clean a while.
+      if (++this.secsSinceUnderrun >= DRAIN_RELAX_S && this.extraFloorFrames > 0) {
+        this.extraFloorFrames = Math.max(0, this.extraFloorFrames - DRAIN_STEP_S * this.sampleRateHint);
+        this.secsSinceUnderrun = 0;
+      }
+      if (this.minRing.length > DRAIN_WINDOW_S) this.minRing.shift();
+      this.secMinFrames = Infinity; this.secFrames = 0;
+    }
+    const floor = this._floorFrames(), hyst = DRAIN_HYST_S * this.sampleRateHint;
+    this.trimming = this.drainEnabled && this.started
+      && this.minRing.length >= DRAIN_WARMUP_S
+      && this._windowMinFrames() > floor + hyst
+      && this.lastShortMin > floor + hyst;
+  }
+
+  // Sample `ahead` frames after the read position (0 or 1), across chunks.
+  _peek(ahead, ch) {
+    const c = this.current;
+    if (!c) return 0;
+    let idx = this.currentIndex + ahead, chunk = c;
+    if (idx >= chunk.frames) {
+      chunk = this.queue[0];
+      if (!chunk || chunk.channels !== c.channels) chunk = c, idx = c.frames - 1;
+      else idx -= c.frames;
+    }
+    return chunk.channels === 2 ? (chunk.samples[idx * 2 + ch] || 0) : (chunk.samples[idx] || 0);
+  }
+
+  // Consume one frame; false when nothing is left.
+  _advanceFrame() {
+    this.currentIndex++;
+    this.bufferedFrames--;
+    if (this.bufferedFrames < 0) this.bufferedFrames = 0;
+    if (this.currentIndex >= this.current.frames) {
+      this.current = null;
+      this.currentIndex = 0;
+      return this._beginNextChunk();
+    }
+    return true;
   }
 
   _pushChunk(pcm, channels) {
@@ -158,7 +272,7 @@ class PhantomSDRAudioStreamProcessor extends AudioWorkletProcessor {
     // the restart gate far longer than intended after an underrun.
     const totalBuffered = this.bufferedFrames;
     if (!this.started) {
-      if (totalBuffered < this.minStartFrames) {
+      if (totalBuffered < this._startFrames()) {
         for (let i = 0; i < left.length; i++) {
           left[i] = 0;
           if (output[1]) right[i] = 0;
@@ -168,6 +282,11 @@ class PhantomSDRAudioStreamProcessor extends AudioWorkletProcessor {
       this.started = true;
     }
 
+    // Read position = currentIndex + readPhase. Normally it advances exactly
+    // one frame per output sample with readPhase 0, which plays the chunks
+    // untouched, as before. While trimming it advances 1 + DRAIN_RATE and the
+    // output is interpolated between the two neighbouring frames.
+    const step = this.trimming ? 1 + DRAIN_RATE : 1;
     for (let i = 0; i < left.length; i++) {
       if (!this.current && !this._beginNextChunk()) {
         left[i] = 0;
@@ -176,47 +295,65 @@ class PhantomSDRAudioStreamProcessor extends AudioWorkletProcessor {
         continue;
       }
 
-      const chunk = this.current;
-      if (chunk.channels === 2) {
-        const base = this.currentIndex * 2;
-        left[i] = chunk.samples[base] || 0;
+      const f = this.readPhase;
+      if (this.current.channels === 2) {
+        const l0 = this._peek(0, 0), r0 = this._peek(0, 1);
+        left[i] = f ? l0 + (this._peek(1, 0) - l0) * f : l0;
         // Only write right separately if a second output channel actually
         // exists. If output[1] is absent, right===left (same array reference)
         // and writing right[i] would overwrite left[i] with the wrong sample.
-        if (output[1]) right[i] = chunk.samples[base + 1] || 0;
+        if (output[1]) right[i] = f ? r0 + (this._peek(1, 1) - r0) * f : r0;
       } else {
-        const v = chunk.samples[this.currentIndex] || 0;
+        const v0 = this._peek(0, 0);
+        const v = f ? v0 + (this._peek(1, 0) - v0) * f : v0;
         left[i] = v;
         if (output[1]) right[i] = v;
       }
 
-      this.currentIndex++;
-      this.bufferedFrames--;
-      if (this.bufferedFrames < 0) this.bufferedFrames = 0;
-
-      if (this.currentIndex >= chunk.frames) {
-        this.current = null;
-        this.currentIndex = 0;
+      this.readPhase += step;
+      while (this.readPhase >= 1) {
+        this.readPhase -= 1;
+        if (!this._advanceFrame()) { this.readPhase = 0; break; }
       }
+      if (step !== 1) this.trimmedFrames += DRAIN_RATE;
     }
 
     if (hadUnderrun) {
       this.underruns++;
-      // Reset the start gate so recovery waits for minStartFrames before
+      // Reset the start gate so recovery waits for the start level before
       // resuming. Without this, playback restarts on the very next sample —
       // potentially with only 1–2 frames buffered — causing choppy audio
       // on recovery rather than a clean restart.
       this.started = false;
+      this.readPhase = 0;
+      // The link just showed a gap the cushion could not cover: keep more
+      // from now on, and let the drain start over from what it sees next.
+      if (this.drainEnabled && this.playedFrames >= DRAIN_GRACE_S * this.sampleRateHint) {
+        this.extraFloorFrames = Math.min(this.extraFloorFrames + DRAIN_STEP_S * this.sampleRateHint,
+          DRAIN_MAX_EXTRA_S * this.sampleRateHint);
+        this.minRing = [];
+        this.secsSinceUnderrun = 0;
+      }
     }
+    this._drainTrack(this.bufferedFrames, left.length);
 
     this._lastStatsFrame += left.length;
     if (this._lastStatsFrame >= 1024) {
       this._lastStatsFrame = 0;
+      const ms = (v) => (Number.isFinite(v) ? v / this.sampleRateHint * 1000 : null);
       this.port.postMessage({
         type: 'stats',
         bufferedFrames: this.bufferedFrames,
         droppedFrames: this.droppedFrames,
-        underruns: this.underruns
+        underruns: this.underruns,
+        drain: {
+          enabled: !!this.drainEnabled,
+          trimming: this.trimming,
+          trimmedMs: ms(this.trimmedFrames),
+          floorMs: ms(this._floorFrames()),
+          windowMinMs: this.minRing.length ? ms(this._windowMinFrames()) : null,
+          windowSec: this.minRing.length,
+        },
       });
     }
 

@@ -199,7 +199,7 @@ The setting applies immediately and is remembered in your browser.
 
 **KiwiSDR refuses the connection** Some KiwiSDRs require a password, and on an UberSDR the KiwiSDR-compatible endpoint is switched off by default. For an UberSDR, use the **UberSDR** source type instead — that path is always available.
 
-**WebSDR: `the WebSDR relay is not reachable`** The relay is not running, or your browser cannot reach its port. It must be reachable at the **same hostname the receiver page is served from**, because the browser connects to it directly rather than through the receiver. Open `http://<that hostname>:<relay port>/status` in the same browser to see which. If it answers on your LAN but not from outside, the port is not forwarded on the router.
+**WebSDR: `the WebSDR relay is not reachable`** The relay is not running, or your browser cannot reach it. On a station set up with the station questions it is reached as `/relay` on the page's own address: open `http://<hostname>:<public port>/relay/status`, or `https://<hostname>/relay/status`, in the same browser. If nothing answers, the relay is not running — see `sudo systemctl status phantomsdr-websdr-relay`, or install it with `bash setup_websdr_relay.sh`. On an older station the relay has a port of its own and must be reachable at the **same hostname the receiver page is served from**, because the browser connects to it directly: open `http://<that hostname>:<relay port>/status`. If it answers on your LAN but not from outside, the port is not forwarded on the router.
 
 **WebSDR: an error mentioning a refused connection** That site has locked things down further than the standard `Origin` check, or its operator has blocked this station.
 

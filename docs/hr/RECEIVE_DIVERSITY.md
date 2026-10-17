@@ -199,7 +199,7 @@ Postavka djeluje odmah i pamti se u vašem pregledniku.
 
 **KiwiSDR odbija vezu** Neki KiwiSDR-ovi traže lozinku, a na UberSDR-u je pristupna točka kompatibilna s KiwiSDR-om prema zadanim postavkama isključena. Za UberSDR upotrijebite vrstu **UberSDR** — taj je put uvijek dostupan.
 
-**WebSDR: `the WebSDR relay is not reachable`** Relej ne radi ili vaš preglednik ne doseže njegov port. Mora biti dostupan na **istom imenu poslužitelja s kojeg se poslužuje stranica prijamnika**, jer se preglednik spaja izravno na njega, a ne kroz prijamnik. Otvorite `http://<to ime poslužitelja>:<port releja>/status` u istom pregledniku da vidite o čemu se radi. Ako odgovara na lokalnoj mreži, ali ne izvana, port nije proslijeđen na ruteru.
+**WebSDR: `the WebSDR relay is not reachable`** Relej ne radi ili ga vaš preglednik ne doseže. Na stanici postavljenoj pitanjima stanice doseže se kao `/relay` na adresi same stranice: otvorite `http://<ime poslužitelja>:<javni port>/relay/status` ili `https://<ime poslužitelja>/relay/status` u istom pregledniku. Ako ništa ne odgovara, relej ne radi — vidi `sudo systemctl status phantomsdr-websdr-relay`, ili ga instalirajte s `bash setup_websdr_relay.sh`. Na starijoj stanici relej ima vlastiti port i mora biti dostupan na **istom imenu poslužitelja s kojeg se poslužuje stranica prijamnika**, jer se preglednik spaja izravno na njega: otvorite `http://<to ime poslužitelja>:<port releja>/status`. Ako odgovara na lokalnoj mreži, ali ne izvana, port nije proslijeđen na ruteru.
 
 **WebSDR: pogreška koja spominje odbijenu vezu** Ta je stanica zaključana strože od uobičajene provjere `Origin`, ili je njezin operator blokirao ovu stanicu.
 

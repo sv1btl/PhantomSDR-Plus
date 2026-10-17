@@ -78,8 +78,22 @@ Caddy doseže proxy kroz vlastiti port jer bi, gledano iz proxyja, svaki posjeti
 
 - **Obje adrese rade.** Imenici i karta websdr.org i dalje prikazuju http adresu; povratni poziv websdr.org-a i Kiwi klijenti koriste http.
 - **Bolji zvuk preko https-a.** Preglednici sigurnoj stranici daju AudioWorklet, stabilniji put zvuka od onoga koji moraju koristiti obične http stranice.
-- **Receive Diversity s partnerima samo na http-u.** Preglednik ne dopušta https stranici otvarati obične `ws://` veze, pa se s https stranice ne može dodati partnerska stanica koja ima samo http; partneri s https-om rade, a WebSDR partneri rade preko relaya. Za partnera samo na http-u koristite http adresu stranice.
+- **Receive Diversity s partnerima samo na http-u.** Preglednik ne dopušta https stranici otvarati obične `ws://` veze, a većina PhantomSDR+ stanica i svaki KiwiSDR ne nude ništa drugo. S https stranice zato se do njih dolazi preko diversity relaya stanice — vidi *Receive Diversity preko https-a* niže. Partneri koji i sami imaju https, te UberSDR-ovi, dosežu se izravno.
 - **Upravljanje uređajem (TCI-CAT).** Veze prema `127.0.0.1` na slušateljevu vlastitom računalu dopuštene su s https stranice u aktualnim Chromeu, Edgeu i Firefoxu.
+
+---
+
+## Receive Diversity preko https-a
+
+Https stranica dolazi do diversity partnera samo na http-u — većine PhantomSDR+ stanica, svakog KiwiSDR-a — preko vlastitog relaya stanice, `websdr_relay.py`, istog koji poslužuje WebSDR partnere. Preglednik se sigurno spaja na `wss://myname.ddns.net/relay/…`, a relay nastavlja preko `ws://`. Panel to radi sam. Relay prenosi samo diversity zvuk (PhantomSDR+ `/audio`, KiwiSDR `/kiwi/…/SND`), spaja se samo na javne adrese i zadržava svoja uobičajena ograničenja. Ako ne radi, https stranica dolazi samo do partnera koji i sami imaju https.
+
+Na https stanici zato ostavite relay uključen:
+
+- **Uključivanje https-a pitanjima stanice:** kad je https uključen, pitanje o relayu koje slijedi predlaže da — ostavite tako, i relay se također instalira i pokreće. Sam `bash setup-https.sh` ga ne instalira.
+- **Stanica koja već ima https:** provjerite s `systemctl is-active phantomsdr-websdr-relay`. Ako nije aktivan, pokrenite `bash setup_websdr_relay.sh`, ili `bash configure-station.sh` i odgovorite da na pitanje o relayu. Iza proxyja ne treba port na routeru ni ponovnu izgradnju.
+- **Provjera:** `https://myname.ddns.net/relay/status` odgovara s nekoliko redaka koji počinju s `"service": "PhantomSDR-Plus WebSDR relay"`.
+
+Preko relaya partner vidi adresu vaše stanice, ne slušateljevu, pa partner s ograničenjem po IP-u broji sve vaše slušatelje preko relaya zajedno. Stanici samo na http-u ništa od ovoga ne treba: http stranica izravno otvara `ws://` i `wss://` veze.
 
 ---
 

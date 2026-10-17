@@ -13,6 +13,9 @@
 #  whether to run under systemd or by hand. Everything it writes can be
 #  changed later by editing websdr_relay.json.
 #
+#  --service   keep the existing websdr_relay.json and only install and
+#              start the systemd service (configure-station.sh uses this)
+#
 #  Manual: docs/RECEIVE_DIVERSITY.md
 # ============================================================
 
@@ -32,6 +35,13 @@ SITE_INFO="$SCRIPT_DIR/frontend/site_information.json"
 SOURCE_JS="$SCRIPT_DIR/frontend/src/webSdrSource.js"
 UNIT_NAME="phantomsdr-websdr-relay"
 UNIT_PATH="/etc/systemd/system/$UNIT_NAME.service"
+
+SERVICE_ONLY=n
+case "${1:-}" in
+    --service) SERVICE_ONLY=y ;;
+    "") ;;
+    *) echo "Usage: $0 [--service]"; exit 1 ;;
+esac
 
 DEFAULT_PORT=9013
 DEFAULT_CAP=10
@@ -152,6 +162,16 @@ if ! python3 -c "import aiohttp" >/dev/null 2>&1; then
 fi
 echo "[OK] python3 and aiohttp present."
 echo ""
+
+# --service (configure-station.sh): the wizard has already written
+# websdr_relay.json, caps and identity included, so keep it and only put the
+# relay into service — the questions below would reset what it wrote.
+if [ "$SERVICE_ONLY" = y ]; then
+    PORT="$(python3 -c 'import json,sys; print(int(json.load(open(sys.argv[1]))["port"]))' "$CONFIG" 2>/dev/null)" \
+        || { echo "[ERR] --service needs a valid $CONFIG — run bash configure-station.sh"; exit 1; }
+    echo "[OK] Keeping $CONFIG (port $PORT)."
+    echo ""
+else
 
 # ── 2. Who we are ─────────────────────────────────────────────────────────────
 echo "----------------------------------------------------------"
@@ -300,16 +320,24 @@ if [ "$BEHIND_PROXY" != y ] && command -v ufw >/dev/null 2>&1 \
     echo ""
 fi
 
+fi   # end of the questions skipped by --service
+
 # ── 6. systemd or by hand ─────────────────────────────────────────────────────
 echo "----------------------------------------------------------"
 echo " How should the relay run?"
 echo "----------------------------------------------------------"
 echo ""
+if [ "$SERVICE_ONLY" = y ]; then
+    echo " As a systemd service — starts at boot, restarts on failure."
+    echo ""
+    RUN_MODE=1
+else
 echo " [1] As a systemd service — starts at boot, restarts on failure."
 echo " [2] By hand — you run it in a terminal when you want it."
 echo ""
 printf ' Select [1/2] \033[90m(ENTER = 1)\033[0m: '
 read -r RUN_MODE || RUN_MODE=""
+fi
 RUN_MODE="${RUN_MODE:-1}"
 echo ""
 

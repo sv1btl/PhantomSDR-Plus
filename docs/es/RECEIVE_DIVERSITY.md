@@ -47,6 +47,8 @@ Esa es toda la configuración. No hay nada que ajustar en el otro receptor ni un
 
 Se aceptan un nombre de host a secas, una dirección `http://` o una `ws://` completa. Si el otro receptor se sirve por HTTPS, escriba el nombre de host y se usará una conexión segura.
 
+Si **su propia página** se abre por https://, el navegador no le permite abrir conexiones `ws://` simples, así que los socios que solo ofrecen http — la mayoría de las estaciones PhantomSDR+ y todo KiwiSDR — se alcanzan en su lugar a través del relé de su estación (el relé se describe más abajo, en *Usar un WebSDR*). El panel lo hace por sí solo; basta con que el relé esté en marcha. Vea [Acceso seguro — https://](HTTPS.md).
+
 ### Receptores guardados
 
 Cada dirección que utiliza queda memorizada, en una lista propia para cada tipo de receptor — una dirección de KiwiSDR nunca es una sugerencia útil cuando el selector dice WebSDR. Las listas viven en su propio navegador: no se envían a ninguna parte y cada oyente tiene la suya.
@@ -87,9 +89,9 @@ cd ~/PhantomSDR-Plus
 ./setup_websdr_relay.sh
 ```
 
-Pide un puerto, toma su indicativo y la dirección de su estación de `frontend/site_information.json` y ofrece instalar un servicio systemd para que el relé arranque con el sistema. Los ajustes están en `websdr_relay.json` y pueden cambiarse en cualquier momento.
+En una estación configurada con las preguntas de la estación (`configure-station.sh`) detecta que la estación está detrás del proxy: el relé escucha entonces solo en este ordenador y se alcanza como `/relay` en su dirección pública, así que no pide puerto. En una estación más antigua pide uno. En ambos casos toma su indicativo y la dirección de su estación de `frontend/site_information.json` y ofrece instalar un servicio systemd para que el relé arranque con el sistema. Los ajustes están en `websdr_relay.json` y pueden cambiarse en cualquier momento. Responder sí a la pregunta del relé en `bash configure-station.sh` también lo instala y lo pone en marcha.
 
-**Hay algo que el instalador no puede hacer por usted: abrir el puerto del relé en su router.** Los navegadores de los oyentes se conectan directamente al relé — no pasa por el receptor — así que sin esa redirección la diversidad con WebSDR solo funciona dentro de su propia red. Los otros tres tipos de receptor no se ven afectados.
+**Puerto del router.** Detrás del proxy no hay ninguno que abrir: la página llega al relé como `/relay` a través de la dirección que los oyentes ya usan, tanto por http como por https. Solo una estación más antigua, configurada antes de las preguntas de la estación, ejecuta el relé en un puerto propio; los navegadores de los oyentes se conectan entonces directamente a él, así que ese puerto debe abrirse en su router, o la diversidad con WebSDR solo funciona dentro de su propia red. Los otros tres tipos de receptor no necesitan el relé — salvo desde una página servida por https, donde también transporta socios PhantomSDR+ y KiwiSDR que solo tienen http (vea más arriba).
 
 Si el panel de administración está instalado, su dashboard muestra una tarjeta **WebSDR Diversity Relay** con el estado, el puerto y cuántas sesiones hay en curso y hacia qué estaciones.
 

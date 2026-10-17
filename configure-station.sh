@@ -590,7 +590,18 @@ ask_everything() {
     fi
     ask_yn STATION_RADE "Install the FreeDV RADE decoder? (large: ~1 GB download, +20 min install)" y
     ask_yn STATION_STATS "CPU / memory / temperature box on the page?" y
-    ask_yn STATION_RELAY "WebSDR diversity relay (advanced, most stations leave it off)?" n
+    # An https page may not open ws:// sockets, and most diversity partners
+    # (PhantomSDR+, KiwiSDR) are plain http — so over https the relay is what
+    # reaches them. Hence on by default whenever https is.
+    local relay_def=n
+    say "  The diversity relay lets listeners combine this receiver with another:"
+    say "  it reaches WebSDRs always, and plain-http PhantomSDR+ / KiwiSDR stations"
+    say "  when your page is served over https://."
+    if [ "${STATION_HTTPS:-n}" != n ]; then
+        relay_def=y
+        say "  You serve https://, so without it most diversity partners cannot connect."
+    fi
+    ask_yn STATION_RELAY "Diversity relay (WebSDR partners; any partner from an https:// page)?" "$relay_def"
     ask_yn STATION_AUTOSTART "Start the receiver automatically when the computer boots?" y
 
     say ""
@@ -1199,6 +1210,15 @@ case "$MODE" in
         if [ "$MODE" = all ] && [ -x "$PHANTOMDIR/build/spectrumserver" ]; then
             carry_ports
             put_into_service "$changed"
+            # Relay switched on here: the answer alone only wrote its config,
+            # and on an https station most diversity partners need it running.
+            # --service keeps that config and installs the systemd unit.
+            if [ "${STATION_RELAY:-n}" = y ] && command -v systemctl >/dev/null 2>&1 \
+               && ! systemctl is-active --quiet phantomsdr-websdr-relay 2>/dev/null; then
+                title "Diversity relay"
+                bash "$PHANTOMDIR/setup_websdr_relay.sh" --service \
+                    || warn "The relay did not start — run: bash setup_websdr_relay.sh"
+            fi
             # https switched on, off, or moved to another loopback port: Caddy
             # follows (setup-https.sh calls back here with PHANTOM_FROM_HTTPS).
             if [ -z "${PHANTOM_FROM_HTTPS:-}" ]; then

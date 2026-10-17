@@ -35,6 +35,8 @@
  * PhantomSDR peer and a Kiwi.
  */
 
+import { viaRelayIfBlocked } from './lib/mixedContent.js'
+
 const KEEPALIVE_MS       = 5000
 const CONNECT_TIMEOUT_MS = 10000
 // A socket still CONNECTING has not reached the server yet: Firefox holds a
@@ -93,7 +95,7 @@ export class KiwiSource {
     const url = `${this.base}/kiwi/${Date.now()}/SND`
     let sock
     try {
-      sock = new WebSocket(url)
+      sock = new WebSocket(viaRelayIfBlocked(url))
     } catch (e) {
       this._setState('error', e)
       this._scheduleReconnect()

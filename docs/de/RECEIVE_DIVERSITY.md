@@ -47,6 +47,8 @@ Das ist die gesamte Einrichtung. Am anderen Empfänger ist nichts zu konfigurier
 
 Ein reiner Hostname, eine `http://`-Adresse oder eine vollständige `ws://`-Adresse werden alle akzeptiert. Wird der andere Empfänger über HTTPS ausgeliefert, geben Sie den Hostnamen ein; die Verbindung wird dann verschlüsselt aufgebaut.
 
+Wird **Ihre eigene Seite** über https:// geöffnet, erlaubt der Browser ihr keine einfachen `ws://`-Verbindungen; Partner, die nur http anbieten — die meisten PhantomSDR+-Stationen und jeder KiwiSDR —, werden dann stattdessen über das Relay Ihrer Station erreicht (das Relay ist unten unter *Einen WebSDR verwenden* beschrieben). Das Panel erledigt das von selbst; das Relay muss nur laufen. Siehe [Sicherer Zugang — https://](HTTPS.md).
+
 ### Gespeicherte Empfänger
 
 Jede verwendete Adresse wird gemerkt, in einer eigenen Liste je Empfängertyp — eine KiwiSDR-Adresse ist nie ein brauchbarer Vorschlag, wenn die Auswahl auf WebSDR steht. Die Listen liegen in Ihrem eigenen Browser: sie werden nirgendwohin gesendet, und jeder Hörer hat seine eigene.
@@ -87,9 +89,9 @@ cd ~/PhantomSDR-Plus
 ./setup_websdr_relay.sh
 ```
 
-Es fragt nach einem Port, übernimmt Rufzeichen und Adresse Ihrer Station aus `frontend/site_information.json` und bietet an, einen systemd-Dienst einzurichten, damit das Relay beim Booten startet. Die Einstellungen stehen in `websdr_relay.json` und lassen sich jederzeit ändern.
+Auf einer Station, die mit den Stationsfragen (`configure-station.sh`) eingerichtet wurde, erkennt es, dass die Station hinter dem Proxy liegt: Das Relay lauscht dann nur auf diesem Rechner und wird als `/relay` unter Ihrer öffentlichen Adresse erreicht, daher fragt es nach keinem Port. Auf einer älteren Station fragt es nach einem. In beiden Fällen übernimmt es Rufzeichen und Adresse Ihrer Station aus `frontend/site_information.json` und bietet an, einen systemd-Dienst einzurichten, damit das Relay beim Booten startet. Die Einstellungen stehen in `websdr_relay.json` und lassen sich jederzeit ändern. Wer in `bash configure-station.sh` die Relay-Frage mit Ja beantwortet, bekommt es ebenfalls installiert und gestartet.
 
-**Eines kann der Installer nicht für Sie tun: den Port des Relays in Ihrem Router freigeben.** Die Browser der Zuhörer verbinden sich direkt mit dem Relay — es läuft nicht über den Empfänger — ohne diese Freigabe funktioniert WebSDR-Diversity also nur aus Ihrem eigenen Netz. Die anderen drei Empfängertypen sind davon nicht betroffen.
+**Router-Port.** Hinter dem Proxy ist keiner freizugeben: Die Seite erreicht das Relay als `/relay` über die Adresse, die die Zuhörer ohnehin benutzen, über http wie über https. Nur eine ältere Station, eingerichtet vor den Stationsfragen, betreibt das Relay auf einem eigenen Port; die Browser der Zuhörer verbinden sich dann direkt damit, dieser Port muss also im Router freigegeben werden, sonst funktioniert WebSDR-Diversity nur aus Ihrem eigenen Netz. Die anderen drei Empfängertypen brauchen das Relay nicht — außer von einer über https ausgelieferten Seite, wo es auch PhantomSDR+- und KiwiSDR-Partner nur mit http überträgt (siehe oben).
 
 Ist das Admin-Panel installiert, zeigt sein Dashboard eine Karte **WebSDR Diversity Relay** mit Zustand, Port und der Zahl der laufenden Sitzungen samt Gegenstellen.
 

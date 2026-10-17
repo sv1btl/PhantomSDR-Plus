@@ -496,21 +496,33 @@ async def proxy_websocket(request: web.Request, upstream: str,
 
                     async def forward_down():
                         """Spectrumserver → Browser"""
-                        async for msg in ws_upstream:
+                        # receive() rather than `async for`: the iterator
+                        # swallows the server's close frame, and with it the
+                        # reason, which aiohttp does not keep anywhere else.
+                        reason = b"upstream closed"
+                        while True:
+                            msg = await ws_upstream.receive()
                             if msg.type == WSMsgType.TEXT:
                                 await ws_client.send_str(msg.data)
                             elif msg.type == WSMsgType.BINARY:
                                 await ws_client.send_bytes(msg.data)
-                            elif msg.type == WSMsgType.ERROR:
+                            else:
+                                if msg.type == WSMsgType.CLOSE and msg.extra:
+                                    # 123 bytes is the protocol's cap; never
+                                    # cut a multi-byte character in half.
+                                    reason = (msg.extra.encode("utf-8")[:123]
+                                              .decode("utf-8", "ignore")
+                                              .encode("utf-8"))
                                 break
-                        # Same here: the server's close frame ends the loop
-                        # unseen, and its code is what the page acts on (4003
-                        # refused by a limit, 4001 kicked by the sysop), so
-                        # it must reach the browser rather than a plain 1000.
+                        # The server's close code AND reason are what the page
+                        # acts on (4003 refused by a limit, 4003 "out of date"
+                        # from the version gate, 4001 kicked by the sysop), so
+                        # both must reach the browser — a diversity client
+                        # tells the version gate from the limit by the reason.
                         if not ws_client.closed:
                             await ws_client.close(
                                 code=ws_upstream.close_code or 1000,
-                                message=b"upstream closed")
+                                message=reason)
 
                     task_up   = asyncio.ensure_future(forward_up())
                     task_down = asyncio.ensure_future(forward_down())

@@ -47,6 +47,8 @@ C'est toute la configuration. Rien à régler sur l'autre récepteur, et pas de 
 
 Un simple nom d'hôte, une adresse `http://` ou une adresse `ws://` complète sont tous acceptés. Si l'autre récepteur est servi en HTTPS, saisissez le nom d'hôte et la connexion sera sécurisée.
 
+Si **votre propre page** est ouverte en https://, le navigateur ne la laisse pas ouvrir de simples connexions `ws://` ; les partenaires qui n'offrent que http — la plupart des stations PhantomSDR+ et tout KiwiSDR — sont alors atteints via le relais de votre station (le relais est décrit plus bas, sous *Utiliser un WebSDR*). Le panneau s'en charge tout seul ; il suffit que le relais tourne. Voir [Accès sécurisé — https://](HTTPS.md).
+
 ### Récepteurs enregistrés
 
 Chaque adresse utilisée est mémorisée, dans une liste propre à chaque type de récepteur — une adresse KiwiSDR n'est jamais une suggestion utile quand le sélecteur affiche WebSDR. Les listes restent dans votre propre navigateur : elles ne sont envoyées nulle part, et chaque auditeur a la sienne.
@@ -87,9 +89,9 @@ cd ~/PhantomSDR-Plus
 ./setup_websdr_relay.sh
 ```
 
-Il demande un port, reprend votre indicatif et l'adresse de votre station depuis `frontend/site_information.json`, et propose d'installer un service systemd pour que le relais démarre au boot. Les réglages sont dans `websdr_relay.json` et se modifient à tout moment.
+Sur une station configurée avec les questions de la station (`configure-station.sh`), il voit que la station se trouve derrière le proxy : le relais n'écoute alors que sur cet ordinateur et s'atteint comme `/relay` à votre adresse publique, il ne demande donc pas de port. Sur une station plus ancienne, il en demande un. Dans les deux cas, il reprend votre indicatif et l'adresse de votre station depuis `frontend/site_information.json` et propose d'installer un service systemd pour que le relais démarre au boot. Les réglages sont dans `websdr_relay.json` et se modifient à tout moment. Répondre oui à la question du relais dans `bash configure-station.sh` l'installe et le démarre aussi.
 
-**Une chose que l'installateur ne peut pas faire à votre place : ouvrir le port du relais sur votre routeur.** Les navigateurs des auditeurs se connectent directement au relais — il ne passe pas par le récepteur — sans cette redirection, la diversité avec un WebSDR ne fonctionne donc que depuis votre propre réseau. Les trois autres types de récepteur ne sont pas concernés.
+**Port du routeur.** Derrière le proxy, il n'y en a aucun à ouvrir : la page atteint le relais comme `/relay` par l'adresse que les auditeurs utilisent déjà, en http comme en https. Seule une station plus ancienne, configurée avant les questions de la station, fait tourner le relais sur un port à lui ; les navigateurs des auditeurs s'y connectent alors directement, ce port doit donc être redirigé sur votre routeur, sinon la diversité avec un WebSDR ne fonctionne que depuis votre propre réseau. Les trois autres types de récepteur n'ont pas besoin du relais — sauf depuis une page servie en https, où il transporte aussi les partenaires PhantomSDR+ et KiwiSDR uniquement http (voir plus haut).
 
 Si le panneau d'administration est installé, son tableau de bord affiche une carte **WebSDR Diversity Relay** avec l'état, le port, le nombre de sessions en cours et vers quels sites.
 

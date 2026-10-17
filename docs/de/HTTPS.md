@@ -78,8 +78,22 @@ Caddy erreicht den Proxy über einen eigenen Port, weil aus Sicht des Proxys son
 
 - **Beide Adressen funktionieren.** Verzeichnisse und die websdr.org-Karte zeigen weiter die http-Adresse; der Rückruf von websdr.org und Kiwi-Clients verwenden http.
 - **Besserer Ton über https.** Browser geben einer sicheren Seite das AudioWorklet, einen stabileren Audioweg als den, den reine http-Seiten nutzen müssen.
-- **Receive Diversity mit Partnern nur über http.** Ein Browser erlaubt einer https-Seite keine einfachen `ws://`-Verbindungen; von der https-Seite aus lässt sich daher keine Partnerstation hinzufügen, die nur http hat. Partner mit https funktionieren, und WebSDR-Partner funktionieren über das Relay. Für einen Partner nur mit http verwenden Sie die http-Adresse der Seite.
+- **Receive Diversity mit Partnern nur über http.** Ein Browser erlaubt einer https-Seite keine einfachen `ws://`-Verbindungen, und die meisten PhantomSDR+-Stationen sowie jeder KiwiSDR bieten nichts anderes. Von der https-Seite aus werden sie daher über das Diversity-Relay der Station erreicht — siehe *Receive Diversity über https* weiter unten. Partner, die selbst https haben, und UberSDRs werden direkt erreicht.
 - **Funkgerätesteuerung (TCI-CAT).** Verbindungen zu `127.0.0.1` auf dem eigenen Rechner des Hörers sind von einer https-Seite in aktuellen Chrome-, Edge- und Firefox-Versionen erlaubt.
+
+---
+
+## Receive Diversity über https
+
+Eine https-Seite erreicht Diversity-Partner nur mit http — die meisten PhantomSDR+-Stationen, jeden KiwiSDR — über das eigene Relay der Station, `websdr_relay.py`, dasselbe, das auch WebSDR-Partner bedient. Der Browser verbindet sich sicher mit `wss://myname.ddns.net/relay/…`, und das Relay verbindet sich über `ws://` weiter. Das Panel erledigt das von selbst. Das Relay überträgt nur Diversity-Audio (PhantomSDR+ `/audio`, KiwiSDR `/kiwi/…/SND`), verbindet sich nur mit öffentlichen Adressen und behält seine üblichen Grenzen. Läuft es nicht, erreicht eine https-Seite nur Partner, die selbst https haben.
+
+Auf einer https-Station lassen Sie das Relay daher eingeschaltet:
+
+- **https mit den Stationsfragen einschalten:** Ist https eingeschaltet, steht die anschließende Relay-Frage auf Ja — lassen Sie es so, dann wird auch das Relay installiert und gestartet. `bash setup-https.sh` allein installiert es nicht.
+- **Eine Station, die bereits https hat:** prüfen Sie mit `systemctl is-active phantomsdr-websdr-relay`. Ist es nicht aktiv, führen Sie `bash setup_websdr_relay.sh` aus, oder `bash configure-station.sh` und beantworten die Relay-Frage mit Ja. Hinter dem Proxy braucht es keinen Router-Port und keinen Neubau.
+- **Prüfen:** `https://myname.ddns.net/relay/status` antwortet mit einigen Zeilen, die mit `"service": "PhantomSDR-Plus WebSDR relay"` beginnen.
+
+Über das Relay sieht der Partner die Adresse Ihrer Station, nicht die des Hörers; ein Partner mit einer Grenze pro IP zählt also alle Ihre über das Relay verbundenen Hörer zusammen. Eine Station nur mit http braucht nichts davon: Eine http-Seite öffnet `ws://`- und `wss://`-Verbindungen direkt.
 
 ---
 

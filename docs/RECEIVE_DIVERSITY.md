@@ -47,6 +47,8 @@ That is the whole setup. There is nothing to configure on the other receiver, an
 
 A bare hostname, an `http://` URL or a full `ws://` URL are all accepted. If the other receiver is served over HTTPS, type the hostname and it will use a secure connection.
 
+If **your own page** is opened over https://, the browser does not let it open plain `ws://` connections, so partners that offer only http — most PhantomSDR+ stations and every KiwiSDR — are reached through your station's relay instead (the relay is described under *Using a WebSDR* below). The panel does this by itself; the relay only has to be running. See [Secure Access — https://](HTTPS.md).
+
 ### Saved receivers
 
 Every address you connect to is remembered, in a list of its own for each receiver type — a KiwiSDR address is never a useful suggestion when the selector says WebSDR. The lists live in your own browser: they are not sent anywhere, and every listener has their own.
@@ -87,9 +89,9 @@ cd ~/PhantomSDR-Plus
 ./setup_websdr_relay.sh
 ```
 
-It asks for a port, takes your callsign and site address from `frontend/site_information.json`, and offers to install a systemd service so the relay starts at boot. Settings live in `websdr_relay.json` and can be changed at any time.
+On a station set up with the station questions (`configure-station.sh`) it sees that the station sits behind the proxy: the relay then listens on this computer only and is reached as `/relay` on your public address, so it asks no port. On an older station it asks for one. Either way it takes your callsign and site address from `frontend/site_information.json` and offers to install a systemd service so the relay starts at boot. Settings live in `websdr_relay.json` and can be changed at any time. Answering yes to the relay question in `bash configure-station.sh` installs and starts it as well.
 
-**One thing the installer cannot do for you: forward the relay's port on your router.** Visitors' browsers connect to the relay directly — it is not proxied through the receiver — so without that forward, WebSDR diversity works only from inside your own network. The other three receiver types are unaffected.
+**Router port.** Behind the proxy there is none to open: the page reaches the relay as `/relay` through the address listeners already use, over http and https alike. Only an older station, set up before the station questions, runs the relay on a port of its own; visitors' browsers then connect to it directly, so that port must be forwarded on your router, or WebSDR diversity works only from inside your own network. The other three receiver types do not need the relay — except from a page served over https, where it also carries http-only PhantomSDR+ and KiwiSDR partners (see above).
 
 If the admin panel is installed, its dashboard shows a **WebSDR Diversity Relay** card with the relay's state, the port, how many sessions are running and to which sites.
 

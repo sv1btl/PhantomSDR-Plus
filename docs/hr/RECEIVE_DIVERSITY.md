@@ -47,6 +47,8 @@ To je cijela postava. Na drugom prijamniku nema se što podesiti niti postoji za
 
 Prihvaća se samo naziv poslužitelja, `http://` adresa ili puna `ws://` adresa. Ako se drugi prijamnik poslužuje preko HTTPS-a, upišite naziv poslužitelja i veza će biti sigurna.
 
+Ako se **vaša vlastita stranica** otvara preko https://, preglednik joj ne dopušta obične `ws://` veze, pa se do partnera koji nude samo http — većine PhantomSDR+ stanica i svakog KiwiSDR-a — umjesto toga dolazi preko releja vaše stanice (relej je opisan niže, pod *Korištenje WebSDR-a*). Panel to radi sam; relej samo mora raditi. Vidi [Siguran pristup — https://](HTTPS.md).
+
 ### Spremljeni prijamnici
 
 Svaka adresa koju upotrijebite pamti se, u vlastitom popisu za svaki tip prijamnika — adresa KiwiSDR-a nikad nije koristan prijedlog kad birač pokazuje WebSDR. Popisi ostaju u vašem pregledniku: ne šalju se nikamo i svaki slušatelj ima svoj.
@@ -87,9 +89,9 @@ cd ~/PhantomSDR-Plus
 ./setup_websdr_relay.sh
 ```
 
-Traži port, preuzima vaš pozivni znak i adresu stanice iz `frontend/site_information.json` te nudi instalaciju systemd usluge kako bi se relej pokretao pri podizanju sustava. Postavke su u `websdr_relay.json` i mogu se promijeniti bilo kada.
+Na stanici postavljenoj pitanjima stanice (`configure-station.sh`) prepoznaje da stanica stoji iza proxyja: relej tada sluša samo na ovom računalu i doseže se kao `/relay` na vašoj javnoj adresi, pa ne traži port. Na starijoj stanici traži ga. U oba slučaja preuzima vaš pozivni znak i adresu stanice iz `frontend/site_information.json` te nudi instalaciju systemd usluge kako bi se relej pokretao pri podizanju sustava. Postavke su u `websdr_relay.json` i mogu se promijeniti bilo kada. Odgovor da na pitanje o releju u `bash configure-station.sh` također ga instalira i pokreće.
 
-**Jedno instalater ne može učiniti umjesto vas: proslijediti port releja na vašem ruteru.** Preglednici slušatelja spajaju se izravno na relej — ne ide kroz prijamnik — pa bez tog prosljeđivanja WebSDR diverziti radi samo iz vaše vlastite mreže. Ostala tri tipa prijamnika to ne pogađa.
+**Port na ruteru.** Iza proxyja nema ga potrebe otvarati: stranica dolazi do releja kao `/relay` preko adrese koju slušatelji ionako koriste, jednako preko http-a i https-a. Samo starija stanica, postavljena prije pitanja stanice, pokreće relej na vlastitom portu; preglednici slušatelja tada se spajaju izravno na njega, pa taj port treba proslijediti na ruteru, inače WebSDR diverziti radi samo iz vaše vlastite mreže. Ostala tri tipa prijamnika relej ne trebaju — osim sa stranice poslužene preko https-a, gdje on prenosi i PhantomSDR+ i KiwiSDR partnere samo na http-u (vidi gore).
 
 Ako je administracijska ploča instalirana, njezina nadzorna ploča prikazuje karticu **WebSDR Diversity Relay** sa stanjem, portom te brojem sesija i stanicama prema kojima idu.
 

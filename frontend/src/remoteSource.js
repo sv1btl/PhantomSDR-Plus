@@ -30,6 +30,7 @@
 import { createDecoder } from './lib/wrappers'
 import { decode as cbor_decode } from 'cbor-x'
 import { CLIENT_VERSION } from './clientVersion'
+import { viaRelayIfBlocked } from './lib/mixedContent.js'
 
 // Opus is decoded the way audio.js decodes it — with the ML decoder, not
 // with createDecoder('opus'). Not every receiver honours codec_caps, so a
@@ -85,6 +86,7 @@ export class RemoteSource {
     this._connectTimer = null
     this._pending = null       // tune() called before settings arrived
     this._triedSecure = false
+    this._plainEndpoint = null // set while a wss:// upgrade is unproven
     this._withVersion = false  // set once the remote refuses a bare /audio
     this._opusReady = false
   }
@@ -110,7 +112,7 @@ export class RemoteSource {
       const url = !this._withVersion || /[?&]v=/.test(this.endpoint)
         ? this.endpoint
         : this.endpoint + (this.endpoint.includes('?') ? '&' : '?') + 'v=' + CLIENT_VERSION
-      sock = new WebSocket(url)
+      sock = new WebSocket(viaRelayIfBlocked(url))
     } catch (e) {
       this._setState('error', e)
       this._scheduleReconnect()
@@ -166,9 +168,13 @@ export class RemoteSource {
   // per-IP limit uses the same code with a different reason and must still
   // go through the ordinary backoff.  Retried once, on the same scheme —
   // this is not the HTTPS case, so it must not burn the wss:// upgrade.
+  // A station behind an older proxy.py gets the code but the reason
+  // replaced by "upstream closed" (9a7aof, Oct 2026), so that reason counts
+  // too: a per-IP refusal costs one extra attempt, then backs off as usual.
   _onClose (ev) {
     if (!this._withVersion && this._wantOpen && this.state !== 'ready' &&
-        ev && ev.code === 4003 && /out of date/i.test(ev.reason || '')) {
+        ev && ev.code === 4003 &&
+        /out of date|upstream closed/i.test(ev.reason || '')) {
       this._withVersion = true
       console.warn('[Diversity] remote wants a client version; retrying with ?v=' + CLIENT_VERSION)
       this._teardownSocket()
@@ -197,11 +203,21 @@ export class RemoteSource {
     // once rather than making the user work that out from a close code.
     if (!this._triedSecure && /^ws:/i.test(this.endpoint) && this.state !== 'ready') {
       this._triedSecure = true
+      this._plainEndpoint = this.endpoint
       this.endpoint = this.endpoint.replace(/^ws:/i, 'wss:')
       console.warn('[Diversity] ws:// refused; retrying as wss://', this.endpoint)
       this._retries = 0
       setTimeout(() => this._open(), 250)
       return
+    }
+    // The upgrade was a guess.  If wss:// never came up either, the station
+    // is plain http after all and the first failure was something else (an
+    // older proxy hiding the version gate's reason did exactly this), so go
+    // back to ws:// rather than retrying a scheme that cannot work forever.
+    if (this._plainEndpoint) {
+      console.warn('[Diversity] wss:// failed too; back to', this._plainEndpoint)
+      this.endpoint = this._plainEndpoint
+      this._plainEndpoint = null
     }
     clearTimeout(this._timer)
     const delay = Math.min(
@@ -256,6 +272,7 @@ export class RemoteSource {
     this._buildDecoder(settings.audio_compression || 'flac')
 
     this.socket.onmessage = (ev) => this._onAudio(ev)
+    this._plainEndpoint = null  // the wss:// upgrade, if any, was right
     clearTimeout(this._connectTimer)
     this._retries = 0
     this._setState('ready', {

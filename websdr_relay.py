@@ -8,6 +8,10 @@ Receive diversity therefore needs this small relay: the browser connects here,
 this process connects onward to the WebSDR with the Origin it expects, and
 audio is piped back unchanged.
 
+It also carries PhantomSDR-Plus (/audio) and KiwiSDR (/kiwi/<ts>/SND) streams
+for pages served over https, which the browser forbids to open ws:// sockets;
+see /ws below. Same caps, same refusal of private addresses.
+
 That is a deliberate check on someone else's server, so this relay is built to
 be a polite guest and nothing else:
 
@@ -290,6 +294,110 @@ async def relay(request):
     return down
 
 
+# ── Pass-through for pages served over HTTPS ──────────────────────────────────
+# A page loaded over https may not open a ws:// socket (mixed content), and most
+# PhantomSDR-Plus stations and KiwiSDRs are plain http with no wss:// at all. So
+# an https page reaches them through here: wss:// to us, ws:// onward. Only the
+# two audio paths diversity uses are accepted, so this is not a general tunnel.
+_PASS_PATHS = re.compile(r"^/audio$|^/kiwi/\d{1,16}/SND$")
+_PASS_QUERY = re.compile(r"^(v=\d{1,3})?$")      # /audio?v=N, nothing else
+
+
+def parse_passthrough(raw):
+    """Return (upstream URL, netloc) for an allowed ws:// target, else raise."""
+    if not raw:
+        raise ValueError("no url given")
+    u = urlsplit(raw.strip())
+    if u.scheme not in ("ws", "wss"):
+        raise ValueError(f"unsupported scheme {u.scheme!r}")
+    if not _PASS_PATHS.match(u.path or ""):
+        raise ValueError(f"path {u.path!r} is not a diversity audio path")
+    if not _PASS_QUERY.match(u.query or "") or (u.query and u.path != "/audio"):
+        raise ValueError("query not allowed")
+    _, host, port, netloc = parse_target(raw)
+    path = u.path + (f"?{u.query}" if u.query else "")
+    return f"{u.scheme}://{netloc}{path}", host, netloc
+
+
+async def pass_frames(src, dst, state, key):
+    """
+    Copy frames one way and return the close (code, reason) seen, if any.
+    receive() rather than `async for`, which swallows the close frame — and
+    the remote's reason is what tells a diversity client to retry with ?v=.
+    """
+    while True:
+        msg = await src.receive()
+        if msg.type == WSMsgType.TEXT:
+            state[key] += 1
+            await dst.send_str(msg.data)
+        elif msg.type == WSMsgType.BINARY:
+            state[key] += 1
+            await dst.send_bytes(msg.data)
+        else:
+            if msg.type == WSMsgType.CLOSE:
+                return msg.data, msg.extra or ""
+            return None, ""
+
+
+async def passthrough(request):
+    counters = request.app["counters"]
+    try:
+        upstream, host, netloc = parse_passthrough(request.query.get("url"))
+        check_public(host)
+    except ValueError as e:
+        return web.Response(status=400, text=str(e))
+
+    busy = counters.acquire(netloc)
+    if busy:
+        log.info("refused %s: %s", netloc, busy)
+        return web.Response(status=503, text=busy)
+
+    down = web.WebSocketResponse(max_msg_size=0, heartbeat=25)
+    await down.prepare(request)
+
+    state = {"rx": 0, "tx": 0}
+    code, reason = 1000, ""
+    session = None
+    try:
+        session = ClientSession(timeout=ClientTimeout(total=None, sock_connect=10))
+        async with session.ws_connect(
+            upstream,
+            headers={"User-Agent": request.app["ua"]},
+            max_msg_size=0,
+            heartbeat=25,
+            autoping=True,
+        ) as up:
+            log.info("open  %s  (pass-through, %d to this site)",
+                     upstream, counters.snapshot()["hosts"].get(netloc, 0))
+            a = asyncio.create_task(pass_frames(up, down, state, "rx"))
+            b = asyncio.create_task(pass_frames(down, up, state, "tx"))
+            done, pending = await asyncio.wait({a, b}, return_when=asyncio.FIRST_COMPLETED)
+            for t in pending:
+                t.cancel()
+            await asyncio.gather(*pending, return_exceptions=True)
+            if a in done and not a.exception():
+                c, r = a.result()
+                code, reason = (c or up.close_code or 1000), r
+            elif b in done and not up.closed:
+                await up.close(code=down.close_code or 1000)
+    except aiohttp.WSServerHandshakeError as e:
+        log.warning("upstream refused %s: HTTP %s", upstream, e.status)
+        code, reason = 4403, f"station refused the connection (HTTP {e.status})"
+    except (aiohttp.ClientError, asyncio.TimeoutError, OSError) as e:
+        log.warning("upstream failed %s: %s", upstream, e)
+        code, reason = 4502, f"cannot reach {netloc}: {e}"
+    finally:
+        if session is not None:
+            await session.close()
+        counters.release(netloc)
+        if not down.closed:
+            # 123 bytes is the protocol's cap; never cut a character in half.
+            msg = reason.encode("utf-8")[:123].decode("utf-8", "ignore").encode("utf-8")
+            await down.close(code=code if 1000 <= code < 5000 else 1000, message=msg)
+        log.info("close %s  (%d frames in, %d out)", netloc, state["rx"], state["tx"])
+    return down
+
+
 _BAND_RE = re.compile(
     r"centerfreq:\s*([-\d.]+).*?samplerate:\s*([-\d.]+).*?name:\s*'([^']*)'",
     re.S,
@@ -358,6 +466,7 @@ def main():
     app["ua"] = user_agent(cfg)
     app["counters"] = Counters(cfg["max_per_host"], cfg["max_total"])
     app.router.add_get("/websdr", relay)
+    app.router.add_get("/ws", passthrough)
     app.router.add_get("/bandinfo", bandinfo)
     app.router.add_get("/status", status)
 
@@ -367,6 +476,7 @@ def main():
     log.info("User-Agent: %s", app["ua"])
     log.info("caps: %d per WebSDR, %d overall", cfg["max_per_host"], cfg["max_total"])
     log.info("listening on %s:%d   (ws://…/websdr?host=<websdr host:port>)", cfg["bind"], cfg["port"])
+    log.info("pass-through for https pages: ws://…/ws?url=<ws://station/audio>")
     web.run_app(app, host=cfg["bind"], port=cfg["port"], print=None)
 
 

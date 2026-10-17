@@ -1409,6 +1409,16 @@ table.markers tr:hover td{background:rgba(0,255,65,0.03);}
 table.markers input{width:100%;background:transparent;border:none;
   color:var(--text);font-family:'Share Tech Mono',monospace;font-size:.75rem;}
 table.markers input:focus{background:#071207;outline:1px solid var(--border);}
+
+/* Listener map (Leaflet) */
+#umap.leaflet-container{font-family:'Share Tech Mono',monospace;font-size:.7rem;}
+#umap .leaflet-popup-content-wrapper,#umap .leaflet-popup-tip,#umap .leaflet-tooltip{
+  background:var(--panel);color:var(--text);border:1px solid var(--border);box-shadow:0 0 12px rgba(0,255,65,.15);}
+#umap .leaflet-popup-content{margin:.6rem .8rem;line-height:1.5;font-size:.68rem;}
+#umap .umap-pop-head{font-family:'Orbitron',sans-serif;color:var(--green);font-size:.66rem;letter-spacing:.05em;margin-bottom:.3rem;}
+#umap .leaflet-control-layers,#umap .leaflet-bar a{background:var(--panel);color:var(--text);border-color:var(--border);}
+#umap .leaflet-control-attribution{background:rgba(5,10,5,.75);color:var(--text3);}
+#umap .leaflet-control-attribution a{color:var(--text2);}
 </style>
 </head>
 <body>
@@ -2015,6 +2025,13 @@ table.markers input:focus{background:#071207;outline:1px solid var(--border);}
               <tr><td colspan="5" style="color:var(--text3);text-align:center;padding:.8rem;">Click REFRESH to load</td></tr>
             </tbody>
           </table>
+        </div>
+        <div class="card" style="margin-top:.8rem;padding:0;overflow:hidden;">
+          <div class="card-header" style="padding:.6rem .9rem;margin:0;display:flex;align-items:center;gap:.6rem;">
+            <div class="dot"></div>LISTENER MAP
+            <span style="font-size:.6rem;color:var(--text3);margin-left:auto;" id="umap-info"></span>
+          </div>
+          <div id="umap" style="height:420px;background:var(--bg);"></div>
         </div>
       </div>
 
@@ -3671,6 +3688,7 @@ async function loadUsers() {
     if (rxTh) rxTh.style.display = multi ? '' : 'none';
     if (errEl) errEl.style.display = 'none';
     if (info)  info.textContent = users.length + ' connected';
+    umapUpdate(users);
     if (!tbody) return;
     if (!users.length) { msgRow('No users currently connected', ''); return; }
     var now = Date.now();
@@ -3769,6 +3787,127 @@ function toggleUsersAutoRefresh() {
       else { clearInterval(_usersAutoTimer); _usersAutoTimer = null; }
     }, 5000);
     if (btn) { btn.textContent = '⏸ AUTO ON'; btn.classList.replace('btn-green','btn-amber'); }
+  }
+}
+
+// ── Listener map ──────────────────────────────────────────────────────────────
+// Leaflet comes from unpkg and is loaded the first time the Users page opens.
+// Coordinates come from /admin/api/users-geo (ip-api.com, cached server side);
+// listeners in the same place share one marker. Popups are built with
+// textContent — geo text is from an outside service.
+var _umap = null, _umapLayer = null, _umapHome = null, _umapKeys = '', _umapLoading = null;
+
+function _umapLoadLeaflet() {
+  if (window.L) return Promise.resolve();
+  if (_umapLoading) return _umapLoading;
+  _umapLoading = new Promise(function(resolve, reject) {
+    var css = document.createElement('link');
+    css.rel = 'stylesheet';
+    css.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
+    css.integrity = 'sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=';
+    css.crossOrigin = '';
+    document.head.appendChild(css);
+    var js = document.createElement('script');
+    js.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
+    js.integrity = 'sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=';
+    js.crossOrigin = '';
+    js.onload = function() { resolve(); };
+    js.onerror = function() { _umapLoading = null; reject(new Error('Leaflet did not load from unpkg.com')); };
+    document.head.appendChild(js);
+  });
+  return _umapLoading;
+}
+
+// Centre of a Maidenhead locator of 2–10 characters (same as the APRS map).
+function _umapLocator(loc) {
+  var s = String(loc || '').trim().toUpperCase();
+  if (!/^[A-R]{2}([0-9]{2}([A-X]{2}([0-9]{2}([A-X]{2})?)?)?)?$/.test(s)) return null;
+  var lon = -180, lat = -90, w = 20, h = 10;
+  lon += (s.charCodeAt(0) - 65) * w; lat += (s.charCodeAt(1) - 65) * h;
+  var steps = [[10, 10, 48], [24, 24, 65], [10, 10, 48], [24, 24, 65]];
+  for (var i = 2, k = 0; i < s.length; i += 2, k++) {
+    w /= steps[k][0]; h /= steps[k][1];
+    lon += (s.charCodeAt(i) - steps[k][2]) * w;
+    lat += (s.charCodeAt(i + 1) - steps[k][2]) * h;
+  }
+  return [lat + h / 2, lon + w / 2];
+}
+
+function _umapInit() {
+  _umap = L.map('umap', {worldCopyJump: true}).setView([30, 10], 2);
+  var dark = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}', {
+    maxZoom: 16, attribution: 'Tiles &copy; Esri'
+  });
+  var osm = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19, attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+  });
+  dark.addTo(_umap);
+  L.control.layers({'Dark': dark, 'OpenStreetMap': osm}, null, {position: 'topright'}).addTo(_umap);
+  _umapLayer = L.layerGroup().addTo(_umap);
+}
+
+async function umapUpdate(users) {
+  var info = document.getElementById('umap-info');
+  try {
+    await _umapLoadLeaflet();
+    if (!_umap) _umapInit();
+    _umap.invalidateSize();
+    var ips = users.map(function(u) { return (u.ip || '').replace(/^::ffff:/, ''); });
+    var r = await fetch('/admin/api/users-geo', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ips: ips})
+    });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    var d = await r.json();
+    var geo = d.geo || {};
+    _umapHome = _umapLocator(d.grid);
+    // Group listeners by place
+    var places = {}, local = 0, unknown = 0;
+    users.forEach(function(u, i) {
+      var g = geo[ips[i]];
+      if (!g) { if (isLocalIp(u.ip) || u.geo === 'Local') local++; else unknown++; return; }
+      var key = g.lat.toFixed(3) + ',' + g.lon.toFixed(3);
+      if (!places[key]) places[key] = {g: g, list: []};
+      places[key].list.push(u);
+    });
+    _umapLayer.clearLayers();
+    var pts = [];
+    if (_umapHome) {
+      L.circleMarker(_umapHome, {radius: 7, color: '#ffb000', weight: 2, fillColor: '#ffb000', fillOpacity: .9})
+        .bindTooltip('This station (' + d.grid + ')').addTo(_umapLayer);
+      pts.push(_umapHome);
+    }
+    Object.keys(places).forEach(function(key) {
+      var p = places[key], ll = [p.g.lat, p.g.lon];
+      pts.push(ll);
+      if (_umapHome)
+        L.polyline([_umapHome, ll], {color: '#00ff41', weight: 1, opacity: .35, dashArray: '4 6'}).addTo(_umapLayer);
+      var box = document.createElement('div');
+      var head = document.createElement('div');
+      head.className = 'umap-pop-head';
+      head.textContent = [p.g.city, p.g.country].filter(Boolean).join(', ') + '  (' + p.list.length + ')';
+      box.appendChild(head);
+      p.list.forEach(function(u) {
+        var row = document.createElement('div');
+        row.textContent = (u.rx ? u.rx + ' · ' : '') + _uFmtFreq(u.freq_khz) + ' ' +
+                          (u.mode || '--').toUpperCase() + ' · ' + (u.ip || '').replace(/^::ffff:/, '');
+        box.appendChild(row);
+      });
+      L.circleMarker(ll, {radius: Math.min(5 + 2 * p.list.length, 16), color: '#00ff41', weight: 2,
+                          fillColor: '#00ff41', fillOpacity: .45})
+        .bindPopup(box).addTo(_umapLayer);
+    });
+    // Re-frame only when the set of places changes, so a manual zoom survives AUTO.
+    var keys = Object.keys(places).sort().join('|');
+    if (keys !== _umapKeys) {
+      _umapKeys = keys;
+      if (pts.length > 1) _umap.fitBounds(pts, {padding: [30, 30], maxZoom: 7});
+      else if (pts.length === 1) _umap.setView(pts[0], 5);
+    }
+    if (info) info.textContent = Object.keys(places).length + ' places' +
+      (local ? ' · ' + local + ' local' : '') + (unknown ? ' · ' + unknown + ' not located' : '');
+  } catch(e) {
+    if (info) info.textContent = 'Map: ' + e.message;
   }
 }
 
@@ -4840,6 +4979,70 @@ def api_sdr_users():
     if not seen:
         return jsonify({"ok": False, "users": [], "error": "; ".join(errors) or "no receiver"})
     return jsonify({"ok": True, "users": users, "multi": len(labels) > 1, "errors": errors})
+
+# ── Listener map: IP → coordinates ────────────────────────────────────────────
+# spectrumserver's own lookup keeps only "city, CC", so the map asks ip-api.com
+# again for lat/lon — one batch request for every IP not yet cached. The free
+# batch endpoint allows 15 requests/min, 100 IPs each; a found IP is kept for a
+# day, a failed one retried after 10 minutes. Memory only, nothing on disk.
+_geo_cache = {}            # ip -> (expires_monotonic, dict or None)
+_geo_lock = threading.Lock()
+
+def _geo_public(ip):
+    import ipaddress
+    try:
+        return ipaddress.ip_address(ip).is_global
+    except ValueError:
+        return False
+
+@app.route("/admin/api/users-geo", methods=["POST"])
+@login_required
+def api_users_geo():
+    import urllib.request
+    data = request.get_json(silent=True) or {}
+    ips = []
+    for ip in data.get("ips") or []:
+        ip = str(ip).strip()
+        if ip.startswith("::ffff:"):
+            ip = ip[7:]
+        if ip and ip not in ips and _geo_public(ip):
+            ips.append(ip)
+    ips = ips[:100]
+    now = time.monotonic()
+    with _geo_lock:
+        missing = [ip for ip in ips if _geo_cache.get(ip, (0, None))[0] <= now]
+    if missing:
+        found = {}
+        try:
+            req = urllib.request.Request(
+                "http://ip-api.com/batch?fields=status,query,lat,lon,city,country,countryCode",
+                data=json.dumps(missing).encode(),
+                headers={"Content-Type": "application/json"})
+            with urllib.request.urlopen(req, timeout=5) as r:
+                for g in json.loads(r.read().decode()):
+                    if g.get("status") == "success":
+                        found[g.get("query")] = {
+                            "lat": g.get("lat"), "lon": g.get("lon"),
+                            "city": g.get("city") or "", "country": g.get("country") or "",
+                            "cc": g.get("countryCode") or ""}
+        except Exception as e:
+            logging.warning("users-geo: ip-api.com lookup failed: %s", e)
+        with _geo_lock:
+            for ip in missing:
+                g = found.get(ip)
+                _geo_cache[ip] = (now + (86400 if g else 600), g)
+            if len(_geo_cache) > 5000:
+                for k in [k for k, v in _geo_cache.items() if v[0] <= now]:
+                    del _geo_cache[k]
+    with _geo_lock:
+        out = {ip: _geo_cache[ip][1] for ip in ips if _geo_cache.get(ip, (0, None))[1]}
+    # The station itself, drawn from its locator like the APRS map does.
+    try:
+        si = json.loads(read_file_safe(get_sdr_dir() / "frontend" / "site_information.json"))
+        grid = str(si.get("siteGridSquare") or "")
+    except Exception:
+        grid = ""
+    return jsonify({"ok": True, "geo": out, "grid": grid})
 
 @app.route("/admin/api/users")
 @login_required

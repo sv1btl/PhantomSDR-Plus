@@ -408,6 +408,12 @@ Agrandit l'affichage en cascade :
 
 L'interrupteur **Auto Adj.** des commandes de la cascade règle pour vous la luminosité et le contraste de la cascade. Il mesure le bruit de fond sur toute l'étendue visible et en fait un fond sombre et régulier — y compris là où le bruit diffère d'une partie de l'étendue à l'autre — puis étire tout ce qui se trouve au-dessus, si bien que les signaux faibles ressortent et que les plus forts atteignent les couleurs du haut. Il fonctionne de la même façon avec toutes les palettes, et seule la cascade change : la trace du spectre garde sa véritable échelle en dB. Tant qu'il est actif, les curseurs Min et Max sont verrouillés et affichent le bruit de fond et le pic mesurés ; en le désactivant, ils reviennent aux réglages de la bande.
 
+### Spectre 3D
+
+Le bouton **3D**, à côté de **Reverse** dans les commandes de la cascade, affiche le spectre en relief sur les dernières secondes : la fréquence en largeur, le temps vers le fond de l'écran, la force du signal en hauteur. Il utilise les mêmes couleurs, la même luminosité (Min), le même contraste (Max) et le même Auto Adj. que la cascade, et suit le zoom et le glissement comme le spectre plat. Un clic accorde, un glissement parcourt la bande et la molette de la souris zoome, exactement comme sur le spectre plat. Les repères de gauche indiquent à combien de secondes remonte une ligne, ceux de droite de combien de dB un pic dépasse le niveau Min (ils sont masqués tant qu'Auto Adj. est actif). **✕ 2D**, ou de nouveau le bouton 3D, revient au spectre plat, et votre choix est mémorisé dans le navigateur. La vue nécessite WebGL2, que propose tout navigateur actuel ; sans lui, le bouton n'apparaît pas. Un enregistrement vidéo fait avec la vue 3D ouverte enregistre la vue 3D à la place du spectre plat. La vue 3D est adaptée de PhantomSDR-ORSAT de F1NSK.
+
+**Ligne du curseur.** Partout où se trouve la souris au-dessus du spectre, de la cascade ou de la vue 3D, une ligne jaune pointillée marque cette fréquence sur le spectre et sur la cascade, et le spectre l'affiche en MHz.
+
 ### Pilotage du transceiver (CAT)
 
 Votre propre transceiver et la page du récepteur peuvent rester sur la même fréquence : tournez le bouton d'accord du poste et la cascade suit, ou cliquez sur un signal dans la cascade et le poste s'y accorde. Cela ne concerne que *votre* session d'écoute ; personne d'autre sur le récepteur n'est affecté.

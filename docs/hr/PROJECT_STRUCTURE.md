@@ -326,6 +326,7 @@ PhantomSDR-Plus
 │   │   │   ├── version.js             # VERSION + ORIGIN_URL za stranicu prijemnika i /mobile
 │   │   │   ├── VersionSelector.svelte
 │   │   │   ├── VideoAreaSelector.svelte
+│   │   │   ├── Waterfall3D.svelte     # 3D spektar (WebGL2)
 │   │   │   ├── wfAutoLevel.js         # Auto Adj.: svjetlina i kontrast slapa
 │   │   │   └── wrappers.js
 │   │   ├── main.js
@@ -969,6 +970,7 @@ Web-sučelje izgrađeno pomoću Sveltea i Vitea.
 - Interaktivno ugađanje putem `lib/PassbandTuner.svelte`
 - Preklopi plana pojaseva i oznaka putem `lib/FrequencyMarkers.svelte`
 - Audio spektrogram zasebna je komponenta: `lib/Spectrogram.svelte`
+- 3D spektar je `lib/Waterfall3D.svelte` (WebGL2): dok je otvoren, `waterfall.js` mu preko `waterfall.view3d` predaje svaki red s razinama slapa (primijenjeni Min/Max i Auto Adj.), raspon zumiranja i paletu boja; preuzet iz PhantomSDR-ORSAT autora F1NSK
 
 #### 3. Kontrole (`App.svelte` + `lib/`)
 - Unos i prikaz frekvencije — `lib/FrequencyInput.svelte`

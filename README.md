@@ -22,8 +22,10 @@ PhantomSDR-Plus is licensed under the GPL v3 with the [additional terms](ADDITIO
 * **Receive diversity switches even when only one site hears the station.** Until the two streams are aligned they are paired by arrival, and the better site is chosen by SNR as usual — so a station heard only by the remote now comes through, the case where diversity helps most. The panel shows **Ready (unaligned)** meanwhile. See **[docs/RECEIVE_DIVERSITY.md](docs/RECEIVE_DIVERSITY.md)**.
 * **Connected Users and User Statistics per receiver.** With several receivers open side by side in one browser, each page's windows show its own receiver, from its own logs.
 * **A bigger spectrum and waterfall on phones.** In the extended mobile view the spectrum is 1.6× taller and the waterfall nearly twice as tall as before (on a 412-pixel screen 57 + 42 pixels instead of 35 + 23); the desktop page is unchanged.
-* **Fixes:** the CW filter is centred on the 750 Hz tone (the tone used to sit 50 Hz from the filter's edge), and CW-L reaches the server as LSB; links written for KiwiSDR and UberSDR (`modulation=CWU`, `CW-U`, `CWL`) open in CW and CW-L; websdr.org registration works with sdr-list registration switched off, sends its ping over IPv4, and its callback (`/~~orgstatus`) now gets through `proxy.py`; the installers build the backend with OpenCL whenever the OpenCL step ran.
-* **Documentation:** the User Guide, Several Receivers, Receive Diversity and Project Structure manuals cover all of the above in all seven languages, and the offline PDFs are rebuilt.
+* **A 3D spectrum.** A **3D** button next to **Reverse** under Waterfall Controls turns the spectrum into a relief of the last few seconds — frequency across, time going back into the screen, strength as height — drawn by the listener's graphics card (WebGL2), so it costs the server nothing. It uses the waterfall's own colours, brightness, contrast and Auto Adj.; click to tune, drag and wheel to zoom work as on the flat spectrum; marks show seconds back and dB above the Min level; and a video recording made while it is open records it. Adapted from the 3D spectrum of [PhantomSDR-ORSAT](https://github.com/f1nsk40260/PhantomSDR-ORSAT) by F1NSK. See **[docs/USER_GUIDE.md](docs/USER_GUIDE.md)**.
+* **A cursor line on the waterfall too.** The spectrum's dashed yellow line under the mouse now also shows on the waterfall, and hovering the waterfall draws it on the spectrum with its MHz readout.
+* **Fixes:** the CW filter is centred on the 750 Hz tone (the tone used to sit 50 Hz from the filter's edge), and CW-L reaches the server as LSB; links written for KiwiSDR and UberSDR (`modulation=CWU`, `CW-U`, `CWL`) open in CW and CW-L; websdr.org registration works with sdr-list registration switched off, sends its ping over IPv4, and its callback (`/~~orgstatus`) now gets through `proxy.py`; the installers build the backend with OpenCL whenever the OpenCL step ran; with the waterfall switched off, the spectrum's tuning indicator follows a click again.
+* **Documentation:** the User Guide (now with the 3D spectrum), Several Receivers, Receive Diversity and Project Structure manuals cover all of the above in all seven languages, and the offline PDFs are rebuilt.
 
 ------------------
 
@@ -75,6 +77,7 @@ We also provide a wide range of additional **features**:
   * CTCSS tone squelch (FM), with a pop-up picker for the subtone.
   * Configurable buffer settings.
   * Auto Adj.: automatic waterfall brightness and contrast from the measured noise floor, the same with every colour map.
+  * 3D spectrum: the last seconds of the band in relief, in the waterfall's colours and levels (WebGL2, in the listener's browser).
   * Mouse-wheel frequency tuning, with a 12.5 kHz step for the VHF channel grid.
   * Keyboard shortcuts.
   * Zoom slider.
@@ -88,7 +91,7 @@ We also provide a wide range of additional **features**:
 * An optional monitoring tool that adds real-time server-status information to the PhantomSDR application.
 * An on-screen real-time audio spectrogram.
 * A “Magic Eye” signal-strength indicator that emulates the behaviour of EM84 tuning-indicator tubes used in vintage radio receivers.
-* Audio recording and combined video/audio recording of either the complete waterfall or a user-selected region.
+* Audio recording and combined video/audio recording of either the complete waterfall (with the 3D spectrum when it is open) or a user-selected region.
 * A real-time connected-user list with geolocation data, map integration, and user statistics covering configurable time periods. Your own session is marked **you** in the list, whether it is opened from the interface or as a standalone `users.html` page.
 * Improved server stability and fault reporting. If `spectrumserver` crashes or malfunctions, diagnostic information is written to `crash.log`.
 * The `crash.log` file can be accessed both from the server’s root directory and through the Admin Panel.

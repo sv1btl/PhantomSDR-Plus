@@ -99,7 +99,7 @@ export class VideoRecorder {
     );
   }
 
-  // layers: [{ canvas, flipY }] in top-to-bottom stack order. Only canvases that
+  // layers: [{ canvas, flipY, overlay }] in top-to-bottom stack order. Only canvases that
   // are laid out (non-zero client height) at start are given a slot; the frame
   // size is then locked for the whole recording, because changing a canvas's
   // size mid-capture renegotiates the video track resolution and produces files
@@ -257,6 +257,10 @@ export class VideoRecorder {
         sctx.restore();
       } else {
         sctx.drawImage(canvas, 0, slot.y, sw, slot.h);
+      }
+      // Labels that live in HTML over a canvas (the 3D view's scale marks).
+      if (typeof slot.layer.overlay === 'function') {
+        try { slot.layer.overlay(sctx, 0, slot.y, sw, slot.h); } catch (e) {}
       }
     }
 

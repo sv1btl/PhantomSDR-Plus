@@ -407,6 +407,12 @@ Uvećava prikaz slapa:
 
 Prekidač **Auto Adj.** među kontrolama slapa sam podešava svjetlinu i kontrast slapa. Mjeri razinu šuma preko cijelog vidljivog raspona i pretvara je u jednoliku, tamnu pozadinu — i ondje gdje se šum razlikuje od jednog dijela raspona do drugog — a sve iznad nje razvlači, tako da se slabi signali ističu, a najjači dosežu gornje boje. Radi jednako sa svakom paletom boja, a mijenja se samo slap: krivulja spektra zadržava svoju stvarnu dB ljestvicu. Dok je uključen, klizači Min i Max su zaključani i prikazuju izmjerenu razinu šuma i vrh; isključivanjem se vraćaju na postavke opsega.
 
+### 3D spektar
+
+Gumb **3D** pokraj **Reverse**, među kontrolama slapa, prikazuje spektar kao reljef posljednjih nekoliko sekundi: frekvencija u širinu, vrijeme u dubinu zaslona, jakost signala kao visina. Koristi iste boje, istu svjetlinu (Min), isti kontrast (Max) i isti Auto Adj. kao slap, a zumiranje i povlačenje prati kao ravni spektar. Klik ugađa, povlačenje pomiče po opsegu, a kotačić miša zumira, točno kao na ravnom spektru. Oznake lijevo pokazuju koliko je sekundi neki red star, a desno koliko dB iznad razine Min doseže vrh (skrivene su dok je Auto Adj. uključen). **✕ 2D**, ili ponovno gumb 3D, vraća ravni spektar, a izbor se pamti u pregledniku. Prikaz traži WebGL2, koji nudi svaki današnji preglednik; bez njega se gumb ne pojavljuje. Video snimka napravljena dok je 3D prikaz otvoren snima 3D prikaz umjesto ravnog spektra. 3D prikaz preuzet je iz PhantomSDR-ORSAT autora F1NSK.
+
+**Linija pokazivača.** Gdje god se miš nalazi iznad spektra, slapa ili 3D prikaza, isprekidana žuta linija označava tu frekvenciju i na spektru i na slapu, a spektar je ispisuje u MHz.
+
 ### Upravljanje primopredajnikom (CAT)
 
 Vaš primopredajnik i stranica prijemnika mogu ostati na istoj frekvenciji: okrenite gumb za ugađanje na uređaju i slap ga slijedi, ili kliknite signal na slapu i uređaj se ugodi na njega. To se odnosi samo na *vašu* sesiju slušanja; nitko drugi na prijemniku to ne primjećuje.

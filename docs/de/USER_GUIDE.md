@@ -408,6 +408,12 @@ Vergrößert die Wasserfallanzeige:
 
 Der Schalter **Auto Adj.** unter den Wasserfall-Bedienelementen stellt Helligkeit und Kontrast des Wasserfalls selbst ein. Er misst das Grundrauschen über die sichtbare Spanne und macht daraus einen gleichmäßigen, dunklen Hintergrund – auch dort, wo das Rauschen in einem Teil der Spanne anders ist als im anderen – und spreizt alles darüber, sodass schwache Signale hervortreten und die stärksten die obersten Farben erreichen. Das funktioniert mit jeder Farbpalette gleich, und nur der Wasserfall ändert sich: Die Spektrumkurve behält ihre echte dB-Skala. Solange er eingeschaltet ist, sind die Regler Min und Max gesperrt und zeigen das gemessene Grundrauschen und die Spitze; beim Ausschalten kehren sie zu den Einstellungen des Bandes zurück.
 
+### 3D-Spektrum
+
+Die Schaltfläche **3D** neben **Reverse** unter den Wasserfall-Bedienelementen zeigt das Spektrum als Relief der letzten Sekunden: die Frequenz in der Breite, die Zeit in die Tiefe des Bildes, die Signalstärke als Höhe. Es verwendet dieselben Farben, dieselbe Helligkeit (Min), denselben Kontrast (Max) und dasselbe Auto Adj. wie der Wasserfall und folgt Zoom und Verschieben wie das flache Spektrum. Ein Klick stimmt ab, Ziehen verschiebt das Band und das Mausrad zoomt, genau wie im flachen Spektrum. Die Marken links zeigen, wie viele Sekunden eine Zeile zurückliegt, die rechts, wie viele dB über dem Min-Pegel eine Spitze reicht (bei eingeschaltetem Auto Adj. sind sie ausgeblendet). **✕ 2D** oder ein erneuter Klick auf 3D kehrt zum flachen Spektrum zurück; die Wahl wird im Browser gespeichert. Die Ansicht braucht WebGL2, das jeder aktuelle Browser bietet; ohne WebGL2 erscheint die Schaltfläche nicht. Eine Videoaufnahme bei geöffneter 3D-Ansicht nimmt die 3D-Ansicht anstelle des flachen Spektrums auf. Die 3D-Ansicht ist von PhantomSDR-ORSAT von F1NSK übernommen.
+
+**Cursorlinie.** Wo immer die Maus über dem Spektrum, dem Wasserfall oder der 3D-Ansicht steht, markiert eine gestrichelte gelbe Linie diese Frequenz im Spektrum und im Wasserfall, und das Spektrum zeigt sie in MHz an.
+
 ### Transceiver-Steuerung (CAT)
 
 Ihr eigener Transceiver und die Empfängerseite lassen sich auf derselben Frequenz halten: Drehen Sie am Abstimmknopf des Funkgeräts, folgt der Wasserfall – oder klicken Sie auf ein Signal im Wasserfall, und das Funkgerät stimmt darauf ab. Das betrifft nur *Ihre* eigene Hörsitzung; niemand sonst am Empfänger merkt etwas davon.

@@ -58,6 +58,7 @@ export default class SpectrumWaterfall {
     this.maxWaterfall = 110
     // https://gist.github.com/mikhailov-work/ee72ba4191942acecc03fe6da94fc73f
     this.colormap = []
+    this.view3d = null    // 3D spectrum hooks, set by lib/Waterfall3D.svelte while it is open
 
     this.setColormap('gqrx')
 
@@ -637,6 +638,10 @@ export default class SpectrumWaterfall {
           for (let i = 0; i < specArr.length; i++) specArr[i] = this.transformValue(waterfallArray[i])
         }
         this.drawSpectrum(specArr, pxL, pxR, curL, curR);
+      }
+      // The 3D view takes the waterfall's own levels (Min/Max and Auto Adj.).
+      if (this.view3d) {
+        this.view3d.pushLine(arr, curL, curR);
       }
 
       requestAnimationFrame(draw);
@@ -1397,6 +1402,8 @@ export default class SpectrumWaterfall {
     const newCanvasWidth = newCanvasX2 - newCanvasX1
 
     this.ctx.drawImage(this.canvasElem, 0, 0, this.canvasWidth, this.canvasHeight, newCanvasX1, 0, newCanvasWidth, this.canvasHeight)
+    // Every 3D row keeps its own FFT range, so the view only needs the new window.
+    if (this.view3d) this.view3d.setView(this.waterfallL, this.waterfallR)
 
 
     // Special case for zoom out or panning, blank the borders
@@ -1465,6 +1472,7 @@ export default class SpectrumWaterfall {
   setColormapArray(colormap) {
     this.colormap = computeColormapArray(colormap)
     this.autoLevel.setColormap(this.colormap)
+    if (this.view3d) this.view3d.setColormap(this.colormap)
   }
 
   setColormap(name) {
@@ -1589,6 +1597,13 @@ export default class SpectrumWaterfall {
     const freq = this.canvasXtoFreq(x)
     this.spectrumFreq = freq
     this.spectrumX = x
+  }
+
+  // Hover over the waterfall: the spectrum draws its dashed cursor line at the
+  // same fraction (0-1) of the panel width.
+  setHoverFraction(f) {
+    this.spectrumX = f * this.spectrumCanvasElem.width
+    this.spectrumFreq = this.canvasXtoFreq(f * this.canvasWidth)
   }
 
   spectrumMouseLeave(e) {

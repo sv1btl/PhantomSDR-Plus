@@ -407,6 +407,12 @@ Magnifies the waterfall display:
 
 The **Auto Adj.** switch under Waterfall Controls sets the waterfall's brightness and contrast for you. It measures the noise floor across the visible span and turns it into an even, dark background — also where the noise differs from one part of the span to another — and stretches everything above it, so that weak signals stand out and the strongest reach the top colours. It works the same with every colour map, and only the waterfall changes: the spectrum trace keeps its true dB scale. While it is on, the Min and Max sliders are locked and show the measured noise floor and peak; switching it off returns them to the band's own settings.
 
+### 3D spectrum
+
+The **3D** button next to **Reverse** under Waterfall Controls turns the spectrum into a relief of the last few seconds: frequency across, time going back into the screen, signal strength as height. It uses the same colours, brightness (Min), contrast (Max) and Auto Adj. as the waterfall, and follows zoom and drag like the flat spectrum. Click on it to tune, drag to move along the band and turn the mouse wheel to zoom, exactly as on the flat spectrum. The marks on the left show how many seconds back a row is, those on the right how many dB above the Min level a peak reaches (they are hidden while Auto Adj. is on). **✕ 2D**, or the 3D button again, returns to the flat spectrum, and your choice is remembered in your browser. The view needs WebGL2, which every current browser offers; without it the button does not appear. A video recording made while it is open records the 3D view in place of the flat spectrum. The 3D view is adapted from PhantomSDR-ORSAT by F1NSK.
+
+**Cursor line.** Wherever the mouse is over the spectrum, the waterfall or the 3D view, a dashed yellow line marks that frequency on both the spectrum and the waterfall, and the spectrum shows it in MHz.
+
 ### Transceiver control (CAT)
 
 Your own transceiver and the receiver page can be kept on the same frequency: turn the rig's dial and the waterfall follows, or click a signal on the waterfall and the rig tunes to it. It only moves *your* listening session — nobody else on the receiver is affected.

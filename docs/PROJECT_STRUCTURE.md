@@ -326,6 +326,7 @@ PhantomSDR-Plus
 │   │   │   ├── version.js             # VERSION + ORIGIN_URL for the receiver page and /mobile
 │   │   │   ├── VersionSelector.svelte
 │   │   │   ├── VideoAreaSelector.svelte
+│   │   │   ├── Waterfall3D.svelte     # 3D spectrum view (WebGL2)
 │   │   │   ├── wfAutoLevel.js         # Auto Adj.: waterfall brightness and contrast
 │   │   │   └── wrappers.js
 │   │   ├── main.js
@@ -969,6 +970,7 @@ The web-based user interface built with Svelte and Vite.
 - Interactive tuning through `lib/PassbandTuner.svelte`
 - Band plan and marker overlays through `lib/FrequencyMarkers.svelte`
 - The audio spectrogram is a separate component, `lib/Spectrogram.svelte`
+- The 3D spectrum is `lib/Waterfall3D.svelte` (WebGL2): while it is open, `waterfall.js` hands it every line with the waterfall's own levels (Min/Max and Auto Adj. applied), the zoom range and the colour map through `waterfall.view3d`; adapted from PhantomSDR-ORSAT by F1NSK
 
 #### 3. Controls (`App.svelte` + `lib/`)
 - Frequency input/display — `lib/FrequencyInput.svelte`

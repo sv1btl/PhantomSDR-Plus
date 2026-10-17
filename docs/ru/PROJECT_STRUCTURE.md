@@ -326,6 +326,7 @@ PhantomSDR-Plus
 │   │   │   ├── version.js             # VERSION + ORIGIN_URL для страницы приёмника и /mobile
 │   │   │   ├── VersionSelector.svelte
 │   │   │   ├── VideoAreaSelector.svelte
+│   │   │   ├── Waterfall3D.svelte     # 3D-спектр (WebGL2)
 │   │   │   ├── wfAutoLevel.js         # Auto Adj.: яркость и контраст водопада
 │   │   │   └── wrappers.js
 │   │   ├── main.js
@@ -970,6 +971,7 @@ PhantomSDR-Plus
 - Интерактивная настройка через `lib/PassbandTuner.svelte`
 - Наложения band plan и маркеров через `lib/FrequencyMarkers.svelte`
 - Аудиоспектрограмма — отдельный компонент: `lib/Spectrogram.svelte`
+- 3D-спектр — это `lib/Waterfall3D.svelte` (WebGL2): пока он открыт, `waterfall.js` передаёт ему через `waterfall.view3d` каждую строку с уровнями водопада (с применёнными Min/Max и Auto Adj.), диапазон масштаба и цветовую карту; заимствован из PhantomSDR-ORSAT автора F1NSK
 
 #### 3. Органы управления (`App.svelte` + `lib/`)
 - Ввод и индикация частоты — `lib/FrequencyInput.svelte`

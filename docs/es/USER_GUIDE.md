@@ -407,6 +407,12 @@ Amplía la cascada:
 
 El interruptor **Auto Adj.** de los controles de la cascada ajusta por usted el brillo y el contraste de la cascada. Mide el ruido de fondo en todo el tramo visible y lo convierte en un fondo oscuro y uniforme —también donde el ruido difiere de una parte del tramo a otra— y estira todo lo que queda por encima, de modo que las señales débiles destacan y las más fuertes llegan a los colores superiores. Funciona igual con cualquier mapa de color, y solo cambia la cascada: la traza del espectro conserva su escala real en dB. Mientras está activo, los controles Min y Max quedan bloqueados y muestran el ruido de fondo y el pico medidos; al desactivarlo vuelven a los ajustes de la banda.
 
+### Espectro 3D
+
+El botón **3D**, junto a **Reverse** en los controles de la cascada, convierte el espectro en un relieve de los últimos segundos: la frecuencia a lo ancho, el tiempo hacia el fondo de la pantalla y la intensidad de la señal como altura. Usa los mismos colores, el mismo brillo (Min), el mismo contraste (Max) y el mismo Auto Adj. que la cascada, y sigue el zoom y el arrastre como el espectro plano. Un clic sintoniza, arrastrar recorre la banda y la rueda del ratón hace zoom, exactamente como en el espectro plano. Las marcas de la izquierda indican cuántos segundos atrás está una fila; las de la derecha, cuántos dB por encima del nivel Min llega un pico (se ocultan mientras Auto Adj. está activo). **✕ 2D**, o el botón 3D de nuevo, vuelve al espectro plano, y su elección se recuerda en el navegador. La vista necesita WebGL2, que ofrece cualquier navegador actual; sin él el botón no aparece. Una grabación de vídeo hecha con la vista 3D abierta graba la vista 3D en lugar del espectro plano. La vista 3D está adaptada de PhantomSDR-ORSAT, de F1NSK.
+
+**Línea del cursor.** Dondequiera que esté el ratón sobre el espectro, la cascada o la vista 3D, una línea amarilla discontinua marca esa frecuencia en el espectro y en la cascada, y el espectro la muestra en MHz.
+
 ### Control del transceptor (CAT)
 
 Su propio transceptor y la página del receptor pueden mantenerse en la misma frecuencia: gire el dial del equipo y la cascada lo sigue, o haga clic en una señal de la cascada y el equipo se sintoniza en ella. Solo afecta a *su* sesión de escucha; nadie más en el receptor lo nota.

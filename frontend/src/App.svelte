@@ -86,6 +86,7 @@
     receiverTuneUrl,
   } from "./lib/receivers";
   import RxStrip from "./lib/RxStrip.svelte";
+  import Waterfall3D from "./lib/Waterfall3D.svelte";
   import SMeterAnalog from "./lib/SMeterAnalog.svelte";
   import SMeterDigital from "./lib/SMeterDigital.svelte";
   import StatusIndicators from "./lib/StatusIndicators.svelte";
@@ -434,6 +435,26 @@
     } catch (e) {
       waterfallReverse = false;
     }
+  }
+
+  // 3D spectrum (lib/Waterfall3D.svelte) over the 2D spectrum; WebGL2 only.
+  const has3D = (() => {
+    try {
+      return !!document.createElement("canvas").getContext("webgl2");
+    } catch (e) {
+      return false;
+    }
+  })();
+  let view3D = false;
+  let view3DComponent;
+  try {
+    view3D = has3D && localStorage.getItem("view3D") === "true";
+  } catch (e) {}
+  function toggleView3D() {
+    view3D = !view3D;
+    try {
+      localStorage.setItem("view3D", String(view3D));
+    } catch (e) {}
   }
 
   function toggleWaterfallDirection() {
@@ -1259,7 +1280,20 @@
   // start so it picks up whichever canvases are actually laid out right now.
   function videoRecordingLayers() {
     return [
-      { canvas: spectrumCanvas },
+      // The 3D view sits over the spectrum: record whichever is showing, read
+      // per frame so toggling it mid-recording follows (scaled into the slot
+      // size fixed at start).
+      {
+        get canvas() {
+          return view3D && view3DComponent
+            ? view3DComponent.getCanvas()
+            : spectrumCanvas;
+        },
+        overlay: (ctx, x, y, w, h) => {
+          if (view3D && view3DComponent)
+            view3DComponent.drawOverlay(ctx, x, y, w, h);
+        },
+      },
       { canvas: topGraduationCanvas },
       { canvas: waterfallCanvas, flipY: () => waterfallReverse },
     ];
@@ -1369,12 +1403,10 @@
 
   function drawWaterfallHighlight(passband) {
     try {
-      if (
-        !waterfallHighlightCanvas ||
-        !waterfallHighlightInner ||
-        !waterfallDisplay
-      )
-        return;
+      // Not gated on waterfallDisplay: this also moves the spectrum's
+      // indicator, which must follow a click while the waterfall is off (its
+      // own overlay is merely hidden then, and is current when it returns).
+      if (!waterfallHighlightCanvas || !waterfallHighlightInner) return;
 
       // Helper: hide both the waterfall and spectrum highlight overlays
       const hideHighlights = () => {
@@ -4325,6 +4357,9 @@
   let cursorX = 0;
   let cursorY = 0;
   let showCursorFreq = false;
+  // Mouse position across the panel (0-100 %) for the dashed cursor line
+  // drawn on the waterfall; null when the mouse is elsewhere.
+  let hoverLinePct = null;
 
   function handleWaterfallMouseDown(e) {
     waterfallDragTotal = 0;
@@ -4375,10 +4410,12 @@
     cursorX = e.clientX;
     cursorY = e.clientY;
     showCursorFreq = true;
+    hoverLinePct = (x / canvasWidth) * 100;
   }
 
   function handleSpectrumMouseLeave() {
     showCursorFreq = false;
+    hoverLinePct = null;
   }
 
   function handleWaterfallMouseMove(e) {
@@ -4401,10 +4438,15 @@
     cursorX = e.clientX;
     cursorY = e.clientY;
     showCursorFreq = true;
+    hoverLinePct = (x / canvasWidth) * 100;
+    // and the same dashed line on the spectrum
+    waterfall.setHoverFraction(x / canvasWidth);
   }
 
   function handleWaterfallMouseLeave() {
     showCursorFreq = false;
+    hoverLinePct = null;
+    waterfall.spectrumMouseLeave();
   }
 
   function handleWindowMouseUp(e) {
@@ -9975,7 +10017,25 @@
                       on:select={handleAreaSelect}
                       on:cancel={handleAreaCancel}
                     />
-                    <div class="relative w-full">
+                    <div
+                      class="relative w-full"
+                      style:height={view3D
+                        ? Device.isMobile
+                          ? "130px"
+                          : "190px"
+                        : null}
+                    >
+                      {#if view3D}
+                        <Waterfall3D
+                          bind:this={view3DComponent}
+                          {waterfall}
+                          onClose={toggleView3D}
+                          on:wheel={handleWaterfallWheel}
+                          on:mousedown={handleWaterfallMouseDown}
+                          on:mousemove={handleSpectrumMouseMove}
+                          on:mouseleave={handleSpectrumMouseLeave}
+                        />
+                      {/if}
                       <canvas
                         class="w-full bg-black peer {spectrumDisplay
                           ? 'max-h-40'
@@ -10051,6 +10111,14 @@ Shift + Wheel = 0.1 KHz
 Ctrl + Wheel = 0.01 KHz
 Shift + Ctrl + Wheel = snap to .00 KHz"
                       ></canvas>
+
+                      <!-- Dashed cursor line, matching the spectrum's -->
+                      {#if hoverLinePct !== null && waterfallDisplay}
+                        <div
+                          class="waterfall-cursor-line"
+                          style="left: {hoverLinePct}%;"
+                        ></div>
+                      {/if}
 
                       <!-- Cursor Frequency Display -->
                       {#if showCursorFreq && cursorFrequency !== null}
@@ -14096,29 +14164,49 @@ Slider: share of denoised audio, the rest is the original"
                 <div
                   class="flex flex-col items-center bg-gray-800 p-6 lg:border lg:border-gray-700 rounded-none rounded-b-lg lg:rounded-none lg:rounded-r-lg screw-panel screw-col-3"
                 >
-                  <div class="mb-4 flex items-center gap-3">
+                  <div class="mb-4 flex flex-wrap items-center gap-3">
                     <h3 class="text-white text-base font-semibold">
                       Waterfall Controls
                     </h3>
-                    <button
-                      class="glass-button flex items-center gap-2 px-3 py-1 text-sm"
-                      on:click={toggleWaterfallDirection}
-                      title="Toggle waterfall direction (W)"
-                    >
-                      <span
-                        class={`inline-block text-[1.45rem] leading-none transition-transform duration-300 ${waterfallReverse ? "text-green-400" : "text-cyan-400"}`}
-                        style:transform={waterfallReverse
-                          ? "rotate(180deg)"
-                          : "rotate(0deg)"}>⬆</span
+                    <div class="flex items-center gap-2">
+                      <button
+                        class="glass-button flex items-center gap-2 px-3 py-1 text-sm"
+                        on:click={toggleWaterfallDirection}
+                        title="Toggle waterfall direction (W)"
                       >
-                      <span
-                        class={waterfallReverse
-                          ? "text-green-400"
-                          : "text-cyan-400"}
-                      >
-                        {waterfallReverse ? "Reverse" : "Default"}
-                      </span>
-                    </button>
+                        <span
+                          class={`inline-block text-[1.45rem] leading-none transition-transform duration-300 ${waterfallReverse ? "text-green-400" : "text-cyan-400"}`}
+                          style:transform={waterfallReverse
+                            ? "rotate(180deg)"
+                            : "rotate(0deg)"}>⬆</span
+                        >
+                        <span
+                          class={waterfallReverse
+                            ? "text-green-400"
+                            : "text-cyan-400"}
+                        >
+                          {waterfallReverse ? "Reverse" : "Default"}
+                        </span>
+                      </button>
+                      {#if has3D}
+                        <button
+                          class="glass-button flex items-center gap-2 px-3 py-1 text-sm"
+                          on:click={toggleView3D}
+                          title="Show the spectrum in relief (3D)"
+                          aria-pressed={view3D}
+                        >
+                          <span
+                            class={`inline-block text-[1.2rem] leading-none ${view3D ? "text-green-400" : "text-cyan-400"}`}
+                            >◭</span
+                          >
+                          <span
+                            class={view3D ? "text-green-400" : "text-cyan-400"}
+                          >
+                            3D
+                          </span>
+                        </button>
+                      {/if}
+                    </div>
                   </div>
 
                   <div class="w-full mb-5 space-y-4">
@@ -15117,7 +15205,25 @@ Slider: share of denoised audio, the rest is the original"
                       on:select={handleAreaSelect}
                       on:cancel={handleAreaCancel}
                     />
-                    <div class="relative w-full">
+                    <div
+                      class="relative w-full"
+                      style:height={view3D
+                        ? Device.isMobile
+                          ? "130px"
+                          : "190px"
+                        : null}
+                    >
+                      {#if view3D}
+                        <Waterfall3D
+                          bind:this={view3DComponent}
+                          {waterfall}
+                          onClose={toggleView3D}
+                          on:wheel={handleWaterfallWheel}
+                          on:mousedown={handleWaterfallMouseDown}
+                          on:mousemove={handleSpectrumMouseMove}
+                          on:mouseleave={handleSpectrumMouseLeave}
+                        />
+                      {/if}
                       <canvas
                         class="w-full bg-black peer {spectrumDisplay
                           ? 'max-h-40'
@@ -16606,29 +16712,49 @@ Slider: share of denoised audio, the rest is the original"
                 <div
                   class="flex flex-col items-center bg-gray-800 p-6 lg:border lg:border-gray-700 rounded-none rounded-b-lg lg:rounded-none lg:rounded-r-lg"
                 >
-                  <div class="mb-4 flex items-center gap-3">
+                  <div class="mb-4 flex flex-wrap items-center gap-3">
                     <h3 class="text-white text-base font-semibold">
                       Waterfall Controls
                     </h3>
-                    <button
-                      class="glass-button flex items-center gap-2 px-3 py-1 text-sm"
-                      on:click={toggleWaterfallDirection}
-                      title="Toggle waterfall direction (W)"
-                    >
-                      <span
-                        class={`inline-block text-[1.45rem] leading-none transition-transform duration-300 ${waterfallReverse ? "text-green-400" : "text-cyan-400"}`}
-                        style:transform={waterfallReverse
-                          ? "rotate(180deg)"
-                          : "rotate(0deg)"}>⬆</span
+                    <div class="flex items-center gap-2">
+                      <button
+                        class="glass-button flex items-center gap-2 px-3 py-1 text-sm"
+                        on:click={toggleWaterfallDirection}
+                        title="Toggle waterfall direction (W)"
                       >
-                      <span
-                        class={waterfallReverse
-                          ? "text-green-400"
-                          : "text-cyan-400"}
-                      >
-                        {waterfallReverse ? "Reverse" : "Default"}
-                      </span>
-                    </button>
+                        <span
+                          class={`inline-block text-[1.45rem] leading-none transition-transform duration-300 ${waterfallReverse ? "text-green-400" : "text-cyan-400"}`}
+                          style:transform={waterfallReverse
+                            ? "rotate(180deg)"
+                            : "rotate(0deg)"}>⬆</span
+                        >
+                        <span
+                          class={waterfallReverse
+                            ? "text-green-400"
+                            : "text-cyan-400"}
+                        >
+                          {waterfallReverse ? "Reverse" : "Default"}
+                        </span>
+                      </button>
+                      {#if has3D}
+                        <button
+                          class="glass-button flex items-center gap-2 px-3 py-1 text-sm"
+                          on:click={toggleView3D}
+                          title="Show the spectrum in relief (3D)"
+                          aria-pressed={view3D}
+                        >
+                          <span
+                            class={`inline-block text-[1.2rem] leading-none ${view3D ? "text-green-400" : "text-cyan-400"}`}
+                            >◭</span
+                          >
+                          <span
+                            class={view3D ? "text-green-400" : "text-cyan-400"}
+                          >
+                            3D
+                          </span>
+                        </button>
+                      {/if}
+                    </div>
                   </div>
 
                   <div class="w-full mb-6 space-y-5">
@@ -19689,6 +19815,22 @@ Slider: share of denoised audio, the rest is the original"
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+
+  /* Same look as the spectrum's hover line (waterfall.js drawSpectrum):
+     1 px, rgba(255, 240, 80, 0.60), dashed 4 on / 3 off. */
+  .waterfall-cursor-line {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 1px;
+    pointer-events: none;
+    z-index: 9999;
+    background: repeating-linear-gradient(
+      to bottom,
+      rgba(255, 240, 80, 0.6) 0 4px,
+      transparent 4px 7px
+    );
   }
 
   .glass-button {

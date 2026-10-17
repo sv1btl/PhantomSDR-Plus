@@ -326,6 +326,7 @@ PhantomSDR-Plus
 │   │   │   ├── version.js             # VERSION + ORIGIN_URL για τη σελίδα του δέκτη και το /mobile
 │   │   │   ├── VersionSelector.svelte
 │   │   │   ├── VideoAreaSelector.svelte
+│   │   │   ├── Waterfall3D.svelte     # φάσμα 3D (WebGL2)
 │   │   │   ├── wfAutoLevel.js         # Auto Adj.: φωτεινότητα και αντίθεση του καταρράκτη
 │   │   │   └── wrappers.js
 │   │   ├── main.js
@@ -969,6 +970,7 @@ PhantomSDR-Plus
 - Διαδραστικός συντονισμός μέσω του `lib/PassbandTuner.svelte`
 - Επικαλύψεις σχεδίου μπαντών και δεικτών μέσω του `lib/FrequencyMarkers.svelte`
 - Το φασματογράφημα ήχου είναι ξεχωριστό στοιχείο: `lib/Spectrogram.svelte`
+- Το φάσμα 3D είναι το `lib/Waterfall3D.svelte` (WebGL2): όσο είναι ανοιχτό, το `waterfall.js` του δίνει μέσω του `waterfall.view3d` κάθε γραμμή με τις στάθμες του καταρράκτη (με εφαρμοσμένα τα Min/Max και Auto Adj.), το εύρος του ζουμ και τον χρωματικό χάρτη· προέρχεται από το PhantomSDR-ORSAT του F1NSK
 
 #### 3. Χειριστήρια (`App.svelte` + `lib/`)
 - Εισαγωγή/ένδειξη συχνότητας — `lib/FrequencyInput.svelte`

@@ -12838,31 +12838,31 @@ Slider: share of denoised audio, the rest is the original"
                               : "hard sync lock"}</span
                           >
                         </div>
-                        <div class="flex items-center gap-1 shrink-0">
+                        <div class="flex items-center gap-0.5 shrink-0">
                           <button
-                            class="text-xs px-2 py-1 rounded bg-teal-700 hover:bg-teal-600 text-white transition-colors whitespace-nowrap"
+                            class="text-xs px-[0.425rem] py-1 rounded bg-teal-700 hover:bg-teal-600 text-white transition-colors whitespace-nowrap"
                             on:click={_sstvStart}
                             disabled={sstvRunning}>▶ Start</button
                           >
                           <button
-                            class="text-xs px-2 py-1 rounded bg-teal-700 hover:bg-teal-600 text-white transition-colors whitespace-nowrap"
+                            class="text-xs px-[0.425rem] py-1 rounded bg-teal-700 hover:bg-teal-600 text-white transition-colors whitespace-nowrap"
                             on:click={_sstvStop}
                             disabled={!sstvRunning}>■ Stop</button
                           >
                           <button
-                            class="text-xs px-2 py-1 rounded bg-teal-700 hover:bg-teal-600 text-white transition-colors whitespace-nowrap"
+                            class="text-xs px-[0.425rem] py-1 rounded bg-teal-700 hover:bg-teal-600 text-white transition-colors whitespace-nowrap"
                             on:click={sstvRefresh}
                             disabled={!sstvRunning}>↺ Reset</button
                           >
                           <button
-                            class="text-xs px-2 py-1 rounded bg-amber-700 hover:bg-amber-600 text-white transition-colors whitespace-nowrap"
+                            class="text-xs px-[0.425rem] py-1 rounded bg-amber-700 hover:bg-amber-600 text-white transition-colors whitespace-nowrap"
                             on:click={sstvForceNow}
                             disabled={!sstvRunning || sstvModeChoice === "auto"}
                             title="Start drawing now in the selected mode, without waiting for a VIS header or sync detection. Pick a mode other than Auto to enable."
                             >⏺ Force</button
                           >
                           <button
-                            class="text-xs px-2 py-1 rounded bg-teal-700 hover:bg-teal-600 text-white transition-colors whitespace-nowrap"
+                            class="text-xs px-[0.425rem] py-1 rounded bg-teal-700 hover:bg-teal-600 text-white transition-colors whitespace-nowrap"
                             on:click={sstvSaveImage}>💾 Save</button
                           >
                         </div>
@@ -17586,31 +17586,31 @@ Slider: share of denoised audio, the rest is the original"
                               : "hard sync lock"}</span
                           >
                         </div>
-                        <div class="flex flex-wrap items-center gap-1 w-full">
+                        <div class="flex flex-nowrap items-center gap-0.5 w-full">
                           <button
-                            class="text-xs px-2 py-1 rounded bg-teal-700 hover:bg-teal-600 text-white transition-colors whitespace-nowrap"
+                            class="text-xs px-[0.425rem] py-1 rounded bg-teal-700 hover:bg-teal-600 text-white transition-colors whitespace-nowrap"
                             on:click={_sstvStart}
                             disabled={sstvRunning}>▶ Start</button
                           >
                           <button
-                            class="text-xs px-2 py-1 rounded bg-teal-700 hover:bg-teal-600 text-white transition-colors whitespace-nowrap"
+                            class="text-xs px-[0.425rem] py-1 rounded bg-teal-700 hover:bg-teal-600 text-white transition-colors whitespace-nowrap"
                             on:click={_sstvStop}
                             disabled={!sstvRunning}>■ Stop</button
                           >
                           <button
-                            class="text-xs px-2 py-1 rounded bg-teal-700 hover:bg-teal-600 text-white transition-colors whitespace-nowrap"
+                            class="text-xs px-[0.425rem] py-1 rounded bg-teal-700 hover:bg-teal-600 text-white transition-colors whitespace-nowrap"
                             on:click={sstvRefresh}
                             disabled={!sstvRunning}>↺ Reset</button
                           >
                           <button
-                            class="text-xs px-2 py-1 rounded bg-amber-700 hover:bg-amber-600 text-white transition-colors whitespace-nowrap"
+                            class="text-xs px-[0.425rem] py-1 rounded bg-amber-700 hover:bg-amber-600 text-white transition-colors whitespace-nowrap"
                             on:click={sstvForceNow}
                             disabled={!sstvRunning || sstvModeChoice === "auto"}
                             title="Start drawing now in the selected mode, without waiting for a VIS header or sync detection. Pick a mode other than Auto to enable."
                             >⏺ Force</button
                           >
                           <button
-                            class="text-xs px-2 py-1 rounded bg-teal-700 hover:bg-teal-600 text-white transition-colors whitespace-nowrap"
+                            class="text-xs px-[0.425rem] py-1 rounded bg-teal-700 hover:bg-teal-600 text-white transition-colors whitespace-nowrap"
                             on:click={sstvSaveImage}>💾 Save</button
                           >
                         </div>

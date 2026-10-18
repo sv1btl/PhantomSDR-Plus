@@ -86,7 +86,11 @@ function loadOpusDecoder () {
 
 export class UberSource {
   constructor (url, { onPcm, onState, password = '' } = {}) {
-    this.base = String(url || '').replace(/\/+$/, '').replace(/\/ws$/, '')
+    // UberSDR serves /connection and /ws from the root of its host only; a
+    // path in the address is its web interface (the new one lives at /v2/,
+    // and the root redirects there), so an address copied from the browser
+    // would otherwise send both requests to a 404 and loop for ever.
+    this.base = String(url || '').trim().replace(/^(wss?:\/\/[^/?#]+).*$/i, '$1')
     this.password = password
     this.onPcm = onPcm || (() => {})
     this.onState = onState || (() => {})

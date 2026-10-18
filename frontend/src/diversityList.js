@@ -113,8 +113,9 @@ export function normalise (u, type) {
   // A Kiwi wants the bare origin: kiwiSource.js appends /kiwi/<ts>/SND itself,
   // because that timestamp has to be fresh on every connection.
   if (type === 'kiwi') return v.replace(/\/kiwi\/.*$/i, '')
-  // UberSDR native: the bare origin; uberSource.js appends /ws itself.
-  if (type === 'uber') return v.replace(/\/ws(\?.*)?$/i, '')
+  // UberSDR native: the bare origin; uberSource.js appends /ws itself. Any
+  // path goes — its API is at the root, and /v2/ is only its web interface.
+  if (type === 'uber') return v.replace(/^(wss?:\/\/[^/?#]+).*$/i, '$1')
   // WebSDR: hand the address over as typed.  webSdrSource.js reduces it to
   // host:port itself and gives that to the relay, which makes the actual
   // connection — the browser is not allowed to make it directly.

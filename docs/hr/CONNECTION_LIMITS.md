@@ -81,7 +81,7 @@ To je važno jer jedna jedina kartica preglednika na računalu otvara **četiri*
 | `/events` | popis korisnika, frekvencije ostalih slušatelja |
 | `/chat` | ploča za razgovor |
 
-Telefon na `/mobile` otvara dvije (`/audio` i `/chat`), jer nema slapa. Ograničenje koje bi brojalo sirove veze odbilo bi dakle sve: tri kartice su dvanaest veza.
+Telefon na `/mobile` otvara dvije (`/audio` i `/chat`), jer nema slapa. Ograničenje koje bi brojalo sirove veze odbilo bi dakle sve: tri kartice su dvanaest veza. S otvorenim audio analizatorom kartica na stolnom računalu otvara petu, nevidljivi `/waterfall` koji hrani njegova mjerenja; tri takve kartice (petnaest veza) i dalje stanu u izvedeno ograničenje od šesnaest.
 
 ### Tri ključa
 

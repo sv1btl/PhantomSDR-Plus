@@ -318,7 +318,9 @@ PhantomSDR-Plus
 │   │   │   ├── sideService.js         # gdje stranica nalazi RADE i relay (siteRade / siteRelay)
 │   │   │   ├── SMeterAnalog.svelte
 │   │   │   ├── SMeterDigital.svelte
-│   │   │   ├── Spectrogram.svelte
+│   │   │   ├── Spectrogram.svelte     # audio analizator (📊 Show)
+│   │   │   ├── SsbReport.svelte       # SSB audio izvještaj ispod analizatora
+│   │   │   ├── AmFmReport.svelte      # AM/FM izvještaj ispod analizatora
 │   │   │   ├── StatusIndicators.svelte
 │   │   │   ├── storage.js
 │   │   │   ├── sUnits.js              # ljestvica S-jedinica prema frekvenciji (S9 = −93 dBm iznad 30 MHz)
@@ -963,19 +965,19 @@ Web-sučelje izgrađeno pomoću Sveltea i Vitea.
 - Struktura rasporeda
 - Usklađivanje komponenti
 - **Red gumba dekodera** — po jedan gumb za svaki dekoder na glavnoj ploči, odmah ispod izbornika načina rada; jedan pritisak pokreće dekoder i otvara njegov prozor, drugi ga zaustavlja. Zamijenio je dotadašnji red za širinu pojasa. RADEL/RADEU su u `lib/ModesSelector.svelte`, uz izbornik načina rada te u skočnim prozorima **Modes** i **Bands**.
-- **Redak verzije** — „PhantomSDR+ | v5.2.0 original from github.com/sv1btl/PhantomSDR-Plus”, s adresom kao poveznicom; isti redak nalazi se i na stranici /mobile. Broj verzije i adresa nalaze se u `lib/version.js`; redak je navođenje autorstva obuhvaćeno datotekom `ADDITIONAL_TERMS.md`.
+- **Redak verzije** — „PhantomSDR+ | v5.2.1 original from github.com/sv1btl/PhantomSDR-Plus”, s adresom kao poveznicom; isti redak nalazi se i na stranici /mobile. Broj verzije i adresa nalaze se u `lib/version.js`; redak je navođenje autorstva obuhvaćeno datotekom `ADDITIONAL_TERMS.md`.
 
 #### 2. Prikaz slapa (`waterfall.js` + `lib/`)
 - Iscrtavanje spektra i slapa na platnu (canvas) i palete boja u `waterfall.js` (čisti JS, nije komponenta); preračunavanje svjetline/kontrasta za **Auto Adj.** je `lib/wfAutoLevel.js`
 - Interaktivno ugađanje putem `lib/PassbandTuner.svelte`
 - Preklopi plana pojaseva i oznaka putem `lib/FrequencyMarkers.svelte`
-- Audio spektrogram zasebna je komponenta: `lib/Spectrogram.svelte`
+- Audio analizator je `lib/Spectrogram.svelte`, SSB audio izvještaj `lib/SsbReport.svelte`, a AM/FM izvještaj `lib/AmFmReport.svelte`; njihova RF mjerenja (zauzeta širina, nosilac i suprotni bočni pojas kod SSB-a, dubina AM-a i devijacija FM-a, RF prikaz u AM/FM) daju `measureOccupied`, `measureSsb`, `measureAmFm` i `getRfSlice` u `waterfall.js`, koji dok je analizator otvoren drži nevidljivu vezu slapa fine rezolucije oko ugođene frekvencije (`detailFollow`), pa rade pri bilo kojem zumu; preuzet iz PhantomSDR-ORSAT autora F1NSK
 - 3D spektar je `lib/Waterfall3D.svelte` (WebGL2): dok je otvoren, `waterfall.js` mu preko `waterfall.view3d` predaje svaki red s razinama slapa (primijenjeni Min/Max i Auto Adj.), raspon zumiranja i paletu boja; preuzet iz PhantomSDR-ORSAT autora F1NSK
 
 #### 3. Kontrole (`App.svelte` + `lib/`)
 - Unos i prikaz frekvencije — `lib/FrequencyInput.svelte`
 - Brojčana tipkovnica za upis frekvencije — `lib/FreqKeypad.svelte`; upisana se frekvencija ugađa sa zoomom, Min/Max i načinom rada svog pojasa (`tuneTypedFrequency()` u `App.svelte`), a ona koju pokriva drugi prijemnik otvara taj prijemnik
-- Trake **Show All** ostalih prijemnika — `lib/RxStrip.svelte`: po jedan socket `/waterfall?rx=<id>`, svaki okvir dekodiran i nacrtan, u paleti i razinama drugog prijemnika, najnoviji redak na vrhu; rasponi prijemnika i poveznice među njima dolaze iz `lib/receivers.js`
+- Trake **Show All** ostalih prijemnika — `lib/RxStrip.svelte`: po jedan socket `/waterfall?rx=<id>`, svaki okvir dekodiran i nacrtan, u paleti i razinama drugog prijemnika, najnoviji redak na vrhu; rasponi prijemnika i poveznice među njima dolaze iz `lib/receivers.js`; s dva ili više pojasa u rasponu drugog prijemnika, padajući popis pojasa u njezinom zaglavlju (izbor u `localStorage` `rxStripView:<id>`, klik stiže s `&band=1`)
 - Odabir načina rada (AM/FM/SSB/CW) — `lib/ModesSelector.svelte`, promjena pojasa — `lib/BandSelector.svelte`
 - AGC/NR/NB i ostale kontrole nalaze se u samom `App.svelte`; zasebna `Controls.svelte` ne postoji
 

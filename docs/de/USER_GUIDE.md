@@ -205,6 +205,10 @@ Beispiele:
    - **SSB**: Schritte von 100 Hz
    - **CW**: Schritte von 10 Hz
 
+#### Methode 5: Bandschaltflächen
+
+Eine Bandschaltfläche rahmt ihr Band — der Wasserfall zoomt auf das ganze Band, Helligkeit und Kontrast übernehmen die Einstellungen des Bandes — und stimmt auf die Frequenz ab, die Sie zuletzt in diesem Band benutzt haben, gleich wie Sie dorthin gekommen sind (Klick in den Wasserfall, die Ziffern, ein Lesezeichen, ein Chat-Link …). Beim ersten Mal geht sie auf die Vorgabefrequenz des Bandes. Ein zweiter Klick auf die bereits aktive (hervorgehobene) Bandschaltfläche vergisst die gemerkte Frequenz und geht auf die Vorgabe des Bandes. Das Gedächtnis liegt in Ihrem Browser, übersteht also ein Neuladen, und gilt nur für Sie.
+
 ### Scanner
 
 Der Scanner führt den Empfänger über einen Bereich von Kanälen und hält beim ersten an, auf dem ein Signal liegt. Er sitzt in der Zeile **Fine Tuning (kHz)** ganz rechts:
@@ -289,6 +293,8 @@ Manche Stationen betreiben mehr als einen Empfänger — zum Beispiel einen für
 
 **Die verlassene Ansicht bleibt erhalten.** Wenn Sie die Seite eines Empfängers verlassen, werden Zoom, Helligkeit, Kontrast, Betriebsart und Frequenz gespeichert. Sein Streifen auf der anderen Seite zeigt dann genau diesen Teil des Bandes, mit einem kleinen grünen ▼ an der zuletzt eingestellten Frequenz; die Taste im Kopf des Streifens zeigt diesen Bereich und **Full span** — drücken Sie sie für den ganzen Bereich des Empfängers und **Last view**, um zurückzukehren. Ein Klick auf eine Frequenz in dieser Ansicht öffnet den Empfänger wieder genau so, mit demselben Zoom, denselben Pegeln und derselben Betriebsart, statt mit seinem ganzen Bereich.
 
+**Ein Band im Streifen wählen.** Deckt der andere Empfänger mehr als ein Band ab — der KW-Empfänger von der 2-m-Seite aus —, zeigt der Kopf des Streifens statt dieser Taste eine Auswahlliste: **Last view**, **Full span** und jedes Band dieses Empfängers, dieselben Bänder wie seine Bandschaltflächen. Wählen Sie ein Band, zeigt der Streifen es so wie diese Bandschaltfläche, von Rand zu Rand mit Helligkeit und Kontrast des Bandes; ein Klick auf den Streifen öffnet dann diesen Empfänger auf dieses Band gerahmt, abgestimmt auf die angeklickte Frequenz. Die Wahl wird in Ihrem Browser gespeichert, für jeden Empfänger getrennt. Ein Empfänger mit nur einem Band, etwa 2 m, behält die Taste.
+
 **Von selbst der richtige Empfänger.** Eine Frequenz, die dieser Empfänger nicht abdeckt, ein anderer Empfänger der Station aber schon — eingetippt, aus einem Link, einem Lesezeichen, einem DX-Spot, einer Chatnachricht oder dem Etikett eines anderen Hörers —, öffnet die Seite jenes Empfängers, dort abgestimmt. Mausrad und Ziffernschritte wechseln nie den Empfänger, ebenso wenig ein über CAT verbundener Transceiver.
 
 ---
@@ -362,6 +368,8 @@ Schaltet den Ton stumm, wenn kein Signal anliegt:
 
 **Verwenden, wenn**: Sie eine Frequenz auf Aktivität überwachen.
 
+Solange SQ aus ist, wird die Schwellenzahl neben dem Schieberegler grau angezeigt.
+
 ### KI-Rauschunterdrückung (AI)
 
 Die Taste **AI** mit einem Stärkeregler daneben sitzt im Bereich Audio & Buffer direkt unter SQ. Auf der Seite /mobile befindet sie sich im Reiter Audio unter Squelch. Sie entfernt Bandrauschen aus Sprache mit RNNoise, einem kleinen, auf Sprache trainierten neuronalen Netz.
@@ -393,6 +401,8 @@ Hat der Betreiber den Chat aktiviert, hat er auf der Desktop-Seite einen eigenen
 
 Um auf eine bestimmte Nachricht zu antworten, klicken Sie auf **↪ Reply** neben ihrer Uhrzeit. Eine Zeile über dem Eingabefeld zeigt, wem und worauf Sie antworten; schreiben und senden Sie wie gewohnt, oder drücken Sie ✕ bzw. Esc zum Abbrechen. Die Antwort erscheint eingerückt unter der beantworteten Nachricht, mit einer kurzen Zitatzeile. Eine Antwort auf eine Antwort gehört zum selben Faden. Der Server behält die letzten 20 Nachrichten; ist das Original schon aus diesem Verlauf verschwunden, zeigt eine Antwort nur Name und Uhrzeit dessen, worauf sie antwortet.
 
+Eine Frequenz in einer Nachricht ist ein Link: Ein Klick stimmt dorthin ab, in der mitgegebenen Betriebsart. Das Band wird gerahmt wie mit **To Band** — der Wasserfall zeigt das ganze Band mit Helligkeit und Kontrast dieses Bandes —, und die Bandschaltfläche leuchtet auf.
+
 ### Zoomfunktion
 
 Vergrößert die Wasserfallanzeige:
@@ -413,6 +423,22 @@ Der Schalter **Auto Adj.** unter den Wasserfall-Bedienelementen stellt Helligkei
 Die Schaltfläche **3D** neben **Reverse** unter den Wasserfall-Bedienelementen zeigt das Spektrum als Relief der letzten Sekunden: die Frequenz in der Breite, die Zeit in die Tiefe des Bildes, die Signalstärke als Höhe. Es verwendet dieselben Farben, dieselbe Helligkeit (Min), denselben Kontrast (Max) und dasselbe Auto Adj. wie der Wasserfall und folgt Zoom und Verschieben wie das flache Spektrum. Ein Klick stimmt ab, Ziehen verschiebt das Band und das Mausrad zoomt, genau wie im flachen Spektrum. Die Marken links zeigen, wie viele Sekunden eine Zeile zurückliegt, die rechts, wie viele dB über dem Min-Pegel eine Spitze reicht (bei eingeschaltetem Auto Adj. sind sie ausgeblendet). **✕ 2D** oder ein erneuter Klick auf 3D kehrt zum flachen Spektrum zurück; die Wahl wird im Browser gespeichert. Die Ansicht braucht WebGL2, das jeder aktuelle Browser bietet; ohne WebGL2 erscheint die Schaltfläche nicht. Eine Videoaufnahme bei geöffneter 3D-Ansicht nimmt die 3D-Ansicht anstelle des flachen Spektrums auf. Die 3D-Ansicht ist von PhantomSDR-ORSAT von F1NSK übernommen.
 
 **Cursorlinie.** Wo immer die Maus über dem Spektrum, dem Wasserfall oder der 3D-Ansicht steht, markiert eine gestrichelte gelbe Linie diese Frequenz im Spektrum und im Wasserfall, und das Spektrum zeigt sie in MHz an.
+
+### Audioanalysator
+
+Die Schaltfläche **📊 Show** im Bereich Spectrogram öffnet den Audioanalysator unter dem Wasserfall; **📊 Hide** schließt ihn. Er zeigt das Audio, das Sie hören, nach der Demodulation als Spektrum mit dB-Raster und gelber Spitzenwertlinie. **Gain** hebt oder senkt die Kurve, **Color** wählt ihre Farben. Das Spektrum wird als Relief gezeichnet, beleuchtet von rechts oben. In den Rainbow-Farben wird jeder Balken danach gefärbt, wie weit er bei seiner Frequenz über dem Rauschen steht — dunkelblau für das Rauschen, auch in Sprechpausen, wenn die AGC es anhebt, dann blau, cyan, gelb, orange und rot für immer stärkere Signale —, während seine Höhe weiterhin an der dB-Skala abzulesen ist. Wie das Hauptspektrum sind der Analysator und seine Berichte auf schwarzem Grund gezeichnet, mit grauen Rasterlinien.
+
+- **Frequenzachse.** Sie folgt der Betriebsart: 0–4,5 kHz bei SSB, 0–2 kHz bei CW, 0–5,5 kHz bei AM und FM. Bei LSB ist sie umgekehrt (hohe Töne links), sodass sie in derselben Richtung wie das HF-Spektrum läuft. Eine cyanfarbene Linie markiert die eingestellte Frequenz (bei CW den 750-Hz-Ton), und unter der Maus zeigt der Analysator die Audiofrequenz und die HF-Frequenz in kHz.
+- **Bandbreitenmarken.** Farbige Marken zeigen die empfohlenen Breiten der Betriebsart — SSB-Standard 300–2700 Hz und ESSB 50–4000 Hz, CW 500 Hz und 250 Hz, AM-Rundfunk und AM-Amateurfunk —, ein gestrichelter weißer Rahmen Ihr aktuelles Filter. Die Standardbreite erscheint als durchgezogene cyanfarbene Linie, die Alternative (ESSB, CW 250 Hz, AM-Amateurfunk) gestrichelt in Hellblau.
+- **HF-Ansicht bei AM und FM.** Demoduliertes Audio hat keinen Träger, daher zeigt der Analysator die Station in diesen Betriebsarten so, wie sie im Wasserfall steht: Träger in der Mitte, Seitenbänder links und rechts. Ihre Skala zeigt dB über dem Rauschen.
+- **Belegte Bandbreite.** Die Zeile unter dem Spektrum nennt die Breite, die die eingestellte Station belegt (−26-dB-Methode, im Wasserfall gemessen), mit einer Bewertung für SSB, AM und CW: grün innerhalb der Norm, gelb breit (eine ESSB-Station erscheint gelb), rot für wahrscheinlichen Splatter, der zusätzlich im Spektrum schattiert wird. Nötig sind etwa 2 s Messungen; statische Störungen (Knacke) werden ignoriert.
+- **Kein Zoom nötig.** Solange der Analysator offen ist, hält die Seite eine zweite, unsichtbare Wasserfall-Verbindung, auf die Station zentriert und mit der feinen Auflösung, die die Messungen brauchen — so funktionieren die HF-Ansicht und alle HF-Messungen bei jedem Zoom des Wasserfalls. Sie wird mit dem Analysator geschlossen. Sie kostet etwa 12–14 KB/s (rund 45 MB pro Stunde) zusätzliche Daten, solange der Analysator offen ist; schließen Sie ihn bei einer Verbindung mit Datenvolumen, wenn Sie ihn nicht brauchen.
+- **Abstimmen im Analysator.** Die eingestellte Frequenz in der Kopfzeile des Analysators stimmt wie die Hauptanzeige ab: Maus über eine Ziffer und scrollen, oder Linksklick für einen Schritt nach oben und Rechtsklick nach unten; ein Klick neben die Ziffern öffnet das Ziffernfeld. Ein Klick auf das Feld der Betriebsart öffnet ein Menü der Betriebsarten.
+- **Mute.** Die Schaltfläche Mute in der Kopfzeile des Analysators schaltet den Empfänger stumm, während die Analyse weiterläuft — um die eigene Aussendung zu prüfen, ohne sie ins Mikrofon zurückzuspielen. Dort stummgeschalteter Ton kommt zurück, wenn der Analysator schließt.
+
+**SSB-Audiobericht.** Bei USB und LSB öffnet sich unter dem Analysator ein Berichtsfeld. Über ein gleitendes Fenster von 20 s, und nur solange die Station spricht, bewertet es die Klangbalance — Tiefen (100–300 Hz) und Präsenz (1,5–2,7 kHz) gegenüber den Mitten, verglichen mit der gewählten Referenz: **Standard SSB**, **DX / punch** oder **ESSB / hi-fi** —, dann Kompression, Netzbrummen (Linien bei 50/100/150 oder 60/120/180 Hz), Trägerrest und Gegenseitenband (beide im Wasserfall gemessen) sowie die belegte Bandbreite. Jede Zeile erhält einen grünen, gelben oder roten Punkt; eine nicht messbare Zeile sagt, warum — meist wegen des Empfangsfilters (für die Tiefen muss seine untere Kante bei etwa 120 Hz oder darunter liegen). Oberhalb von 2,7 kHz wird nichts bewertet, der Analysator zeigt es aber weiterhin. Die mittlere Form der Stimme wird im Analysator als blaue Kurve gezeichnet. **Store A** behält sie als gestrichelte Kurve A, um nach einer Einstellungsänderung der Gegenstation zu vergleichen; **Clear A** entfernt sie, **↺ Restart** beginnt die 20 s von vorn. **Generate a listening report** lädt eine HTML-Datei für die Gegenstation herunter, mit den Bewertungen, einem Bild des Spektrums und den letzten 20 Sekunden Audio. Die Messungen sind Richtwerte: Fading sowie Filter und AGC des Empfängers beeinflussen sie, wählen Sie daher die langsame AGC (Slow). Analysator und Bericht sind übernommen von PhantomSDR-ORSAT von F1NSK.
+
+**AM- und FM-Bericht.** Bei AM, C-QUAM und FM öffnet sich unter dem Analysator stattdessen ein Berichtsfeld für diese Betriebsarten. Hier sagt das Audio des Empfängers wenig über den Sender — der AM-Träger wird aus dem Audio entfernt, und die AGC bestimmt den Pegel —, daher bewertet der Bericht die Station über ein gleitendes Fenster von 20 s vor allem am HF-Spektrum. Bei **AM**: Modulationsgrad (Mittel und Spitze, aus der Leistung der Seitenbänder gegenüber dem Träger), Gleichgewicht der beiden Seitenbänder, Ablage des Trägers von der eingestellten Frequenz, Audiobandbreite, Netzbrummen und belegte Bandbreite. Bei **FM**: Hub (Näherung, aus der 99-%-Bandbreite nach der Carson-Regel), die 99-%-Bandbreite mit dem passenden Kanalraster (12,5 oder 25 kHz), Frequenzablage, Audiobandbreite, gegebenenfalls der CTCSS-Ton und Netzbrummen. Der Wasserfall mittelt jede Zeile über etwa 0,1 s, daher erscheint der Spitzenmodulationsgrad niedriger als auf einem Oszilloskop; ein Träger, der das obere Ende der Wasserfallskala erreicht, ist zu stark zum Messen, und der Bericht sagt das. Die Trägerablage enthält auch den Frequenzfehler des Empfängers selbst. **↺ Restart** und **Generate a listening report** funktionieren wie im SSB-Bericht.
 
 ### Transceiver-Steuerung (CAT)
 

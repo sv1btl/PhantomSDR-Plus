@@ -81,7 +81,7 @@ Esto importa porque una sola pestaña de navegador de escritorio abre **cuatro**
 | `/events` | lista de usuarios, frecuencias de los demás oyentes |
 | `/chat` | el panel de chat |
 
-Un teléfono en `/mobile` abre dos (`/audio` y `/chat`), porque no tiene cascada. Así que un límite que contara conexiones en bruto rechazaría a todo el mundo: tres pestañas son doce conexiones.
+Un teléfono en `/mobile` abre dos (`/audio` y `/chat`), porque no tiene cascada. Así que un límite que contara conexiones en bruto rechazaría a todo el mundo: tres pestañas son doce conexiones. Con el analizador de audio abierto, una pestaña de escritorio abre una quinta, un `/waterfall` invisible que alimenta sus medidas; tres pestañas así (quince conexiones) siguen cabiendo en el límite derivado de dieciséis.
 
 ### Las tres claves
 

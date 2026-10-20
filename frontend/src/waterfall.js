@@ -50,8 +50,8 @@ export default class SpectrumWaterfall {
     this.snrNoiseDb = null      // "written-down" band-noise floor (waterfall dB)
     this.nfScanIntervalMs = 1000 // how often the floor is rescanned / rewritten
     this._nfScanNextTs = 0      // timestamp of the next floor rescan
-    this.snrScale = 1.0         // dB per waterfall unit (calibration slope);
-                                // raise if SNR reads proportionally too small
+    this.snrScale = 0.5         // dB per waterfall unit: the server stores
+                                // 20·log10 of the bin power, so one unit is 0.5 dB
 
     this.waterfallColourShift = 130
     this.minWaterfall = -30
@@ -219,7 +219,90 @@ export default class SpectrumWaterfall {
     return this.promise
   }
 
+  // ── Detail stream for the audio analyser ───────────────────────────────
+  // The analyser's RF measurements need fine resolution around the station,
+  // but the page's waterfall only carries the zoom being viewed. While the
+  // analyser is open a second, hidden /waterfall connection is kept at the
+  // resolution the mode needs, centred on the dial; it is never drawn. The
+  // server counts listeners by their /audio connection, so it adds no user.
+
+  // Start (if needed) and centre the detail stream on dialHz for mode.
+  detailFollow(dialHz, mode) {
+    if (!Number.isFinite(dialHz) || !(this.totalBandwidth > 0) || !this.waterfallMaxSize) return
+    const md = String(mode || '').toUpperCase()
+    const rawHz = this.totalBandwidth / this.waterfallMaxSize
+    // AM, SSB, CW: full resolution (1024 FFT bins, as the deepest zoom). FM:
+    // ±20 kHz, its measurement needs the noise beside the channel. Wide FM ±150 kHz.
+    const half = md === 'WBFM' ? Math.round(150000 / rawHz) : md === 'FM' ? Math.round(20000 / rawHz) : 512
+    const c = Math.min(this.waterfallMaxSize - half, Math.max(half, Math.round(this.freqToIdx(dialHz))))
+    const l = c - half, r = c + half
+    const d = this._detail || (this._detail = { ws: null, dec: null, frame: null, l: -1, r: -1 })
+    // Re-centre only when the dial has moved a quarter of the span, or the span changed.
+    if (d.r - d.l === r - l && Math.abs((d.l + d.r) / 2 - c) < half / 4) return
+    d.l = l; d.r = r
+    if (!d.ws) {
+      let ws
+      try { ws = new WebSocket(this.endpoint) } catch (e) { return }
+      ws.binaryType = 'arraybuffer'
+      d.ws = ws
+      ws.onmessage = (evt) => {
+        if (!d.dec) {                               // first message: the settings
+          try {
+            const settings = JSON.parse(evt.data)
+            d.dec = createWaterfallDecoder(settings.waterfall_compression)
+            ws.send(JSON.stringify({ cmd: 'window', l: d.l, r: d.r }))
+          } catch (e) { /* not the settings yet */ }
+          return
+        }
+        if (!(evt.data instanceof ArrayBuffer)) return
+        try {
+          // Until the window command takes effect the server still sends the
+          // full span: only frames as narrow as the window asked for count.
+          d.dec.decode(evt.data).forEach((f) => { if (f.r - f.l <= (d.r - d.l) * 1.5) { f._ts = performance.now(); d.frame = f } })
+        } catch (e) { /* skip a bad frame */ }
+      }
+      ws.onclose = () => { if (d.ws === ws) { d.ws = null; d.dec = null; d.frame = null; d.l = d.r = -1 } }
+      return
+    }
+    if (d.dec && d.ws.readyState === WebSocket.OPEN) d.ws.send(JSON.stringify({ cmd: 'window', l, r }))
+  }
+
+  detailStop() {
+    const d = this._detail
+    if (!d) return
+    this._detail = null
+    if (d.ws) { try { d.ws.close() } catch (e) { /* already closed */ } }
+  }
+
+  // The frame to measure hzAt on: the detail stream's when it is fresh (< 1.5 s)
+  // and covers that frequency, otherwise the page's own waterfall.
+  _frameFor(hzAt) {
+    const d = this._detail, f = d && d.frame
+    if (f && performance.now() - f._ts < 1500 && Number.isFinite(hzAt)) {
+      const i = this.freqToIdx(hzAt)
+      if (i > f.l && i < f.r) return f
+    }
+    return this._lastFrame
+  }
+
+  // Noise floor (waterfall units) for a frame from _frameFor: the page's own
+  // band floor for its own waterfall; for a detail frame its 20th percentile,
+  // the same fallback the SNR estimate uses at deep zoom. The page's floor is
+  // the quietest patch of whatever view is on screen, which zoomed out can sit
+  // far below the noise around the station.
+  _noiseOf(frame) {
+    if (frame === this._lastFrame) return this.snrNoiseDb
+    if (frame._nf == null) {
+      const q = []
+      for (let i = 0; i < frame.data.length; i++) if (Number.isFinite(frame.data[i])) q.push(frame.data[i])
+      q.sort((x, y) => x - y)
+      frame._nf = q.length ? q[Math.floor(q.length * 0.2)] : null
+    }
+    return frame._nf
+  }
+
   stop() {
+    this.detailStop()
     // BUG FIX (RESOURCE LEAK): set flag so the rAF draw loop exits on its next
     // tick instead of running forever after the socket has been closed.
     this._drawLoopActive = false;
@@ -398,6 +481,254 @@ export default class SpectrumWaterfall {
 
   getSnrEstimate() {
     return { snrDb: this.snrDb, noiseDb: this.snrNoiseDb, gateSnrDb: this.gateSnrDb }
+  }
+
+  /**
+   * Occupied bandwidth of the tuned station (the "−26 dB" method), measured
+   * on the RF spectrum: everything above (peak − 26 dB) and at least 10 dB
+   * above the noise, grown outwards from the peak (gaps under 300 Hz are
+   * tolerated, speech is not continuous). For the audio analyser; from
+   * PhantomSDR-ORSAT. Returns { ok, lo, hi, width, snr } in absolute Hz, or
+   * { ok:false, reason }.
+   */
+  measureOccupied(dialHz, mode) {
+    try {
+      const frame = this._frameFor(dialHz)
+      if (!frame || !frame.data) return { ok: false, reason: 'nodata' }
+      const { data, l } = frame
+      const n = data.length, span = frame.r - l
+      if (n < 8 || !(span > 0)) return { ok: false, reason: 'nodata' }
+      const hzPerBin = (this.totalBandwidth / this.waterfallMaxSize) * (span / n)
+      if (!(hzPerBin > 0) || hzPerBin > 400) return { ok: false, reason: 'zoom' }
+      const idx = (hz) => Math.round((this.freqToIdx(hz) - l) / span * n)
+      const hzOf = (i) => this.idxToFreq(l + (i / n) * span)
+      const m = String(mode || '').toUpperCase()
+      let pk0, pk1, w0, w1
+      if (m === 'LSB' || m === 'RADEL') { pk0 = dialHz - 3000; pk1 = dialHz; w0 = dialHz - 9000; w1 = dialHz + 1500 }
+      else if (m.startsWith('CW')) { pk0 = dialHz - 400; pk1 = dialHz + 400; w0 = dialHz - 3000; w1 = dialHz + 3000 }
+      else if (m === 'AM' || m === 'QUAM' || m === 'FM') { pk0 = dialHz - 5000; pk1 = dialHz + 5000; w0 = dialHz - 15000; w1 = dialHz + 15000 }
+      else { pk0 = dialHz; pk1 = dialHz + 3000; w0 = dialHz - 1500; w1 = dialHz + 9000 }
+      const clamp = (i) => Math.max(0, Math.min(n - 1, i))
+      let a = clamp(idx(Math.min(pk0, pk1))), b = clamp(idx(Math.max(pk0, pk1)))
+      const wa = clamp(idx(w0)), wb = clamp(idx(w1))
+      if (b - a < 2) return { ok: false, reason: 'zoom' }
+      let peak = -Infinity, pi = -1
+      for (let i = a; i <= b; i++) { const v = data[i]; if (Number.isFinite(v) && v > peak) { peak = v; pi = i } }
+      // AM / FM: the carrier sits in one narrow bin and at fine zoom outweighs
+      // every sideband bin by far more than 26 dB, so a threshold taken from it
+      // keeps the carrier alone (width 0.0 kHz). Take the threshold from the
+      // strongest sideband bin instead and grow outwards from the carrier.
+      if (m === 'AM' || m === 'QUAM' || m === 'FM') {
+        const c = clamp(idx(dialHz)), cw = Math.max(1, Math.round(60 / hzPerBin))
+        let sb = -Infinity
+        for (let i = a; i <= b; i++) { const v = data[i]; if (Math.abs(i - c) > cw && Number.isFinite(v) && v > sb) sb = v }
+        if (Number.isFinite(sb)) { peak = sb; pi = c }
+      }
+      const noise = Number.isFinite(this._noiseOf(frame)) ? this._noiseOf(frame) : null
+      if (pi < 0 || noise == null) return { ok: false, reason: 'nodata' }
+      // One waterfall unit is 0.5 dB (the server stores 20·log10 of the bin
+      // power), so every dB figure below is twice as many units.
+      const snr = (peak - noise) / 2
+      if (snr < 15) return { ok: false, reason: 'weak', snr }
+      // Static crash (QRN): a crash lifts the whole trace at once. If the
+      // middle of the trace (sampled median) is well above the noise floor,
+      // the trace is ignored. Only bins outside the measurement window count:
+      // zoomed in, the station itself fills most of the trace and would look
+      // like a crash. Too few bins left outside it → no test.
+      {
+        const st = Math.max(1, Math.floor(n / 256)), smp = []
+        for (let i = 0; i < n; i += st) if ((i < wa || i > wb) && Number.isFinite(data[i])) smp.push(data[i])
+        smp.sort((x, y) => x - y)
+        if (smp.length >= 16 && smp[smp.length >> 1] > noise + 12) return { ok: false, reason: 'impulse' }
+      }
+      const thr = Math.max(peak - 52, noise + 20)
+      const gap = Math.max(1, Math.round(300 / hzPerBin))
+      let lo = pi, hi = pi, miss = 0
+      for (let i = pi + 1; i <= wb; i++) { if (data[i] >= thr) { hi = i; miss = 0 } else if (++miss > gap) break }
+      miss = 0
+      for (let i = pi - 1; i >= wa; i--) { if (data[i] >= thr) { lo = i; miss = 0 } else if (++miss > gap) break }
+      // Edges at the centre of the outermost bins: without the half bin on
+      // each side, which added a whole bin of width at medium zoom.
+      const loHz = hzOf(lo), hiHz = Math.max(hzOf(hi), loHz + hzPerBin)
+      return { ok: true, lo: loHz, hi: hiHz, width: hiHz - loHz, snr, hzPerBin }
+    } catch (e) { return { ok: false, reason: 'error' } }
+  }
+
+  /**
+   * RF measurements of an SSB signal for the SSB audio report, on the last
+   * trace: mean level (power) of the wanted sideband 300–2700 Hz and of the
+   * opposite one, wanted peak, carrier line within ±60 Hz of the dial.
+   */
+  measureSsb(dialHz, mode) {
+    try {
+      const frame = this._frameFor(dialHz)
+      if (!frame || !frame.data) return { ok: false, reason: 'nodata' }
+      const { data, l } = frame
+      const n = data.length, span = frame.r - l
+      if (n < 8 || !(span > 0)) return { ok: false, reason: 'nodata' }
+      const hzPerBin = (this.totalBandwidth / this.waterfallMaxSize) * (span / n)
+      if (!(hzPerBin > 0) || hzPerBin > 300) return { ok: false, reason: 'zoom' }
+      // One waterfall unit is 0.5 dB (the server stores 20·log10 of the bin
+      // power): everything is returned in real dB, as units / 2.
+      const noise = Number.isFinite(this._noiseOf(frame)) ? this._noiseOf(frame) / 2 : null
+      if (noise == null) return { ok: false, reason: 'nodata' }
+      const idx = (hz) => Math.max(0, Math.min(n - 1, Math.round((this.freqToIdx(hz) - l) / span * n)))
+      const sgn = String(mode || '').toUpperCase() === 'LSB' ? -1 : 1
+      const band = (f0, f1) => {
+        let a = idx(dialHz + sgn * f0), b = idx(dialHz + sgn * f1)
+        if (b < a) { const t = a; a = b; b = t }
+        let sum = 0, pk = -Infinity, k = 0
+        for (let i = a; i <= b; i++) { const v = data[i] / 2; if (!Number.isFinite(v)) continue; sum += Math.pow(10, v / 10); if (v > pk) pk = v; k++ }
+        return k ? { mean: 10 * Math.log10(sum / k), pk, k } : null
+      }
+      const want = band(300, 2700), opp = band(-2700, -300)
+      if (!want || !opp || want.k < 3) return { ok: false, reason: 'zoom' }
+      let car = null
+      if (hzPerBin <= 60) {
+        const w = Math.max(60, hzPerBin * 1.5)
+        let a = idx(dialHz - w), b = idx(dialHz + w)
+        if (b < a) { const t = a; a = b; b = t }
+        car = -Infinity
+        for (let i = a; i <= b; i++) if (Number.isFinite(data[i]) && data[i] > car) car = data[i]
+        car = Number.isFinite(car) && car < 127 ? car / 2 : null   // 127 = top of the 8-bit scale: clipped, unusable
+      }
+      return { ok: true, want: want.mean, wantPk: want.pk, opp: opp.mean, car, noise, hzPerBin }
+    } catch (e) { return { ok: false, reason: 'error' } }
+  }
+
+  /**
+   * RF measurements of an AM or FM station for the AM/FM report, on the last
+   * trace. The server stores 20·log10 of the bin power, so one waterfall unit
+   * is 0.5 dB: powers are 10^(v/20) here and every dB figure returned is a
+   * real dB. Powers are noise-subtracted sums over bins, so a carrier (spread
+   * over its window lobe) and a sideband (spread over many bins) compare
+   * fairly.
+   *   AM: carrier near the dial (±300 Hz), lower and upper sideband power out
+   *       to 5 kHz, modulation depth m = √(2·P_sidebands / P_carrier) (the
+   *       depth of a sine giving the same sideband power), carrier offset.
+   *   FM: 99 % power bandwidth within ±9 kHz of the dial, and the offset of
+   *       its power centre from the dial.
+   * Returns { ok:true, ... } or { ok:false, reason }.
+   */
+  measureAmFm(dialHz, mode) {
+    try {
+      const frame = this._frameFor(dialHz)
+      if (!frame || !frame.data) return { ok: false, reason: 'nodata' }
+      const { data, l } = frame
+      const n = data.length, span = frame.r - l
+      if (n < 8 || !(span > 0)) return { ok: false, reason: 'nodata' }
+      const hzPerBin = (this.totalBandwidth / this.waterfallMaxSize) * (span / n)
+      const fm = String(mode || '').toUpperCase() === 'FM'
+      if (!(hzPerBin > 0) || hzPerBin > (fm ? 400 : 40)) return { ok: false, reason: 'zoom' }
+      const lin = (v) => Math.pow(10, v / 20)
+      const dB = (p) => 10 * Math.log10(Math.max(p, 1e-30))
+      const idx = (hz) => Math.max(0, Math.min(n - 1, Math.round((this.freqToIdx(hz) - l) / span * n)))
+      const hzOf = (i) => this.idxToFreq(l + (i / n) * span)
+      const ok = (i) => Number.isFinite(data[i])
+      // Noise power per bin, measured locally on both sides of the station
+      // (f1..f2 Hz away): snrNoiseDb is the quietest patch of the whole view
+      // and can sit several dB under the noise around the station. Median of
+      // the flank bins, which ignores a neighbour on one side; a single FFT
+      // bin is exponentially distributed, so its mean is the median × 1.44,
+      // bins that sum many FFT bins have mean ≈ median.
+      const localNoise = (f1, f2, minHz) => {
+        const q = []
+        for (const sg of [-1, 1]) {
+          const p1 = (this.freqToIdx(dialHz + sg * f1) - l) / span * n, p2 = (this.freqToIdx(dialHz + sg * f2) - l) / span * n
+          const a = Math.max(0, Math.ceil(Math.min(p1, p2))), b = Math.min(n - 1, Math.floor(Math.max(p1, p2)))
+          for (let i = a; i <= b; i++) if (ok(i)) q.push(lin(data[i]))
+        }
+        if (q.length < 8 || q.length * hzPerBin < minHz) return null    // too little flank in view
+        q.sort((x, y) => x - y)
+        const k = hzPerBin / (this.totalBandwidth / this.waterfallMaxSize)   // FFT bins per point
+        return q[q.length >> 1] * (k <= 1.5 ? 1.44 : k >= 8 ? 1 : 1.2)
+      }
+      if (fm) {
+        const a = idx(dialHz - 9000), b = idx(dialHz + 9000)
+        if (b - a < 8) return { ok: false, reason: 'zoom' }
+        // At least 4 kHz of flank beyond ±10 kHz must be in view: at the
+        // deepest zoom the view is too narrow for FM.
+        const nl = localNoise(10000, 30000, 4000)
+        if (nl == null) return { ok: false, reason: 'zoomout' }
+        const noise = 20 * Math.log10(nl)
+        const p = []
+        let tot = 0, pk = -Infinity
+        for (let i = a; i <= b; i++) {
+          const v = ok(i) ? Math.max(0, lin(data[i]) - nl) : 0
+          p.push(v); tot += v
+          if (ok(i) && data[i] > pk) pk = data[i]
+        }
+        const snr = dB(tot / (nl * p.length))
+        if (!(snr >= 10) || !((pk - noise) / 2 >= 15)) return { ok: false, reason: 'weak', snr }
+        let c = 0, lo = a, hi = b, ctr = 0
+        for (let k = 0; k < p.length; k++) { c += p[k]; ctr += p[k] * k; if (c < 0.005 * tot) lo = a + k + 1 }
+        c = 0
+        for (let k = p.length - 1; k >= 0; k--) { c += p[k]; if (c < 0.005 * tot) hi = a + k - 1 }
+        const loHz = hzOf(lo), hiHz = Math.max(hzOf(hi), loHz + hzPerBin)
+        return { ok: true, fm: true, b99: hiHz - loHz, lo: loHz, hi: hiHz, edge: lo <= a + 1 || hi >= b - 1,
+                 off: hzOf(a + ctr / tot) - dialHz, snr, hzPerBin }
+      }
+      // AM: the carrier is the strongest bin within ±300 Hz of the dial; its
+      // window (Hann) lobe is ±2 bins, never less than ±45 Hz.
+      let c = -1, cv = -Infinity
+      for (let i = idx(dialHz - 300); i <= idx(dialHz + 300); i++) if (ok(i) && data[i] > cv) { cv = data[i]; c = i }
+      if (c < 0) return { ok: false, reason: 'nodata' }
+      // Noise just outside the sidebands (at the deepest zoom the view
+      // reaches about ±7 kHz).
+      let nl = localNoise(5500, 7000, 1000)
+      if (nl == null) { const nf = this._noiseOf(frame); if (!Number.isFinite(nf)) return { ok: false, reason: 'nodata' }; nl = lin(nf) }
+      const noise = 20 * Math.log10(nl)
+      // 127 is the top of the waterfall's 8-bit scale: a carrier that reaches
+      // it is clipped, and the depth would read too high.
+      if (cv >= 127) return { ok: false, reason: 'clip' }
+      const carSnr = (cv - noise) / 2
+      if (carSnr < 20) return { ok: false, reason: 'weak', snr: carSnr }
+      const cw = Math.max(2, Math.ceil(45 / hzPerBin))
+      const sum = (i0, i1) => {
+        let s = 0, k = 0
+        for (let i = Math.max(0, i0); i <= Math.min(n - 1, i1); i++) if (ok(i)) { s += lin(data[i]); k++ }
+        return { s: Math.max(0, s - k * nl), k }
+      }
+      const car = sum(c - cw, c + cw).s
+      const sbN = Math.round(5000 / hzPerBin)
+      const L = sum(c - cw - sbN, c - cw - 1), U = sum(c + cw + 1, c + cw + sbN)
+      if (!(car > 0) || L.k < sbN / 2 || U.k < sbN / 2) return { ok: false, reason: 'zoom' }
+      // Carrier frequency to a fraction of a bin: parabola through the peak
+      // and its neighbours.
+      let frac = 0
+      if (c > 0 && c < n - 1 && ok(c - 1) && ok(c + 1)) {
+        const y0 = data[c - 1], y1 = data[c], y2 = data[c + 1], d = y0 - 2 * y1 + y2
+        if (d < 0) frac = Math.max(-0.5, Math.min(0.5, 0.5 * (y0 - y2) / d))
+      }
+      const sbPow = L.s + U.s
+      return { ok: true, fm: false, m: Math.sqrt((2 * sbPow) / car),
+               lsb: dB(L.s), usb: dB(U.s), car: dB(car),
+               sbSnr: dB(sbPow / ((L.k + U.k) * nl)),
+               off: hzOf(c + frac) - dialHz, snr: carSnr, hzPerBin }
+    } catch (e) { return { ok: false, reason: 'error' } }
+  }
+
+  /**
+   * RF slice of the last trace around a frequency, for the audio analyser's
+   * RF view (AM / FM: carrier in the centre).
+   * Returns { lo, hzPerBin, v: Float32Array (waterfall dB units), noise }.
+   */
+  getRfSlice(centerHz, halfSpanHz) {
+    try {
+      const frame = this._frameFor(centerHz)
+      if (!frame || !frame.data) return null
+      const { data, l } = frame
+      const n = data.length, span = frame.r - l
+      if (n < 8 || !(span > 0)) return null
+      const hzPerBin = (this.totalBandwidth / this.waterfallMaxSize) * (span / n)
+      const idx = (hz) => (this.freqToIdx(hz) - l) / span * n
+      let a = Math.floor(idx(centerHz - halfSpanHz)), b = Math.ceil(idx(centerHz + halfSpanHz))
+      a = Math.max(0, a); b = Math.min(n - 1, b)
+      if (b - a < 2) return { hzPerBin, v: null }
+      const v = new Float32Array(b - a + 1)
+      for (let i = a; i <= b; i++) v[i - a] = data[i]
+      return { lo: this.idxToFreq(l + (a / n) * span), hzPerBin, v, noise: this._noiseOf(frame) }
+    } catch (e) { return null }
   }
 
   // Frequency of the strongest bin within +/-halfSpanHz of centerHz, from the

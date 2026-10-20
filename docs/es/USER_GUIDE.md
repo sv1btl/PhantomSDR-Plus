@@ -205,6 +205,10 @@ Ejemplos:
    - **SSB**: pasos de 100 Hz
    - **CW**: pasos de 10 Hz
 
+#### Método 5: botones de banda
+
+Un botón de banda encuadra su banda —la cascada se amplía a toda la banda y el brillo y el contraste toman los ajustes de esa banda— y sintoniza la última frecuencia que usó en esa banda, sea cual sea la forma en que llegó allí (un clic en la cascada, los dígitos, un marcador, un enlace del chat…). La primera vez va a la frecuencia predeterminada de la banda. Un segundo clic en el botón de banda ya activo (resaltado) olvida la frecuencia recordada y va a la predeterminada de la banda. La memoria se guarda en su navegador, así que sobrevive a una recarga, y es solo suya.
+
 ### Escáner
 
 El escáner recorre el receptor por un margen de canales y se detiene en el primero que lleva señal. Está en la fila **Fine Tuning (kHz)**, a la derecha del todo:
@@ -289,6 +293,8 @@ Algunas estaciones tienen más de un receptor — por ejemplo uno para HF y otro
 
 **Se conserva la vista que dejó.** Al salir de la página de un receptor se guardan su zoom, brillo, contraste, modo y frecuencia. Su franja en la otra página muestra entonces esa misma parte de la banda, con un pequeño ▼ verde donde estaba sintonizado; el botón de la cabecera de la franja muestra ese rango y **Full span** —púlselo para ver todo el rango del receptor, y **Last view** para volver—. Un clic en una frecuencia dentro de esa vista reabre el receptor tal cual, con el mismo zoom, los mismos niveles y el mismo modo, en lugar de todo su rango.
 
+**Elegir una banda en la franja.** Cuando el otro receptor cubre más de una banda —el receptor de HF visto desde la página de 2 m—, la cabecera de la franja tiene una lista desplegable en lugar de ese botón: **Last view**, **Full span** y cada banda de ese receptor, las mismas que muestran sus botones de banda. Elija una banda y la franja la muestra como lo hace ese botón de banda, de borde a borde con el brillo y el contraste de la banda; un clic en la franja abre entonces ese receptor encuadrado en la banda, sintonizado donde hizo clic. Su elección se guarda en su navegador, por separado para cada receptor. Un receptor con una sola banda, como 2 m, conserva el botón.
+
 **El receptor adecuado, por sí solo.** Una frecuencia que este receptor no cubre pero sí otro receptor de la estación —escrita, desde un enlace, un marcador, un spot DX, un mensaje del chat o la etiqueta de otro oyente— abre la página de ese receptor, sintonizada ahí. La rueda del ratón y los pasos de los dígitos nunca cambian de receptor, y tampoco un transceptor conectado por CAT.
 
 ---
@@ -361,6 +367,8 @@ Silencia el audio cuando no hay señal:
 
 **Úselo cuando**: vigile una frecuencia a la espera de actividad.
 
+Mientras SQ está apagado, el número del umbral junto al deslizador se muestra en gris.
+
 ### Reducción de ruido por IA (AI)
 
 El botón **AI**, con un deslizador de intensidad al lado, está en el panel Audio & Buffer, justo debajo de SQ. En la página /mobile está en la pestaña Audio, debajo de Squelch. Elimina el ruido de banda de la voz mediante RNNoise, una pequeña red neuronal entrenada con voz.
@@ -392,6 +400,8 @@ Cuando el operador ha activado el chat, tiene su propio panel en la página de e
 
 Para responder a un mensaje concreto, pulse **↪ Reply** junto a su hora. Una línea sobre el cuadro de entrada muestra a quién y a qué responde; escriba y envíe como siempre, o pulse ✕ o Esc para cancelar. La respuesta aparece sangrada bajo el mensaje al que responde, con una breve línea de cita. Una respuesta a una respuesta se une al mismo hilo. El servidor guarda los últimos 20 mensajes; cuando el original ya ha salido de ese historial, la respuesta muestra solo el nombre y la hora a los que responde.
 
+Una frecuencia en un mensaje es un enlace: un clic sintoniza allí, en el modo indicado con ella. La banda se encuadra como con **To Band** —la cascada muestra toda la banda, con el brillo y el contraste de esa banda— y el botón de la banda se ilumina.
+
 ### Función de zoom
 
 Amplía la cascada:
@@ -412,6 +422,22 @@ El interruptor **Auto Adj.** de los controles de la cascada ajusta por usted el 
 El botón **3D**, junto a **Reverse** en los controles de la cascada, convierte el espectro en un relieve de los últimos segundos: la frecuencia a lo ancho, el tiempo hacia el fondo de la pantalla y la intensidad de la señal como altura. Usa los mismos colores, el mismo brillo (Min), el mismo contraste (Max) y el mismo Auto Adj. que la cascada, y sigue el zoom y el arrastre como el espectro plano. Un clic sintoniza, arrastrar recorre la banda y la rueda del ratón hace zoom, exactamente como en el espectro plano. Las marcas de la izquierda indican cuántos segundos atrás está una fila; las de la derecha, cuántos dB por encima del nivel Min llega un pico (se ocultan mientras Auto Adj. está activo). **✕ 2D**, o el botón 3D de nuevo, vuelve al espectro plano, y su elección se recuerda en el navegador. La vista necesita WebGL2, que ofrece cualquier navegador actual; sin él el botón no aparece. Una grabación de vídeo hecha con la vista 3D abierta graba la vista 3D en lugar del espectro plano. La vista 3D está adaptada de PhantomSDR-ORSAT, de F1NSK.
 
 **Línea del cursor.** Dondequiera que esté el ratón sobre el espectro, la cascada o la vista 3D, una línea amarilla discontinua marca esa frecuencia en el espectro y en la cascada, y el espectro la muestra en MHz.
+
+### Analizador de audio
+
+El botón **📊 Show** de la sección Spectrogram abre el analizador de audio bajo la cascada; **📊 Hide** lo cierra. Muestra el audio que oye, tras la demodulación, como un espectro con rejilla en dB y una línea amarilla de picos. **Gain** sube o baja la traza y **Color** elige sus colores. El espectro se dibuja en relieve, iluminado desde arriba a la derecha. En los colores Rainbow cada barra se colorea según cuánto sobresale del ruido en su frecuencia —azul oscuro para el ruido, también en las pausas de la voz cuando el AGC lo eleva, y luego azul, cian, amarillo, naranja y rojo para señales cada vez más fuertes—, mientras su altura se sigue leyendo en la escala de dB. Como el espectro principal, el analizador y sus informes se dibujan sobre fondo negro, con líneas de cuadrícula grises.
+
+- **Eje de frecuencias.** Sigue el modo: 0–4,5 kHz en SSB, 0–2 kHz en CW, 0–5,5 kHz en AM y FM. En LSB está invertido (los tonos agudos a la izquierda), de modo que se lee en la misma dirección que el espectro de RF. Una línea cian marca la frecuencia sintonizada (en CW, la nota de 750 Hz), y bajo el ratón el analizador muestra la frecuencia de audio y la frecuencia de RF en kHz.
+- **Marcas de ancho de banda.** Marcas de colores indican los anchos recomendados para el modo — SSB estándar 300–2700 Hz y ESSB 50–4000 Hz, CW 500 Hz y 250 Hz, AM de radiodifusión y AM de radioaficionado — y un recuadro blanco discontinuo muestra su filtro actual. El ancho estándar se dibuja con una línea cian continua y el alternativo (ESSB, CW 250 Hz, AM de radioaficionado) con una línea azul claro discontinua.
+- **Vista RF en AM y FM.** El audio demodulado no tiene portadora, así que en estos modos el analizador muestra la estación tal como está en la cascada: la portadora en el centro y las bandas laterales a cada lado. Su escala está en dB sobre el ruido.
+- **Ancho ocupado.** La línea bajo el espectro da el ancho que ocupa la estación sintonizada (método de −26 dB, medido en la cascada) con un veredicto para SSB, AM y CW: verde dentro de la norma, ámbar ancho (una estación ESSB sale en ámbar), rojo para un splatter probable, que además se sombrea en el espectro. Necesita unos 2 s de medidas; los chasquidos de estática se ignoran.
+- **Sin necesidad de zoom.** Mientras el analizador está abierto, la página mantiene una segunda conexión de cascada, invisible, centrada en la estación y con la resolución fina que necesitan las medidas; así la vista RF y todas las medidas de RF funcionan con cualquier zoom de la cascada. Se cierra con el analizador. Cuesta unos 12–14 KB/s (unos 45 MB por hora) de datos adicionales mientras el analizador está abierto; con una conexión de datos limitada, ciérrelo cuando no lo necesite.
+- **Sintonizar desde el analizador.** La frecuencia de la cabecera del analizador sintoniza como el dial principal: pase el ratón sobre un dígito y gire la rueda, o clic izquierdo para subir un paso y clic derecho para bajar; un clic junto a los dígitos abre el teclado numérico. Un clic en la etiqueta del modo abre un menú con los modos.
+- **Mute.** El botón Mute de la cabecera del analizador silencia el receptor mientras el análisis continúa — para comprobar su propia emisión sin devolverla al micrófono. El sonido silenciado desde ahí vuelve al cerrar el analizador.
+
+**Informe de audio SSB.** En USB y LSB se abre bajo el analizador un panel de informe. Sobre una ventana deslizante de 20 s, y solo mientras la estación habla, juzga el equilibrio tonal — graves (100–300 Hz) y presencia (1,5–2,7 kHz) frente a los medios, comparados con la referencia que elija: **Standard SSB**, **DX / punch** o **ESSB / hi-fi** — y después la compresión, el zumbido de red (rayas en 50/100/150 o 60/120/180 Hz), la portadora residual y la banda lateral opuesta (ambas medidas en la cascada) y el ancho ocupado. Cada fila recibe un punto verde, ámbar o rojo; una fila que no se puede medir dice por qué, normalmente por el filtro de recepción (para los graves su borde inferior debe estar en unos 120 Hz o menos). Por encima de 2,7 kHz no se juzga nada, aunque el analizador lo sigue mostrando. La forma media de la voz se dibuja en el analizador como una curva azul. **Store A** la guarda como la curva discontinua A, para comparar después de que el corresponsal cambie un ajuste; **Clear A** la borra y **↺ Restart** empieza de nuevo los 20 s. **Generate a listening report** descarga un archivo HTML para enviar al corresponsal, con los veredictos, una imagen del espectro y los últimos 20 segundos de audio. Las medidas son orientativas: el fading y el filtro y el AGC del receptor influyen, así que prefiera el AGC lento (Slow). El analizador y el informe están adaptados de PhantomSDR-ORSAT, de F1NSK.
+
+**Informe de AM y FM.** En AM, C-QUAM y FM se abre en su lugar, bajo el analizador, un panel de informe para estos modos. Aquí el audio del receptor dice poco del transmisor —la portadora de AM se elimina del audio y el AGC fija el nivel—, así que el informe juzga la estación sobre todo en el espectro de RF, en una ventana deslizante de 20 s. En **AM**: la profundidad de modulación (media y pico, a partir de la potencia de las bandas laterales frente a la portadora), el equilibrio de las dos bandas laterales, el desplazamiento de la portadora respecto a la frecuencia sintonizada, el ancho del audio, el zumbido de red y el ancho ocupado. En **FM**: la desviación (aproximada, a partir del ancho del 99 % por la regla de Carson), el ancho del 99 % con el canal en que cabe (12,5 o 25 kHz), el desplazamiento de frecuencia, el ancho del audio, el tono CTCSS si lo hay y el zumbido de red. La cascada promedia cada línea durante unos 0,1 s, por lo que la profundidad de pico sale más baja que en un osciloscopio; una portadora que llega al tope de la escala de la cascada es demasiado fuerte para medirla, y el informe lo indica. El desplazamiento de la portadora incluye también el error de frecuencia del propio receptor. **↺ Restart** y **Generate a listening report** funcionan como en el informe de SSB.
 
 ### Control del transceptor (CAT)
 

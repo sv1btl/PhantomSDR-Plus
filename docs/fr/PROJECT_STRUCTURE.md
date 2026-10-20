@@ -318,7 +318,9 @@ PhantomSDR-Plus
 │   │   │   ├── sideService.js         # où la page trouve RADE et le relais (siteRade / siteRelay)
 │   │   │   ├── SMeterAnalog.svelte
 │   │   │   ├── SMeterDigital.svelte
-│   │   │   ├── Spectrogram.svelte
+│   │   │   ├── Spectrogram.svelte     # analyseur audio (📊 Show)
+│   │   │   ├── SsbReport.svelte       # bilan audio SSB sous l'analyseur
+│   │   │   ├── AmFmReport.svelte      # bilan AM/FM sous l'analyseur
 │   │   │   ├── StatusIndicators.svelte
 │   │   │   ├── storage.js
 │   │   │   ├── sUnits.js              # échelle des points S selon la fréquence (S9 = −93 dBm au-dessus de 30 MHz)
@@ -963,19 +965,19 @@ L'interface utilisateur web construite avec Svelte et Vite.
 - Structure de la mise en page
 - Orchestration des composants
 - **Rangée de boutons de décodeur** — un bouton par décodeur sur le panneau principal, juste sous le sélecteur de modes ; une pression démarre le décodeur et ouvre sa fenêtre, une seconde l'arrête. Elle a remplacé l'ancienne rangée de largeur de bande. RADEL/RADEU se trouvent dans `lib/ModesSelector.svelte`, à côté du sélecteur de modes et dans les fenêtres **Modes** et **Bands**.
-- **Ligne de version** — « PhantomSDR+ | v5.2.0 original from github.com/sv1btl/PhantomSDR-Plus », l'adresse servant de lien ; la même ligne figure sur la page /mobile. Le numéro de version et l'adresse se trouvent dans `lib/version.js` ; la ligne est une attribution d'auteur couverte par `ADDITIONAL_TERMS.md`.
+- **Ligne de version** — « PhantomSDR+ | v5.2.1 original from github.com/sv1btl/PhantomSDR-Plus », l'adresse servant de lien ; la même ligne figure sur la page /mobile. Le numéro de version et l'adresse se trouvent dans `lib/version.js` ; la ligne est une attribution d'auteur couverte par `ADDITIONAL_TERMS.md`.
 
 #### 2. Affichage en cascade (`waterfall.js` + `lib/`)
 - Rendu du spectre et de la cascade sur canevas et palettes de couleurs dans `waterfall.js` (JS pur, pas un composant) ; le remappage luminosité/contraste de **Auto Adj.** est `lib/wfAutoLevel.js`
 - Accord interactif via `lib/PassbandTuner.svelte`
 - Superpositions du plan de bandes et des marqueurs via `lib/FrequencyMarkers.svelte`
-- Le spectrogramme audio est un composant distinct : `lib/Spectrogram.svelte`
+- L'analyseur audio est `lib/Spectrogram.svelte`, le bilan audio SSB `lib/SsbReport.svelte` et le bilan AM/FM `lib/AmFmReport.svelte` ; leurs mesures RF (largeur occupée, porteuse et bande opposée en SSB, taux de modulation AM et excursion FM, la vue RF en AM/FM) viennent de `measureOccupied`, `measureSsb`, `measureAmFm` et `getRfSlice` dans `waterfall.js`, qui, analyseur ouvert, garde une connexion de cascade invisible à résolution fine autour de la fréquence d'accord (`detailFollow`), si bien qu'elles fonctionnent à tout zoom ; adapté de PhantomSDR-ORSAT de F1NSK
 - Le spectre 3D est `lib/Waterfall3D.svelte` (WebGL2) : tant qu'il est ouvert, `waterfall.js` lui transmet par `waterfall.view3d` chaque ligne avec les niveaux de la cascade (Min/Max et Auto Adj. appliqués), la plage de zoom et la palette ; adapté de PhantomSDR-ORSAT de F1NSK
 
 #### 3. Commandes (`App.svelte` + `lib/`)
 - Saisie et affichage de la fréquence — `lib/FrequencyInput.svelte`
 - Pavé numérique pour saisir une fréquence — `lib/FreqKeypad.svelte` ; la fréquence tapée est accordée avec le zoom, les Min/Max et le mode de sa bande (`tuneTypedFrequency()` dans `App.svelte`), et une fréquence couverte par un autre récepteur ouvre ce récepteur
-- Bandes **Show All** des autres récepteurs — `lib/RxStrip.svelte` : un socket `/waterfall?rx=<id>` chacune, chaque trame décodée et dessinée, avec la palette et les niveaux de l'autre récepteur, la ligne la plus récente en haut ; les plages des récepteurs et les liens entre eux viennent de `lib/receivers.js`
+- Bandes **Show All** des autres récepteurs — `lib/RxStrip.svelte` : un socket `/waterfall?rx=<id>` chacune, chaque trame décodée et dessinée, avec la palette et les niveaux de l'autre récepteur, la ligne la plus récente en haut ; les plages des récepteurs et les liens entre eux viennent de `lib/receivers.js` ; avec deux bandes ou plus dans la plage de l'autre récepteur, une liste déroulante de bandes dans son en-tête (choix dans `localStorage` `rxStripView:<id>`, le clic arrive avec `&band=1`)
 - Choix du mode (AM/FM/BLU/CW) — `lib/ModesSelector.svelte`, changement de bande — `lib/BandSelector.svelte`
 - L'AGC, le NR, le NB et les autres commandes se trouvent dans `App.svelte` lui-même ; il n'existe pas de `Controls.svelte` distinct
 

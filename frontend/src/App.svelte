@@ -190,6 +190,8 @@
 
   import VersionSelector from "./lib/VersionSelector.svelte";
   import Spectrogram from "./lib/Spectrogram.svelte";
+  import SsbReport from "./lib/SsbReport.svelte";
+  import AmFmReport from "./lib/AmFmReport.svelte";
   import QrssPanel from "./lib/QrssPanel.svelte";
   import VideoAreaSelector from "./lib/VideoAreaSelector.svelte";
   import { connectCatSyncAny, buildDefaultSources } from "./lib/catsync.js";
@@ -610,6 +612,67 @@
   let spectrogramHeight = 200;
   let spectrogramGain = 1.0;
   let spectrogramColorScheme = "rainbow";
+  // Audio analyser (from PhantomSDR-ORSAT): the current filter in audio Hz,
+  // and the occupied width of the tuned station (RF −26 dB measurement) for
+  // the splatter verdict.
+  let spectroPassband = null;
+  let spectroOccupied = null;
+  let spectroLtas = null, spectroLtasRef = null;   // SSB audio report curves
+  let _obwHist = [], _obwTimer = null;
+  const OBW_NORMS = {
+    SSB: { ok: 3300, wide: 5000, name: "SSB", wideTxt: "wide (ESSB?)", badTxt: "splatter likely" },
+    AM: { ok: 10000, wide: 12000, name: "AM", wideTxt: "wide", badTxt: "splatter likely" },
+    CW: { ok: 300, wide: 600, name: "CW", wideTxt: "wide", badTxt: "key clicks likely" },
+  };
+  const _khz = (hz) => (hz / 1000).toFixed(1);
+  function _obwTick() {
+    const m = String(demodulation || "").toUpperCase();
+    const kind = m === "USB" || m === "LSB" || m.startsWith("RADE") ? "SSB" : m.startsWith("CW") ? "CW" : m === "AM" || m === "QUAM" ? "AM" : null;
+    const dial = Number(frequency) * 1000;
+    if (!kind || !Number.isFinite(dial) || !waterfall || typeof waterfall.measureOccupied !== "function") {
+      spectroOccupied = null; _obwHist = []; return;
+    }
+    const r = waterfall.measureOccupied(dial, m);
+    if (!r.ok && r.reason === "impulse") return;    // static crash: skip the trace, keep the history
+    if (!r.ok) {
+      _obwHist = [];
+      spectroOccupied = r.reason === "zoom"
+        ? { status: "info", text: "Zoom the waterfall in on the station to measure its occupied width." }
+        : r.reason === "weak" ? { status: "info", text: "Signal too weak to measure the occupied width." } : null;
+      return;
+    }
+    _obwHist.push(r);
+    if (_obwHist.length > 24) _obwHist.shift();          // ~6 s window (speech)
+    if (_obwHist.length < 8) return;                     // 2 s of measurements before any verdict
+    // 80th percentile rather than the maximum: one crash or stray trace is
+    // not enough to call splatter, it has to last.
+    const sortedW = [..._obwHist].sort((a, b) => a.width - b.width);
+    const best = sortedW[Math.min(sortedW.length - 1, Math.floor(sortedW.length * 0.8))];
+    const N = OBW_NORMS[kind];
+    const status = best.width <= N.ok ? "ok" : best.width <= N.wide ? "wide" : "splatter";
+    // Edges as audio frequencies, for drawing.
+    let alo, ahi;
+    if (m === "LSB" || m === "RADEL") { alo = dial - best.hi; ahi = dial - best.lo; }
+    else if (kind === "CW") { alo = 750 + (best.lo - dial); ahi = 750 + (best.hi - dial); }
+    else if (kind === "AM") { alo = 0; ahi = Math.max(Math.abs(best.lo - dial), Math.abs(best.hi - dial)); }
+    else { alo = best.lo - dial; ahi = best.hi - dial; }
+    const norm = kind === "AM" ? N.ok / 2 : kind === "CW" ? null : N.ok;
+    const txt = `Occupied width (−26 dB): ${_khz(best.width)} kHz`;
+    spectroOccupied = {
+      status, alo, ahi, normHi: norm, kind,
+      text: status === "ok" ? `${txt} — within ${N.name} (≤ ${_khz(N.ok)} kHz)`
+        : status === "wide" ? `${txt} — ${N.wideTxt} (${N.name} ≤ ${_khz(N.ok)} kHz)`
+        : `⚠ ${N.badTxt[0].toUpperCase() + N.badTxt.slice(1)}: ${_khz(best.width)} kHz occupied (${N.name} ≤ ${_khz(N.ok)} kHz)`,
+    };
+  }
+  $: if (spectrogramEnabled && !_obwTimer) { _obwTimer = setInterval(_obwTick, 250); }
+  $: if (!spectrogramEnabled && _obwTimer) { clearInterval(_obwTimer); _obwTimer = null; spectroOccupied = null; _obwHist = []; }
+  // While the analyser is open, waterfall.js keeps a hidden fine-detail
+  // stream centred on the dial, so its RF measurements work at any zoom.
+  $: if (waterfall && typeof waterfall.detailFollow === "function") {
+    if (spectrogramEnabled) waterfall.detailFollow(Number(frequency) * 1000, demodulation);
+    else waterfall.detailStop();
+  }
 
   // QRSS grabber variables
   let qrssComponent;
@@ -1142,6 +1205,9 @@
         spectrogramComponent.stop();
       }
       audio.setSpectrogramEnabled(false);
+      // Sound muted from the analyser's own button comes back when it closes.
+      if (mute && muteByAnalyser) handleMuteChange();
+      muteByAnalyser = false;
     }
   }
 
@@ -1390,6 +1456,16 @@
     passband = passband || audio.getAudioRange();
     const frequencies = passband.map(FFTOffsetToFrequency);
     bandwidth = ((frequencies[2] - frequencies[0]) / 1000).toFixed(2);
+    {
+      // The current filter as audio frequencies, for the audio analyser.
+      const [fl, fm, fr] = frequencies;
+      const m = String(demodulation || "").toUpperCase();
+      const a = Math.abs(fl - fm), b = Math.abs(fr - fm);
+      if (m.startsWith("CW")) spectroPassband = [750 - (fr - fl) / 2, 750 + (fr - fl) / 2];
+      else if (m === "USB" || m === "RADEU") spectroPassband = [fl - fm, fr - fm];
+      else if (m === "LSB" || m === "RADEL") spectroPassband = [fm - fr, fm - fl];
+      else spectroPassband = [0, Math.max(a, b)];
+    }
     const offsets = frequencies.map(frequencyToWaterfallOffset);
     passbandTunerComponent.changePassband(offsets);
     // Feed tuned passband (Hz) to the waterfall-bin SNR estimator
@@ -5878,6 +5954,8 @@
   }
 
   let mute = false;
+  let muteByAnalyser = false;   // muted from the audio analyser's button
+  $: if (!mute) muteByAnalyser = false;
   let volume = 50;
   let squelchEnable;
   let squelch = -50;
@@ -6085,6 +6163,14 @@
     e.stopPropagation();
     var frequencyHz = Math.round(parseFloat(frequency) * 1e3) || 0;
     frequencyHz = Math.max(0, frequencyHz + delta * DIGIT_POWERS_HZ[idx]);
+    frequency = (frequencyHz / 1e3).toFixed(3);
+    dispatchFrequencyDebounced(frequencyHz);
+  }
+
+  // A step in Hz from the audio analyser's dial: tuned as a main-dial digit.
+  function tuneByStep(deltaHz) {
+    var frequencyHz = Math.round(parseFloat(frequency) * 1e3) || 0;
+    frequencyHz = Math.max(0, frequencyHz + deltaHz);
     frequency = (frequencyHz / 1e3).toFixed(3);
     dispatchFrequencyDebounced(frequencyHz);
   }
@@ -6309,7 +6395,8 @@
   let ctcssHeard = null;
   let ctcssHeardTimer = null;
   $: {
-    if (audio) audio.ctcssListen = showCTCSSPicker;
+    // The AM/FM report also reads the detected tone (listen-only, never mutes).
+    if (audio) audio.ctcssListen = showCTCSSPicker || (spectrogramEnabled && demodulation === "FM");
     if (showCTCSSPicker && !ctcssHeardTimer) {
       ctcssHeardTimer = setInterval(() => {
         ctcssHeard = audio ? audio.ctcssHeard : null;
@@ -7975,47 +8062,21 @@
       `Applying settings for ${band.name}: min=${band.min}, max=${band.max}`,
     );
 
-    // Disable auto-adjust if enabled (it will override manual settings)
-    if (autoAdjustEnabled) {
-      autoAdjustEnabled = false;
-      waterfall.autoAdjust = false;
-      storeWaterfallSettings = false;
+    // Framed exactly as "To Band" (handleZoomToBand) does: the view spans
+    // the band's edges, and brightness (Min) and contrast (Max) come from the
+    // band. Via frequencyToFFTOffset, so receivers whose baseband is not 0 Hz
+    // (RTL, RSP1A) land on the right place. Auto Adjust is left alone, as on a
+    // band change: it never writes minWaterfall/maxWaterfall.
+    const l = Math.floor(frequencyToFFTOffset(band.startFreq));
+    const r = Math.ceil(frequencyToFFTOffset(band.endFreq));
+    if (Number.isFinite(l) && Number.isFinite(r) && r > l) waterfall.setWaterfallRange(l, r);
+    const bMin = parseInt(band.min), bMax = parseInt(band.max);
+    if (Number.isFinite(bMin) && Number.isFinite(bMax)) {
+      min_waterfall = bMin;
+      max_waterfall = bMax;
+      handleMinMove();
+      handleMaxMove();
     }
-
-    // Set brightness values from band
-    min_waterfall = parseInt(band.min);
-    max_waterfall = parseInt(band.max);
-
-    // Calculate zoom span for this band
-    let waterfallEndSpan = parseFloat(
-      band.endFreq / (waterfall.sps / waterfall.fftSize),
-    );
-    let waterfallStartSpan = parseFloat(
-      band.startFreq / (waterfall.sps / waterfall.fftSize),
-    );
-    let waterfallSpan = (waterfallEndSpan - waterfallStartSpan) / 2;
-    waterfallSpan = waterfallSpan + waterfallSpan * 0.01; // 1% margin
-
-    // Get current audio parameters
-    let [l, m, r] = audio.getAudioRange();
-
-    // Center the view
-    m = Math.min(waterfall.waterfallMaxSize - 512, Math.max(512, m));
-    l = Math.floor(m - 512);
-    r = Math.ceil(m + 512);
-
-    // Apply brightness settings
-    handleMinMove();
-    handleMaxMove();
-
-    // Apply zoom with band span
-    l -= waterfallSpan;
-    r += waterfallSpan;
-
-    // Set the waterfall range (this actually changes the zoom)
-    waterfall.setWaterfallRange(l, r);
-
-    // Update UI elements
     frequencyMarkerComponent.updateFrequencyMarkerPositions();
     updatePassband();
 
@@ -8029,7 +8090,6 @@
     );
   }
 
-  // Function to handle clicking on a shared frequency
   function handleFrequencyClick(frequency, mode) {
     const numericFrequency = parseInt(frequency, 10);
     if (isNaN(numericFrequency)) {
@@ -8294,10 +8354,53 @@
     }
   }
 
+  // Band memory: the last frequency tuned in each band, so a band button
+  // brings you back where you were in that band instead of its default
+  // frequency. The band's framing (zoom, brightness, contrast) is applied as
+  // before. Kept in this browser (localStorage); a band is keyed by its name
+  // and edges, since a name can appear once per ITU region.
+  const BAND_MEMORY_KEY = "bandMemory";
+  let bandMemory = {};
+  try { bandMemory = JSON.parse(localStorage.getItem(BAND_MEMORY_KEY) || "{}") || {}; } catch (e) { bandMemory = {}; }
+  let _bandMemorySaveTimer = null;
+  const bandKey = (b) => `${b.name}|${b.startFreq}|${b.endFreq}`;
+  function rememberBandFrequency(hz) {
+    if (!Number.isFinite(hz) || !Array.isArray(bandArray)) return;
+    for (const b of bandArray) {
+      if (hz >= b.startFreq && hz <= b.endFreq && (b.ITU === siteRegion || b.ITU === 123)) bandMemory[bandKey(b)] = Math.round(hz);
+    }
+    if (_bandMemorySaveTimer) clearTimeout(_bandMemorySaveTimer);
+    _bandMemorySaveTimer = setTimeout(() => {
+      _bandMemorySaveTimer = null;
+      try { localStorage.setItem(BAND_MEMORY_KEY, JSON.stringify(bandMemory)); } catch (e) {}
+    }, 1000);
+  }
+  // Recorded from `frequency` itself: some 30 paths tune (waterfall click and
+  // drag, digits, keypad, bookmarks, CAT, decoders...), not all through
+  // handleFrequencyChange. Svelte runs this once after each action, so the
+  // band button's own intermediate tune to the band centre is never stored.
+  $: rememberBandFrequency(Math.round(parseFloat(frequency) * 1000));
+
+  // A second click on the band button that is already active forgets the
+  // band's remembered frequency, so the button tunes to the band default.
+  function forgetBandFrequency(b) {
+    if (!b) return;
+    delete bandMemory[bandKey(b)];
+    try { localStorage.setItem(BAND_MEMORY_KEY, JSON.stringify(bandMemory)); } catch (e) {}
+  }
+
+  // The remembered frequency of a band, if it still lies inside the band.
+  function rememberedBandFrequency(b) {
+    const hz = b && bandMemory[bandKey(b)];
+    return Number.isFinite(hz) && hz >= b.startFreq && hz <= b.endFreq ? hz : null;
+  }
+
   // by sv2amkzoom
   // This Band Selection function handles band changes sent from the Band Selection section of the main page //
   // The 7.15255 float below is (total_watefall_span / maximum_frequency_sampled) //
   function handleBandChangePopup(newBand) {
+    if (newBand === currentBand) forgetBandFrequency(bandArray[newBand]);   // second click: back to the band default
+    const rememberedFreq = rememberedBandFrequency(bandArray[newBand]);
     let centerFreq = parseFloat(
       (bandArray[newBand].endFreq - bandArray[newBand].startFreq) / 2 +
         bandArray[newBand].startFreq,
@@ -8333,7 +8436,9 @@
     l -= waterfallSpan;
     r += waterfallSpan;
 
-    if (initFreq) {
+    if (rememberedFreq) {
+      centerFreq = rememberedFreq;
+    } else if (initFreq) {
       centerFreq = initFreq;
     }
 
@@ -8353,6 +8458,8 @@
   // This Band Selection function handles band changes sent from the Band Selection section of the main page //
   // The 7.15255 float below is (total_watefall_span / maximum_frequency_sampled) //
   function handleBandChange(newBand) {
+    if (newBand === currentBand) forgetBandFrequency(bandArray[newBand]);   // second click: back to the band default
+    const rememberedFreq = rememberedBandFrequency(bandArray[newBand]);
     let centerFreq = parseFloat(
       (bandArray[newBand].endFreq - bandArray[newBand].startFreq) / 2 +
         bandArray[newBand].startFreq,
@@ -8388,7 +8495,9 @@
     l -= waterfallSpan;
     r += waterfallSpan;
 
-    if (initFreq) {
+    if (rememberedFreq) {
+      centerFreq = rememberedFreq;
+    } else if (initFreq) {
       centerFreq = initFreq;
     }
 
@@ -9572,7 +9681,7 @@
                     <ul style="font-size: 0.91rem; text-align: left;">
                     <b>Setup &amp; Configuration:</b>
                       <img
-                        src="https://img.shields.io/badge/version-5.2.0-cyan?logo=github"
+                        src="https://img.shields.io/badge/version-5.2.1-cyan?logo=github"
                         alt="Version"
                         class="inline-block align-middle ml-2"
                       />
@@ -10258,6 +10367,40 @@ Shift + Ctrl + Wheel = snap to .00 KHz"
                         height={spectrogramHeight}
                         enabled={spectrogramEnabled}
                         on:initialized={initSpectrogram}
+                        mode={demodulation}
+                        passband={spectroPassband}
+                        occupied={spectroOccupied}
+                        baseKhz={frequency}
+                        rfSlice={(c, h) => waterfall && typeof waterfall.getRfSlice === "function" ? waterfall.getRfSlice(c, h) : null}
+                        ltas={spectroLtas}
+                        ltasRef={spectroLtasRef}
+                        muted={mute}
+                        on:togglemute={() => { handleMuteChange(); muteByAnalyser = mute; }}
+                        on:tune={(e) => tuneByStep(e.detail)}
+                        on:keypad={() => (showFreqKeypad = true)}
+                        modes={demodulators}
+                        on:mode={(e) => SetMode(e.detail, true)}
+                      />
+                      <SsbReport
+                        spectro={spectrogramComponent}
+                        rfMeasure={(d, md) => waterfall && typeof waterfall.measureSsb === "function" ? waterfall.measureSsb(d, md) : null}
+                        mode={demodulation}
+                        baseKhz={frequency}
+                        passband={spectroPassband}
+                        occupied={spectroOccupied}
+                        enabled={spectrogramEnabled}
+                        bind:ltas={spectroLtas}
+                        bind:ltasRef={spectroLtasRef}
+                      />
+                      <AmFmReport
+                        spectro={spectrogramComponent}
+                        rfMeasure={(d, md) => waterfall && typeof waterfall.measureAmFm === "function" ? waterfall.measureAmFm(d, md) : null}
+                        ctcss={() => (audio ? audio.ctcssHeard : null)}
+                        mode={demodulation}
+                        baseKhz={frequency}
+                        passband={spectroPassband}
+                        occupied={spectroOccupied}
+                        enabled={spectrogramEnabled}
                       />
                     </div>
 
@@ -10424,7 +10567,8 @@ Click again to de-activate"
                         step="1"
                       />
                     </div>
-                    <span class="value-display text-sm text-gray-300 ml-4"
+                    <span class="value-display text-sm ml-4 {squelchEnable ? 'text-gray-300' : 'text-gray-600'}"
+                      title={squelchEnable ? "Squelch threshold" : "Squelch threshold (SQ is off)"}
                       >{squelch}db</span
                     >
                   </div>
@@ -15403,6 +15547,40 @@ Slider: share of denoised audio, the rest is the original"
                         height={spectrogramHeight}
                         enabled={spectrogramEnabled}
                         on:initialized={initSpectrogram}
+                        mode={demodulation}
+                        passband={spectroPassband}
+                        occupied={spectroOccupied}
+                        baseKhz={frequency}
+                        rfSlice={(c, h) => waterfall && typeof waterfall.getRfSlice === "function" ? waterfall.getRfSlice(c, h) : null}
+                        ltas={spectroLtas}
+                        ltasRef={spectroLtasRef}
+                        muted={mute}
+                        on:togglemute={() => { handleMuteChange(); muteByAnalyser = mute; }}
+                        on:tune={(e) => tuneByStep(e.detail)}
+                        on:keypad={() => (showFreqKeypad = true)}
+                        modes={demodulators}
+                        on:mode={(e) => SetMode(e.detail, true)}
+                      />
+                      <SsbReport
+                        spectro={spectrogramComponent}
+                        rfMeasure={(d, md) => waterfall && typeof waterfall.measureSsb === "function" ? waterfall.measureSsb(d, md) : null}
+                        mode={demodulation}
+                        baseKhz={frequency}
+                        passband={spectroPassband}
+                        occupied={spectroOccupied}
+                        enabled={spectrogramEnabled}
+                        bind:ltas={spectroLtas}
+                        bind:ltasRef={spectroLtasRef}
+                      />
+                      <AmFmReport
+                        spectro={spectrogramComponent}
+                        rfMeasure={(d, md) => waterfall && typeof waterfall.measureAmFm === "function" ? waterfall.measureAmFm(d, md) : null}
+                        ctcss={() => (audio ? audio.ctcssHeard : null)}
+                        mode={demodulation}
+                        baseKhz={frequency}
+                        passband={spectroPassband}
+                        occupied={spectroOccupied}
+                        enabled={spectrogramEnabled}
                       />
                     </div>
                   </div>
@@ -15510,7 +15688,8 @@ Slider: share of denoised audio, the rest is the original"
                         step="1"
                       />
                     </div>
-                    <span class="value-display text-xs text-gray-300 ml-4"
+                    <span class="value-display text-xs ml-4 {squelchEnable ? 'text-gray-300' : 'text-gray-600'}"
+                      title={squelchEnable ? "Squelch threshold" : "Squelch threshold (SQ is off)"}
                       >{squelch}db</span
                     >
                   </div>

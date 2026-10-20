@@ -81,7 +81,7 @@ Cela compte, car un seul onglet de navigateur sur ordinateur ouvre **quatre** co
 | `/events` | liste des utilisateurs, fréquences des autres auditeurs |
 | `/chat` | le panneau de discussion |
 
-Un téléphone sur `/mobile` en ouvre deux (`/audio` et `/chat`), car il n'a pas de cascade. Une limite qui compterait les connexions brutes refuserait donc tout le monde : trois onglets, cela fait douze connexions.
+Un téléphone sur `/mobile` en ouvre deux (`/audio` et `/chat`), car il n'a pas de cascade. Une limite qui compterait les connexions brutes refuserait donc tout le monde : trois onglets, cela fait douze connexions. Avec l'analyseur audio ouvert, un onglet de bureau en ouvre une cinquième, un `/waterfall` invisible qui alimente ses mesures ; trois onglets de ce genre (quinze connexions) tiennent encore dans la limite dérivée de seize.
 
 ### Les trois clés
 

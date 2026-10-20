@@ -205,6 +205,10 @@ Primjeri:
    - **SSB**: koraci od 100 Hz
    - **CW**: koraci od 10 Hz
 
+#### Način 5: gumbi pojasa
+
+Gumb pojasa uokviruje svoj pojas — slap se zumira na cijeli pojas, a svjetlina i kontrast preuzimaju postavke tog pojasa — i ugađa na frekvenciju koju ste posljednju koristili u tom pojasu, bez obzira na to kako ste onamo došli (klik na slap, znamenke, oznaka, poveznica u chatu…). Prvi put ide na zadanu frekvenciju pojasa. Drugi klik na gumb pojasa koji je već aktivan (istaknut) zaboravlja zapamćenu frekvenciju i ide na zadanu frekvenciju pojasa. Pamćenje se čuva u vašem pregledniku, pa preživi ponovno učitavanje, i samo je vaše.
+
 ### Skener
 
 Skener vodi prijemnik preko raspona kanala i zaustavlja se na prvom na kojem ima signala. Nalazi se u retku **Fine Tuning (kHz)**, skroz desno:
@@ -288,6 +292,8 @@ Neke stanice imaju više od jednog prijemnika — na primjer jedan za kratki val
 
 **Prikaz koji ste ostavili ostaje.** Kad napustite stranicu prijemnika, pamte se njegov zoom, svjetlina, kontrast, način rada i frekvencija. Njegova traka na drugoj stranici tada prikazuje isti dio pojasa, s malim zelenim ▼ ondje gdje ste bili ugođeni; tipka u zaglavlju trake prikazuje taj raspon i **Full span** — pritisnite je za cijeli raspon prijemnika, a **Last view** za povratak. Klik na frekvenciju unutar tog prikaza ponovno otvara prijemnik upravo tako, s istim zoomom, razinama i načinom rada, umjesto cijelog raspona.
 
+**Odabir pojasa na traci.** Kad drugi prijemnik pokriva više od jednog pojasa — KV prijemnik gledan sa stranice za 2 m — zaglavlje trake umjesto te tipke ima padajući popis: **Last view**, **Full span** i svaki pojas tog prijemnika, iste pojaseve koje prikazuju njegovi gumbi pojasa. Odaberite pojas i traka ga prikazuje kao taj gumb pojasa, od ruba do ruba sa svjetlinom i kontrastom pojasa; klik na traku tada otvara taj prijemnik uokviren na pojas, ugođen ondje gdje ste kliknuli. Vaš se izbor pamti u pregledniku, zasebno za svaki prijemnik. Prijemnik sa samo jednim pojasom, poput 2 m, zadržava tipku.
+
 **Pravi prijemnik sam od sebe.** Frekvencija koju ovaj prijemnik ne pokriva, a drugi prijemnik stanice pokriva — upisana, iz poveznice, oznake, DX spota, poruke u chatu ili oznake drugog slušatelja — otvara stranicu tog prijemnika, ugođenu na nju. Kotačić miša i koraci po znamenkama nikad ne mijenjaju prijemnik, kao ni primopredajnik spojen preko CAT-a.
 
 ---
@@ -361,6 +367,8 @@ Utišava zvuk kada nema signala:
 
 **Koristite kada**: nadzirete frekvenciju u očekivanju prometa.
 
+Dok je SQ isključen, broj praga pokraj klizača prikazan je sivo.
+
 ### Smanjenje šuma umjetnom inteligencijom (AI)
 
 Tipka **AI**, s klizačem jačine pokraj nje, nalazi se na ploči Audio & Buffer odmah ispod SQ. Na stranici /mobile nalazi se na kartici Audio, ispod Squelch. Uklanja šum pojasa iz govora pomoću RNNoise, male neuronske mreže naučene na govoru.
@@ -392,6 +400,8 @@ Kad je operater uključio chat, on ima vlastiti panel na desktop stranici i kart
 
 Da biste odgovorili na određenu poruku, kliknite **↪ Reply** pokraj njezina vremena. Redak iznad polja za unos pokazuje kome i na što odgovarate; pišite i šaljite kao i obično, ili pritisnite ✕ ili Esc za odustajanje. Odgovor se pojavljuje uvučen ispod poruke na koju odgovara, s kratkim retkom citata. Odgovor na odgovor ide u istu nit. Poslužitelj čuva zadnjih 20 poruka; kad je izvorna poruka već ispala iz te povijesti, odgovor prikazuje samo ime i vrijeme na koje odgovara.
 
+Frekvencija u poruci je poveznica: klik ugađa onamo, u načinu rada navedenom uz nju. Pojas se uokviruje kao s **To Band** — slap prikazuje cijeli pojas, sa svjetlinom i kontrastom tog pojasa — i gumb pojasa zasvijetli.
+
 ### Funkcija uvećanja
 
 Uvećava prikaz slapa:
@@ -412,6 +422,22 @@ Prekidač **Auto Adj.** među kontrolama slapa sam podešava svjetlinu i kontras
 Gumb **3D** pokraj **Reverse**, među kontrolama slapa, prikazuje spektar kao reljef posljednjih nekoliko sekundi: frekvencija u širinu, vrijeme u dubinu zaslona, jakost signala kao visina. Koristi iste boje, istu svjetlinu (Min), isti kontrast (Max) i isti Auto Adj. kao slap, a zumiranje i povlačenje prati kao ravni spektar. Klik ugađa, povlačenje pomiče po opsegu, a kotačić miša zumira, točno kao na ravnom spektru. Oznake lijevo pokazuju koliko je sekundi neki red star, a desno koliko dB iznad razine Min doseže vrh (skrivene su dok je Auto Adj. uključen). **✕ 2D**, ili ponovno gumb 3D, vraća ravni spektar, a izbor se pamti u pregledniku. Prikaz traži WebGL2, koji nudi svaki današnji preglednik; bez njega se gumb ne pojavljuje. Video snimka napravljena dok je 3D prikaz otvoren snima 3D prikaz umjesto ravnog spektra. 3D prikaz preuzet je iz PhantomSDR-ORSAT autora F1NSK.
 
 **Linija pokazivača.** Gdje god se miš nalazi iznad spektra, slapa ili 3D prikaza, isprekidana žuta linija označava tu frekvenciju i na spektru i na slapu, a spektar je ispisuje u MHz.
+
+### Audio analizator
+
+Gumb **📊 Show** u odjeljku Spectrogram otvara audio analizator ispod slapa; **📊 Hide** ga zatvara. Prikazuje zvuk koji slušate, nakon demodulacije, kao spektar s mrežom u dB i žutom linijom vršnih vrijednosti. **Gain** podiže ili spušta krivulju, a **Color** bira njezine boje. Spektar se crta reljefno, osvijetljen odozgo zdesna. U bojama Rainbow svaki se stupac boji prema tome koliko se na svojoj frekvenciji izdiže iznad šuma — tamnoplavo za šum, i u stankama govora kad ga AGC podigne, zatim plavo, cijan, žuto, narančasto i crveno za sve jače signale — dok se njegova visina i dalje očitava na ljestvici u dB. Kao i glavni spektar, analizator i njegova izvješća crtaju se na crnoj podlozi, sa sivim linijama mreže.
+
+- **Frekvencijska os.** Prati način rada: 0–4,5 kHz u SSB-u, 0–2 kHz u CW-u, 0–5,5 kHz u AM-u i FM-u. U LSB-u je obrnuta (visoki tonovi lijevo), pa se čita u istom smjeru kao RF spektar. Cijan linija označava ugođenu frekvenciju (u CW-u ton od 750 Hz), a ispod miša analizator prikazuje audio frekvenciju i RF frekvenciju u kHz.
+- **Oznake širine pojasa.** Obojene oznake pokazuju preporučene širine za način rada — SSB standard 300–2700 Hz i ESSB 50–4000 Hz, CW 500 Hz i 250 Hz, AM radiodifuzija i AM radioamateri — a isprekidani bijeli okvir pokazuje vaš trenutni filtar. Standardna širina crta se punom cijan linijom, alternativna (ESSB, CW 250 Hz, AM radioamateri) isprekidanom svijetloplavom.
+- **RF prikaz u AM-u i FM-u.** Demodulirani zvuk nema nosilac, pa u tim načinima analizator prikazuje stanicu onakvu kakva je na slapu: nosilac u sredini, bočni pojasevi s obje strane. Njegova ljestvica je u dB iznad šuma.
+- **Zauzeta širina.** Redak ispod spektra daje širinu koju zauzima ugođena stanica (metoda −26 dB, mjereno na slapu) s ocjenom za SSB, AM i CW: zeleno unutar norme, narančasto široko (ESSB stanica je narančasta), crveno za vjerojatan splatter, koji je i osjenčan na spektru. Potrebno je oko 2 s mjerenja; statičke smetnje se zanemaruju.
+- **Zumiranje nije potrebno.** Dok je analizator otvoren, stranica drži drugu, nevidljivu vezu slapa, centriranu na stanicu i s finom rezolucijom koju mjerenja trebaju — tako RF prikaz i sva RF mjerenja rade pri bilo kojem zumu slapa. Zatvara se s analizatorom. Troši oko 12–14 KB/s (oko 45 MB na sat) dodatnih podataka dok je analizator otvoren; na vezi s ograničenim prometom zatvorite ga kad vam ne treba.
+- **Ugađanje iz analizatora.** Frekvencija u zaglavlju analizatora ugađa se kao glavni prikaz: postavite miš na znamenku i okrenite kotačić, ili lijevi klik za korak gore i desni klik za korak dolje; klik pokraj znamenki otvara brojčanu tipkovnicu. Klik na oznaku načina rada otvara izbornik načina.
+- **Mute.** Gumb Mute u zaglavlju analizatora utišava prijemnik dok analiza teče dalje — za provjeru vlastite emisije bez vraćanja zvuka u mikrofon. Zvuk utišan ondje vraća se kad se analizator zatvori.
+
+**SSB audio izvještaj.** U USB-u i LSB-u ispod analizatora otvara se ploča izvještaja. Na pomičnom prozoru od 20 s, i samo dok stanica govori, ocjenjuje tonsku ravnotežu — bas (100–300 Hz) i prisutnost (1,5–2,7 kHz) prema srednjem pojasu, u usporedbi s referencom koju odaberete: **Standard SSB**, **DX / punch** ili **ESSB / hi-fi** — zatim kompresiju, mrežno brujanje (linije na 50/100/150 ili 60/120/180 Hz), preostali nosilac i suprotni bočni pojas (oboje mjereno na slapu) te zauzetu širinu. Svaki redak dobiva zelenu, narančastu ili crvenu točku; redak koji se ne može izmjeriti kaže zašto, obično zbog prijamnog filtra (za bas njegov donji rub mora biti na oko 120 Hz ili niže). Iznad 2,7 kHz ništa se ne ocjenjuje, iako ga analizator i dalje prikazuje. Prosječni oblik glasa crta se na analizatoru kao plava krivulja. **Store A** je čuva kao isprekidanu krivulju A, za usporedbu nakon što druga stanica promijeni postavku; **Clear A** je briše, a **↺ Restart** počinje 20 s ispočetka. **Generate a listening report** preuzima HTML datoteku za slanje drugoj stanici, s ocjenama, slikom spektra i posljednjih 20 sekundi zvuka. Mjerenja su orijentacijska: fading te filtar i AGC prijemnika utječu na njih, pa odaberite sporu AGC (Slow). Analizator i izvještaj preuzeti su iz PhantomSDR-ORSAT autora F1NSK.
+
+**AM i FM izvještaj.** U AM-u, C-QUAM-u i FM-u ispod analizatora umjesto toga otvara se ploča izvještaja za te načine rada. Ovdje zvuk prijemnika malo govori o odašiljaču — AM nosilac uklanja se iz zvuka, a AGC određuje razinu — pa izvještaj ocjenjuje stanicu uglavnom na RF spektru, na pomičnom prozoru od 20 s. U **AM-u**: dubinu modulacije (prosjek i vrh, iz snage bočnih pojaseva prema nosiocu), ravnotežu dvaju bočnih pojaseva, odmak nosioca od ugođene frekvencije, širinu zvuka, mrežno brujanje i zauzetu širinu. U **FM-u**: devijaciju (približno, iz širine 99 % po Carsonovu pravilu), širinu 99 % s kanalom u koji stane (12,5 ili 25 kHz), odmak frekvencije, širinu zvuka, CTCSS ton ako postoji i mrežno brujanje. Slap svaki redak usrednjava kroz oko 0,1 s, pa vršna dubina izgleda niža nego na osciloskopu; nosilac koji dosegne vrh ljestvice slapa prejak je za mjerenje, i izvještaj to kaže. Odmak nosioca uključuje i pogrešku frekvencije samog prijemnika. **↺ Restart** i **Generate a listening report** rade kao u SSB izvještaju.
 
 ### Upravljanje primopredajnikom (CAT)
 

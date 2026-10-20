@@ -80,7 +80,7 @@ This matters because a single desktop browser tab opens **four** sockets to your
 | `/events` | user list, other listeners' frequencies |
 | `/chat` | the chat panel |
 
-A phone on `/mobile` opens two (`/audio` and `/chat`), because it has no waterfall. So a limit that counted raw sockets would refuse everybody: three tabs is twelve sockets.
+A phone on `/mobile` opens two (`/audio` and `/chat`), because it has no waterfall. So a limit that counted raw sockets would refuse everybody: three tabs is twelve sockets. With the audio analyser open, a desktop tab opens a fifth, a hidden `/waterfall` that feeds its measurements; three such tabs (fifteen sockets) still fit the derived limit of sixteen.
 
 ### The three keys
 

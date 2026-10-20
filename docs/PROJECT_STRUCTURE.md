@@ -318,7 +318,9 @@ PhantomSDR-Plus
 │   │   │   ├── sideService.js         # where the page finds RADE and the relay (siteRade / siteRelay)
 │   │   │   ├── SMeterAnalog.svelte
 │   │   │   ├── SMeterDigital.svelte
-│   │   │   ├── Spectrogram.svelte
+│   │   │   ├── Spectrogram.svelte     # audio analyser (📊 Show)
+│   │   │   ├── SsbReport.svelte       # SSB audio report under the analyser
+│   │   │   ├── AmFmReport.svelte      # AM/FM report under the analyser
 │   │   │   ├── StatusIndicators.svelte
 │   │   │   ├── storage.js
 │   │   │   ├── sUnits.js              # S-unit scale by frequency (S9 = −93 dBm above 30 MHz)
@@ -963,19 +965,19 @@ The web-based user interface built with Svelte and Vite.
 - Layout structure
 - Component orchestration
 - **Decoders button row** — one button per decoder, on the main panel directly under the Modes selector; press to start the decoder and open its window, press again to stop. It replaced the former Bandwidth row. RADEL/RADEU live in `lib/ModesSelector.svelte` instead, beside the Modes selector and inside the Modes and Bands pop-ups.
-- **Version line** — "PhantomSDR+ | v5.2.0 original from github.com/sv1btl/PhantomSDR-Plus", with the address as a link; the same line is on the /mobile page. The version number and the address live in `lib/version.js`; the line is an author attribution covered by `ADDITIONAL_TERMS.md`.
+- **Version line** — "PhantomSDR+ | v5.2.1 original from github.com/sv1btl/PhantomSDR-Plus", with the address as a link; the same line is on the /mobile page. The version number and the address live in `lib/version.js`; the line is an author attribution covered by `ADDITIONAL_TERMS.md`.
 
 #### 2. Waterfall Display (`waterfall.js` + `lib/`)
 - Canvas-based spectrum and waterfall rendering and colormaps in `waterfall.js` (plain JS, not a component); the **Auto Adj.** brightness/contrast remap is `lib/wfAutoLevel.js`
 - Interactive tuning through `lib/PassbandTuner.svelte`
 - Band plan and marker overlays through `lib/FrequencyMarkers.svelte`
-- The audio spectrogram is a separate component, `lib/Spectrogram.svelte`
+- The audio analyser is `lib/Spectrogram.svelte`, with the SSB audio report in `lib/SsbReport.svelte` and the AM/FM report in `lib/AmFmReport.svelte`; their RF measurements (occupied width, the SSB carrier and opposite sideband, AM depth and FM deviation, the AM/FM RF view) come from `measureOccupied`, `measureSsb`, `measureAmFm` and `getRfSlice` in `waterfall.js`, which while the analyser is open keeps a hidden fine-detail waterfall connection centred on the dial (`detailFollow`), so they work at any zoom; adapted from PhantomSDR-ORSAT by F1NSK
 - The 3D spectrum is `lib/Waterfall3D.svelte` (WebGL2): while it is open, `waterfall.js` hands it every line with the waterfall's own levels (Min/Max and Auto Adj. applied), the zoom range and the colour map through `waterfall.view3d`; adapted from PhantomSDR-ORSAT by F1NSK
 
 #### 3. Controls (`App.svelte` + `lib/`)
 - Frequency input/display — `lib/FrequencyInput.svelte`
 - Number pad for typing a frequency — `lib/FreqKeypad.svelte`; the typed frequency is tuned with its band's zoom, Min/Max and mode (`tuneTypedFrequency()` in `App.svelte`), and one another receiver covers opens that receiver
-- **Show All** strips of the other receivers — `lib/RxStrip.svelte`: one `/waterfall?rx=<id>` socket each, every frame decoded and drawn, in the other receiver's own palette and levels, newest line at the top; the receiver ranges and the links between receivers come from `lib/receivers.js`
+- **Show All** strips of the other receivers — `lib/RxStrip.svelte`: one `/waterfall?rx=<id>` socket each, every frame decoded and drawn, in the other receiver's own palette and levels, newest line at the top; the receiver ranges and the links between receivers come from `lib/receivers.js`; with two or more bands in the other receiver's range, a band dropdown in its header (choice in `localStorage` `rxStripView:<id>`, click arrives with `&band=1`)
 - Mode selection (AM/FM/SSB/CW) — `lib/ModesSelector.svelte`, band switching — `lib/BandSelector.svelte`
 - AGC/NR/NB and the remaining controls live in `App.svelte` itself; there is no separate `Controls.svelte`
 

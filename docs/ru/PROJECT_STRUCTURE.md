@@ -318,7 +318,9 @@ PhantomSDR-Plus
 │   │   │   ├── sideService.js         # где страница находит RADE и relay (siteRade / siteRelay)
 │   │   │   ├── SMeterAnalog.svelte
 │   │   │   ├── SMeterDigital.svelte
-│   │   │   ├── Spectrogram.svelte
+│   │   │   ├── Spectrogram.svelte     # аудиоанализатор (📊 Show)
+│   │   │   ├── SsbReport.svelte       # аудиоотчёт SSB под анализатором
+│   │   │   ├── AmFmReport.svelte      # отчёт AM/FM под анализатором
 │   │   │   ├── StatusIndicators.svelte
 │   │   │   ├── storage.js
 │   │   │   ├── sUnits.js              # шкала баллов S по частоте (S9 = −93 дБм выше 30 МГц)
@@ -964,19 +966,19 @@ PhantomSDR-Plus
 - Структура компоновки
 - Оркестрация компонентов
 - **Ряд кнопок декодеров** — по одной кнопке на декодер на главной панели, сразу под селектором режимов; одно нажатие запускает декодер и открывает его окно, второе — останавливает. Он заменил прежний ряд полосы пропускания. RADEL/RADEU находятся в `lib/ModesSelector.svelte` — рядом с селектором режимов и во всплывающих окнах **Modes** и **Bands**.
-- **Строка версии** — «PhantomSDR+ | v5.2.0 original from github.com/sv1btl/PhantomSDR-Plus», адрес — ссылка; та же строка есть на странице /mobile. Номер версии и адрес находятся в `lib/version.js`; строка — указание авторства, на которое распространяется `ADDITIONAL_TERMS.md`.
+- **Строка версии** — «PhantomSDR+ | v5.2.1 original from github.com/sv1btl/PhantomSDR-Plus», адрес — ссылка; та же строка есть на странице /mobile. Номер версии и адрес находятся в `lib/version.js`; строка — указание авторства, на которое распространяется `ADDITIONAL_TERMS.md`.
 
 #### 2. Отображение водопада (`waterfall.js` + `lib/`)
 - Отрисовка спектра и водопада на canvas и цветовые палитры — в `waterfall.js` (обычный JS, не компонент); пересчёт яркости/контраста для **Auto Adj.** — `lib/wfAutoLevel.js`
 - Интерактивная настройка через `lib/PassbandTuner.svelte`
 - Наложения band plan и маркеров через `lib/FrequencyMarkers.svelte`
-- Аудиоспектрограмма — отдельный компонент: `lib/Spectrogram.svelte`
+- Аудиоанализатор — `lib/Spectrogram.svelte`, аудиоотчёт SSB — `lib/SsbReport.svelte`, отчёт AM/FM — `lib/AmFmReport.svelte`; их ВЧ-измерения (занимаемая полоса, несущая и противоположная боковая полоса в SSB, глубина AM и девиация FM, ВЧ-вид в AM/FM) дают `measureOccupied`, `measureSsb`, `measureAmFm` и `getRfSlice` из `waterfall.js`, который, пока анализатор открыт, держит невидимое соединение водопада с мелким разрешением вокруг частоты настройки (`detailFollow`), поэтому они работают при любом масштабе; заимствован из PhantomSDR-ORSAT автора F1NSK
 - 3D-спектр — это `lib/Waterfall3D.svelte` (WebGL2): пока он открыт, `waterfall.js` передаёт ему через `waterfall.view3d` каждую строку с уровнями водопада (с применёнными Min/Max и Auto Adj.), диапазон масштаба и цветовую карту; заимствован из PhantomSDR-ORSAT автора F1NSK
 
 #### 3. Органы управления (`App.svelte` + `lib/`)
 - Ввод и индикация частоты — `lib/FrequencyInput.svelte`
 - Цифровая клавиатура для ввода частоты — `lib/FreqKeypad.svelte`; введённая частота настраивается с масштабом, Min/Max и видом модуляции своего диапазона (`tuneTypedFrequency()` в `App.svelte`), а частота, которую покрывает другой приёмник, открывает тот приёмник
-- Полосы **Show All** других приёмников — `lib/RxStrip.svelte`: по одному сокету `/waterfall?rx=<id>`, каждый кадр декодируется и рисуется, в палитре и уровнях другого приёмника, самая свежая строка сверху; диапазоны приёмников и ссылки между ними берутся из `lib/receivers.js`
+- Полосы **Show All** других приёмников — `lib/RxStrip.svelte`: по одному сокету `/waterfall?rx=<id>`, каждый кадр декодируется и рисуется, в палитре и уровнях другого приёмника, самая свежая строка сверху; диапазоны приёмников и ссылки между ними берутся из `lib/receivers.js`; если в диапазоне другого приёмника два или больше диапазона, в её заголовке выпадающий список диапазонов (выбор в `localStorage` `rxStripView:<id>`, щелчок приходит с `&band=1`)
 - Выбор вида модуляции (AM/FM/SSB/CW) — `lib/ModesSelector.svelte`, смена диапазона — `lib/BandSelector.svelte`
 - AGC/NR/NB и остальные органы управления находятся в самом `App.svelte`; отдельного `Controls.svelte` нет
 

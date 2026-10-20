@@ -19,6 +19,7 @@
   import { waterfall as mainWaterfall, wrappersReady } from "./backend.js";
   import getColormap, { computeColormapArray } from "./colormaps.js";
   import { bands } from "../bands-config.js";
+  import { siteRegion } from "../siteInfo.js";
   import { isRefusal } from "../refused";
   import { waterfallSocketUrl, receiverTuneUrl, rememberSpan } from "./receivers.js";
 
@@ -52,9 +53,15 @@
   let fftResult = 0; // bins in the whole span (fft_result_size)
   // The view the listener left that receiver's page with (App.svelte
   // saveRxView: lo, hi, min, max, f), shown instead of the whole span while
-  // useSaved is on.
+  // choice is "saved".
   let saved = null;
-  let useSaved = true;
+  // What the strip shows: "saved" (the view above), "span" (the whole span)
+  // or "band:<i>" (bands-config.js entry i, framed as a band button does).
+  // Kept per receiver in this browser (rxStripView:<id>).
+  let choice = "saved";
+  // The band buttons that receiver's page shows inside its span; with two or
+  // more, the header offers them in a dropdown.
+  let spanBands = [];
   let markers = []; // { f, name, mode }, sorted by f
   let hover = null; // { x, hz, marker }
 
@@ -165,6 +172,8 @@
     view = span;
     fftResult = s.fft_result_size || 0;
     saved = readSaved();
+    spanBands = bandsIn(span);
+    choice = readChoice();
     markers = [];
     if (s.markers) {
       try {
@@ -208,22 +217,74 @@
     };
   }
 
-  // Ask for the saved view or the whole span, and set the levels to match:
-  // the saved Min/Max with the saved view, the page defaults with the span.
+  // The band buttons of a page whose span is `sp`, as App.svelte shows them
+  // (verifyRegion, publishBand, printBandButton): named, of this region, the
+  // band's top edge inside the span.
+  function bandsIn(sp) {
+    const out = [];
+    bands.forEach((b, i) => {
+      if (!b.name || !(b.publishBand == 1 || b.publishBand == 2)) return;
+      if (!(b.ITU === 123 || b.ITU === siteRegion)) return;
+      if (b.endFreq >= sp.base && b.endFreq <= sp.base + sp.bw) out.push({ i, b });
+    });
+    return out;
+  }
+
+  function choiceBand(c) {
+    const m = /^band:(\d+)$/.exec(c);
+    if (!m) return null;
+    const hit = spanBands.find((x) => x.i === Number(m[1]));
+    return hit ? hit.b : null;
+  }
+
+  function readChoice() {
+    let c = null;
+    try {
+      c = localStorage.getItem("rxStripView:" + receiver.id);
+    } catch (e) {}
+    if (c === "span" || (c === "saved" && saved)) return c;
+    if (c && spanBands.length > 1 && choiceBand(c)) return c;
+    return "saved";
+  }
+
+  function setChoice(c) {
+    choice = c;
+    try {
+      localStorage.setItem("rxStripView:" + receiver.id, c);
+    } catch (e) {}
+    applyView();
+  }
+
+  // Ask for the chosen range and set the levels to match: the saved Min/Max
+  // with the saved view, the band's with a band, the page defaults with the span.
   function applyView() {
     if (!span) return;
-    const zoom = useSaved && saved;
-    levels =
-      zoom && saved.min !== null && saved.max !== null && saved.max > saved.min
-        ? [saved.min, saved.max]
-        : defaultLevels(span);
+    let zoom = null;
+    const band = spanBands.length > 1 ? choiceBand(choice) : null;
+    if (band) {
+      // A band button's frame: the band plus 1% each side.
+      const pad = (band.endFreq - band.startFreq) * 0.01;
+      zoom = { lo: band.startFreq - pad, hi: band.endFreq + pad };
+      const mn = parseInt(band.min);
+      const mx = parseInt(band.max);
+      levels = Number.isFinite(mn) && Number.isFinite(mx) && mx > mn ? [mn, mx] : defaultLevels(span);
+    } else if (choice === "saved" && saved) {
+      zoom = saved;
+      levels =
+        saved.min !== null && saved.max !== null && saved.max > saved.min
+          ? [saved.min, saved.max]
+          : defaultLevels(span);
+    } else {
+      levels = defaultLevels(span);
+    }
     specSmooth = null;
     if (!socket || socket.readyState !== WebSocket.OPEN || !fftResult) return;
     let l = 0;
     let r = fftResult;
     if (zoom) {
-      l = Math.max(0, Math.floor(((saved.lo - span.base) / span.bw) * fftResult));
-      r = Math.min(fftResult, Math.ceil(((saved.hi - span.base) / span.bw) * fftResult));
+      l = Math.max(0, Math.floor(((zoom.lo - span.base) / span.bw) * fftResult));
+      r = Math.min(fftResult, Math.ceil(((zoom.hi - span.base) / span.bw) * fftResult));
+      if (!(r > l)) [l, r] = [0, fftResult];
     }
     try {
       socket.send(JSON.stringify({ cmd: "window", l, r }));
@@ -231,8 +292,7 @@
   }
 
   function toggleView() {
-    useSaved = !useSaved;
-    applyView();
+    setChoice(choice === "saved" ? "span" : "saved");
   }
 
   // ── Drawing ───────────────────────────────────────────────────────────
@@ -423,7 +483,7 @@
     }
 
     // Where the listener was tuned when they left that page.
-    if (useSaved && saved && saved.f !== null) {
+    if (choice === "saved" && saved && saved.f !== null) {
       const x = xOf(saved.f);
       if (x >= 0 && x <= cssW) {
         ctx.fillStyle = "#4ade80";
@@ -470,6 +530,12 @@
   function onClick(e) {
     const p = pointAt(e.clientX);
     if (!p) return;
+    // With a band chosen, the page frames that band as its button does, in
+    // the band's mode unless a marker brings its own.
+    if (spanBands.length > 1 && choiceBand(choice)) {
+      window.location.href = receiverTuneUrl(receiver, p.hz, p.marker ? p.marker.mode : "", "band");
+      return;
+    }
     // A marker brings its own mode; anywhere else in the saved view, the mode
     // the listener had there. The page restores the rest of that view itself.
     const inSaved = saved && p.hz >= saved.lo && p.hz <= saved.hi;
@@ -549,16 +615,34 @@
         <span style="color:#ef4444">· offline</span>
       {/if}
     </span>
-    {#if saved && status === "live"}
+    {#if spanBands.length > 1 && status === "live"}
+      <select
+        class="px-1 rounded"
+        style="border:1px solid rgba(0, 225, 255, 0.6);color:rgba(0, 225, 255, 0.993);background:#000"
+        title={"Band shown on the " + receiver.name + " strip"}
+        value={choice === "saved" && !saved ? "span" : choice}
+        on:change={(e) => setChoice(e.currentTarget.value)}
+      >
+        {#if saved}
+          <option value="saved"
+            >Last view {(saved.lo / 1e6).toFixed(3)}–{(saved.hi / 1e6).toFixed(3)} MHz</option
+          >
+        {/if}
+        <option value="span">Full span</option>
+        {#each spanBands as sb (sb.i)}
+          <option value={"band:" + sb.i}>{sb.b.name}</option>
+        {/each}
+      </select>
+    {:else if saved && status === "live"}
       <button
         type="button"
         class="px-2 rounded"
         style="border:1px solid rgba(0, 225, 255, 0.6);color:rgba(0, 225, 255, 0.993)"
-        title={useSaved
+        title={choice === "saved"
           ? "Show the whole span of " + receiver.name
           : "Show the view you last had on " + receiver.name}
         on:click={toggleView}
-        >{useSaved
+        >{choice === "saved"
           ? (saved.lo / 1e6).toFixed(3) + "–" + (saved.hi / 1e6).toFixed(3) + " MHz · Full span"
           : "Last view"}</button
       >

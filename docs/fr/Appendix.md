@@ -82,7 +82,7 @@ Toutes les commandes qu'un sysop utilise pour faire fonctionner une station Phan
 | `./update.sh --apply --yes` | Met à jour sans surveillance ; chaque fichier que vous avez modifié est conservé. | [Guide d'installation](INSTALLATION.md#autres-options) |
 | `./update.sh --apply --prune` | Propose aussi de supprimer les fichiers retirés en amont. | [Guide d'installation](INSTALLATION.md#utilisation) |
 | `./update.sh --from FILE` | Prend la nouvelle version depuis un `.zip`/`.tar.gz` ou un dossier — sans réseau. | [Guide d'installation](INSTALLATION.md#autres-options) |
-| `./update.sh --ref v5.2.0` | Met à jour vers un tag, une branche ou un commit au lieu de l'arbre courant. | [Guide d'installation](INSTALLATION.md#autres-options) |
+| `./update.sh --ref v5.2.1` | Met à jour vers un tag, une branche ou un commit au lieu de l'arbre courant. | [Guide d'installation](INSTALLATION.md#autres-options) |
 | `./update.sh --list-excludes` | Affiche les fichiers que l'outil de mise à jour ne touche jamais. | [Guide d'installation](INSTALLATION.md#autres-options) |
 | `./update.sh --verbose` | Liste tous les fichiers, pas seulement les 40 premiers. | [Guide d'installation](INSTALLATION.md#autres-options) |
 | `./update.sh --restore LAST` | Remet les fichiers écrasés par la dernière mise à jour. | [Guide d'installation](INSTALLATION.md#annuler-une-mise-à-jour) |

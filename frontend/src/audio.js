@@ -4621,7 +4621,7 @@ _updateCTCSSGate(rawPcm) {
 
   if (!(rawPcm && rawPcm.length)) {
     const now = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
-    this.ctcssMute = (now - this._ctcssLastOpenMs) > this._ctcssHoldMs;
+    this.ctcssMute = !listenOnly && (now - this._ctcssLastOpenMs) > this._ctcssHoldMs;
     return;
   }
 

@@ -82,7 +82,7 @@ Das ist wichtig, weil ein einziger Browser-Tab auf dem Desktop **vier** Verbindu
 | `/events` | Benutzerliste, Frequenzen der anderen Hörer |
 | `/chat` | das Chat-Fenster |
 
-Ein Telefon auf `/mobile` öffnet zwei (`/audio` und `/chat`), weil es keinen Wasserfall hat. Ein Limit, das rohe Verbindungen zählte, würde also alle abweisen: drei Tabs sind zwölf Verbindungen.
+Ein Telefon auf `/mobile` öffnet zwei (`/audio` und `/chat`), weil es keinen Wasserfall hat. Ein Limit, das rohe Verbindungen zählte, würde also alle abweisen: drei Tabs sind zwölf Verbindungen. Bei offenem Audioanalysator öffnet ein Desktop-Tab eine fünfte, einen unsichtbaren `/waterfall` für seine Messungen; drei solche Tabs (fünfzehn Verbindungen) passen noch in das abgeleitete Limit von sechzehn.
 
 ### Die drei Schlüssel
 

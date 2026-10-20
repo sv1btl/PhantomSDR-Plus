@@ -421,7 +421,9 @@ export function createScanner(ctx) {
       const v = fr.data[i];
       if (v > peak) peak = v;
     }
-    return Number.isFinite(peak) ? peak - floor : null;
+    // Waterfall units → dB with the same scale as the live SNR (0.5 dB per unit).
+    const scale = Number.isFinite(wf.snrScale) ? wf.snrScale : 1;
+    return Number.isFinite(peak) ? scale * (peak - floor) : null;
   }
 
   // Peak-hold the SNR over a window, then hand the reading back.  Sampling

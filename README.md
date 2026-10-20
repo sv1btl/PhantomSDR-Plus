@@ -1,9 +1,9 @@
-# PhantomSDR-Plus WebSDR (version 5.2.0)
+# PhantomSDR-Plus WebSDR (version 5.2.1)
 
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-cyan.svg)](https://www.gnu.org/licenses/gpl-3.0)
-[![Version](https://img.shields.io/badge/version-5.2.0-cyan.svg)](https://github.com/sv1btl/PhantomSDR-Plus)
+[![Version](https://img.shields.io/badge/version-5.2.1-cyan.svg)](https://github.com/sv1btl/PhantomSDR-Plus)
 
-**Maintained by SV1BTL.** The current version is 5.2.0, and the project lives at
+**Maintained by SV1BTL.** The current version is 5.2.1, and the project lives at
 **https://github.com/sv1btl/PhantomSDR-Plus** — that is the one to clone, link to
 and report issues against.
 
@@ -13,10 +13,17 @@ PhantomSDR-Plus is licensed under the GPL v3 with the [additional terms](ADDITIO
 
 ## Note: Tested on Debian 12 (Bookworm), Debian 13 (Trixie), Ubuntu 22.04, Ubuntu 24.04.
 
+**What's new in v.5.2.1**
+
+* **An audio analyser.** The **📊 Show** button in the Spectrogram section now opens a full audio analyser: the demodulated audio with a dB grid and peak hold, an axis that follows the mode (reversed in LSB), the recommended bandwidths and your current filter, and an RF view of the station in AM and FM. Under it, the station's occupied width with a within / wide / splatter verdict, and in USB/LSB an SSB audio report — tonal balance against Standard, DX or ESSB, compression, mains hum, residual carrier and opposite sideband — with a curve to compare before and after and a listening report to download and send. In AM and FM an AM/FM report takes its place — modulation depth and sideband balance, FM deviation and 99 % bandwidth, carrier offset, audio bandwidth, CTCSS tone and hum. No zoom is needed: while it is open the analyser keeps its own fine-detail view of the station. You can tune and change the mode from its header, and its colours show how far each part of the spectrum stands above the noise. A Mute button lets you analyse your own transmission without feeding it back into the microphone. Adapted from PhantomSDR-ORSAT by F1NSK. See **[docs/USER_GUIDE.md](docs/USER_GUIDE.md)**.
+* **Band buttons remember your frequency.** Coming back to a band tunes the last frequency you used there, with the band's zoom, brightness and contrast as before; a second click on the active band button goes back to the band's default. A frequency link in the chat now frames its band the way **To Band** does. See **[docs/USER_GUIDE.md](docs/USER_GUIDE.md)**.
+
+------------------
+
 **What's new in v.5.2.0**
 
 * **Show All — the station's other receivers under your waterfall.** On a station with more than one receiver, a **Show All** checkbox after the receiver buttons puts each other receiver under the main waterfall as a live strip: its spectrum and waterfall, with its own markers and frequency scale, in its own colours and levels, the newest line at the top. Hover over it to read a frequency and the nearest marker; click and that receiver opens there, in the same tab — on a marker in the marker's mode. It is off until the listener ticks it, and costs about 10 KB/s per listener who does; each strip is a waterfall-only socket, so it is not counted as a listener on the other receiver, and the server needs no change. See **[docs/MULTI_RECEIVER.md](docs/MULTI_RECEIVER.md)**.
-* **Back where you were.** Leaving a receiver's page remembers its zoom, brightness, contrast, mode and frequency. Its strip on the other page opens on that same part of the band, with a green ▼ where you were tuned and a **Full span** / **Last view** button, and clicking inside that view brings the receiver back exactly so — not at its whole range.
+* **Back where you were.** Leaving a receiver's page remembers its zoom, brightness, contrast, mode and frequency. Its strip on the other page opens on that same part of the band, with a green ▼ where you were tuned and a **Full span** / **Last view** button, and clicking inside that view brings the receiver back exactly so — not at its whole range. When that receiver covers more than one band (HF, seen from the 2 m page), the button becomes a dropdown with **Last view**, **Full span** and that receiver's bands: a band frames the strip as its band button does, and a click opens the receiver framed on that band.
 * **The right receiver by itself.** A frequency this receiver does not cover but another of the station's receivers does — typed, from a link, a bookmark, a DX spot, the chat or another listener's label — opens that receiver's page, tuned there. The mouse wheel, the digit steps and a rig connected over CAT never switch receivers.
 * **A number pad, and a typed frequency brings its band.** Click the black frequency box and a number pad opens (or type on the keyboard; the two Enter keys pick kHz or MHz); click a digit to step it up, right-click to step it down. A typed frequency now lands the way that band's button would: the waterfall zoomed to the whole band, the band's brightness and contrast, and the band-plan mode — on this receiver or, through the automatic switch, on the one that covers it. See **[docs/USER_GUIDE.md](docs/USER_GUIDE.md)**.
 * **Receive diversity switches even when only one site hears the station.** Until the two streams are aligned they are paired by arrival, and the better site is chosen by SNR as usual — so a station heard only by the remote now comes through, the case where diversity helps most. The panel shows **Ready (unaligned)** meanwhile. See **[docs/RECEIVE_DIVERSITY.md](docs/RECEIVE_DIVERSITY.md)**.
@@ -24,8 +31,8 @@ PhantomSDR-Plus is licensed under the GPL v3 with the [additional terms](ADDITIO
 * **A bigger spectrum and waterfall on phones.** In the extended mobile view the spectrum is 1.6× taller and the waterfall nearly twice as tall as before (on a 412-pixel screen 57 + 42 pixels instead of 35 + 23); the desktop page is unchanged.
 * **A 3D spectrum.** A **3D** button next to **Reverse** under Waterfall Controls turns the spectrum into a relief of the last few seconds — frequency across, time going back into the screen, strength as height — drawn by the listener's graphics card (WebGL2), so it costs the server nothing. It uses the waterfall's own colours, brightness, contrast and Auto Adj.; click to tune, drag and wheel to zoom work as on the flat spectrum; marks show seconds back and dB above the Min level; and a video recording made while it is open records it. Adapted from the 3D spectrum of [PhantomSDR-ORSAT](https://github.com/f1nsk40260/PhantomSDR-ORSAT) by F1NSK. See **[docs/USER_GUIDE.md](docs/USER_GUIDE.md)**.
 * **A cursor line on the waterfall too.** The spectrum's dashed yellow line under the mouse now also shows on the waterfall, and hovering the waterfall draws it on the spectrum with its MHz readout.
-* **Fixes:** the CW filter is centred on the 750 Hz tone (the tone used to sit 50 Hz from the filter's edge), and CW-L reaches the server as LSB; links written for KiwiSDR and UberSDR (`modulation=CWU`, `CW-U`, `CWL`) open in CW and CW-L; websdr.org registration works with sdr-list registration switched off, sends its ping over IPv4, and its callback (`/~~orgstatus`) now gets through `proxy.py`; the installers build the backend with OpenCL whenever the OpenCL step ran; with the waterfall switched off, the spectrum's tuning indicator follows a click again.
-* **Documentation:** the User Guide (now with the 3D spectrum), Several Receivers, Receive Diversity and Project Structure manuals cover all of the above in all seven languages, and the offline PDFs are rebuilt.
+* **Fixes:** the CW filter is centred on the 750 Hz tone (the tone used to sit 50 Hz from the filter's edge), and CW-L reaches the server as LSB; links written for KiwiSDR and UberSDR (`modulation=CWU`, `CW-U`, `CWL`) open in CW and CW-L; websdr.org registration works with sdr-list registration switched off, sends its ping over IPv4, and its callback (`/~~orgstatus`) now gets through `proxy.py`; the installers build the backend with OpenCL whenever the OpenCL step ran; with the waterfall switched off, the spectrum's tuning indicator follows a click again; the SNR readout took the waterfall's half-dB steps for whole dB and now shows the real figure, about half what it showed before (the scanner's threshold is in real dB too).
+* **Documentation:** the User Guide (now with the 3D spectrum and the audio analyser), Several Receivers, Receive Diversity and Project Structure manuals cover all of the above in all seven languages, and the offline PDFs are rebuilt.
 
 ------------------
 
@@ -89,7 +96,7 @@ We also provide a wide range of additional **features**:
 * Four selectable GUI templates, accessible through a floating pop-up menu.
 * Support for running the GUI through `localhost`.
 * An optional monitoring tool that adds real-time server-status information to the PhantomSDR application.
-* An on-screen real-time audio spectrogram.
+* An audio analyser (the Spectrogram section's **📊 Show**): the demodulated audio as a spectrum with an axis that follows the mode, the recommended bandwidths and your current filter; an RF view of the station in AM and FM; the station's occupied width with a splatter verdict; and, in USB/LSB, an SSB audio report (tonal balance, compression, mains hum, residual carrier, opposite sideband) with a listening report to download; in AM/FM an AM/FM report (modulation depth, sideband balance, deviation, CTCSS tone). It works at any zoom. Adapted from PhantomSDR-ORSAT by F1NSK.
 * A “Magic Eye” signal-strength indicator that emulates the behaviour of EM84 tuning-indicator tubes used in vintage radio receivers.
 * Audio recording and combined video/audio recording of either the complete waterfall (with the 3D spectrum when it is open) or a user-selected region.
 * A real-time connected-user list with geolocation data, map integration, and user statistics covering configurable time periods. Your own session is marked **you** in the list, whether it is opened from the interface or as a standalone `users.html` page.
@@ -488,7 +495,7 @@ Every release carries **`update-known.txt`**, the fingerprint of every version o
 For a machine you do not sit at: <br />
 ```
 bash update.sh --apply --yes   never asks; every file you have edited is KEPT
-bash update.sh --ref v5.2.0    a tag, branch or commit instead of the current tree
+bash update.sh --ref v5.2.1    a tag, branch or commit instead of the current tree
 ```
 
 **On a very old installation the rebuild may fail**, because `update.sh` updates files and not system packages. If the rebuild stops with a compiler or meson error, run `bash install.sh` — itself brought up to date by the same run — and your configuration survives that too. <br />

@@ -82,7 +82,7 @@ Alle Befehle, die ein Sysop zum Betrieb einer PhantomSDR-Plus-Station braucht, n
 | `./update.sh --apply --yes` | Aktualisiert unbeaufsichtigt; jede von Ihnen bearbeitete Datei bleibt erhalten. | [Installationsanleitung](INSTALLATION.md#weitere-optionen) |
 | `./update.sh --apply --prune` | Bietet zusätzlich an, upstream entfernte Dateien zu löschen. | [Installationsanleitung](INSTALLATION.md#aufruf) |
 | `./update.sh --from FILE` | Nimmt die neue Version aus einem `.zip`/`.tar.gz` oder Ordner — ohne Netzwerk. | [Installationsanleitung](INSTALLATION.md#weitere-optionen) |
-| `./update.sh --ref v5.2.0` | Aktualisiert auf einen Tag, Branch oder Commit statt auf den aktuellen Stand. | [Installationsanleitung](INSTALLATION.md#weitere-optionen) |
+| `./update.sh --ref v5.2.1` | Aktualisiert auf einen Tag, Branch oder Commit statt auf den aktuellen Stand. | [Installationsanleitung](INSTALLATION.md#weitere-optionen) |
 | `./update.sh --list-excludes` | Zeigt die Dateien, die der Updater nie anfasst. | [Installationsanleitung](INSTALLATION.md#weitere-optionen) |
 | `./update.sh --verbose` | Listet alle Dateien, nicht nur die ersten 40. | [Installationsanleitung](INSTALLATION.md#weitere-optionen) |
 | `./update.sh --restore LAST` | Stellt die Dateien wieder her, die das letzte Update überschrieben hat. | [Installationsanleitung](INSTALLATION.md#ein-update-rückgängig-machen) |

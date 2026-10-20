@@ -205,6 +205,10 @@ Examples:
    - **SSB**: 100 Hz steps
    - **CW**: 10 Hz steps
 
+#### Method 5: Band Buttons
+
+A band button frames its band — the waterfall zooms to the whole band and brightness and contrast take that band's settings — and tunes to the last frequency you used in that band, however you got there (a click on the waterfall, the digits, a bookmark, a chat link…). The first time, it goes to the band's default frequency. A second click on the band button that is already active (highlighted) forgets the remembered frequency and goes to the band's default. The memory is kept in your browser, so it survives a reload, and it is yours alone.
+
 ### Scanner
 
 The scanner walks the receiver across a range of channels and stops on the first one carrying a signal. It sits on the **Fine Tuning (kHz)** row, hard right:
@@ -288,6 +292,8 @@ Some stations run more than one receiver — for example one for HF and one for 
 
 **The view you left is kept.** When you leave a receiver's page, its zoom, brightness, contrast, mode and frequency are remembered. Its strip on the other page then shows that same part of the band, with a small green ▼ where you were tuned; the button in the strip's header shows that range and **Full span** — press it for the receiver's whole range, and **Last view** to come back. Click a frequency inside that view and the receiver reopens on it, with the same zoom, levels and mode, instead of its whole range.
 
+**Choosing a band on the strip.** When the other receiver covers more than one band — the HF receiver seen from the 2 m page — the strip's header has a dropdown in place of that button: **Last view**, **Full span** and each band of that receiver, the same bands its band buttons show. Pick a band and the strip shows it as that band button does, edge to edge with the band's brightness and contrast; a click on the strip then opens that receiver framed on the band, tuned where you clicked. Your choice is remembered in your browser, separately for each receiver. A receiver with a single band, such as 2 m, keeps the button.
+
 **The right receiver by itself.** A frequency that this receiver does not cover but another of the station's receivers does — typed, from a link, a bookmark, a DX spot, a chat message or another listener's label — opens that receiver's page, tuned there. The mouse wheel and the digit steps never switch receivers, and neither does a transceiver connected over CAT.
 
 ---
@@ -361,6 +367,8 @@ Mutes audio when no signal is present:
 
 **Use when**: Monitoring a frequency for activity.
 
+While SQ is off, the threshold number beside the slider is shown in grey.
+
 ### AI Noise Reduction (AI)
 
 The **AI** button, with a strength slider beside it, sits in the Audio & Buffer panel right under SQ. On the /mobile page it is in the Audio tab, under Squelch. It removes band noise from speech with RNNoise, a small neural network trained on voice.
@@ -392,6 +400,8 @@ When the operator has enabled the chat, it has its own panel on the desktop page
 
 To answer a particular message, click **↪ Reply** next to its time. A line above the input box shows who and what you are answering; type and send as usual, or press ✕ or Esc to cancel. The answer appears indented under the message it answers, with a short quote line. A reply to a reply joins the same thread. The server keeps the last 20 messages; when the original has already dropped out of that history, a reply shows only the name and time it answers.
 
+A frequency in a message is a link: click it to tune there, in the mode given with it. The band is framed as **To Band** does — the waterfall shows the whole band, with that band's brightness and contrast — and the band button lights up.
+
 ### Zoom Function
 
 Magnifies the waterfall display:
@@ -412,6 +422,22 @@ The **Auto Adj.** switch under Waterfall Controls sets the waterfall's brightnes
 The **3D** button next to **Reverse** under Waterfall Controls turns the spectrum into a relief of the last few seconds: frequency across, time going back into the screen, signal strength as height. It uses the same colours, brightness (Min), contrast (Max) and Auto Adj. as the waterfall, and follows zoom and drag like the flat spectrum. Click on it to tune, drag to move along the band and turn the mouse wheel to zoom, exactly as on the flat spectrum. The marks on the left show how many seconds back a row is, those on the right how many dB above the Min level a peak reaches (they are hidden while Auto Adj. is on). **✕ 2D**, or the 3D button again, returns to the flat spectrum, and your choice is remembered in your browser. The view needs WebGL2, which every current browser offers; without it the button does not appear. A video recording made while it is open records the 3D view in place of the flat spectrum. The 3D view is adapted from PhantomSDR-ORSAT by F1NSK.
 
 **Cursor line.** Wherever the mouse is over the spectrum, the waterfall or the 3D view, a dashed yellow line marks that frequency on both the spectrum and the waterfall, and the spectrum shows it in MHz.
+
+### Audio analyser
+
+The **📊 Show** button in the Spectrogram section opens the audio analyser under the waterfall; **📊 Hide** closes it. It shows the audio you hear, after demodulation, as a spectrum with a dB grid and a yellow peak-hold line. **Gain** raises or lowers the trace and **Color** picks its colours. The spectrum is drawn in relief, lit from the upper right. In the Rainbow colours each bar is coloured by how far it stands above the noise at its frequency — dark blue for the noise, also in speech pauses when the AGC lifts it, then blue, cyan, yellow, orange and red for ever stronger signals — while its height still reads on the dB scale. Like the main spectrum, the analyser and its reports are drawn on black, with grey grid lines.
+
+- **Frequency axis.** It follows the mode: 0–4.5 kHz in SSB, 0–2 kHz in CW, 0–5.5 kHz in AM and FM. In LSB it is reversed (high tones on the left), so it reads in the same direction as the RF spectrum. A cyan line marks the dial frequency (in CW, the 750 Hz note), and under the mouse the analyser shows both the audio frequency and the RF frequency in kHz.
+- **Bandwidth markers.** Coloured markers show the recommended widths for the mode — SSB standard 300–2700 Hz and ESSB 50–4000 Hz, CW 500 Hz and 250 Hz, AM broadcast and AM amateur — and a dashed white box shows your current filter. The standard width is drawn as a solid cyan line, the alternative one (ESSB, CW 250 Hz, AM amateur) as a dashed light-blue line.
+- **RF view in AM and FM.** Demodulated audio has no carrier, so in these modes the analyser shows the station as it is on the waterfall: the carrier in the centre, the sidebands either side. Its scale is in dB above the noise.
+- **Occupied width.** The line under the spectrum gives the width the tuned station occupies (the −26 dB method, measured on the waterfall) with a verdict for SSB, AM and CW: green within the norm, amber wide (an ESSB station shows amber), red for likely splatter, which is also shaded on the spectrum. It needs about 2 s of measurements; static crashes are ignored.
+- **No zoom needed.** While the analyser is open, the page keeps a second, hidden waterfall connection centred on the station, at the fine resolution the measurements need — so the RF view and every RF measurement work whatever the zoom of the waterfall. It closes with the analyser. It costs about 12–14 KB/s (some 45 MB an hour) of extra data while the analyser is open; on a metered connection, close the analyser when you do not need it.
+- **Tuning from the analyser.** The dial frequency in the analyser's header tunes like the main dial: hover a digit and scroll, or left-click it to step up and right-click to step down; a click beside the digits opens the number pad. A click on the mode badge opens a menu of the modes.
+- **Mute.** The Mute button in the analyser's header silences the receiver while the analysis goes on — for checking your own transmission without feeding it back into your microphone. Sound muted there comes back when the analyser closes.
+
+**SSB audio report.** In USB and LSB a report panel opens under the analyser. Over a sliding 20 s window, and only while the station is talking, it judges the tonal balance — bass (100–300 Hz) and presence (1.5–2.7 kHz) against the mid band, compared with the reference you choose: **Standard SSB**, **DX / punch** or **ESSB / hi-fi** — then compression, mains hum (lines at 50/100/150 or 60/120/180 Hz), residual carrier and the opposite sideband (both measured on the waterfall) and the occupied width. Each row gets a green, amber or red dot; a row that cannot be measured says why, usually the receive filter (bass needs the filter's low edge at about 120 Hz or lower). Nothing above 2.7 kHz is judged, though the analyser still shows it. The average shape of the voice is drawn on the analyser as a blue curve. **Store A** keeps it as the dashed curve A, to compare after the other station changes a setting; **Clear A** removes it and **↺ Restart** starts the 20 s over. **Generate a listening report** downloads an HTML file to send to the other station, with the verdicts, a picture of the spectrum and the last 20 seconds of audio. The measurements are indicative: fading and the receiver's filter and AGC affect them, so prefer Slow AGC. The analyser and the report are adapted from PhantomSDR-ORSAT by F1NSK.
+
+**AM and FM report.** In AM, C-QUAM and FM a report panel for these modes opens under the analyser instead. Here the receiver's audio says little about the transmitter — the AM carrier is removed from the audio and the AGC sets the level — so the report judges the station mostly on the RF spectrum, over a sliding 20 s window. In **AM**: the modulation depth (average and peak, from the power of the sidebands against the carrier), the balance of the two sidebands, the carrier's offset from the dial, the audio bandwidth, mains hum and the occupied width. In **FM**: the deviation (approximate, from the 99 % bandwidth by Carson's rule), the 99 % bandwidth with the channel it fits (12.5 or 25 kHz), the frequency offset, the audio bandwidth, the CTCSS tone if there is one, and mains hum. The waterfall averages each line over about 0.1 s, so the peak depth reads lower than on an oscilloscope; a carrier that reaches the top of the waterfall's scale is too strong to measure, and the report says so. The carrier offset includes the receiver's own frequency error. **↺ Restart** and **Generate a listening report** work as in the SSB report.
 
 ### Transceiver control (CAT)
 

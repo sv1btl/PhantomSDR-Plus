@@ -25,11 +25,13 @@
  * Audio is binary, decoded by webSdrCodec.js. Tuning goes the other way as a
  * text frame on the same socket:
  *
- *   GET /~~param?f=<kHz.3>&band=<n>&lo=<Hz>&hi=<Hz>&mode=<m>&name=<who>
+ *   GET /~~param?f=<kHz.3>&band=<n>&lo=<kHz>&hi=<kHz>&mode=<m>&name=<who>
  *   mode: 0 = SSB/CW (lo/hi choose the sideband)  1 = AM  2 = AMSYNC  4 = FM
  *
- * lo/hi are passband edges as offsets from the dial frequency, which is
- * exactly what the combiner already passes as l/m/r.
+ * lo/hi are passband edges as offsets from the dial frequency, in kHz, as the
+ * WebSDR client itself sends them (lo=-2.76&hi=-0.15). Sent in Hz (lo=-2760)
+ * they are read as kHz and the WebSDR opens its widest filter: wide, noisy audio
+ * (and a doubled audio rate, 14238 instead of 7119 Hz on Twente).
  *
  * The band index matters on multi-band sites, and coverage is needed before
  * we can say whether a frequency is reachable at all. Neither is in the
@@ -352,8 +354,8 @@ export class WebSdrSource {
     if (band < 0) return false
 
     const mode = MODE_MAP[String(demod || 'USB').toUpperCase()] ?? 0
-    const lo = Math.round(lHz - mHz)
-    const hi = Math.round(rHz - mHz)
+    const lo = ((lHz - mHz) / 1000).toFixed(3)     // kHz, like the WebSDR client
+    const hi = ((rHz - mHz) / 1000).toFixed(3)
     const khz = (mHz / 1000).toFixed(3)
     return this._send(
       `GET /~~param?f=${khz}&band=${band}&lo=${lo}&hi=${hi}&mode=${mode}` +

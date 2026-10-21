@@ -79,7 +79,7 @@ Caddy erreicht den Proxy über einen eigenen Port, weil aus Sicht des Proxys son
 - **Beide Adressen funktionieren.** Verzeichnisse und die websdr.org-Karte zeigen weiter die http-Adresse; der Rückruf von websdr.org und Kiwi-Clients verwenden http.
 - **Besserer Ton über https.** Browser geben einer sicheren Seite das AudioWorklet, einen stabileren Audioweg als den, den reine http-Seiten nutzen müssen.
 - **Receive Diversity mit Partnern nur über http.** Ein Browser erlaubt einer https-Seite keine einfachen `ws://`-Verbindungen, und die meisten PhantomSDR+-Stationen sowie jeder KiwiSDR bieten nichts anderes. Von der https-Seite aus werden sie daher über das Diversity-Relay der Station erreicht — siehe *Receive Diversity über https* weiter unten. Partner, die selbst https haben, und UberSDRs werden direkt erreicht.
-- **Funkgerätesteuerung (TCI-CAT).** Verbindungen zu `127.0.0.1` auf dem eigenen Rechner des Hörers sind von einer https-Seite in aktuellen Chrome-, Edge- und Firefox-Versionen erlaubt.
+- **Funkgerätesteuerung (TCI-CAT).** Verbindungen zu `127.0.0.1` auf dem eigenen Rechner des Hörers sind von einer https-Seite in aktuellen Chrome-, Edge- und Firefox-Versionen erlaubt. Die Seite verbindet sich erst, wenn der Hörer **TCI-CAT** öffnet oder **CAT Sync** einschaltet; Chrome und Edge fragen dann einmal um Erlaubnis, auf Programme und Geräte im eigenen Rechner oder Netzwerk des Hörers zuzugreifen. Wer ablehnt, schaltet nur TCI-CAT ab.
 
 ---
 

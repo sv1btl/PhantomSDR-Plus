@@ -216,6 +216,11 @@
   // only takes effect again on receive.
   let catTxMuted = false;
   let catSyncHandle = null;
+  // The TCI links are opened only once this browser has asked for them (popup
+  // opened or CAT Sync on, remembered in localStorage). Opening ws://localhost
+  // on every page load made Chrome show its "access other apps and services
+  // on this device" prompt to every https visitor, rig or not.
+  let catLinkWanted = false;
   // Machine running the TCI server (ExpertSDR, AetherSDR, Thetis).
   // "localhost" when it is the browser's own computer, otherwise its LAN IP.
   let catHost = "localhost";
@@ -295,6 +300,17 @@
 
   function toggleCatPopup() {
     showCatPopup = !showCatPopup;
+    if (showCatPopup) wantCatLink();
+  }
+
+  function wantCatLink() {
+    if (!catLinkWanted) {
+      catLinkWanted = true;
+      try {
+        localStorage.setItem("catLinkWanted", "true");
+      } catch (e) {}
+    }
+    if (!catSyncHandle) catSyncHandle = startCatSync();
   }
 
   function loadCatSyncPreferences() {
@@ -310,6 +326,11 @@
     } catch (e) {
       catHost = "localhost";
     }
+    try {
+      catLinkWanted = localStorage.getItem("catLinkWanted") === "true";
+    } catch (e) {
+      catLinkWanted = false;
+    }
   }
 
   // bind:checked already flips catSyncEnabled; this only persists it and must
@@ -318,6 +339,7 @@
     try {
       localStorage.setItem("catSyncEnabled", JSON.stringify(catSyncEnabled));
     } catch (e) {}
+    if (catSyncEnabled) wantCatLink();
   }
 
   // A new host means reconnecting: close the old links before opening new ones.
@@ -7624,7 +7646,7 @@
 
     // CAT sync over TCI: see ./lib/catsync.js and startCatSync().
     loadCatSyncPreferences();
-    catSyncHandle = startCatSync();
+    if (catLinkWanted || catSyncEnabled) catSyncHandle = startCatSync();
 
     userId = generateUniqueId();
     let [l, m, r] = audio.getAudioRange().map(FFTOffsetToFrequency);

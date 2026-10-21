@@ -546,7 +546,7 @@ Sans `--rigctl`, le pont cherche `rigctld` sur `127.0.0.1:4532` et affiche `rigc
 
 Rien à configurer. Le pilotage du transceiver passe par une petite interface JavaScript que chaque page PhantomSDR-Plus possède déjà ; il ne demande ni réglage serveur, ni port ouvert, ni droit d'administration. Les fonctions de filtre et de coupure du son sont arrivées avec la version 4.1.0 — après l'avoir appliquée, recompilez le frontend (`./recompile.sh`, option 2) ; inutile d'arrêter le récepteur. Les récepteurs KiwiSDR, WebSDR et UberSDR n'ont besoin de rien non plus : l'application utilise les commandes que leurs pages possèdent déjà.
 
-Le bouton **TCI-CAT** est arrivé lui aussi avec la 4.1.0, là encore une simple recompilation du frontend. Il n'ouvre aucun port sur le récepteur : la connexion va du navigateur de chaque auditeur vers son propre ordinateur. Le pont Hamlib, `tci-bridge/tci-rigctld.mjs`, est destiné aux auditeurs, chez eux ; le récepteur ne l'utilise pas.
+Le bouton **TCI-CAT** est arrivé lui aussi avec la 4.1.0, là encore une simple recompilation du frontend. Il n'ouvre aucun port sur le récepteur : la connexion va du navigateur de chaque auditeur vers son propre ordinateur. Le pont Hamlib, `tci-bridge/tci-rigctld.mjs`, est destiné aux auditeurs, chez eux ; le récepteur ne l'utilise pas. Le navigateur n'ouvre cette connexion qu'après que l'auditeur a ouvert **TCI-CAT** ou activé **CAT Sync** (mémorisé par navigateur) ; en https, les visiteurs qui ne s'en servent jamais ne voient donc aucune demande d'accès au réseau local.
 
 ---
 

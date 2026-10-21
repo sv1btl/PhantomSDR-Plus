@@ -79,7 +79,7 @@ Caddy doseže proxy kroz vlastiti port jer bi, gledano iz proxyja, svaki posjeti
 - **Obje adrese rade.** Imenici i karta websdr.org i dalje prikazuju http adresu; povratni poziv websdr.org-a i Kiwi klijenti koriste http.
 - **Bolji zvuk preko https-a.** Preglednici sigurnoj stranici daju AudioWorklet, stabilniji put zvuka od onoga koji moraju koristiti obične http stranice.
 - **Receive Diversity s partnerima samo na http-u.** Preglednik ne dopušta https stranici otvarati obične `ws://` veze, a većina PhantomSDR+ stanica i svaki KiwiSDR ne nude ništa drugo. S https stranice zato se do njih dolazi preko diversity relaya stanice — vidi *Receive Diversity preko https-a* niže. Partneri koji i sami imaju https, te UberSDR-ovi, dosežu se izravno.
-- **Upravljanje uređajem (TCI-CAT).** Veze prema `127.0.0.1` na slušateljevu vlastitom računalu dopuštene su s https stranice u aktualnim Chromeu, Edgeu i Firefoxu.
+- **Upravljanje uređajem (TCI-CAT).** Veze prema `127.0.0.1` na slušateljevu vlastitom računalu dopuštene su s https stranice u aktualnim Chromeu, Edgeu i Firefoxu. Stranica se spaja tek kad slušatelj otvori **TCI-CAT** ili uključi **CAT Sync**; Chrome i Edge tada jednom traže dopuštenje za pristup programima i uređajima na slušateljevu računalu ili mreži. Odbijanje isključuje samo TCI-CAT.
 
 ---
 

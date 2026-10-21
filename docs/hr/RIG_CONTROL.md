@@ -546,7 +546,7 @@ Bez `--rigctl` most traži `rigctld` na `127.0.0.1:4532` i ispiše `rigctld conn
 
 Nema se što podešavati. Upravljanje primopredajnikom koristi malo JavaScript sučelje koje svaka PhantomSDR-Plus stranica već ima; ne treba postavka poslužitelja, otvoreni port ni administratorska ovlast. Funkcije filtra i utišavanja stigle su s inačicom 4.1.0 — nakon primjene ponovno izgradite frontend (`./recompile.sh`, opcija 2); prijemnik ne treba zaustavljati. Ni prijemnici KiwiSDR, WebSDR i UberSDR ne trebaju ništa: aplikacija koristi kontrole koje njihove stranice već imaju.
 
-Gumb **TCI-CAT** stigao je također s inačicom 4.1.0, opet samo uz ponovnu izgradnju frontenda. Ne otvara nijedan port na prijemniku: veza ide iz preglednika svakog slušatelja prema njegovom vlastitom računalu. Hamlib most, `tci-bridge/tci-rigctld.mjs`, slušatelji pokreću kod kuće; prijemnik ga ne koristi.
+Gumb **TCI-CAT** stigao je također s inačicom 4.1.0, opet samo uz ponovnu izgradnju frontenda. Ne otvara nijedan port na prijemniku: veza ide iz preglednika svakog slušatelja prema njegovom vlastitom računalu. Hamlib most, `tci-bridge/tci-rigctld.mjs`, slušatelji pokreću kod kuće; prijemnik ga ne koristi. Preglednik otvara tu vezu tek nakon što slušatelj otvori **TCI-CAT** ili uključi **CAT Sync** (pamti se po pregledniku), pa preko https posjetitelji koji ga nikad ne koriste ne vide upit za pristup lokalnoj mreži.
 
 ---
 

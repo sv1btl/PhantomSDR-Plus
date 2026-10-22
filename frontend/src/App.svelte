@@ -85,6 +85,13 @@
     receiverFor,
     receiverTuneUrl,
   } from "./lib/receivers";
+  import {
+    anonymousName,
+    cleanName,
+    isAnonymousName,
+    loadIdentity,
+    saveIdentity,
+  } from "./lib/identity";
   import RxStrip from "./lib/RxStrip.svelte";
   import Waterfall3D from "./lib/Waterfall3D.svelte";
   import SMeterAnalog from "./lib/SMeterAnalog.svelte";
@@ -130,7 +137,7 @@
   import { quintOut } from "svelte/easing";
 
   import { pinch, pan } from "./lib/hammeractions.js";
-  import { availableColormaps } from "./lib/colormaps";
+  import { availableColormaps, knownColormap } from "./lib/colormaps";
   import FtxSpectrum from "./lib/FtxSpectrum.svelte";
   import {
     SUBMODE_NAMES as JS8_SUBMODE_NAMES,
@@ -153,6 +160,7 @@
     getMaximumBandwidth,
     waterfallOffsetToFrequency,
     sendUserID,
+    sendIdentity,
   } from "./lib/backend.js";
   import {
     constructLink,
@@ -562,7 +570,10 @@
   // --- Geo labels for waterfall client pills ---
   // Polled from /users (same endpoint as users.html) every 5 s.
   // Map shape: { sessionId → "GR · Athens" } or "Local" for LAN/loopback connections.
+  // The public /users carries no IP any more; "Local" comes from the server's geo.
   let _clientGeoMap = {};
+  // { sessionId → "USB" } from /users, for the label hover tooltip.
+  let _clientModeMap = {};
 
   function _isLocalIp(ip) {
     if (!ip) return false;
@@ -597,8 +608,14 @@
       // Build { uuid → "GR · Athens" } — IDs are UUIDs shared between /users and
       // the WebSocket signal protocol: exact per-user match, no frequency collisions.
       const map = {};
+      // { uuid → "SV1BTL" } for the listeners who typed a name/callsign;
+      // their pill shows it in place of the city.
+      const names = {};
+      const modes = {};
       for (const u of users) {
         if (!u.id) continue;
+        if (u.name) names[u.id] = u.name;
+        if (u.mode) modes[u.id] = String(u.mode).toUpperCase();
         if (_isLocalIp(u.ip) || u.geo === "Local") {
           map[u.id] = "Local";
           continue;
@@ -614,6 +631,8 @@
       }
       _clientGeoMap = map;
       waterfall.setClientGeo(_clientGeoMap);
+      waterfall.setClientNames(names);
+      _clientModeMap = modes;
     } catch (e) {
       /* network blip — keep previous map */
     }
@@ -1984,7 +2003,10 @@
   // was typed (tuneToUserFrequency). One another receiver covers opens that
   // receiver's page, framed the same way there.
   function tuneTypedFrequency(hz) {
-    const f = Number(hz);
+    // Under FAX / NAVTEX / FSK the meter shows the signal frequency, so what
+    // is typed there is the signal's: the dial goes that decoder's centre
+    // below it (see decoderDisplayOffsetHz).
+    const f = Number(hz) - decoderDisplayOffsetHz;
     if (!Number.isFinite(f) || f <= 0) return;
     const lo = audio.baseFreq;
     const hi = lo + audio.totalBandwidth;
@@ -2387,8 +2409,16 @@
     const rect = canvas.getBoundingClientRect();
     const x = (event.clientX - rect.left) * (canvas.width / rect.width);
     const y = (event.clientY - rect.top) * (canvas.height / rect.height);
-    canvas.style.cursor =
-      waterfall.checkClientClick(x, y) !== null ? "pointer" : "default";
+    const pill = waterfall.clientPillAt(x, y);
+    canvas.style.cursor = pill ? "pointer" : "default";
+    // Hover: where that listener is tuned, and in which mode.
+    let tip = "";
+    if (pill) {
+      const khz = (pill.freq / 1000).toFixed(2);
+      const mode = _clientModeMap[pill.id] || "";
+      tip = `${pill.name ? pill.name + " — " : ""}${khz} kHz${mode ? " " + mode : ""}`;
+    }
+    if (canvas.title !== tip) canvas.title = tip;
   }
 
   // Decoder
@@ -4597,7 +4627,7 @@
   let bandwidth;
 
   // Waterfall drawing
-  let currentColormap = "PhantomSDR"; //select any of "turbo, gqrx, twente, twentev2, SpectraVU, custom, PhantomSDR"
+  let currentColormap = "PhantomSDR"; //select any of "turbo, gqrx, twente, twentev2, SpectraVU, jet, PhantomSDR"
   let alpha = 0.5;
   let brightness = 130;
   let min_waterfall = -30;
@@ -4606,7 +4636,7 @@
     // Check if a colormap is saved in local storage
     const savedColormap = localStorage.getItem("selectedColormap");
     if (savedColormap) {
-      currentColormap = savedColormap;
+      currentColormap = knownColormap(savedColormap);
     }
     waterfall.setColormap(currentColormap);
   }
@@ -6090,9 +6120,27 @@
   // the frequency variable.
   var DIGIT_COUNT = 9;
 
+  // Decoders that tune the dial BELOW the signal they decode — USB with the
+  // signal at an audio centre: FAX (1900 Hz), NAVTEX (500 Hz) and the FSK /
+  // FLDIGI window (its centre). While one is on, the frequency meter shows the
+  // signal's own frequency (dial + that centre), so NAVTEX reads 518.000, not
+  // the 517.500 the receiver is really tuned to. Display only: the dial, the
+  // filter, the waterfall, CAT and the users list keep the real dial; a typed
+  // frequency is taken as the signal's and tuned 'offset' below it.
+  // Packet/APRS and the dial-frequency modes (FT8, WSPR, SSTV…) have none.
+  $: decoderDisplayOffsetHz = (function () {
+    if (faxEnabled) return 1900;
+    if (navtexEnabled) return 500;
+    if (fskEnabled && fskVariant !== "packet" && fskVariant !== "aprs") {
+      void fskCenter;   // reactive dependency: the centre the decoder uses
+      return Math.round(Number(_fskEffectiveConfig().center) || 0);
+    }
+    return 0;
+  })();
+
   $: freqDigitChars = (function () {
     var f = parseFloat(frequency) || 0;
-    var hz = Math.round(f * 1000); // units of 1 Hz
+    var hz = Math.round(f * 1000) + decoderDisplayOffsetHz; // units of 1 Hz; signal, not dial, under such a decoder
     var s = String(hz);
     while (s.length < DIGIT_COUNT) {
       s = "0" + s;
@@ -6127,11 +6175,11 @@
   var mobileFreqTyped = "";
   $: mobileFreqValue = mobileFreqFocused
     ? mobileFreqTyped
-    : (parseFloat(frequency) || 0).toFixed(2);
+    : ((parseFloat(frequency) || 0) + decoderDisplayOffsetHz / 1e3).toFixed(2);
 
   function selectMobileFreq(e) {
     var el = e.currentTarget;
-    mobileFreqTyped = (parseFloat(frequency) || 0).toFixed(2);
+    mobileFreqTyped = ((parseFloat(frequency) || 0) + decoderDisplayOffsetHz / 1e3).toFixed(2);
     mobileFreqFocused = true;
     // Deferred: iOS Safari moves the caret after its own focus handling, which
     // would undo an immediate select().
@@ -6262,42 +6310,24 @@
     }
   }
 
-  function handleDigitWheel(node) {
+  // The wheel tunes anywhere in the black frequency box, not only over the
+  // digits: over a digit it steps that digit, elsewhere by the tuning step
+  // (Shift 1 kHz, Alt 10 kHz). Only the analog S-meter is left out, so the
+  // wheel over it scrolls the page as usual.
+  function freqBoxWheel(node) {
     function onWheel(event) {
-      event.preventDefault();
-      var delta = event.deltaY > 0 ? -1 : 1;
-      var isShiftPressed = event.shiftKey;
-      var isAltPressed = event.altKey;
-      var frequencyHz = Math.round(parseFloat(frequency) * 1e3);
-      var step; // FIX [4]: declare once, assign in branches
-
-      var activeDigitIdx =
-        selectedDigitIdx >= 0 ? selectedDigitIdx : hoveredDigitIdx;
-
-      if (activeDigitIdx >= 0) {
-        // Digit-specific tuning: true place-value add/subtract, no snapping
-        step = DIGIT_POWERS_HZ[activeDigitIdx];
-        frequencyHz = frequencyHz + delta * step;
-      } else {
-        // No digit selected — fall back to default step tuning
-        step =
-          currentTuneStep ||
-          (isAltPressed ? 10000 : isShiftPressed ? 1000 : defaultStep);
-        var lastDigits = frequencyHz % step;
-        if (lastDigits === 0) {
-          frequencyHz = frequencyHz + delta * step;
-        } else if (delta > 0) {
-          frequencyHz = Math.ceil(frequencyHz / step) * step;
-        } else {
-          frequencyHz = Math.floor(frequencyHz / step) * step;
-        }
-      }
-
-      frequencyHz = Math.max(0, frequencyHz);
-      frequency = (frequencyHz / 1e3).toFixed(3);
-      dispatchFrequencyDebounced(frequencyHz); // FIX [1]
+      if (event.target.closest && event.target.closest(".smeter-canvas-wrap")) return;
+      tuneByWheel(event);
     }
+    node.addEventListener("wheel", onWheel, { passive: false });
+    return {
+      destroy: function () {
+        node.removeEventListener("wheel", onWheel);
+      },
+    };
+  }
 
+  function handleDigitWheel(node) {
     // FIX [7]: clicking outside deselects digit AND closes any open popup
     function onDocClick(e) {
       if (!node.contains(e.target)) {
@@ -6305,11 +6335,9 @@
       }
     }
 
-    node.addEventListener("wheel", onWheel, { passive: false });
     document.addEventListener("click", onDocClick);
     return {
       destroy: function () {
-        node.removeEventListener("wheel", onWheel);
         document.removeEventListener("click", onDocClick);
         if (_digitDispatchTimer !== null) {
           clearTimeout(_digitDispatchTimer);
@@ -6317,6 +6345,41 @@
         }
       },
     };
+  }
+
+  function tuneByWheel(event) {
+    event.preventDefault();
+    var delta = event.deltaY > 0 ? -1 : 1;
+    var isShiftPressed = event.shiftKey;
+    var isAltPressed = event.altKey;
+    var frequencyHz = Math.round(parseFloat(frequency) * 1e3);
+    var step; // FIX [4]: declare once, assign in branches
+
+    var activeDigitIdx =
+      selectedDigitIdx >= 0 ? selectedDigitIdx : hoveredDigitIdx;
+
+    if (activeDigitIdx >= 0) {
+      // Digit-specific tuning: true place-value add/subtract, no snapping
+      step = DIGIT_POWERS_HZ[activeDigitIdx];
+      frequencyHz = frequencyHz + delta * step;
+    } else {
+      // No digit selected — fall back to default step tuning
+      step =
+        currentTuneStep ||
+        (isAltPressed ? 10000 : isShiftPressed ? 1000 : defaultStep);
+      var lastDigits = frequencyHz % step;
+      if (lastDigits === 0) {
+        frequencyHz = frequencyHz + delta * step;
+      } else if (delta > 0) {
+        frequencyHz = Math.ceil(frequencyHz / step) * step;
+      } else {
+        frequencyHz = Math.floor(frequencyHz / step) * step;
+      }
+    }
+
+    frequencyHz = Math.max(0, frequencyHz);
+    frequency = (frequencyHz / 1e3).toFixed(3);
+    dispatchFrequencyDebounced(frequencyHz); // FIX [1]
   }
   // ── End digit tuning ─────────────────────────────────────────────────────
 
@@ -7026,19 +7089,34 @@
   }
   let socket;
 
-  let username = `user${Math.floor(Math.random() * 10000)}`;
+  let username = anonymousName();
   let showUsernameInput = false;
+  let identityError = "";
+  // What the name box holds while editing; "" for an anonymous name.
+  let nameDraft = "";
 
   function saveUsername() {
-    localStorage.setItem("chatusername", username);
+    // A name or callsign, or none: up to 10 characters, no spaces (the
+    // WebSDR's rule). Blank keeps or gets an anonymous name.
+    const typed = cleanName(nameDraft);
+    if (typed === null) {
+      identityError = "A name or callsign: up to 10 letters/digits, no spaces (or leave it blank)";
+      return;
+    }
+    identityError = "";
+    username = typed || (isAnonymousName(username) ? username : anonymousName());
+    nameDraft = isAnonymousName(username) ? "" : username;
+    saveIdentity(username);
     showUsernameInput = false;
     sendUserID(username);
+    sendIdentity(username);
     if (_myId) waterfall.setClients(waterfall.clients, _myId, username);
     waterfall.setClientGeo(_clientGeoMap);
     requestAnimationFrame(() => waterfall.drawClients());
   }
 
   function editUsername() {
+    nameDraft = isAnonymousName(username) ? "" : username;
     showUsernameInput = true;
   }
 
@@ -7196,7 +7274,7 @@
     updatePassband();
 
     // Set Waterfall Colormap
-    currentColormap = bookmark.currentColormap;
+    currentColormap = knownColormap(bookmark.currentColormap);
     waterfall.setColormap(currentColormap);
 
     // Update the link
@@ -7355,7 +7433,7 @@
             brightness: 130, // default
             currentWaterfallR: rightEdge, // default
             currentWaterfallL: 1, // default
-            currentColormap: "custom", // default
+            currentColormap: "PhantomSDR", // default
             waterfallDisplay: true, // default
             spectrumDisplay: true, // default
             currentBandwidth: 0, // default
@@ -7532,9 +7610,9 @@
     waterfallReverse = spectrumDisplay;
 
     // Load username before init so server gets it on first connection
-    username = localStorage.getItem("chatusername") || "";
-    if (!username) username = "user" + Math.floor(Math.random() * 10000);
+    username = loadIdentity();
     sendUserID(username);
+    sendIdentity(username);
     backendPromise = init(username);
 
     try {
@@ -7579,7 +7657,8 @@
       audio.baseFreq + audio.totalBandwidth,
     );
 
-    showUsernameInput = !username;
+    // A listener with no name of their own sees the empty box right away.
+    showUsernameInput = isAnonymousName(username);
 
     demodulation = audio.settings.defaults.modulation;
 
@@ -9684,15 +9763,57 @@
                   <!-- Collapsible Menu -->
                   <div>
                     <!-- Toggle Button -->
-                    <center>
+                    <div
+                      class="flex flex-wrap items-center justify-center gap-2"
+                      style="margin-top: 15px;"
+                    >
                       <button
                         class="bg-gray-700 hover:bg-gray-600 text-white font-medium py-2 px-4 rounded-lg flex items-center transition-colors ring-2 ring-blue-500 s-XsEmFtvddWTw"
                         on:click={() => toggleMenu()}
-                        style="margin-top: 15px;"
                       >
                         <span id="menu-toggle-label">Open Additional Info</span>
                       </button>
-                    </center>
+
+                      <!-- Listener identity: name/callsign, shown
+                           in the chat, the users list and on the other listeners'
+                           waterfall. Blank = anonymous + a number. -->
+                      <div
+                        class="identity-box flex flex-wrap items-center gap-2 py-1 px-2 rounded-lg"
+                        title="Shown in the chat, in the users list and on the other listeners' waterfall"
+                      >
+                        <span class="text-white text-xs sm:text-sm">👤</span>
+                        {#if showUsernameInput}
+                          <input
+                            class="glass-input text-white py-1 px-2 rounded-lg outline-none text-xs sm:text-sm w-40"
+                            bind:value={nameDraft}
+                            maxlength="10"
+                            placeholder="Your name or callsign"
+                            on:keydown={(e) => e.key === "Enter" && saveUsername()}
+                          />
+                          <button
+                            class="glass-button text-white py-1 px-3 rounded-lg text-xs sm:text-sm"
+                            on:click={saveUsername}
+                          >
+                            Save
+                          </button>
+                          {#if identityError}
+                            <span class="w-full text-red-400 text-xs">{identityError}</span>
+                          {/if}
+                        {:else}
+                          <span
+                            class="glass-username text-white text-xs sm:text-sm px-3 py-1 rounded-lg"
+                          >
+                            {username}
+                          </span>
+                          <button
+                            class="glass-button text-white py-1 px-3 rounded-lg text-xs sm:text-sm"
+                            on:click={editUsername}
+                          >
+                            Edit
+                          </button>
+                        {/if}
+                      </div>
+                    </div>
 
 <!-- @@COLLAPSIBLE_MENU_START@@ -->
 
@@ -9703,7 +9824,7 @@
                     <ul style="font-size: 0.91rem; text-align: left;">
                     <b>Setup &amp; Configuration:</b>
                       <img
-                        src="https://img.shields.io/badge/version-5.2.1-cyan?logo=github"
+                        src="https://img.shields.io/badge/version-5.3.0-cyan?logo=github"
                         alt="Version"
                         class="inline-block align-middle ml-2"
                       />
@@ -10350,6 +10471,7 @@ Shift + Ctrl + Wheel = snap to .00 KHz"
                         on:wheel={handleWaterfallWheel}
                         on:click={handleGraduationClick}
                         on:mousemove={handleClientsMouseMove}
+                        on:mouseleave={(e) => (e.currentTarget.title = "")}
                         on:mousedown={(e) =>
                           passbandTunerComponent.handleMoveStart(e, 1)}
                         on:touchstart={passbandTunerComponent.handleTouchStart}
@@ -11184,7 +11306,8 @@ Slider: share of denoised audio, the rest is the original"
                       ? 'min-w-40'
                       : 'min-w-80 lg:min-h-[227px] lg:flex lg:flex-col lg:justify-center'} lg:min-w-0 lg:p-4 mb-4 w-full cursor-pointer"
                     id="smeter-tut"
-                    title="Click to enter a frequency"
+                    title="Scroll to tune · click to enter a frequency"
+                    use:freqBoxWheel
                     on:click={openFreqKeypad}
                   >
                     <div
@@ -11215,7 +11338,9 @@ Slider: share of denoised audio, the rest is the original"
                               ? 'border-cyan-500'
                               : 'border-gray-700'}"
                             use:handleDigitWheel
-                            title="Hover a digit: scroll or left-click = up, right-click = down · Click elsewhere for the number pad"
+                            title={decoderDisplayOffsetHz
+                              ? `Signal frequency: the receiver dial is ${decoderDisplayOffsetHz} Hz lower (USB) for the decoder · Hover a digit: scroll or left-click = up, right-click = down · Click elsewhere for the number pad`
+                              : "Hover a digit: scroll or left-click = up, right-click = down · Click elsewhere for the number pad"}
                             on:contextmenu|preventDefault
                             on:mouseenter={handleFreqFrameMouseEnter}
                             on:mouseleave={handleFreqFrameMouseLeave}
@@ -15044,40 +15169,6 @@ Slider: share of denoised audio, the rest is the original"
                     Chat
                   </h2>
 
-                  <!-- Username Display/Input -->
-                  <div class="mb-2 sm:mb-4 flex flex-wrap items-center">
-                    <span
-                      class="text-white text-xs sm:text-sm mr-2 mb-2 sm:mb-0"
-                      >Chatting as:</span
-                    >
-                    {#if showUsernameInput}
-                      <input
-                        class="glass-input text-white py-1 px-2 rounded-lg outline-none text-xs sm:text-sm flex-grow mr-2 mb-2 sm:mb-0"
-                        bind:value={username}
-                        placeholder="Enter your name/callsign"
-                        on:keydown={(e) => e.key === "Enter" && saveUsername()}
-                      />
-                      <button
-                        class="glass-button text-white py-1 px-3 mb-2 lg:mb-0 rounded-lg text-xs sm:text-sm"
-                        on:click={saveUsername}
-                      >
-                        Save
-                      </button>
-                    {:else}
-                      <span
-                        class="glass-username text-white text-xs sm:text-sm px-3 py-1 rounded-lg mr-2 mb-2 sm:mb-0"
-                      >
-                        {username || myDisplayId || "Anonymous"}
-                      </span>
-                      <button
-                        class="glass-button text-white py-1 px-3 mb-2 lg:mb-0 rounded-lg text-xs sm:text-sm"
-                        on:click={editUsername}
-                      >
-                        Edit
-                      </button>
-                    {/if}
-                  </div>
-
                   <!-- Chat Messages -->
                   <div
                     class="bg-gray-900 rounded-lg p-2 sm:p-3 mb-2 sm:mb-4 h-48 sm:h-64 overflow-y-auto custom-scrollbar"
@@ -15530,6 +15621,7 @@ Slider: share of denoised audio, the rest is the original"
                         on:wheel={handleWaterfallWheel}
                         on:click={handleGraduationClick}
                         on:mousemove={handleClientsMouseMove}
+                        on:mouseleave={(e) => (e.currentTarget.title = "")}
                         on:mousedown={(e) =>
                           passbandTunerComponent.handleMoveStart(e, 1)}
                         on:touchstart={passbandTunerComponent.handleTouchStart}
@@ -15826,6 +15918,49 @@ Slider: share of denoised audio, the rest is the original"
                   <div
                     class="flex flex-col items-center bg-gray-800 sm:p-6 border-l-0 border-r-0 border border-gray-700"
                   >
+                    <!-- Phone layout: the same name/callsign box as next to "Open
+                         Additional Info" on the desktop (same saved name). -->
+                    <div class="w-full flex justify-center mb-2">
+                      <!-- Listener identity (phone layout): name/callsign, shown
+                           in the chat, the users list and on the other listeners'
+                           waterfall. Blank = anonymous + a number. -->
+                      <div
+                        class="identity-box flex flex-wrap items-center gap-2 py-1 px-2 rounded-lg"
+                        title="Shown in the chat, in the users list and on the other listeners' waterfall"
+                      >
+                        <span class="text-white text-xs sm:text-sm">👤</span>
+                        {#if showUsernameInput}
+                          <input
+                            class="glass-input text-white py-1 px-2 rounded-lg outline-none text-xs sm:text-sm w-40"
+                            bind:value={nameDraft}
+                            maxlength="10"
+                            placeholder="Your name or callsign"
+                            on:keydown={(e) => e.key === "Enter" && saveUsername()}
+                          />
+                          <button
+                            class="glass-button text-white py-1 px-3 rounded-lg text-xs sm:text-sm"
+                            on:click={saveUsername}
+                          >
+                            Save
+                          </button>
+                          {#if identityError}
+                            <span class="w-full text-red-400 text-xs">{identityError}</span>
+                          {/if}
+                        {:else}
+                          <span
+                            class="glass-username text-white text-xs sm:text-sm px-3 py-1 rounded-lg"
+                          >
+                            {username}
+                          </span>
+                          <button
+                            class="glass-button text-white py-1 px-3 rounded-lg text-xs sm:text-sm"
+                            on:click={editUsername}
+                          >
+                            Edit
+                          </button>
+                        {/if}
+                      </div>
+                    </div>
                     <div
                       class="bg-black rounded-lg p-2 sm:p-8 min-w-0 lg:min-w-0 lg:p-4 mb-4 w-full cursor-pointer"
                       id="smeter-tut"
@@ -19480,40 +19615,6 @@ Slider: share of denoised audio, the rest is the original"
                     Chat
                   </h2>
 
-                  <!-- Username Display/Input -->
-                  <div class="mb-2 sm:mb-4 flex flex-wrap items-center">
-                    <span
-                      class="text-white text-xs sm:text-sm mr-2 mb-2 sm:mb-0"
-                      >Chatting as:</span
-                    >
-                    {#if showUsernameInput}
-                      <input
-                        class="glass-input text-white py-1 px-2 rounded-lg outline-none text-xs sm:text-sm flex-grow mr-2 mb-2 sm:mb-0"
-                        bind:value={username}
-                        placeholder="Enter your name/callsign"
-                        on:keydown={(e) => e.key === "Enter" && saveUsername()}
-                      />
-                      <button
-                        class="glass-button text-white py-1 px-3 mb-2 lg:mb-0 rounded-lg text-xs sm:text-sm"
-                        on:click={saveUsername}
-                      >
-                        Save
-                      </button>
-                    {:else}
-                      <span
-                        class="glass-username text-white text-xs sm:text-sm px-3 py-1 rounded-lg mr-2 mb-2 sm:mb-0"
-                      >
-                        {username || myDisplayId || "Anonymous"}
-                      </span>
-                      <button
-                        class="glass-button text-white py-1 px-3 mb-2 lg:mb-0 rounded-lg text-xs sm:text-sm"
-                        on:click={editUsername}
-                      >
-                        Edit
-                      </button>
-                    {/if}
-                  </div>
-
                   <!-- Chat Messages -->
                   <div
                     class="bg-gray-900 rounded-lg p-2 sm:p-3 mb-2 sm:mb-4 h-48 sm:h-64 overflow-y-auto custom-scrollbar"
@@ -20008,11 +20109,17 @@ Slider: share of denoised audio, the rest is the original"
     background-size: cover;
   }
 
+  /* Name/callsign box next to "Open Additional Info" */
+  .identity-box {
+    background: rgba(0, 0, 0, 0.35);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+  }
+
   .glass-username {
+    max-width: 200px;
     background: rgba(255, 255, 255, 0.1);
     backdrop-filter: blur(5px);
     display: inline-block;
-    max-width: 150px;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;

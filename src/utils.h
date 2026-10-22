@@ -36,6 +36,18 @@ bool is_loopback_ip(const std::string &ip);
 // arriving over both spellings.
 std::string normalize_client_ip(const std::string &endpoint);
 
+// ── UTF-8 and listener identity (see utils.cpp) ─────────────────────────────
+// Drop every byte that is not part of a well-formed UTF-8 sequence.
+std::string utf8_sanitize(const std::string &in);
+// Cut to at most max_chars code points without splitting a character.
+std::string utf8_truncate(const std::string &s, size_t max_chars);
+// Names nobody may use, in the chat or in /users ("admin", "root", ...).
+bool is_reserved_name(const std::string &name);
+// A listener's name/callsign as /users shows it: plain text, at most 10
+// characters and no spaces (the WebSDR's rule), at least one letter or digit;
+// "" otherwise, and for a reserved or placeholder name ("anonymous1234").
+std::string clean_listener_name(const std::string &raw);
+
 template <typename T> class Neumaier {
   public:
     Neumaier(T init) : sum{init}, correction{0} {

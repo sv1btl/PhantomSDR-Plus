@@ -16,7 +16,7 @@
 #    ./update.sh --check           report only, never ask (for cron)
 #    ./update.sh --apply           actually update, asking about your own edits
 #    ./update.sh --apply --yes     unattended; anything you edited is KEPT
-#    ./update.sh --ref v5.2.1      a tag, branch or commit instead of main
+#    ./update.sh --ref v5.3.0      a tag, branch or commit instead of main
 #    ./update.sh --from FILE|DIR   the new version from a .tar.gz / .zip or a
 #                                  folder (a USB stick, a download) — no network
 #    ./update.sh --apply --prune   also offer to delete files GitHub removed

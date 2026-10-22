@@ -196,6 +196,7 @@ Primjeri:
 1. Postavite pokazivač iznad znamenke prikaza frekvencije — ona zasvijetli
 2. Kotačić prema gore ili **lijevi klik** povećava tu znamenku za jedan; kotačić prema dolje ili **desni klik** je smanjuje
 3. Korak je mjesna vrijednost znamenke — 1 kHz na znamenki kHz, 100 Hz na prvoj decimali — a znamenka koja prijeđe 9 prenosi jedinicu na znamenku lijevo od sebe
+4. Bilo gdje drugdje u crnom okviru frekvencije — naziv pojasa, redak načina rada, sat — kotačić ugađa korakom ugađanja (**Shift** 1 kHz, **Alt** 10 kHz); izuzet je samo analogni S-metar, gdje kotačić pomiče stranicu
 
 #### Način 4: gumbi koraka
 
@@ -326,7 +327,7 @@ Spektralno smanjenje šuma. Procjenjuje razinu šuma u svakom dijelu zvučnog sp
 
 **Koristite kada**: čujete ravnomjerno siktanje ili bijeli šum iza signala.
 
-Postojani tonovi — CW nota, nosilac — prepoznaju se kao signal i štite, pa NR ne pojede CW signal kako bi to učinio naivan filtar. Tipičan učinak: 10 dB manje šuma između riječi, uz gubitak od nekoliko desetinki dB na samom govoru.
+Postojani tonovi — CW nota, nosilac — prepoznaju se kao signal i štite, pa NR ne pojede CW signal kako bi to učinio naivan filtar. Tipičan učinak: 10–12 dB manje šuma između riječi. Sam govor gubi znatno manje od 1 dB na jakim signalima i nekoliko dB na vrlo slabima, koji se ipak razumiju bolje nego bez NR-a.
 
 ### Prigušivač impulsnog šuma (NB)
 
@@ -394,9 +395,17 @@ Spremnik se sam prilagođava. Stranica mjeri koliko nepravilno vaša veza isporu
 
 Ako se zvuk prekida, povećajte spremnik za jedan korak. Na telefonu preko kućnog Wi-Fija kašnjenje od prijamnika do zvučnika obično je oko 100–150 ms; mreža između vas i prijamnika dodaje se na to.
 
+### Vaše ime ili pozivni znak
+
+Pokraj **Open Additional Info** nalazi se polje za vaše ime ili pozivni znak: najviše 10 znakova i bez razmaka, kao na WebSDR-u. Upišite ga i pritisnite **Save** (ili Enter); s **Edit** ga kasnije mijenjate. Preglednik ga pamti, i kad prijeđete na druge prijemnike postaje. Ostavite li polje prazno, ostajete anonimni: *anonymous* i broj u chatu, a svugdje drugdje samo vaša lokacija. Na mobitelu je isto polje iznad prikaza frekvencije.
+
+Vaše ime pojavljuje se u prozoru **Users**, u vašim redcima chata i na oznaci koju drugi slušatelji vide ispod svog waterfalla — vaše ime, a zatim vaša lokacija, na primjer `SV1BTL-Athens`. Vaš vlastiti položaj je žuta ★ s vašim imenom pokraj. Prijeđite mišem preko oznake drugog slušatelja da vidite frekvenciju i način na koji je ugođen; klikom se ugađate onamo.
+
+Kao na WebSDR-u, IP adresa nijednog slušatelja ne prikazuje se drugima — ni u prozoru Users ni u Statistici korisnika, koja posjetitelje broji po anonimnom kodu.
+
 ### Chat
 
-Kad je operater uključio chat, on ima vlastiti panel na desktop stranici i karticu **Chat** na /mobile. Upišite svoje ime ili pozivni znak, napišite poruku i pošaljite je.
+Kad je operater uključio chat, on ima vlastitu ploču na desktop stranici i karticu **Chat** na /mobile. Upišite poruku i pošaljite je: odlazi pod imenom iz vašeg polja za ime (vidi gore) ili kao *anonymous* i broj.
 
 Da biste odgovorili na određenu poruku, kliknite **↪ Reply** pokraj njezina vremena. Redak iznad polja za unos pokazuje kome i na što odgovarate; pišite i šaljite kao i obično, ili pritisnite ✕ ili Esc za odustajanje. Odgovor se pojavljuje uvučen ispod poruke na koju odgovara, s kratkim retkom citata. Odgovor na odgovor ide u istu nit. Poslužitelj čuva zadnjih 20 poruka; kad je izvorna poruka već ispala iz te povijesti, odgovor prikazuje samo ime i vrijeme na koje odgovara.
 

@@ -961,11 +961,16 @@ export default class SpectrumAudio {
                                   // absorbed into the noise floor
     this.nrTonalDecayTC = 1.0;    // how fast the floor backs away from a bin
                                   // judged tonal
-    this.nrOverSub     = 2.0;     // over-subtraction: the tracked floor is a
+    this.nrOverSub     = 1.4;     // over-subtraction: the tracked floor is a
                                   // mean, and half of a Rayleigh-distributed
                                   // noise bin sits above its own mean, so
                                   // treating the floor as the noise level
-                                  // under-suppresses. 2.0 in power ≈ +3 dB.
+                                  // under-suppresses. 1.4 in power ≈ +1.5 dB.
+                                  // 2.0 (+3 dB) cut the voice itself on weak
+                                  // signals; measured on the AI-NR test set
+                                  // (~/sdr-shots/scripts/nr-classic-run.mjs),
+                                  // 1.4 keeps ~1 dB more speech with higher
+                                  // ESTOI at every SNR, for ~2 dB less noise cut.
     this._nrCh = [null, null];    // per-channel WOLA state, built on demand
 
     // ── AI Noise Reduction (RNNoise, lib/rnnoise.js) ────────────────────────
@@ -1340,6 +1345,8 @@ async init() {
     // listener's Fast/Medium/Slow choice.
     this._sentAgcSpeed = 0   // a new connection starts on Auto
     this._syncAgcSpeed()
+    // Name/callsign for the users list (see setIdentity).
+    if (this._identity) this._safeSend({ cmd: 'identity', ...this._identity })
   }
   this.audioSocket.onerror = (evt) => this._handleSocketTerminal('error', evt)
   this.audioSocket.onclose = (evt) => this._handleSocketTerminal('close', evt)
@@ -4971,6 +4978,14 @@ _updateCTCSSGate(rawPcm) {
       }
     }
     return this.dBPower;
+  }
+
+  // The listener's name/callsign, shown in /users and on the other listeners'
+  // waterfall labels. Kept so a new /audio socket sends it again. Older
+  // servers ignore the unknown command.
+  setIdentity(name) {
+    this._identity = { name: String(name || '') }
+    this._safeSend({ cmd: 'identity', ...this._identity })
   }
 
   setUserID(userID) {

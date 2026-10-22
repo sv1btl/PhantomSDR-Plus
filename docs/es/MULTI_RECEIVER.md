@@ -231,7 +231,7 @@ Para un RTL-SDR, `add-receiver.sh` escribe una calibración de partida: una gana
 
 Poner el proxy delante de los oyentes cerró dos huecos, ambos corregidos en la v5.0.0:
 
-- **La expulsión del sysop a través del proxy.** spectrumserver solo permite `/~~kick` desde su propio ordenador, y para él cada petición reenviada por el proxy viene de su propio ordenador. Cualquiera que llegara al puerto del proxy podía, por tanto, desconectar y bloquear a cualquier oyente. Ahora el proxy solo responde a `/~~kick` para clientes del mismo ordenador.
+- **La expulsión del sysop a través del proxy.** spectrumserver solo permite `/~~kick` desde su propio ordenador, y para él cada petición reenviada por el proxy viene de su propio ordenador. Cualquiera que llegara al puerto del proxy podía, por tanto, desconectar y bloquear a cualquier oyente. Ahora el proxy solo responde a `/~~kick` para clientes del mismo ordenador. Lo mismo vale para `/~~users` (la lista de usuarios con direcciones IP) y `/~~unban`, añadidos en la 5.3.0; spectrumserver además rechaza esos dos cuando la petición lleva `X-Forwarded-For`, como todo lo que reenvía el proxy.
 - **Direcciones de cliente falsas.** spectrumserver creía la cabecera `X-Forwarded-For` de cualquiera, de modo que un visitante podía decir que era `127.0.0.1` y saltarse los límites por dirección. Ahora la cabecera solo se cree si viene de un proxy local, y el proxy descarta cualquier copia que envíe un cliente antes de añadir la suya.
 
 Ate cada receptor al que se llega a través del proxy a `127.0.0.1` (`[server] host`), para que su puerto no pueda usarse rodeando el proxy. Los límites por dirección de [Límites de conexión](CONNECTION_LIMITS.md) se aplican por receptor.

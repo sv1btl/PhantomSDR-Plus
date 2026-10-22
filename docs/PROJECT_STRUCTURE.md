@@ -302,6 +302,7 @@ PhantomSDR-Plus
 │   │   │   ├── FrequencyMarkers.svelte
 │   │   │   ├── FtxSpectrum.svelte
 │   │   │   ├── hammeractions.js
+│   │   │   ├── identity.js               # listener name/callsign: box, storage, URL carry-over
 │   │   │   ├── LineThroughButton.svelte
 │   │   │   ├── Logger.svelte
 │   │   │   ├── MagicEyeIndicator.svelte
@@ -965,7 +966,7 @@ The web-based user interface built with Svelte and Vite.
 - Layout structure
 - Component orchestration
 - **Decoders button row** — one button per decoder, on the main panel directly under the Modes selector; press to start the decoder and open its window, press again to stop. It replaced the former Bandwidth row. RADEL/RADEU live in `lib/ModesSelector.svelte` instead, beside the Modes selector and inside the Modes and Bands pop-ups.
-- **Version line** — "PhantomSDR+ | v5.2.1 original from github.com/sv1btl/PhantomSDR-Plus", with the address as a link; the same line is on the /mobile page. The version number and the address live in `lib/version.js`; the line is an author attribution covered by `ADDITIONAL_TERMS.md`.
+- **Version line** — "PhantomSDR+ | v5.3.0 original from github.com/sv1btl/PhantomSDR-Plus", with the address as a link; the same line is on the /mobile page. The version number and the address live in `lib/version.js`; the line is an author attribution covered by `ADDITIONAL_TERMS.md`.
 
 #### 2. Waterfall Display (`waterfall.js` + `lib/`)
 - Canvas-based spectrum and waterfall rendering and colormaps in `waterfall.js` (plain JS, not a component); the **Auto Adj.** brightness/contrast remap is `lib/wfAutoLevel.js`
@@ -1065,6 +1066,12 @@ The `fsk` role additionally hosts decoders that do not use its FSK chain at all.
 - A reply is an ordinary chat message that starts with a marker naming the message it answers, `[RE:<timestamp>|<name>]`; the server stores and relays it like any other line and needs no change
 - `chatReply.js` builds and reads that marker and groups replies under their original, one level deep. `App.svelte` and `mobile/Mobile.svelte` both use it, so the two pages thread the chat the same way
 - When the original has already left the server's 20-message history, the reply stays where it arrived and shows only the name and time it answers
+
+#### 4g. Listener names and privacy (`lib/identity.js`)
+- The name box next to **Open Additional Info** keeps the name or callsign in `localStorage` (`chatusername`) and sends it on `/audio` as `{"cmd":"identity","name":…}`; `audio.js` sends it again whenever its socket opens. A link to a receiver on another address carries it as `?idname=`, read once and removed from the address bar
+- The server cleans it (`clean_listener_name` in `utils.cpp`): at most 10 characters and no spaces as on a WebSDR, at least one letter or digit; the chat's reserved names and the `anonymous1234` placeholders count as none. `/users` gives it as `name`; the waterfall labels show it followed by the city
+- The public `/users`, `users.json` and the `/logs/users_*.jsonl` that `stats.html` reads carry no IP address: the log copy has an opaque `visitor` code instead (keyed hash, key in `logs/.visitor_salt`); the files on disk keep the addresses. The admin panel reads `/~~users`, answered only to a loopback peer without `X-Forwarded-For`
+- The admin panel's 24-hour bans live in `admin_bans.json` (never distributed) and are re-sent to every receiver once a minute; `/~~unban` lifts one
 
 #### 5. State Management (`stores/`)
 - Reactive data stores

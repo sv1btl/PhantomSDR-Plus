@@ -196,6 +196,7 @@ Beispiele:
 1. Bewegen Sie den Zeiger über eine Ziffer der Frequenzanzeige — sie leuchtet auf
 2. Rad nach oben oder **Linksklick** erhöht diese Ziffer um eins; Rad nach unten oder **Rechtsklick** verringert sie
 3. Der Schritt ist der Stellenwert der Ziffer — 1 kHz auf der kHz-Ziffer, 100 Hz auf der ersten Nachkommastelle —, und eine Ziffer, die über 9 hinausgeht, überträgt auf die Ziffer links daneben
+4. Überall sonst im schwarzen Frequenzfeld — Bandname, Betriebsartzeile, Uhr — stimmt das Rad im Abstimmschritt ab (**Shift** 1 kHz, **Alt** 10 kHz); nur das analoge S-Meter ist ausgenommen, dort rollt das Rad die Seite
 
 #### Methode 4: Schrittschaltflächen
 
@@ -327,7 +328,7 @@ Spektrale Rauschminderung. Sie schätzt den Rauschpegel in jedem Teil des Audios
 **Verwenden, wenn**: Sie gleichmäßiges Zischen oder weißes Rauschen hinter dem
 Signal hören.
 
-Dauertöne — eine CW-Note, ein Träger — werden als Signal erkannt und geschützt. NR frisst also kein CW-Signal, wie es ein naives Filter täte. Typische Wirkung: 10 dB weniger Rauschen in den Sprechpausen, für ein paar Zehntel dB Verlust an der Sprache selbst.
+Dauertöne — eine CW-Note, ein Träger — werden als Signal erkannt und geschützt. NR frisst also kein CW-Signal, wie es ein naives Filter täte. Typische Wirkung: 10–12 dB weniger Rauschen in den Sprechpausen. Die Sprache selbst verliert bei starken Signalen deutlich unter 1 dB und bei sehr schwachen einige dB, die aber trotzdem verständlicher bleiben als ohne NR.
 
 ### Störaustaster (NB)
 
@@ -395,9 +396,17 @@ Der Puffer passt sich selbst an. Die Seite misst, wie unregelmäßig Ihre Verbin
 
 Bricht der Ton ab, erhöhen Sie den Puffer um eine Stufe. Auf einem Telefon im heimischen WLAN beträgt die Verzögerung vom Empfänger bis zum Lautsprecher typisch etwa 100–150 ms; das Netz zwischen Ihnen und dem Empfänger kommt hinzu.
 
+### Ihr Name oder Rufzeichen
+
+Neben **Open Additional Info** steht ein Feld für Ihren Namen oder Ihr Rufzeichen: höchstens 10 Zeichen und keine Leerzeichen, wie bei einem WebSDR. Tippen Sie ihn ein und drücken Sie **Save** (oder Enter); mit **Edit** ändern Sie ihn später. Ihr Browser merkt ihn sich, auch wenn Sie zu den anderen Empfängern der Station wechseln. Lassen Sie das Feld leer, bleiben Sie anonym: im Chat als *anonymous* mit einer Zahl, überall sonst nur mit Ihrem Standort. Auf dem Telefon steht dasselbe Feld über der Frequenzanzeige.
+
+Ihr Name erscheint im Fenster **Users**, in Ihren Chat-Zeilen und auf der Beschriftung, die die anderen Hörer unter ihrem Wasserfall sehen — Ihr Name und danach Ihr Standort, zum Beispiel `SV1BTL-Athens`. Ihre eigene Position ist der gelbe ★ mit Ihrem Namen daneben. Fahren Sie mit der Maus über die Beschriftung eines anderen Hörers, um Frequenz und Betriebsart zu sehen, auf die er eingestellt ist; ein Klick stimmt dorthin ab.
+
+Wie bei einem WebSDR wird keinem Hörer die IP-Adresse eines anderen gezeigt — weder im Fenster Users noch in der Nutzerstatistik, die Besucher über einen anonymen Code zählt.
+
 ### Chat
 
-Hat der Betreiber den Chat aktiviert, hat er auf der Desktop-Seite einen eigenen Bereich und auf /mobile einen Reiter **Chat**. Geben Sie Ihren Namen oder Ihr Rufzeichen ein, schreiben Sie Ihre Nachricht und senden Sie sie.
+Hat der Betreiber den Chat aktiviert, hat er auf der Desktop-Seite einen eigenen Bereich und auf /mobile einen Reiter **Chat**. Schreiben Sie Ihre Nachricht und senden Sie sie: Sie geht unter dem Namen aus Ihrem Namensfeld hinaus (siehe oben) oder als *anonymous* mit einer Zahl.
 
 Um auf eine bestimmte Nachricht zu antworten, klicken Sie auf **↪ Reply** neben ihrer Uhrzeit. Eine Zeile über dem Eingabefeld zeigt, wem und worauf Sie antworten; schreiben und senden Sie wie gewohnt, oder drücken Sie ✕ bzw. Esc zum Abbrechen. Die Antwort erscheint eingerückt unter der beantworteten Nachricht, mit einer kurzen Zitatzeile. Eine Antwort auf eine Antwort gehört zum selben Faden. Der Server behält die letzten 20 Nachrichten; ist das Original schon aus diesem Verlauf verschwunden, zeigt eine Antwort nur Name und Uhrzeit dessen, worauf sie antwortet.
 

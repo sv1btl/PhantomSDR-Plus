@@ -25,13 +25,18 @@ Obje usluge čitaju konfiguraciju iz `admin_config.json`, koju zapisuje `setup_a
 - **Oznake** — pregled i uređivanje frekvencijskih oznaka
 - **Povijest razgovora** — pregled zapisnika WebSDR razgovora, potpuno brisanje ili uklanjanje pojedinačnih poruka bez ponovnog pokretanja poslužitelja
 - **Poruka na slapu** — emitiranje trajne poruke svim spojenim korisnicima, vidljive u stvarnom vremenu na prikazu slapa
-- **Korisnici** — popis spojenih slušatelja uživo s njihovom frekvencijom, načinom rada, trajanjem veze i gumbom ⚡ Kick
+- **Korisnici** — živi popis spojenih slušatelja s imenom ili pozivnim znakom, lokacijom i IP adresom, frekvencijom, načinom i trajanjem, gumbima ⚡ Kick i ⛔ Ban 24h te kartom njihovih položaja
 - **Brisanje poruka razgovora** — gumb 🗑 Delete koji odmah uklanja tu jednu poruku iz zapisnika
 - **Emitirane poruke na slapu** — omogućuje slanje trajnog tekstualnog natpisa na slap svakog spojenog korisnika
 - **Spot Reporting** — pokretanje/zaustavljanje autorun dekodera FT8/FT4/JS8/WSPR, odabir pojaseva/načina rada i prijava spotova na PSK Reporter / wsprnet (prema zadanom isključeno), s dva brojača: pločice po dekoderu za tekući rad i ukupan zbroj od početka uz svaki potvrdni okvir pojasa/načina rada
 - **Grafikoni** — frekvencija procesora, opterećenje procesora, temperatura procesora i povezani korisnici, prikazani kroz zadnjih 15 minuta / 1 sat / 4 sata / 12 sati / 24 sata
 - **Toplinska zaštita (Thermal Guard)** — zaustavlja poslužitelj ako se procesor pregrije i ponovno ga pokreće kad se ohladi, s pragovima izvedenima iz vašeg vlastitog procesora; radi s bilo kojim načinom pokretanja/zaustavljanja i isporučuje se u načinu samo zapisivanja, pa ne čini ništa dok ga ne uključite
 - **Postavke** — promjena administratorske lozinke, osnovnog direktorija SDR-a, naziva procesa i javnog porta
+- **Stanje sustava** (Dashboard) — svaki prijamnik u eteru ili isključen, s vremenom rada, slobodan prostor na disku i veličina svake mape zapisa, posljednji unos u `crash.log` i nedavna upozorenja
+- **Posjetitelji** — privatna statistika posjetitelja za 1 do 31 dan: posjetitelji, sesije, sati slušanja, najviše istodobno, po danu, najprometniji sati, zemlje, i adrese s najviše istodobnih sesija, s ⛔ Ban 24h
+- **Upozorenja** — e-pošta i/ili Telegram poruka kada prijamnik ispadne iz etera, vrati se ili se ponovno pokrene, kada thermal guard promijeni stupanj, ili kada `crash.log` dobije novi unos
+- **Sigurnosna kopija i vraćanje** — jedan zip s vlastitim postavkama stanice, i vraćanje koje svaku datoteku koju zamjenjuje najprije kopira u `admin-backups/`
+- **Teme** — Phosphor green, Amber display, Metal panel, Modern dark, Light i Auto (svijetlo danju, tamno noću), birane s **THEME** u gornjoj traci svake stranice
 
 ---
 
@@ -207,9 +212,13 @@ sudo ufw allow <proxy_port>
 
 ## Korak 5 — Značajka Kick Users
 
-Stranica Users prikazuje svakog trenutačno spojenog slušatelja. Svaki redak prikazuje korisnikovu IP adresu, ugođenu frekvenciju, način rada i trajanje veze. Da biste odspojili jednog korisnika, kliknite gumb **⚡ Kick** u njegovu retku — prekida se samo ta TCP veza. Svi ostali slušatelji ostaju spojeni i ništa ne primjećuju.
+Stranica Users prikazuje svakog trenutačno spojenog slušatelja. Svaki redak prikazuje ime ili pozivni znak koji je slušatelj upisao (`--` ako ga nema), lokaciju s IP adresom ispod, ugođenu frekvenciju, način i koliko je dugo spojen. Da biste odspojili jednog korisnika, kliknite gumb **⚡ Kick** u njegovom retku — zatvaraju se samo veze tog slušatelja. Svi ostali slušatelji ostaju spojeni i ništa ne primjećuju.
 
-Prekid je trenutačan i precizan: poslužitelj se ne pokreće ponovno, nikome drugom se zvuk ne prekida, a odspojeni korisnik može se odmah ponovno spojiti (značajka služi uklanjanju problematičnih ili zaglavljenih veza, a ne zabrani pristupa).
+IP adrese nalaze se samo na ovoj stranici. Od 5.3.0 javni popis korisnika (`/users`) i Statistika korisnika ne sadrže nijednu, kao na WebSDR-u; ploča čita svoj popis s `/~~users`, na koji spectrumserver odgovara samo na vlastitom računalu i nikad kroz proxy.
+
+Izbacivanje je trenutačno i precizno: poslužitelj se ne pokreće ponovno, ničiji se zvuk ne prekida, a izbačeni korisnik može se odmah ponovno spojiti (funkcija služi za uklanjanje problematičnih ili zaglavljenih veza; da nekoga zadržite vani, koristite zabranu ispod).
+
+**⛔ Ban 24h** odspaja slušatelja sa svih prijemnika postaje i odbija tu adresu 24 sata (kod zatvaranja 4001, koji stranica ne pokušava ponovno). Zabrana se čuva u `admin_bans.json` pokraj ploče i jednom u minuti ponovno šalje svakom prijemniku, pa je ponovno pokretanje prijemnika ne ukida. Dok zabrane vrijede, popis **Banned for 24 h** ispod tablice prikazuje svaku s imenom, adresom i vremenom isteka, a gumb **Unban** odmah je ukida. Svi iza iste internetske veze dijele adresu i zabranjeni su s njom.
 
 U pozadini prekid koristi `ss -K dst <IP> dport <port>` za rušenje te konkretne TCP utičnice. To zahtijeva Linux mogućnost koju skripta za postavljanje dodjeljuje automatski. Ako ste preskočili postavljanje ili gumb javlja pogrešku, primijenite je ručno:
 
@@ -811,6 +820,104 @@ taskset -cp "$(pgrep -x spectrumserver)"       # spectrumserver
 
 ---
 
+## Stanje sustava (System Health)
+
+Kartica na **Dashboardu**, osvježava se svakih 30 sekundi (ili s **↻ refresh**):
+
+- **Prijamnici** — svaki prijamnik stanice (onaj na `public_port` i svaki iz `receivers.toml`): zelena točka i *on air, up 15h 5m* kad odgovara, crveni **OFF THE AIR** kad ne odgovara.
+- **Disk i mape zapisa** — slobodan prostor na disku instalacije (narančasto od 80 % zauzeća, crveno od 90 %), i veličina `logs/`, `logproxy/` i svake `instances/<id>/logs/`.
+- **Nedavna upozorenja** — ono što je nadzor upozorenja vidio od pokretanja ploče (vidi [Upozorenja](#upozorenja-e-pošta--telegram)), bez obzira je li poruka poslana.
+- **Posljednji unos u crash.log** — najnoviji neprazni `crash.log` svih prijamnika, s datumom i zadnjih 12 redaka.
+
+---
+
+## Statistika posjetitelja
+
+Stranica **Visitors** u bočnom izborniku (na telefonu: gumb **📈 VISITOR STATISTICS** na stranici Users) broji slušatelje stanice iz privatnih zapisa `logs/users_YYYY-MM-DD.jsonl` svakog prijamnika — kopija s IP adresama, koje javne stranice više ne prikazuju. Odaberite **Today**, **7**, **14** ili **31 days**.
+
+- **Posjetitelji** (različite adrese), **sesije**, **sati slušanja** i **najviše slušatelja istodobno**.
+- **Po danu** — iste četiri brojke za svaki dan.
+- **Najprometniji sati** — kada su sesije počele, po UTC satu.
+- **Zemlje** — posjetitelji po zemlji.
+- **Adrese** — 20 adresa s najviše *istodobnih* sesija prvo, zatim s najviše sesija; poplava veza poput one od 16. rujna 2026. odmah se vidi na vrhu (**AT ONCE** postaje crveno iznad 3). Svaki redak ima **BAN 24h**.
+
+Dani i sati su u UTC-u. Vlastiti dekoderi stanice (lokalne veze) se ne broje; sesija koja je još otvorena broji se najviše 12 sati. Imena nisu u tim zapisima, pa stranica prikazuje adrese, a ne imena. Brojke se ponovno izračunavaju najviše jednom u minuti.
+
+---
+
+## Upozorenja (e-pošta / Telegram)
+
+**Settings → Alerts — Email / Telegram.** Nadzor unutar administratorske ploče svakih 30 sekundi provjerava:
+
+| Događaj | Kada |
+|---|---|
+| **off the air** | prijamnik ne odgovara otprilike minutu (dvije provjere zaredom) |
+| **back on air** | ponovno odgovara |
+| **restarted** | odgovara kao novi proces — ponovno pokrenut od watchdoga, skripte za pokretanje ili thermal guarda |
+| **thermal guard** | guard mijenja stupanj (normal / warn / throttle / stopped) |
+| **crash.log** | `crash.log` bilo kojeg prijamnika dobije novi unos; poruka sadrži njegove zadnje retke |
+
+Svaki događaj ima svoj kvadratić. Isto upozorenje šalje se najviše jednom u 5 minuta. Prva provjera nakon pokretanja ploče samo upoznaje trenutno stanje, pa ponovno pokretanje ploče ne šalje ništa.
+
+**Telegram** (najjednostavnije):
+
+1. U Telegramu otvorite **@BotFather**, pošaljite `/newbot` i slijedite korake; dobit ćete **bot token** (`123456789:AA…`).
+2. Otvorite svog novog bota i pritisnite **Start** — bot vam prije toga ne može pisati.
+3. Otvorite **@userinfobot**; **Id** koji odgovori vaš je **chat ID**.
+4. Označite **TELEGRAM**, zalijepite oboje, pritisnite **✉ SEND TEST**.
+
+**E-pošta:** označite **EMAIL** i upišite SMTP poslužitelj svog pružatelja, port i zaštitu (SSL na 465, STARTTLS na 587), korisnika, lozinku i **TO**. **FROM** može biti puna adresa, `Ime <adresa>`, ili samo ime — samo ime prikazuje se kao ime pošiljatelja na adresi iz **USER**, pa tada korisnik mora biti puna adresa.
+
+**✉ SEND TEST** najprije spremi obrazac, zatim šalje; redak ispod gumba prikazuje odgovor svakog kanala, ili što još nedostaje. Postavke se čuvaju u `admin_config.json` pod `"alerts"` — privatnoj datoteci ploče, nikad dijelu sigurnosne kopije ili ažuriranja. Spremljena lozinka ili token prikazuju se kao `********` i ostaju kakvi jesu dok ne upišete nove.
+
+---
+
+## Sigurnosna kopija i vraćanje postavki stanice
+
+**Settings → Backup & restore of the station settings.**
+
+**⬇ DOWNLOAD BACKUP** daje jedan zip, `phantomsdr-settings-<pozivni>-<datum>.zip`, s vlastitim postavkama ove stanice:
+
+- svaki `*.toml` instalacije (konfiguracije prijamnika i `receivers.toml`) i `station.conf`
+- `frontend/site_information.json`, `frontend/src/bands-config.js`, `markers.json`
+- `autorun.json` (spot reporting), `websdr_relay.json`, `admin_bans.json`
+- za svaki dodatni prijamnik: `instances/<id>/config.toml`, `instance.env`, `markers.json`
+
+i `BACKUP-INFO.json` s datumom, računalom i popisom datoteka. **Nije** uključeno: `admin_config.json` (administratorska lozinka, tajne upozorenja), zapisi i sam program.
+
+**⬆ RESTORE** uzima zip sigurnosne kopije i vraća **samo** datoteke s tog istog popisa — sve ostalo u zipu se preskače i navodi. Prije nego što se datoteka zamijeni, trenutna se kopira u `admin-backups/restore-<datum-vrijeme>/` (git je zanemaruje, nikad u ažuriranju), pa se pogrešno vraćanje može poništiti ručno. Odgovor kaže što dalje: ponovno pokrenuti prijamnike nakon `.toml`, `instance.env` ili `station.conf`; ponovno izgraditi stranicu (`./recompile.sh --frontend`) nakon site information ili postavki opsega; ponovno pokrenuti `phantomsdr-websdr-relay` nakon postavki releja.
+
+---
+
+## Teme
+
+Izbornik **THEME** nalazi se u gornjoj traci svake stranice, između **ONLINE** i sata, i ponovno u **Settings → Appearance**; oba uvijek pokazuju isti izbor. Tema se primjenjuje odmah, bez ponovnog učitavanja.
+
+| Tema | Izgled |
+|---|---|
+| **Phosphor green** | klasični zeleni terminal (zadano) |
+| **Amber display** | isto u toplom jantaru, poput zaslona starog uređaja |
+| **Metal panel** | sivi eloksirani izgled stranice prijamnika, osvijetljen odozgo desno |
+| **Modern dark** | antracit s plavim naglaskom, bez sjaja |
+| **Light** | bijelo i sivo, crni tekst — za dnevno svjetlo |
+| **Auto (day/night)** | **Light** od izlaska do zalaska sunca, **Modern dark** noću |
+
+Sve teme koriste iste fontove i iste veličine; mijenjaju se samo boje i završna obrada. *On air* ostaje zeleno, a upozorenja narančasta i crvena u svakoj temi, i **Graphs** također prate temu. **Auto** izračunava izlazak i zalazak sunca na lokatoru stanice (`siteGridSquare` u Site Info) i sam se prebacuje dok je stranica otvorena; bez lokatora danom smatra 07:00–19:00 po lokalnom vremenu. Izbor se čuva po pregledniku, pa računalo i telefon mogu imati različite teme. Stranica za prijavu zadržava zeleni izgled.
+
+### Krajnje točke (nove stranice)
+
+| Endpoint | Namjena |
+|---|---|
+| `GET /admin/api/health` | Kartica System Health: prijamnici, disk, mape zapisa, posljednji unos u crash.log, nedavna upozorenja |
+| `GET /admin/api/visitor-stats?days=N` | Statistika posjetitelja za 1–31 dan (u predmemoriji jednu minutu) |
+| `GET` / `POST /admin/api/alerts` | Čitanje / spremanje postavki upozorenja (tajne se vraćaju kao `********`) |
+| `POST /admin/api/alerts/test` | Spremi pa pošalji probu; odgovor po kanalu |
+| `GET /admin/api/backup` | Preuzimanje zipa postavki |
+| `POST /admin/api/restore` | Vraćanje zipa postavki (multipart, polje `file`) |
+| `GET /admin/api/station-grid` | Lokator iz Site Info, za temu Auto |
+
+---
+
 ## Rješavanje problema
 
 | Problem | Rješenje |
@@ -821,7 +928,7 @@ taskset -cp "$(pgrep -x spectrumserver)"       # spectrumserver
 | Proxy se pokreće, ali je slap prazan | Provjerite `sdr_host` u `admin_config.json` — uobičajeno `127.0.0.1`. Ako još sadrži stari LAN IP iz prethodne verzije, promijenite ga i [Ponovno pokretanje ploče](#ponovno-pokretanje-ploče) |
 | Gumb Kick javlja „no connections" | Izvršite `getcap $(which ss)` — ako nema `cap_net_admin`, izvršite `sudo setcap cap_net_admin+ep $(which ss)` |
 | Stanje uvijek prikazuje OFFLINE | Idite na Settings → SDR Process Name i unesite točan naziv koji prikazuje `ps -eo comm,args \| grep -v grep` |
-| Stranica Users ne prikazuje podatke | Provjerite radi li krajnja točka: `curl http://127.0.0.1:<public_port>/users` |
+| Stranica Users ne prikazuje podatke | Provjerite radi li krajnja točka: `curl http://127.0.0.1:<public_port>/~~users` |
 | Vanjski preglednik javlja NetworkError | Provjerite radi li proxy: `./manage_admin.sh status` |
 | Proxy se pokvario nakon promjene mreže | Odnosi se samo na slučaj kad `sdr_host` još sadrži LAN IP — postavite ga na `127.0.0.1` i [Ponovno pokretanje ploče](#ponovno-pokretanje-ploče) |
 | Gumb za brisanje razgovora nema učinka | Provjerite pravo pisanja u datoteku zapisnika razgovora: `ls -l ~/PhantomSDR-Plus/chat.jsonl` |
@@ -834,3 +941,9 @@ taskset -cp "$(pgrep -x spectrumserver)"       # spectrumserver
 | `autorun.log` prikazuje `MODULE_TYPELESS_PACKAGE_JSON` / „Reparsing as ES module … performance overhead" | Kozmetičko upozorenje (dekodiranje i dalje radi). U `frontend/src/modules/package.json` nedostaje `"type": "module"`; dodajte taj redak pri vrhu, zatim Stop→Start. Ponovna izgradnja sučelja nije potrebna — daemon izravno uvozi izvornu datoteku. |
 | „Start" u Spot Reportingu ne uspijeva uz `taskset: … Invalid argument` na starom/malom računalu | Ne bi se trebalo događati s pokretačem svjesnim konfiguracije — raspon jezgri izvodi se iz broja procesora i na ≤ 4 jezgre radi bez vezanja. Ako se dogodi, vaš `admin_server.py` stariji je od te promjene; ažurirajte ga (`_autorun_taskset_prefix`) i [Ponovno pokretanje ploče](#ponovno-pokretanje-ploče). |
 | Oznaka REPORTING ne pojavljuje se na slapu | Prijavljivanje mora biti uključeno s barem jednim mjestom; oznaka čita `/autorun-active.json`. Ponovno izgradite sučelje ako je `dist/index.html` stariji od oznake. |
+| **✉ SEND TEST** kaže "Nothing to send to: …" | Poruka kaže što nedostaje: označite **TELEGRAM** ili **EMAIL**; Telegram treba i bot token i chat ID; e-pošta treba SMTP poslužitelj i **TO**. |
+| Proba e-pošte: `5.5.2 … Sender address rejected: need fully-qualified address` | Pošiljatelj nije puna adresa. Upišite svoju adresu u **FROM**, ili tamo ostavite samo ime i neka **USER** bude vaša puna adresa; [ponovno pokrenite ploču](#ponovno-pokretanje-ploče) ako je stariji od tog pravila. |
+| Proba Telegrama ne uspije s `Forbidden` / ne stiže poruka | Najprije otvorite svog bota u Telegramu i pritisnite **Start**; provjerite chat ID s @userinfobot (vaš vlastiti Id, ne botov). |
+| Nema upozorenja kad je prijamnik stao | Treba otprilike minuta (dvije provjere); isto upozorenje stiže najviše jednom u 5 minuta; ponovno pokretanje ploče ne šalje ništa; provjerite kvadratić događaja. |
+| Stranica Visitors prikazuje "no visitors" | Stranica čita `logs/users_*.jsonl` (i `instances/<id>/logs/`); njih piše bilježenje statistike prijamnika — provjerite postoje li za odabrane dane. |
+| Nedostaje izbornik THEME, ili nova tema ne djeluje | [Ponovno pokrenite ploču](#ponovno-pokretanje-ploče), zatim ponovno učitajte stranicu s **Ctrl+F5** da preglednik odbaci staru kopiju. |

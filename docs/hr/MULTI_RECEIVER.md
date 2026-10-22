@@ -231,7 +231,7 @@ Za RTL-SDR, `add-receiver.sh` zapisuje početnu kalibraciju: fiksno pojačanje `
 
 Postavljanje proxyja ispred slušatelja zatvorilo je dvije rupe, obje ispravljene u v5.0.0:
 
-- **Izbacivanje od strane sysopa preko proxyja.** spectrumserver dopušta `/~~kick` samo s vlastitog računala, a za njega svaki zahtjev koji proxy prosljeđuje dolazi s vlastitog računala. Tko god je mogao doći do porta proxyja, mogao je zato odspojiti i blokirati bilo kojeg slušatelja. Proxy sada na `/~~kick` odgovara samo klijentima na istom računalu.
+- **Izbacivanje od strane sysopa preko proxyja.** spectrumserver dopušta `/~~kick` samo s vlastitog računala, a za njega svaki zahtjev koji proxy prosljeđuje dolazi s vlastitog računala. Tko god je mogao doći do porta proxyja, mogao je zato odspojiti i blokirati bilo kojeg slušatelja. Proxy sada na `/~~kick` odgovara samo klijentima na istom računalu. Isto vrijedi za `/~~users` (popis korisnika s IP adresama) i `/~~unban`, dodane u 5.3.0; spectrumserver ih uz to odbija kad zahtjev nosi `X-Forwarded-For`, kao sve što proxy prosljeđuje.
 - **Lažne adrese klijenata.** spectrumserver je vjerovao zaglavlju `X-Forwarded-For` od bilo koga, pa se posjetitelj mogao predstaviti kao `127.0.0.1` i zaobići ograničenja po adresi. Zaglavlju se sada vjeruje samo ako dolazi od lokalnog proxyja, a proxy odbacuje svaku kopiju koju klijent pošalje prije nego doda svoju.
 
 Vežite svaki prijemnik do kojeg se dolazi preko proxyja na `127.0.0.1` (`[server] host`), kako se njegov port ne bi mogao koristiti zaobilazeći proxy. Ograničenja po adresi iz [Ograničenja veza](CONNECTION_LIMITS.md) vrijede po prijemniku.

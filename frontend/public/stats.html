@@ -723,6 +723,10 @@ function analyze(events) {
   // This is the single source of truth: if the IP is private/loopback,
   // geo becomes 'Local' immediately and nothing else can leak the raw address.
   for (const ev of events) {
+    // Since 5.3.0 the server serves an opaque visitor code in place of the
+    // IP (http.cpp public_user_log); it stands in for the IP as the
+    // per-visitor key below. Older logs from an older server still have "ip".
+    if (!ev.ip && ev.visitor) ev.ip = ev.visitor;
     if (isLocalIp(ev.ip)) ev.geo = 'Local';
   }
 
@@ -982,7 +986,7 @@ function render(stats, from, to) {
       <div class="kpi-value">${stats.totalSessions.toLocaleString()}</div>
     </div>
     <div class="kpi">
-      <div class="kpi-label">Unique IPs</div>
+      <div class="kpi-label">Unique visitors</div>
       <div class="kpi-value blue">${stats.uniqueIPs}</div>
     </div>
     <div class="kpi">
@@ -1101,7 +1105,7 @@ async function loadStats() {
   renderStatsMap(stats.geoCount);
 
   document.getElementById('dashboard').style.display = 'block';
-  setStatus(`Loaded <span>${events.length.toLocaleString()}</span> events · <span>${stats.totalSessions}</span> sessions · <span>${stats.uniqueIPs}</span> unique IPs · logs: <span>${LOGS_BASE}</span>`);
+  setStatus(`Loaded <span>${events.length.toLocaleString()}</span> events · <span>${stats.totalSessions}</span> sessions · <span>${stats.uniqueIPs}</span> unique visitors · logs: <span>${LOGS_BASE}</span>`);
 }
 
 // ── Quick-range buttons ──

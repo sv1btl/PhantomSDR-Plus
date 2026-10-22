@@ -37,6 +37,12 @@ export function sendUserID (id) {
   })
 }
 
+// Name/callsign for /users. Stored by audio.js, which also sends it when its
+// socket opens, so calling this before init() is fine.
+export function sendIdentity (name) {
+  try { audio.setIdentity(name) } catch (e) {}
+}
+
 // The WASM side (zstd, codecs) may be started only once. The receiver strips
 // (lib/RxStrip.svelte) need it too and can mount before init() has run.
 let _wrappersReady = null

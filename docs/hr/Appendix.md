@@ -71,7 +71,7 @@ Sve naredbe koje sysop koristi za rad PhantomSDR-Plus stanice, grupirane po zada
 |---|---|---|
 | `./recompile.sh` | Ponovno prevodi poslužitelj i/ili web stranicu; pita što prevesti. | [Vodič za instalaciju](INSTALLATION.md#ručno-ažuriranje) |
 | `./recompile.sh --backend` | Prevodi samo poslužitelj. | [Vodič za instalaciju](INSTALLATION.md#ručno-ažuriranje) |
-| `./recompile.sh --frontend` | Prevodi samo web stranicu (desktop i /mobile). | [Vodič za instalaciju](INSTALLATION.md#ručno-ažuriranje) |
+| `./recompile.sh --frontend` | Prevodi samo web stranicu (desktop i /mobile). | [Postavljanje administratorske ploče](ADMIN_PANEL_SETUP.md#sigurnosna-kopija-i-vraćanje-postavki-stanice) |
 | `./recompile.sh --both` | Prevodi oboje. | [Vodič za instalaciju](INSTALLATION.md#ručno-ažuriranje) |
 | `cd frontend && ./build-all.sh` | Gradi desktop stranicu i /mobile. | [Uređivanje varijanti](EDITING_VARIANTS.md#6-nakon-uređivanja--ponovna-izgradnja) |
 | `cd frontend && ./build-default.sh` | Gradi samo desktop stranicu. | [Uređivanje varijanti](EDITING_VARIANTS.md#6-nakon-uređivanja--ponovna-izgradnja) |
@@ -82,7 +82,7 @@ Sve naredbe koje sysop koristi za rad PhantomSDR-Plus stanice, grupirane po zada
 | `./update.sh --apply --yes` | Ažurira bez pitanja; svaka datoteka koju ste uredili ostaje sačuvana. | [Vodič za instalaciju](INSTALLATION.md#ostale-mogućnosti) |
 | `./update.sh --apply --prune` | Nudi i brisanje datoteka uklonjenih u izvornom repozitoriju. | [Vodič za instalaciju](INSTALLATION.md#pokretanje) |
 | `./update.sh --from FILE` | Uzima novu verziju iz `.zip`/`.tar.gz` ili mape — bez mreže. | [Vodič za instalaciju](INSTALLATION.md#ostale-mogućnosti) |
-| `./update.sh --ref v5.2.1` | Ažurira na oznaku, granu ili commit umjesto trenutnog stabla. | [Vodič za instalaciju](INSTALLATION.md#ostale-mogućnosti) |
+| `./update.sh --ref v5.3.0` | Ažurira na oznaku, granu ili commit umjesto trenutnog stabla. | [Vodič za instalaciju](INSTALLATION.md#ostale-mogućnosti) |
 | `./update.sh --list-excludes` | Prikazuje datoteke koje alat za ažuriranje nikad ne dira. | [Vodič za instalaciju](INSTALLATION.md#ostale-mogućnosti) |
 | `./update.sh --verbose` | Prikazuje sve datoteke, ne samo prvih 40. | [Vodič za instalaciju](INSTALLATION.md#ostale-mogućnosti) |
 | `./update.sh --restore LAST` | Vraća datoteke koje je zadnje ažuriranje prepisalo. | [Vodič za instalaciju](INSTALLATION.md#poništavanje-ažuriranja) |

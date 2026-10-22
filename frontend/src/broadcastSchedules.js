@@ -22,6 +22,12 @@
  * slot listed matched (RBW41 appears there as "RBW 41"; XSG matches the current
  * weatherfax.com page). Added then: VMC's four 11030 kHz-only repeats and the
  * CBM Punta Arenas station, both in the NOAA edition but missing here.
+ * Re-checked 22 October 2026: NOAA still on the 7 March 2025 edition (every
+ * station here matches it; Pevek 148 kHz "dated 11/97", HSW64 Bangkok "dated
+ * Jan 2009" and the Kyodo press fax JJC stay out; the Canadian Arctic pages are
+ * gone, only their contents entries remain). DWD RTTY unchanged. NAVTEX: every
+ * active station of the Wikipedia list is here and nothing extra; it now marks
+ * Charleston (E) inactive, but USCG NAVCEN still lists it, so it stays.
  *
  * FAX entries are 'HHMM label' strings; a chart occupies the slot until the next
  * one starts, which is what lets the UI show a station as ON AIR instead of

@@ -510,7 +510,7 @@ Both signals are recognised by their rhythm across the whole width of a line, wh
 1. Enable the decoder and select **NAVTEX** from the dropdown. Or simply press the **NAVTEX** button. The receiver switches to **USB** automatically.
 2. The **NAVTEX Receiver** panel appears.
 3. Select the desired channel from the **Station** dropdown (e.g. `International — 518 kHz`).
-4. Click **⇒ Tune & Set IF** to automatically tune the waterfall and narrow the passband to the correct audio window. Mode is set to **USB** automatically. The dial is placed 500 Hz below the channel centre, so the NAVTEX signal appears at 500 Hz audio.
+4. Click **⇒ Tune & Set IF** to automatically tune the waterfall and narrow the passband to the correct audio window. Mode is set to **USB** automatically. The dial is placed 500 Hz below the channel centre, so the NAVTEX signal appears at 500 Hz audio. The frequency display still reads **518.000**: while HF FAX, NAVTEX or the FLDIGI window is on, it shows the signal's own frequency (the dial plus the decoder's audio centre — 1900 Hz for FAX, 500 Hz for NAVTEX, the panel's centre for FLDIGI), and a frequency typed then is taken as the signal's.
 
 ### Broadcast schedule
 

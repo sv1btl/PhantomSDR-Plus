@@ -231,7 +231,7 @@ Pour un RTL-SDR, `add-receiver.sh` écrit un étalonnage de départ : un gain fi
 
 Placer le proxy devant les auditeurs a fermé deux failles, toutes deux corrigées dans la v5.0.0 :
 
-- **L'expulsion du sysop à travers le proxy.** spectrumserver n'accepte `/~~kick` que depuis son propre ordinateur, et pour lui chaque requête relayée par le proxy vient de son propre ordinateur. Quiconque atteignait le port du proxy pouvait donc déconnecter et bannir n'importe quel auditeur. Le proxy ne répond désormais à `/~~kick` que pour les clients du même ordinateur.
+- **L'expulsion du sysop à travers le proxy.** spectrumserver n'accepte `/~~kick` que depuis son propre ordinateur, et pour lui chaque requête relayée par le proxy vient de son propre ordinateur. Quiconque atteignait le port du proxy pouvait donc déconnecter et bannir n'importe quel auditeur. Le proxy ne répond désormais à `/~~kick` que pour les clients du même ordinateur. Il en va de même pour `/~~users` (la liste des utilisateurs avec les adresses IP) et `/~~unban`, ajoutés en 5.3.0 ; spectrumserver refuse en outre ces deux-là quand la requête porte `X-Forwarded-For`, comme tout ce que relaie le proxy.
 - **Adresses de client falsifiées.** spectrumserver croyait l'en-tête `X-Forwarded-For` de n'importe qui ; un visiteur pouvait donc se dire `127.0.0.1` et passer outre les limites par adresse. L'en-tête n'est désormais cru que s'il vient d'un proxy local, et le proxy supprime toute copie envoyée par un client avant d'ajouter la sienne.
 
 Liez chaque récepteur joint par le proxy à `127.0.0.1` (`[server] host`), afin que son port ne puisse pas servir à contourner le proxy. Les limites par adresse de [Limites de connexion](CONNECTION_LIMITS.md) s'appliquent par récepteur.

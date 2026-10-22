@@ -1,6 +1,7 @@
 // chat.cpp
 #include "spectrumserver.h"
 #include "chat.h"
+#include "utils.h"
 #include <chrono>
 #include <iomanip>
 #include <random>
@@ -25,65 +26,6 @@ std::atomic<bool> ChatClient::admin_listener_running_{false};
 int               ChatClient::admin_listener_fd_{-1};
 std::thread       ChatClient::admin_listener_thread_;
 
-// Chat text goes out as WebSocket TEXT frames, which must be valid UTF-8 —
-// browsers fail the whole /chat socket on a bad byte, so one broken line in
-// the history blanks the chat window for every listener. A plain byte
-// substr() at the length limit used to cut an emoji in half and do exactly
-// that. These helpers keep every string we store or send well-formed.
-namespace {
-
-// Drop any byte that is not part of a well-formed UTF-8 sequence
-// (stray continuation bytes, truncated sequences, overlongs, surrogates).
-std::string utf8_sanitize(const std::string& in) {
-    std::string out;
-    out.reserve(in.size());
-    const auto* p = reinterpret_cast<const unsigned char*>(in.data());
-    const size_t n = in.size();
-    size_t i = 0;
-    while (i < n) {
-        unsigned char c = p[i];
-        size_t len = 0;
-        unsigned char lo = 0x80, hi = 0xBF;   // allowed range of the 2nd byte
-        if (c < 0x80)                 len = 1;
-        else if (c >= 0xC2 && c <= 0xDF) len = 2;
-        else if (c == 0xE0)           { len = 3; lo = 0xA0; }
-        else if (c == 0xED)           { len = 3; hi = 0x9F; }
-        else if (c >= 0xE1 && c <= 0xEF) len = 3;
-        else if (c == 0xF0)           { len = 4; lo = 0x90; }
-        else if (c == 0xF4)           { len = 4; hi = 0x8F; }
-        else if (c >= 0xF1 && c <= 0xF3) len = 4;
-        bool ok = len > 0 && i + len <= n;
-        for (size_t k = 1; ok && k < len; ++k) {
-            unsigned char b = p[i + k];
-            ok = (k == 1) ? (b >= lo && b <= hi) : (b >= 0x80 && b <= 0xBF);
-        }
-        if (ok) {
-            out.append(in, i, len);
-            i += len;
-        } else {
-            ++i;   // skip the bad lead byte and resync on the next one
-        }
-    }
-    return out;
-}
-
-// Cut a well-formed UTF-8 string to at most max_chars characters (code
-// points, not bytes), so a Greek message gets the same length as an English
-// one and a character is never split.
-std::string utf8_truncate(const std::string& s, size_t max_chars) {
-    size_t chars = 0;
-    for (size_t i = 0; i < s.size(); ++i) {
-        if ((static_cast<unsigned char>(s[i]) & 0xC0) == 0x80) continue;
-        if (chars++ == max_chars) return s.substr(0, i);
-    }
-    return s;
-}
-
-} // namespace
-
-const std::set<std::string> ChatClient::blocked_usernames = {
-    "admin", "operator", "host", "root", "system", "moderator"
-};
 
 const std::set<std::string> ChatClient::blocked_words = {
     "fuck", "fucking", "bitch", "shit", "ass", "cunt", "bastard", "idiot",
@@ -140,7 +82,7 @@ std::string ChatClient::get_or_generate_username(const std::string& user_id) {
         std::hash<std::string> hasher;
         auto hashed = hasher(candidate);
         std::string numeric_part = std::to_string(hashed).substr(0, 6);
-        username = "user" + numeric_part;
+        username = "anonymous" + numeric_part;
         candidate += "1";   // perturb and retry if the generated name is blocked
     } while (!is_valid_username(username));
 
@@ -149,7 +91,8 @@ std::string ChatClient::get_or_generate_username(const std::string& user_id) {
 }
 
 bool ChatClient::is_valid_username(const std::string& username) {
-    return blocked_usernames.find(username) == blocked_usernames.end();
+    // Same list as /users (utils.cpp), and like there not case-sensitive.
+    return !is_reserved_name(username);
 }
 
 std::string ChatClient::filter_message(const std::string& message) {
@@ -215,7 +158,7 @@ void ChatClient::on_chat_message(connection_hdl sender_hdl, std::string& usernam
         // Use a properly seeded PRNG — rand() always produces the same sequence
         static std::mt19937 rng{std::random_device{}()};
         static std::uniform_int_distribution<int> dist(0, 999999);
-        std::string random_username = "user" + std::to_string(dist(rng));
+        std::string random_username = "anonymous" + std::to_string(dist(rng));
         printf("Blocked username '%s' detected. Assigned random username: %s\n", username.c_str(), random_username.c_str());
         username = random_username;
     }

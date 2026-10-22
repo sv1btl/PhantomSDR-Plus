@@ -66,7 +66,6 @@ private:
     static std::mutex chat_connections_mtx;
     static std::unordered_map<std::string, std::string> user_id_to_name;
     static std::deque<std::string> chat_messages_history;
-    static const std::set<std::string> blocked_usernames;
     static const std::set<std::string> blocked_words;
     static bool is_history_loaded;
 

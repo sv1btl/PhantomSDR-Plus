@@ -71,7 +71,7 @@ Every command a sysop uses to run a PhantomSDR-Plus station, grouped by task, ea
 |---|---|---|
 | `./recompile.sh` | Rebuilds the server and/or the web page; asks what to build. | [Installation Guide](INSTALLATION.md#updating-by-hand) |
 | `./recompile.sh --backend` | Rebuilds the server only. | [Installation Guide](INSTALLATION.md#updating-by-hand) |
-| `./recompile.sh --frontend` | Rebuilds the web page only (desktop and /mobile). | [Installation Guide](INSTALLATION.md#updating-by-hand) |
+| `./recompile.sh --frontend` | Rebuilds the web page only (desktop and /mobile). | [Admin Panel Setup](ADMIN_PANEL_SETUP.md#backup--restore-of-the-station-settings) |
 | `./recompile.sh --both` | Rebuilds both. | [Installation Guide](INSTALLATION.md#updating-by-hand) |
 | `cd frontend && ./build-all.sh` | Builds the desktop page and /mobile. | [Editing Variants](EDITING_VARIANTS.md#6-after-you-edit--rebuilding) |
 | `cd frontend && ./build-default.sh` | Builds just the desktop page. | [Editing Variants](EDITING_VARIANTS.md#6-after-you-edit--rebuilding) |
@@ -82,7 +82,7 @@ Every command a sysop uses to run a PhantomSDR-Plus station, grouped by task, ea
 | `./update.sh --apply --yes` | Updates unattended; every file you edited is kept. | [Installation Guide](INSTALLATION.md#other-options) |
 | `./update.sh --apply --prune` | Also offers to delete files that were removed upstream. | [Installation Guide](INSTALLATION.md#running-it) |
 | `./update.sh --from FILE` | Takes the new version from a `.zip`/`.tar.gz` or a folder — no network. | [Installation Guide](INSTALLATION.md#other-options) |
-| `./update.sh --ref v5.2.1` | Updates to a tag, branch or commit instead of the current tree. | [Installation Guide](INSTALLATION.md#other-options) |
+| `./update.sh --ref v5.3.0` | Updates to a tag, branch or commit instead of the current tree. | [Installation Guide](INSTALLATION.md#other-options) |
 | `./update.sh --list-excludes` | Prints the files the updater never touches. | [Installation Guide](INSTALLATION.md#other-options) |
 | `./update.sh --verbose` | Lists every file, not only the first 40. | [Installation Guide](INSTALLATION.md#other-options) |
 | `./update.sh --restore LAST` | Puts back the files the last update overwrote. | [Installation Guide](INSTALLATION.md#undoing-an-update) |

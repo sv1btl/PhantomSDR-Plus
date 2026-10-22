@@ -25,7 +25,7 @@
 // JSONL statistics log — the autorun PCM tap above all, which would otherwise
 // be able to spend a real listener's slot.
 
-std::string broadcast_server::get_users_json() {
+std::string broadcast_server::get_users_json(bool with_ip) {
     const auto now_steady = std::chrono::steady_clock::now();
     const auto now_sys    = std::chrono::system_clock::now();
     const auto now_t      = std::chrono::system_clock::to_time_t(now_sys);
@@ -111,8 +111,10 @@ std::string broadcast_server::get_users_json() {
                 std::lock_guard<std::mutex> glk(*client->geo_mutex_ptr);
                 geo = *client->geo_location_ptr;
             }
-            // If still pending show the raw IP so the field is never blank
-            if (geo.empty()) geo = client->ip_address;
+            // While the lookup is pending the sysop's copy shows the raw IP so
+            // the field is never blank; the public one stays empty ("resolving").
+            if (geo.empty() && with_ip) geo = client->ip_address;
+            const std::string name = client->get_listener_name();
 
             // Escape geo for safe embedding in a JSON string literal.
             // (append_user_log already does this for JSONL — mirror it here.)
@@ -124,8 +126,12 @@ std::string broadcast_server::get_users_json() {
             }
 
             o << "    {\n"
-              << "      \"id\": \""           << client->get_unique_id() << "\",\n"
-              << "      \"ip\": \""           << client->ip_address      << "\",\n"
+              << "      \"id\": \""           << client->get_unique_id() << "\",\n";
+            if (with_ip)
+                o << "      \"ip\": \""       << client->ip_address      << "\",\n";
+            // name is plain text by construction (clean_listener_name drops
+            // quotes and backslashes), so no escaping needed.
+            o << "      \"name\": \""         << name                    << "\",\n"
               << "      \"geo\": \""          << geo_esc                 << "\",\n"
               << "      \"freq_hz\": "        << freq_hz                 << ",\n"
               << "      \"freq_khz\": "

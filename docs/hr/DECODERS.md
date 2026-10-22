@@ -510,7 +510,7 @@ Oba signala prepoznaju se po ritmu preko cijele širine retka, koju pravi signal
 1. Uključite dekoder i iz padajućeg izbornika odaberite **NAVTEX**. Ili jednostavno pritisnite gumb **NAVTEX**. Prijamnik automatski prelazi na **USB**.
 2. Pojavljuje se ploča **NAVTEX Receiver**.
 3. Odaberite željeni kanal iz izbornika **Station** (npr. `International — 518 kHz`).
-4. Kliknite **⇒ Tune & Set IF** da automatski ugodite slap i suzite propusni pojas na ispravan audioprozor. Način rada automatski se postavlja na **USB**. Prikazana frekvencija postavlja se 500 Hz ispod središta kanala, pa se NAVTEX signal pojavljuje na 500 Hz u zvuku.
+4. Kliknite **⇒ Tune & Set IF** da automatski ugodite slap i suzite propusni pojas na ispravan audioprozor. Način rada automatski se postavlja na **USB**. Prikazana frekvencija postavlja se 500 Hz ispod središta kanala, pa se NAVTEX signal pojavljuje na 500 Hz u zvuku. Prikaz frekvencije ipak pokazuje **518.000**: dok je uključen HF FAX, NAVTEX ili prozor FLDIGI, prikazuje frekvenciju samog signala (frekvenciju ugađanja plus audio središte dekodera — 1900 Hz za FAX, 500 Hz za NAVTEX, središte ploče za FLDIGI), a frekvencija tada upisana uzima se kao frekvencija signala.
 
 ### Raspored emitiranja
 

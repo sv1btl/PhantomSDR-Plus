@@ -80,7 +80,9 @@ class broadcast_server : public PacketSender {
     // Events socket
     std::string get_event_info();
     std::string get_initial_state_info();
-    std::string get_users_json();   // real-time user list as JSON
+    // Real-time user list as JSON. The public /users has no IP addresses, as
+    // on a WebSDR; with_ip = true is the sysop's copy (/~~users, loopback).
+    std::string get_users_json(bool with_ip = false);
     // Listener count: one per /audio connection, loopback and closing clients
     // excluded.  This is the count that includes /mobile clients, which open
     // /audio but no /waterfall and no /events socket.
@@ -394,6 +396,8 @@ class broadcast_server : public PacketSender {
     // many sockets were closed. Loopback is never kicked. Safe from any
     // thread; called from the /~~kick handler in http.cpp.
     size_t          kick_ip(const std::string &ip, int ban_s);
+    // Lift a sysop ban on `ip` (a rate-limit ban stays). True if one was lifted.
+    bool            unban_ip(const std::string &ip);
 };
 
 // One per-IP listener slot, released exactly once.

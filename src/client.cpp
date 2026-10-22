@@ -60,6 +60,25 @@ struct glz::meta<userid_cmd>
     );
 };
 
+// The listener's name/callsign, for /users and the waterfall labels. Sent on
+// /audio, the socket a /users row is made from. "locator" is still read (and
+// ignored): pages from the 5.3.0 development builds send it, and glaze refuses
+// a message with an unknown key.
+struct identity_cmd {
+    std::string name;
+    std::string locator;
+};
+
+template <>
+struct glz::meta<identity_cmd>
+{
+    using T = identity_cmd;
+    static constexpr auto value = object(
+        "name", &T::name,
+        "locator", &T::locator
+    );
+};
+
 struct mute_cmd {
     bool mute;
 };
@@ -179,7 +198,7 @@ struct glz::meta<set_codec_cmd>
 
 using msg_variant = std::variant<window_cmd, demodulation_cmd, userid_cmd, mute_cmd, chat_cmd,
                                   noise_gate_enable_cmd, noise_gate_preset_cmd, agc_enable_cmd,
-                                  codec_caps_cmd, set_codec_cmd, agc_speed_cmd>;
+                                  codec_caps_cmd, set_codec_cmd, agc_speed_cmd, identity_cmd>;
 
 template <>
 struct glz::meta<msg_variant>
@@ -196,7 +215,8 @@ struct glz::meta<msg_variant>
         "agc_enable",
         "codec_caps",
         "set_codec",
-        "agc_speed"
+        "agc_speed",
+        "identity"
     };
 };
 
@@ -245,6 +265,9 @@ void Client::on_message(std::string &msg) {
             },
             [&](agc_speed_cmd &cmd) {
                 on_agc_speed_message(cmd.speed);
+            },
+            [&](identity_cmd &cmd) {
+                on_identity_message(cmd.name);
             }
         },
         msg_parsed);
@@ -260,6 +283,7 @@ void Client::on_userid_message(std::string &userid) {
     // Used for correlating between signal and waterfall sockets
     user_id = userid.substr(0, 32);
 }
+void Client::on_identity_message(std::string &) {}
 void Client::on_mute(bool mute) { this->mute = mute; }
 
 // Default empty implementations for noise gate and AGC (AudioClient will override)

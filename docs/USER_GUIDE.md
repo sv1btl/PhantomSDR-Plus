@@ -196,6 +196,7 @@ Examples:
 1. Hover over a digit of the frequency display — it lights up
 2. Scroll up or **left-click** to raise that digit by one; scroll down or **right-click** to lower it
 3. The step is the digit's own place value — 1 kHz on the kHz digit, 100 Hz on the first decimal — and a digit that passes 9 carries into the one to its left
+4. Anywhere else in the black frequency box — the band name, the mode line, the clock — the wheel tunes by the tuning step (**Shift** 1 kHz, **Alt** 10 kHz); only the analog S-meter is left out, so the wheel over it scrolls the page
 
 #### Method 4: Step Buttons
 
@@ -326,7 +327,7 @@ Spectral noise reduction. It estimates the noise level in each part of the audio
 
 **Use when**: You hear steady hiss or white noise behind the signal.
 
-Steady tones — a CW note, a carrier — are recognised as signal and protected, so NR does not eat a CW signal the way a naive filter would. Typical effect is a 10 dB drop in the noise between speech, for a few tenths of a dB off the speech itself.
+Steady tones — a CW note, a carrier — are recognised as signal and protected, so NR does not eat a CW signal the way a naive filter would. Typical effect is a 10–12 dB drop in the noise between speech. The speech itself loses well under 1 dB on strong signals and a few dB on very weak ones, which still come through more clearly than without NR.
 
 ### Noise Blanker (NB)
 
@@ -394,9 +395,17 @@ The buffer adjusts itself. The page measures how irregularly your connection del
 
 If the audio breaks up, move the buffer one step higher. On a phone over home Wi-Fi the delay from the receiver to the loudspeaker is typically about 100–150 ms; the network between you and the receiver adds to it.
 
+### Your name or callsign
+
+Next to **Open Additional Info** there is a box for your name or callsign: up to 10 characters and no spaces, as on a WebSDR. Type it and press **Save** (or Enter); **Edit** changes it later. Your browser remembers it, also when you switch to the station's other receivers. Leave it blank and you stay anonymous: *anonymous* plus a number in the chat, and only your location everywhere else. On a phone the same box sits above the frequency display.
+
+Your name appears in the **Users** window, on your chat lines and on the label the other listeners see under their waterfall — your name followed by your location, for example `SV1BTL-Athens`. Your own position is the yellow ★ with your name beside it. Hover over another listener's label to see the frequency and mode they are tuned to; click it to tune there.
+
+As on a WebSDR, no listener's IP address is shown to the others — neither in the Users window nor in the User Statistics, which count visitors by an anonymous code.
+
 ### Chat
 
-When the operator has enabled the chat, it has its own panel on the desktop page and a **Chat** tab on /mobile. Enter your name or callsign, type your message and send it.
+When the operator has enabled the chat, it has its own panel on the desktop page and a **Chat** tab on /mobile. Type your message and send it: it goes out under the name in your name box (see above), or as *anonymous* plus a number.
 
 To answer a particular message, click **↪ Reply** next to its time. A line above the input box shows who and what you are answering; type and send as usual, or press ✕ or Esc to cancel. The answer appears indented under the message it answers, with a short quote line. A reply to a reply joins the same thread. The server keeps the last 20 messages; when the original has already dropped out of that history, a reply shows only the name and time it answers.
 

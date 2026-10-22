@@ -55,9 +55,6 @@
   uniform float uRise;
   uniform float uAmp;
   out float vVal;
-  out float vAge;
-  out float vRow;
-  out float vLight;
 
   // Level (0-1) of a row at position u of the visible window.
   float sampleAt(float u, int age) {
@@ -80,11 +77,6 @@
     float sx = aUV.x * 2.0 - 1.0;
     float u = 0.5 + 0.5 * sx / s;
     float v = sampleAt(u, age);
-    float du = 1.0 / float(${GX - 1}) / s;
-    float vl = sampleAt(u - du, age);
-    float vr = sampleAt(u + du, age);
-    float vf = sampleAt(u, max(age - 1, 0));
-    float vb = sampleAt(u, min(age + 1, ${H - 1}));
 
     // At the front s = 1: the newest row lines up exactly with the waterfall.
     float sBack = 1.0 / (1.0 + ${K});
@@ -93,38 +85,23 @@
     float amp = uAmp * s;
     float y = ground + pow(v, ${HPOW}) * amp;
 
-    // Lighting from the neighbouring slopes. One light source, from the upper
-    // right, like the rest of the console.
-    vec3 n = normalize(vec3((pow(vl, ${HPOW}) - pow(vr, ${HPOW})) * amp * 45.0, 1.0, (pow(vf, ${HPOW}) - pow(vb, ${HPOW})) * amp * 25.0));
-    // Shaded sides keep 75 % (was 50 %), so the relief stays bright.
-    vLight = 0.75 + 0.25 * max(dot(n, normalize(vec3(0.35, 0.8, 0.5))), 0.0);
-
+    // No lighting: the depth comes from the shape alone, so every point
+    // keeps exactly the colour the waterfall gives that level.
     vVal = v;
-    vAge = d;
-    vRow = aUV.y * float(${GY - 1});
     gl_Position = vec4(sx, y, d * 0.98, 1.0);
   }`;
 
   const FS = `#version 300 es
   precision mediump float;
   in float vVal;
-  in float vAge;
-  in float vRow;
-  in float vLight;
   uniform sampler2D uCmap;     // the waterfall's palette: same colours as the waterfall
   out vec4 frag;
 
   void main() {
-    vec3 base = texture(uCmap, vec2(vVal, 0.5)).rgb;
-    vec3 c = base * vLight;
-    // A faint line every fourth row: the wire-frame look.
-    float r = vRow * 0.25;
-    float g = min(fract(r), 1.0 - fract(r));
-    float line = 1.0 - smoothstep(0.0, fwidth(r) * 1.2, g);
-    c += line * 0.10 * vec3(0.7, 0.85, 1.0);
-    c *= 1.0 - 0.15 * vAge;                 // the past fades gently (15 % at the back)
-    c *= 1.18;                              // overall lift, closer to the 2D spectrum
-    frag = vec4(min(c, vec3(1.0)), 1.0);
+    // Exactly the waterfall's colour for this level: the palette entry itself,
+    // with no lighting, fade, grid lines or lift on top.
+    int i = int(clamp(vVal, 0.0, 1.0) * 255.0 + 0.5);
+    frag = vec4(texelFetch(uCmap, ivec2(i, 0), 0).rgb, 1.0);
   }`;
 
   function sh(type, src) {
@@ -139,7 +116,10 @@
   function initGL() {
     // preserveDrawingBuffer: the video recorder copies this canvas outside
     // our render frame, which would otherwise read back an empty buffer.
-    gl = canvas.getContext("webgl2", { antialias: true, alpha: false, preserveDrawingBuffer: true });
+    // No antialiasing: it averages neighbouring triangles' colours at their
+    // edges, and with this dense mesh that turned a third of the sheet into
+    // in-between shades. Without it every pixel is a waterfall palette colour.
+    gl = canvas.getContext("webgl2", { antialias: false, alpha: false, preserveDrawingBuffer: true });
     if (!gl) throw new Error("WebGL2 unavailable");
     prog = gl.createProgram();
     gl.attachShader(prog, sh(gl.VERTEX_SHADER, VS));

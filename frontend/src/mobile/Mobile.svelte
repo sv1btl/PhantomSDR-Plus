@@ -351,6 +351,12 @@
 
   onMount(async () => {
     username = lsGet('chatusername')
+    // No name box here: the name/callsign is the one the listener saved in
+    // the extended view (same address, same "chatusername"), or in this
+    // page's chat. Sent with the audio connection, so a /mobile listener
+    // appears with it in the users list and on the waterfall labels too;
+    // the server drops placeholders ("anonymous1234") and invalid names.
+    audio.setIdentity(username)
     bookmarks = BM.load()
 
     try {
@@ -1043,6 +1049,7 @@
 
   function saveUsername () {
     lsSet('chatusername', username)
+    audio.setIdentity(username)
   }
 
   function shareFrequency () {
@@ -1481,7 +1488,7 @@
                 <li class="row">
                   <div class="row-main static">
                     <span class="row-title">
-                      {u.geo}{#if myId && u.id === myId}<em class="me">you</em>{/if}
+                      {#if u.name}{u.name} - {/if}{u.geo || 'resolving …'}{#if myId && u.id === myId}<em class="me">you</em>{/if}
                     </span>
                     <span class="row-sub">{Number(u.freq_khz).toFixed(2)} kHz · {u.mode} · {u.duration}</span>
                   </div>

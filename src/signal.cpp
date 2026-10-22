@@ -1200,6 +1200,17 @@ void AudioClient::on_agc_speed_message(int speed) {
     agc.setTrxSpeed(speed);
 }
 
+void AudioClient::on_identity_message(std::string &name) {
+    std::string n = clean_listener_name(name);
+    std::scoped_lock lk(identity_mtx_);
+    listener_name_ = std::move(n);
+}
+
+std::string AudioClient::get_listener_name() {
+    std::scoped_lock lk(identity_mtx_);
+    return listener_name_;
+}
+
 void AudioClient::on_codec_caps_message(bool opus_supported) {
     // Remember whether the browser can decode Opus.  If C-QUAM is already
     // active when this arrives, re-run the codec selection so a no-Opus client

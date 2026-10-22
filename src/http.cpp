@@ -11,12 +11,15 @@
 #include <cctype>
 #include <chrono>
 #include <mutex>
+#include <random>
 #include <regex>
+#include <unordered_map>
 #include <curl/curl.h>
 #include <nlohmann/json.hpp>
 #include <sys/socket.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <sys/stat.h>
 #include <cerrno>
 #include <cstring>
 #include <cstdio>
@@ -121,6 +124,94 @@ static bool looks_like_callsign(const std::string &s) {
     }
 
     return true;
+}
+
+// ── Public copy of a statistics log ─────────────────────────────────────────
+// logs/users_*.jsonl keep each listener's IP on disk for the sysop, but the
+// copy served on /logs/ (stats.html, open to everyone) must not carry it, as
+// on a WebSDR. Each "ip" becomes "visitor": an opaque code from a keyed hash,
+// so stats.html still counts unique visitors and joins a visitor's sessions,
+// and a geo that is still the raw IP (lookup pending) is blanked. The key is
+// random, made once and kept in logs/.visitor_salt (never served: the /logs/
+// pattern only matches users_YYYY-MM-DD.jsonl), so a code cannot be turned
+// back into an address by hashing all 2^32 of them.
+//
+// A plain text pass rather than a JSON parse: append_user_log writes every
+// line itself with "ip" before "geo", and a month of logs is ~100 MB that is
+// answered on the websocket I/O thread.
+static const std::string &visitor_salt() {
+    static const std::string salt = [] {
+        const std::string path = "logs/.visitor_salt";
+        std::string s;
+        {
+            std::ifstream in(path);
+            std::getline(in, s);
+        }
+        if (s.size() >= 32) return s;
+        std::random_device rd;
+        static const char hex[] = "0123456789abcdef";
+        s.clear();
+        for (int i = 0; i < 32; ++i) s += hex[rd() & 15];
+        ::mkdir("logs", 0755);
+        const int fd = ::open(path.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0600);
+        if (fd >= 0) {
+            const std::string line = s + "\n";
+            if (::write(fd, line.data(), line.size()) < 0) { /* kept in memory */ }
+            ::close(fd);
+        }
+        return s;
+    }();
+    return salt;
+}
+
+static std::string visitor_code(const std::string &ip) {
+    uint64_t h = 1469598103934665603ULL;                   // FNV-1a 64
+    auto mix = [&h](const std::string &v) {
+        for (unsigned char c : v) { h ^= c; h *= 1099511628211ULL; }
+    };
+    mix(visitor_salt());
+    mix(ip);
+    mix(visitor_salt());
+    char buf[20];
+    std::snprintf(buf, sizeof(buf), "v%012llx",
+                  static_cast<unsigned long long>(h & 0xffffffffffffULL));
+    return buf;
+}
+
+static std::string public_user_log(const std::string &raw) {
+    static const std::string IP = "\"ip\":\"", GEO = "\"geo\":\"";
+    std::unordered_map<std::string, std::string> codes;
+    std::string out;
+    out.reserve(raw.size());
+    size_t pos = 0;
+    while (pos < raw.size()) {
+        size_t eol = raw.find('\n', pos);
+        if (eol == std::string::npos) eol = raw.size();
+        std::string line = raw.substr(pos, eol - pos);
+        pos = eol + 1;
+        const size_t a = line.find(IP);
+        if (a != std::string::npos) {
+            const size_t v0 = a + IP.size();
+            const size_t v1 = line.find('"', v0);
+            if (v1 == std::string::npos) continue;          // malformed: drop
+            const std::string ip = line.substr(v0, v1 - v0);
+            std::string code;
+            if (!ip.empty()) {
+                auto it = codes.find(ip);
+                if (it == codes.end()) it = codes.emplace(ip, visitor_code(ip)).first;
+                code = it->second;
+            }
+            // A pending geo is the raw IP itself.
+            const size_t g = line.find(GEO, v1);
+            if (!ip.empty() && g != std::string::npos &&
+                line.compare(g + GEO.size(), ip.size() + 1, ip + "\"") == 0)
+                line.erase(g + GEO.size(), ip.size());
+            line.replace(a, v1 + 1 - a, "\"visitor\":\"" + code + "\"");
+        }
+        out += line;
+        out += '\n';
+    }
+    return out;
 }
 
 static std::string normalize_band(std::string band) {
@@ -686,6 +777,34 @@ void broadcast_server::on_http(connection_hdl hdl) {
         const auto qpos = path_only.find('?');
         if (qpos != std::string::npos) path_only = path_only.substr(0, qpos);
 
+        // ── /~~users — /users WITH the IP addresses, for the admin panel ────
+        // The public /users carries none, as on a WebSDR. Same loopback rule
+        // as /~~kick, and a request relayed by proxy.py (which always adds
+        // X-Forwarded-For) is refused as well: through the proxy, every
+        // listener's TCP peer is loopback.
+        // ── /~~unban?ip=<addr> — lift a sysop ban before it runs out ───────
+        if (path_only == "/~~users" || path_only == "/~~unban") {
+            const std::string peer =
+                normalize_client_ip(con->get_remote_endpoint());
+            con->append_header("Content-Type", "application/json");
+            con->append_header("Cache-Control", "no-store");
+            if (!is_loopback_ip(peer) ||
+                !con->get_request_header("X-Forwarded-For").empty()) {
+                con->set_status(websocketpp::http::status_code::forbidden);
+                con->set_body("{\"ok\":false,\"msg\":\"forbidden\"}");
+                return;
+            }
+            if (path_only == "/~~users") {
+                con->set_body(get_users_json(true));
+            } else {
+                const bool lifted = unban_ip(get_query_param(resource, "ip"));
+                con->set_body(std::string("{\"ok\":true,\"lifted\":") +
+                              (lifted ? "true" : "false") + "}");
+            }
+            con->set_status(websocketpp::http::status_code::ok);
+            return;
+        }
+
         if (path_only == "/~~kick") {
             const std::string peer =
                 normalize_client_ip(con->get_remote_endpoint());
@@ -755,9 +874,10 @@ void broadcast_server::on_http(connection_hdl hdl) {
         std::ostringstream buf;
         buf << f.rdbuf();
         con->append_header("Content-Type", "application/x-ndjson");
+        // Public: the IPs are replaced by visitor codes (see public_user_log).
         con->append_header("Cache-Control", "no-store");
         con->append_header("Access-Control-Allow-Origin", "*");
-        con->set_body(buf.str());
+        con->set_body(public_user_log(buf.str()));
         con->set_status(websocketpp::http::status_code::ok);
         return;
     }

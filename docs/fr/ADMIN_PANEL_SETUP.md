@@ -25,13 +25,18 @@ Les deux services lisent leur configuration dans `admin_config.json`, écrit par
 - **Marqueurs** — consultez et modifiez les marqueurs de fréquence
 - **Historique du chat** — consultez le journal du chat WebSDR, effacez-le entièrement ou supprimez des messages individuels sans redémarrer le serveur
 - **Message sur la cascade** — diffusez une bannière persistante à tous les utilisateurs connectés, visible en temps réel sur l'affichage en cascade
-- **Utilisateurs** — liste en direct des auditeurs connectés avec leur fréquence, leur mode, leur durée de connexion et un bouton ⚡ Kick
+- **Utilisateurs** — liste en direct des auditeurs connectés avec leur nom ou indicatif, leur localisation et leur adresse IP, la fréquence, le mode et la durée, un bouton ⚡ Kick et un bouton ⛔ Ban 24h, et une carte de leur position
 - **Suppression de messages du chat** — bouton 🗑 Delete qui retire immédiatement ce seul message du journal
 - **Messages diffusés sur la cascade** — permet de pousser une bannière de texte persistante sur la cascade de chaque utilisateur connecté
 - **Spot Reporting** — démarrez/arrêtez le décodeur autorun FT8/FT4/JS8/WSPR, choisissez les bandes/modes et rapportez les spots à PSK Reporter / wsprnet (désactivé par défaut), avec deux compteurs : des tuiles par décodeur pour l'exécution en cours et un total depuis toujours à côté de chaque case bande/mode
 - **Graphiques** — fréquence du CPU, charge du CPU, température du CPU et utilisateurs connectés, tracés sur les 15 dernières minutes / 1 heure / 4 heures / 12 heures / 24 heures
 - **Protection thermique (Thermal Guard)** — arrête le serveur si le processeur surchauffe et le redémarre une fois refroidi, avec des seuils déduits de votre propre processeur ; fonctionne avec n'importe quelle méthode de démarrage/arrêt et est livrée en mode journalisation seule, elle ne fait donc rien tant que vous ne l'activez pas
 - **Paramètres** — modifiez le mot de passe d'administration, le répertoire de base du SDR, le nom du processus, le port public
+- **État du système** (Dashboard) — chaque récepteur en service ou arrêté, avec sa durée de fonctionnement, l'espace disque libre et la taille de chaque dossier de journaux, la dernière entrée de `crash.log` et les alertes récentes
+- **Visiteurs** — statistiques privées des visiteurs sur 1 à 31 jours : visiteurs, sessions, heures d'écoute, le maximum simultané, par jour, les heures les plus chargées, les pays, et les adresses ayant le plus de sessions simultanées, avec ⛔ Ban 24h
+- **Alertes** — un e-mail et/ou un message Telegram quand un récepteur s'arrête, revient ou redémarre, quand le thermal guard change de stade, ou quand `crash.log` reçoit une nouvelle entrée
+- **Sauvegarde & restauration** — un zip avec les réglages propres de la station, et une restauration qui copie d'abord chaque fichier remplacé dans `admin-backups/`
+- **Thèmes** — Phosphor green, Amber display, Metal panel, Modern dark, Light et Auto (clair le jour, sombre la nuit), choisis avec **THEME** dans la barre du haut de chaque page
 
 ---
 
@@ -207,9 +212,13 @@ sudo ufw allow <proxy_port>
 
 ## Étape 5 — Fonction d'éjection d'utilisateurs
 
-La page Users affiche chaque auditeur actuellement connecté. Chaque ligne indique l'IP de l'utilisateur, sa fréquence, son mode et depuis combien de temps il est connecté. Pour déconnecter un utilisateur, cliquez sur le bouton **⚡ Kick** de sa ligne — seule cette connexion TCP est coupée. Tous les autres auditeurs restent connectés et n'entendent rien.
+La page Users montre chaque auditeur actuellement connecté. Chaque ligne affiche le nom ou l'indicatif tapé par l'auditeur (`--` s'il n'y en a pas), la localisation avec l'adresse IP en dessous, la fréquence accordée, le mode et la durée de connexion. Pour déconnecter un utilisateur, cliquez sur le bouton **⚡ Kick** de sa ligne — seules les connexions de cet auditeur sont fermées. Tous les autres auditeurs restent connectés et ne remarquent rien.
 
-L'éjection est instantanée et chirurgicale : le serveur ne redémarre pas, l'audio n'est interrompu pour personne d'autre, et l'utilisateur éjecté peut se reconnecter immédiatement (la fonction sert à supprimer des connexions problématiques ou bloquées, pas à bannir).
+Les adresses IP ne figurent que sur cette page. Depuis la 5.3.0, la liste publique des utilisateurs (`/users`) et les Statistiques des utilisateurs n'en contiennent aucune, comme sur un WebSDR ; le panneau lit sa liste sur `/~~users`, auquel spectrumserver ne répond que sur sa propre machine et jamais à travers le proxy.
+
+L'expulsion est instantanée et chirurgicale : le serveur ne redémarre pas, l'audio de personne d'autre n'est interrompu et l'utilisateur expulsé peut se reconnecter immédiatement (la fonction sert à retirer des connexions gênantes ou bloquées ; pour tenir quelqu'un à l'écart, utilisez le bannissement ci-dessous).
+
+**⛔ Ban 24h** déconnecte l'auditeur de tous les récepteurs de la station et refuse cette adresse pendant 24 heures (code de fermeture 4001, que la page ne retente pas). Le bannissement est conservé dans `admin_bans.json` à côté du panneau et renvoyé à chaque récepteur une fois par minute, si bien qu'un redémarrage de récepteur ne le lève pas. Tant que des bannissements sont en vigueur, une liste **Banned for 24 h** sous le tableau montre chacun avec son nom, son adresse et son heure de fin, et un bouton **Unban** le lève aussitôt. Tous ceux qui se trouvent derrière la même connexion internet partagent l'adresse et sont bannis avec elle.
 
 En interne, l'éjection utilise `ss -K dst <IP> dport <port>` pour fermer le socket TCP concerné. Cela nécessite une capacité Linux que le script d'installation accorde automatiquement. Si vous avez sauté cette étape ou si le bouton signale une erreur, appliquez-la manuellement :
 
@@ -812,6 +821,104 @@ taskset -cp "$(pgrep -x spectrumserver)"       # spectrumserver
 
 ---
 
+## État du système (System Health)
+
+Une carte du **Dashboard**, rafraîchie toutes les 30 secondes (ou avec **↻ refresh**) :
+
+- **Récepteurs** — chaque récepteur de la station (celui de `public_port` et chaque récepteur de `receivers.toml`) : un point vert et *on air, up 15h 5m* quand il répond, un **OFF THE AIR** rouge sinon.
+- **Disque & dossiers de journaux** — l'espace libre sur le disque de l'installation (orange à partir de 80 % utilisé, rouge à partir de 90 %), et la taille de `logs/`, `logproxy/` et de chaque `instances/<id>/logs/`.
+- **Alertes récentes** — ce que la surveillance des alertes a vu depuis le démarrage du panneau (voir [Alertes](#alertes-e-mail--telegram)), qu'un message ait été envoyé ou non.
+- **Dernière entrée de crash.log** — le `crash.log` non vide le plus récent de tous les récepteurs, avec sa date et ses 12 dernières lignes.
+
+---
+
+## Statistiques des visiteurs
+
+La page **Visitors** du menu latéral (sur un téléphone : le bouton **📈 VISITOR STATISTICS** de la page Users) compte les auditeurs de la station à partir des journaux privés `logs/users_YYYY-MM-DD.jsonl` de chaque récepteur — les copies avec les adresses IP, que les pages publiques ne montrent plus. Choisissez **Today**, **7**, **14** ou **31 days**.
+
+- **Visiteurs** (adresses distinctes), **sessions**, **heures d'écoute** et **le plus grand nombre d'auditeurs simultanés**.
+- **Par jour** — les mêmes quatre chiffres pour chaque jour.
+- **Heures les plus chargées** — quand les sessions ont commencé, par heure UTC.
+- **Pays** — visiteurs par pays.
+- **Adresses** — les 20 adresses ayant le plus de sessions *simultanées* d'abord, puis le plus de sessions ; un afflux de connexions comme celui du 16 septembre 2026 apparaît tout en haut (**AT ONCE** passe au rouge au-dessus de 3). Chaque ligne a **BAN 24h**.
+
+Les jours et les heures sont en UTC. Les décodeurs de la station elle-même (connexions locales) ne sont pas comptés ; une session encore ouverte compte au plus 12 heures. Les noms ne figurent pas dans ces journaux, la page montre donc des adresses, pas des noms. Les chiffres sont recalculés au plus une fois par minute.
+
+---
+
+## Alertes (e-mail / Telegram)
+
+**Settings → Alerts — Email / Telegram.** Une surveillance dans le panneau d'administration regarde toutes les 30 secondes :
+
+| Événement | Quand |
+|---|---|
+| **off the air** | un récepteur ne répond plus depuis environ une minute (deux contrôles de suite) |
+| **back on air** | il répond de nouveau |
+| **restarted** | il répond sous un nouveau processus — redémarré par le watchdog, un script de démarrage ou le thermal guard |
+| **thermal guard** | le guard change de stade (normal / warn / throttle / stopped) |
+| **crash.log** | un `crash.log` d'un récepteur reçoit une nouvelle entrée ; le message en contient les dernières lignes |
+
+Chaque événement a sa propre case. La même alerte est envoyée au plus une fois toutes les 5 minutes. Le premier contrôle après le démarrage du panneau ne fait qu'apprendre l'état actuel, donc redémarrer le panneau n'envoie rien.
+
+**Telegram** (le plus simple) :
+
+1. Dans Telegram, ouvrez **@BotFather**, envoyez `/newbot` et suivez les étapes ; il donne un **jeton de bot** (`123456789:AA…`).
+2. Ouvrez votre nouveau bot et appuyez sur **Start** — un bot ne peut pas vous écrire avant cela.
+3. Ouvrez **@userinfobot** ; l'**Id** qu'il répond est votre **chat ID**.
+4. Cochez **TELEGRAM**, collez les deux, appuyez sur **✉ SEND TEST**.
+
+**E-mail :** cochez **EMAIL** et remplissez le serveur SMTP de votre fournisseur, le port et la sécurité (SSL sur 465, STARTTLS sur 587), l'utilisateur, le mot de passe et **TO**. **FROM** peut être une adresse complète, `Nom <adresse>`, ou seulement un nom — un nom seul s'affiche comme nom de l'expéditeur sur l'adresse **USER**, l'utilisateur doit alors être une adresse complète.
+
+**✉ SEND TEST** enregistre d'abord le formulaire, puis envoie ; la ligne sous les boutons montre la réponse de chaque canal, ou ce qui manque encore. Les réglages sont conservés dans `admin_config.json` sous `"alerts"` — le fichier privé du panneau, jamais inclus dans une sauvegarde ou une mise à jour. Un mot de passe ou un jeton enregistré s'affiche `********` et reste inchangé tant que vous n'en tapez pas un nouveau.
+
+---
+
+## Sauvegarde & restauration des réglages de la station
+
+**Settings → Backup & restore of the station settings.**
+
+**⬇ DOWNLOAD BACKUP** donne un zip, `phantomsdr-settings-<indicatif>-<date>.zip`, avec les réglages propres de cette station :
+
+- chaque `*.toml` de l'installation (configurations des récepteurs et `receivers.toml`) et `station.conf`
+- `frontend/site_information.json`, `frontend/src/bands-config.js`, `markers.json`
+- `autorun.json` (spot reporting), `websdr_relay.json`, `admin_bans.json`
+- pour chaque récepteur supplémentaire : `instances/<id>/config.toml`, `instance.env`, `markers.json`
+
+et un `BACKUP-INFO.json` avec la date, l'ordinateur et la liste des fichiers. **Non** inclus : `admin_config.json` (mot de passe d'administration, secrets des alertes), les journaux et le programme lui-même.
+
+**⬆ RESTORE** prend un zip de sauvegarde et ne réécrit **que** des fichiers de cette même liste — tout le reste du zip est ignoré et nommé. Avant qu'un fichier soit remplacé, l'actuel est copié dans `admin-backups/restore-<date-heure>/` (ignoré par git, jamais dans une mise à jour), si bien qu'une mauvaise restauration peut être annulée à la main. La réponse indique la suite : redémarrer les récepteurs après un `.toml`, `instance.env` ou `station.conf` ; reconstruire la page (`./recompile.sh --frontend`) après site information ou les réglages de bandes ; redémarrer `phantomsdr-websdr-relay` après les réglages du relais.
+
+---
+
+## Thèmes
+
+Le sélecteur **THEME** se trouve dans la barre du haut de chaque page, entre **ONLINE** et l'horloge, et de nouveau dans **Settings → Appearance** ; les deux affichent toujours le même choix. Un thème s'applique aussitôt, sans rechargement.
+
+| Thème | Aspect |
+|---|---|
+| **Phosphor green** | le terminal vert classique (par défaut) |
+| **Amber display** | le même en ambre chaud, comme l'affichage d'un vieux transceiver |
+| **Metal panel** | la finition grise anodisée de la page du récepteur, éclairée d'en haut à droite |
+| **Modern dark** | anthracite avec un accent bleu, sans halo |
+| **Light** | blanc et gris, texte noir — pour la lumière du jour |
+| **Auto (day/night)** | **Light** du lever au coucher du soleil, **Modern dark** la nuit |
+
+Tous les thèmes utilisent les mêmes polices et les mêmes tailles ; seules les couleurs et la finition changent. *On air* reste vert et les avertissements orange et rouges dans chaque thème, et les **Graphs** suivent aussi le thème. **Auto** calcule le lever et le coucher du soleil au locator de la station (`siteGridSquare` dans Site Info) et bascule de lui-même tant que la page est ouverte ; sans locator, il prend 07:00–19:00 heure locale pour le jour. Le choix est conservé par navigateur, un PC et un téléphone peuvent donc avoir des thèmes différents. La page de connexion garde l'aspect vert.
+
+### Points d'accès (nouvelles pages)
+
+| Endpoint | Rôle |
+|---|---|
+| `GET /admin/api/health` | Carte System Health : récepteurs, disque, dossiers de journaux, dernière entrée de crash.log, alertes récentes |
+| `GET /admin/api/visitor-stats?days=N` | Statistiques des visiteurs sur 1–31 jours (mises en cache une minute) |
+| `GET` / `POST /admin/api/alerts` | Lire / enregistrer les réglages d'alerte (les secrets reviennent en `********`) |
+| `POST /admin/api/alerts/test` | Enregistrer puis envoyer un test ; réponse par canal |
+| `GET /admin/api/backup` | Télécharger le zip des réglages |
+| `POST /admin/api/restore` | Restaurer un zip de réglages (multipart, champ `file`) |
+| `GET /admin/api/station-grid` | Le locator de Site Info, pour le thème Auto |
+
+---
+
 ## Dépannage
 
 | Problème | Correctif |
@@ -822,7 +929,7 @@ taskset -cp "$(pgrep -x spectrumserver)"       # spectrumserver
 | Le proxy démarre mais la cascade est vide | Vérifiez `sdr_host` dans `admin_config.json` — normalement `127.0.0.1`. S'il contient encore une ancienne IP LAN d'une version précédente, corrigez-la et [Redémarrer le panneau](#redémarrer-le-panneau) |
 | Le bouton Kick indique « no connections » | Exécutez `getcap $(which ss)` — sans `cap_net_admin`, lancez `sudo setcap cap_net_admin+ep $(which ss)` |
 | L'état affiche toujours OFFLINE | Allez dans Settings → SDR Process Name — indiquez le nom exact affiché par `ps -eo comm,args \| grep -v grep` |
-| La page Users n'affiche aucune donnée | Vérifiez que le point de terminaison fonctionne : `curl http://127.0.0.1:<public_port>/users` |
+| La page Users n'affiche aucune donnée | Vérifiez que le point de terminaison fonctionne : `curl http://127.0.0.1:<public_port>/~~users` |
 | Un navigateur externe obtient NetworkError | Vérifiez que le proxy tourne : `./manage_admin.sh status` |
 | Le proxy est cassé après un changement réseau | Concerne uniquement le cas où `sdr_host` contient encore une IP LAN — mettez-le à `127.0.0.1` et [Redémarrer le panneau](#redémarrer-le-panneau) |
 | Le bouton de suppression du chat n'a aucun effet | Vérifiez les droits d'écriture sur le fichier de journal du chat : `ls -l ~/PhantomSDR-Plus/chat.jsonl` |
@@ -835,3 +942,9 @@ taskset -cp "$(pgrep -x spectrumserver)"       # spectrumserver
 | `autorun.log` affiche `MODULE_TYPELESS_PACKAGE_JSON` / « Reparsing as ES module … performance overhead » | Avertissement cosmétique (le décodage fonctionne toujours). Il manque `"type": "module"` à `frontend/src/modules/package.json` ; ajoutez cette ligne près du début, puis Stop→Start. Aucune recompilation du frontend n'est nécessaire — le démon importe directement le fichier source. |
 | Le « Start » de Spot Reporting échoue avec `taskset: … Invalid argument` sur un PC ancien/modeste | Ne devrait pas se produire avec le lanceur tenant compte de la configuration — la plage de cœurs est déduite du nombre de CPU et passe sans épinglage sur ≤ 4 cœurs. Si cela arrive, votre `admin_server.py` est antérieur à ce changement ; mettez-le à jour (`_autorun_taskset_prefix`) et [Redémarrer le panneau](#redémarrer-le-panneau). |
 | Le badge REPORTING n'apparaît pas sur la cascade | Le report doit être activé avec au moins un créneau ; le badge lit `/autorun-active.json`. Recompilez le frontend si `dist/index.html` est antérieur au badge. |
+| **✉ SEND TEST** indique "Nothing to send to: …" | Le message dit ce qui manque : cochez **TELEGRAM** ou **EMAIL** ; Telegram demande le jeton du bot et le chat ID ; l'e-mail demande le serveur SMTP et **TO**. |
+| Test e-mail : `5.5.2 … Sender address rejected: need fully-qualified address` | L'expéditeur n'est pas une adresse complète. Mettez votre adresse dans **FROM**, ou gardez-y seulement un nom et faites de **USER** votre adresse complète ; [redémarrez le panneau](#redémarrer-le-panneau) s'il est antérieur à cette règle. |
+| Le test Telegram échoue avec `Forbidden` / aucun message n'arrive | Ouvrez d'abord votre bot dans Telegram et appuyez sur **Start** ; vérifiez le chat ID avec @userinfobot (votre propre Id, pas celui du bot). |
+| Aucune alerte quand un récepteur s'est arrêté | Il faut environ une minute (deux contrôles) ; la même alerte arrive au plus une fois toutes les 5 minutes ; un redémarrage du panneau n'envoie rien ; vérifiez la case de l'événement. |
+| La page Visitors affiche "no visitors" | La page lit `logs/users_*.jsonl` (et `instances/<id>/logs/`) ; ils sont écrits par la journalisation des statistiques des récepteurs — vérifiez qu'ils existent pour les jours choisis. |
+| Le sélecteur THEME manque, ou un nouveau thème ne s'applique pas | [Redémarrez le panneau](#redémarrer-le-panneau), puis rechargez la page avec **Ctrl+F5** pour que le navigateur abandonne l'ancienne copie. |

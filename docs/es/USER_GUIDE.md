@@ -196,6 +196,7 @@ Ejemplos:
 1. Sitúe el puntero sobre un dígito del indicador de frecuencia: se ilumina
 2. Rueda hacia arriba o **clic izquierdo** sube ese dígito en uno; rueda hacia abajo o **clic derecho** lo baja
 3. El paso es el valor posicional del dígito (1 kHz en el dígito de los kHz, 100 Hz en el primer decimal), y un dígito que pasa de 9 se lleva una unidad al dígito de su izquierda
+4. En cualquier otro punto del recuadro negro de la frecuencia — nombre de banda, línea de modo, reloj — la rueda sintoniza con el paso de sintonía (**Shift** 1 kHz, **Alt** 10 kHz); solo queda fuera el S-meter analógico, donde la rueda desplaza la página
 
 #### Método 4: botones de paso
 
@@ -326,7 +327,7 @@ Reducción de ruido espectral. Estima el nivel de ruido en cada parte del espect
 
 **Úselo cuando**: oiga un siseo constante o ruido blanco detrás de la señal.
 
-Los tonos constantes — una nota de CW, una portadora — se reconocen como señal y quedan protegidos, de modo que NR no se come una señal de CW como haría un filtro ingenuo. Efecto típico: 10 dB menos de ruido entre las palabras, a cambio de unas décimas de dB de la voz misma.
+Los tonos constantes — una nota de CW, una portadora — se reconocen como señal y quedan protegidos, de modo que NR no se come una señal de CW como haría un filtro ingenuo. Efecto típico: 10–12 dB menos de ruido entre las palabras. La voz misma pierde bastante menos de 1 dB en señales fuertes y unos pocos dB en las muy débiles, que aun así se entienden mejor que sin NR.
 
 ### Supresor de impulsos (NB)
 
@@ -394,9 +395,17 @@ El búfer se ajusta solo. La página mide lo irregular que es la entrega del aud
 
 Si el audio se corta, suba el búfer un paso. En un teléfono con Wi-Fi doméstico el retardo del receptor al altavoz suele ser de unos 100–150 ms; la red entre usted y el receptor se suma a eso.
 
+### Su nombre o indicativo
+
+Junto a **Open Additional Info** hay una casilla para su nombre o indicativo: hasta 10 caracteres y sin espacios, como en un WebSDR. Escríbalo y pulse **Save** (o Intro); con **Edit** lo cambia más tarde. Su navegador lo recuerda, también cuando pasa a los otros receptores de la estación. Si la deja vacía, sigue anónimo: *anonymous* más un número en el chat, y solo su ubicación en todo lo demás. En el teléfono la misma casilla está encima del indicador de frecuencia.
+
+Su nombre aparece en la ventana **Users**, en sus líneas del chat y en la etiqueta que los demás oyentes ven bajo su cascada — su nombre y después su ubicación, por ejemplo `SV1BTL-Athens`. Su propia posición es la ★ amarilla con su nombre al lado. Pase el ratón sobre la etiqueta de otro oyente para ver la frecuencia y el modo en que está sintonizado; con un clic sintoniza allí.
+
+Como en un WebSDR, la dirección IP de ningún oyente se muestra a los demás — ni en la ventana Users ni en las Estadísticas de usuarios, que cuentan los visitantes con un código anónimo.
+
 ### Chat
 
-Cuando el operador ha activado el chat, tiene su propio panel en la página de escritorio y una pestaña **Chat** en /mobile. Escriba su nombre o indicativo, luego su mensaje, y envíelo.
+Cuando el operador ha habilitado el chat, tiene su propio panel en la página de escritorio y una pestaña **Chat** en /mobile. Escriba su mensaje y envíelo: sale con el nombre de su casilla de nombre (véase arriba), o como *anonymous* más un número.
 
 Para responder a un mensaje concreto, pulse **↪ Reply** junto a su hora. Una línea sobre el cuadro de entrada muestra a quién y a qué responde; escriba y envíe como siempre, o pulse ✕ o Esc para cancelar. La respuesta aparece sangrada bajo el mensaje al que responde, con una breve línea de cita. Una respuesta a una respuesta se une al mismo hilo. El servidor guarda los últimos 20 mensajes; cuando el original ya ha salido de ese historial, la respuesta muestra solo el nombre y la hora a los que responde.
 

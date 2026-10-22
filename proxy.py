@@ -561,8 +561,10 @@ async def handle(request: web.Request) -> web.StreamResponse:
         return await handle_kick(request)
     # spectrumserver's /~~kick is allowed for a loopback TCP peer — and to it,
     # everything relayed from here is loopback. Without this check anyone who
-    # could reach this port could disconnect and ban any listener.
-    if "~~kick" in request.path and not _is_local(request):
+    # could reach this port could disconnect and ban any listener. /~~users
+    # (the list with IP addresses) and /~~unban are the sysop's in the same way.
+    if (any(p in request.path for p in ("~~kick", "~~users", "~~unban"))
+            and not _is_local(request)):
         return web.json_response({"ok": False, "msg": "forbidden"}, status=403)
     side = _side_service(request)
     if side:

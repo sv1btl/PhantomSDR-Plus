@@ -302,6 +302,7 @@ PhantomSDR-Plus
 │   │   │   ├── FrequencyMarkers.svelte
 │   │   │   ├── FtxSpectrum.svelte
 │   │   │   ├── hammeractions.js
+│   │   │   ├── identity.js               # Name/Rufzeichen des Hörers: Feld, Speicher, Übergabe per URL
 │   │   │   ├── LineThroughButton.svelte
 │   │   │   ├── Logger.svelte
 │   │   │   ├── MagicEyeIndicator.svelte
@@ -965,7 +966,7 @@ Die mit Svelte und Vite erstellte webbasierte Benutzeroberfläche.
 - Layoutstruktur
 - Orchestrierung der Komponenten
 - **Decoder-Tastenreihe** — eine Taste je Decoder im Hauptpanel, direkt unter der Modus-Auswahl; ein Druck startet den Decoder und öffnet sein Fenster, ein erneuter Druck stoppt ihn. Sie hat die frühere Bandbreiten-Reihe ersetzt. RADEL/RADEU liegen stattdessen in `lib/ModesSelector.svelte`, neben der Modus-Auswahl und in den Pop-ups **Modes** und **Bands**.
-- **Versionszeile** — „PhantomSDR+ | v5.2.1 original from github.com/sv1btl/PhantomSDR-Plus“, die Adresse als Link; dieselbe Zeile steht auf der Seite /mobile. Versionsnummer und Adresse stehen in `lib/version.js`; die Zeile ist eine Urhebernennung nach `ADDITIONAL_TERMS.md`.
+- **Versionszeile** — „PhantomSDR+ | v5.3.0 original from github.com/sv1btl/PhantomSDR-Plus“, die Adresse als Link; dieselbe Zeile steht auf der Seite /mobile. Versionsnummer und Adresse stehen in `lib/version.js`; die Zeile ist eine Urhebernennung nach `ADDITIONAL_TERMS.md`.
 
 #### 2. Wasserfallanzeige (`waterfall.js` + `lib/`)
 - Canvas-basierte Darstellung von Spektrum und Wasserfall sowie Farbpaletten in `waterfall.js` (reines JS, keine Komponente); die Helligkeits-/Kontrast-Umrechnung von **Auto Adj.** ist `lib/wfAutoLevel.js`
@@ -1066,6 +1067,12 @@ Die Rolle `fsk` beherbergt zusätzlich Decoder, die ihre FSK-Kette überhaupt ni
 - Eine Antwort ist eine gewöhnliche Chat-Nachricht, die mit einer Markierung beginnt, welche die beantwortete Nachricht benennt: `[RE:<Zeitstempel>|<Name>]`. Der Server speichert und verteilt sie wie jede andere Zeile und braucht keine Änderung
 - `chatReply.js` erzeugt und liest diese Markierung und ordnet Antworten eine Ebene tief unter ihrem Original an. `App.svelte` und `mobile/Mobile.svelte` verwenden es beide, sodass beide Seiten den Chat gleich gliedern
 - Ist das Original bereits aus dem Verlauf von 20 Nachrichten des Servers verschwunden, bleibt die Antwort dort, wo sie eintraf, und zeigt nur Name und Uhrzeit dessen, worauf sie antwortet
+
+#### 4g. Hörernamen und Datenschutz (`lib/identity.js`)
+- Das Namensfeld neben **Open Additional Info** hält Name oder Rufzeichen in `localStorage` (`chatusername`) und sendet ihn auf `/audio` als `{"cmd":"identity","name":…}`; `audio.js` sendet ihn bei jedem Öffnen seines Sockets erneut. Ein Link zu einem Empfänger unter einer anderen Adresse trägt ihn als `?idname=`, das einmal gelesen und aus der Adresszeile entfernt wird
+- Der Server bereinigt ihn (`clean_listener_name` in `utils.cpp`): höchstens 10 Zeichen und keine Leerzeichen wie bei einem WebSDR, mindestens ein Buchstabe oder eine Ziffer; die reservierten Namen des Chats und die Platzhalter `anonymous1234` gelten als kein Name. `/users` liefert ihn als `name`; die Wasserfall-Beschriftungen zeigen ihn, gefolgt von der Stadt
+- Das öffentliche `/users`, `users.json` und die `/logs/users_*.jsonl`, die `stats.html` liest, enthalten keine IP-Adresse: Die Log-Kopie trägt stattdessen einen undurchsichtigen `visitor`-Code (Hash mit Schlüssel, Schlüssel in `logs/.visitor_salt`); die Dateien auf der Platte behalten die Adressen. Das Admin-Panel liest `/~~users`, das nur einem Loopback-Peer ohne `X-Forwarded-For` antwortet
+- Die 24-Stunden-Sperren des Admin-Panels liegen in `admin_bans.json` (wird nie verteilt) und werden einmal pro Minute erneut an jeden Empfänger geschickt; `/~~unban` hebt eine auf
 
 #### 5. Zustandsverwaltung (`stores/`)
 - Reaktive Datenspeicher

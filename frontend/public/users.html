@@ -203,6 +203,10 @@ img.emoji {
   tbody tr.is-me { background: rgba(0,174,255,.05); }
   tbody tr.is-me:hover { background: rgba(0,174,255,.09); }
 
+  /* Name / callsign the listener typed in the box next to Open Additional Info */
+  .td-name { color: var(--text); font-weight: bold; letter-spacing: .04em; white-space: nowrap; }
+  .td-name .anon { color: var(--muted); font-weight: normal; }
+
   /* Frequency — biggest visual focus */
   .td-freq {
     color: var(--green);
@@ -374,6 +378,7 @@ img.emoji {
       <thead>
         <tr>
           <th>#</th>
+          <th>Name / Call</th>
           <th>Location</th>
           <th>Frequency</th>
           <th>Mode</th>
@@ -579,9 +584,12 @@ function renderTable(users) {
 
     const isMe    = myId && u.id === myId;
     const meLabel = isMe ? `<em class="me">you</em>` : '';
+    // The name is cleaned to plain text by the server; attr() anyway.
+    const nameDisplay = u.name ? attr(u.name) : `<span class="anon">—</span>`;
 
     return `<tr data-id="${u.id}" class="${isFresh ? 'new-row' : ''}${isMe ? ' is-me' : ''}">
       <td class="td-id">${String(i + 1).padStart(2, '0')}</td>
+      <td class="td-name">${nameDisplay}</td>
       <td class="td-geo">${geoDisplay}${meLabel}</td>
       <td class="td-freq">
         ${fmtFreq(u.freq_khz)}
@@ -866,6 +874,11 @@ function mappableGeo(u) {
   return u.geo;
 }
 
+// First tooltip line on the map: the listener's name/callsign.
+function mapName(u) {
+  return u.name ? `<b>${attr(u.name)}</b><br/>` : '';
+}
+
 // Coordinates for a user: the station itself for a local session, otherwise the
 // geocoded city.
 function resolveUserLatLng(u, geoStr) {
@@ -1008,7 +1021,7 @@ async function updateUsersMap(users) {
 
       const twGeo = s => (typeof twemoji !== 'undefined') ? twemoji.parse(s) : s;
       marker.bindTooltip(
-        `${twGeo(geoStr)}<br/>${fmtFreq(u.freq_khz).replace(/<[^>]+>/g, ' ')} · ${(u.mode||'').toUpperCase()}`,
+        `${mapName(u)}${twGeo(geoStr)}<br/>${fmtFreq(u.freq_khz).replace(/<[^>]+>/g, ' ')} · ${(u.mode||'').toUpperCase()}`,
         { className: 'map-tip', direction: 'top' }
       );
       markersByUid.set(uid, marker);
@@ -1022,7 +1035,7 @@ async function updateUsersMap(users) {
     if (marker && geoStr) {
       const twGeo = s => (typeof twemoji !== 'undefined') ? twemoji.parse(s) : s;
       marker.setTooltipContent(
-        `${twGeo(geoStr)}<br/>${fmtFreq(u.freq_khz).replace(/<[^>]+>/g, ' ')} · ${(u.mode||'').toUpperCase()}`
+        `${mapName(u)}${twGeo(geoStr)}<br/>${fmtFreq(u.freq_khz).replace(/<[^>]+>/g, ' ')} · ${(u.mode||'').toUpperCase()}`
       );
     }
   }

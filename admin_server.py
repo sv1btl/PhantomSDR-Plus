@@ -1067,19 +1067,58 @@ MAIN_HTML = """<!DOCTYPE html>
 <title>PhantomSDR Admin Panel</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet">
+<script>
+// Sun above the horizon (sunrise to sunset) at lat/lon, now. Low-precision
+// solar position (about a minute of accuracy), enough to pick a theme.
+function _adminSunUp(lat, lon, d) {
+  var r = Math.PI / 180, n = d.getTime() / 86400000 - 10957.5;
+  var g = (357.529 + 0.98560028 * n) * r, q = 280.459 + 0.98564736 * n;
+  var L = (q + 1.915 * Math.sin(g) + 0.020 * Math.sin(2 * g)) * r;
+  var e = (23.439 - 0.00000036 * n) * r;
+  var dec = Math.asin(Math.sin(e) * Math.sin(L));
+  var ra = Math.atan2(Math.cos(e) * Math.sin(L), Math.cos(L));
+  var gmst = (18.697374558 + 24.06570982441908 * n) % 24;
+  var H = (gmst * 15 + lon) * r - ra;
+  var alt = Math.asin(Math.sin(lat * r) * Math.sin(dec) + Math.cos(lat * r) * Math.cos(dec) * Math.cos(H));
+  return alt / r > -0.833;
+}
+// "auto": light by day, dark at night, at the station's locator (Site Info);
+// without one, 07:00-19:00 local time counts as day.
+function _adminAutoTheme() {
+  var now = new Date(), loc = null;
+  try { loc = JSON.parse(localStorage.getItem('adminThemeLoc') || 'null'); } catch (e) {}
+  var day = loc ? _adminSunUp(loc[0], loc[1], now) : (now.getHours() >= 7 && now.getHours() < 19);
+  return day ? 'light' : 'dark';
+}
+(function () {
+  var t = 'green';
+  try { t = localStorage.getItem('adminTheme') || 'green'; } catch (e) {}
+  if (t === 'auto') t = _adminAutoTheme();
+  document.documentElement.setAttribute('data-theme', t);
+})();
+</script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 :root{
   --green:#00ff41;--green2:#00cc33;--amber:#ffb000;--red:#ff4040;--blue:#00ccff;
   --bg:#050a05;--panel:#0a150a;--panel2:#0d1a0d;--border:#1a3a1a;--dim:#1f3a1f;
   --text:#c8ffc8;--text2:#7ab87a;--text3:#4a8a4a;
-  --glow:0 0 8px #00ff4155,0 0 20px #00ff4122;
-  --glow-amber:0 0 8px #ffb00055,0 0 20px #ffb00022;
-  --glow-red:0 0 8px #ff404055;
+  --glow:0 0 8px rgba(var(--accent-rgb),.33),0 0 20px rgba(var(--accent-rgb),.13);
+  --glow-amber:0 0 8px rgba(var(--amber-rgb),.33),0 0 20px rgba(var(--amber-rgb),.13);
+  --glow-red:0 0 8px rgba(var(--red-rgb),.33);
+  /* Theme variables (Settings → Appearance). These defaults are the classic
+     green phosphor theme; html[data-theme=…] below overrides them. */
+  --accent-rgb:0,255,65;--red-rgb:255,64,64;--amber-rgb:255,176,0;--blue-rgb:0,204,255;
+  --ok:var(--green);--ok-rgb:var(--accent-rgb);
+  --field:#071207;--deep:#030803;--row:#0a1a0a;--tile:#071007;--code-text:#c8ffc8;
+  --font:'Share Tech Mono',monospace;--font-mono:'Share Tech Mono',monospace;
+  --font-head:'Orbitron',sans-serif;--fs:20px;--radius:3px;
+  --card-bg:var(--panel);--card-shadow:none;--recess:none;
+  --body-bg:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,255,65,0.01) 2px,rgba(0,255,65,0.01) 4px);
 }
-html,body{height:100%;background:var(--bg);font-family:'Share Tech Mono',monospace;
-  color:var(--text);font-size:20px;}
-body{background-image:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,255,65,0.01) 2px,rgba(0,255,65,0.01) 4px);}
+html,body{height:100%;background:var(--bg);font-family:var(--font);
+  color:var(--text);font-size:var(--fs);}
+body{background-image:var(--body-bg);}
 
 /* Layout */
 .layout{display:flex;height:100vh;overflow:hidden;}
@@ -1092,18 +1131,18 @@ body{background-image:repeating-linear-gradient(0deg,transparent,transparent 2px
 
 /* Sidebar */
 .sidebar-logo{padding:1.2rem 1rem;border-bottom:1px solid var(--border);text-align:center;}
-.sidebar-logo .title{font-family:'Orbitron',sans-serif;font-weight:900;font-size:1rem;
+.sidebar-logo .title{font-family:var(--font-head);font-weight:900;font-size:1rem;
   color:var(--green);text-shadow:var(--glow);}
 .sidebar-logo .sub{font-size:.6rem;color:var(--text3);letter-spacing:.3em;margin-top:.2rem;}
-.sidebar-logo .icon{font-size:1.8rem;margin-bottom:.3rem;filter:drop-shadow(0 0 8px #00ff41);}
+.sidebar-logo .icon{font-size:1.8rem;margin-bottom:.3rem;filter:drop-shadow(0 0 8px var(--green));}
 
 .nav-section{padding:.5rem 0;}
 .nav-label{font-size:.55rem;color:var(--text3);letter-spacing:.3em;padding:.4rem 1rem .2rem;}
 .nav-item{display:flex;align-items:center;gap:.6rem;padding:.55rem 1rem;
   cursor:pointer;color:var(--text2);transition:.15s;border-left:2px solid transparent;
   text-decoration:none;font-size:.8rem;}
-.nav-item:hover{color:var(--green);background:rgba(0,255,65,0.05);border-left-color:var(--green2);}
-.nav-item.active{color:var(--green);background:rgba(0,255,65,0.08);
+.nav-item:hover{color:var(--green);background:rgba(var(--accent-rgb),0.05);border-left-color:var(--green2);}
+.nav-item.active{color:var(--green);background:rgba(var(--accent-rgb),0.08);
   border-left-color:var(--green);text-shadow:var(--glow);}
 .nav-item .icon{font-size:1rem;width:1.2rem;text-align:center;}
 
@@ -1111,21 +1150,23 @@ body{background-image:repeating-linear-gradient(0deg,transparent,transparent 2px
   font-size:.65rem;color:var(--text3);}
 
 /* Topbar */
-.topbar-title{font-family:'Orbitron',sans-serif;font-size:.85rem;color:var(--green);}
+.topbar-title{font-family:var(--font-head);font-size:.85rem;color:var(--green);}
 .status-pill{display:inline-flex;align-items:center;gap:.4rem;
   padding:.3rem .7rem;border-radius:2px;font-size:.7rem;}
-.status-pill.online{background:rgba(0,255,65,0.1);border:1px solid #00ff4155;color:var(--green);}
-.status-pill.offline{background:rgba(255,64,64,0.1);border:1px solid #ff404055;color:var(--red);}
+.status-pill.online{background:rgba(var(--ok-rgb),0.1);border:1px solid rgba(var(--ok-rgb),.33);color:var(--ok);}
+.status-pill.offline{background:rgba(var(--red-rgb),0.1);border:1px solid rgba(var(--red-rgb),.33);color:var(--red);}
 .status-dot{width:6px;height:6px;border-radius:50%;animation:pulse 2s infinite;}
-.status-dot.online{background:var(--green);box-shadow:0 0 6px var(--green);}
+.status-dot.online{background:var(--ok);box-shadow:0 0 6px var(--ok);}
 .status-dot.offline{background:var(--red);}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
 
 .topbar-right{display:flex;align-items:center;gap:1rem;}
 .topbar-time{font-size:.7rem;color:var(--text3);}
+.topbar-theme{display:inline-flex;align-items:center;gap:.4rem;font-size:.65rem;color:var(--text3);letter-spacing:.1em;}
+.topbar-theme select{font-family:var(--font);font-size:.68rem;padding:.2rem .4rem;letter-spacing:0;}
 .logout-btn{font-size:.65rem;color:var(--text3);text-decoration:none;
   padding:.2rem .5rem;border:1px solid var(--border);border-radius:2px;transition:.15s;}
-.logout-btn:hover{color:var(--red);border-color:#ff404055;}
+.logout-btn:hover{color:var(--red);border-color:rgba(var(--red-rgb),.33);}
 
 /* Cards */
 .grid{display:grid;gap:1rem;}
@@ -1134,14 +1175,15 @@ body{background-image:repeating-linear-gradient(0deg,transparent,transparent 2px
 .grid-4{grid-template-columns:repeat(4,1fr);}
 .grid-5{grid-template-columns:repeat(5,1fr);}
 
-.card{background:var(--panel);border:1px solid var(--border);border-radius:3px;padding:1rem;}
-.card-header{font-family:'Orbitron',sans-serif;font-size:.7rem;color:var(--text2);
+.card{background:var(--card-bg);border:1px solid var(--border);border-radius:var(--radius);padding:1rem;
+  box-shadow:var(--card-shadow);}
+.card-header{font-family:var(--font-head);font-size:.7rem;color:var(--text2);
   letter-spacing:.15em;margin-bottom:.8rem;display:flex;align-items:center;gap:.5rem;}
 .card-header .dot{width:6px;height:6px;border-radius:50%;background:var(--green);
   box-shadow:0 0 6px var(--green);}
 
 /* Stat cards */
-.stat-val{font-family:'Orbitron',sans-serif;font-size:1.6rem;font-weight:700;
+.stat-val{font-family:var(--font-head);font-size:1.6rem;font-weight:700;
   color:var(--green);text-shadow:var(--glow);}
 .stat-label{font-size:.65rem;color:var(--text3);margin-top:.2rem;letter-spacing:.1em;}
 .stat-sub{font-size:.7rem;color:var(--text2);margin-top:.3rem;}
@@ -1152,34 +1194,34 @@ body{background-image:repeating-linear-gradient(0deg,transparent,transparent 2px
 :root{--stat-ok:#4ade80;--stat-warn:#fbbf24;--stat-bad:#ef4444;}
 
 /* Progress bars */
-.bar-wrap{background:#071207;border-radius:2px;height:6px;margin-top:.5rem;overflow:hidden;}
+.bar-wrap{background:var(--field);border-radius:2px;height:6px;margin-top:.5rem;overflow:hidden;}
 .bar-fill{height:100%;border-radius:2px;transition:.5s;background:var(--stat-ok);}
 .bar-fill.warn{background:var(--stat-warn);}
 .bar-fill.danger{background:var(--stat-bad);}
 
 /* Buttons */
 .btn{display:inline-flex;align-items:center;gap:.4rem;padding:.5rem .9rem;
-  font-family:'Share Tech Mono',monospace;font-size:.75rem;cursor:pointer;
+  font-family:var(--font-mono);font-size:.75rem;cursor:pointer;
   border-radius:2px;transition:.15s;border:1px solid;background:transparent;letter-spacing:.05em;}
-.btn-green{color:var(--green);border-color:#00ff4155;}
-.btn-green:hover{background:rgba(0,255,65,0.1);box-shadow:var(--glow);}
-.btn-red{color:var(--red);border-color:#ff404055;}
-.btn-red:hover{background:rgba(255,64,64,0.1);box-shadow:var(--glow-red);}
-.btn-amber{color:var(--amber);border-color:#ffb00055;}
-.fork-notice{margin-bottom:1rem;padding:.7rem 1rem;border:1px solid #ffb00077;border-radius:4px;
-  background:#ffb0000f;color:var(--amber);font-size:.8rem;line-height:1.5;overflow-wrap:anywhere;}
+.btn-green{color:var(--green);border-color:rgba(var(--accent-rgb),.33);}
+.btn-green:hover{background:rgba(var(--accent-rgb),0.1);box-shadow:var(--glow);}
+.btn-red{color:var(--red);border-color:rgba(var(--red-rgb),.33);}
+.btn-red:hover{background:rgba(var(--red-rgb),0.1);box-shadow:var(--glow-red);}
+.btn-amber{color:var(--amber);border-color:rgba(var(--amber-rgb),.33);}
+.fork-notice{margin-bottom:1rem;padding:.7rem 1rem;border:1px solid rgba(var(--amber-rgb),.47);border-radius:4px;
+  background:rgba(var(--amber-rgb),.06);color:var(--amber);font-size:.8rem;line-height:1.5;overflow-wrap:anywhere;}
 .fork-notice a{color:var(--amber);text-decoration:underline;}
-.btn-amber:hover{background:rgba(255,176,0,0.1);box-shadow:var(--glow-amber);}
-.btn-blue{color:var(--blue);border-color:#00ccff55;}
-.btn-blue:hover{background:rgba(0,204,255,0.1);}
+.btn-amber:hover{background:rgba(var(--amber-rgb),0.1);box-shadow:var(--glow-amber);}
+.btn-blue{color:var(--blue);border-color:rgba(var(--blue-rgb),.33);}
+.btn-blue:hover{background:rgba(var(--blue-rgb),0.1);}
 .btn-lg{padding:.7rem 1.4rem;font-size:.85rem;}
 .btn:disabled{opacity:.4;cursor:not-allowed;}
 /* Range picker on the Graphs page: the selected range must read as chosen, not
    merely hovered, so it gets the filled state the other buttons only borrow. */
 .btn.graph-range{color:var(--text2);border-color:var(--border);}
-.btn.graph-range:hover{color:var(--green);border-color:#00ff4155;}
-.btn.graph-range.active{color:var(--green);border-color:#00ff4188;
-  background:rgba(0,255,65,0.08);box-shadow:var(--glow);}
+.btn.graph-range:hover{color:var(--green);border-color:rgba(var(--accent-rgb),.33);}
+.btn.graph-range.active{color:var(--green);border-color:rgba(var(--accent-rgb),.53);
+  background:rgba(var(--accent-rgb),0.08);box-shadow:var(--glow);}
 /* Larger type on the Graphs page only — these are readings meant to be read
    from across the room, not the dense label text the other pages use.  Scoped
    to #page-graphs so the shared card classes keep their sizing elsewhere. */
@@ -1189,18 +1231,18 @@ body{background-image:repeating-linear-gradient(0deg,transparent,transparent 2px
 #page-graphs .btn.graph-range{font-size:.82rem;padding:.55rem 1rem;}
 
 /* Per-decoder spot tiles (Spot Reporting page) */
-.ar-spot-tile{background:#071007;border:1px solid var(--border);border-radius:3px;
+.ar-spot-tile{background:var(--tile);border:1px solid var(--border);border-radius:3px;
   padding:.6rem .7rem;text-align:center;}
-.ar-spot-mode{font-family:'Orbitron',sans-serif;font-size:.72rem;color:var(--text2);
+.ar-spot-mode{font-family:var(--font-head);font-size:.72rem;color:var(--text2);
   letter-spacing:.18em;}
-.ar-spot-count{font-family:'Orbitron',sans-serif;font-size:1.7rem;font-weight:700;
+.ar-spot-count{font-family:var(--font-head);font-size:1.7rem;font-weight:700;
   color:var(--green);text-shadow:var(--glow);margin:.15rem 0 .1rem;}
 .ar-spot-count.idle{color:var(--text3);text-shadow:none;}
 .ar-spot-sub{font-size:.63rem;color:var(--text3);letter-spacing:.05em;line-height:1.5;}
 /* Uploaded-count badge next to each mode in the bands/modes header */
 .ar-hdr-badge{display:inline-block;margin-left:.35rem;padding:0 .35rem;border-radius:2px;
-  font-family:'Share Tech Mono',monospace;font-size:.62rem;letter-spacing:0;
-  background:rgba(0,255,65,0.12);color:var(--green);border:1px solid #00ff4144;}
+  font-family:var(--font-mono);font-size:.62rem;letter-spacing:0;
+  background:rgba(var(--accent-rgb),0.12);color:var(--green);border:1px solid rgba(var(--accent-rgb),.27);}
 .ar-hdr-badge:empty{display:none;}
 /* All-time spot count printed beside each band/mode checkbox */
 /* Sits tight against its own checkbox: the count belongs to that one slot, and
@@ -1212,12 +1254,12 @@ body{background-image:repeating-linear-gradient(0deg,transparent,transparent 2px
    entirely in the last one, so WSPR's numbers sat in the horizontal overflow. */
 #ar-matrix input[type=checkbox]{width:auto;margin:0;vertical-align:middle;}
 .ar-slot-tot{margin-left:.5rem;vertical-align:middle;
-  font-family:'Share Tech Mono',monospace;font-size:.74rem;
-  color:var(--green);text-shadow:0 0 6px #00ff4188;}
+  font-family:var(--font-mono);font-size:.74rem;
+  color:var(--green);text-shadow:0 0 6px rgba(var(--accent-rgb),.53);}
 /* Decodes with nothing uploaded yet — amber rather than a dim grey: it is a
    normal waiting state (PSK Reporter only flushes every 5 min), so it should be
    as readable as the uploaded count, just distinguishable from it. */
-.ar-slot-tot.none{color:var(--amber);text-shadow:0 0 6px #ffb00077;}
+.ar-slot-tot.none{color:var(--amber);text-shadow:0 0 6px rgba(var(--amber-rgb),.47);}
 .ar-slot-tot:empty{display:none;}
 
 /* Server control card */
@@ -1226,19 +1268,19 @@ body{background-image:repeating-linear-gradient(0deg,transparent,transparent 2px
 .sdr-info p{margin:.3rem 0;font-size:.75rem;color:var(--text2);}
 .sdr-info .val{color:var(--green);}
 .sdr-btns{display:flex;flex-direction:column;gap:.5rem;}
-.script-select{background:#071207;border:1px solid var(--border);color:var(--text);
-  font-family:'Share Tech Mono',monospace;font-size:.75rem;padding:.4rem .6rem;
+.script-select{background:var(--field);border:1px solid var(--border);color:var(--text);
+  font-family:var(--font-mono);font-size:.75rem;padding:.4rem .6rem;
   border-radius:2px;width:100%;margin-bottom:.5rem;}
 .script-select:focus{border-color:var(--green);outline:none;}
 
 /* Editor */
 .editor-toolbar{display:flex;gap:.5rem;align-items:center;flex-wrap:wrap;margin-bottom:.7rem;}
-.file-select{background:#071207;border:1px solid var(--border);color:var(--text);
-  font-family:'Share Tech Mono',monospace;font-size:.75rem;padding:.4rem .7rem;
+.file-select{background:var(--field);border:1px solid var(--border);color:var(--text);
+  font-family:var(--font-mono);font-size:.75rem;padding:.4rem .7rem;
   border-radius:2px;flex:1;}
 .file-select:focus{outline:none;border-color:var(--green);}
-textarea.code{width:100%;background:#030803;border:1px solid var(--border);color:#c8ffc8;
-  font-family:'Share Tech Mono',monospace;font-size:.75rem;line-height:1.6;
+textarea.code{width:100%;background:var(--deep);border:1px solid var(--border);color:var(--code-text);
+  font-family:var(--font-mono);font-size:.75rem;line-height:1.6;
   padding:.8rem;border-radius:3px;resize:vertical;outline:none;
   min-height:400px;transition:.2s;}
 textarea.code:focus{border-color:var(--green);box-shadow:var(--glow);}
@@ -1248,12 +1290,12 @@ textarea.code:focus{border-color:var(--green);box-shadow:var(--glow);}
   flex-direction:column;gap:.4rem;}
 .toast{padding:.6rem 1rem;border-radius:3px;font-size:.75rem;
   animation:toastIn .3s ease;border:1px solid;}
-.toast.ok{background:rgba(0,255,65,0.12);border-color:#00ff4155;color:var(--green);}
-.toast.err{background:rgba(255,64,64,0.12);border-color:#ff404055;color:var(--red);}
+.toast.ok{background:rgba(var(--accent-rgb),0.12);border-color:rgba(var(--accent-rgb),.33);color:var(--green);}
+.toast.err{background:rgba(var(--red-rgb),0.12);border-color:rgba(var(--red-rgb),.33);color:var(--red);}
 @keyframes toastIn{from{opacity:0;transform:translateX(20px)}to{opacity:1;transform:none}}
 
 /* Log viewer */
-.log-box{background:#030803;border:1px solid var(--border);border-radius:3px;
+.log-box{background:var(--deep);border:1px solid var(--border);border-radius:3px;
   padding:.8rem;font-size:.7rem;line-height:1.8;height:400px;overflow-y:auto;
   color:var(--text2);word-break:break-all;}
 .log-box::-webkit-scrollbar{width:4px;}
@@ -1261,7 +1303,7 @@ textarea.code:focus{border-color:var(--green);box-shadow:var(--glow);}
 .log-box::-webkit-scrollbar-thumb{background:var(--dim);}
 .log-line-err{color:var(--red);}
 .log-line-warn{color:var(--amber);}
-.log-line-ok{color:var(--green);}
+.log-line-ok{color:var(--ok);}
 
 /* Tabs inside sections */
 .tab-bar{display:flex;flex-wrap:wrap;border-bottom:1px solid var(--border);margin-bottom:1rem;}
@@ -1272,7 +1314,7 @@ textarea.code:focus{border-color:var(--green);box-shadow:var(--glow);}
 .tab-pane.active{display:block;}
 
 /* Section heading */
-.section-head{font-family:'Orbitron',sans-serif;font-size:.8rem;color:var(--green);
+.section-head{font-family:var(--font-head);font-size:.8rem;color:var(--green);
   letter-spacing:.15em;margin-bottom:1rem;padding-bottom:.5rem;
   border-bottom:1px solid var(--border);}
 
@@ -1280,30 +1322,30 @@ textarea.code:focus{border-color:var(--green);box-shadow:var(--glow);}
 .json-path{font-size:.65rem;color:var(--text3);margin-bottom:.5rem;}
 
 input[type=text],input[type=password],input[type=number]{
-  background:#071207;border:1px solid var(--border);color:var(--text);
-  font-family:'Share Tech Mono',monospace;font-size:.8rem;padding:.4rem .7rem;
+  background:var(--field);border:1px solid var(--border);color:var(--text);
+  font-family:var(--font-mono);font-size:.8rem;padding:.4rem .7rem;
   border-radius:2px;outline:none;transition:.15s;}
-input:focus{border-color:var(--green);box-shadow:0 0 6px #00ff4122;}
+input:focus{border-color:var(--green);box-shadow:0 0 6px rgba(var(--accent-rgb),.13);}
 
 /* Chat history */
-.chat-log{background:#030803;border:1px solid var(--border);border-radius:3px;
+.chat-log{background:var(--deep);border:1px solid var(--border);border-radius:3px;
   padding:.8rem;font-size:.75rem;line-height:2;height:500px;overflow-y:auto;}
-.chat-msg{display:flex;align-items:baseline;gap:.5rem;border-bottom:1px solid #0a1a0a;padding:.3rem 0;}
+.chat-msg{display:flex;align-items:baseline;gap:.5rem;border-bottom:1px solid var(--row);padding:.3rem 0;}
 .chat-msg-text{flex:1;}
 .chat-nick{color:var(--amber);}
 .chat-time{color:var(--text3);font-size:.65rem;}
-.chat-del-btn{flex-shrink:0;background:transparent;border:1px solid #ff404044;color:#ff6060;
-  font-family:'Share Tech Mono',monospace;font-size:.6rem;padding:.1rem .4rem;border-radius:2px;
+.chat-del-btn{flex-shrink:0;background:transparent;border:1px solid rgba(var(--red-rgb),.27);color:var(--red);
+  font-family:var(--font-mono);font-size:.6rem;padding:.1rem .4rem;border-radius:2px;
   cursor:pointer;transition:.15s;line-height:1.4;}
-.chat-del-btn:hover{background:rgba(255,64,64,0.15);border-color:#ff404088;}
+.chat-del-btn:hover{background:rgba(var(--red-rgb),0.15);border-color:rgba(var(--red-rgb),.53);}
 
 /* Top processes table */
 table.top-procs{width:100%;border-collapse:collapse;font-size:.72rem;}
 table.top-procs th{color:var(--text3);font-weight:normal;letter-spacing:.1em;
   padding:.35rem .5rem;border-bottom:1px solid var(--border);text-align:left;white-space:nowrap;}
-table.top-procs td{padding:.3rem .5rem;border-bottom:1px solid #0a1a0a;
+table.top-procs td{padding:.3rem .5rem;border-bottom:1px solid var(--row);
   white-space:nowrap;overflow:hidden;max-width:200px;text-overflow:ellipsis;}
-table.top-procs tr:hover td{background:rgba(0,255,65,0.04);}
+table.top-procs tr:hover td{background:rgba(var(--accent-rgb),0.04);}
 table.top-procs .cpu-hi{color:var(--stat-bad);}
 table.top-procs .cpu-med{color:var(--stat-warn);}
 table.top-procs .cpu-ok{color:var(--stat-ok);}
@@ -1329,6 +1371,11 @@ table.top-procs .mem-col{color:var(--blue);}
   .topbar{padding:.5rem .8rem;gap:.5rem;}
   .topbar-title{font-size:.8rem;flex:1;}
   .topbar-time{display:none;}
+  .topbar-theme{font-size:.55rem;gap:.25rem;}
+  .topbar-theme select{min-height:32px;font-size:.62rem;padding:.1rem .1rem;width:5.2rem;}
+  .topbar{flex-wrap:wrap;row-gap:.4rem;}
+  .topbar-right{gap:.45rem;margin-left:auto;}
+  .logout-btn{white-space:nowrap;padding:.2rem .35rem;}
   .status-pill{padding:.2rem .5rem;font-size:.65rem;}
 
   /* Bottom navigation bar */
@@ -1348,7 +1395,7 @@ table.top-procs .mem-col{color:var(--blue);}
   .bottom-nav a .bi{font-size:1.3rem;line-height:1;}
   .bottom-nav a span{font-size:.48rem;letter-spacing:.02em;white-space:nowrap;}
   .bottom-nav a.active{color:var(--green);border-top-color:var(--green);}
-  .bottom-nav a:active{background:rgba(0,255,65,0.08);}
+  .bottom-nav a:active{background:rgba(var(--accent-rgb),0.08);}
 
   /* Grids → single column */
   .grid-2,.grid-3,.grid-4,.grid-5{grid-template-columns:1fr !important;}
@@ -1404,21 +1451,80 @@ table.top-procs .mem-col{color:var(--blue);}
 table.markers{width:100%;border-collapse:collapse;font-size:.75rem;}
 table.markers th{color:var(--text3);font-weight:normal;letter-spacing:.1em;
   padding:.4rem .6rem;border-bottom:1px solid var(--border);text-align:left;}
-table.markers td{padding:.4rem .6rem;border-bottom:1px solid #0a1a0a;vertical-align:middle;}
-table.markers tr:hover td{background:rgba(0,255,65,0.03);}
+table.markers td{padding:.4rem .6rem;border-bottom:1px solid var(--row);vertical-align:middle;}
+table.markers tr:hover td{background:rgba(var(--accent-rgb),0.03);}
 table.markers input{width:100%;background:transparent;border:none;
-  color:var(--text);font-family:'Share Tech Mono',monospace;font-size:.75rem;}
-table.markers input:focus{background:#071207;outline:1px solid var(--border);}
+  color:var(--text);font-family:var(--font-mono);font-size:.75rem;}
+table.markers input:focus{background:var(--field);outline:1px solid var(--border);}
 
 /* Listener map (Leaflet) */
-#umap.leaflet-container{font-family:'Share Tech Mono',monospace;font-size:.7rem;}
+#umap.leaflet-container{font-family:var(--font-mono);font-size:.7rem;}
 #umap .leaflet-popup-content-wrapper,#umap .leaflet-popup-tip,#umap .leaflet-tooltip{
-  background:var(--panel);color:var(--text);border:1px solid var(--border);box-shadow:0 0 12px rgba(0,255,65,.15);}
+  background:var(--panel);color:var(--text);border:1px solid var(--border);box-shadow:0 0 12px rgba(var(--accent-rgb),.15);}
 #umap .leaflet-popup-content{margin:.6rem .8rem;line-height:1.5;font-size:.68rem;}
-#umap .umap-pop-head{font-family:'Orbitron',sans-serif;color:var(--green);font-size:.66rem;letter-spacing:.05em;margin-bottom:.3rem;}
+#umap .umap-pop-head{font-family:var(--font-head);color:var(--green);font-size:.66rem;letter-spacing:.05em;margin-bottom:.3rem;}
 #umap .leaflet-control-layers,#umap .leaflet-bar a{background:var(--panel);color:var(--text);border-color:var(--border);}
-#umap .leaflet-control-attribution{background:rgba(5,10,5,.75);color:var(--text3);}
+#umap .leaflet-control-attribution{background:var(--panel);color:var(--text3);}
 #umap .leaflet-control-attribution a{color:var(--text2);}
+
+/* ── Themes ─────────────────────────────────────────────────────────────────
+   Chosen in Settings → Appearance, kept per browser (localStorage
+   "adminTheme"); "auto" picks dark or light from the computer's setting. */
+html[data-theme=amber]{
+  --green:#ffb000;--green2:#cc8c00;--amber:#ff7a1a;--red:#ff4a3a;--blue:#7fd4ff;
+  --accent-rgb:255,176,0;--amber-rgb:255,122,26;--red-rgb:255,74,58;--blue-rgb:127,212,255;
+  --ok:#ffc94a;--ok-rgb:255,201,74;
+  --bg:#0a0702;--panel:#140e05;--panel2:#1a1206;--border:#3a2a10;--dim:#4a3614;
+  --text:#ffe2b0;--text2:#c89a5a;--text3:#8f6e3e;
+  --field:#100b04;--deep:#070402;--row:#1d150a;--tile:#110b04;--code-text:#ffe2b0;
+  --glow:0 0 8px rgba(255,176,0,.33),0 0 20px rgba(255,176,0,.13);
+  --body-bg:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(255,176,0,0.012) 2px,rgba(255,176,0,0.012) 4px);
+}
+html[data-theme=metal]{
+  --green:#8fd3ff;--green2:#5fb4e8;--amber:#f5b942;--red:#ff6b6b;--blue:#a5b4fc;
+  --accent-rgb:143,211,255;--amber-rgb:245,185,66;--red-rgb:255,107,107;--blue-rgb:165,180,252;
+  --ok:#4ade80;--ok-rgb:74,222,128;
+  --bg:#171b21;--panel:#242b35;--panel2:#2b333f;--border:#39424f;--dim:#4a5462;
+  --text:#e4e7eb;--text2:#aeb6c1;--text3:#808a97;
+  --field:#1a1f27;--deep:#161a21;--row:#2f3742;--tile:#1d232c;--code-text:#dfe6ee;
+  --radius:6px;--glow:none;--glow-amber:none;--glow-red:none;--body-bg:none;
+  /* bead-blasted anodised grain, as .screw-panel on the receiver page */
+  --card-bg:#242b35 url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23g)' opacity='0.38'/%3E%3C/svg%3E") 0 0/160px 160px;
+  /* one light source, upper right: lit top/right edges, shadow falls down-left */
+  --card-shadow:inset -1px 1px 0 rgba(255,255,255,.10),inset 1px -1px 0 rgba(0,0,0,.45),-4px 5px 12px rgba(0,0,0,.45);
+  --recess:inset -2px 2px 3px rgba(0,0,0,.55),inset 1px -1px 0 rgba(255,255,255,.06);
+}
+html[data-theme=metal] .card{background-blend-mode:overlay;}
+html[data-theme=metal] .sidebar,html[data-theme=metal] .topbar{
+  background:linear-gradient(225deg,#2a313c,#1f252e);}
+html[data-theme=dark]{
+  --green:#60a5fa;--green2:#3b82f6;--amber:#fbbf24;--red:#f87171;--blue:#22d3ee;
+  --accent-rgb:96,165,250;--amber-rgb:251,191,36;--red-rgb:248,113,113;--blue-rgb:34,211,238;
+  --ok:#4ade80;--ok-rgb:74,222,128;
+  --bg:#14161b;--panel:#1d2027;--panel2:#242832;--border:#323743;--dim:#3d4351;
+  --text:#e6e8ec;--text2:#a9b0bc;--text3:#7a8291;
+  --field:#171a20;--deep:#121419;--row:#2a2e38;--tile:#191c23;--code-text:#e6e8ec;
+  --radius:8px;--glow:none;--glow-amber:none;--glow-red:none;--body-bg:none;
+  --card-shadow:0 1px 3px rgba(0,0,0,.35);
+}
+html[data-theme=light]{
+  --green:#1d4ed8;--green2:#2563eb;--amber:#b45309;--red:#c62828;--blue:#0e7490;
+  --accent-rgb:29,78,216;--amber-rgb:180,83,9;--red-rgb:198,40,40;--blue-rgb:14,116,144;
+  --ok:#15803d;--ok-rgb:21,128,61;
+  --bg:#eef1f5;--panel:#ffffff;--panel2:#f6f8fa;--border:#d5dbe3;--dim:#c3cbd5;
+  --text:#000000;--text2:#111111;--text3:#333333;
+  --field:#ffffff;--deep:#f8fafc;--row:#e8ecf1;--tile:#f6f8fa;--code-text:#000000;
+  --stat-ok:#16a34a;--stat-warn:#d97706;--stat-bad:#dc2626;
+  --radius:8px;--glow:none;--glow-amber:none;--glow-red:none;--body-bg:none;
+  --card-shadow:0 1px 3px rgba(16,24,40,.08),0 1px 2px rgba(16,24,40,.05);
+}
+html[data-theme=light] .sidebar-backdrop.open{background:rgba(0,0,0,.35);}
+html[data-theme=light] .bottom-nav{box-shadow:0 -2px 10px rgba(0,0,0,.08);}
+html[data-theme=light] .bar-wrap{background:var(--row);}
+/* scan lines belong to the phosphor/amber displays only */
+html[data-theme=metal] .scanlines,html[data-theme=dark] .scanlines,html[data-theme=light] .scanlines{display:none;}
+input[type=text],input[type=password],input[type=number],select,textarea.code,.log-box,.chat-log{box-shadow:var(--recess);}
+select{background:var(--field);color:var(--text);border:1px solid var(--border);border-radius:2px;}
 </style>
 </head>
 <body>
@@ -1429,7 +1535,7 @@ table.markers input:focus{background:#071207;outline:1px solid var(--border);}
     <div class="sidebar-logo">
       <div class="icon">📡</div>
       <div class="title">PHANTOM<span style="color:var(--amber)">SDR</span></div>
-      <div class="sub">ADMIN v5.2.1</div>
+      <div class="sub">ADMIN v5.3.0</div>
     </div>
     <div class="nav-section">
       <div class="nav-label">MAIN</div>
@@ -1466,6 +1572,9 @@ table.markers input:focus{background:#071207;outline:1px solid var(--border);}
       <a class="nav-item" onclick="showPage('users',this)" href="#">
         <span class="icon">👥</span><span>Users</span>
       </a>
+      <a class="nav-item" onclick="showPage('visitors',this)" href="#" id="nav-visitors">
+        <span class="icon">📈</span><span>Visitors</span>
+      </a>
       <a class="nav-item" onclick="showPage('wfmsg',this)" href="#">
         <span class="icon">📢</span><span>WF Message</span>
       </a>
@@ -1490,6 +1599,16 @@ table.markers input:focus{background:#071207;outline:1px solid var(--border);}
           <div class="status-dot offline"></div>
           <span>OFFLINE</span>
         </div>
+        <label class="topbar-theme" title="Theme of this panel (saved in this browser)">THEME
+          <select id="theme-sel-top" onchange="setAdminTheme(this.value)">
+            <option value="green">Phosphor green</option>
+            <option value="amber">Amber display</option>
+            <option value="metal">Metal panel</option>
+            <option value="dark">Modern dark</option>
+            <option value="light">Light</option>
+            <option value="auto">Auto (day/night)</option>
+          </select>
+        </label>
         <div class="topbar-time" id="clock">--:--:--</div>
         <a class="logout-btn" href="/admin/logout">⏻ LOGOUT</a>
       </div>
@@ -1542,6 +1661,29 @@ table.markers input:focus{background:#071207;outline:1px solid var(--border);}
             <div class="stat-label">CPU TEMP</div>
             <div class="bar-wrap"><div class="bar-fill" id="bar-temp" style="width:0%;background:linear-gradient(90deg,#4ade80,#fbbf24,#ef4444)"></div></div>
             <div class="stat-sub" id="stat-temp-guard" style="margin-top:.3rem;">GUARD: --</div>
+          </div>
+        </div>
+
+        <!-- ══════ SYSTEM HEALTH ══════ -->
+        <div class="card" id="health-card" style="margin-bottom:1rem;">
+          <div class="card-header">
+            <div class="dot" id="hl-dot"></div>
+            SYSTEM HEALTH
+            <span style="margin-left:auto;font-size:.6rem;color:var(--text3);cursor:pointer;" onclick="loadHealth()">↻ refresh</span>
+          </div>
+          <div class="grid grid-2" style="gap:1rem;">
+            <div>
+              <div style="font-size:.65rem;color:var(--text3);margin-bottom:.3rem;">RECEIVERS</div>
+              <div id="hl-rx" style="font-size:.75rem;line-height:1.7;">Loading...</div>
+              <div style="font-size:.65rem;color:var(--text3);margin:.6rem 0 .3rem;">DISK &amp; LOG FOLDERS</div>
+              <div id="hl-disk" style="font-size:.75rem;line-height:1.7;"></div>
+            </div>
+            <div>
+              <div style="font-size:.65rem;color:var(--text3);margin-bottom:.3rem;">RECENT ALERTS</div>
+              <div id="hl-events" style="font-size:.72rem;line-height:1.6;max-height:9rem;overflow:auto;"></div>
+              <div style="font-size:.65rem;color:var(--text3);margin:.6rem 0 .3rem;">LAST CRASH.LOG ENTRY <span id="hl-crash-when"></span></div>
+              <pre id="hl-crash" style="font-size:.62rem;color:var(--text2);white-space:pre-wrap;max-height:9rem;overflow:auto;margin:0;"></pre>
+            </div>
           </div>
         </div>
 
@@ -1602,11 +1744,11 @@ table.markers input:focus{background:#071207;outline:1px solid var(--border);}
           </div>
           <div id="term-output"
             style="font-family:'Share Tech Mono',monospace;font-size:.75rem;line-height:1.5;
-                   background:#020902;border:1px solid var(--border);border-radius:3px;
+                   background:var(--deep);border:1px solid var(--border);border-radius:3px;
                    padding:.5rem .7rem;height:300px;overflow-y:auto;color:var(--text);
                    white-space:pre-wrap;word-break:break-all;"></div>
           <div style="display:flex;align-items:center;gap:.4rem;margin-top:.4rem;
-                      background:#020902;border:1px solid var(--border);border-radius:3px;padding:.3rem .6rem;">
+                      background:var(--deep);border:1px solid var(--border);border-radius:3px;padding:.3rem .6rem;">
             <span style="color:var(--green);font-size:.75rem;flex-shrink:0;">$</span>
             <input id="term-input" type="text" autocomplete="off" spellcheck="false"
               style="flex:1;background:transparent;border:none;outline:none;
@@ -1784,7 +1926,7 @@ table.markers input:focus{background:#071207;outline:1px solid var(--border);}
         <div class="card">
           <div class="card-header"><div class="dot"></div>BANDS &amp; MODES
             <span style="margin-left:auto;font-size:.62rem;color:var(--text3);">MAX SLOTS
-              <input id="ar-max" type="number" min="1" max="64" onchange="autorunCount()" style="width:3.4rem;margin-left:.3rem;background:#071007;border:1px solid var(--border);color:var(--green);padding:.15rem;"></span>
+              <input id="ar-max" type="number" min="1" max="64" onchange="autorunCount()" style="width:3.4rem;margin-left:.3rem;background:var(--tile);border:1px solid var(--border);color:var(--green);padding:.15rem;"></span>
           </div>
           <div style="overflow-x:auto;"><table class="markers" id="ar-matrix"></table></div>
           <p style="color:var(--text3);font-size:.62rem;margin-top:.5rem;" id="ar-count">&#8212;</p>
@@ -1849,6 +1991,21 @@ table.markers input:focus{background:#071207;outline:1px solid var(--border);}
       <!-- ══════ SETTINGS PAGE ══════ -->
       <div class="page" id="page-settings">
         <div class="section-head">ADMIN SETTINGS</div>
+        <div class="card" style="margin-bottom:1rem;">
+          <div class="card-header"><div class="dot"></div>APPEARANCE</div>
+          <div style="display:flex;gap:.8rem;align-items:center;flex-wrap:wrap;">
+            <label style="font-size:.7rem;color:var(--text2);" for="theme-sel">THEME</label>
+            <select id="theme-sel" onchange="setAdminTheme(this.value)" style="padding:.4rem .6rem;font-size:.8rem;">
+              <option value="green">Phosphor green (classic)</option>
+              <option value="amber">Amber display</option>
+              <option value="metal">Metal panel (as the receiver page)</option>
+              <option value="dark">Modern dark</option>
+              <option value="light">Light</option>
+              <option value="auto">Auto: light by day, dark at night (station locator)</option>
+            </select>
+            <span style="font-size:.65rem;color:var(--text3);">Saved in this browser only.</span>
+          </div>
+        </div>
         <div class="grid grid-2" style="margin-bottom:1rem;">
           <div class="card">
             <div class="card-header"><div class="dot"></div>CHANGE PASSWORD</div>
@@ -1948,6 +2105,82 @@ table.markers input:focus{background:#071207;outline:1px solid var(--border);}
           <button class="btn btn-amber" onclick="saveThermal()">💾 SAVE THERMAL SETTINGS</button>
           <div id="tg-cfg-msg" style="margin-top:.5rem;font-size:.7rem;color:var(--text3);"></div>
         </div>
+        <div class="grid grid-2" style="margin-top:1rem;">
+          <div class="card">
+            <div class="card-header"><div class="dot" style="background:var(--amber);box-shadow:0 0 6px var(--amber)"></div>ALERTS — EMAIL / TELEGRAM</div>
+            <p style="color:var(--text2);font-size:.7rem;margin-bottom:.6rem;">A message when a receiver goes off the air or comes back, is restarted, the thermal guard changes stage, or crash.log gets a new entry. Checked every 30 s; the same alert at most once per 5 minutes.</p>
+            <div style="display:flex;flex-wrap:wrap;gap:.8rem;font-size:.72rem;margin-bottom:.8rem;">
+              <label><input type="checkbox" id="al-ev-down"> off the air</label>
+              <label><input type="checkbox" id="al-ev-up"> back on air</label>
+              <label><input type="checkbox" id="al-ev-restart"> restarted</label>
+              <label><input type="checkbox" id="al-ev-thermal"> thermal guard</label>
+              <label><input type="checkbox" id="al-ev-crash"> crash.log</label>
+            </div>
+            <div class="card-header" style="margin:.4rem 0;"><label><input type="checkbox" id="al-tg-on"> TELEGRAM</label></div>
+            <div class="grid grid-2" style="gap:.5rem;margin-bottom:.4rem;">
+              <div><label style="font-size:.65rem;color:var(--text3);display:block;margin-bottom:.3rem;">BOT TOKEN (from @BotFather)</label><input type="password" id="al-tg-token" style="width:100%;" autocomplete="off"></div>
+              <div><label style="font-size:.65rem;color:var(--text3);display:block;margin-bottom:.3rem;">CHAT ID (your own, e.g. from @userinfobot)</label><input type="text" id="al-tg-chat" style="width:100%;"></div>
+            </div>
+            <div class="card-header" style="margin:.8rem 0 .4rem;"><label><input type="checkbox" id="al-em-on"> EMAIL</label></div>
+            <div class="grid grid-2" style="gap:.5rem;margin-bottom:.4rem;">
+              <div><label style="font-size:.65rem;color:var(--text3);display:block;margin-bottom:.3rem;">SMTP SERVER</label><input type="text" id="al-em-host" style="width:100%;" placeholder="smtp.example.com"></div>
+              <div style="display:flex;gap:.5rem;">
+                <div style="flex:1;"><label style="font-size:.65rem;color:var(--text3);display:block;margin-bottom:.3rem;">PORT</label><input type="number" id="al-em-port" style="width:100%;" placeholder="465"></div>
+                <div style="flex:1;"><label style="font-size:.65rem;color:var(--text3);display:block;margin-bottom:.3rem;">SECURITY</label><select id="al-em-sec" style="width:100%;"><option value="ssl">SSL</option><option value="starttls">STARTTLS</option><option value="none">none</option></select></div>
+              </div>
+              <div><label style="font-size:.65rem;color:var(--text3);display:block;margin-bottom:.3rem;">USER</label><input type="text" id="al-em-user" style="width:100%;" autocomplete="off"></div>
+              <div><label style="font-size:.65rem;color:var(--text3);display:block;margin-bottom:.3rem;">PASSWORD</label><input type="password" id="al-em-pass" style="width:100%;" autocomplete="new-password"></div>
+              <div><label style="font-size:.65rem;color:var(--text3);display:block;margin-bottom:.3rem;">FROM (address, or just a name; blank = user)</label><input type="text" id="al-em-from" style="width:100%;"></div>
+              <div><label style="font-size:.65rem;color:var(--text3);display:block;margin-bottom:.3rem;">TO</label><input type="text" id="al-em-to" style="width:100%;"></div>
+            </div>
+            <div style="display:flex;gap:.5rem;margin-top:.8rem;">
+              <button class="btn btn-amber" onclick="saveAlerts()">💾 SAVE ALERTS</button>
+              <button class="btn btn-blue" onclick="testAlerts()">✉ SEND TEST</button>
+            </div>
+            <div id="al-msg" style="margin-top:.5rem;font-size:.7rem;color:var(--text3);"></div>
+          </div>
+          <div class="card">
+            <div class="card-header"><div class="dot" style="background:var(--blue);box-shadow:0 0 6px var(--blue)"></div>BACKUP &amp; RESTORE OF THE STATION SETTINGS</div>
+            <p style="color:var(--text2);font-size:.7rem;margin-bottom:.6rem;">One zip with this station's own settings: the receiver .toml configs, receivers.toml, station.conf, site information, markers, band settings, the relay and spot-reporting settings, the ban list, and the same for every extra receiver in instances/. Not included: the admin password, the alert secrets, the logs and the program itself.</p>
+            <button class="btn btn-green" onclick="window.location='/admin/api/backup'">⬇ DOWNLOAD BACKUP</button>
+            <div style="margin-top:1.2rem;font-size:.65rem;color:var(--text3);margin-bottom:.3rem;">RESTORE FROM A BACKUP ZIP</div>
+            <input type="file" id="rs-file" accept=".zip,application/zip" style="width:100%;margin-bottom:.5rem;">
+            <button class="btn btn-red" onclick="restoreBackup()">⬆ RESTORE</button>
+            <p style="color:var(--text3);font-size:.65rem;margin-top:.5rem;">Only the files listed above are taken from the zip. Every file it replaces is copied first to admin-backups/restore-&lt;date&gt;/. Afterwards restart the receivers (and rebuild the page if site information or band settings were in it).</p>
+            <div id="rs-msg" style="margin-top:.5rem;font-size:.7rem;color:var(--text3);"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="page" id="page-visitors">
+        <div class="section-head">VISITOR STATISTICS
+          <span style="margin-left:auto;font-size:.65rem;">
+            <select id="vs-days" onchange="loadVisitors()">
+              <option value="1">Today</option><option value="7" selected>7 days</option>
+              <option value="14">14 days</option><option value="31">31 days</option>
+            </select>
+            <button class="btn" onclick="loadVisitors()">↻ RELOAD</button>
+          </span>
+        </div>
+        <p style="color:var(--text3);font-size:.68rem;margin:0 0 .8rem;">From the private listener logs of every receiver (with the addresses, which the public pages no longer show). Days and hours are UTC; the station's own decoders (local connections) are left out.</p>
+        <div class="grid grid-4" style="margin-bottom:1rem;" id="vs-totals"></div>
+        <div class="grid grid-2" style="margin-bottom:1rem;">
+          <div class="card">
+            <div class="card-header"><div class="dot"></div>PER DAY</div>
+            <div id="vs-days-tbl" style="overflow:auto;"></div>
+          </div>
+          <div class="card">
+            <div class="card-header"><div class="dot" style="background:var(--amber);box-shadow:0 0 6px var(--amber)"></div>BUSIEST HOURS (UTC, sessions started)</div>
+            <div id="vs-hours" style="display:flex;align-items:flex-end;gap:2px;height:8rem;padding-top:.5rem;"></div>
+            <div style="display:flex;justify-content:space-between;font-size:.55rem;color:var(--text3);"><span>00</span><span>06</span><span>12</span><span>18</span><span>23</span></div>
+            <div class="card-header" style="margin-top:1rem;"><div class="dot" style="background:var(--blue);box-shadow:0 0 6px var(--blue)"></div>COUNTRIES (visitors)</div>
+            <div id="vs-cc" style="font-size:.75rem;line-height:1.7;"></div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header"><div class="dot" style="background:#ff4444;box-shadow:0 0 6px #ff4444"></div>ADDRESSES — most sessions at the same time first (a flood shows up here)</div>
+          <div id="vs-addr" style="overflow:auto;"></div>
+        </div>
       </div>
 
       <!-- ══════ USERS PAGE ══════ -->
@@ -1996,7 +2229,7 @@ table.markers input:focus{background:#071207;outline:1px solid var(--border);}
           <div id="graph-empty" style="display:none;color:var(--text3);font-size:.72rem;text-align:center;padding:2rem .6rem;"></div>
           <canvas id="graph-canvas" style="width:100%;display:block;cursor:crosshair;"></canvas>
           <div id="graph-tooltip" style="display:none;position:absolute;z-index:50;pointer-events:none;
-               background:#071007;border:1px solid var(--border);border-radius:3px;padding:.45rem .6rem;
+               background:var(--tile);border:1px solid var(--border);border-radius:3px;padding:.45rem .6rem;
                font-size:.8rem;line-height:1.5;color:var(--text);white-space:nowrap;box-shadow:0 4px 14px #000a;"></div>
         </div>
       </div>
@@ -2006,6 +2239,7 @@ table.markers input:focus{background:#071207;outline:1px solid var(--border);}
         <div style="display:flex;gap:.5rem;margin-bottom:.8rem;flex-wrap:wrap;align-items:center;">
           <button class="btn btn-blue" onclick="loadUsers()">&#8635; REFRESH</button>
           <button class="btn btn-green" id="users-auto-btn" onclick="toggleUsersAutoRefresh()">&#9654; AUTO</button>
+          <button class="btn btn-amber" onclick="showPage('visitors', document.getElementById('nav-visitors'))">📈 VISITOR STATISTICS</button>
           <span style="font-size:.65rem;color:var(--text3);margin-left:.4rem;" id="users-info-label"></span>
         </div>
         <div id="users-error" style="display:none;background:rgba(255,64,64,.08);border:1px solid rgba(255,64,64,.3);border-radius:3px;color:var(--red);padding:.5rem .9rem;font-size:.72rem;margin-bottom:.6rem;"></div>
@@ -2013,6 +2247,7 @@ table.markers input:focus{background:#071207;outline:1px solid var(--border);}
           <table style="width:100%;border-collapse:collapse;font-size:.75rem;">
             <thead>
               <tr>
+                <th style="color:var(--text3);font-weight:normal;letter-spacing:.1em;padding:.4rem .6rem;border-bottom:1px solid var(--border);text-align:left;white-space:nowrap;">NAME / CALL</th>
                 <th style="color:var(--text3);font-weight:normal;letter-spacing:.1em;padding:.4rem .6rem;border-bottom:1px solid var(--border);text-align:left;white-space:nowrap;">IP / LOCATION</th>
                 <th id="users-rx-th" style="display:none;color:var(--text3);font-weight:normal;letter-spacing:.1em;padding:.4rem .6rem;border-bottom:1px solid var(--border);text-align:left;white-space:nowrap;">RECEIVER</th>
                 <th style="color:var(--text3);font-weight:normal;letter-spacing:.1em;padding:.4rem .6rem;border-bottom:1px solid var(--border);text-align:left;white-space:nowrap;">FREQUENCY</th>
@@ -2022,8 +2257,17 @@ table.markers input:focus{background:#071207;outline:1px solid var(--border);}
               </tr>
             </thead>
             <tbody id="users-tbody">
-              <tr><td colspan="5" style="color:var(--text3);text-align:center;padding:.8rem;">Click REFRESH to load</td></tr>
+              <tr><td colspan="8" style="color:var(--text3);text-align:center;padding:.8rem;">Click REFRESH to load</td></tr>
             </tbody>
+          </table>
+        </div>
+        <div class="card" id="bans-card" style="display:none;margin-top:.8rem;overflow-x:auto;padding:0;">
+          <div class="card-header" style="padding:.6rem .9rem;margin:0;display:flex;align-items:center;gap:.6rem;">
+            <div class="dot"></div>BANNED FOR 24 H
+            <span style="font-size:.6rem;color:var(--text3);margin-left:auto;">kept across receiver restarts</span>
+          </div>
+          <table style="width:100%;border-collapse:collapse;font-size:.75rem;">
+            <tbody id="bans-tbody"></tbody>
           </table>
         </div>
         <div class="card" style="margin-top:.8rem;padding:0;overflow:hidden;">
@@ -2049,7 +2293,7 @@ table.markers input:focus{background:#071207;outline:1px solid var(--border);}
             <div style="margin-bottom:.6rem;">
               <label style="font-size:.65rem;color:var(--text3);display:block;margin-bottom:.3rem;">MESSAGE (max 200 chars)</label>
               <textarea id="wfmsg-text"
-                style="width:100%;background:#030803;border:1px solid var(--border);
+                style="width:100%;background:var(--deep);border:1px solid var(--border);
                        color:var(--text);font-family:'Share Tech Mono',monospace;
                        font-size:.85rem;padding:.5rem .7rem;border-radius:3px;
                        resize:vertical;height:80px;outline:none;transition:.15s;"
@@ -2062,7 +2306,7 @@ table.markers input:focus{background:#071207;outline:1px solid var(--border);}
             <div style="margin-bottom:.8rem;">
               <label style="font-size:.65rem;color:var(--text3);display:block;margin-bottom:.3rem;">TEXT COLOUR</label>
               <select id="wfmsg-color"
-                style="width:100%;background:#071207;border:1px solid var(--border);
+                style="width:100%;background:var(--field);border:1px solid var(--border);
                        color:var(--text);font-family:'Share Tech Mono',monospace;
                        font-size:.8rem;padding:.4rem .6rem;border-radius:2px;outline:none;">
                 <option value="#ffffff">⬜ White</option>
@@ -2092,7 +2336,7 @@ table.markers input:focus{background:#071207;outline:1px solid var(--border);}
               <p>&#9679; No page refresh required on either side.</p>
             </div>
 
-            <div style="margin-top:1rem;padding:.6rem .8rem;border-radius:3px;border:1px solid var(--border);background:#030803;">
+            <div style="margin-top:1rem;padding:.6rem .8rem;border-radius:3px;border:1px solid var(--border);background:var(--deep);">
               <div style="font-size:.6rem;color:var(--text3);letter-spacing:.15em;margin-bottom:.4rem;">CURRENT ACTIVE MESSAGE</div>
               <div id="wfmsg-active" style="font-size:.85rem;color:var(--text3);word-break:break-word;min-height:1.4em;">—</div>
             </div>
@@ -2192,9 +2436,190 @@ function showPage(name, el) {
   if (name === 'settings') { loadSettingsPage(); }
   if (name === 'graphs')   { initGraphs(); }
   if (name === 'users')    { loadUsers(); }
+  if (name === 'visitors') { loadVisitors(); }
   if (name === 'wfmsg')    { loadWfMsgStatus(); }
   return false;
 }
+
+// ─── System health (Dashboard) ───────────────────────────────────────────────
+let _healthTick = 0;
+function _fmtBytes(b) {
+  if (b >= 1073741824) return (b / 1073741824).toFixed(1) + ' GB';
+  if (b >= 1048576) return (b / 1048576).toFixed(0) + ' MB';
+  return Math.round(b / 1024) + ' kB';
+}
+function _fmtDur(s) {
+  if (s == null) return '--';
+  const d = Math.floor(s / 86400), h = Math.floor(s % 86400 / 3600), m = Math.floor(s % 3600 / 60);
+  return (d ? d + 'd ' : '') + (d || h ? h + 'h ' : '') + m + 'm';
+}
+function _fmtWhen(t) {
+  const d = new Date(t * 1000);
+  return d.toLocaleDateString(undefined, {day: '2-digit', month: 'short'}) + ' ' +
+         d.toLocaleTimeString(undefined, {hour: '2-digit', minute: '2-digit'});
+}
+async function loadHealth() {
+  let d;
+  try { d = await fetch('/admin/api/health').then(r => r.json()); } catch (e) { return; }
+  if (!d || !d.ok) return;
+  let allUp = true;
+  document.getElementById('hl-rx').innerHTML = d.receivers.map(r => {
+    if (!r.up) allUp = false;
+    const c = r.up ? 'var(--ok)' : 'var(--red)';
+    return '<span style="color:' + c + '">●</span> ' + escHtml(r.label) +
+      ' <span style="color:var(--text3)">:' + r.port + '</span> — ' +
+      (r.up ? 'on air, up ' + _fmtDur(r.uptime_s) : '<b style="color:var(--red)">OFF THE AIR</b>');
+  }).join('<br>');
+  const dot = document.getElementById('hl-dot');
+  dot.style.background = allUp ? 'var(--ok)' : 'var(--red)';
+  dot.style.boxShadow = '0 0 6px ' + (allUp ? 'var(--ok)' : 'var(--red)');
+  const pct = d.disk.total ? Math.round(d.disk.used * 100 / d.disk.total) : 0;
+  const fc = pct >= 90 ? 'var(--red)' : pct >= 80 ? 'var(--amber)' : 'var(--text2)';
+  document.getElementById('hl-disk').innerHTML =
+    '<span style="color:' + fc + '">' + _fmtBytes(d.disk.free) + ' free</span> of ' + _fmtBytes(d.disk.total) + ' (' + pct + '% used)<br>' +
+    d.folders.map(f => escHtml(f.path) + ': ' + _fmtBytes(f.bytes)).join('<br>');
+  document.getElementById('hl-events').innerHTML = d.events.length
+    ? d.events.map(e => '<span style="color:var(--text3)">' + _fmtWhen(e.t) + '</span> ' + escHtml(e.text)).join('<br>')
+    : '<span style="color:var(--text3)">none since the panel started</span>';
+  const cr = d.crash;
+  document.getElementById('hl-crash-when').textContent = cr ? '— ' + cr.label + ', ' + _fmtWhen(cr.mtime) : '';
+  document.getElementById('hl-crash').textContent = cr ? cr.lines.join(String.fromCharCode(10)) : 'empty';
+}
+
+// ─── Alerts (Settings) ───────────────────────────────────────────────────────
+const AL_EVENTS = ['down', 'up', 'restart', 'thermal', 'crash'];
+async function loadAlerts() {
+  let d;
+  try { d = await fetch('/admin/api/alerts').then(r => r.json()); } catch (e) { return; }
+  if (!d || !d.ok) return;
+  const a = d.alerts;
+  AL_EVENTS.forEach(e => { document.getElementById('al-ev-' + e).checked = a.events[e] !== false; });
+  document.getElementById('al-tg-on').checked = !!a.telegram.enabled;
+  document.getElementById('al-tg-token').value = a.telegram.token || '';
+  document.getElementById('al-tg-chat').value = a.telegram.chat_id || '';
+  document.getElementById('al-em-on').checked = !!a.email.enabled;
+  document.getElementById('al-em-host').value = a.email.host || '';
+  document.getElementById('al-em-port').value = a.email.port || 465;
+  document.getElementById('al-em-sec').value = a.email.security || 'ssl';
+  document.getElementById('al-em-user').value = a.email.user || '';
+  document.getElementById('al-em-pass').value = a.email.password || '';
+  document.getElementById('al-em-from').value = a.email.from || '';
+  document.getElementById('al-em-to').value = a.email.to || '';
+}
+async function saveAlerts(quiet) {
+  const v = id => document.getElementById(id).value.trim();
+  const body = {
+    events: Object.fromEntries(AL_EVENTS.map(e => [e, document.getElementById('al-ev-' + e).checked])),
+    telegram: {enabled: document.getElementById('al-tg-on').checked, token: v('al-tg-token'), chat_id: v('al-tg-chat')},
+    email: {enabled: document.getElementById('al-em-on').checked, host: v('al-em-host'), port: v('al-em-port'),
+            security: v('al-em-sec'), user: v('al-em-user'), password: document.getElementById('al-em-pass').value,
+            from: v('al-em-from'), to: v('al-em-to')}
+  };
+  const d = await fetch('/admin/api/alerts', {method: 'POST', headers: {'Content-Type': 'application/json'},
+                                              body: JSON.stringify(body)}).then(r => r.json());
+  if (!quiet || !d.ok) toast(d.msg || 'Saved', d.ok ? 'ok' : 'err');
+  if (d.ok) loadAlerts();
+  return d.ok;
+}
+async function testAlerts() {
+  const m = document.getElementById('al-msg');
+  m.style.color = 'var(--text3)';
+  m.textContent = 'Saving and sending...';
+  if (!(await saveAlerts(true))) { m.textContent = 'Could not save the settings'; return; }
+  const d = await fetch('/admin/api/alerts/test', {method: 'POST'}).then(r => r.json());
+  m.textContent = d.msg;
+  m.style.color = d.ok ? 'var(--green)' : 'var(--red)';
+}
+
+// ─── Backup / restore (Settings) ─────────────────────────────────────────────
+async function restoreBackup() {
+  const f = document.getElementById('rs-file').files[0];
+  const m = document.getElementById('rs-msg');
+  if (!f) { toast('Choose a backup zip first', 'err'); return; }
+  if (!confirm('Restore the station settings from ' + f.name + '? The current files are copied to admin-backups/ first.')) return;
+  const fd = new FormData();
+  fd.append('file', f);
+  const d = await fetch('/admin/api/restore', {method: 'POST', body: fd}).then(r => r.json());
+  m.textContent = d.msg + (d.kept ? ' Previous files: ' + d.kept + '/' : '');
+  m.style.color = d.ok ? 'var(--green)' : 'var(--red)';
+  toast(d.ok ? 'Settings restored' : d.msg, d.ok ? 'ok' : 'err');
+}
+
+// ─── Visitor statistics ──────────────────────────────────────────────────────
+function _vsTable(head, rows) {
+  return '<table class="top-procs" style="width:100%;"><thead><tr>' + head.map(h => '<th>' + h + '</th>').join('') +
+         '</tr></thead><tbody>' + rows.map(r => '<tr>' + r.map(c => '<td>' + c + '</td>').join('') + '</tr>').join('') +
+         '</tbody></table>';
+}
+async function loadVisitors() {
+  const days = document.getElementById('vs-days').value;
+  document.getElementById('vs-totals').innerHTML = '<div class="card">Loading...</div>';
+  let d;
+  try { d = await fetch('/admin/api/visitor-stats?days=' + days).then(r => r.json()); } catch (e) { return; }
+  if (!d || !d.ok) return;
+  const t = d.total;
+  const tile = (v, l) => '<div class="card"><div class="stat-val">' + v + '</div><div class="stat-label">' + l + '</div></div>';
+  document.getElementById('vs-totals').innerHTML =
+    tile(t.visitors, 'VISITORS (addresses)') + tile(t.sessions, 'SESSIONS') +
+    tile(t.hours, 'LISTENING HOURS') + tile(t.peak, 'MOST AT THE SAME TIME');
+  document.getElementById('vs-days-tbl').innerHTML = _vsTable(['DATE', 'VISITORS', 'SESSIONS', 'HOURS', 'PEAK'],
+    d.per_day.slice().reverse().map(x => [x.date, x.visitors, x.sessions, x.hours, x.peak]));
+  const mx = Math.max(1, ...d.hours);
+  document.getElementById('vs-hours').innerHTML = d.hours.map((n, h) =>
+    '<div title="' + String(h).padStart(2, '0') + ':00 UTC — ' + n + ' sessions" style="flex:1;background:var(--amber);opacity:.8;height:' +
+    Math.max(2, Math.round(n * 100 / mx)) + '%;"></div>').join('');
+  document.getElementById('vs-cc').innerHTML = d.countries.length
+    ? d.countries.map(c => '<span style="display:inline-block;min-width:3.2rem;">' + escHtml(c[0]) + '</span>' + c[1]).join('<br>')
+    : '<span style="color:var(--text3)">no visitors</span>';
+  document.getElementById('vs-addr').innerHTML = d.addresses.length ? _vsTable(
+    ['ADDRESS', 'WHERE', 'SESSIONS', 'AT ONCE', 'HOURS', 'RECEIVERS', 'LAST SEEN', ''],
+    d.addresses.map(a => [escHtml(a.ip), escHtml(a.geo || ''), a.sessions,
+      '<b style="color:' + (a.peak > 3 ? 'var(--red)' : 'inherit') + '">' + a.peak + '</b>',
+      a.hours, escHtml(a.rx.join(', ')), _fmtWhen(a.last),
+      '<button class="btn btn-red" style="padding:.1rem .4rem;font-size:.6rem;" onclick="vsBan(' + "'" + escHtml(a.ip) + "'" + ')">BAN 24h</button>']))
+    : '<span style="color:var(--text3)">no visitors</span>';
+}
+async function vsBan(ip) {
+  if (!confirm('Ban ' + ip + ' for 24 hours and disconnect it now?')) return;
+  const d = await fetch('/admin/api/ban', {method: 'POST', headers: {'Content-Type': 'application/json'},
+                                           body: JSON.stringify({ip: ip})}).then(r => r.json());
+  toast(d.msg || (d.ok ? 'Banned' : 'Ban failed'), d.ok ? 'ok' : 'err');
+}
+
+// ─── Theme (Settings → Appearance) ───────────────────────────────────────────
+function _adminThemeResolve(t) {
+  if (t === 'auto') return _adminAutoTheme();
+  return ['green', 'amber', 'metal', 'dark', 'light'].indexOf(t) >= 0 ? t : 'green';
+}
+function _adminThemeSaved() {
+  try { return localStorage.getItem('adminTheme') || 'green'; } catch (e) { return 'green'; }
+}
+function setAdminTheme(t, keep) {
+  if (!keep) { try { localStorage.setItem('adminTheme', t); } catch (e) {} }
+  var want = _adminThemeResolve(t);
+  if (keep && document.documentElement.getAttribute('data-theme') === want) return;
+  document.documentElement.setAttribute('data-theme', want);
+  ['theme-sel', 'theme-sel-top'].forEach(function (id) { var el = document.getElementById(id); if (el) el.value = t; });
+  graphThemeColors();
+  if (currentPage === 'graphs' && typeof drawGraphs === 'function') drawGraphs();
+}
+(function () {
+  ['theme-sel', 'theme-sel-top'].forEach(function (id) {
+    var el = document.getElementById(id);
+    if (el) el.value = _adminThemeSaved();
+  });
+  // Station position for "auto", from the Site Info locator
+  fetch('/admin/api/station-grid').then(function (r) { return r.json(); }).then(function (d) {
+    var p = _umapLocator(d && d.grid);
+    try {
+      if (p) localStorage.setItem('adminThemeLoc', JSON.stringify(p));
+      else localStorage.removeItem('adminThemeLoc');
+    } catch (e) {}
+    if (_adminThemeSaved() === 'auto') setAdminTheme('auto', true);
+  }).catch(function () {});
+  // sunrise / sunset while the page stays open
+  setInterval(function () { if (_adminThemeSaved() === 'auto') setAdminTheme('auto', true); }, 60000);
+})();
 
 // ─── Toast ───────────────────────────────────────────────────────────────────
 function toast(msg, type='ok') {
@@ -2398,10 +2823,12 @@ let _termIdx  = -1;
 async function loadDashboard() {
   updateStatus();
   updateThermal();
+  loadHealth();
   loadLogs('dash-log', 'logwebsdr.txt');
   if (_dashLogTimer) clearInterval(_dashLogTimer);
   _dashLogTimer = setInterval(() => {
-    if (currentPage === 'dashboard') loadLogs('dash-log', 'logwebsdr.txt');
+    if (currentPage === 'dashboard') loadLogs('dash-log', 'logwebsdr.txt');    if (currentPage === 'dashboard' && (++_healthTick % 6) === 0) loadHealth();
+
     else { clearInterval(_dashLogTimer); _dashLogTimer = null; }
   }, 5000);
   // Set terminal cwd to sdr base dir
@@ -3085,6 +3512,7 @@ async function clearChat() {
 
 // ─── Settings ────────────────────────────────────────────────────────────────
 async function loadSettingsPage() {
+  loadAlerts();
   const r = await fetch('/admin/api/settings');
   const d = await r.json();
   document.getElementById('sdr-dir').value = d.sdr_base_dir || '';
@@ -3267,6 +3695,18 @@ var GRAPH_PANELS = [
 // something specific.
 var G_LINE = '#00ff41', G_FILL = 'rgba(0,255,65,0.10)';
 var G_WARN = '#ffb000', G_CRIT = '#ff4040';
+// Theme colours for the canvas, re-read whenever the theme changes.
+var G_FHEAD = 'Orbitron, monospace', G_FMONO = '"Share Tech Mono", monospace';
+var G_TXT2 = '#7ab87a', G_TXT3 = '#4a8a4a', G_GRID = 'rgba(26,58,26,0.9)', G_CUR = 'rgba(200,255,200,0.35)', G_BG = '#0a150a';
+function graphThemeColors() {
+  var cs = getComputedStyle(document.documentElement);
+  var v = function(n) { return cs.getPropertyValue(n).trim(); };
+  G_LINE = v('--green'); G_FILL = 'rgba(' + v('--accent-rgb') + ',0.10)';
+  G_WARN = v('--amber'); G_CRIT = v('--red');
+  G_TXT2 = v('--text2'); G_TXT3 = v('--text3'); G_GRID = v('--border'); G_BG = v('--panel');
+  G_CUR = v('--text3');
+  G_FHEAD = v('--font-head') || G_FHEAD; G_FMONO = v('--font-mono') || G_FMONO;
+}
 var TEMP_WARN = 70, TEMP_CRIT = 80;
 
 function graphTempColor(v) {
@@ -3402,9 +3842,9 @@ function drawGraphs() {
   var cssW = cv.clientWidth || 800;
   // Type sizes are named once here: the panel geometry is sized around them,
   // so bumping a size and leaving the padding behind is not possible.
-  var F_TITLE = '600 13px Orbitron, monospace';          // panel heading
-  var F_AXIS  = '12px "Share Tech Mono", monospace';     // tick + min/max labels
-  var F_NOTE  = '11px "Share Tech Mono", monospace';     // threshold legend
+  var F_TITLE = '600 13px ' + G_FHEAD;                  // panel heading
+  var F_AXIS  = '12px ' + G_FMONO;                      // tick + min/max labels
+  var F_NOTE  = '11px ' + G_FMONO;                      // threshold legend
   var PANEL_H = 100, GAP = 36, PAD_L = 64, PAD_R = 14, PAD_T = 22, AXIS_H = 28;
   var cssH = PAD_T + GRAPH_PANELS.length * (PANEL_H + GAP) + AXIS_H;
   cv.style.height = cssH + 'px';
@@ -3431,7 +3871,7 @@ function drawGraphs() {
 
     // ── panel title + range label ──
     ctx.font = F_TITLE;
-    ctx.fillStyle = '#7ab87a';
+    ctx.fillStyle = G_TXT2;
     ctx.textAlign = 'left';
     ctx.fillText(p.title, PAD_L, top - 8);
     if (p.key === 'c' && !narrow) {
@@ -3448,7 +3888,7 @@ function drawGraphs() {
     }
     if (vals.length) {
       ctx.font = F_AXIS;
-      ctx.fillStyle = '#4a8a4a';
+      ctx.fillStyle = G_TXT3;
       ctx.textAlign = 'right';
       var lo = Math.min.apply(null, vals), up = Math.max.apply(null, vals);
       // On a narrow canvas the spelled-out form runs into the panel title, so
@@ -3459,21 +3899,21 @@ function drawGraphs() {
     }
 
     // ── recessive grid: baseline plus mid and top gridlines only ──
-    ctx.strokeStyle = 'rgba(26,58,26,0.9)';
+    ctx.strokeStyle = G_GRID;
     ctx.lineWidth = 1;
     ctx.font = F_AXIS;
     ctx.textAlign = 'right';
     [0, hi / 2, hi].forEach(function(gv) {
       var y = Math.round(yOf(gv)) + 0.5;
       ctx.beginPath(); ctx.moveTo(PAD_L, y); ctx.lineTo(cssW - PAD_R, y); ctx.stroke();
-      ctx.fillStyle = '#4a8a4a';
+      ctx.fillStyle = G_TXT3;
       var lbl = (p.key === 'u') ? String(Math.round(gv)) : gv.toFixed(p.dec === 2 ? 1 : 0);
       ctx.fillText(lbl, PAD_L - 8, y + 4);
     });
 
     if (!vals.length) {
       ctx.font = F_AXIS;
-      ctx.fillStyle = '#4a8a4a';
+      ctx.fillStyle = G_TXT3;
       ctx.textAlign = 'center';
       ctx.fillText('not available on this system', PAD_L + plotW / 2, top + PANEL_H / 2);
       return;
@@ -3560,7 +4000,7 @@ function drawGraphs() {
   // ── shared time axis ──
   var axisY = PAD_T + GRAPH_PANELS.length * (PANEL_H + GAP) - GAP + 14;
   ctx.font = F_AXIS;
-  ctx.fillStyle = '#4a8a4a';
+  ctx.fillStyle = G_TXT3;
   ctx.textAlign = 'center';
   var TICKS = Math.max(2, Math.min(6, Math.floor(plotW / 130)));
   for (var i = 0; i <= TICKS; i++) {
@@ -3577,7 +4017,7 @@ function drawGraphs() {
     var hx = xOf(hp.t);
     ctx.save();
     ctx.setLineDash([2, 3]);
-    ctx.strokeStyle = 'rgba(200,255,200,0.35)';
+    ctx.strokeStyle = G_CUR;
     ctx.lineWidth = 1;
     ctx.beginPath();
     ctx.moveTo(hx + 0.5, PAD_T - 8);
@@ -3594,7 +4034,7 @@ function drawGraphs() {
       ctx.fillStyle = (p.key === 'c') ? graphTempColor(v) : G_LINE;
       ctx.fill();
       ctx.lineWidth = 2;                       // surface ring keeps the marker
-      ctx.strokeStyle = '#0a150a';             // readable on top of the line
+      ctx.strokeStyle = G_BG;             // readable on top of the line
       ctx.stroke();
     });
   }
@@ -3650,6 +4090,7 @@ function graphLeave() {
 }
 
 function initGraphs() {
+  graphThemeColors();
   var cv = document.getElementById('graph-canvas');
   if (cv && !cv._wired) {
     cv._wired = true;
@@ -3670,7 +4111,7 @@ async function loadUsers() {
   function msgRow(msg, color) {
     tbody.innerHTML = '';
     var tr = document.createElement('tr'); var td = document.createElement('td');
-    td.colSpan = 6;
+    td.colSpan = 8;
     td.style.cssText = 'color:' + (color||'var(--text3)') + ';text-align:center;padding:.8rem;';
     td.textContent = msg; tr.appendChild(td); tbody.appendChild(tr);
   }
@@ -3697,16 +4138,26 @@ async function loadUsers() {
       if (!_uConnTimes[u.id])
         _uConnTimes[u.id] = now - (u.duration_s || 0) * 1000;
       var tr = document.createElement('tr');
-      // IP / location
+      // Name / callsign the listener typed next to Open Additional Info
+      var tdName = document.createElement('td');
+      tdName.style.cssText = CL + 'color:var(--text);font-weight:bold;white-space:nowrap;';
+      tdName.textContent = u.name || '--';
+      tr.appendChild(tdName);
+      // IP / location — the IP only here: the public /users no longer has it
       var tdGeo = document.createElement('td');
       tdGeo.style.cssText = CL + 'color:var(--green);';
       if (isLocalIp(u.ip) || u.geo === 'Local') {
         tdGeo.textContent = 'Local';
       } else if (u.geo && u.geo !== u.ip) {
         tdGeo.textContent = u.geo;
-        tdGeo.title = u.ip;
       } else {
-        tdGeo.textContent = u.ip || '--';
+        tdGeo.textContent = '--';
+      }
+      if (u.ip) {
+        var ipEl = document.createElement('div');
+        ipEl.style.cssText = 'color:var(--text3);font-size:.65rem;';
+        ipEl.textContent = u.ip.replace(/^::ffff:/, '');
+        tdGeo.appendChild(ipEl);
       }
       tr.appendChild(tdGeo);
       // Receiver (only with several receivers)
@@ -3744,10 +4195,18 @@ async function loadUsers() {
         btn.textContent = '⚡ KICK';
         btn.onclick = (function(ip){ return function(){ kickUser(ip); }; })(rawIp);
         tdK.appendChild(btn);
+        var bb = document.createElement('button');
+        bb.className = 'btn btn-amber';
+        bb.style.cssText = 'padding:.25rem .6rem;font-size:.65rem;margin-left:.3rem;';
+        bb.textContent = '⛔ BAN 24H';
+        bb.onclick = (function(ip, nm){ return function(){ banUser(ip, nm); }; })(rawIp, u.name || '');
+        tdK.appendChild(bb);
       }
+      tdK.style.whiteSpace = 'nowrap';
       tr.appendChild(tdK);
       tbody.appendChild(tr);
     });
+    loadBans();
     var liveIds = new Set(users.map(function(u){ return u.id; }));
     Object.keys(_uConnTimes).forEach(function(id){
       if (!liveIds.has(id)) delete _uConnTimes[id];
@@ -3773,6 +4232,79 @@ async function kickUser(ip) {
     toast('Kick sent — refreshing...', 'ok');
     setTimeout(loadUsers, 2000);
   }
+}
+
+async function banUser(ip, name) {
+  var who = name ? name + ' (' + ip + ')' : ip;
+  if (!confirm('Ban ' + who + ' for 24 hours? They are disconnected from every receiver and refused until the ban runs out.')) return;
+  try {
+    var r = await fetch('/admin/api/ban', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ip: ip, name: name})
+    });
+    var d = await r.json();
+    toast(d.msg || (d.ok ? 'Banned ' + ip : 'Ban failed'), d.ok ? 'ok' : 'err');
+    setTimeout(loadUsers, 1800);
+  } catch(e) {
+    toast('Ban sent — refreshing...', 'ok');
+    setTimeout(loadUsers, 2000);
+  }
+}
+
+async function unbanUser(ip) {
+  if (!confirm('Lift the ban on ' + ip + '?')) return;
+  try {
+    var r = await fetch('/admin/api/unban', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ip: ip})
+    });
+    var d = await r.json();
+    toast(d.msg || 'Unbanned ' + ip, d.ok ? 'ok' : 'err');
+  } catch(e) {
+    toast('Unban failed: ' + e.message, 'err');
+  }
+  loadBans();
+}
+
+async function loadBans() {
+  var card = document.getElementById('bans-card');
+  var tbody = document.getElementById('bans-tbody');
+  if (!card || !tbody) return;
+  try {
+    var r = await fetch('/admin/api/bans', {cache: 'no-store'});
+    var d = await r.json();
+    var bans = (d && d.bans) || [];
+    card.style.display = bans.length ? '' : 'none';
+    tbody.innerHTML = '';
+    var CL = 'padding:.38rem .6rem;border-bottom:1px solid var(--border);vertical-align:middle;';
+    bans.forEach(function(b) {
+      var tr = document.createElement('tr');
+      var tdN = document.createElement('td');
+      tdN.style.cssText = CL + 'color:var(--text);font-weight:bold;';
+      tdN.textContent = b.name || '--';
+      tr.appendChild(tdN);
+      var tdI = document.createElement('td');
+      tdI.style.cssText = CL + 'color:var(--green);';
+      tdI.textContent = b.ip;
+      tr.appendChild(tdI);
+      var tdU = document.createElement('td');
+      tdU.style.cssText = CL + 'color:var(--text2);';
+      tdU.textContent = 'until ' + new Date(b.until * 1000).toLocaleString();
+      tr.appendChild(tdU);
+      var tdB = document.createElement('td');
+      tdB.style.cssText = CL + 'text-align:right;';
+      var btn = document.createElement('button');
+      btn.className = 'btn btn-green';
+      btn.style.cssText = 'padding:.25rem .6rem;font-size:.65rem;';
+      btn.textContent = 'UNBAN';
+      btn.onclick = function(){ unbanUser(b.ip); };
+      tdB.appendChild(btn);
+      tr.appendChild(tdB);
+      tbody.appendChild(tr);
+    });
+  } catch(e) { /* keep the last list */ }
 }
 
 function toggleUsersAutoRefresh() {
@@ -3835,14 +4367,12 @@ function _umapLocator(loc) {
 
 function _umapInit() {
   _umap = L.map('umap', {worldCopyJump: true}).setView([30, 10], 2);
-  var dark = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}', {
-    maxZoom: 16, attribution: 'Tiles &copy; Esri'
-  });
-  var osm = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    maxZoom: 19, attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-  });
-  dark.addTo(_umap);
-  L.control.layers({'Dark': dark, 'OpenStreetMap': osm}, null, {position: 'topright'}).addTo(_umap);
+  // The same map, and below the same marker colours, as the APRS window
+  // (frontend/src/lib/aprsMap.js).
+  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19,
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors'
+  }).addTo(_umap);
   _umapLayer = L.layerGroup().addTo(_umap);
 }
 
@@ -3873,7 +4403,7 @@ async function umapUpdate(users) {
     _umapLayer.clearLayers();
     var pts = [];
     if (_umapHome) {
-      L.circleMarker(_umapHome, {radius: 7, color: '#ffb000', weight: 2, fillColor: '#ffb000', fillOpacity: .9})
+      L.circleMarker(_umapHome, {radius: 7, color: '#f59e0b', weight: 2, fillColor: '#fbbf24', fillOpacity: .9})
         .bindTooltip('This station (' + d.grid + ')').addTo(_umapLayer);
       pts.push(_umapHome);
     }
@@ -3881,7 +4411,7 @@ async function umapUpdate(users) {
       var p = places[key], ll = [p.g.lat, p.g.lon];
       pts.push(ll);
       if (_umapHome)
-        L.polyline([_umapHome, ll], {color: '#00ff41', weight: 1, opacity: .35, dashArray: '4 6'}).addTo(_umapLayer);
+        L.polyline([_umapHome, ll], {color: '#10b981', weight: 2, opacity: .7, dashArray: '4 6'}).addTo(_umapLayer);
       var box = document.createElement('div');
       var head = document.createElement('div');
       head.className = 'umap-pop-head';
@@ -3893,8 +4423,8 @@ async function umapUpdate(users) {
                           (u.mode || '--').toUpperCase() + ' · ' + (u.ip || '').replace(/^::ffff:/, '');
         box.appendChild(row);
       });
-      L.circleMarker(ll, {radius: Math.min(5 + 2 * p.list.length, 16), color: '#00ff41', weight: 2,
-                          fillColor: '#00ff41', fillOpacity: .45})
+      L.circleMarker(ll, {radius: Math.min(5 + 2 * p.list.length, 16), color: '#065f46', weight: 2,
+                          fillColor: '#34d399', fillOpacity: .9})
         .bindPopup(box).addTo(_umapLayer);
     });
     // Re-frame only when the set of places changes, so a manual zoom survives AUTO.
@@ -4945,6 +5475,24 @@ def _get_public_port():
     cfg = load_admin_config()
     return int(cfg.get("proxy_port") or cfg.get("public_port", 8900))
 
+def _sdr_users_with_ip(port):
+    """One receiver's user list WITH the IP addresses.
+
+    The public /users has none since the listener-identity change, as on a
+    WebSDR; spectrumserver gives them only to a loopback caller on /~~users.
+    A receiver still running an older binary has no /~~users (404), and its
+    /users still carries the IPs, so that is the fallback.
+    """
+    import urllib.request, urllib.error
+    try:
+        with urllib.request.urlopen("http://127.0.0.1:%d/~~users" % port, timeout=2) as r:
+            return json.loads(r.read().decode())
+    except urllib.error.HTTPError as e:
+        if e.code != 404:
+            raise
+    with urllib.request.urlopen("http://127.0.0.1:%d/users" % port, timeout=2) as r:
+        return json.loads(r.read().decode())
+
 @app.route("/admin/api/sdr-users")
 @login_required
 def api_sdr_users():
@@ -4964,8 +5512,7 @@ def api_sdr_users():
     for port in _sdr_ports():
         label = labels.get(port, "")
         try:
-            with urllib.request.urlopen("http://127.0.0.1:%d/users" % port, timeout=2) as r:
-                d = json.loads(r.read().decode())
+            d = _sdr_users_with_ip(port)
         except Exception as e:
             errors.append("%s: %s" % (label or port, e))
             continue
@@ -5043,6 +5590,18 @@ def api_users_geo():
     except Exception:
         grid = ""
     return jsonify({"ok": True, "geo": out, "grid": grid})
+
+@app.route("/admin/api/station-grid")
+@login_required
+def api_station_grid():
+    """The station locator from Site Info — the admin page's "auto" theme
+    turns it into a position for sunrise and sunset."""
+    try:
+        si = json.loads(read_file_safe(get_sdr_dir() / "frontend" / "site_information.json"))
+        grid = str(si.get("siteGridSquare") or "")
+    except Exception:
+        grid = ""
+    return jsonify({"ok": True, "grid": grid})
 
 @app.route("/admin/api/users")
 @login_required
@@ -5155,6 +5714,115 @@ def _server_kick(ip, ban_s=0):
     return (ok, count, None if count is not None else err)
 
 
+# ── 24-hour ban ───────────────────────────────────────────────────────────────
+# A ban is a kick with a refusal attached: spectrumserver closes the sockets
+# (code 4001, which the page does not retry) and refuses the address for 24 h
+# (the most /~~kick allows). That refusal lives in spectrumserver's memory, so
+# a receiver restart would forget it — the bans are kept in admin_bans.json
+# and re-sent to every receiver once a minute (_ban_keeper). Renewing a ban
+# that is still in force is silent in the spectrumserver log.
+BANS_FILE   = BASE_DIR / "admin_bans.json"
+BAN_SECONDS = 24 * 3600
+_bans_lock  = threading.Lock()
+
+def _valid_listener_ip(ip):
+    """`ip` normalised, or None when it is not one a sysop may kick or ban."""
+    ip = (ip or "").strip()
+    if not re.match(r'^[\d.a-fA-F:]+$', ip) or ip in ("127.0.0.1", "::1"):
+        return None
+    if ip.startswith("::ffff:"):
+        ip = ip[7:]
+    return ip or None
+
+def _load_bans():
+    """{ip: {"until": epoch_s, "name": str}} for the bans still in force."""
+    try:
+        d = json.loads(BANS_FILE.read_text())
+    except Exception:
+        return {}
+    now = time.time()
+    return {ip: b for ip, b in d.items()
+            if isinstance(b, dict) and float(b.get("until") or 0) > now}
+
+def _save_bans(bans):
+    tmp = BANS_FILE.with_name(BANS_FILE.name + ".tmp")
+    tmp.write_text(json.dumps(bans, indent=1))
+    os.replace(tmp, BANS_FILE)
+
+def _ban_keeper():
+    """Re-send every ban still in force, so a restarted receiver has it too."""
+    while True:
+        time.sleep(60)
+        try:
+            # Held for the whole pass, so an unban cannot land in between
+            # and be undone by the re-send.
+            with _bans_lock:
+                bans = _load_bans()
+                if bans or BANS_FILE.exists():
+                    _save_bans(bans)      # drops the expired ones
+                now = time.time()
+                for ip, b in bans.items():
+                    left = int(float(b["until"]) - now)
+                    if left > 0:
+                        _server_kick(ip, left)
+        except Exception as e:
+            logging.warning("ban keeper: %s", e)
+
+def start_ban_keeper():
+    threading.Thread(target=_ban_keeper, name="ban-keeper", daemon=True).start()
+
+@app.route("/admin/api/bans")
+@login_required
+def api_bans():
+    with _bans_lock:
+        bans = _load_bans()
+    out = [{"ip": ip, "until": int(b["until"]), "name": b.get("name", "")}
+           for ip, b in sorted(bans.items(), key=lambda kv: kv[1]["until"])]
+    return jsonify({"ok": True, "bans": out})
+
+@app.route("/admin/api/ban", methods=["POST"])
+@login_required
+def api_ban():
+    """Disconnect `ip` from every receiver and refuse it for 24 hours."""
+    data = request.get_json(silent=True) or {}
+    ip = _valid_listener_ip(data.get("ip"))
+    if not ip:
+        return jsonify({"ok": False, "msg": "Invalid or disallowed IP"})
+    name = str(data.get("name") or "")[:14]
+    with _bans_lock:
+        bans = _load_bans()
+        bans[ip] = {"until": time.time() + BAN_SECONDS, "name": name}
+        _save_bans(bans)
+    _pok, proxy_count, _perr = _proxy_kick(ip)
+    _sok, server_count, serr = _server_kick(ip, BAN_SECONDS)
+    if server_count is None:
+        return jsonify({"ok": True, "msg": "Ban on %s saved for 24 h, but no receiver "
+                        "answered (%s) — it is applied when one does" % (ip, serr)})
+    total = (server_count or 0) + (proxy_count or 0)
+    return jsonify({"ok": True, "msg": "Banned %s for 24 h — %d connection%s closed" % (
+        ip, total, "s" if total != 1 else "")})
+
+@app.route("/admin/api/unban", methods=["POST"])
+@login_required
+def api_unban():
+    import urllib.request, urllib.parse
+    data = request.get_json(silent=True) or {}
+    ip = _valid_listener_ip(data.get("ip"))
+    if not ip:
+        return jsonify({"ok": False, "msg": "Invalid IP"})
+    with _bans_lock:
+        bans = _load_bans()
+        bans.pop(ip, None)
+        _save_bans(bans)
+    query = urllib.parse.urlencode({"ip": ip})
+    for port in _sdr_ports():
+        try:
+            urllib.request.urlopen("http://127.0.0.1:%d/~~unban?%s" % (port, query),
+                                   timeout=5).read()
+        except Exception:
+            pass        # an older binary has no /~~unban; the ban then runs out
+    return jsonify({"ok": True, "msg": "Unbanned %s" % ip})
+
 @app.route("/admin/api/kick", methods=["POST"])
 @login_required
 def api_kick():
@@ -5260,6 +5928,550 @@ def api_kick():
     except Exception as e:
         return jsonify({"ok": False, "msg": str(e)})
 
+# ── Receivers on this computer ────────────────────────────────────────────────
+# Each receiver is the spectrumserver listening on one of _sdr_ports(); its
+# working folder holds its own logs/ and crash.log (the main folder for the
+# first receiver, instances/<id> for the others).
+def _receiver_labels():
+    labels, folders = {}, {}
+    for r in _receivers_toml().get("receiver", []):
+        try:
+            port = int(r.get("port"))
+        except (TypeError, ValueError):
+            continue
+        labels[port] = str(r.get("name") or r.get("id") or "")
+        inst = str(r.get("instance") or "").strip()
+        folders[port] = BASE_DIR / "instances" / inst if inst else BASE_DIR
+    return labels, folders
+
+
+def _receiver_list():
+    """[{label, port, pid, folder, uptime_s}] — pid None when nothing listens."""
+    labels, folders = _receiver_labels()
+    listen = {}
+    if HAS_PSUTIL:
+        try:
+            for c in psutil.net_connections(kind="tcp"):
+                if c.status == psutil.CONN_LISTEN and c.pid and c.laddr:
+                    listen.setdefault(c.laddr.port, c.pid)
+        except Exception:
+            pass
+    out = []
+    for port in _sdr_ports():
+        pid, folder, up = listen.get(port), folders.get(port, BASE_DIR), None
+        if pid:
+            try:
+                p = psutil.Process(pid)
+                folder = Path(p.cwd())
+                up = int(time.time() - p.create_time())
+            except Exception:
+                pid = None
+        out.append({"label": labels.get(port) or "port %d" % port, "port": port,
+                    "pid": pid, "folder": str(folder), "uptime_s": up})
+    return out
+
+
+def _receiver_answers(port):
+    import urllib.request
+    try:
+        with urllib.request.urlopen("http://127.0.0.1:%d/users" % port, timeout=3) as r:
+            return r.status == 200
+    except Exception:
+        return False
+
+
+# ── 1. Alerts (email / Telegram) ──────────────────────────────────────────────
+# A monitor thread looks every 30 s at each receiver (down / back up /
+# restarted), the thermal guard's stage and every receiver's crash.log, and
+# sends what it finds by email and/or Telegram. The settings live in
+# admin_config.json under "alerts" (that file is the panel's private one and
+# never leaves the station). The first pass after the panel starts only
+# learns the current state, so restarting the panel sends nothing.
+ALERT_EVENTS = ("down", "up", "restart", "thermal", "crash")
+ALERT_DEFAULTS = {
+    "events": {e: True for e in ALERT_EVENTS},
+    "email": {"enabled": False, "host": "", "port": 465, "security": "ssl",
+              "user": "", "password": "", "from": "", "to": ""},
+    "telegram": {"enabled": False, "token": "", "chat_id": ""},
+}
+ALERT_SECRET = "********"
+ALERT_REPEAT_S = 300              # the same alert at most once per 5 minutes
+_alert_events = deque(maxlen=60)  # recent events, shown on the Dashboard
+_alert_last = {}
+_alert_lock = threading.Lock()
+
+
+def _alert_cfg():
+    cfg = json.loads(json.dumps(ALERT_DEFAULTS))
+    saved = load_admin_config().get("alerts") or {}
+    for k in ("events", "email", "telegram"):
+        if isinstance(saved.get(k), dict):
+            cfg[k].update(saved[k])
+    return cfg
+
+
+def _station_name():
+    try:
+        si = json.loads(read_file_safe(BASE_DIR / "frontend" / "site_information.json"))
+        return str(si.get("siteSysop") or "").strip() or "PhantomSDR-Plus"
+    except Exception:
+        return "PhantomSDR-Plus"
+
+
+def _alert_send(subject, body):
+    """Send to every enabled channel. Returns [(channel, ok, message)]."""
+    import urllib.request, urllib.parse
+    cfg, res = _alert_cfg(), []
+    title = "[%s] %s" % (_station_name(), subject)
+    tg = cfg["telegram"]
+    if tg.get("enabled") and tg.get("token") and tg.get("chat_id"):
+        try:
+            data = urllib.parse.urlencode({"chat_id": tg["chat_id"],
+                                           "text": title + "\n\n" + body}).encode()
+            url = "https://api.telegram.org/bot%s/sendMessage" % tg["token"]
+            with urllib.request.urlopen(url, data=data, timeout=10) as r:
+                ok = json.loads(r.read().decode()).get("ok", False)
+            res.append(("telegram", bool(ok), "sent" if ok else "Telegram refused it"))
+        except Exception as e:
+            res.append(("telegram", False, str(e)))
+    em = cfg["email"]
+    if em.get("enabled") and em.get("host") and em.get("to"):
+        try:
+            import smtplib
+            from email.message import EmailMessage
+            from email.utils import formataddr, parseaddr
+            # FROM may be an address, "Name <address>", or just a name — a
+            # name alone is shown as the sender's name over the USER address.
+            frm = str(em.get("from") or "").strip()
+            user = str(em.get("user") or "").strip()
+            name, addr = parseaddr(frm)
+            if "@" not in addr:
+                name, addr = frm, user
+            if "@" not in addr:
+                raise ValueError("the sender needs a full email address: put it in "
+                                 "FROM, or use your full address as USER")
+            msg = EmailMessage()
+            msg["Subject"], msg["To"] = title, em["to"]
+            msg["From"] = formataddr((name, addr)) if name else addr
+            msg.set_content(body)
+            port = int(em.get("port") or (465 if em.get("security") == "ssl" else 587))
+            if em.get("security") == "ssl":
+                s = smtplib.SMTP_SSL(em["host"], port, timeout=15)
+            else:
+                s = smtplib.SMTP(em["host"], port, timeout=15)
+                if em.get("security") == "starttls":
+                    s.starttls()
+            if em.get("user"):
+                s.login(em["user"], em.get("password", ""))
+            s.send_message(msg, from_addr=addr)
+            s.quit()
+            res.append(("email", True, "sent"))
+        except Exception as e:
+            res.append(("email", False, str(e)))
+    return res
+
+
+def _alert_event(kind, key, subject, body):
+    """Record an event; send it if that kind is enabled and not just sent."""
+    now = time.time()
+    with _alert_lock:
+        _alert_events.appendleft({"t": int(now), "kind": kind, "text": subject})
+        if not _alert_cfg()["events"].get(kind, True):
+            return
+        if now - _alert_last.get(key, 0) < ALERT_REPEAT_S:
+            return
+        _alert_last[key] = now
+    try:
+        for ch, ok, m in _alert_send(subject, body):
+            if not ok:
+                logging.warning("alert via %s failed: %s", ch, m)
+    except Exception as e:
+        logging.warning("alert failed: %s", e)
+
+
+def _crash_files(receivers=None):
+    seen, out = set(), []
+    for r in (receivers if receivers is not None else _receiver_list()):
+        f = Path(r["folder"]) / "crash.log"
+        if str(f) not in seen:
+            seen.add(str(f)); out.append((r["label"], f))
+    f = BASE_DIR / "crash.log"
+    if str(f) not in seen:
+        out.append(("station", f))
+    return out
+
+
+def _alert_monitor():
+    state, first = {}, True
+    while True:
+        try:
+            receivers = _receiver_list()
+            for r in receivers:
+                port, label = r["port"], r["label"]
+                up = bool(r["pid"]) and _receiver_answers(port)
+                st = state.setdefault(port, {"up": up, "pid": r["pid"], "fails": 0, "down": False})
+                if up:
+                    if st["down"] and not first:
+                        _alert_event("up", "up%d" % port, "%s is back on air" % label,
+                                     "%s (port %d) answers again." % (label, port))
+                    elif st["pid"] and r["pid"] and r["pid"] != st["pid"] and not first:
+                        _alert_event("restart", "restart%d" % port, "%s was restarted" % label,
+                                     "%s (port %d) is running again as a new process "
+                                     "(pid %s, was %s) — restarted by the watchdog, a "
+                                     "start script or the thermal guard." % (label, port, r["pid"], st["pid"]))
+                    st.update(up=True, pid=r["pid"], fails=0, down=False)
+                else:
+                    st["fails"] += 1
+                    if st["fails"] == 2 and not st["down"]:       # about a minute
+                        st["down"] = True
+                        if not first:
+                            _alert_event("down", "down%d" % port, "%s is OFF the air" % label,
+                                         "%s (port %d) has not answered for about a minute." % (label, port))
+            for label, f in _crash_files(receivers):
+                try:
+                    size = f.stat().st_size
+                except OSError:
+                    size = 0
+                key = "crash:" + str(f)
+                old = state.get(key)
+                state[key] = size
+                if old is not None and size > old and not first:
+                    with open(f, "rb") as fh:
+                        fh.seek(max(old, size - 4000))
+                        new = fh.read().decode("utf-8", "replace").strip()
+                    _alert_event("crash", key, "New crash.log entry (%s)" % label,
+                                 "\n".join(new.splitlines()[-25:]))
+            if HAS_THERMAL:
+                try:
+                    tg = thermal_guard.status()
+                    stage = tg.get("stage")
+                    old = state.get("thermal")
+                    state["thermal"] = stage
+                    if old is not None and stage != old and not first:
+                        _alert_event("thermal", "thermal:" + str(stage),
+                                     "Thermal guard: %s (was %s)" % (stage, old),
+                                     "CPU %s °C. %s" % (tg.get("temp"), tg.get("last_event") or ""))
+                except Exception:
+                    pass
+            first = False
+        except Exception as e:
+            logging.warning("alert monitor: %s", e)
+        time.sleep(30)
+
+
+def start_alert_monitor():
+    threading.Thread(target=_alert_monitor, name="alert-monitor", daemon=True).start()
+
+
+@app.route("/admin/api/alerts", methods=["GET", "POST"])
+@login_required
+def api_alerts():
+    if request.method == "GET":
+        cfg = _alert_cfg()
+        for ch, k in (("email", "password"), ("telegram", "token")):
+            cfg[ch]["has_" + k] = bool(cfg[ch].get(k))
+            cfg[ch][k] = ALERT_SECRET if cfg[ch].get(k) else ""
+        return jsonify({"ok": True, "alerts": cfg})
+    data = request.get_json(silent=True) or {}
+    cur = _alert_cfg()
+    new = {"events": {e: bool((data.get("events") or {}).get(e, True)) for e in ALERT_EVENTS}}
+    for ch in ("email", "telegram"):
+        d = dict(cur[ch])
+        for k, v in (data.get(ch) or {}).items():
+            if k in d and not k.startswith("has_"):
+                if k in ("password", "token") and v == ALERT_SECRET:
+                    continue                      # unchanged secret
+                d[k] = v
+        d["enabled"] = bool(d.get("enabled"))
+        new[ch] = d
+    try:
+        new["email"]["port"] = int(new["email"].get("port") or 0) or 465
+    except (TypeError, ValueError):
+        new["email"]["port"] = 465
+    if new["email"].get("security") not in ("ssl", "starttls", "none"):
+        new["email"]["security"] = "ssl"
+    cfg = load_admin_config()
+    cfg["alerts"] = new
+    save_admin_config(cfg)
+    return jsonify({"ok": True, "msg": "Alert settings saved"})
+
+
+@app.route("/admin/api/alerts/test", methods=["POST"])
+@login_required
+def api_alerts_test():
+    res = _alert_send("Test alert", "This is a test from the PhantomSDR-Plus admin panel. "
+                      "If you can read it, alerts reach you.")
+    if not res:
+        cfg = _alert_cfg()
+        miss = []
+        if not (cfg["telegram"].get("enabled") or cfg["email"].get("enabled")):
+            miss.append("tick TELEGRAM or EMAIL")
+        if cfg["telegram"].get("enabled") and not (cfg["telegram"].get("token") and cfg["telegram"].get("chat_id")):
+            miss.append("Telegram needs both the bot token and the chat ID")
+        if cfg["email"].get("enabled") and not (cfg["email"].get("host") and cfg["email"].get("to")):
+            miss.append("email needs the SMTP server and the To address")
+        return jsonify({"ok": False, "msg": "Nothing to send to: " + "; ".join(miss)})
+    ok = all(r[1] for r in res)
+    return jsonify({"ok": ok, "msg": "; ".join("%s: %s" % (c, m) for c, _, m in res)})
+
+
+# ── 2. Backup and restore of the station's own settings ───────────────────────
+# Exactly the files that make this station what it is — configs, receiver
+# list, station wizard answers, site information, markers, band tuning, relay,
+# spot reporting and bans. Not admin_config.json (password, alert secrets),
+# not logs, not the program. A restore takes only these same paths, and every
+# file it replaces is copied first to admin-backups/restore-<time>/.
+BACKUP_PATTERNS = (
+    "*.toml", "station.conf", "markers.json", "autorun.json", "websdr_relay.json",
+    "admin_bans.json", "frontend/site_information.json", "frontend/src/bands-config.js",
+    "instances/*/config.toml", "instances/*/instance.env", "instances/*/markers.json",
+)
+BACKUP_MAX_BYTES = 10 * 1024 * 1024
+
+
+def _backup_allowed(rel):
+    import fnmatch
+    rel = rel.replace("\\", "/")
+    if rel.startswith("/") or ".." in rel.split("/") or not rel:
+        return False
+    return any(fnmatch.fnmatchcase(rel, p) and rel.count("/") == p.count("/") for p in BACKUP_PATTERNS)
+
+
+def _backup_files():
+    files = []
+    for pat in BACKUP_PATTERNS:
+        for f in sorted(BASE_DIR.glob(pat)):
+            if f.is_file():
+                rel = str(f.relative_to(BASE_DIR))
+                if _backup_allowed(rel) and rel not in files:
+                    files.append(rel)
+    return files
+
+
+@app.route("/admin/api/backup")
+@login_required
+def api_backup():
+    import io, zipfile, socket as _s
+    from flask import send_file
+    buf = io.BytesIO()
+    files = _backup_files()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
+        for rel in files:
+            z.write(BASE_DIR / rel, rel)
+        z.writestr("BACKUP-INFO.json", json.dumps({
+            "made": datetime.now().isoformat(timespec="seconds"),
+            "host": _s.gethostname(), "station": _station_name(), "files": files}, indent=1))
+    buf.seek(0)
+    name = "phantomsdr-settings-%s-%s.zip" % (_station_name().replace("/", "-"),
+                                              datetime.now().strftime("%Y%m%d-%H%M"))
+    return send_file(buf, mimetype="application/zip", as_attachment=True, download_name=name)
+
+
+@app.route("/admin/api/restore", methods=["POST"])
+@login_required
+def api_restore():
+    import io, zipfile, shutil as _sh
+    up = request.files.get("file")
+    if not up:
+        return jsonify({"ok": False, "msg": "No file"})
+    raw = up.read(BACKUP_MAX_BYTES + 1)
+    if len(raw) > BACKUP_MAX_BYTES:
+        return jsonify({"ok": False, "msg": "File too large for a settings backup"})
+    try:
+        z = zipfile.ZipFile(io.BytesIO(raw))
+    except zipfile.BadZipFile:
+        return jsonify({"ok": False, "msg": "Not a zip file"})
+    keep = BASE_DIR / "admin-backups" / ("restore-" + datetime.now().strftime("%Y%m%d-%H%M%S"))
+    restored, skipped = [], []
+    for info in z.infolist():
+        rel = info.filename
+        if info.is_dir() or rel == "BACKUP-INFO.json":
+            continue
+        if not _backup_allowed(rel) or info.file_size > BACKUP_MAX_BYTES:
+            skipped.append(rel)
+            continue
+        dest = BASE_DIR / rel
+        if dest.exists():
+            (keep / rel).parent.mkdir(parents=True, exist_ok=True)
+            _sh.copy2(dest, keep / rel)
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        with z.open(info) as src, open(dest, "wb") as out:
+            _sh.copyfileobj(src, out)
+        restored.append(rel)
+    need = []
+    if any(r.endswith(".toml") or r.endswith("instance.env") or r == "station.conf" for r in restored):
+        need.append("restart the receivers")
+    if any(r.startswith("frontend/") for r in restored):
+        need.append("rebuild the page (./recompile.sh --frontend)")
+    if any(r in ("websdr_relay.json",) for r in restored):
+        need.append("restart phantomsdr-websdr-relay")
+    msg = "Restored %d file%s" % (len(restored), "" if len(restored) == 1 else "s")
+    if skipped:
+        msg += "; skipped %d that are not station settings" % len(skipped)
+    if need:
+        msg += ". Then " + ", ".join(need) + "."
+    return jsonify({"ok": bool(restored), "msg": msg, "restored": restored, "skipped": skipped,
+                    "kept": str(keep.relative_to(BASE_DIR)) if keep.exists() else ""})
+
+
+# ── 3. Visitor statistics (private, with the addresses) ───────────────────────
+# From every receiver's logs/users_YYYY-MM-DD.jsonl as written on disk — the
+# copies with the IP addresses, which the public /logs/ no longer serves. A
+# session is one listener id, from its first to its last logged event. Names
+# are not in these logs.
+_vstats_cache = {}
+
+
+def _cc_of(geo):
+    geo = (geo or "").strip()
+    if geo == "Local":
+        return "Local"
+    m = re.search(r",\s*([A-Za-z]{2})\s*$", geo)
+    return m.group(1).upper() if m else ""
+
+
+@app.route("/admin/api/visitor-stats")
+@login_required
+def api_visitor_stats():
+    try:
+        days = max(1, min(31, int(request.args.get("days", 7))))
+    except ValueError:
+        days = 7
+    hit = _vstats_cache.get(days)
+    if hit and time.time() - hit[0] < 60:
+        return jsonify(hit[1])
+    labels, folders = _receiver_labels()
+    dirs = {}
+    for port in _sdr_ports():
+        dirs[labels.get(port) or "port %d" % port] = folders.get(port, BASE_DIR) / "logs"
+    today = datetime.utcnow().date()
+    dates = [(today - timedelta(days=i)).isoformat() for i in range(days - 1, -1, -1)]
+    sess = {}                                   # (rx, id) -> session
+    for rx, d in dirs.items():
+        for ds in dates:
+            f = d / ("users_%s.jsonl" % ds)
+            try:
+                fh = open(f, encoding="utf-8", errors="replace")
+            except OSError:
+                continue
+            with fh:
+                for line in fh:
+                    try:
+                        ev = json.loads(line)
+                        t = datetime.strptime(ev["ts"], "%Y-%m-%dT%H:%M:%SZ").timestamp()
+                    except Exception:
+                        continue
+                    key = (rx, ev.get("id"))
+                    s = sess.get(key)
+                    if s is None:
+                        s = sess[key] = {"rx": rx, "ip": "", "geo": "", "start": t, "end": t}
+                    s["end"] = max(s["end"], t)
+                    s["start"] = min(s["start"], t)
+                    if ev.get("event") == "disconnect":
+                        try:
+                            s["start"] = min(s["start"], t - float(ev.get("duration_s") or 0))
+                        except (TypeError, ValueError):
+                            pass
+                    ip = (ev.get("ip") or "").replace("::ffff:", "")
+                    if ip:
+                        s["ip"] = ip
+                    g = ev.get("geo") or ""
+                    if g and g != ip and not re.match(r"^[0-9a-fA-F.:]+$", g):
+                        s["geo"] = g
+    S = [s for s in sess.values() if s["ip"] not in ("127.0.0.1", "::1", "")]
+    for s in S:
+        s["end"] = min(s["end"], s["start"] + 12 * 3600)   # a stuck session counts at most 12 h
+    def peak(items):
+        pts = sorted([(s["start"], 1) for s in items] + [(s["end"], -1) for s in items])
+        cur = best = 0
+        for _, d in pts:
+            cur += d
+            best = max(best, cur)
+        return best
+    per_day = []
+    for ds in dates:
+        ds_s = [s for s in S if datetime.utcfromtimestamp(s["start"]).date().isoformat() == ds]
+        per_day.append({"date": ds, "sessions": len(ds_s), "visitors": len({s["ip"] for s in ds_s}),
+                        "hours": round(sum(s["end"] - s["start"] for s in ds_s) / 3600, 1),
+                        "peak": peak(ds_s)})
+    hours = [0] * 24
+    for s in S:
+        hours[datetime.utcfromtimestamp(s["start"]).hour] += 1
+    by_cc = {}
+    for s in S:
+        by_cc.setdefault(_cc_of(s["geo"]) or "?", set()).add(s["ip"])
+    countries = sorted(([cc, len(v)] for cc, v in by_cc.items()), key=lambda x: -x[1])[:20]
+    by_ip = {}
+    for s in S:
+        by_ip.setdefault(s["ip"], []).append(s)
+    addrs = []
+    for ip, ss in by_ip.items():
+        geo = next((s["geo"] for s in ss if s["geo"]), "")
+        addrs.append({"ip": ip, "geo": geo, "sessions": len(ss), "peak": peak(ss),
+                      "hours": round(sum(s["end"] - s["start"] for s in ss) / 3600, 1),
+                      "last": int(max(s["end"] for s in ss)),
+                      "rx": sorted({s["rx"] for s in ss})})
+    addrs.sort(key=lambda a: (-a["peak"], -a["sessions"]))
+    out = {"ok": True, "days": days, "receivers": list(dirs.keys()),
+           "total": {"sessions": len(S), "visitors": len(by_ip),
+                     "hours": round(sum(s["end"] - s["start"] for s in S) / 3600, 1),
+                     "peak": max([d["peak"] for d in per_day] or [0])},
+           "per_day": per_day, "hours": hours, "countries": countries, "addresses": addrs[:20]}
+    _vstats_cache[days] = (time.time(), out)
+    return jsonify(out)
+
+
+# ── 4. System health ──────────────────────────────────────────────────────────
+_health_cache = {}
+
+
+def _folder_size(p):
+    total = 0
+    for root, _dirs, files in os.walk(p):
+        for fn in files:
+            try:
+                total += os.path.getsize(os.path.join(root, fn))
+            except OSError:
+                pass
+    return total
+
+
+@app.route("/admin/api/health")
+@login_required
+def api_health():
+    import shutil as _sh
+    du = _sh.disk_usage(BASE_DIR)
+    hit = _health_cache.get("folders")
+    if hit and time.time() - hit[0] < 120:
+        folders = hit[1]
+    else:
+        folders = []
+        cand = [BASE_DIR / "logs", BASE_DIR / "logproxy"] + sorted(BASE_DIR.glob("instances/*/logs"))
+        for p in cand:
+            if p.is_dir():
+                folders.append({"path": str(p.relative_to(BASE_DIR)), "bytes": _folder_size(p)})
+        _health_cache["folders"] = (time.time(), folders)
+    rx, receivers = [], _receiver_list()
+    for r in receivers:
+        rx.append({"label": r["label"], "port": r["port"], "pid": r["pid"],
+                   "uptime_s": r["uptime_s"], "up": bool(r["pid"]) and _receiver_answers(r["port"])})
+    newest = None
+    for label, f in _crash_files(receivers):
+        try:
+            st = f.stat()
+        except OSError:
+            continue
+        if st.st_size and (newest is None or st.st_mtime > newest["mtime"]):
+            lines = tail_file_lines(f, 12)
+            newest = {"label": label, "path": str(f.relative_to(BASE_DIR)) if str(f).startswith(str(BASE_DIR)) else str(f),
+                      "mtime": int(st.st_mtime), "lines": lines}
+    with _alert_lock:
+        events = list(_alert_events)[:15]
+    return jsonify({"ok": True,
+                    "disk": {"total": du.total, "used": du.used, "free": du.free},
+                    "folders": folders, "receivers": rx, "crash": newest, "events": events})
+
+
 # ── Access-log noise filter ───────────────────────────────────────────────────
 # The dashboard polls these paths every 3-5s for as long as a browser tab is
 # open, so werkzeug's access log fills admin.log with hundreds of identical
@@ -5274,7 +6486,7 @@ def api_kick():
 _QUIET_PATHS = ("/admin/api/status", "/admin/api/thermal", "/admin/api/logs",
                 "/admin/api/logs/clear",
                 "/admin/api/autorun/status", "/admin/api/users", "/admin/api/sdr-users",
-                "/admin/api/graph-stats", "/admin/api/chat")
+                "/admin/api/graph-stats", "/admin/api/chat", "/admin/api/bans")
 _ACCESS_RE = re.compile(r'"[A-Z]+ (?P<path>[^ ?"]+)[^"]*" (?P<status>\d{3})')
 
 
@@ -5325,6 +6537,8 @@ if __name__ == "__main__":
     # Start sampling immediately, not on first visit to the Graphs page, so the
     # page opens onto existing history rather than an empty plot.
     start_graph_sampler()
+    start_ban_keeper()
+    start_alert_monitor()
     print(f"  Graphs    : sampling every {GRAPH_INTERVAL_S}s, "
           f"{GRAPH_HISTORY_S // 3600}h history (in memory)")
 

@@ -302,6 +302,7 @@ PhantomSDR-Plus
 │   │   │   ├── FrequencyMarkers.svelte
 │   │   │   ├── FtxSpectrum.svelte
 │   │   │   ├── hammeractions.js
+│   │   │   ├── identity.js               # ime/pozivni znak slušatelja: polje, pohrana, prijenos kroz URL
 │   │   │   ├── LineThroughButton.svelte
 │   │   │   ├── Logger.svelte
 │   │   │   ├── MagicEyeIndicator.svelte
@@ -965,7 +966,7 @@ Web-sučelje izgrađeno pomoću Sveltea i Vitea.
 - Struktura rasporeda
 - Usklađivanje komponenti
 - **Red gumba dekodera** — po jedan gumb za svaki dekoder na glavnoj ploči, odmah ispod izbornika načina rada; jedan pritisak pokreće dekoder i otvara njegov prozor, drugi ga zaustavlja. Zamijenio je dotadašnji red za širinu pojasa. RADEL/RADEU su u `lib/ModesSelector.svelte`, uz izbornik načina rada te u skočnim prozorima **Modes** i **Bands**.
-- **Redak verzije** — „PhantomSDR+ | v5.2.1 original from github.com/sv1btl/PhantomSDR-Plus”, s adresom kao poveznicom; isti redak nalazi se i na stranici /mobile. Broj verzije i adresa nalaze se u `lib/version.js`; redak je navođenje autorstva obuhvaćeno datotekom `ADDITIONAL_TERMS.md`.
+- **Redak verzije** — „PhantomSDR+ | v5.3.0 original from github.com/sv1btl/PhantomSDR-Plus”, s adresom kao poveznicom; isti redak nalazi se i na stranici /mobile. Broj verzije i adresa nalaze se u `lib/version.js`; redak je navođenje autorstva obuhvaćeno datotekom `ADDITIONAL_TERMS.md`.
 
 #### 2. Prikaz slapa (`waterfall.js` + `lib/`)
 - Iscrtavanje spektra i slapa na platnu (canvas) i palete boja u `waterfall.js` (čisti JS, nije komponenta); preračunavanje svjetline/kontrasta za **Auto Adj.** je `lib/wfAutoLevel.js`
@@ -1066,6 +1067,12 @@ Uloga `fsk` dodatno ugošćuje dekodere koji uopće ne koriste njezin FSK lanac.
 - Odgovor je obična poruka u chatu koja počinje oznakom što imenuje poruku na koju odgovara, `[RE:<vremenska oznaka>|<ime>]`; poslužitelj je sprema i prosljeđuje kao svaki drugi redak i ne treba nikakvu promjenu
 - `chatReply.js` stvara i čita tu oznaku te grupira odgovore ispod izvorne poruke, jednu razinu duboko. Koriste ga i `App.svelte` i `mobile/Mobile.svelte`, pa obje stranice jednako slažu chat
 - Kad je izvorna poruka već ispala iz povijesti od 20 poruka na poslužitelju, odgovor ostaje ondje gdje je stigao i prikazuje samo ime i vrijeme na koje odgovara
+
+#### 4g. Imena slušatelja i privatnost (`lib/identity.js`)
+- Polje za ime pokraj **Open Additional Info** čuva ime ili pozivni znak u `localStorage` (`chatusername`) i šalje ga na `/audio` kao `{"cmd":"identity","name":…}`; `audio.js` ga ponovno šalje svaki put kad se otvori njegov socket. Poveznica na prijemnik na drugoj adresi nosi ga kao `?idname=`, koji se pročita jednom i ukloni iz adresne trake
+- Poslužitelj ga čisti (`clean_listener_name` u `utils.cpp`): najviše 10 znakova i bez razmaka kao na WebSDR-u, barem jedno slovo ili znamenka; rezervirana imena chata i `anonymous1234` vrijede kao nikakvo ime. `/users` ga daje kao `name`; oznake waterfalla prikazuju ga, a iza njega grad
+- Javni `/users`, `users.json` i `/logs/users_*.jsonl` koje čita `stats.html` ne sadrže IP adresu: kopija dnevnika umjesto nje nosi neprozirni kod `visitor` (hash s ključem, ključ u `logs/.visitor_salt`); datoteke na disku zadržavaju adrese. Administracijska ploča čita `/~~users`, na koji se odgovara samo loopback sugovorniku bez `X-Forwarded-For`
+- Zabrane od 24 sata iz ploče čuvaju se u `admin_bans.json` (nikad se ne distribuira) i jednom u minuti ponovno šalju svakom prijemniku; `/~~unban` ukida jednu
 
 #### 5. Upravljanje stanjem (`stores/`)
 - Reaktivne pohrane podataka

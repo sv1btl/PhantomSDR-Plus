@@ -71,7 +71,7 @@ Toutes les commandes qu'un sysop utilise pour faire fonctionner une station Phan
 |---|---|---|
 | `./recompile.sh` | Recompile le serveur et/ou la page web ; demande quoi compiler. | [Guide d'installation](INSTALLATION.md#mettre-à-jour-à-la-main) |
 | `./recompile.sh --backend` | Recompile seulement le serveur. | [Guide d'installation](INSTALLATION.md#mettre-à-jour-à-la-main) |
-| `./recompile.sh --frontend` | Recompile seulement la page web (bureau et /mobile). | [Guide d'installation](INSTALLATION.md#mettre-à-jour-à-la-main) |
+| `./recompile.sh --frontend` | Recompile seulement la page web (bureau et /mobile). | [Configuration du panneau d'administration](ADMIN_PANEL_SETUP.md#sauvegarde--restauration-des-réglages-de-la-station) |
 | `./recompile.sh --both` | Recompile les deux. | [Guide d'installation](INSTALLATION.md#mettre-à-jour-à-la-main) |
 | `cd frontend && ./build-all.sh` | Compile la page bureau et /mobile. | [Édition des variantes](EDITING_VARIANTS.md#6-après-modification--reconstruire) |
 | `cd frontend && ./build-default.sh` | Compile seulement la page bureau. | [Édition des variantes](EDITING_VARIANTS.md#6-après-modification--reconstruire) |
@@ -82,7 +82,7 @@ Toutes les commandes qu'un sysop utilise pour faire fonctionner une station Phan
 | `./update.sh --apply --yes` | Met à jour sans surveillance ; chaque fichier que vous avez modifié est conservé. | [Guide d'installation](INSTALLATION.md#autres-options) |
 | `./update.sh --apply --prune` | Propose aussi de supprimer les fichiers retirés en amont. | [Guide d'installation](INSTALLATION.md#utilisation) |
 | `./update.sh --from FILE` | Prend la nouvelle version depuis un `.zip`/`.tar.gz` ou un dossier — sans réseau. | [Guide d'installation](INSTALLATION.md#autres-options) |
-| `./update.sh --ref v5.2.1` | Met à jour vers un tag, une branche ou un commit au lieu de l'arbre courant. | [Guide d'installation](INSTALLATION.md#autres-options) |
+| `./update.sh --ref v5.3.0` | Met à jour vers un tag, une branche ou un commit au lieu de l'arbre courant. | [Guide d'installation](INSTALLATION.md#autres-options) |
 | `./update.sh --list-excludes` | Affiche les fichiers que l'outil de mise à jour ne touche jamais. | [Guide d'installation](INSTALLATION.md#autres-options) |
 | `./update.sh --verbose` | Liste tous les fichiers, pas seulement les 40 premiers. | [Guide d'installation](INSTALLATION.md#autres-options) |
 | `./update.sh --restore LAST` | Remet les fichiers écrasés par la dernière mise à jour. | [Guide d'installation](INSTALLATION.md#annuler-une-mise-à-jour) |

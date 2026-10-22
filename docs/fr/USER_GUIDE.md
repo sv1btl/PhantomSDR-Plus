@@ -196,6 +196,7 @@ Exemples :
 1. Placez le pointeur sur un chiffre de l'affichage de fréquence — il s'allume
 2. Molette vers le haut ou **clic gauche** augmente ce chiffre d'une unité ; molette vers le bas ou **clic droit** le diminue
 3. Le pas est la valeur de position du chiffre — 1 kHz sur le chiffre des kHz, 100 Hz sur la première décimale — et un chiffre qui dépasse 9 reporte une retenue sur le chiffre à sa gauche
+4. Partout ailleurs dans le cadre noir de la fréquence — nom de bande, ligne de mode, horloge — la molette accorde au pas d'accord (**Shift** 1 kHz, **Alt** 10 kHz) ; seul le S-mètre analogique est exclu, la molette y fait défiler la page
 
 #### Méthode 4 : boutons de pas
 
@@ -326,7 +327,7 @@ Réduction de bruit spectrale. Elle estime le niveau de bruit dans chaque partie
 **À utiliser quand** : vous entendez un souffle régulier ou un bruit blanc
 derrière le signal.
 
-Les tonalités continues — une note CW, une porteuse — sont reconnues comme du signal et protégées : NR ne mange donc pas un signal CW comme le ferait un filtre naïf. Effet typique : 10 dB de bruit en moins entre les mots, pour quelques dixièmes de dB perdus sur la parole elle-même.
+Les tonalités continues — une note CW, une porteuse — sont reconnues comme du signal et protégées : NR ne mange donc pas un signal CW comme le ferait un filtre naïf. Effet typique : 10 à 12 dB de bruit en moins entre les mots. La parole elle-même perd bien moins de 1 dB sur les signaux forts et quelques dB sur les très faibles, qui restent pourtant plus compréhensibles que sans NR.
 
 ### Silencieux d'impulsions (NB)
 
@@ -395,9 +396,17 @@ Le tampon se règle tout seul. La page mesure l'irrégularité avec laquelle vot
 
 Si le son se coupe, montez le tampon d'un cran. Sur un téléphone en Wi-Fi domestique, le retard du récepteur au haut-parleur est en général d'environ 100–150 ms ; le réseau entre vous et le récepteur s'y ajoute.
 
+### Votre nom ou indicatif
+
+À côté de **Open Additional Info** se trouve une case pour votre nom ou indicatif : 10 caractères au plus et sans espace, comme sur un WebSDR. Tapez-le et appuyez sur **Save** (ou Entrée) ; **Edit** permet de le changer plus tard. Votre navigateur le retient, y compris quand vous passez aux autres récepteurs de la station. Laissez la case vide et vous restez anonyme : *anonymous* suivi d'un nombre dans le chat, et seulement votre localisation partout ailleurs. Sur un téléphone, la même case se trouve au-dessus de l'affichage de fréquence.
+
+Votre nom apparaît dans la fenêtre **Users**, sur vos lignes de chat et sur l'étiquette que les autres auditeurs voient sous leur waterfall — votre nom puis votre localisation, par exemple `SV1BTL-Athens`. Votre propre position est l'★ jaune avec votre nom à côté. Survolez l'étiquette d'un autre auditeur pour voir la fréquence et le mode sur lesquels il est accordé ; un clic vous y accorde.
+
+Comme sur un WebSDR, l'adresse IP d'aucun auditeur n'est montrée aux autres — ni dans la fenêtre Users, ni dans les Statistiques des utilisateurs, qui comptent les visiteurs par un code anonyme.
+
 ### Chat
 
-Quand l'opérateur a activé le chat, il a son propre panneau sur la page de bureau et un onglet **Chat** sur /mobile. Saisissez votre nom ou indicatif, tapez votre message et envoyez-le.
+Quand l'opérateur a activé le chat, il a son propre panneau sur la page de bureau et un onglet **Chat** sur /mobile. Tapez votre message et envoyez-le : il part sous le nom de votre case de nom (voir ci-dessus), ou en *anonymous* suivi d'un nombre.
 
 Pour répondre à un message précis, cliquez sur **↪ Reply** à côté de son heure. Une ligne au-dessus de la zone de saisie indique à qui et à quoi vous répondez ; tapez et envoyez comme d'habitude, ou appuyez sur ✕ ou Échap pour annuler. La réponse apparaît en retrait sous le message auquel elle répond, avec une courte ligne de citation. Une réponse à une réponse rejoint le même fil. Le serveur garde les 20 derniers messages ; quand l'original a déjà quitté cet historique, la réponse n'affiche que le nom et l'heure auxquels elle répond.
 

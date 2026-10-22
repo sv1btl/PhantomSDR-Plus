@@ -110,6 +110,8 @@ class Client {
     virtual void on_userid_message(std::string &userid);
     virtual void on_chat_message(connection_hdl sender_hdl, std::string &userid, std::string &message);
     virtual void on_mute(bool mute);
+    // Name/callsign for /users (AudioClient overrides).
+    virtual void on_identity_message(std::string &name);
     
     // Noise gate and AGC control (AudioClient will override these)
     virtual void on_noise_gate_enable_message(bool enabled);

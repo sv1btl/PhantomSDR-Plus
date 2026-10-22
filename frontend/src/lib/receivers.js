@@ -11,6 +11,7 @@
 // page was opened on — a station that kept someone else's address unedited
 // never shows that station's receivers as its own.
 import { siteInfo } from '../siteInfo.js'
+import { carryIdentity } from './identity'
 
 /**
  * Resolve to { receivers, current, sameOrigin } — receivers as listed (id,
@@ -92,6 +93,7 @@ export function receiverTuneUrl (r, hz, mode, arrive) {
   u.searchParams.set('frequency', String(Math.round(hz)))
   if (mode) u.searchParams.set('modulation', mode)
   if (arrive === 'view' || arrive === 'band') u.searchParams.set(arrive, '1')
+  carryIdentity(u)
   return u.href
 }
 

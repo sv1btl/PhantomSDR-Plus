@@ -10,6 +10,7 @@ import { siteRegion } from './siteInfo.js';
 import { bands, MODES } from './bands-config.js';
 import { ConnectionRefused, isRefusal } from './refused'
 import WaterfallAutoLevel from './lib/wfAutoLevel.js'
+import { isAnonymousName } from './lib/identity.js'
 
 export default class SpectrumWaterfall {
   constructor(endpoint, settings) {
@@ -1494,6 +1495,11 @@ export default class SpectrumWaterfall {
     this.clientGeoMap = (map && !Array.isArray(map)) ? map : {}
   }
 
+  // { uuid → name/callsign } from /users, for the listeners who typed one.
+  setClientNames(map) {
+    this.clientNameMap = (map && !Array.isArray(map)) ? map : {}
+  }
+
   drawClients() {
     const scale    = this.canvasScale
     const fontSize = Math.max(10, Math.round(11 * scale))
@@ -1526,14 +1532,20 @@ export default class SpectrumWaterfall {
         const cityPart = geoVal && geoVal.includes('·')
           ? geoVal.split('·')[1].trim()
           : geoVal
-        const label = geoVal ? cityPart : displayId
+        // As on a WebSDR: the name/callsign, then the location after it
+        // ("SV1BTL-Larissa"); the location alone when there is no name.
+        const nameVal = this.clientNameMap && this.clientNameMap[id]
+        const place   = geoVal ? cityPart : ''
+        const label   = nameVal
+          ? (place ? `${nameVal}-${place}` : nameVal)
+          : (place || displayId)
 
         const textW = this.clientsCtx.measureText(label).width
         const flagW = flagImg ? flagSz + flagGap : 0
         const pillW = hPad + flagW + textW + hPad
         const midX  = this.idxToCanvasX(range[1])
         const pillX = midX - pillW / 2
-        return { fftOffset: range[1], midX, label, flagImg, flagW, flagSz, pillW, pillX, isStar: false }
+        return { id, fftOffset: range[1], midX, label, flagImg, flagW, flagSz, pillW, pillX, isStar: false }
       })
 
     // Add own ★ as a frameless entry so it joins the row-assignment and never
@@ -1542,9 +1554,16 @@ export default class SpectrumWaterfall {
       const myRange = this.clients[this.myId]
       if (myRange[1] < this.waterfallR && myRange[1] >= this.waterfallL) {
         const midX  = this.idxToCanvasX(myRange[1])
-        const starW = this.clientsCtx.measureText('★').width + hPad * 2
-        const pillX = midX - starW / 2
-        entries.push({ fftOffset: myRange[1], midX, pillW: starW, pillX, isStar: true })
+        // Your own name/callsign beside the ★ (none while anonymous).
+        const myName = this.myUsername && !isAnonymousName(this.myUsername) ? this.myUsername : ''
+        const starSize = Math.max(10, Math.round(fontSize * 1.4))
+        this.clientsCtx.font = `bold ${starSize}px monospace`
+        const starTextW = this.clientsCtx.measureText('★').width
+        this.clientsCtx.font = `bold ${fontSize}px monospace`
+        const nameW = myName ? flagGap + this.clientsCtx.measureText(myName).width : 0
+        const starW = starTextW + nameW + hPad * 2
+        const pillX = midX - starTextW / 2 - hPad
+        entries.push({ fftOffset: myRange[1], midX, pillW: starW, pillX, isStar: true, myName, starTextW })
       }
     }
 
@@ -1592,10 +1611,15 @@ export default class SpectrumWaterfall {
         this.clientsCtx.textBaseline = 'middle'
         this.clientsCtx.fillText('★', e.midX, pillY + pillH / 2)
         this.clientsCtx.font         = `bold ${fontSize}px monospace`  // restore
+        if (e.myName) {
+          this.clientsCtx.textAlign = 'left'
+          this.clientsCtx.fillText(e.myName, e.midX + e.starTextW / 2 + flagGap, pillY + pillH / 2)
+          this.clientsCtx.textAlign = 'center'
+        }
         return
       }
 
-      this._clientPills.push({ x: e.pillX, y: pillY, w: e.pillW, h: pillH, fftOffset: e.fftOffset })
+      this._clientPills.push({ id: e.id, x: e.pillX, y: pillY, w: e.pillW, h: pillH, fftOffset: e.fftOffset })
 
       // Pill background (opaque — covers any tick line passing through)
       this.clientsCtx.fillStyle = 'rgba(0,0,0,0.95)'
@@ -1646,6 +1670,19 @@ export default class SpectrumWaterfall {
     img.onload  = () => { this._flagCache[key] = img;      this.drawClients() }
     img.onerror = () => { this._flagCache[key] = undefined; /* keep text-only */ }
     img.src = url
+    return null
+  }
+
+  // The listener whose label is under the mouse, for the hover tooltip:
+  // { id, name, freq } or null.
+  clientPillAt(canvasX, canvasY) {
+    for (const pill of this._clientPills || []) {
+      if (canvasX >= pill.x && canvasX <= pill.x + pill.w &&
+          canvasY >= pill.y && canvasY <= pill.y + pill.h) {
+        return { id: pill.id, name: (this.clientNameMap || {})[pill.id] || '',
+                 freq: this.idxToFreq(pill.fftOffset) }
+      }
+    }
     return null
   }
 

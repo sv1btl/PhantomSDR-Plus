@@ -470,10 +470,15 @@ size_t broadcast_server::kick_ip(const std::string &ip_raw, int ban_s) {
     // proxied station it would mean every listener at once.
     if (ip.empty() || is_loopback_ip(ip)) return 0;
 
+    // The admin panel re-sends its 24 h bans every minute, so a receiver
+    // that restarted (and forgot them) gets them back; renewing a ban that is
+    // already in force is not worth a log line.
+    bool renewed = false;
     if (ban_s > 0) {
         const auto now = std::chrono::steady_clock::now();
         std::lock_guard<std::mutex> lk(ip_limit_mtx);
         auto &e = ip_limit_table[ip];
+        renewed = e.kick_ban && e.banned_until > now;
         if (e.last_refill.time_since_epoch().count() == 0) {
             e.last_refill = now;
             e.tokens      = limit_per_ip_rate > 0 ? limit_per_ip_rate : 0.0;
@@ -498,10 +503,22 @@ size_t broadcast_server::kick_ip(const std::string &ip_raw, int ban_s) {
         m_server.close(hdl, CLOSE_KICKED, "disconnected by the sysop", ec);
         if (!ec) closed++;
     }
-    if (closed || ban_s > 0)
+    if (closed || (ban_s > 0 && !renewed))
         std::cout << "Kicked " << ip << ": " << closed << " socket(s) closed, "
                   << "refused for " << ban_s << "s" << std::endl;
     return closed;
+}
+
+bool broadcast_server::unban_ip(const std::string &ip_raw) {
+    const std::string ip = normalize_client_ip(ip_raw);
+    std::lock_guard<std::mutex> lk(ip_limit_mtx);
+    auto it = ip_limit_table.find(ip);
+    if (it == ip_limit_table.end() || !it->second.kick_ban) return false;
+    const bool active = it->second.banned_until > std::chrono::steady_clock::now();
+    it->second.banned_until = {};
+    it->second.kick_ban     = false;
+    if (active) std::cout << "Unbanned " << ip << std::endl;
+    return active;
 }
 
 void broadcast_server::ip_limit_release(const std::string &ip, bool listener) {

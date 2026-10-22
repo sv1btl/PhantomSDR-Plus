@@ -1,9 +1,9 @@
-# PhantomSDR-Plus WebSDR (version 5.2.1)
+# PhantomSDR-Plus WebSDR (version 5.3.0)
 
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-cyan.svg)](https://www.gnu.org/licenses/gpl-3.0)
-[![Version](https://img.shields.io/badge/version-5.2.1-cyan.svg)](https://github.com/sv1btl/PhantomSDR-Plus)
+[![Version](https://img.shields.io/badge/version-5.3.0-cyan.svg)](https://github.com/sv1btl/PhantomSDR-Plus)
 
-**Maintained by SV1BTL.** The current version is 5.2.1, and the project lives at
+**Maintained by SV1BTL.** The current version is 5.3.0, and the project lives at
 **https://github.com/sv1btl/PhantomSDR-Plus** — that is the one to clone, link to
 and report issues against.
 
@@ -13,26 +13,19 @@ PhantomSDR-Plus is licensed under the GPL v3 with the [additional terms](ADDITIO
 
 ## Note: Tested on Debian 12 (Bookworm), Debian 13 (Trixie), Ubuntu 22.04, Ubuntu 24.04.
 
-**What's new in v.5.2.1**
+**What's new in v.5.3.0**
 
-* **An audio analyser.** The **📊 Show** button in the Spectrogram section now opens a full audio analyser: the demodulated audio with a dB grid and peak hold, an axis that follows the mode (reversed in LSB), the recommended bandwidths and your current filter, and an RF view of the station in AM and FM. Under it, the station's occupied width with a within / wide / splatter verdict, and in USB/LSB an SSB audio report — tonal balance against Standard, DX or ESSB, compression, mains hum, residual carrier and opposite sideband — with a curve to compare before and after and a listening report to download and send. In AM and FM an AM/FM report takes its place — modulation depth and sideband balance, FM deviation and 99 % bandwidth, carrier offset, audio bandwidth, CTCSS tone and hum. No zoom is needed: while it is open the analyser keeps its own fine-detail view of the station. You can tune and change the mode from its header, and its colours show how far each part of the spectrum stands above the noise. A Mute button lets you analyse your own transmission without feeding it back into the microphone. Adapted from PhantomSDR-ORSAT by F1NSK. See **[docs/USER_GUIDE.md](docs/USER_GUIDE.md)**.
-* **Band buttons remember your frequency.** Coming back to a band tunes the last frequency you used there, with the band's zoom, brightness and contrast as before; a second click on the active band button goes back to the band's default. A frequency link in the chat now frames its band the way **To Band** does. See **[docs/USER_GUIDE.md](docs/USER_GUIDE.md)**.
-
-------------------
-
-**What's new in v.5.2.0**
-
-* **Show All — the station's other receivers under your waterfall.** On a station with more than one receiver, a **Show All** checkbox after the receiver buttons puts each other receiver under the main waterfall as a live strip: its spectrum and waterfall, with its own markers and frequency scale, in its own colours and levels, the newest line at the top. Hover over it to read a frequency and the nearest marker; click and that receiver opens there, in the same tab — on a marker in the marker's mode. It is off until the listener ticks it, and costs about 10 KB/s per listener who does; each strip is a waterfall-only socket, so it is not counted as a listener on the other receiver, and the server needs no change. See **[docs/MULTI_RECEIVER.md](docs/MULTI_RECEIVER.md)**.
-* **Back where you were.** Leaving a receiver's page remembers its zoom, brightness, contrast, mode and frequency. Its strip on the other page opens on that same part of the band, with a green ▼ where you were tuned and a **Full span** / **Last view** button, and clicking inside that view brings the receiver back exactly so — not at its whole range. When that receiver covers more than one band (HF, seen from the 2 m page), the button becomes a dropdown with **Last view**, **Full span** and that receiver's bands: a band frames the strip as its band button does, and a click opens the receiver framed on that band.
-* **The right receiver by itself.** A frequency this receiver does not cover but another of the station's receivers does — typed, from a link, a bookmark, a DX spot, the chat or another listener's label — opens that receiver's page, tuned there. The mouse wheel, the digit steps and a rig connected over CAT never switch receivers.
-* **A number pad, and a typed frequency brings its band.** Click the black frequency box and a number pad opens (or type on the keyboard; the two Enter keys pick kHz or MHz); click a digit to step it up, right-click to step it down. A typed frequency now lands the way that band's button would: the waterfall zoomed to the whole band, the band's brightness and contrast, and the band-plan mode — on this receiver or, through the automatic switch, on the one that covers it. See **[docs/USER_GUIDE.md](docs/USER_GUIDE.md)**.
-* **Receive diversity switches even when only one site hears the station.** Until the two streams are aligned they are paired by arrival, and the better site is chosen by SNR as usual — so a station heard only by the remote now comes through, the case where diversity helps most. The panel shows **Ready (unaligned)** meanwhile. See **[docs/RECEIVE_DIVERSITY.md](docs/RECEIVE_DIVERSITY.md)**.
-* **Connected Users and User Statistics per receiver.** With several receivers open side by side in one browser, each page's windows show its own receiver, from its own logs.
-* **A bigger spectrum and waterfall on phones.** In the extended mobile view the spectrum is 1.6× taller and the waterfall nearly twice as tall as before (on a 412-pixel screen 57 + 42 pixels instead of 35 + 23); the desktop page is unchanged.
-* **A 3D spectrum.** A **3D** button next to **Reverse** under Waterfall Controls turns the spectrum into a relief of the last few seconds — frequency across, time going back into the screen, strength as height — drawn by the listener's graphics card (WebGL2), so it costs the server nothing. It uses the waterfall's own colours, brightness, contrast and Auto Adj.; click to tune, drag and wheel to zoom work as on the flat spectrum; marks show seconds back and dB above the Min level; and a video recording made while it is open records it. Adapted from the 3D spectrum of [PhantomSDR-ORSAT](https://github.com/f1nsk40260/PhantomSDR-ORSAT) by F1NSK. See **[docs/USER_GUIDE.md](docs/USER_GUIDE.md)**.
-* **A cursor line on the waterfall too.** The spectrum's dashed yellow line under the mouse now also shows on the waterfall, and hovering the waterfall draws it on the spectrum with its MHz readout.
-* **Fixes:** the CW filter is centred on the 750 Hz tone (the tone used to sit 50 Hz from the filter's edge), and CW-L reaches the server as LSB; links written for KiwiSDR and UberSDR (`modulation=CWU`, `CW-U`, `CWL`) open in CW and CW-L; websdr.org registration works with sdr-list registration switched off, sends its ping over IPv4, and its callback (`/~~orgstatus`) now gets through `proxy.py`; the installers build the backend with OpenCL whenever the OpenCL step ran; with the waterfall switched off, the spectrum's tuning indicator follows a click again; the SNR readout took the waterfall's half-dB steps for whole dB and now shows the real figure, about half what it showed before (the scanner's threshold is in real dB too).
-* **Documentation:** the User Guide (now with the 3D spectrum and the audio analyser), Several Receivers, Receive Diversity and Project Structure manuals cover all of the above in all seven languages, and the offline PDFs are rebuilt.
+* **Your name or callsign, as on a WebSDR.** A box next to **Open Additional Info** takes your name or callsign — up to 10 characters, no spaces; left blank, you are anonymous plus a number. It shows in the Connected Users window and on its map, on your chat lines, and on your label under the other listeners' waterfall, followed by your location ("SV1BTL-Athens"); your own ★ carries it too. It is kept in your browser and follows you to the station's other receivers. On a phone the box sits above the frequency display. The chat panel no longer has a name field of its own.
+* **Hover over a listener's label** under the waterfall to see the frequency and mode they are tuned to; click it to tune there.
+* **No IP addresses in public.** As on a WebSDR, the public users list (`/users`, `users.json`) and the User Statistics no longer show any listener's IP address. The statistics count unique visitors by an anonymous code; the log files on disk keep the addresses for the sysop.
+* **Admin panel:** the Users page shows each listener's name, location and IP address, and **⛔ Ban 24h** next to **⚡ Kick** disconnects a listener from every receiver and refuses them for 24 hours — kept across receiver restarts, with a list of active bans and an **Unban** button. The listener map now uses OpenStreetMap, like the APRS map.
+* **A renewed Admin Panel.** **Alerts** by email and/or Telegram when a receiver goes off the air, comes back or is restarted, the thermal guard changes stage, or `crash.log` gets a new entry (Settings → Alerts, with a ✉ Send test). **Backup & restore** of the station's own settings — configs, `receivers.toml`, `station.conf`, site information, markers, band settings, relay, spot reporting, bans and every extra receiver — as one zip; a restore keeps each file it replaces in `admin-backups/`. A **Visitors** page with private statistics for 1 to 31 days: visitors, sessions, listening hours, most at once, busiest hours, countries, and the addresses with the most sessions at the same time, each with Ban 24h. A **System Health** card on the Dashboard: every receiver on air or off with its uptime, free disk and log folder sizes, the last `crash.log` entry. And **themes** — Phosphor green, Amber display, Metal panel, Modern dark, Light, and Auto (light from sunrise to sunset at the station's locator, dark at night) — picked with **THEME** in the top bar of every page. See [docs/ADMIN_PANEL_SETUP.md](docs/ADMIN_PANEL_SETUP.md).
+* **The mouse wheel tunes anywhere in the black frequency box.** Over a digit it steps that digit as before; anywhere else in the box — the band name, the mode line, the clock — it tunes by the tuning step (Shift 1 kHz, Alt 10 kHz). Only the analog S-meter is left out, so the wheel over it scrolls the page.
+* **Softer Noise Reduction.** NR now keeps about 1 dB more of the voice on weak signals and is more intelligible at every signal level — measured on 80 SSB test recordings with real band noise — for about 2 dB less noise removed between words.
+* **The 3D view in the waterfall's exact colours.** The 3D spectrum no longer adds light and shade of its own: every point has exactly the colour the waterfall gives that level.
+* **Decoders show the signal frequency.** While HF FAX, NAVTEX or the FLDIGI window is on, the frequency meter shows the station's own frequency — NAVTEX reads 518.000, not the 517.500 the receiver is tuned to in USB — and a frequency typed then is taken as the signal's. Decoding, the filter and the waterfall work exactly as before.
+* **Decoder frequency lists re-checked.** The WeatherFAX, NAVTEX, maritime FSK (SITOR) and DWD weather RTTY frequencies and timetables were checked against NOAA, the IMO NAVTEX list, USCG NAVCEN and DWD on 22 October 2026, and are all current.
+* **Documentation:** the User Guide (also the wheel in the frequency box and the NR figures), Admin Panel (also alerts, backup & restore, visitors, system health and themes), Connection Limits, Several Receivers and Project Structure manuals cover all of the above in all seven languages, and the offline PDFs are rebuilt.
 
 ------------------
 
@@ -47,8 +40,9 @@ We also provide a wide range of additional **features**:
 * A modern, futuristic user-interface design.
 * **CATsync** support through the [CATsync Tool for WebSDRs](https://catsyncsdr.wordpress.com/) application, **TCI-CAT** on the receiver page itself (ExpertSDR, AetherSDR, Thetis, or any Hamlib rig through the included bridge), and two-way rig control — frequency, mode and filter — in [Desktop PhantomSDR+](https://www.dropbox.com/scl/fo/kjwj96zg3kj7dgq4fjef9/APnA3c9hhv4hk3YMGIGjH7s?rlkey=jfiwklly63kv73poalx631pk3&st=m37uvaym&dl=0). See [docs/RIG_CONTROL.md](docs/RIG_CONTROL.md).
 * **KiwiSDR client emulation** — an optional bridge that lets Kiwi clients such as **AetherSDR** and `kiwiclient` connect to the receiver directly, on the same host and port, with real retuning, waterfall and S-meter. Off until `[kiwi_emulation] enabled = true` is added to your config. See [docs/Aether_config.md](docs/Aether_config.md).
-* **Receive diversity** — pair the receiver with a second site (another PhantomSDR-Plus, a KiwiSDR, an UberSDR or a WebSDR) and hear whichever of the two currently has the better signal. It runs in the listener's browser; only a WebSDR as the partner needs a small relay on your own server. See [docs/RECEIVE_DIVERSITY.md](docs/RECEIVE_DIVERSITY.md).
+* **Receive diversity** — pair the receiver with a second site (another PhantomSDR-Plus, a KiwiSDR, an UberSDR or a WebSDR) and hear whichever of the two currently has the better signal. It runs in the listener's browser; only a WebSDR as the partner needs a small relay on your own server. See [docs/RECEIVE_DIVERSITY.md](docs/RECEIVE_DIVERSITY.md). It switches even while the two streams are not yet aligned, so a station heard only by the remote comes through.
 * **Several receivers on one computer** — for example an RX-888 for HF and an RTL-SDR for 2 m, each a complete server of its own with its own waterfall, chat, markers and listeners. `./add-receiver.sh` (also offered at the end of every installer) adds one, with its driver; `start-all.sh` starts them all and `./stop-websdr.sh <name>` stops one. On the page a *Receivers:* line, on /mobile too, switches between them, and `proxy.py` lets them share one public port. See [docs/MULTI_RECEIVER.md](docs/MULTI_RECEIVER.md).
+* On a station with several receivers, **Show All** puts each other receiver under the waterfall as a live strip — click it and that receiver opens there; each receiver's page remembers where you were, and a frequency only another receiver covers (typed, from a link, a spot, the chat or a label) opens that receiver by itself.
 * An S-meter that reads **VHF S-units above 30 MHz** (IARU Region 1: S9 is −93 dBm there, −73 dBm below), with an optional rest-at-zero on an empty VHF/UHF channel (`"siteSMeterGateDb"`).
 * The sysop's kick and the `X-Forwarded-For` header are trusted only from the same machine, so nobody can kick listeners or slip past the per-IP limits through the proxy.
 * Optional server settings for multi-receiver stations: `[server] host`, `[server] html_fallback_root`, `[websdr] public_port`, and per-receiver `siteReceiverURL` / `siteAntennaURL` links.
@@ -86,6 +80,9 @@ We also provide a wide range of additional **features**:
   * Auto Adj.: automatic waterfall brightness and contrast from the measured noise floor, the same with every colour map.
   * 3D spectrum: the last seconds of the band in relief, in the waterfall's colours and levels (WebGL2, in the listener's browser).
   * Mouse-wheel frequency tuning, with a 12.5 kHz step for the VHF channel grid.
+  * A number pad on the frequency box; a typed frequency frames its band as the band button would.
+  * Band buttons remember your last frequency on each band; a second click returns to the band's default.
+  * A cursor line with its MHz readout on both the spectrum and the waterfall.
   * Keyboard shortcuts.
   * Zoom slider.
   * Enhanced mobile GUI.
@@ -99,10 +96,10 @@ We also provide a wide range of additional **features**:
 * An audio analyser (the Spectrogram section's **📊 Show**): the demodulated audio as a spectrum with an axis that follows the mode, the recommended bandwidths and your current filter; an RF view of the station in AM and FM; the station's occupied width with a splatter verdict; and, in USB/LSB, an SSB audio report (tonal balance, compression, mains hum, residual carrier, opposite sideband) with a listening report to download; in AM/FM an AM/FM report (modulation depth, sideband balance, deviation, CTCSS tone). It works at any zoom. Adapted from PhantomSDR-ORSAT by F1NSK.
 * A “Magic Eye” signal-strength indicator that emulates the behaviour of EM84 tuning-indicator tubes used in vintage radio receivers.
 * Audio recording and combined video/audio recording of either the complete waterfall (with the 3D spectrum when it is open) or a user-selected region.
-* A real-time connected-user list with geolocation data, map integration, and user statistics covering configurable time periods. Your own session is marked **you** in the list, whether it is opened from the interface or as a standalone `users.html` page.
+* A real-time connected-user list with geolocation data, map integration, and user statistics covering configurable time periods. Your own session is marked **you** in the list, whether it is opened from the interface or as a standalone `users.html` page. With several receivers open side by side, each page's Connected Users and User Statistics windows show its own receiver.
 * Improved server stability and fault reporting. If `spectrumserver` crashes or malfunctions, diagnostic information is written to `crash.log`.
 * The `crash.log` file can be accessed both from the server’s root directory and through the Admin Panel.
-* An optimized mobile GUI.
+* An optimized mobile GUI, with a taller spectrum and waterfall in the extended view.
 * Client-side CPU and memory usage have been reduced as much as possible.
 * **Connection limits, and a flood guard.** The receiver can now cap simultaneous listeners and the rate of new connections per address, and bound the silent half-open connections that no other limit can see. Two keys switch it on — `per_ip` and `per_ip_rate` in `[limits]` — and everything defaults to off, so an existing config behaves as before. A refused listener is told why instead of watching a page that never loads. Below it sits `setup-firewall.sh`, an optional nftables layer that sheds volume before the server reads a byte and cannot lock you out of your own machine. Full manual, in all seven languages and in the offline PDFs: **[docs/CONNECTION_LIMITS.md](docs/CONNECTION_LIMITS.md)** — including how to measure your own traffic before choosing the numbers. **A dropped connection now ends the session.** The audio socket no longer reconnects by itself. On a receiver that was wrong: the waterfall and events sockets never came back with it, so a retried session was live audio attached to a frozen waterfall, and stopping the server stopped clearing it.
 * **TCI-CAT on the receiver page.** A new **TCI-CAT** button beside IF Filters lets the page follow your own transceiver by itself, with no desktop application: the browser talks straight to the TCI server of ExpertSDR, AetherSDR or Thetis on your computer. Frequency, mode and filter width follow in both directions — turn the rig's dial or press its FIL button and the receiver follows, click the waterfall or pick an IF filter and the rig follows — and the page falls silent while you transmit. 
@@ -495,7 +492,7 @@ Every release carries **`update-known.txt`**, the fingerprint of every version o
 For a machine you do not sit at: <br />
 ```
 bash update.sh --apply --yes   never asks; every file you have edited is KEPT
-bash update.sh --ref v5.2.1    a tag, branch or commit instead of the current tree
+bash update.sh --ref v5.3.0    a tag, branch or commit instead of the current tree
 ```
 
 **On a very old installation the rebuild may fail**, because `update.sh` updates files and not system packages. If the rebuild stops with a compiler or meson error, run `bash install.sh` — itself brought up to date by the same run — and your configuration survives that too. <br />
@@ -577,6 +574,8 @@ Please refer to the **[Readme](docs/sdr-stats/README.md)** for detailed instruct
 ## The Admin area
 This is an optional feature that adds a real-time admin control panel to your PhantomSDR application through an automated installation script.<br />
 Please refer to the **[Readme](docs/ADMIN_PANEL_SETUP.md)** for detailed instructions.
+
+Since 5.3.0 the panel also sends **alerts** by email or Telegram, makes a **backup** of the station's settings and restores it, shows private **visitor statistics** and a **System Health** card, and has six **themes** (THEME, in the top bar). After an update, restart it with `sudo systemctl restart phantomsdr-admin` and reload the page with Ctrl+F5.
 
 
 ## The thermal guard

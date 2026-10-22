@@ -25,13 +25,18 @@ Beide Dienste lesen ihre Konfiguration aus `admin_config.json`, das von `setup_a
 - **Marker** — Frequenzmarker ansehen und bearbeiten
 - **Chatverlauf** — das WebSDR-Chatprotokoll ansehen, vollständig leeren oder einzelne Nachrichten löschen, ohne den Server neu zu starten
 - **Wasserfallnachricht** — ein dauerhaftes Banner an alle verbundenen Nutzer senden, in Echtzeit auf der Wasserfallanzeige sichtbar
-- **Nutzer** — Live-Liste der verbundenen Hörer mit ihrer Frequenz, Betriebsart, Dauer und einer ⚡-Kick-Schaltfläche
+- **Nutzer** — Live-Liste der verbundenen Hörer mit Name oder Rufzeichen, Standort und IP-Adresse, Frequenz, Betriebsart und Dauer, je einer ⚡-Kick- und ⛔-Ban-24h-Schaltfläche und einer Karte, wo sie sind
 - **Löschen von Chatnachrichten** — 🗑-Delete-Schaltfläche, die genau diese eine Nachricht sofort aus dem Protokoll entfernt
 - **Wasserfall-Rundnachrichten** — erlaubt es, ein dauerhaftes Textbanner in den Wasserfall jedes verbundenen Nutzers zu schieben
 - **Spot Reporting** — den Autorun-Decoder für FT8/FT4/JS8/WSPR starten/stoppen, Bänder/Betriebsarten wählen und Spots an PSK Reporter / wsprnet melden (standardmäßig AUS), mit zwei Zählern: Kacheln je Decoder für den aktuellen Lauf und ein Gesamtwert seit Beginn neben jedem Band-/Betriebsart-Kontrollkästchen
 - **Graphen** — CPU-Frequenz, CPU-Last, CPU-Temperatur und verbundene Nutzer, aufgezeichnet über die letzten 15 Minuten / 1 Stunde / 4 Stunden / 12 Stunden / 24 Stunden
 - **Thermischer Schutz (Thermal Guard)** — stoppt den Server, wenn die CPU überhitzt, und startet ihn wieder, sobald sie abgekühlt ist; die Schwellen leiten sich aus Ihrer eigenen CPU ab. Funktioniert mit jeder Start-/Stopp-Methode und läuft ausgeliefert nur im Protokollmodus, tut also nichts, bis Sie ihn aktivieren
 - **Einstellungen** — Admin-Passwort, SDR-Basisverzeichnis, Prozessname und öffentlichen Port ändern
+- **Systemzustand** (Dashboard) — jeder Empfänger auf Sendung oder aus, mit seiner Laufzeit, der freie Plattenplatz und die Größe jedes Log-Ordners, der letzte `crash.log`-Eintrag und die letzten Alarme
+- **Besucher** — private Besucherstatistik für 1 bis 31 Tage: Besucher, Sitzungen, Hörstunden, die meisten gleichzeitig, pro Tag, die stärksten Stunden, Länder, und die Adressen mit den meisten gleichzeitigen Sitzungen, mit ⛔ Ban 24h
+- **Alarme** — eine E-Mail und/oder Telegram-Nachricht, wenn ein Empfänger ausfällt, zurückkommt oder neu gestartet wird, der Thermal Guard die Stufe wechselt oder `crash.log` einen neuen Eintrag bekommt
+- **Sicherung & Wiederherstellung** — ein Zip mit den eigenen Einstellungen der Station, und eine Wiederherstellung, die jede ersetzte Datei vorher nach `admin-backups/` kopiert
+- **Themes** — Phosphor green, Amber display, Metal panel, Modern dark, Light und Auto (hell am Tag, dunkel in der Nacht), gewählt mit **THEME** in der oberen Leiste jeder Seite
 
 ---
 
@@ -207,9 +212,13 @@ sudo ufw allow <proxy_port>
 
 ## Schritt 5 — Kick-Funktion
 
-Die Seite Users zeigt jeden aktuell verbundenen Hörer. Jede Zeile nennt die IP des Nutzers, die eingestellte Frequenz, die Betriebsart und die Verbindungsdauer. Um einen Nutzer zu trennen, klicken Sie in seiner Zeile auf **⚡ Kick** — nur diese eine TCP-Verbindung wird beendet. Alle anderen Hörer bleiben verbunden und bemerken nichts.
+Die Seite Users zeigt jeden aktuell verbundenen Hörer. Jede Zeile nennt den Namen oder das Rufzeichen, das der Hörer eingegeben hat (`--`, wenn keines), den Standort mit der IP-Adresse darunter, die eingestellte Frequenz, die Betriebsart und die Verbindungsdauer. Um einen Nutzer zu trennen, klicken Sie in seiner Zeile auf **⚡ Kick** — nur die Verbindungen dieses Hörers werden beendet. Alle anderen Hörer bleiben verbunden und merken nichts.
 
-Der Kick ist sofort und punktgenau: Der Server startet nicht neu, für niemanden sonst wird der Ton unterbrochen, und der getrennte Nutzer kann sich sofort wieder verbinden (die Funktion dient dem Entfernen störender oder hängender Verbindungen, nicht dem Sperren).
+Die IP-Adressen stehen nur auf dieser Seite. Seit 5.3.0 enthalten die öffentliche Nutzerliste (`/users`) und die Nutzerstatistik keine, wie bei einem WebSDR; das Panel liest seine Liste von `/~~users`, das spectrumserver nur auf dem eigenen Rechner beantwortet und nie über den Proxy.
+
+Der Kick ist sofort und punktgenau: Der Server startet nicht neu, für niemanden sonst wird der Ton unterbrochen, und der getrennte Nutzer kann sich sofort wieder verbinden (die Funktion dient dem Entfernen störender oder hängender Verbindungen; wer draußen bleiben soll, bekommt die Sperre unten).
+
+**⛔ Ban 24h** trennt den Hörer von allen Empfängern der Station und weist seine Adresse 24 Stunden lang ab (Close-Code 4001, den die Seite nicht erneut versucht). Die Sperre wird in `admin_bans.json` neben dem Panel gespeichert und einmal pro Minute erneut an jeden Empfänger geschickt, sodass ein Neustart eines Empfängers sie nicht aufhebt. Solange Sperren gelten, zeigt eine Liste **Banned for 24 h** unter der Tabelle jede mit Name, Adresse und Ablaufzeit, und eine Schaltfläche **Unban** hebt sie sofort auf. Alle hinter demselben Internetanschluss teilen sich die Adresse und sind mitgesperrt.
 
 Intern nutzt der Kick `ss -K dst <IP> dport <port>`, um den betreffenden TCP-Socket abzubauen. Das erfordert eine Linux-Fähigkeit, die das Einrichtungsskript automatisch gewährt. Falls Sie die Einrichtung übersprungen haben oder die Schaltfläche einen Fehler meldet, setzen Sie sie manuell:
 
@@ -811,6 +820,104 @@ taskset -cp "$(pgrep -x spectrumserver)"       # spectrumserver
 
 ---
 
+## Systemzustand (System Health)
+
+Eine Karte im **Dashboard**, alle 30 Sekunden aktualisiert (oder mit **↻ refresh**):
+
+- **Empfänger** — jeder Empfänger der Station (der auf `public_port` und jeder in `receivers.toml`): ein grüner Punkt und *on air, up 15h 5m*, wenn er antwortet, ein rotes **OFF THE AIR**, wenn nicht.
+- **Platte & Log-Ordner** — freier Platz auf der Platte der Installation (orange ab 80 % belegt, rot ab 90 %), und die Größe von `logs/`, `logproxy/` und jedem `instances/<id>/logs/`.
+- **Letzte Alarme** — was die Alarmüberwachung seit dem Start des Panels gesehen hat (siehe [Alarme](#alarme-e-mail--telegram)), ob eine Nachricht verschickt wurde oder nicht.
+- **Letzter crash.log-Eintrag** — die neueste nicht leere `crash.log` aller Empfänger, mit Datum und ihren letzten 12 Zeilen.
+
+---
+
+## Besucherstatistik
+
+Die Seite **Visitors** in der Seitenleiste (am Telefon: die Schaltfläche **📈 VISITOR STATISTICS** auf der Seite Users) zählt die Hörer der Station aus den privaten Logs `logs/users_YYYY-MM-DD.jsonl` jedes Empfängers — den Kopien mit den IP-Adressen, die die öffentlichen Seiten nicht mehr zeigen. Wählen Sie **Today**, **7**, **14** oder **31 days**.
+
+- **Besucher** (verschiedene Adressen), **Sitzungen**, **Hörstunden** und **die meisten gleichzeitig hörenden**.
+- **Pro Tag** — dieselben vier Zahlen für jeden Tag.
+- **Stärkste Stunden** — wann Sitzungen begannen, nach UTC-Stunde.
+- **Länder** — Besucher pro Land.
+- **Adressen** — die 20 Adressen mit den meisten Sitzungen *gleichzeitig* zuerst, dann mit den meisten Sitzungen; eine Verbindungsflut wie die vom 16. September 2026 steht sofort oben (**AT ONCE** wird über 3 rot). Jede Zeile hat **BAN 24h**.
+
+Tage und Stunden sind UTC. Die eigenen Decoder der Station (lokale Verbindungen) zählen nicht; eine noch offene Sitzung zählt höchstens 12 Stunden. Namen stehen nicht in diesen Logs, daher zeigt die Seite Adressen, keine Namen. Die Zahlen werden höchstens einmal pro Minute neu berechnet.
+
+---
+
+## Alarme (E-Mail / Telegram)
+
+**Settings → Alerts — Email / Telegram.** Eine Überwachung im Admin-Panel prüft alle 30 Sekunden:
+
+| Ereignis | Wann |
+|---|---|
+| **off the air** | ein Empfänger antwortet etwa eine Minute lang nicht (zwei Prüfungen hintereinander) |
+| **back on air** | er antwortet wieder |
+| **restarted** | er antwortet als neuer Prozess — neu gestartet vom Watchdog, einem Startskript oder dem Thermal Guard |
+| **thermal guard** | der Guard wechselt die Stufe (normal / warn / throttle / stopped) |
+| **crash.log** | eine `crash.log` irgendeines Empfängers bekommt einen neuen Eintrag; die Nachricht enthält ihre letzten Zeilen |
+
+Jedes Ereignis hat sein eigenes Kästchen. Derselbe Alarm wird höchstens einmal in 5 Minuten verschickt. Die erste Prüfung nach dem Start des Panels lernt nur den aktuellen Zustand, ein Neustart des Panels verschickt also nichts.
+
+**Telegram** (am einfachsten):
+
+1. Öffnen Sie in Telegram **@BotFather**, senden Sie `/newbot` und folgen Sie den Schritten; Sie bekommen ein **Bot-Token** (`123456789:AA…`).
+2. Öffnen Sie Ihren neuen Bot und drücken Sie **Start** — vorher kann Ihnen ein Bot nicht schreiben.
+3. Öffnen Sie **@userinfobot**; die **Id**, die er antwortet, ist Ihre **Chat-ID**.
+4. **TELEGRAM** ankreuzen, beides einfügen, **✉ SEND TEST** drücken.
+
+**E-Mail:** **EMAIL** ankreuzen und SMTP-Server, Port und Sicherheit Ihres Anbieters (SSL auf 465, STARTTLS auf 587), User, Passwort und **TO** eintragen. **FROM** kann eine vollständige Adresse sein, `Name <Adresse>` oder nur ein Name — ein Name allein erscheint als Absendername über der **USER**-Adresse, der User muss dann also eine vollständige Adresse sein.
+
+**✉ SEND TEST** speichert zuerst das Formular und sendet dann; die Zeile unter den Schaltflächen zeigt die Antwort jedes Kanals oder was noch fehlt. Die Einstellungen liegen in `admin_config.json` unter `"alerts"` — der privaten Datei des Panels, nie Teil einer Sicherung oder eines Updates. Ein gespeichertes Passwort oder Token erscheint als `********` und bleibt unverändert, solange Sie kein neues eingeben.
+
+---
+
+## Sicherung & Wiederherstellung der Stationseinstellungen
+
+**Settings → Backup & restore of the station settings.**
+
+**⬇ DOWNLOAD BACKUP** liefert ein Zip, `phantomsdr-settings-<Rufzeichen>-<Datum>.zip`, mit den eigenen Einstellungen dieser Station:
+
+- jede `*.toml` der Installation (Empfänger-Konfigurationen und `receivers.toml`) und `station.conf`
+- `frontend/site_information.json`, `frontend/src/bands-config.js`, `markers.json`
+- `autorun.json` (Spot Reporting), `websdr_relay.json`, `admin_bans.json`
+- für jeden weiteren Empfänger: `instances/<id>/config.toml`, `instance.env`, `markers.json`
+
+und eine `BACKUP-INFO.json` mit Datum, Rechner und Dateiliste. **Nicht** enthalten: `admin_config.json` (Admin-Passwort, Alarm-Geheimnisse), die Logs und das Programm selbst.
+
+**⬆ RESTORE** nimmt ein Sicherungs-Zip und schreibt **nur** Dateien derselben Liste zurück — alles andere im Zip wird übersprungen und genannt. Bevor eine Datei ersetzt wird, wird die aktuelle nach `admin-backups/restore-<Datum-Zeit>/` kopiert (von git ignoriert, nie in einem Update), so dass sich eine falsche Wiederherstellung von Hand rückgängig machen lässt. Die Antwort sagt, was als Nächstes zu tun ist: die Empfänger nach einer `.toml`, `instance.env` oder `station.conf` neu starten; die Seite nach Site Information oder Bandeinstellungen neu bauen (`./recompile.sh --frontend`); `phantomsdr-websdr-relay` nach den Relay-Einstellungen neu starten.
+
+---
+
+## Themes
+
+Die Auswahl **THEME** steht in der oberen Leiste jeder Seite, zwischen **ONLINE** und der Uhr, und noch einmal unter **Settings → Appearance**; beide zeigen immer dieselbe Wahl. Ein Theme gilt sofort, ohne Neuladen.
+
+| Theme | Aussehen |
+|---|---|
+| **Phosphor green** | das klassische grüne Terminal (Standard) |
+| **Amber display** | dasselbe in warmem Bernstein, wie die Anzeige eines alten Funkgeräts |
+| **Metal panel** | das graue eloxierte Finish der Empfängerseite, beleuchtet von oben rechts |
+| **Modern dark** | Anthrazit mit blauem Akzent, ohne Leuchten |
+| **Light** | Weiß und Grau, schwarze Schrift — für Tageslicht |
+| **Auto (day/night)** | **Light** von Sonnenaufgang bis Sonnenuntergang, **Modern dark** in der Nacht |
+
+Alle Themes verwenden dieselben Schriften und Größen; nur Farben und Finish ändern sich. *On air* bleibt in jedem Theme grün und Warnungen orange und rot, und auch die **Graphs** folgen dem Theme. **Auto** berechnet Sonnenauf- und -untergang am Locator der Station (`siteGridSquare` in Site Info) und schaltet selbst um, solange die Seite offen ist; ohne Locator gilt 07:00–19:00 Ortszeit als Tag. Die Wahl wird pro Browser gespeichert, PC und Telefon können also verschiedene Themes haben. Die Anmeldeseite behält das grüne Aussehen.
+
+### Endpunkte (neue Seiten)
+
+| Endpoint | Zweck |
+|---|---|
+| `GET /admin/api/health` | Karte System Health: Empfänger, Platte, Log-Ordner, letzter crash.log-Eintrag, letzte Alarme |
+| `GET /admin/api/visitor-stats?days=N` | Besucherstatistik für 1–31 Tage (eine Minute zwischengespeichert) |
+| `GET` / `POST /admin/api/alerts` | Alarmeinstellungen lesen / speichern (Geheimnisse kommen als `********` zurück) |
+| `POST /admin/api/alerts/test` | Speichern und Test senden; Antwort pro Kanal |
+| `GET /admin/api/backup` | Einstellungs-Zip herunterladen |
+| `POST /admin/api/restore` | Einstellungs-Zip wiederherstellen (multipart, Feld `file`) |
+| `GET /admin/api/station-grid` | Der Locator aus Site Info, für das Theme Auto |
+
+---
+
 ## Fehlerbehebung
 
 | Problem | Abhilfe |
@@ -821,7 +928,7 @@ taskset -cp "$(pgrep -x spectrumserver)"       # spectrumserver
 | Proxy startet, aber der Wasserfall bleibt leer | Prüfen Sie `sdr_host` in `admin_config.json` — normalerweise `127.0.0.1`. Steht dort noch eine alte LAN-IP aus einer früheren Version, ändern Sie sie und starten Sie das [Panel neu starten](#panel-neu-starten) neu |
 | Kick-Schaltfläche meldet „no connections" | Führen Sie `getcap $(which ss)` aus — fehlt `cap_net_admin`, setzen Sie `sudo setcap cap_net_admin+ep $(which ss)` |
 | Status zeigt immer OFFLINE | Gehen Sie zu Settings → SDR Process Name — tragen Sie den exakten Namen ein, den `ps -eo comm,args \| grep -v grep` anzeigt |
-| Seite Users zeigt keine Daten | Prüfen Sie den Endpunkt: `curl http://127.0.0.1:<public_port>/users` |
+| Seite Users zeigt keine Daten | Prüfen Sie den Endpunkt: `curl http://127.0.0.1:<public_port>/~~users` |
 | Externer Browser meldet NetworkError | Prüfen Sie, ob der Proxy läuft: `./manage_admin.sh status` |
 | Proxy nach einer Netzwerkänderung defekt | Nur relevant, wenn `sdr_host` noch eine LAN-IP enthält — setzen Sie ihn auf `127.0.0.1` und starten Sie das [Panel neu starten](#panel-neu-starten) neu |
 | Chat-Löschschaltfläche wirkt nicht | Prüfen Sie die Schreibrechte auf die Chatprotokolldatei: `ls -l ~/PhantomSDR-Plus/chat.jsonl` |
@@ -834,3 +941,9 @@ taskset -cp "$(pgrep -x spectrumserver)"       # spectrumserver
 | `autorun.log` zeigt `MODULE_TYPELESS_PACKAGE_JSON` / „Reparsing as ES module … performance overhead" | Kosmetische Warnung (die Dekodierung funktioniert weiterhin). In `frontend/src/modules/package.json` fehlt `"type": "module"`; fügen Sie die Zeile nahe dem Anfang ein und führen Sie Stop→Start aus. Kein Frontend-Neubau nötig — der Daemon importiert die Quelldatei direkt. |
 | „Start" bei Spot Reporting scheitert mit `taskset: … Invalid argument` auf einem alten/kleinen PC | Sollte mit dem konfigurationsbewussten Starter nicht vorkommen — der Kernbereich wird aus der CPU-Anzahl abgeleitet und läuft bei ≤ 4 Kernen ungebunden. Tritt es auf, ist Ihr `admin_server.py` älter als diese Änderung; aktualisieren Sie es (`_autorun_taskset_prefix`) und starten Sie das [Panel neu starten](#panel-neu-starten) neu. |
 | REPORTING-Abzeichen fehlt im Wasserfall | Das Reporting muss mit mindestens einem Slot eingeschaltet sein; das Abzeichen liest `/autorun-active.json`. Bauen Sie das Frontend neu, wenn `dist/index.html` älter als das Abzeichen ist. |
+| **✉ SEND TEST** meldet "Nothing to send to: …" | Die Meldung nennt, was fehlt: **TELEGRAM** oder **EMAIL** ankreuzen; Telegram braucht Bot-Token und Chat-ID; E-Mail braucht SMTP-Server und **TO**. |
+| E-Mail-Test: `5.5.2 … Sender address rejected: need fully-qualified address` | Der Absender ist keine vollständige Adresse. Tragen Sie Ihre Adresse in **FROM** ein, oder lassen Sie dort nur einen Namen und machen Sie **USER** zu Ihrer vollständigen Adresse; [Panel neu starten](#panel-neu-starten), wenn es älter ist als diese Regel. |
+| Telegram-Test scheitert mit `Forbidden` / keine Nachricht kommt an | Öffnen Sie zuerst Ihren Bot in Telegram und drücken Sie **Start**; prüfen Sie die Chat-ID mit @userinfobot (Ihre eigene Id, nicht die des Bots). |
+| Kein Alarm, als ein Empfänger stoppte | Es dauert etwa eine Minute (zwei Prüfungen); derselbe Alarm kommt höchstens einmal in 5 Minuten; ein Neustart des Panels verschickt nichts; prüfen Sie das Kästchen des Ereignisses. |
+| Seite Visitors zeigt "no visitors" | Die Seite liest `logs/users_*.jsonl` (und `instances/<id>/logs/`); diese schreibt die Statistik-Protokollierung der Empfänger — prüfen Sie, dass sie für die gewählten Tage existieren. |
+| Auswahl THEME fehlt, oder ein neues Theme greift nicht | [Panel neu starten](#panel-neu-starten), dann die Seite mit **Strg+F5** neu laden, damit der Browser die alte Kopie verwirft. |

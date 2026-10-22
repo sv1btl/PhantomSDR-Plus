@@ -510,7 +510,7 @@ Ambas señales se reconocen por su ritmo a lo ancho de toda la línea, que las s
 1. Active el decodificador y seleccione **NAVTEX** en el desplegable. O basta con pulsar el botón **NAVTEX**. El receptor pasa automáticamente a **USB**.
 2. Aparece el panel **NAVTEX Receiver**.
 3. Seleccione el canal deseado en el desplegable **Station** (p. ej., `International — 518 kHz`).
-4. Haga clic en **⇒ Tune & Set IF** para sintonizar automáticamente la cascada y estrechar el paso de banda hasta la ventana de audio correcta. El modo se pone automáticamente en **USB**. El dial se sitúa 500 Hz por debajo del centro del canal, de modo que la señal NAVTEX aparece a 500 Hz en audio.
+4. Haga clic en **⇒ Tune & Set IF** para sintonizar automáticamente la cascada y estrechar el paso de banda hasta la ventana de audio correcta. El modo se pone automáticamente en **USB**. El dial se sitúa 500 Hz por debajo del centro del canal, de modo que la señal NAVTEX aparece a 500 Hz en audio. El indicador de frecuencia muestra igualmente **518.000**: mientras HF FAX, NAVTEX o la ventana FLDIGI están activos, muestra la frecuencia de la propia señal (la del dial más el centro de audio del decodificador: 1900 Hz para FAX, 500 Hz para NAVTEX, el centro del panel para FLDIGI), y una frecuencia escrita entonces se toma como la de la señal.
 
 ### Horario de emisiones
 

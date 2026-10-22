@@ -281,6 +281,11 @@ class AudioClient : public Client,
     std::shared_ptr<std::mutex>  geo_mutex_ptr    = std::make_shared<std::mutex>();
     std::shared_ptr<std::string> geo_location_ptr = std::make_shared<std::string>();
 
+    // Name/callsign the listener typed in, already cleaned (utils.cpp).
+    // Written on the websocket thread, read by get_users_json().
+    void on_identity_message(std::string &name) override;
+    std::string get_listener_name();
+
   protected:
     // User requested demodulation mode.
     // FIX (data race): written on websocket thread, read on FFT worker thread.
@@ -320,6 +325,8 @@ class AudioClient : public Client,
 
     // DC offset removal and AGC implementation
     DCBlocker<float>    dc;
+    std::mutex identity_mtx_;
+    std::string listener_name_;
     std::mutex agc_mtx_;              // guards agc against set_am_stereo / on_demodulation_message races
     AGC                 agc;
     MovingAverage<float> ma;

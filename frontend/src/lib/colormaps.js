@@ -1,4 +1,4 @@
-// Colormap v. 2.0 by SV1BTL. New added color schemes "Spectrum" and "custom".
+// Colormap v. 2.0 by SV1BTL. New added color scheme "Spectrum" ("custom" removed 2026-10-22).
 
 import colormap from 'colormap'
 import colorScale from 'colormap/colorScale.js'
@@ -416,47 +416,6 @@ for (let i = 0; i < 256; i++) {
   // Normalize RGB values to the range 0-1
   spectraVUData[i] = spectraVUData[i].map(x => Math.min(x, 255) / 255);
 }
-
-// Custom Colormap
-const customData = [];
-
-for (let i = 0; i < 256; i++) {
-  let r, g, b;
-
-  if (i < 60) {
-    // Dark blue to blue
-    r = 0;
-    g = 0;
-    b = 40 + i * 1;
-  } else if (i < 110) {
-    // Blue to cyan - moderately widened (was i < 100 originally, now i < 110)
-    r = 0;
-    g = (i - 60) * 10;
-    b = 255 - ((i - 255) * 16);
-  } else if (i < 160) {
-    // Cyan to yellow - widened back up to a clearly visible 50-entry band
-    r = (i - 48) * 20;
-    g = 255;
-    b = 0;
-  } else if (i < 200) {
-    // Yellow to red
-    r = 255;
-    g = Math.max(0, 255 - ((i - 32) * 32));
-    b = 0;
-  } else {
-    // Deep red
-    r = 255;
-    g = Math.max(0, 15 - (i - 16) * 32);
-    b = 0;
-  }
-  // Normalize RGB values to 0-1, clamp both ends
-  customData.push([
-    Math.min(Math.max(r, 0), 255) / 255,
-    Math.min(Math.max(g, 0), 255) / 255,
-    Math.min(Math.max(b, 0), 255) / 255,
-  ]);
-}
-
 
 // MATLAB: ka9q_ubersdr-style "jet" colormap (ported from UberSDR spectrum-display.js getColorScheme)
 const jetData = [
@@ -991,22 +950,45 @@ const phantomsdrData = [
   [0.70000, 0.00000, 0.00000],
 ];
 
+// gqrx, twente and twentev2 are shown brighter (2026-10-22): every channel
+// goes through a gamma of 0.5 (0.75 was not bright enough), which lifts their
+// dark blues and purples strongly while keeping each colour's hue, and black
+// stays black.
+const BRIGHTER_GAMMA = 0.5
+const brighter = (data) => data.map((c) => c.map((x, k) => (k < 3 ? Math.pow(x, BRIGHTER_GAMMA) : x)))
+// The same, faded in from the bottom of the palette: the lowest levels (the
+// background noise) get only `base` (0-1) of the brightening, the full
+// brightening applies from `full` (0-1 of the palette) upwards. Used for
+// twentev2: its background was wanted darker (base 0), then a bit brighter
+// again (base 0.4).
+const brighterAbove = (data, full, base = 0) => data.map((c, i) => {
+  const t = Math.min(1, i / Math.max(1, (data.length - 1) * full))
+  const w = base + (1 - base) * t * t * (3 - 2 * t)  // smooth fade-in
+  const g = 1 - w * (1 - BRIGHTER_GAMMA)
+  return c.map((x, k) => (k < 3 ? Math.pow(x, g) : x))
+})
+
 const definedColormaps = {
   PhantomSDR: phantomsdrData,
   turbo: turboColormap,
-  gqrx: gqrxData,  
-  twente: twenteData,
-  twentev2: twenteColorMapFull,
+  gqrx: brighter(gqrxData),
+  twente: brighter(twenteData),
+  twentev2: brighterAbove(twenteColorMapFull, 0.4, 0.4),
   SpectraVU: spectraVUData,
   jet: jetData,
-  custom: customData,  
   }
 
 
 
 export const availableColormaps = [
-  'turbo', 'gqrx', 'twente', 'twentev2', 'SpectraVU', 'jet', 'custom', 'PhantomSDR',
+  'turbo', 'gqrx', 'twente', 'twentev2', 'SpectraVU', 'jet', 'PhantomSDR',
 ]
+// "custom" was removed on 2026-10-22; a browser or bookmark that still has it
+// (or any other unknown name) gets this one.
+export const DEFAULT_COLORMAP = 'PhantomSDR'
+export function knownColormap (name) {
+  return availableColormaps.includes(name) ? name : DEFAULT_COLORMAP
+}
 
 
 export function computeColormapArray (colormap) {
@@ -1036,12 +1018,17 @@ export default function getColormap (name) {
   if (name in definedColormaps) {
     colors = definedColormaps[name]
   } else {
-    colors = colormap({
-      colormap: name,
-      nshades: 256,
-      format: 'float',
-      alpha: 1
-    })
+    try {
+      colors = colormap({
+        colormap: name,
+        nshades: 256,
+        format: 'float',
+        alpha: 1
+      })
+    } catch (e) {
+      // An unknown name (a saved "custom" from before its removal): fall back.
+      colors = definedColormaps[DEFAULT_COLORMAP]
+    }
   }
   return colors
 }

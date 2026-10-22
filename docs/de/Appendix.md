@@ -71,7 +71,7 @@ Alle Befehle, die ein Sysop zum Betrieb einer PhantomSDR-Plus-Station braucht, n
 |---|---|---|
 | `./recompile.sh` | Baut Server und/oder Webseite neu; fragt, was gebaut werden soll. | [Installationsanleitung](INSTALLATION.md#von-hand-aktualisieren) |
 | `./recompile.sh --backend` | Baut nur den Server neu. | [Installationsanleitung](INSTALLATION.md#von-hand-aktualisieren) |
-| `./recompile.sh --frontend` | Baut nur die Webseite neu (Desktop und /mobile). | [Installationsanleitung](INSTALLATION.md#von-hand-aktualisieren) |
+| `./recompile.sh --frontend` | Baut nur die Webseite neu (Desktop und /mobile). | [Admin-Panel einrichten](ADMIN_PANEL_SETUP.md#sicherung--wiederherstellung-der-stationseinstellungen) |
 | `./recompile.sh --both` | Baut beides neu. | [Installationsanleitung](INSTALLATION.md#von-hand-aktualisieren) |
 | `cd frontend && ./build-all.sh` | Baut die Desktop-Seite und /mobile. | [Varianten bearbeiten](EDITING_VARIANTS.md#6-nach-dem-bearbeiten--neu-bauen) |
 | `cd frontend && ./build-default.sh` | Baut nur die Desktop-Seite. | [Varianten bearbeiten](EDITING_VARIANTS.md#6-nach-dem-bearbeiten--neu-bauen) |
@@ -82,7 +82,7 @@ Alle Befehle, die ein Sysop zum Betrieb einer PhantomSDR-Plus-Station braucht, n
 | `./update.sh --apply --yes` | Aktualisiert unbeaufsichtigt; jede von Ihnen bearbeitete Datei bleibt erhalten. | [Installationsanleitung](INSTALLATION.md#weitere-optionen) |
 | `./update.sh --apply --prune` | Bietet zusätzlich an, upstream entfernte Dateien zu löschen. | [Installationsanleitung](INSTALLATION.md#aufruf) |
 | `./update.sh --from FILE` | Nimmt die neue Version aus einem `.zip`/`.tar.gz` oder Ordner — ohne Netzwerk. | [Installationsanleitung](INSTALLATION.md#weitere-optionen) |
-| `./update.sh --ref v5.2.1` | Aktualisiert auf einen Tag, Branch oder Commit statt auf den aktuellen Stand. | [Installationsanleitung](INSTALLATION.md#weitere-optionen) |
+| `./update.sh --ref v5.3.0` | Aktualisiert auf einen Tag, Branch oder Commit statt auf den aktuellen Stand. | [Installationsanleitung](INSTALLATION.md#weitere-optionen) |
 | `./update.sh --list-excludes` | Zeigt die Dateien, die der Updater nie anfasst. | [Installationsanleitung](INSTALLATION.md#weitere-optionen) |
 | `./update.sh --verbose` | Listet alle Dateien, nicht nur die ersten 40. | [Installationsanleitung](INSTALLATION.md#weitere-optionen) |
 | `./update.sh --restore LAST` | Stellt die Dateien wieder her, die das letzte Update überschrieben hat. | [Installationsanleitung](INSTALLATION.md#ein-update-rückgängig-machen) |

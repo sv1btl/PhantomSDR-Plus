@@ -63,8 +63,9 @@ A frequency marker (the yellow labels above the waterfall, from `markers.json`) 
 | `PSK31`, `OLIVIA`, `MFSK`, `DOMINOEX`, `THOR`, `THROB`, `HELL`, `MT63` | FLDIGI in that variant | as above |
 | `MFSK16`, `MFSK32`, `MFSK64`, `FELDHELL` | FLDIGI in that variant and sub-mode | as above |
 | `PACKET`, `APRS` | FLDIGI in that variant | the channel; 300 Bd (USB) below 30 MHz, 1200 Bd (FM) above |
+| `RADEU`, `RADE`, `FREEDV` / `RADEL` | FreeDV RADE V1 on upper / lower sideband (`RADE` and `FREEDV` mean upper) | the dial frequency |
 
-A decoder that is already running stays on. `CW` remains an ordinary receiver mode, because beacons and stations use it — it does not start the CW decoder. Markers are shown only while the waterfall spans 3.5 MHz or less.
+A decoder that is already running stays on. `CW` remains an ordinary receiver mode, because beacons and stations use it — it does not start the CW decoder. Markers are shown only while the waterfall spans 3.5 MHz or less. The decoder sets its own mode and filter, as it does when started from its button.
 
 > Only one decoder can be active at a time. Switching to a different decoder automatically stops the previous one.
 >
@@ -815,7 +816,7 @@ Because Force skips every safety check, it will happily paint noise if you press
 
 **One decoder at a time.** Selecting a new decoder from the dropdown automatically stops the previously active one and resets any mode or passband changes it made.
 
-**Mode is managed for you.** HF FAX and NAVTEX switch the receiver to USB as soon as you select them, and SSTV picks the sideband from the band (LSB below 10 MHz, USB above), and FAX, NAVTEX and FLDIGI also adjust the passband when you click their Tune button. FT8, FT4, FT2, JS8 and WSPR do the same as soon as you select them — from the button row or the dropdown — switching the receiver to USB and setting their own passband: the whole 3 kHz sub-band for the FT8 family, 1350–1650 Hz for WSPR. When you stop the decoder, the band's default mode is restored.
+**Mode is managed for you.** HF FAX and NAVTEX switch the receiver to USB as soon as you select them, and SSTV picks the sideband from the band (LSB below 10 MHz, USB above), and FAX also adjusts the passband when you click its Tune button. NAVTEX narrows the passband to 350–650 Hz audio as soon as it starts, and FLDIGI to the window of its variant — from the button, the dropdown or a marker. A click on the waterfall puts a decoder's own filter back; dragging the filter edges or turning the mouse wheel leaves a filter you shaped by hand as it is. FT8, FT4, FT2, JS8 and WSPR do the same as soon as you select them — from the button row or the dropdown — switching the receiver to USB and setting their own passband: the whole 3 kHz sub-band for the FT8 family, 1350–1650 Hz for WSPR. When you stop the decoder, the band's default mode is restored.
 
 **Switching a decoder on no longer interrupts the audio.** The decoders run on their own threads, so there is no gap, click or dropout when one starts, stops, or is swapped for another.
 

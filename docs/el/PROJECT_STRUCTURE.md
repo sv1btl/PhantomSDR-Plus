@@ -1117,7 +1117,7 @@ frequencylist/
 ]
 ```
 
-Το `mode` είναι τρόπος λειτουργίας του δέκτη (`USB`, `LSB`, `AM`, `FM`, `CW`, …) ή το όνομα ενός ψηφιακού τρόπου — `FT8`, `FT4`, `FT2`, `JS8`, `WSPR`, `SSTV`, `NAVTEX`, `FAX`, `RTTY`, `RTTY-WX`, `SITOR`, `PSK31`, `OLIVIA`, `MFSK`, `MFSK16`, `MFSK32`, `MFSK64`, `DOMINOEX`, `THOR`, `THROB`, `HELL`, `FELDHELL`, `MT63`, `PACKET` ή `APRS` — οπότε το πάτημα του δείκτη ξεκινά εκείνον τον αποκωδικοποιητή ([λεπτομέρειες](DECODERS.md#εκκίνηση-αποκωδικοποιητή-από-δείκτη-συχνότητας)).
+Το `mode` είναι τρόπος λειτουργίας του δέκτη (`USB`, `LSB`, `AM`, `FM`, `CW`, …) ή το όνομα ενός ψηφιακού τρόπου — `FT8`, `FT4`, `FT2`, `JS8`, `WSPR`, `SSTV`, `NAVTEX`, `FAX`, `RTTY`, `RTTY-WX`, `SITOR`, `PSK31`, `OLIVIA`, `MFSK`, `MFSK16`, `MFSK32`, `MFSK64`, `DOMINOEX`, `THOR`, `THROB`, `HELL`, `FELDHELL`, `MT63`, `PACKET`, `APRS`, `RADEU`, `RADEL`, `RADE` ή `FREEDV` — οπότε το πάτημα του δείκτη ξεκινά εκείνον τον αποκωδικοποιητή ([λεπτομέρειες](DECODERS.md#εκκίνηση-αποκωδικοποιητή-από-δείκτη-συχνότητας)).
 
 ---
 

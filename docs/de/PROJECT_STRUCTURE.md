@@ -1117,7 +1117,7 @@ frequencylist/
 ]
 ```
 
-`mode` ist eine Empfänger-Betriebsart (`USB`, `LSB`, `AM`, `FM`, `CW`, …) oder der Name einer digitalen Betriebsart — `FT8`, `FT4`, `FT2`, `JS8`, `WSPR`, `SSTV`, `NAVTEX`, `FAX`, `RTTY`, `RTTY-WX`, `SITOR`, `PSK31`, `OLIVIA`, `MFSK`, `MFSK16`, `MFSK32`, `MFSK64`, `DOMINOEX`, `THOR`, `THROB`, `HELL`, `FELDHELL`, `MT63`, `PACKET` oder `APRS` —; dann startet ein Klick auf die Markierung diesen Decoder ([Einzelheiten](DECODERS.md#einen-decoder-über-eine-frequenzmarkierung-starten)).
+`mode` ist eine Empfänger-Betriebsart (`USB`, `LSB`, `AM`, `FM`, `CW`, …) oder der Name einer digitalen Betriebsart — `FT8`, `FT4`, `FT2`, `JS8`, `WSPR`, `SSTV`, `NAVTEX`, `FAX`, `RTTY`, `RTTY-WX`, `SITOR`, `PSK31`, `OLIVIA`, `MFSK`, `MFSK16`, `MFSK32`, `MFSK64`, `DOMINOEX`, `THOR`, `THROB`, `HELL`, `FELDHELL`, `MT63`, `PACKET`, `APRS`, `RADEU`, `RADEL`, `RADE` oder `FREEDV` —; dann startet ein Klick auf die Markierung diesen Decoder ([Einzelheiten](DECODERS.md#einen-decoder-über-eine-frequenzmarkierung-starten)).
 
 ---
 

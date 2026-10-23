@@ -1118,7 +1118,7 @@ frequencylist/
 ]
 ```
 
-`mode` — режим приёмника (`USB`, `LSB`, `AM`, `FM`, `CW`, …) или название цифрового вида связи — `FT8`, `FT4`, `FT2`, `JS8`, `WSPR`, `SSTV`, `NAVTEX`, `FAX`, `RTTY`, `RTTY-WX`, `SITOR`, `PSK31`, `OLIVIA`, `MFSK`, `MFSK16`, `MFSK32`, `MFSK64`, `DOMINOEX`, `THOR`, `THROB`, `HELL`, `FELDHELL`, `MT63`, `PACKET` или `APRS`; в этом случае щелчок по метке запускает этот декодер ([подробности](DECODERS.md#запуск-декодера-с-частотной-метки)).
+`mode` — режим приёмника (`USB`, `LSB`, `AM`, `FM`, `CW`, …) или название цифрового вида связи — `FT8`, `FT4`, `FT2`, `JS8`, `WSPR`, `SSTV`, `NAVTEX`, `FAX`, `RTTY`, `RTTY-WX`, `SITOR`, `PSK31`, `OLIVIA`, `MFSK`, `MFSK16`, `MFSK32`, `MFSK64`, `DOMINOEX`, `THOR`, `THROB`, `HELL`, `FELDHELL`, `MT63`, `PACKET`, `APRS`, `RADEU`, `RADEL`, `RADE` или `FREEDV`; в этом случае щелчок по метке запускает этот декодер ([подробности](DECODERS.md#запуск-декодера-с-частотной-метки)).
 
 ---
 

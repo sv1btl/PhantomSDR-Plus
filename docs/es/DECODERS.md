@@ -63,8 +63,9 @@ Un marcador de frecuencia (las etiquetas amarillas sobre la cascada, de `markers
 | `PSK31`, `OLIVIA`, `MFSK`, `DOMINOEX`, `THOR`, `THROB`, `HELL`, `MT63` | FLDIGI en esa variante | como arriba |
 | `MFSK16`, `MFSK32`, `MFSK64`, `FELDHELL` | FLDIGI en esa variante y ese submodo | como arriba |
 | `PACKET`, `APRS` | FLDIGI en esa variante | el canal; 300 Bd (USB) por debajo de 30 MHz, 1200 Bd (FM) por encima |
+| `RADEU`, `RADE`, `FREEDV` / `RADEL` | FreeDV RADE V1 en banda lateral superior / inferior (`RADE` y `FREEDV` significan superior) | la frecuencia del dial |
 
-Un decodificador que ya está en marcha sigue activo. `CW` sigue siendo un modo normal del receptor, porque lo usan balizas y estaciones — no inicia el decodificador CW. Los marcadores solo se muestran mientras la cascada abarca 3,5 MHz o menos.
+Un decodificador que ya está en marcha sigue activo. `CW` sigue siendo un modo normal del receptor, porque lo usan balizas y estaciones — no inicia el decodificador CW. Los marcadores solo se muestran mientras la cascada abarca 3,5 MHz o menos. El decodificador ajusta su propio modo y su propio filtro, igual que al iniciarlo desde su botón.
 
 > Solo puede haber un decodificador activo a la vez. Cambiar a otro decodificador detiene automáticamente el anterior.
 >
@@ -815,7 +816,7 @@ Como Force omite todas las comprobaciones de seguridad, pintará ruido sin más 
 
 **Un decodificador cada vez.** Seleccionar un nuevo decodificador en el desplegable detiene automáticamente el que estuviera activo y deshace los cambios de modo o paso de banda que hubiera hecho.
 
-**El modo se gestiona por usted.** El FAX de HF y NAVTEX ponen el receptor en USB en cuanto los selecciona, SSTV elige la banda lateral según la banda (LSB por debajo de 10 MHz, USB por encima) y FAX, NAVTEX y FLDIGI también ajustan el paso de banda al pulsar su botón Tune. FT8, FT4, FT2, JS8 y WSPR hacen lo mismo en cuanto los selecciona — desde la fila de botones o desde el desplegable: el receptor pasa a USB y toma su propio paso de banda — la subbanda completa de 3 kHz para la familia FT8, 1350-1650 Hz para WSPR. Al detener el decodificador se restaura el modo por defecto de la banda.
+**El modo se gestiona por usted.** El FAX de HF y NAVTEX ponen el receptor en USB en cuanto los selecciona, SSTV elige la banda lateral según la banda (LSB por debajo de 10 MHz, USB por encima) y FAX también ajusta el paso de banda al pulsar su botón Tune. NAVTEX estrecha el paso de banda a 350–650 Hz de audio en cuanto arranca, y FLDIGI a la ventana de su variante — desde el botón, el desplegable o un marcador. Un clic en la cascada devuelve el filtro propio del decodificador; arrastrar los bordes del filtro o girar la rueda del ratón deja como está un filtro ajustado a mano. FT8, FT4, FT2, JS8 y WSPR hacen lo mismo en cuanto los selecciona — desde la fila de botones o desde el desplegable: el receptor pasa a USB y toma su propio paso de banda — la subbanda completa de 3 kHz para la familia FT8, 1350-1650 Hz para WSPR. Al detener el decodificador se restaura el modo por defecto de la banda.
 
 **Activar un decodificador ya no interrumpe el audio.** Los decodificadores se ejecutan en sus propios hilos, así que no hay huecos, chasquidos ni cortes al iniciar, detener o cambiar de decodificador.
 

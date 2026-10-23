@@ -63,8 +63,9 @@ Un marqueur de fréquence (les étiquettes jaunes au-dessus de la cascade, issue
 | `PSK31`, `OLIVIA`, `MFSK`, `DOMINOEX`, `THOR`, `THROB`, `HELL`, `MT63` | FLDIGI dans cette variante | comme ci-dessus |
 | `MFSK16`, `MFSK32`, `MFSK64`, `FELDHELL` | FLDIGI dans cette variante et ce sous-mode | comme ci-dessus |
 | `PACKET`, `APRS` | FLDIGI dans cette variante | le canal ; 300 Bd (USB) sous 30 MHz, 1200 Bd (FM) au-dessus |
+| `RADEU`, `RADE`, `FREEDV` / `RADEL` | FreeDV RADE V1 en bande latérale supérieure / inférieure (`RADE` et `FREEDV` signifient supérieure) | la fréquence du cadran |
 
-Un décodeur déjà en marche reste actif. `CW` reste un mode ordinaire du récepteur, car balises et stations l'utilisent — il ne démarre pas le décodeur CW. Les marqueurs ne s'affichent que lorsque la cascade couvre 3,5 MHz ou moins.
+Un décodeur déjà en marche reste actif. `CW` reste un mode ordinaire du récepteur, car balises et stations l'utilisent — il ne démarre pas le décodeur CW. Les marqueurs ne s'affichent que lorsque la cascade couvre 3,5 MHz ou moins. Le décodeur règle son propre mode et son propre filtre, comme lorsqu'il est démarré depuis son bouton.
 
 > Un seul décodeur peut être actif à la fois. Passer à un autre décodeur arrête automatiquement le précédent.
 >
@@ -815,7 +816,7 @@ Comme Force contourne toutes les vérifications de sécurité, il peindra volont
 
 **Un décodeur à la fois.** Sélectionner un nouveau décodeur dans le menu arrête automatiquement celui qui était actif et annule les changements de mode ou de bande passante qu'il avait effectués.
 
-**Le mode est géré pour vous.** Le FAX HF et NAVTEX basculent le récepteur en USB dès que vous les sélectionnez, la SSTV choisit la bande latérale d'après la bande (LSB sous 10 MHz, USB au-dessus), et FAX, NAVTEX et FLDIGI ajustent aussi la bande passante lorsque vous cliquez sur leur bouton Tune. FT8, FT4, FT2, JS8 et WSPR font de même dès que vous les sélectionnez — depuis la rangée de boutons ou la liste déroulante : le récepteur bascule en USB et prend leur propre bande passante — toute la sous-bande de 3 kHz pour la famille FT8, 1350-1650 Hz pour WSPR. Lorsque vous arrêtez le décodeur, le mode par défaut de la bande est restauré.
+**Le mode est géré pour vous.** Le FAX HF et NAVTEX basculent le récepteur en USB dès que vous les sélectionnez, la SSTV choisit la bande latérale d'après la bande (LSB sous 10 MHz, USB au-dessus), et le FAX ajuste aussi la bande passante lorsque vous cliquez sur son bouton Tune. NAVTEX resserre la bande passante à 350–650 Hz audio dès son démarrage, et FLDIGI à la fenêtre de sa variante — depuis le bouton, la liste déroulante ou un marqueur. Un clic sur la cascade remet le filtre propre du décodeur ; faire glisser les bords du filtre ou tourner la molette de la souris laisse tel quel un filtre réglé à la main. FT8, FT4, FT2, JS8 et WSPR font de même dès que vous les sélectionnez — depuis la rangée de boutons ou la liste déroulante : le récepteur bascule en USB et prend leur propre bande passante — toute la sous-bande de 3 kHz pour la famille FT8, 1350-1650 Hz pour WSPR. Lorsque vous arrêtez le décodeur, le mode par défaut de la bande est restauré.
 
 **Activer un décodeur n'interrompt plus l'audio.** Les décodeurs s'exécutent sur leurs propres threads : il n'y a donc ni blanc, ni clic, ni coupure lorsque l'un démarre, s'arrête ou est remplacé par un autre.
 

@@ -3441,6 +3441,7 @@
         await tick();
         await new Promise((resolve) => setTimeout(resolve, 60));
       }
+      _navtexNarrowFilter(frequencyInputComponent.getFrequency());
       audio.setNAVTEXDecoding(true);
     });
   }
@@ -3460,7 +3461,17 @@
     }
     demodulation = "USB";
     handleDemodulationChange(null, true);
-    // Narrow IF to 350–650 Hz audio (300 Hz passband centred on 500 Hz)
+    _navtexNarrowFilter(hz);
+    if (typeof updateLink === "function") updateLink();
+  }
+
+  /**
+   * Narrow IF to 350–650 Hz audio (300 Hz passband centred on 500 Hz) on the
+   * given USB dial. Every way of starting NAVTEX ends here — the Tune button,
+   * a NAVTEX marker, the Decoders button — after the switch to USB, which
+   * resets the passband to the full USB width.
+   */
+  function _navtexNarrowFilter(hz) {
     const navL = hz + 350; // was 375
     const navM = hz;
     const navR = hz + 650; // was 625
@@ -3470,7 +3481,6 @@
     );
     audio.setAudioRange(...audioParameters, ...audioParametersOffset);
     if (typeof updatePassband === "function") updatePassband();
-    if (typeof updateLink === "function") updateLink();
   }
 
   function navtexClear() {
@@ -5151,6 +5161,8 @@
     if (demodulation !== "USB") {
       demodulation = "USB";
       handleDemodulationChange(null, true);
+      // The mode switch reset the passband; NAVTEX gets its 300 Hz back.
+      if (navtexEnabled) _navtexNarrowFilter(frequencyInputComponent.getFrequency());
     }
   }
 
@@ -5840,8 +5852,11 @@
     waterfall.checkBandAndSetMode(m);
     updateBandButton();
     // A waterfall click rebuilds the passband from the mode defaults, so a
-    // running decoder has to get its own back.
-    _decoderReassertReceiver();
+    // running decoder has to get its own back. The FLDIGI and NAVTEX windows
+    // only on a click: a drag or the wheel is the listener shaping the filter
+    // by hand, and the decoder keeps what they made.
+    if (!(isWheel && fskEnabled)) _decoderReassertReceiver();
+    if (!isWheel && navtexEnabled) _navtexNarrowFilter(m);
 
     // CATsync: a waterfall click or passband drag is the listener tuning,
     // and the most common way they do it - tell the tool.
@@ -6880,6 +6895,12 @@
     MT63: { key: "fsk", variant: "mt63" },
     PACKET: { key: "fsk", variant: "packet" },
     APRS: { key: "fsk", variant: "aprs" },
+    // RADE v1 reads the dial, like the WSJT modes. FreeDV runs USB on every
+    // band, so the bare names start the upper-sideband decoder.
+    RADEU: { key: "radeu" },
+    RADEL: { key: "radel" },
+    RADE: { key: "radeu" },
+    FREEDV: { key: "radeu" },
   };
 
   /** The decoder a marker mode starts, with its dial offset, or null. */

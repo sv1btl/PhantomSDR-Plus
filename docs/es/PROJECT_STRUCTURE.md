@@ -1117,7 +1117,7 @@ frequencylist/
 ]
 ```
 
-`mode` es un modo del receptor (`USB`, `LSB`, `AM`, `FM`, `CW`, …) o el nombre de un modo digital — `FT8`, `FT4`, `FT2`, `JS8`, `WSPR`, `SSTV`, `NAVTEX`, `FAX`, `RTTY`, `RTTY-WX`, `SITOR`, `PSK31`, `OLIVIA`, `MFSK`, `MFSK16`, `MFSK32`, `MFSK64`, `DOMINOEX`, `THOR`, `THROB`, `HELL`, `FELDHELL`, `MT63`, `PACKET` o `APRS` —, en cuyo caso pulsar el marcador inicia ese decodificador ([detalles](DECODERS.md#iniciar-un-decodificador-desde-un-marcador-de-frecuencia)).
+`mode` es un modo del receptor (`USB`, `LSB`, `AM`, `FM`, `CW`, …) o el nombre de un modo digital — `FT8`, `FT4`, `FT2`, `JS8`, `WSPR`, `SSTV`, `NAVTEX`, `FAX`, `RTTY`, `RTTY-WX`, `SITOR`, `PSK31`, `OLIVIA`, `MFSK`, `MFSK16`, `MFSK32`, `MFSK64`, `DOMINOEX`, `THOR`, `THROB`, `HELL`, `FELDHELL`, `MT63`, `PACKET`, `APRS`, `RADEU`, `RADEL`, `RADE` o `FREEDV` —, en cuyo caso pulsar el marcador inicia ese decodificador ([detalles](DECODERS.md#iniciar-un-decodificador-desde-un-marcador-de-frecuencia)).
 
 ---
 

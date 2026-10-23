@@ -63,8 +63,9 @@ Eine Frequenzmarkierung (die gelben Beschriftungen über dem Wasserfall, aus `ma
 | `PSK31`, `OLIVIA`, `MFSK`, `DOMINOEX`, `THOR`, `THROB`, `HELL`, `MT63` | FLDIGI in dieser Variante | wie oben |
 | `MFSK16`, `MFSK32`, `MFSK64`, `FELDHELL` | FLDIGI in dieser Variante und Unterbetriebsart | wie oben |
 | `PACKET`, `APRS` | FLDIGI in dieser Variante | der Kanal; 300 Bd (USB) unter 30 MHz, 1200 Bd (FM) darüber |
+| `RADEU`, `RADE`, `FREEDV` / `RADEL` | FreeDV RADE V1 im oberen / unteren Seitenband (`RADE` und `FREEDV` bedeuten oberes) | die Dial-Frequenz |
 
-Ein bereits laufender Decoder bleibt an. `CW` bleibt eine normale Empfänger-Betriebsart, da Baken und Stationen sie verwenden — sie startet nicht den CW-Decoder. Markierungen werden nur angezeigt, solange der Wasserfall 3,5 MHz oder weniger umfasst.
+Ein bereits laufender Decoder bleibt an. `CW` bleibt eine normale Empfänger-Betriebsart, da Baken und Stationen sie verwenden — sie startet nicht den CW-Decoder. Markierungen werden nur angezeigt, solange der Wasserfall 3,5 MHz oder weniger umfasst. Der Decoder stellt seine eigene Betriebsart und sein eigenes Filter ein, wie beim Start über seine Schaltfläche.
 
 > Es kann immer nur ein Decoder aktiv sein. Der Wechsel zu einem anderen Decoder beendet den vorherigen automatisch.
 >
@@ -815,7 +816,7 @@ Da Force sämtliche Sicherheitsprüfungen überspringt, malt es bereitwillig Rau
 
 **Immer nur ein Decoder.** Die Auswahl eines neuen Decoders im Menü beendet automatisch den zuvor aktiven und setzt alle von ihm vorgenommenen Betriebsart- oder Durchlassbereichsänderungen zurück.
 
-**Die Betriebsart wird für Sie verwaltet.** HF-FAX und NAVTEX schalten den Empfänger sofort nach der Auswahl auf USB, SSTV wählt das Seitenband anhand des Bandes (LSB unter 10 MHz, USB darüber), und FAX, NAVTEX sowie FLDIGI passen zusätzlich den Durchlassbereich an, wenn Sie ihre Tune-Schaltfläche anklicken. FT8, FT4, FT2, JS8 und WSPR tun dasselbe, sobald Sie sie auswählen — über die Schaltflächenreihe oder das Auswahlmenü: Der Empfänger schaltet auf USB und erhält den passenden Durchlassbereich — das gesamte 3-kHz-Teilband für die FT8-Familie, 1350–1650 Hz für WSPR. Beim Beenden des Decoders wird die Standardbetriebsart des Bandes wiederhergestellt.
+**Die Betriebsart wird für Sie verwaltet.** HF-FAX und NAVTEX schalten den Empfänger sofort nach der Auswahl auf USB, SSTV wählt das Seitenband anhand des Bandes (LSB unter 10 MHz, USB darüber), und FAX passt zusätzlich den Durchlassbereich an, wenn Sie seine Tune-Schaltfläche anklicken. NAVTEX verengt den Durchlassbereich sofort beim Start auf 350–650 Hz NF, FLDIGI auf das Fenster seiner Variante — ob über die Schaltfläche, die Auswahlliste oder eine Markierung. Ein Klick in den Wasserfall stellt das eigene Filter des Decoders wieder her; das Ziehen der Filterkanten oder das Mausrad lässt ein von Hand eingestelltes Filter unverändert. FT8, FT4, FT2, JS8 und WSPR tun dasselbe, sobald Sie sie auswählen — über die Schaltflächenreihe oder das Auswahlmenü: Der Empfänger schaltet auf USB und erhält den passenden Durchlassbereich — das gesamte 3-kHz-Teilband für die FT8-Familie, 1350–1650 Hz für WSPR. Beim Beenden des Decoders wird die Standardbetriebsart des Bandes wiederhergestellt.
 
 **Das Einschalten eines Decoders unterbricht den Ton nicht mehr.** Die Decoder laufen in eigenen Threads, sodass es beim Starten, Stoppen oder Wechseln weder Lücke noch Klick noch Aussetzer gibt.
 

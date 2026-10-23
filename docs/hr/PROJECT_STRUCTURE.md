@@ -1118,7 +1118,7 @@ frequencylist/
 ]
 ```
 
-`mode` je način rada prijemnika (`USB`, `LSB`, `AM`, `FM`, `CW`, …) ili ime digitalnog načina rada — `FT8`, `FT4`, `FT2`, `JS8`, `WSPR`, `SSTV`, `NAVTEX`, `FAX`, `RTTY`, `RTTY-WX`, `SITOR`, `PSK31`, `OLIVIA`, `MFSK`, `MFSK16`, `MFSK32`, `MFSK64`, `DOMINOEX`, `THOR`, `THROB`, `HELL`, `FELDHELL`, `MT63`, `PACKET` ili `APRS` — i tada klik na oznaku pokreće taj dekoder ([pojedinosti](DECODERS.md#pokretanje-dekodera-s-oznake-frekvencije)).
+`mode` je način rada prijemnika (`USB`, `LSB`, `AM`, `FM`, `CW`, …) ili ime digitalnog načina rada — `FT8`, `FT4`, `FT2`, `JS8`, `WSPR`, `SSTV`, `NAVTEX`, `FAX`, `RTTY`, `RTTY-WX`, `SITOR`, `PSK31`, `OLIVIA`, `MFSK`, `MFSK16`, `MFSK32`, `MFSK64`, `DOMINOEX`, `THOR`, `THROB`, `HELL`, `FELDHELL`, `MT63`, `PACKET`, `APRS`, `RADEU`, `RADEL`, `RADE` ili `FREEDV` — i tada klik na oznaku pokreće taj dekoder ([pojedinosti](DECODERS.md#pokretanje-dekodera-s-oznake-frekvencije)).
 
 ---
 

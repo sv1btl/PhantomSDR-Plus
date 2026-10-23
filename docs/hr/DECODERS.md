@@ -63,8 +63,9 @@ Oznaka frekvencije (žute oznake iznad vodopada, iz `markers.json`) inače ugađ
 | `PSK31`, `OLIVIA`, `MFSK`, `DOMINOEX`, `THOR`, `THROB`, `HELL`, `MT63` | FLDIGI u toj inačici | kao gore |
 | `MFSK16`, `MFSK32`, `MFSK64`, `FELDHELL` | FLDIGI u toj inačici i tom podnačinu | kao gore |
 | `PACKET`, `APRS` | FLDIGI u toj inačici | kanal; 300 Bd (USB) ispod 30 MHz, 1200 Bd (FM) iznad |
+| `RADEU`, `RADE`, `FREEDV` / `RADEL` | FreeDV RADE V1 na gornjem / donjem bočnom pojasu (`RADE` i `FREEDV` znače gornji) | frekvencija dial-a |
 
-Dekoder koji već radi ostaje uključen. `CW` ostaje običan način rada prijemnika, jer ga koriste radiofarovi i postaje — ne pokreće CW dekoder. Oznake se prikazuju samo dok vodopad obuhvaća 3,5 MHz ili manje.
+Dekoder koji već radi ostaje uključen. `CW` ostaje običan način rada prijemnika, jer ga koriste radiofarovi i postaje — ne pokreće CW dekoder. Oznake se prikazuju samo dok vodopad obuhvaća 3,5 MHz ili manje. Dekoder postavlja vlastiti način rada i vlastiti filtar, kao kad se pokrene svojim gumbom.
 
 > Istodobno može biti aktivan samo jedan dekoder. Prelazak na drugi dekoder automatski zaustavlja prethodni.
 >
@@ -815,7 +816,7 @@ Budući da Force preskače svaku sigurnosnu provjeru, rado će nacrtati šum ako
 
 **Jedan dekoder istodobno.** Odabir novog dekodera iz izbornika automatski zaustavlja prethodno aktivni i poništava sve promjene načina rada ili propusnog pojasa koje je napravio.
 
-**Načinom rada upravlja se umjesto vas.** HF FAX i NAVTEX prebacuju prijamnik na USB čim ih odaberete, SSTV bira bočni pojas prema pojasu (LSB ispod 10 MHz, USB iznad), a FAX, NAVTEX i FLDIGI usto podešavaju propusni pojas kada kliknete njihov gumb Tune. FT8, FT4, FT2, JS8 i WSPR čine isto čim ih odaberete — iz reda gumba ili s padajućeg izbornika: prijamnik prelazi na USB i dobiva svoj propusni pojas — cijeli podpojas od 3 kHz za obitelj FT8, 1350–1650 Hz za WSPR. Kada zaustavite dekoder, vraća se zadani način rada za taj pojas.
+**Načinom rada upravlja se umjesto vas.** HF FAX i NAVTEX prebacuju prijamnik na USB čim ih odaberete, SSTV bira bočni pojas prema pojasu (LSB ispod 10 MHz, USB iznad), a FAX usto podešava propusni pojas kada kliknete njegov gumb Tune. NAVTEX sužava propusni pojas na 350–650 Hz zvuka čim se pokrene, a FLDIGI na prozor svoje inačice — s gumba, padajućeg izbornika ili oznake. Klik na vodopad vraća dekoderu njegov filtar; povlačenje rubova filtra ili kotačić miša ostavljaju ručno podešen filtar kakav jest. FT8, FT4, FT2, JS8 i WSPR čine isto čim ih odaberete — iz reda gumba ili s padajućeg izbornika: prijamnik prelazi na USB i dobiva svoj propusni pojas — cijeli podpojas od 3 kHz za obitelj FT8, 1350–1650 Hz za WSPR. Kada zaustavite dekoder, vraća se zadani način rada za taj pojas.
 
 **Uključivanje dekodera više ne prekida zvuk.** Dekoderi rade u vlastitim dretvama, pa nema praznine, klika ni ispada kada se koji pokrene, zaustavi ili zamijeni drugim.
 

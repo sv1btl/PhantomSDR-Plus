@@ -2175,6 +2175,8 @@ html[data-theme=light]{color-scheme:light;}
               </div>
               <button type="submit" class="btn btn-green">🔑 UPDATE PASSWORD</button>
             </form>
+            <div class="card-header" style="margin:1.2rem 0 .5rem;"><div class="dot" style="background:var(--blue);box-shadow:0 0 6px var(--blue);"></div>PORTS</div>
+            <div id="ports-list" style="font-size:.7rem;color:var(--text2);">Loading…</div>
           </div>
           <div class="card">
             <div class="card-header"><div class="dot"></div>SDR BASE DIRECTORY</div>
@@ -2184,8 +2186,8 @@ html[data-theme=light]{color-scheme:light;}
               <div class="dot" style="background:var(--blue);box-shadow:0 0 6px var(--blue);"></div>
               SPECTRUMSERVER PORT (MAIN RECEIVER)
             </div>
-            <p style="color:var(--text2);font-size:.7rem;margin-bottom:.4rem;">Port spectrumserver listens on (8901 behind proxy.py; listeners use the proxy port 8900). With no proxy, this is also the port listeners connect to. Used for Kick and connection counts.</p>
-            <input type="number" id="public-port" style="width:100%;margin-bottom:.4rem;" placeholder="8900" min="1" max="65535">
+            <p id="public-port-help" style="color:var(--text2);font-size:.7rem;margin-bottom:.4rem;">Port spectrumserver listens on.<br>With no proxy, this is also the port listeners connect to.<br>Used for Kick and connection counts.</p>
+            <input type="number" id="public-port" style="width:100%;margin-bottom:.4rem;" min="1" max="65535" oninput="renderPortHelp()">
             <p style="color:var(--text2);font-size:.7rem;margin-bottom:1rem;">Listener port (proxy): <b id="proxy-port-ro">—</b> <span style="opacity:.7;">(read-only, proxy_port in admin_config.json)</span></p>
             <div class="card-header" style="margin:.4rem 0;">
               <div class="dot" style="background:var(--green);box-shadow:0 0 6px var(--green);"></div>
@@ -3805,8 +3807,44 @@ async function clearChat() {
 }
 
 // ─── Settings ────────────────────────────────────────────────────────────────
+// The help line above the spectrumserver port names this station's
+// real ports — the one typed in the box and proxy_port from admin_config.json.
+function renderPortHelp() {
+  const el = document.getElementById('public-port-help');
+  if (!el) return;
+  const sdr = parseInt((document.getElementById('public-port') || {}).value) || 0;
+  const px  = window._proxyPort || 0;
+  const b = function(v) { return '<b>' + (v || '—') + '</b>'; };
+  el.innerHTML = px
+    ? 'Port spectrumserver listens on:<br>' + b(sdr) + ' behind proxy.py;<br>listeners use the public (proxy) port ' + b(px) + '.<br>With no proxy, this is also the port listeners connect to.<br>Used for Kick and connection counts.'
+    : 'Port spectrumserver listens on:<br>' + b(sdr) + '.<br>With no proxy (as on this station), this is also the port listeners connect to.<br>Used for Kick and connection counts.';
+}
+
+async function loadPorts() {
+  const el = document.getElementById('ports-list');
+  if (!el) return;
+  try {
+    const d = await (await fetch('/admin/api/ports')).json();
+    const esc = function(t) { const x = document.createElement('span'); x.textContent = t; return x.innerHTML; };
+    let h = '<table style="width:100%;border-collapse:collapse;">';
+    d.ports.forEach(function(p) {
+      const dot = p.listening
+        ? '<span style="color:var(--green);" title="listening">&#9679;</span>'
+        : '<span style="color:var(--text3);" title="nothing listens on it now">&#9675;</span>';
+      const pub = p.public ? ' <span style="color:var(--amber);">&#183; open on the router</span>' : '';
+      h += '<tr style="border-top:1px solid var(--border);">'
+         + '<td style="padding:.3rem .4rem .3rem 0;width:1rem;vertical-align:top;">' + dot + '</td>'
+         + '<td style="padding:.3rem .6rem .3rem 0;font-weight:bold;white-space:nowrap;vertical-align:top;color:var(--text);">' + esc(String(p.port)) + '</td>'
+         + '<td style="padding:.3rem 0;">' + esc(p.what) + '<br><span style="opacity:.7;">' + esc(p.how) + '</span>' + pub + '</td></tr>';
+    });
+    h += '</table><p style="margin-top:.5rem;opacity:.7;">&#9679; listening now &#183; &#9675; not running. Only the ports marked "open on the router" need forwarding.</p>';
+    el.innerHTML = h;
+  } catch (e) { el.textContent = 'Could not read the ports: ' + e.message; }
+}
+
 async function loadSettingsPage() {
   loadAlerts();
+  loadPorts();
   const r = await fetch('/admin/api/settings');
   const d = await r.json();
   document.getElementById('sdr-dir').value = d.sdr_base_dir || '';
@@ -3814,6 +3852,8 @@ async function loadSettingsPage() {
   if (ppEl) ppEl.value = d.public_port || 8900;
   const pxEl = document.getElementById('proxy-port-ro');
   if (pxEl) pxEl.textContent = d.proxy_port || 'none — no proxy, listeners use the port above';
+  window._proxyPort = parseInt(d.proxy_port) || 0;
+  renderPortHelp();
   // Populate start/stop script selectors
   const sh = await fetch('/admin/api/scripts').then(r => r.json());
   const all = sh.all || [];
@@ -6417,6 +6457,100 @@ def api_wf_message_delete():
 
 
 # ── API: Settings ─────────────────────────────────────────────────────────────
+# ── API: Ports (Settings → PORTS) ────────────────────────────────────────────
+def _port_listening(port, host="127.0.0.1"):
+    """True when something accepts a TCP connection on host:port."""
+    try:
+        with _socket.create_connection((host, int(port)), timeout=0.3):
+            return True
+    except Exception:
+        return False
+
+
+def _station_ports():
+    """Every port this station uses, for Settings → PORTS.
+
+    The same sources proxy.py reads: admin_config.json first, station.conf for
+    the side services, receivers.toml for further receivers and the front port.
+    Optional services are listed only when configured or actually listening."""
+    cfg = load_admin_config()
+    sc = _station_conf() or {}
+
+    def sc_port(key):
+        try:
+            return int(sc.get(key) or 0)
+        except ValueError:
+            return 0
+
+    proxy = int(cfg.get("proxy_port") or 0)
+    sdr = int(cfg.get("public_port") or PUBLIC_PORT)
+    rows = []
+
+    def add(port, what, how, public=False):
+        if port and not any(r["port"] == port for r in rows):
+            rows.append({"port": port, "what": what, "how": how, "public": public})
+
+    if proxy:
+        add(proxy, "Public port — proxy.py",
+            "the address listeners use; carries the page, /admin and the services below", True)
+    rt = _receivers_toml()
+    try:
+        front = int((rt.get("front") or {}).get("port") or 0)
+    except (TypeError, ValueError):
+        front = 0
+    add(front, "Second public port — proxy.py ([front] in receivers.toml)",
+        "an older public address, kept for listeners and directories", True)
+    https = (sc.get("STATION_HTTPS") or "n").lower()
+    if https in ("y", "lan"):
+        add(443, "https — Caddy",
+            "the station's https:// address" + (" (local network only)" if https == "lan" else ""),
+            https == "y")
+        if https == "y":
+            add(80, "http — Caddy", "Let's Encrypt certificate renewal; redirects to https", True)
+        add(sc_port("PORT_TLS"), "https hand-over — proxy.py",
+            "loopback only: Caddy passes visitors to the proxy here")
+    receivers = rt.get("receiver", [])
+    main_name = "main receiver"
+    for r in receivers:
+        if int(r.get("port") or 0) == sdr:
+            main_name = str(r.get("name") or r.get("id") or main_name)
+    add(sdr, "spectrumserver — " + main_name,
+        "loopback, behind proxy.py" if proxy else "the address listeners use (no proxy on this station)",
+        not proxy)
+    for r in receivers:
+        port = int(r.get("port") or 0)
+        if port and port != sdr:
+            add(port, "spectrumserver — " + str(r.get("name") or r.get("id") or "receiver"),
+                ("behind proxy.py, reached with ?rx=" + str(r.get("id", ""))) if proxy else "extra receiver")
+    add(int(cfg.get("port") or ADMIN_PORT), "Admin panel",
+        "loopback, reached as /admin on the public port" if proxy else "loopback")
+    for key, default, what, path in (("PORT_STATS", 0, "Statistics server", "/stats"),
+                                     ("PORT_RADE", 8074, "RADE decoder (rade_helper.py)", "/rade"),
+                                     ("PORT_DRM", 8075, "DRM decoder (drm-helper.js)", "/drm"),
+                                     ("PORT_RELAY", 0, "WebSDR diversity relay", "/relay")):
+        port = sc_port(key)
+        if port:
+            add(port, what, ("reached as " + path + " on the public port") if proxy else "its own port")
+            continue
+        if key == "PORT_RELAY":
+            try:
+                port = int(json.loads(read_file_safe(BASE_DIR / "websdr_relay.json") or "{}").get("port") or 0)
+            except Exception:
+                port = 0
+            add(port, what, "its own port")
+        elif default and _port_listening(default):
+            add(default, what, "its own port — forward it on the router for listeners outside", True)
+    for r in rows:
+        r["listening"] = _port_listening(r["port"])
+    return rows
+
+
+@app.route("/admin/api/ports")
+@login_required
+def api_ports():
+    return jsonify({"ports": _station_ports()})
+
+
 @app.route("/admin/api/settings", methods=["GET", "POST"])
 @login_required
 def api_settings():

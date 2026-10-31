@@ -105,7 +105,7 @@ http://YOUR_SERVER_IP:<proxy_port>/admin
 ```
 Default password: **`admin`**
 
-> ⚠️ **Change the password immediately** — go to Settings on first login. A first-run wizard will guide you through setting the SDR directory, process name, public port and a new password.
+> ⚠️ **Change the password immediately** — on first login a one-step wizard asks only for a new password. The folder and the ports are already in `admin_config.json` (written by `setup_admin.sh`, which the installer runs); the wizard shows them for reference and leaves them untouched. Change them later in Settings, or with `./configure-station.sh`.
 
 ---
 

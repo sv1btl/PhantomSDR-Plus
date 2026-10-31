@@ -109,7 +109,7 @@ http://YOUR_SERVER_IP:<proxy_port>/admin
 ```
 Standardpasswort: **`admin`**
 
-> ⚠️ **Ändern Sie das Passwort sofort** — gehen Sie bei der ersten Anmeldung zu Settings. Ein Assistent beim ersten Start führt Sie durch das Festlegen von SDR-Verzeichnis, Prozessname, öffentlichem Port und neuem Passwort.
+> ⚠️ **Ändern Sie das Passwort sofort** — bei der ersten Anmeldung fragt ein Assistent mit nur einem Schritt nur nach einem neuen Passwort. Verzeichnis und Ports stehen bereits in `admin_config.json` (geschrieben von `setup_admin.sh`, das der Installer ausführt); der Assistent zeigt sie nur zur Information an und lässt sie unverändert. Ändern lassen sie sich später in Settings oder mit `./configure-station.sh`.
 
 ---
 

@@ -1003,25 +1003,12 @@ body::before{content:"";position:fixed;inset:0;background:radial-gradient(ellips
     <div class="logo-sub">FIRST-RUN SETUP</div>
   </div>
   <div class="card">
-    <div class="step-label">&#9654; CONFIGURE YOUR STATION</div>
-    <div class="field">
-      <label>SDR INSTALLATION DIRECTORY</label>
-      <button class="detect-btn" onclick="autoDetect()" id="detect-btn">&#9889; AUTO-DETECT</button>
-      <select id="dir-sel" onchange="dirSelChange()" style="margin-bottom:.4rem;display:none;"></select>
-      <input type="text" id="sdr-dir" placeholder="/path/to/PhantomSDR-Plus">
-      <div class="hint">Root folder containing config.toml, build/, frontend/, etc.</div>
-    </div>
-    <div class="field-row">
-      <div class="field">
-        <label>SDR PROCESS NAME</label>
-        <input type="text" id="proc-name" value="spectrumserver" placeholder="spectrumserver">
-        <div class="hint">For ONLINE status detection</div>
-      </div>
-      <div class="field">
-        <label>PUBLIC PORT</label>
-        <input type="number" id="pub-port" value="8900" placeholder="8900" min="1" max="65535">
-        <div class="hint">Port users connect to</div>
-      </div>
+    <div class="step-label">&#9654; CHOOSE YOUR ADMIN PASSWORD</div>
+    <div class="hint" style="margin-bottom:1rem;line-height:1.6;">
+      The installer already set up this station:<br>
+      Folder: <b>{{ sdr_dir }}</b><br>
+      Listener port: <b>{{ listen_port }}</b>{% if sdr_port != listen_port %} &#183; spectrumserver: <b>{{ sdr_port }}</b>{% endif %}<br>
+      You can change these later in Settings.
     </div>
     <div class="field">
       <label>NEW ADMIN PASSWORD <span style="color:var(--red)">*</span></label>
@@ -1037,35 +1024,6 @@ body::before{content:"";position:fixed;inset:0;background:radial-gradient(ellips
   </div>
 </div>
 <script>
-async function autoDetect() {
-  var btn = document.getElementById("detect-btn");
-  btn.textContent = "Detecting...";
-  btn.disabled = true;
-  try {
-    var r = await fetch("/admin/api/autodetect");
-    var d = await r.json();
-    var candidates = d.candidates || [];
-    var sel = document.getElementById("dir-sel");
-    sel.innerHTML = "";
-    if (candidates.length > 0) {
-      sel.style.display = "block";
-      candidates.forEach(function(c) {
-        var opt = document.createElement("option");
-        opt.value = c; opt.textContent = c;
-        sel.appendChild(opt);
-      });
-      document.getElementById("sdr-dir").value = candidates[0];
-      btn.textContent = "Found " + candidates.length + " candidate(s)";
-    } else {
-      btn.textContent = "Nothing found — enter path manually";
-    }
-  } catch(e) { btn.textContent = "Detection failed"; }
-  btn.disabled = false;
-}
-function dirSelChange() {
-  var v = document.getElementById("dir-sel").value;
-  if (v) document.getElementById("sdr-dir").value = v;
-}
 function showErr(msg) {
   var el = document.getElementById("err-box");
   el.textContent = msg; el.style.display = "block";
@@ -1073,12 +1031,8 @@ function showErr(msg) {
 }
 async function completeSetup() {
   document.getElementById("err-box").style.display = "none";
-  var dir = document.getElementById("sdr-dir").value.trim();
-  var pn  = document.getElementById("proc-name").value.trim() || "spectrumserver";
-  var pp  = parseInt(document.getElementById("pub-port").value) || 8900;
   var pw  = document.getElementById("new-pwd").value;
   var pw2 = document.getElementById("new-pwd2").value;
-  if (!dir)          { showErr("SDR base directory is required"); return; }
   if (!pw)           { showErr("Password is required"); return; }
   if (pw.length < 4) { showErr("Password must be at least 4 characters"); return; }
   if (pw !== pw2)    { showErr("Passwords do not match"); return; }
@@ -1088,8 +1042,7 @@ async function completeSetup() {
     var r = await fetch("/admin/api/setup", {
       method: "POST",
       headers: {"Content-Type": "application/json"},
-      body: JSON.stringify({sdr_base_dir: dir, sdr_process_name: pn,
-                            public_port: pp, new_password: pw})
+      body: JSON.stringify({new_password: pw})
     });
     var d = await r.json();
     if (d.ok) {
@@ -1105,7 +1058,6 @@ async function completeSetup() {
     btn.disabled = false; btn.textContent = "&#9654; COMPLETE SETUP_";
   }
 }
-autoDetect();
 </script>
 </body>
 </html>"""
@@ -5211,7 +5163,13 @@ def setup():
     if not is_first_run():
         return redirect(url_for("dashboard"))
     from flask import make_response
-    resp = make_response(render_template_string(SETUP_HTML))
+    cfg = load_admin_config()
+    sdr_port = int(cfg.get("public_port") or PUBLIC_PORT)
+    resp = make_response(render_template_string(
+        SETUP_HTML,
+        sdr_dir=cfg.get("sdr_base_dir") or str(BASE_DIR),
+        sdr_port=sdr_port,
+        listen_port=int(cfg.get("proxy_port") or sdr_port)))
     resp.headers["Cache-Control"] = "no-store"
     return resp
 
@@ -5228,21 +5186,16 @@ def api_setup():
     if not is_first_run():
         return jsonify({"ok": False, "msg": "Setup already complete"})
     data = request.get_json(silent=True) or {}
-    sdr_dir   = data.get("sdr_base_dir", "").strip()
-    proc_name = (data.get("sdr_process_name", "spectrumserver") or "spectrumserver").strip()
-    try:
-        public_port = int(data.get("public_port", 8900))
-    except (ValueError, TypeError):
-        public_port = 8900
     new_password = data.get("new_password", "")
-    if not sdr_dir:
-        return jsonify({"ok": False, "msg": "SDR base directory is required"})
     if len(new_password) < 4:
         return jsonify({"ok": False, "msg": "Password must be at least 4 characters"})
+    # Folder and ports come from setup_admin.sh (run by the installer), which is
+    # their source of truth — the wizard only fills a gap, never overwrites.
     cfg = load_admin_config()
-    cfg["sdr_base_dir"]     = sdr_dir
-    cfg["sdr_process_name"] = proc_name
-    cfg["public_port"]      = public_port
+    if not cfg.get("sdr_base_dir"):
+        cfg["sdr_base_dir"] = str(BASE_DIR)
+    cfg.setdefault("sdr_process_name", "spectrumserver")
+    cfg.setdefault("public_port", PUBLIC_PORT)
     cfg["password_hash"]    = hash_password(new_password)
     cfg["setup_complete"]   = True
     save_admin_config(cfg)

@@ -109,7 +109,7 @@ http://YOUR_SERVER_IP:<proxy_port>/admin
 ```
 Zadana lozinka: **`admin`**
 
-> ⚠️ **Odmah promijenite lozinku** — pri prvoj prijavi idite na Settings. Čarobnjak prvog pokretanja vodit će vas kroz postavljanje SDR direktorija, naziva procesa, javnog porta i nove lozinke.
+> ⚠️ **Odmah promijenite lozinku** — pri prvoj prijavi čarobnjak u jednom koraku traži samo novu lozinku. Direktorij i portovi već su u `admin_config.json` (upisuje ih `setup_admin.sh`, koji pokreće instalacijska skripta); čarobnjak ih samo prikazuje radi informacije i ne mijenja ih. Kasnije ih možete promijeniti u Settings ili pomoću `./configure-station.sh`.
 
 ---
 

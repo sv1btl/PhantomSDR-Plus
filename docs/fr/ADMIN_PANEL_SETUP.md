@@ -109,7 +109,7 @@ http://YOUR_SERVER_IP:<proxy_port>/admin
 ```
 Mot de passe par défaut : **`admin`**
 
-> ⚠️ **Changez immédiatement le mot de passe** — allez dans Settings à la première connexion. Un assistant de premier lancement vous guidera pour définir le répertoire SDR, le nom du processus, le port public et un nouveau mot de passe.
+> ⚠️ **Changez immédiatement le mot de passe** — à la première connexion, un assistant en une seule étape demande uniquement un nouveau mot de passe. Le répertoire et les ports figurent déjà dans `admin_config.json` (écrits par `setup_admin.sh`, que lance l'installateur) ; l'assistant les affiche à titre indicatif et n'y touche pas. Vous pouvez les modifier plus tard dans Settings ou avec `./configure-station.sh`.
 
 ---
 

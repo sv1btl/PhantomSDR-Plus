@@ -109,7 +109,7 @@ http://YOUR_SERVER_IP:<proxy_port>/admin
 ```
 Contraseña por defecto: **`admin`**
 
-> ⚠️ **Cambie la contraseña de inmediato**: vaya a Settings en el primer inicio de sesión. Un asistente de primera ejecución le guiará para establecer el directorio del SDR, el nombre del proceso, el puerto público y una contraseña nueva.
+> ⚠️ **Cambie la contraseña de inmediato**: en el primer inicio de sesión, un asistente de un solo paso pide únicamente una contraseña nueva. El directorio y los puertos ya están en `admin_config.json` (los escribe `setup_admin.sh`, que ejecuta el instalador); el asistente los muestra solo como referencia y no los modifica. Puede cambiarlos más tarde en Settings o con `./configure-station.sh`.
 
 ---
 

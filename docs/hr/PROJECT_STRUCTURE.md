@@ -27,13 +27,18 @@ PhantomSDR-Plus
 │   ├── audiotap.js
 │   ├── bandplan.js
 │   ├── decodeworker.js
+│   ├── drm-helper.js          # DRM za slušatelje: jedan ubersdr-drm po sesiji, na IQ odvojku
+│   ├── drmheard.js            # DRM usluge dekodirane ovdje („heard here”), umetnute u raspored
+│   ├── drmschedule.js         # DRM raspored: drmrx.org + KiwiSDR potvrde + HFCC
 │   ├── index.js
+│   ├── iqtap.js               # AudioTap u IQ načinu poslužitelja
 │   ├── manager.js
 │   ├── package.json
 │   ├── pool.js
 │   ├── probe-ft8.js
 │   ├── probe-js8.js
 │   ├── pskreporter.js
+│   ├── serverport.js          # gdje odvojci nalaze spectrumserver (uz receivers.toml)
 │   ├── spotparse.js
 │   ├── wasm-shim.js
 │   └── wsprnet.js
@@ -197,6 +202,7 @@ PhantomSDR-Plus
 │   ├── websdr2.png
 │   ├── websdr3.png
 │   └── websdr.png
+├── drm                        # gradi setup-drm.sh: src/ i bin/ (nije u gitu)
 ├── favicon.ico
 ├── fftw_wisdom
 ├── fix_local_geo.py
@@ -239,6 +245,8 @@ PhantomSDR-Plus
 │   │   ├── analyze_users.py
 │   │   ├── decoders
 │   │   │   ├── ft8_lib.wasm
+│   │   │   ├── hfdl_systable.conf # HFDL zemaljske stanice (dumphfdl tablica sustava)
+│   │   │   ├── hfdl.wasm      # HFDL dekoder, izgrađen iz jsdsp/hfdl_wasm
 │   │   │   ├── js8_dict.bin   # JS8 rječnik riječi, učitava se tek kad zatreba
 │   │   │   └── js8.wasm       # JS8 dekoder, izgrađen iz jsdsp/js8_wasm
 │   │   ├── logo.jpg
@@ -282,6 +290,8 @@ PhantomSDR-Plus
 │   │   ├── fsk.worker.js
 │   │   ├── fskWorkerProxy.js
 │   │   ├── hell.js
+│   │   ├── hfdl.worker.js
+│   │   ├── hfdlWorkerProxy.js
 │   │   ├── ifk.js                    # DominoEX i THOR
 │   │   ├── kiwiSource.js
 │   │   ├── lib
@@ -294,6 +304,8 @@ PhantomSDR-Plus
 │   │   │   ├── colormaps.js
 │   │   │   ├── Counter.svelte
 │   │   │   ├── DiversityPanel.svelte
+│   │   │   ├── DrmPanel.svelte # DRM ploča: lampice, mjerenja, stanica, izbornik rasporeda
+│   │   │   ├── drmSchedule.js # kopija DRM rasporeda + „sada u eteru“ prema danu
 │   │   │   ├── fftRadix2.js
 │   │   │   ├── freedv-reporter.js
 │   │   │   ├── FreeDVReporter.svelte
@@ -302,6 +314,8 @@ PhantomSDR-Plus
 │   │   │   ├── FrequencyMarkers.svelte
 │   │   │   ├── FtxSpectrum.svelte
 │   │   │   ├── hammeractions.js
+│   │   │   ├── HfdlPanel.svelte # HFDL ploča i karta zrakoplova (iz PhantomSDR-ORSAT)
+│   │   │   ├── hfdlStations.js # HFDL zemaljske stanice i frekvencije
 │   │   │   ├── identity.js               # ime/pozivni znak slušatelja: polje, pohrana, prijenos kroz URL
 │   │   │   ├── LineThroughButton.svelte
 │   │   │   ├── Logger.svelte
@@ -348,6 +362,7 @@ PhantomSDR-Plus
 │   │   │   ├── encode.wasm
 │   │   │   ├── ft4.js
 │   │   │   ├── ft8.js
+│   │   │   ├── hfdl.mjs
 │   │   │   ├── js8-decoder.js
 │   │   │   ├── js8-format.js
 │   │   │   ├── js8.js
@@ -438,6 +453,7 @@ PhantomSDR-Plus
 │   │   │   └── internal.h
 │   │   └── liquid
 │   │       └── liquid.h
+│   ├── hfdl_wasm              # HFDL dekoder: dumphfdl + libacars u WebAssemblyju — pogledajte njegov README
 │   ├── js8_wasm               # JS8 dekoder u C-u, preveden u WebAssembly, s testovima i referentnom provjerom — vidi njegov README
 │   │   ├── build_js8_wasm.sh
 │   │   ├── check_against_reference.sh
@@ -509,7 +525,7 @@ PhantomSDR-Plus
 ├── phantomsdr-proxy.service   # ogledna systemd jedinica za proxy, instalira se zajedno s jedinicom ploče
 ├── phantomsdr-websdr-relay.service  # primjer systemd unita za WebSDR diverziti relej
 ├── proxy.py                   # jedini javni port: stranica, /admin, /rade, /stats, /relay i prijemnici ?rx=
-├── rade_helper.py
+├── rade_helper.py             # RADE sidecar: V1 kroz ~/radae, V2 (beta) kroz ~/rade_c
 ├── rade_loadtest.csv          # izlaz rade_loadtest.py (jedan redak po koraku opterećenja)
 ├── rade_loadtest.py           # RADE test opterećenja: koliko istodobnih dekodera stroj podnosi — vidi docs/RADE_README.md
 ├── rade.sh
@@ -522,6 +538,7 @@ PhantomSDR-Plus
 ├── setup-airspyhf.sh          # lanac upravljačkog programa Airspy HF+: libairspyhf + SoapyAirspyHF + rx_sdr + udev
 ├── setup-autostart.sh         # pokretanje pri podizanju: phantomsdr-receiver.service za skriptu iz station.conf
 ├── setup-cpufreq-perms.sh     # daje grupi pravo pisanja u scaling_max_freq kako bi zaštita mogla usporiti bez roota
+├── setup-drm.sh               # gradi DRM dekoder (ubersdr-drm + fdk-aac 2.0.3) u drm/bin
 ├── setup-firewall.sh          # neobvezna nftables zaštita — vidi docs/CONNECTION_LIMITS.md
 ├── setup-fobos.sh             # lanac upravljačkog programa Fobos: libfobos + SoapyFobosSDR + rx_sdr + cf32_to_real + udev
 ├── setup-hackrf.sh            # HackRF: paket hackrf iz distribucije + udev (ništa se ne gradi)
@@ -965,8 +982,8 @@ Web-sučelje izgrađeno pomoću Sveltea i Vitea.
 - Komponenta najviše razine
 - Struktura rasporeda
 - Usklađivanje komponenti
-- **Red gumba dekodera** — po jedan gumb za svaki dekoder na glavnoj ploči, odmah ispod izbornika načina rada; jedan pritisak pokreće dekoder i otvara njegov prozor, drugi ga zaustavlja. Zamijenio je dotadašnji red za širinu pojasa. RADEL/RADEU su u `lib/ModesSelector.svelte`, uz izbornik načina rada te u skočnim prozorima **Modes** i **Bands**.
-- **Redak verzije** — „PhantomSDR+ | v5.3.0 original from github.com/sv1btl/PhantomSDR-Plus”, s adresom kao poveznicom; isti redak nalazi se i na stranici /mobile. Broj verzije i adresa nalaze se u `lib/version.js`; redak je navođenje autorstva obuhvaćeno datotekom `ADDITIONAL_TERMS.md`.
+- **Red gumba dekodera** — po jedan gumb za svaki dekoder na glavnoj ploči, odmah ispod izbornika načina rada; jedan pritisak pokreće dekoder i otvara njegov prozor, drugi ga zaustavlja. Zamijenio je dotadašnji red za širinu pojasa. RADE-v2U/RADE-v1L/RADE-v1U su u `lib/ModesSelector.svelte`, uz izbornik načina rada te u skočnim prozorima **Modes** i **Bands**.
+- **Redak verzije** — „PhantomSDR+ | v5.4.0 original from github.com/sv1btl/PhantomSDR-Plus”, s adresom kao poveznicom; isti redak nalazi se i na stranici /mobile. Broj verzije i adresa nalaze se u `lib/version.js`; redak je navođenje autorstva obuhvaćeno datotekom `ADDITIONAL_TERMS.md`.
 
 #### 2. Prikaz slapa (`waterfall.js` + `lib/`)
 - Iscrtavanje spektra i slapa na platnu (canvas) i palete boja u `waterfall.js` (čisti JS, nije komponenta); preračunavanje svjetline/kontrasta za **Auto Adj.** je `lib/wfAutoLevel.js`
@@ -1072,7 +1089,8 @@ Uloga `fsk` dodatno ugošćuje dekodere koji uopće ne koriste njezin FSK lanac.
 - Polje za ime pokraj **Open Additional Info** čuva ime ili pozivni znak u `localStorage` (`chatusername`) i šalje ga na `/audio` kao `{"cmd":"identity","name":…}`; `audio.js` ga ponovno šalje svaki put kad se otvori njegov socket. Poveznica na prijemnik na drugoj adresi nosi ga kao `?idname=`, koji se pročita jednom i ukloni iz adresne trake
 - Poslužitelj ga čisti (`clean_listener_name` u `utils.cpp`): najviše 10 znakova i bez razmaka kao na WebSDR-u, barem jedno slovo ili znamenka; rezervirana imena chata i `anonymous1234` vrijede kao nikakvo ime. `/users` ga daje kao `name`; oznake waterfalla prikazuju ga, a iza njega grad
 - Javni `/users`, `users.json` i `/logs/users_*.jsonl` koje čita `stats.html` ne sadrže IP adresu: kopija dnevnika umjesto nje nosi neprozirni kod `visitor` (hash s ključem, ključ u `logs/.visitor_salt`); datoteke na disku zadržavaju adrese. Administracijska ploča čita `/~~users`, na koji se odgovara samo loopback sugovorniku bez `X-Forwarded-For`
-- Zabrane od 24 sata iz ploče čuvaju se u `admin_bans.json` (nikad se ne distribuira) i jednom u minuti ponovno šalju svakom prijemniku; `/~~unban` ukida jednu
+- Dekoder koji radi ide istim putem: `App.svelte` šalje `{"cmd":"decoder","name":"FT8"}` (prazno kad nijedan ne radi) pri svakoj promjeni, a `audio.js` ga ponovno šalje na novom socketu. Poslužitelj čuva kratku oznaku (slova, znamenke, razmak, `-+/`, najviše 12) i daje je kao `decoder` u `/users` i u svakom retku `users_*.jsonl`; promjena se bilježi kao preugađanje, pa je `stats.html` (Decoder Popularity) i stranica Visitors administracije mogu brojati
+- Zabrane od 8/16/24 sata iz ploče čuvaju se u `admin_bans.json` (nikad se ne distribuira) i jednom u minuti ponovno šalju svakom prijemniku; `/~~unban` ukida jednu
 
 #### 5. Upravljanje stanjem (`stores/`)
 - Reaktivne pohrane podataka
@@ -1135,6 +1153,7 @@ port = 9002
 html_root = "frontend/dist/"
 threads = 2
 otherusers = 1
+iq = true
 
 [limits]
 # Ograničenja po adresi — sva su zadano isključena ili na razumnoj vrijednosti,

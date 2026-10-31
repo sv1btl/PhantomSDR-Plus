@@ -4,9 +4,9 @@ PhantomSDR-Plus Reverse Proxy
 ==============================
 Reads all configuration from admin_config.json (written by setup_admin.sh):
 
-  proxy_port   → port this proxy listens on          (e.g. 8902)
+  proxy_port   → port this proxy listens on          (e.g. 8900, the listener port)
   port         → admin panel internal port           (e.g. 3000)
-  public_port  → spectrumserver port                 (e.g. 8900)
+  public_port  → spectrumserver port                 (e.g. 8901)
   sdr_host     → host used to reach spectrumserver   (127.0.0.1)
 
 Routes:
@@ -56,6 +56,7 @@ _STATION_KEYS = {
     "PORT_SDR":    "public_port",  # spectrumserver, on loopback behind us
     "PORT_ADMIN":  "port",         # admin panel, on loopback behind us
     "PORT_RADE":   "rade_port",
+    "PORT_DRM":    "drm_port",     # autorun/drm-helper.js
     "PORT_STATS":  "stats_port",
     "PORT_RELAY":  "relay_port",
     "PORT_TLS":    "tls_port",     # loopback port the https front (Caddy) uses
@@ -115,14 +116,15 @@ if _sdr_port == LISTEN_PORT and _sdr_host in ("127.0.0.1", "localhost", "::1"):
 
 # ── Side services behind the same public port ──────────────────────────────────
 # A station set up with configure-station.sh forwards ONE port on its router.
-# The RADE sidecar, the statistics server and the WebSDR relay then listen on
-# loopback, and the page reaches each of them here under a path prefix that is
+# The RADE sidecar, the DRM helper, the statistics server and the WebSDR relay
+# then listen on loopback, and the page reaches each of them here under a path
+# prefix that is
 # stripped on the way through (/stats/api/system-stats → /api/system-stats).
 # A station whose config names none of these ports gets no such route, and
 # those paths go to spectrumserver exactly as before.
 SIDE_SERVICES: "dict[str, str]" = {}
-for _prefix, _key in (("/rade", "rade_port"), ("/stats", "stats_port"),
-                      ("/relay", "relay_port")):
+for _prefix, _key in (("/rade", "rade_port"), ("/drm", "drm_port"),
+                      ("/stats", "stats_port"), ("/relay", "relay_port")):
     if _cfg.get(_key):
         SIDE_SERVICES[_prefix] = f"http://127.0.0.1:{int(_cfg[_key])}"
 
@@ -603,25 +605,36 @@ async def handle(request: web.Request) -> web.StreamResponse:
 # truncates proxy.log while serving it, and this access line would be written
 # afterwards — leaving one line behind and making the clear look like it failed.
 #
-# Keep this list identical to _QUIET_PATHS in admin_server.py. It drifted once:
+# Keep this list (and _QUIET_404) identical in admin_server.py. It drifted once:
 # the panel silenced eight paths while the proxy silenced three, so admin.log
 # stayed readable and proxy.log filled with the same polls the panel had already
 # decided were noise — /admin/api/thermal alone was 72 of 78 lines, ~3 MB/day
 # from a single open dashboard tab. These are the sysop's own polls; they say
 # nothing about who used the receiver, which is the point of an access log.
 _QUIET_PATHS = ("/admin/api/status", "/admin/api/thermal", "/admin/api/logs",
-                "/admin/api/logs/clear",
+                "/admin/api/logs/clear", "/admin/api/health",
                 "/admin/api/autorun/status", "/admin/api/users", "/admin/api/sdr-users",
-                "/admin/api/graph-stats", "/admin/api/chat",
+                "/admin/api/graph-stats", "/admin/api/chat", "/admin/api/bans",
+                "/admin/api/websdr-relay", "/admin/api/drm",
+                # every open listener page polls these every few seconds; who
+                # listened is in the /audio and /waterfall lines and logs/users_*.jsonl
+                "/users", "/wf-message.json", "/receivers.json", "/api/dxspots",
+                "/logo.jpg", "/favicon.ico", "/stats/api/system-stats",
                 # websdr.org's registration check, every 10 s while listed
                 "/~~orgstatus")
+# 404 is the normal answer here (no waterfall message set), so it is quiet too.
+_QUIET_404 = ("/wf-message.json",)
 _ACCESS_RE = re.compile(r'"[A-Z]+ (?P<path>[^ ?"]+)[^"]*" (?P<status>\d{3})')
 
 
 class QuietPollFilter(logging.Filter):
     def filter(self, record):
         m = _ACCESS_RE.search(record.getMessage())
-        if not m or m.group("status") != "200":
+        if not m:
+            return True
+        if m.group("status") == "404":
+            return m.group("path") not in _QUIET_404
+        if m.group("status") != "200":
             return True
         return m.group("path") not in _QUIET_PATHS
 

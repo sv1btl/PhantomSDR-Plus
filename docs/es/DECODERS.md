@@ -17,7 +17,9 @@ Esta guía cubre todos los decodificadores integrados disponibles en PhantomSDR-
 9. [NAVTEX](#9-navtex)
 10. [FLDIGI — RTTY, PSK31, Olivia, MFSK, DominoEX, THOR, THROB, Hellschreiber, MT63, Packet y APRS](#10-fldigi--rtty-psk31-olivia-mfsk-dominoex-thor-throb-hellschreiber-mt63-packet-y-aprs)
 11. [SSTV](#11-sstv)
-12. [Consejos generales](#12-consejos-generales)
+12. [HFDL](#12-hfdl)
+13. [DRM](#13-drm)
+14. [Consejos generales](#14-consejos-generales)
 
 ---
 
@@ -39,16 +41,19 @@ El desplegable no es la única vía. El panel principal incluye una fila de boto
 | Botón | Decodificador | Botón | Decodificador |
 |---|---|---|---|
 | **FT8** | FT8 | **SSTV** | SSTV |
-| **FT4** | FT4 | **NAVTEX** | NAVTEX |
-| **FT2** | FT2 | **FLDIGI** | RTTY, SITOR, PSK31, Olivia, MFSK, DominoEX, THOR, THROB, Hellschreiber, MT63, Packet, APRS |
-| **CW** | CW | | |
-| **WSPR** | WSPR | **FAX** | HF FAX / WEFAX |
+| **FT4** | FT4 | **FLDIGI** | RTTY, SITOR, PSK31, Olivia, MFSK, DominoEX, THOR, THROB, Hellschreiber, MT63, Packet, APRS |
+| **FT2** | FT2 | **NAVTEX** | NAVTEX |
+| **CW** | CW | **FAX** | HF FAX / WEFAX |
+| **JS8** | JS8 | **HFDL** | HFDL — mensajes de aviones |
+| **WSPR** | WSPR | **DRM** | DRM — radiodifusión digital |
 
 Pulsar un botón hace toda la secuencia de una vez: selecciona el decodificador, pone el decodificador en ON y desplaza su ventana hasta hacerla visible. El botón se pone azul mientras su decodificador funciona. **Pulse el mismo botón otra vez para detener el decodificador**: su ventana se cierra con él.
 
-**RADEL** y **RADEU** no están en esta fila deliberadamente. Son modos de voz digital y no decodificadores de texto, por lo que tienen su propio par de botones junto al encabezado **Modes selector** y dentro de las ventanas emergentes **Modes** y **Bands**. Se comportan exactamente igual: pulsar para iniciar, volver a pulsar para detener. Consulte el [manual de RADE](RADE_README.md).
+**RADE-v2U**, **RADE-v1L** y **RADE-v1U** no están en esta fila deliberadamente. Son modos de voz digital y no decodificadores de texto, por lo que tienen sus propios botones junto al encabezado **Modes** y dentro de las ventanas emergentes **Modes** y **Bands**. Se comportan exactamente igual: pulsar para iniciar, volver a pulsar para detener. Consulte el [manual de RADE](RADE_README.md). **RADE-v2U** inicia RADE V2 (beta), siempre en USB; **RADE-v1L** y **RADE-v1U** inician RADE v1.
 
 Los botones, el desplegable y el botón ON/OFF gobiernan el mismo estado, así que use el que use, los demás lo siguen.
+
+Cuando un decodificador tiene su propia lista de frecuencias —la lista **Band** de QRSS, las estaciones de HF FAX y NAVTEX, la lista **Known frequency** de FLDIGI y las listas de estaciones de HFDL y DRM—, su botón Tune también encuadra la banda como **To Band**: la cascada muestra toda la banda de la estación, con el brillo, el contraste y el paso de sintonía de esa banda. La banda se elige por la frecuencia publicada de la estación, no por el dial, así que 10100,800 kHz (RTTY meteorológico del DWD) se abre en 30 m aunque el dial quede un poco por debajo de 10100 kHz.
 
 ### Iniciar un decodificador desde un marcador de frecuencia
 
@@ -64,14 +69,18 @@ Un marcador de frecuencia (las etiquetas amarillas sobre la cascada, de `markers
 | `MFSK16`, `MFSK32`, `MFSK64`, `FELDHELL` | FLDIGI en esa variante y ese submodo | como arriba |
 | `PACKET`, `APRS` | FLDIGI en esa variante | el canal; 300 Bd (USB) por debajo de 30 MHz, 1200 Bd (FM) por encima |
 | `RADEU`, `RADE`, `FREEDV` / `RADEL` | FreeDV RADE V1 en banda lateral superior / inferior (`RADE` y `FREEDV` significan superior) | la frecuencia del dial |
+| `RADE2` | FreeDV RADE V2 (beta), siempre banda lateral superior | la frecuencia del dial |
+| `HFDL` | HFDL | la frecuencia del dial (USB; la señal HFDL está 1440 Hz por encima) |
+| `DRM` | DRM | el centro del canal DRM |
+| `MORSE` | el decodificador CW, con CW y un filtro de ±250 Hz | la frecuencia de la señal |
 
-Un decodificador que ya está en marcha sigue activo. `CW` sigue siendo un modo normal del receptor, porque lo usan balizas y estaciones — no inicia el decodificador CW. Los marcadores solo se muestran mientras la cascada abarca 3,5 MHz o menos. El decodificador ajusta su propio modo y su propio filtro, igual que al iniciarlo desde su botón.
+Un decodificador que ya está en marcha sigue activo. `CW` sigue siendo un modo normal del receptor, porque lo usan balizas y estaciones — no inicia el decodificador CW. Los marcadores solo se muestran mientras la cascada abarca 3,5 MHz o menos. El decodificador ajusta su propio modo y su propio filtro, igual que al iniciarlo desde su botón. Para iniciar el decodificador CW desde un marcador, dele el modo `MORSE`. Los marcadores de todos los decodificadores vienen con PhantomSDR-Plus en `frequencylist/decodermarkers.json`; un marcador suyo en `mymarkers.json` en la misma frecuencia siempre prevalece.
 
 > Solo puede haber un decodificador activo a la vez. Cambiar a otro decodificador detiene automáticamente el anterior.
 >
 > El **grabber QRSS** no forma parte de este menú desplegable: tiene su propia sección **QRSS** y puede funcionar al mismo tiempo que un decodificador.
 
-**La decodificación se ejecuta en segundo plano.** SSTV, FAX de HF, NAVTEX, FLDIGI y CW se ejecutan cada uno en un hilo Web Worker independiente, de modo que el trabajo de decodificación nunca compite con la reproducción de audio ni con la cascada. Iniciar o detener un decodificador no interrumpe el audio, y la interfaz sigue respondiendo mientras se recibe una imagen o una página. Todos los decodificadores reciben audio en bruto tomado *antes* de la reducción de ruido y el silenciado, así que silenciar el receptor o ajustar esos parámetros a su gusto no afecta a la decodificación. Con el AGC es distinto: lo aplica el receptor antes de que el audio llegue a su navegador, de modo que los decodificadores lo comparten con usted. Por eso, mientras haya cualquier decodificador abierto, se mantiene en **Slow**, sea cual sea el botón de AGC seleccionado, y lo indica una pequeña nota *Slow (decoder)* junto al título AGC; su propia elección vuelve cuando se cierra el último decodificador.
+**La decodificación se ejecuta en segundo plano.** SSTV, FAX de HF, NAVTEX, HFDL, FLDIGI y CW se ejecutan cada uno en un hilo Web Worker independiente, de modo que el trabajo de decodificación nunca compite con la reproducción de audio ni con la cascada. Iniciar o detener un decodificador no interrumpe el audio, y la interfaz sigue respondiendo mientras se recibe una imagen o una página. Todos los decodificadores reciben audio en bruto tomado *antes* de la reducción de ruido y el silenciado, así que silenciar el receptor o ajustar esos parámetros a su gusto no afecta a la decodificación. Con el AGC es distinto: lo aplica el receptor antes de que el audio llegue a su navegador, de modo que los decodificadores lo comparten con usted. Por eso, mientras haya cualquier decodificador abierto, se mantiene en **Slow**, sea cual sea el botón de AGC seleccionado, y lo indica una pequeña nota *Slow (decoder)* junto al título AGC; su propia elección vuelve cuando se cierra el último decodificador. DRM es la excepción: se decodifica en el servidor de la estación (capítulo 13).
 
 **Un decodificador en marcha manda sobre el modo y el paso de banda.** Normalmente el modo sigue el plan de bandas de `bands-config.js`: lleve el dial a un segmento marcado LSB o AM y el receptor cambia a él. Mientras un decodificador está en marcha eso ya no ocurre. El decodificador mantiene el modo que necesita (USB en casi todos, el suyo propio en RADE) y el paso de banda que necesita —PSK31 unos ±100 Hz, Olivia, MFSK, DominoEX, THOR, THROB, Hellschreiber y MT63 todo su ancho, RTTY su shift— y ambos sobreviven a la resintonía, incluso a un salto a otra banda. Sin esto, sintonizar FT8 en 40 m pasaría el receptor a LSB en cuanto se moviera el dial, y los pasos de banda estrechos de los decodificadores se abrirían de nuevo al filtro SSB completo.
 
@@ -106,8 +115,8 @@ Nunca cambia su decodificador por sí solo. Únicamente sugiere. Y en cuanto arr
 
 **Tres límites honestos:**
 
-* **FT8, JS8 y FT2 son la misma señal.** La misma modulación 8-FSK, la misma separación de tonos, y JS8 a velocidad Normal usa la cadencia de 15 segundos de FT8. Nada en la señal misma los separa. La frecuencia sí: en una frecuencia de llamada de FT8 informa FT8, en una de JS8 informa JS8, y en cualquier otro sitio informa honestamente la familia — *FT8 / JS8 / FT2*. Arranque cualquiera de los dos decodificadores y vea cuál produce texto.
-* **Calla en lugar de adivinar.** Por debajo de unos 10 dB de relación señal/ruido informa *Nothing above the noise* o *Not recognised* en vez de nombrar un modo que no puede ver realmente. Es deliberado: una respuesta equivocada y segura de sí misma es peor que ninguna respuesta.
+* **FT8, JS8 y FT2 son la misma señal.** La misma modulación 8-FSK, la misma separación de tonos, y JS8 a velocidad Normal usa la cadencia de 15 segundos de FT8. Nada en la señal misma los separa. La frecuencia sí: en una frecuencia de llamada de FT8 informa FT8, en una de JS8 informa JS8, y en cualquier otro sitio informa honestamente la familia — *FT8 / JS8 / FT2*. Arranque cualquiera de los dos decodificadores y vea cuál produce texto. FT2 tiene un ritmo propio más rápido (3,75 s) que no se mide, así que una señal FT2 normalmente no se nombra.
+* **Calla en lugar de adivinar.** Por debajo de unos 10 dB de relación señal/ruido informa *Nothing above the noise* o *Not recognised* en vez de nombrar un modo que no puede ver realmente. Es deliberado: una respuesta equivocada y segura de sí misma es peor que ninguna respuesta. Los 10 dB se miden sobre el ancho de la propia señal, así que los modos estrechos llegan mucho más abajo: en un ancho de receptor normal de 2,5 kHz, FT8 se reconoce hasta unos −5 dB, FT4 hasta unos 0 dB, y WSPR y CW hasta unos −10 dB.
 * **Una señal con desvanecimiento se lee de otra manera.** WSPR transmite 110 segundos seguidos, más de lo que dura un desvanecimiento QSB corriente, de modo que un desvanecimiento profundo parte la transmisión en trozos y su ritmo de dos minutos ya no puede leerse en ellos. Entonces se recupera por otra vía: se compara todo el historial de escucha con la rejilla de dos minutos en lugar de con transmisiones sueltas, y la línea de medidas indica *120 s grid (through fading)*. Es una prueba más débil que una transmisión oída entera, así que la confianza mostrada es deliberadamente menor. Un desvanecimiento lo bastante profundo como para hundir la señal en el ruido no se recupera en absoluto. Olivia es más estricta que las demás: no se nombra hasta haber medido su velocidad de símbolo, por lo que enmudece antes.
 
 ---
@@ -143,6 +152,8 @@ La lista de mensajes muestra las transmisiones decodificadas a medida que llegan
 Formato de mensaje típico: `CQ DX AA1BB FN31` — una llamada CQ del indicativo AA1BB situado en el cuadrante FN31.
 
 La **SNR** que se muestra con cada decodificación es una relación señal/ruido real, medida sobre la señal decodificada frente al ruido que la rodea y referida a un ancho de banda de 2500 Hz, como la da WSJT-X. Las estaciones débiles marcan valores negativos, hasta unos −20 dB, y las fuertes positivos; con las mismas grabaciones ambos programas coinciden en promedio, normalmente con unos 3 dB de diferencia en una decodificación aislada. FT4 y FT2 usan el mismo método.
+
+**Bandas concurridas y estaciones débiles.** Cada estación decodificada se resta del audio y el resto se decodifica de nuevo, hasta tres veces, como hace WSJT-X, de modo que también sale una estación oculta bajo otra más fuerte a su lado; en grabaciones de bandas reales el decodificador encuentra el 86–88 % de lo que encuentra WSJT-X. Cuando la corrección de errores normal se rinde con una señal FT8 débil, una más profunda (ordered-statistics decoding) lo intenta otra vez; está sujeta a comprobaciones estrictas, para que el ruido no se convierta en mensajes inventados. FT4 y FT2 también usan la resta.
 
 > **Tras una actualización:** el decodificador FT8/FT4/FT2 es un archivo aparte que los navegadores conservan mucho tiempo. Si todas las SNR siguen entre unos 0 y +5 dB, recargue la página a fondo (**Ctrl+Mayús+R**, o **Cmd+Mayús+R** en un Mac).
 
@@ -185,6 +196,8 @@ La **SNR** que se muestra con cada decodificación es una relación señal/ruido
 3. El panel **FT4 Messages** o **FT2 Messages** aparece debajo, con la misma disposición que el panel de FT8.
 
 > **Nota:** FT4 y FT8 usan formatos espectrales distintos y no son intercambiables. Asegúrese de estar en una frecuencia de FT4 al usar este decodificador.
+
+> **Reloj:** FT4 y FT2 también decodifican cuando el reloj de su ordenador o la ruta del audio van hasta un segundo atrasados (FT2 unos 0,9 s); la temporización del decodificador se corrige entonces sola a partir de las decodificaciones.
 
 ---
 
@@ -291,12 +304,15 @@ La CW está activa en todas las bandas de aficionado, normalmente en la parte ba
 - Si no se detecta señal, la cabecera muestra **scanning…**
 - En un canal vacío no se imprime nada, y no se muestran ni la velocidad ni el tono. El decodificador solo empieza a escribir cuando hay una diferencia clara entre manipulador pulsado y suelto, algo que el ruido solo no produce, mientras que una señal aún legible a unos −10 dB la tiene de sobra.
 - El texto decodificado se desplaza en caracteres ámbar de paso fijo. El cursor parpadeante (▋) marca dónde se está escribiendo.
+- El deslizador **Pitch** antes de **Clear** ajusta el tono de audio de la señal CW mientras el decodificador funciona: de 500 a 800 Hz en pasos de 50 Hz, 600 Hz hasta que lo cambie. Su navegador recuerda la elección. La escucha normal de CW también está en 600 Hz.
 - Haga clic en **Clear** para borrar el búfer de salida.
 
 > **Consejos:**
 > - Centre el paso de banda en el tono de CW. El decodificador funciona mejor cuando la señal de CW se sitúa aproximadamente entre 400 y 900 Hz en el espectro de audio.
 > - Se copian velocidades de unas 8 a 40 PPM, también con manipulación Farnsworth (caracteres enviados rápido con pausas más largas entre ellos): el enganche de velocidad se mantiene y las letras no se parten en palabras sueltas. El Morse muy manual (irregular) todavía puede reducir la precisión.
 > - El decodificador rinde mejor con una única señal limpia. Un QRM fuerte de señales cercanas en la misma banda puede confundirlo.
+> - El desvanecimiento (QSB) se sigue: una señal que se desvanece y vuelve se sigue leyendo, y también se lee la primera palabra de una transmisión — también al comienzo de una respuesta tras una pausa en el QSO.
+> - Cada letra se decide sobre la propia señal y no sobre los puntos y rayas contados primero, lo que reduce aproximadamente a la mitad las letras erróneas en señales débiles y manipuladas a mano.
 
 ---
 
@@ -439,6 +455,8 @@ Cada punto (spot) decodificado con éxito se muestra en una tabla con las siguie
 
 Haga clic en **Clear** para borrar la lista de spots.
 
+En una banda concurrida el decodificador trabaja como WSJT-X: toma hasta 40 candidatos por intervalo, resta cada estación que ha decodificado y vuelve a buscar, hasta tres pasadas, de modo que también se encuentran las estaciones más débiles entre las fuertes.
+
 > **Consejo:** la decodificación de WSPR requiere una hora del sistema muy precisa (±1 segundo respecto a UTC). La primera ranura tras activar el decodificador comenzará en el siguiente minuto UTC par; una breve espera es normal.
 
 ---
@@ -534,7 +552,7 @@ El texto decodificado aparece en color verde azulado y paso fijo. Los límites d
 
 `ZCZC` marca el inicio de un mensaje. Los cuatro caracteres siguientes identifican la estación (`M`), el tema (`A` = avisos a la navegación) y el número de secuencia (`12`). El encabezado espera a tener la cabecera completa, así que muestra `ZCZC MA12` y no `ZCZC ????`. `NNNN` marca el final.
 
-Si sintoniza cuando un mensaje ya ha empezado, o su cabecera se pierde en el ruido, el texto aparece igualmente, bajo un encabezado **━━ (header missed) ━━**. Solo se abre cuando llegan seguidos varios caracteres en los que coinciden las dos transmisiones NAVTEX, algo que el ruido casi nunca produce. Se cierra en `NNNN` como siempre, con **━━ (signal lost) ━━** si la señal desaparece antes, o cuando empieza un mensaje nuevo.
+Si sintoniza cuando un mensaje ya ha empezado, o su cabecera se pierde en el ruido, el texto aparece igualmente, bajo un encabezado **━━ (header missed) ━━**. Solo se abre cuando llegan seguidos varios caracteres en los que coinciden las dos transmisiones NAVTEX, algo que el ruido casi nunca produce. Se cierra en `NNNN` como siempre, con **━━ (signal lost) ━━** si la señal desaparece antes, o cuando empieza un mensaje nuevo. Una señal débil mantiene la sincronización aunque lleguen caracteres corruptos: cada carácter NAVTEX se transmite dos veces, así que el decodificador aguanta los errores y solo suelta la señal cuando de verdad ha desaparecido; y si se enganchó un bit al lado del límite real de carácter, pasa al correcto sin cerrar el mensaje. A −6 dB en 2,5 kHz llega así aproximadamente el doble de texto.
 
 Haga clic en **Clear** para borrar el búfer de mensajes.
 
@@ -627,7 +645,7 @@ El panel se adapta a la variante elegida. **Shift**, **Baud**, **Framing**, **En
 | Reverse | FSK Hell 245 / 105, Hell 80 | Pinta el otro tono como tinta |
 | Speed | Packet y APRS | **1200 Bd · VHF/UHF (FM)** o **300 Bd · HF (USB)**. También elige el modo del receptor |
 | Show raw packet | solo APRS | Imprime además el paquete tal como se recibió (formato TNC2) encima de cada línea decodificada |
-| Squelch (SNR) | RTTY de aficionados y meteorológico | Evita que el ruido se imprima como letras al azar. Empieza en −5 dB para el RTTY de aficionados y en −8 dB para el meteorológico; del todo a la izquierda (**off**) queda desactivado. La cifra de SNR se vuelve gris mientras el squelch está cerrado |
+| Squelch (SNR) | RTTY de aficionados y meteorológico | Evita que el ruido se imprima como letras al azar. Empieza en −5 dB para el RTTY de aficionados y en −7 dB para el meteorológico; del todo a la izquierda (**off**) queda desactivado. La cifra de SNR se vuelve gris mientras el squelch está cerrado |
 
 ### Métricas de señal
 
@@ -676,7 +694,7 @@ Olivia sacrifica velocidad a cambio de robustez. Es mucho más lento que PSK31, 
 MFSK16, MFSK32 y MFSK64 son los modos IZ8BLY tal como los transmite fldigi: 16 tonos, uno cada vez, separados un baudio entre sí, protegidos por corrección de errores convolucional y entrelazado. Son más rápidos que Olivia y algo menos robustos. MFSK16 (15,625 baudios, 234 Hz de ancho) imprime limpio hasta unos −12 dB de SNR en 2,5 kHz, MFSK32 (31,25 baudios, 469 Hz) hasta unos −10 dB y MFSK64 (62,5 baudios, 938 Hz) hasta unos −7 dB.
 
 - **Elija la variante MFSK16·32·64** y después la velocidad en su lista **Mode**. Los tres modos solo se diferencian en la velocidad, y el ajuste debe coincidir: el equivocado no imprime nada legible.
-- **Sintonía:** coloque el bloque de tonos en la frecuencia **Center audio** o pulse **⟳ Auto-tune Center**. El último cuarto de tono lo corrige el decodificador por sí mismo —unos ±4 Hz en MFSK16, ±8 Hz en MFSK32 y ±16 Hz en MFSK64— y **Centre** muestra dónde se ha asentado.
+- **Sintonía:** coloque el bloque de tonos en la frecuencia **Center audio** o pulse **⟳ Auto-tune Center**. El último cuarto de tono lo corrige el decodificador por sí mismo —unos ±4 Hz en MFSK16, ±8 Hz en MFSK32 y ±16 Hz en MFSK64— y **Centre** muestra dónde se ha asentado. Una señal más alejada la encuentra el propio decodificador, hasta unos ±75 Hz del centro ajustado: cuente con unos segundos al comienzo de una transmisión.
 - El texto llega un par de segundos por detrás de la señal, el tiempo que necesitan el entrelazado y la corrección de errores. Uno o dos caracteres sueltos al principio de una transmisión son normales; fldigi también los muestra.
 - **Squelch (FEC metric)** retiene la impresión hasta que la calidad de decodificación alcanza el ajuste. El valor por defecto de 22 deja fuera el ruido (el ruido solo llega a unos 20); una buena señal marca 90 % o más en el indicador **FEC**, y 0 desactiva el squelch. Cuando una transmisión termina con la marca de fin de transmisión de fldigi, la impresión se detiene en el acto en lugar de dejar pasar unos segundos de ruido.
 - Las transmisiones de imágenes MFSK no se decodifican.
@@ -687,7 +705,7 @@ DominoEX y THOR envían 18 tonos, de uno en uno, pero un carácter no es un tono
 
 - **Mode** debe coincidir con la velocidad emitida. DominoEX ofrece Micro, 4, 5, 8, 11, 16, 22, 44 y 88; THOR ofrece Micro, 4, 5, 8, 11, 16, 22 y los rápidos 25 x4, 50 x1, 50 x2 y 100 (estos cuatro usan un código más fuerte y un entrelazador de un segundo). DominoEX 11 y THOR 16 son los que más se oyen.
 - **Sintonía:** ponga el bloque de tonos en **Center audio** o pulse **⟳ Auto-tune Center**. Una desintonía de una cuarta parte del ancho de la señal todavía se copia.
-- **Squelch (tone / noise)** compara el tono recibido con el fondo de todas las demás posiciones de tono, en una escala de 0–100. El ruido solo se queda en 20 o menos; una copia legible marca 35 o más; el valor por defecto es 25. No es la cifra del propio fldigi: esa marca 26 en algunas señales perfectamente limpias, con lo que cualquier valor útil por defecto las habría cortado.
+- **Squelch (tone / noise)** compara el tono recibido con el fondo de todas las demás posiciones de tono, en una escala de 0–100. El ruido solo se queda en 20 o menos; una copia legible marca 35 o más; el valor por defecto es 25. No es la cifra del propio fldigi: esa marca 26 en algunas señales perfectamente limpias, con lo que cualquier valor útil por defecto las habría cortado. Cuando una transmisión termina, la impresión se detiene en unos pocos símbolos en lugar de dejar pasar ruido.
 - El receptor sigue los ajustes por defecto de fldigi: tres caminos separados un tercio de posición FFT, decisiones duras en DominoEX, decisiones suaves y detección de preámbulo en THOR. No se decodifican la corrección de errores MultiPSK opcional de DominoEX (desactivada por defecto en fldigi), el canal de texto secundario (el texto baliza de la estación en las pausas) ni el modo imagen de THOR.
 
 ### Notas sobre THROB
@@ -769,7 +787,9 @@ El packet radio envía datos en ráfagas cortas llamadas tramas (frames). Cada t
 | Scottie DX | 320×256 color | 269 s |
 | Robot 36 / 72 | 320×240 color | 36 s / 72 s |
 
-**Auto** funciona de dos maneras: lee la **cabecera VIS** —el código digital del modo enviado en los primeros 300 ms de una transmisión— y, si se perdió la cabecera (sintonizó tarde o se perdió por QSB), identifica el modo a partir de la temporización de los impulsos de sincronismo. Seleccionar un modo concreto lo fuerza, pero el decodificador sigue verificando el sincronismo antes de dibujar nada, de modo que una elección equivocada no produce imagen en lugar de ruido.
+**Auto** funciona de dos maneras: lee la **cabecera VIS** —el código digital del modo enviado en los primeros 300 ms de una transmisión— y, si se perdió la cabecera (sintonizó tarde o se perdió por QSB), identifica el modo a partir de la temporización de los impulsos de sincronismo. Seleccionar un modo concreto lo fuerza, pero el decodificador sigue verificando el sincronismo antes de dibujar nada, de modo que una elección equivocada no produce imagen en lugar de ruido. Robot 36 se reconoce correctamente incluso cuando sintoniza a mitad de una imagen (su temporización de línea también encaja con Robot 72 y Scottie DX, y antes se confundía con ellos).
+
+**Las imágenes débiles** se dibujan hasta el final: aunque ningún pulso de sincronismo aislado se distinga del ruido, el decodificador ve por muchas líneas juntas que la imagen sigue ahí. Cuando la transmisión termina de verdad, se detiene en pocos segundos.
 
 ### Lectura de la salida
 
@@ -810,7 +830,63 @@ Como Force omite todas las comprobaciones de seguridad, pintará ruido sin más 
 
 ---
 
-## 12. Consejos generales
+## 12. HFDL
+
+HFDL (HF Data Link) transporta los mensajes que los aviones sobre océanos y zonas remotas intercambian en onda corta con estaciones de tierra: informes de posición, textos ACARS, conexiones y datos de frecuencias. El decodificador es dumphfdl (Tomasz Lemiech, GPL-3) compilado a WebAssembly. Funciona en su navegador sobre el audio USB, así que no le cuesta nada al receptor.
+
+### Configuración
+
+1. Pulse **HFDL** (o elíjalo en el menú desplegable). El receptor pasa a USB con un filtro de 150–2750 Hz.
+2. Elija una **estación de tierra** y una de sus frecuencias, y pulse **⇒ Tune & Set IF**. La frecuencia de la lista es el dial en USB; la señal HFDL está 1440 Hz por encima.
+3. Espere. Las estaciones de tierra envían un squitter cada 32 s y los aviones responden cuando tienen tráfico. El decodificador encuentra por sí mismo la velocidad exacta del audio (±1 %) y un desplazamiento de frecuencia (±240 Hz), y se engancha con la primera trama que decodifica.
+
+### Frecuencias
+
+La lista contiene todas las estaciones de tierra HFDL. De día se oyen bien desde Europa 17967 kHz (Al Muharraq, Baréin) y 21955 kHz (Canarias); al atardecer y de noche toman el relevo las frecuencias más bajas de Shannon, Reikiavik y Canarias. Los marcadores de frecuencia HFDL inician el decodificador al pulsarlos.
+
+### Leer la salida
+
+Cada línea muestra la hora (UTC), la frecuencia, la dirección (▼ tierra→aire o ▲ aire→tierra), la estación de tierra, el avión — matrícula, vuelo y dirección ICAO de 24 bits, cada uno un enlace a FlightAware —, el tipo de mensaje, su SNR y su velocidad binaria, y 📍 una posición cuando el mensaje la lleva. El texto ACARS aparece debajo. Pase el ratón por una línea para ver la trama completa. Marque **Squitters** para ver también los anuncios de las estaciones de tierra.
+
+**🗺 Map** muestra dentro del panel los aviones que informaron una posición; **⤢ Large map** abre el mismo mapa en una ventana que se puede mover y redimensionar. Cada avión apunta según su rumbo y deja una estela roja. **💾 Save** guarda los mensajes en un archivo de texto y **Clear** vacía la lista.
+
+---
+
+## 13. DRM
+
+DRM (Digital Radio Mondiale) es radiodifusión digital en onda corta y onda media. A diferencia de los demás decodificadores, se decodifica en el servidor de la estación: al pulsar **DRM**, el servidor ejecuta para usted un decodificador — ubersdr-drm, el decodificador Dream sin interfaz gráfica que usa UberSDR — sobre todo el canal DRM de 10 kHz, y le envía el audio decodificado y su estado. Por eso suena en cualquier navegador, xHE-AAC incluido. Una estación ejecuta como máximo cinco decodificadores DRM a la vez, uno por oyente.
+
+### Configuración
+
+1. Pulse **DRM** (o elíjalo en el menú desplegable). Debajo de la frecuencia aparece **DRM** y la banda de paso cubre todo el canal de 10 kHz.
+2. Elija una emisión en el selector y pulse **⇒ Tune**, o sintonice usted mismo el dial en el centro de un canal DRM — el decodificador sigue al dial.
+3. Observe las lámparas: en cuanto **Audio** se pone verde, sale sonido.
+
+Mientras DRM está activo, el único sonido es DRM decodificado. El audio propio del receptor queda silenciado, así que sin señal DRM no oye nada. Con una señal débil o con desvanecimientos, una trama dañada se desvanece en una breve reverberación y silencio en lugar de una ráfaga de ruido, y el decodificador se resincroniza solo cuando vuelve la señal; además, cada trama recibe una segunda pasada de corrección de errores.
+
+### El selector de estaciones
+
+El selector muestra el horario del DRM Reception Project (drmrx.org), que el servidor renueva cada hora: frecuencia, estación, horas UTC, los días cuando no es diaria, la zona a la que se dirige la emisión, ✓ cuando los oyentes la confirmaron en el aire, y HFCC cuando la emisora la registró en la HFCC. Los grupos son **Beamed at this station (locator) — on air now**, **On air now — beamed elsewhere, nearest first**, **Later (next 24 h)** y **Medium wave**. **Confirmed only**, activado por defecto, oculta las entradas que nadie ha confirmado. El orden sigue el localizador de la estación (`grid_locator` en la sección `[websdr]` de la configuración): una emisión cuenta como dirigida a la estación cuando su zona de destino llega a unos 1000 km de ella; si la zona es desconocida ("Various"), se usa el país del transmisor. Sin localizador, las emisiones en el aire aparecen en un solo grupo. Las emisiones dirigidas lejos suelen oírse débiles o nada. **heard here** marca una emisión que este receptor ha decodificado en los últimos 30 días — el decodificador anota cada servicio que decodifica, nunca quién escuchaba — y **Confirmed only** también las conserva; una emisión que no figura en ningún horario, como una transmisión de prueba, tiene su propio grupo arriba, **Heard on this receiver — on air now, in no schedule**, en las medias horas en que se oyó.
+
+Buenas capturas desde Europa (horario de invierno desde el 25 de octubre de 2026): Radio Romania International en 9720 kHz (17:00–18:00 UTC), 9570 kHz (18:00–19:00), 6110 kHz (19:00–20:00) y 5955 kHz (19:00–19:30). Los horarios de emisión cambian a finales de marzo y a finales de octubre, y el selector los sigue.
+
+### Leer el panel
+
+| Elemento | Significado |
+|---|---|
+| **Signal, Time, Frame, FAC, SDC, Audio** | Las lámparas de sincronismo: verde OK, ámbar error de datos, rojo error de CRC, gris ausente. Sale sonido cuando **Audio** está en verde. |
+| **WMER** | La cifra que predice la decodificación: a partir de unos 10 dB el audio se decodifica. |
+| **MER, SNR** | Relación de error de modulación y relación señal/ruido, en dB. |
+| **Mode, BW, QAM, Prot** | Modo de robustez (A–E), ancho del canal, constelación MSC y niveles de protección. |
+| **Codec** | AAC, AAC+SBR o xHE-AAC, según lo señala la estación. |
+
+Debajo aparecen el nombre, el país, el idioma y el modo de audio de la estación, y su mensaje de texto. «No decoder on the server for …» significa que esta estación no puede decodificar ese códec.
+
+**Para sysops.** El decodificador lo compila `./setup-drm.sh` (lo ejecutan los instaladores; `update.sh` lo ofrece) y el ayudante `autorun/drm-helper.js` arranca y se detiene con el receptor; `DRM_ENABLED=0` delante del script de arranque lo desactiva. Véase el manual de instalación. Tras una actualización, ejecute de nuevo `./setup-drm.sh`: parchea y recompila el decodificador (menos cortes y ninguna ráfaga de ruido en xHE-AAC); el nuevo decodificador se usa en cuanto el ayudante se reinicia con el receptor.
+
+---
+
+## 14. Consejos generales
 
 **Primero hay que activar Decoder: ON.** El desplegable está desactivado (en gris) hasta que hace clic en el botón Decoder.
 

@@ -227,7 +227,7 @@ Beide liegen im privaten Bereich 4000–4999, können also nicht mit einem Proto
 
 Dieses Schweigen nach einem Rauswurf ist Absicht. **Hinauswerfen heißt, dass der Sysop eine Sitzung beendet, es ist keine Strafe** — es wird nichts verkündet, und wer zurück will, lädt die Seite neu und ist eine Sekunde später ein ganz gewöhnlicher Hörer. Das Einzige, was der Code 4001 bringt, ist, dass der Browser weiß: das war keine abgebrochene Verbindung — der Rauswurf greift also, statt sich selbst aufzuheben.
 
-Eine **Sperre** — ⛔ Ban 24h im Admin-Panel — ist die einzige Ausnahme: Sie ist derselbe Rauswurf mit einer 24-stündigen Abweisung, das Neuladen wird also mit 4001 abgewiesen, bis die Sperre abläuft oder der Sysop sie aufhebt.
+Eine **Sperre** — ⛔ Ban ▾ im Admin-Panel — ist die einzige Ausnahme: Sie ist derselbe Rauswurf mit einer Abweisung von 8, 16 oder 24 Stunden, das Neuladen wird also mit 4001 abgewiesen, bis die Sperre abläuft oder der Sysop sie aufhebt.
 
 Den Rauswurf erledigt `spectrumserver` selbst, nicht `proxy.py`: Hörer verbinden sich direkt mit dem Port des Empfängers, der Proxy besitzt also keine ihrer Verbindungen und sein Rauswurf erreicht niemanden. Das Panel ruft `/~~kick?ip=&secs=` auf — nur über Loopback erreichbar und anhand des echten TCP-Gegenübers geprüft, nicht anhand von `X-Forwarded-For`, das vom Client kommt. `secs` ist standardmäßig null, also keine Sperre, nimmt aber eine Dauer an, wenn die Adresse doch eine Weile draußen bleiben soll; das nutzt dieselbe Sperrmechanik wie `per_ip_rate`, sodass der Wiederverbindungsversuch schon an der Tür abgewiesen wird. Ban 24h im Panel sendet `secs=86400`, das Maximum, und `/~~unban?ip=` hebt eine Sperre vorzeitig auf.
 

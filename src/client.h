@@ -1,6 +1,7 @@
 #ifndef CLIENT_H
 #define CLIENT_H
 
+#include <atomic>
 #include <mutex>
 #include <optional>
 #include <string>
@@ -49,7 +50,9 @@ constexpr const char *type_to_name(conn_type type) {
     }
 }
 
-enum demodulation_mode { USB, LSB, AM, FM };
+// IQ: zero-IF complex baseband, no demodulation — stereo int16 (I left,
+// Q right) for the DRM helper. Granted to internal taps only.
+enum demodulation_mode { USB, LSB, AM, FM, IQ };
 
 enum waterfall_compressor { WATERFALL_ZSTD, WATERFALL_AV1, WATERFALL_KIWI };
 
@@ -57,6 +60,11 @@ enum waterfall_compressor { WATERFALL_ZSTD, WATERFALL_AV1, WATERFALL_KIWI };
 // config or the browser; only an internal loopback client (the autorun spot
 // decoder) opts into it at runtime via the "set_codec" command, so it pays no
 // FLAC/Opus encode cost on the P-cores. See PcmEncoder in audio.h.
+// [server] iq (default true): listeners (browser and Kiwi bridge) may pick the IQ mode -- 12 kHz of
+// zero-IF I/Q as lossless stereo FLAC. Set once at start-up, read per mode
+// change. The DRM helper's internal tap has IQ whatever this says.
+extern std::atomic<bool> g_public_iq_enabled;
+
 enum audio_compressor { AUDIO_FLAC, AUDIO_OPUS, AUDIO_PCM, AUDIO_KIWI_PCM };
 
 class WaterfallClient;
@@ -112,6 +120,8 @@ class Client {
     virtual void on_mute(bool mute);
     // Name/callsign for /users (AudioClient overrides).
     virtual void on_identity_message(std::string &name);
+    virtual void on_decoder_message(std::string &name);
+    virtual void on_diversity_message(std::string &type, std::string &host);
     
     // Noise gate and AGC control (AudioClient will override these)
     virtual void on_noise_gate_enable_message(bool enabled);

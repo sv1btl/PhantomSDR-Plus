@@ -27,13 +27,18 @@ PhantomSDR-Plus
 │   ├── audiotap.js
 │   ├── bandplan.js
 │   ├── decodeworker.js
+│   ├── drm-helper.js          # DRM για ακροατές: ένα ubersdr-drm ανά σύνδεση, σε IQ tap
+│   ├── drmheard.js            # υπηρεσίες DRM που αποκωδικοποιήθηκαν εδώ («heard here»), μέσα στο πρόγραμμα
+│   ├── drmschedule.js         # πρόγραμμα DRM: drmrx.org + επιβεβαιώσεις KiwiSDR + HFCC
 │   ├── index.js
+│   ├── iqtap.js               # AudioTap στον τρόπο IQ του διακομιστή
 │   ├── manager.js
 │   ├── package.json
 │   ├── pool.js
 │   ├── probe-ft8.js
 │   ├── probe-js8.js
 │   ├── pskreporter.js
+│   ├── serverport.js          # πού βρίσκουν τα taps τον spectrumserver (με receivers.toml)
 │   ├── spotparse.js
 │   ├── wasm-shim.js
 │   └── wsprnet.js
@@ -197,6 +202,7 @@ PhantomSDR-Plus
 │   ├── websdr2.png
 │   ├── websdr3.png
 │   └── websdr.png
+├── drm                        # από το setup-drm.sh: src/ και bin/ (όχι στο git)
 ├── favicon.ico
 ├── fftw_wisdom
 ├── fix_local_geo.py
@@ -239,6 +245,8 @@ PhantomSDR-Plus
 │   │   ├── analyze_users.py
 │   │   ├── decoders
 │   │   │   ├── ft8_lib.wasm
+│   │   │   ├── hfdl_systable.conf # επίγειοι σταθμοί HFDL (πίνακας συστήματος dumphfdl)
+│   │   │   ├── hfdl.wasm      # αποκωδικοποιητής HFDL, από το jsdsp/hfdl_wasm
 │   │   │   ├── js8_dict.bin   # λεξικό λέξεων JS8, φορτώνεται μόνο όταν χρειαστεί
 │   │   │   └── js8.wasm       # αποκωδικοποιητής JS8, από το jsdsp/js8_wasm
 │   │   ├── logo.jpg
@@ -282,6 +290,8 @@ PhantomSDR-Plus
 │   │   ├── fsk.worker.js
 │   │   ├── fskWorkerProxy.js
 │   │   ├── hell.js
+│   │   ├── hfdl.worker.js
+│   │   ├── hfdlWorkerProxy.js
 │   │   ├── ifk.js                    # DominoEX και THOR
 │   │   ├── kiwiSource.js
 │   │   ├── lib
@@ -294,6 +304,8 @@ PhantomSDR-Plus
 │   │   │   ├── colormaps.js
 │   │   │   ├── Counter.svelte
 │   │   │   ├── DiversityPanel.svelte
+│   │   │   ├── DrmPanel.svelte # πίνακας DRM: λυχνίες, μετρήσεις, σταθμός, επιλογέας προγράμματος
+│   │   │   ├── drmSchedule.js # αντίγραφο προγράμματος DRM + «στον αέρα τώρα» ανά ημέρα
 │   │   │   ├── fftRadix2.js
 │   │   │   ├── freedv-reporter.js
 │   │   │   ├── FreeDVReporter.svelte
@@ -302,6 +314,8 @@ PhantomSDR-Plus
 │   │   │   ├── FrequencyMarkers.svelte
 │   │   │   ├── FtxSpectrum.svelte
 │   │   │   ├── hammeractions.js
+│   │   │   ├── HfdlPanel.svelte # πίνακας HFDL και χάρτης αεροσκαφών (από το PhantomSDR-ORSAT)
+│   │   │   ├── hfdlStations.js # επίγειοι σταθμοί και συχνότητες HFDL
 │   │   │   ├── identity.js               # όνομα/διακριτικό ακροατή: πλαίσιο, αποθήκευση, μεταφορά στο URL
 │   │   │   ├── LineThroughButton.svelte
 │   │   │   ├── Logger.svelte
@@ -348,6 +362,7 @@ PhantomSDR-Plus
 │   │   │   ├── encode.wasm
 │   │   │   ├── ft4.js
 │   │   │   ├── ft8.js
+│   │   │   ├── hfdl.mjs
 │   │   │   ├── js8-decoder.js
 │   │   │   ├── js8-format.js
 │   │   │   ├── js8.js
@@ -438,6 +453,7 @@ PhantomSDR-Plus
 │   │   │   └── internal.h
 │   │   └── liquid
 │   │       └── liquid.h
+│   ├── hfdl_wasm              # αποκωδικοποιητής HFDL: dumphfdl + libacars σε WebAssembly — δείτε το README του
 │   ├── js8_wasm               # αποκωδικοποιητής JS8 σε C, μεταγλωττισμένος σε WebAssembly, με τα τεστ και τον έλεγχο αναφοράς του — δείτε το README του
 │   │   ├── build_js8_wasm.sh
 │   │   ├── check_against_reference.sh
@@ -509,7 +525,7 @@ PhantomSDR-Plus
 ├── phantomsdr-proxy.service   # δείγμα μονάδας systemd για τον διαμεσολαβητή, εγκαθίσταται μαζί με τη μονάδα του πίνακα
 ├── phantomsdr-websdr-relay.service  # δείγμα systemd unit για το relay diversity WebSDR
 ├── proxy.py                   # η μία δημόσια θύρα: η σελίδα, /admin, /rade, /stats, /relay και δέκτες ?rx=
-├── rade_helper.py
+├── rade_helper.py             # το RADE sidecar: V1 μέσω ~/radae, V2 (beta) μέσω ~/rade_c
 ├── rade_loadtest.csv          # έξοδος του rade_loadtest.py (μία γραμμή ανά βήμα φόρτου)
 ├── rade_loadtest.py           # τεστ φόρτου RADE: πόσοι ταυτόχρονοι αποκωδικοποιητές αντέχει το μηχάνημα — δείτε docs/RADE_README.md
 ├── rade.sh
@@ -522,6 +538,7 @@ PhantomSDR-Plus
 ├── setup-airspyhf.sh          # αλυσίδα driver Airspy HF+: libairspyhf + SoapyAirspyHF + rx_sdr + udev
 ├── setup-autostart.sh         # εκκίνηση με το boot: phantomsdr-receiver.service για το start script του station.conf
 ├── setup-cpufreq-perms.sh     # δίνει στην ομάδα δικαίωμα εγγραφής στο scaling_max_freq, ώστε η προστασία να περιορίζει τη συχνότητα χωρίς root
+├── setup-drm.sh               # χτίζει τον αποκωδικοποιητή DRM (ubersdr-drm + fdk-aac 2.0.3) στο drm/bin
 ├── setup-firewall.sh          # προαιρετική προστασία nftables — δείτε docs/CONNECTION_LIMITS.md
 ├── setup-fobos.sh             # αλυσίδα driver Fobos: libfobos + SoapyFobosSDR + rx_sdr + cf32_to_real + udev
 ├── setup-hackrf.sh            # HackRF: πακέτο hackrf της διανομής + udev (τίποτα δεν χτίζεται)
@@ -965,8 +982,8 @@ PhantomSDR-Plus
 - Στοιχείο ανώτατου επιπέδου
 - Δομή διάταξης
 - Ενορχήστρωση στοιχείων
-- **Σειρά κουμπιών αποκωδικοποιητών** — ένα κουμπί ανά αποκωδικοποιητή στον κύριο πίνακα, ακριβώς κάτω από τον επιλογέα τρόπων· ένα πάτημα ξεκινά τον αποκωδικοποιητή και ανοίγει το παράθυρό του, δεύτερο πάτημα τον σταματά. Αντικατέστησε την παλιά σειρά Bandwidth. Τα RADEL/RADEU βρίσκονται στο `lib/ModesSelector.svelte`, δίπλα στον επιλογέα τρόπων και μέσα στα αναδυόμενα παράθυρα **Modes** και **Bands**.
-- **Γραμμή έκδοσης** — «PhantomSDR+ | v5.3.0 original from github.com/sv1btl/PhantomSDR-Plus», με τη διεύθυνση ως σύνδεσμο· η ίδια γραμμή υπάρχει και στη σελίδα /mobile. Ο αριθμός έκδοσης και η διεύθυνση βρίσκονται στο `lib/version.js`· η γραμμή είναι αναφορά δημιουργού που καλύπτεται από το `ADDITIONAL_TERMS.md`.
+- **Σειρά κουμπιών αποκωδικοποιητών** — ένα κουμπί ανά αποκωδικοποιητή στον κύριο πίνακα, ακριβώς κάτω από τον επιλογέα τρόπων· ένα πάτημα ξεκινά τον αποκωδικοποιητή και ανοίγει το παράθυρό του, δεύτερο πάτημα τον σταματά. Αντικατέστησε την παλιά σειρά Bandwidth. Τα RADE-v2U/RADE-v1L/RADE-v1U βρίσκονται στο `lib/ModesSelector.svelte`, δίπλα στον επιλογέα τρόπων και μέσα στα αναδυόμενα παράθυρα **Modes** και **Bands**.
+- **Γραμμή έκδοσης** — «PhantomSDR+ | v5.4.0 original from github.com/sv1btl/PhantomSDR-Plus», με τη διεύθυνση ως σύνδεσμο· η ίδια γραμμή υπάρχει και στη σελίδα /mobile. Ο αριθμός έκδοσης και η διεύθυνση βρίσκονται στο `lib/version.js`· η γραμμή είναι αναφορά δημιουργού που καλύπτεται από το `ADDITIONAL_TERMS.md`.
 
 #### 2. Οθόνη καταρράκτη (`waterfall.js` + `lib/`)
 - Σχεδίαση φάσματος και καταρράκτη σε canvas και χρωματικοί χάρτες στο `waterfall.js` (καθαρή JS, όχι στοιχείο)· η αναπροσαρμογή φωτεινότητας/αντίθεσης του **Auto Adj.** είναι το `lib/wfAutoLevel.js`
@@ -1072,7 +1089,8 @@ PhantomSDR-Plus
 - Το πλαίσιο ονόματος δίπλα στο **Open Additional Info** κρατά το όνομα ή το διακριτικό στο `localStorage` (`chatusername`) και το στέλνει στο `/audio` ως `{"cmd":"identity","name":…}`· το `audio.js` το ξαναστέλνει κάθε φορά που ανοίγει η σύνδεσή του. Ένας σύνδεσμος προς δέκτη σε άλλη διεύθυνση το μεταφέρει ως `?idname=`, που διαβάζεται μία φορά και αφαιρείται από τη γραμμή διευθύνσεων
 - Ο διακομιστής το καθαρίζει (`clean_listener_name` στο `utils.cpp`): έως 10 χαρακτήρες και χωρίς κενά όπως σε ένα WebSDR, τουλάχιστον ένα γράμμα ή ψηφίο· τα δεσμευμένα ονόματα της συνομιλίας και τα `anonymous1234` μετρούν ως κανένα. Το `/users` το δίνει ως `name`· οι ετικέτες του καταρράκτη το δείχνουν ακολουθούμενο από την πόλη
 - Το δημόσιο `/users`, το `users.json` και τα `/logs/users_*.jsonl` που διαβάζει το `stats.html` δεν περιέχουν διεύθυνση IP: το αντίγραφο του log έχει στη θέση της έναν αδιαφανή κωδικό `visitor` (hash με κλειδί, κλειδί στο `logs/.visitor_salt`)· τα αρχεία στον δίσκο κρατούν τις διευθύνσεις. Ο πίνακας διαχείρισης διαβάζει το `/~~users`, που απαντιέται μόνο σε loopback peer χωρίς `X-Forwarded-For`
-- Οι αποκλεισμοί 24 ωρών του πίνακα διαχείρισης φυλάγονται στο `admin_bans.json` (δεν διανέμεται ποτέ) και ξαναστέλνονται σε κάθε δέκτη μία φορά το λεπτό· το `/~~unban` αίρει έναν
+- Ο αποκωδικοποιητής που τρέχει πηγαίνει με τον ίδιο τρόπο: το `App.svelte` στέλνει `{"cmd":"decoder","name":"FT8"}` (κενό όταν δεν τρέχει κανένας) κάθε φορά που αλλάζει, και το `audio.js` το ξαναστέλνει σε νέο socket. Ο διακομιστής κρατά μια σύντομη ετικέτα (γράμματα, ψηφία, κενό, `-+/`, έως 12) και τη δίνει ως `decoder` στο `/users` και σε κάθε γραμμή `users_*.jsonl`· μια αλλαγή καταγράφεται σαν συντονισμός, ώστε το `stats.html` (Decoder Popularity) και η σελίδα Visitors του admin να τη μετρούν
+- Οι αποκλεισμοί 8/16/24 ωρών του πίνακα διαχείρισης φυλάγονται στο `admin_bans.json` (δεν διανέμεται ποτέ) και ξαναστέλνονται σε κάθε δέκτη μία φορά το λεπτό· το `/~~unban` αίρει έναν
 
 #### 5. Διαχείριση κατάστασης (`stores/`)
 - Αντιδραστικοί χώροι δεδομένων
@@ -1134,6 +1152,7 @@ port = 9002
 html_root = "frontend/dist/"
 threads = 2
 otherusers = 1
+iq = true
 
 [limits]
 # Όρια συνδέσεων ανά διεύθυνση — όλα είναι εξ ορισμού ανενεργά ή σε λογική τιμή,

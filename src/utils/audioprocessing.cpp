@@ -35,7 +35,7 @@ AGC::AGC(float desiredLevel, float attackTimeMs, float releaseTimeMs, float look
 
     // Limit how loud AGC can go.
     // Effective max linear gain = max_gain × 0.01f (output scale applied in process()).
-    // 500 × 0.01 = 10× (+20 dB).
+    // 1000 × 0.01 = 10× (+20 dB).
     max_gain = 1000.0f;
 
     // Dual time constant (fast branch, common to all modes)
@@ -123,7 +123,6 @@ AGC::~AGC() {
 // SSB / CW: smoother speech handling
 void AGC::configureForSSB() {
     hang_time      = static_cast<size_t>(0.40f * sample_rate);  // mild hold; avoids syllable pumping
-    hang_threshold = 0.15f;                                     // trigger hang at normal speech level
     am_attack_coeff  = attack_coeff * 0.2f;                     // moderate peak control
     am_release_coeff = release_coeff * 0.20f;                   // gentle gain-up; smoother audio
 }
@@ -131,7 +130,6 @@ void AGC::configureForSSB() {
 // AM broadcast: very stable level, aggressive control, minimal movement
 void AGC::configureForAM() {
     hang_time      = static_cast<size_t>(1.0f * sample_rate);   // 1 second hold
-    hang_threshold = 0.25f;                                     // engage hang more often
     am_attack_coeff  = attack_coeff * 0.5f;                     // faster peak control
     am_release_coeff = release_coeff * 0.15f;                   // ultra-slow gain-up
 }
@@ -142,7 +140,6 @@ void AGC::configureForQUAM() {
     // Base stage: gentler than plain AM so it protects and stabilizes,
     // but does not dominate the final loudness.
     hang_time        = static_cast<size_t>(0.45f * sample_rate);
-    hang_threshold   = 0.35f;
     am_attack_coeff  = attack_coeff * 0.40f;
     am_release_coeff = release_coeff * 0.25f;
 
@@ -480,34 +477,22 @@ void AGC::applyProgressiveAGC(float desired_gain) {
     for (size_t i = 0; i < gains.size(); ++i) {
         float stage_desired_gain = std::min(std::pow(desired_gain, 1.0f / gains.size()), max_gain);
 
-        // Re-arm hang timer when signal drops sharply
-        if (stage_desired_gain < gains[i] * hang_threshold) {
+        // Dual time constant: fast branch dominates attack, slow branch dominates release
+        float fast_gain = gains[i] * (1.0f - fast_attack_coeff) + stage_desired_gain * fast_attack_coeff;
+
+        if (stage_desired_gain < gains[i]) {
+            // Signal at/above the current level: attack, and (re-)arm the hang
+            // so the gain is held through the next gap (syllable, fade).
+            // Attack is never blocked -- an earlier version tested this the
+            // other way round and froze the gain high on a sudden strong signal.
             hang_counter = hang_time;
-        }
-
-        if (hang_counter > 0) {
-            // Hang active — hold current gain, suppress release
-        } else {
-            // Dual time constant: fast branch dominates attack, slow branch dominates release
-            float fast_gain = gains[i] * (1.0f - fast_attack_coeff) + stage_desired_gain * fast_attack_coeff;
-            float slow_gain;
-
-            if (stage_desired_gain < gains[i]) {
-                slow_gain = gains[i] * (1.0f - am_attack_coeff)  + stage_desired_gain * am_attack_coeff;
-            } else {
-                slow_gain = gains[i] * (1.0f - am_release_coeff) + stage_desired_gain * am_release_coeff;
-            }
-
+            float slow_gain = gains[i] * (1.0f - am_attack_coeff) + stage_desired_gain * am_attack_coeff;
+            gains[i] = std::min(fast_gain, slow_gain);
+        } else if (hang_counter == 0) {
+            float slow_gain = gains[i] * (1.0f - am_release_coeff) + stage_desired_gain * am_release_coeff;
             gains[i] = std::min(fast_gain, slow_gain);
         }
-    }
-
-    // Delayed AGC for RF stage (first stage): extra-slow release upward
-    if (desired_gain > gains[0]) {
-        gains[0] = std::min(
-            gains[0] * (1.0f - release_coeff * 0.1f) + desired_gain * release_coeff * 0.1f,
-            max_gain
-        );
+        // else: hang active -- hold the current gain, suppress release
     }
 }
 

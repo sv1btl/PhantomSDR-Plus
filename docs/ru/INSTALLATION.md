@@ -416,7 +416,7 @@ bash install.sh
 | 2 | Что принимать | Готовые варианты для каждого приёмника (например, *HF 0–30 МГц* для RX888, *2 м* для RTL-SDR) или своя центральная частота и частота дискретизации. |
 | 3 | Ваша станция | Позывной, имя, e-mail, QTH-локатор, город и страна, антенна, компьютер, район МСЭ (предлагается по локатору). |
 | 4 | Интернет | Ваш публичный адрес (IP или DNS-имя), и показывать ли приёмник на sdr-list.xyz и на карте websdr.org. А также — отдавать ли приёмник ещё и по https:// (нужно DNS-имя). Введите имя или IP, а не порт — порт спрашивается на шаге 5. |
-| 5 | Порты и дополнения | Панель администратора, FreeDV RADE, статистика, WebSDR relay, запуск при загрузке — и публичный порт. |
+| 5 | Порты и дополнения | Панель администратора, FreeDV RADE, DRM, статистика, WebSDR relay, запуск при загрузке — и публичный порт. |
 
 Ответы сохраняются в **`station.conf`**, и по нему мастер записывает всё, что должно совпадать: `config-<приёмник>.toml` приёмника (частота дискретизации, частота, порт, записи в каталогах, websdr.org), `frontend/site_information.json` и настройки relay. Скрипты запуска сами читают частоту и частоту дискретизации из `station.conf`, поэтому их никогда не редактируют. Меняются только настройки, принадлежащие мастеру, и каждый файл перед изменением копируется в `<имя>.bak-<дата>`.
 
@@ -424,12 +424,13 @@ bash install.sh
 
 | Порт | Что | Открыт на роутере |
 |---|---|---|
-| 9000 | страница приёмника — `proxy.py`, который также передаёт `/admin`, `/rade`, `/stats` и `/relay` | **да, только он** |
+| 9000 | страница приёмника — `proxy.py`, который также передаёт `/admin`, `/rade`, `/drm`, `/stats` и `/relay` | **да, только он** |
 | 9001 | spectrumserver | нет |
 | 9010 | панель администратора | нет |
 | 9011 | сервер статистики | нет |
 | 9012 | декодер FreeDV RADE | нет |
 | 9013 | WebSDR diversity relay | нет |
+| 9015 | декодер DRM | нет |
 
 Порт, уже занятый на компьютере, пропускается в пользу следующего свободного. Чтобы что-то изменить позже:
 
@@ -457,7 +458,7 @@ bash configure-station.sh --show   # показать текущие ответ�
 | 10–11 | Устанавливает зависимости frontend и собирает страницу для компьютера и `/mobile` |
 | 12 | Устанавливает OpenCL для найденного оборудования |
 | 13 | Устанавливает панель администратора — или без неё только proxy на публичном порту |
-| 14–16 | Устанавливает WebSDR relay, FreeDV RADE и сервер статистики, если вы их выбрали |
+| 14–16 | Устанавливает WebSDR relay, FreeDV RADE, DRM и сервер статистики, если вы их выбрали |
 | 17 | Повторно применяет исправленные заголовки websocketpp и проверяет их |
 | 18 | Устанавливает эмуляцию клиента KiwiSDR, чтобы клиенты Kiwi, например AetherSDR, могли подключаться |
 | 19 | Пересобирает backend из исправленных исходников |
@@ -479,6 +480,7 @@ bash configure-station.sh --show   # показать текущие ответ�
 | `PHANTOM_OPENCL_PROVIDER=1\|2\|3` | Intel · Mesa/Rusticl · POCL (default: from the detected hardware) |
 | `PHANTOM_ADMIN=y\|n` | admin panel (y interactive, n unattended) |
 | `PHANTOM_RADE=y\|n` | RADE / FreeDV (y interactive, n unattended) |
+| `PHANTOM_DRM=y\|n` | DRM decoder (default y) |
 | `PHANTOM_STATS=y\|n` | statistics server (y interactive, n unattended) |
 | `PHANTOM_KIWI=y\|n` | KiwiSDR client emulation (default y) |
 | `PHANTOM_RECOMPILE=y\|n` | final rebuild (default y) |
@@ -505,7 +507,7 @@ PHANTOM_NONINTERACTIVE=1 PHANTOM_SDR=1 \
 
 При настройке панели администратора установщик предлагает также два юнита systemd и **настоятельно рекомендует** согласиться: защита от перегрева процессора работает внутри панели, поэтому без них перезагрузка или сбой оставляют машину без защиты. Шаг автоматически пропускается там, где systemd не работает (контейнеры, WSL1, OpenRC) — см. [руководство по панели](ADMIN_PANEL_SETUP.md).
 
-Каждое дополнение — обычный сценарий, который можно запустить и отдельно в любой момент: `./setup_admin.sh` ([руководство](ADMIN_PANEL_SETUP.md)), `./install_rade.sh` ([руководство](RADE_README.md)), `./install-stats-server.sh` ([руководство](sdr-stats/README.md)), `./setup-rx888-udev.sh` и сценарии приёмников `./setup-rsp1a.sh`, `./setup-fobos.sh`, `./setup-airspyhf.sh` и `./setup-hackrf.sh` — именно их и вызывает установщик.
+Каждое дополнение — обычный сценарий, который можно запустить и отдельно в любой момент: `./setup_admin.sh` ([руководство](ADMIN_PANEL_SETUP.md)), `./install_rade.sh` ([руководство](RADE_README.md)), `./setup-drm.sh` ([декодер DRM](DECODERS.md#13-drm)), `./install-stats-server.sh` ([руководство](sdr-stats/README.md)), `./setup-rx888-udev.sh` и сценарии приёмников `./setup-rsp1a.sh`, `./setup-fobos.sh`, `./setup-airspyhf.sh` и `./setup-hackrf.sh` — именно их и вызывает установщик.
 
 ### Сборка вручную (справочно)
 
@@ -714,6 +716,7 @@ nano config-rtl.toml
 port = 9002                      # Web interface port (or everything else)
 html_root = "frontend/dist/"     # Frontend location
 otherusers = 1                   # Show other users (1=yes, 0=no)
+iq = true                        # Offer the IQ mode to listeners (true/false)
 threads = 2                      # Number of server threads
 
 [websdr]
@@ -772,7 +775,7 @@ nano frontend/site_information.json
   "siteCity": "Your City, Country",
   "siteInformation": "https://github.com/sv1btl/PhantomSDR-Plus",
   "siteHardware": "Computer specifications",
-  "siteSoftware": "PhantomSDR-Plus v5.3.0",
+  "siteSoftware": "PhantomSDR-Plus v5.4.0",
   "siteReceiver": "Your SDR model",
   "siteAntenna": "Antenna description",
   "siteNote": "Additional information",
@@ -1597,7 +1600,7 @@ update-backups/phantomsdr-backup-20260923-164530.zip
 ./update.sh --apply --yes     # никогда не спрашивает; всё изменённое вами СОХРАНЯЕТСЯ
 ./update.sh --check           # только отчёт, без вопросов — для cron (10 = есть обновление)
 ./update.sh --from FILE|DIR   # новая версия из .zip/.tar.gz или папки — без сети
-./update.sh --ref v5.3.0      # метка, ветка или коммит вместо текущего дерева
+./update.sh --ref v5.4.0      # метка, ветка или коммит вместо текущего дерева
 ./update.sh --list-excludes   # печатает правила «не трогать» так, как они действуют здесь
 ./update.sh --verbose         # перечисляет все файлы, а не только первые 40
 ```

@@ -94,15 +94,15 @@ Beim Laden der Seite sehen Sie:
 │   Compressor Equalizer├────────────────────────────┤ Zoom In Out Max Min │
 │ Filters               │  Fine Tuning (kHz)         │ Waterfall Spectrum  │
 │   NR NB NS AN CTCSS   │  VFO A · Modes · Bands     │ Auto Adj. Height    │
-│ Modes selector        │           · IF Filters     │ [ profile ▾ ]       │
-│   ...  RADEL  RADEU   │  Wheel Tuning Steps        │ [ Bookmarks ]       │
+│ Modes  RADE-v2U       │           · IF Filters     │ [ profile ▾ ]       │
+│   RADE-v1L RADE-v1U   │  Wheel Tuning Steps        │ [ Bookmarks ]       │
 │   USB LSB CW AM QUAM  │  Decoders                  │                     │
-│   FM                  │   FT8 FT4 FT2 JS8 CW WSPR  │                     │
+│   FM IQ               │   FT8 FT4 FT2 JS8 CW WSPR  │                     │
 │ Band selector         │   FAX SSTV NAVTEX RTTY ... │                     │
 └───────────────────────┴────────────────────────────┴─────────────────────┘
 ```
 
-Die drei Panels unter dem Wasserfall scrollen als eine Seite; in einem schmalen Fenster stapeln sie sich, statt nebeneinander zu stehen. **RADEL** und **RADEU** sitzen auf der Überschriftenzeile *Modes selector* selbst, rechts davon.
+Die drei Panels unter dem Wasserfall scrollen als eine Seite; in einem schmalen Fenster stapeln sie sich, statt nebeneinander zu stehen. **RADE-v2U**, **RADE-v1L** und **RADE-v1U** sitzen auf der Überschriftenzeile *Modes* selbst, rechts davon.
 
 ### 1. Wasserfallanzeige
 
@@ -140,8 +140,9 @@ Wählen Sie die Demodulationsart:
 - **CW**: Morsetelegrafie (Continuous Wave)
 - **WBFM**: Breitband-FM (Rundfunk)
 - **QUAM**: C-QUAM-AM-Stereo — die Beschriftung wird grün, sobald ein Stereopilot erkannt wird
+- **IQ**: rohes I/Q — 12 kHz des Bandes, so wie sie ankommen, zum Aufzeichnen oder für ein anderes Programm (siehe den Abschnitt IQ weiter unten)
 
-Neben der Überschrift **Modes selector** stehen die Tasten **RADEL** und **RADEU**, die RADE v1 Digital Voice mit einem Druck starten — siehe [Digitale Decoder](#digitale-decoder).
+Neben der Überschrift **Modes** stehen die Tasten **RADE-v2U**, **RADE-v1L** und **RADE-v1U**, die RADE Digital Voice mit einem Druck starten — siehe [Digitale Decoder](#digitale-decoder). **RADE-v2U** startet RADE V2 (beta), immer in USB; **RADE-v1L** und **RADE-v1U** starten RADE v1.
 
 ### 5. Bedienfeld
 
@@ -319,7 +320,7 @@ Die AGC hält den Ton auf gleichmäßigem Pegel. Die vier Tasten arbeiten wie de
 
 NR, NB, NS und AN sind getrennte Ein/Aus-Schalter, die jeweils eine andere Art von Störung angehen. Sie sind unabhängig voneinander — einer schaltet keinen anderen mit ein — und lassen sich beliebig kombinieren.
 
-Keiner von ihnen erreicht die Decoder: FT8, CW, WSPR, SSTV, FAX, NAVTEX, RTTY/PSK31/Olivia/Packet/APRS und der QRSS-Grabber lesen das Audio *vor* diesen Filtern. Sie können sie also rein nach Gehör einstellen, ohne zu beeinflussen, was decodiert wird. Siehe das [Decoder-Handbuch](DECODERS.md#12-allgemeine-tipps).
+Keiner von ihnen erreicht die Decoder: FT8, CW, WSPR, SSTV, FAX, NAVTEX, RTTY/PSK31/Olivia/Packet/APRS und der QRSS-Grabber lesen das Audio *vor* diesen Filtern. Sie können sie also rein nach Gehör einstellen, ohne zu beeinflussen, was decodiert wird. Siehe das [Decoder-Handbuch](DECODERS.md#14-allgemeine-tipps).
 
 ### Rauschminderung (NR)
 
@@ -404,6 +405,8 @@ Ihr Name erscheint im Fenster **Users**, in Ihren Chat-Zeilen und auf der Beschr
 
 Wie bei einem WebSDR wird keinem Hörer die IP-Adresse eines anderen gezeigt — weder im Fenster Users noch in der Nutzerstatistik, die Besucher über einen anonymen Code zählt.
 
+Das Fenster Users zeigt außerdem, welchen Decoder jeder Hörer gerade nutzt — FT8, CW, DRM, HFDL usw. — als kleine grüne Marke hinter der Betriebsart, und die Nutzerstatistik hat ein Feld **Decoder Popularity**: wie viele Sitzungen welchen Decoder benutzt haben. Im Users-Fenster, das von der Empfängerseite aus geöffnet wurde, stellt **Tune** neben einem Hörer Sie auf das ein, was er hört: dieselbe Frequenz und Betriebsart, seine Filterbandbreite und seinen Decoder — für Sie gestartet, oder Ihrer gestoppt, wenn er keinen verwendet. Danach wird das Band gerahmt wie mit **To Band**: Der Wasserfall zeigt das ganze Band, in dem er sich befindet, mit Helligkeit, Kontrast und Abstimmschritt dieses Bandes.
+
 ### Chat
 
 Hat der Betreiber den Chat aktiviert, hat er auf der Desktop-Seite einen eigenen Bereich und auf /mobile einen Reiter **Chat**. Schreiben Sie Ihre Nachricht und senden Sie sie: Sie geht unter dem Namen aus Ihrem Namensfeld hinaus (siehe oben) oder als *anonymous* mit einer Zahl.
@@ -423,13 +426,15 @@ Vergrößert die Wasserfallanzeige:
 
 **Verwenden, wenn**: Sie Signale deutlicher sehen oder genauer abstimmen möchten.
 
+**To Band** zeigt das ganze Band der eingestellten Frequenz, mit 10 kHz Rand an jeder Seite.
+
 ### Auto Adj. (Wasserfall)
 
 Der Schalter **Auto Adj.** unter den Wasserfall-Bedienelementen stellt Helligkeit und Kontrast des Wasserfalls selbst ein. Er misst das Grundrauschen über die sichtbare Spanne und macht daraus einen gleichmäßigen, dunklen Hintergrund – auch dort, wo das Rauschen in einem Teil der Spanne anders ist als im anderen – und spreizt alles darüber, sodass schwache Signale hervortreten und die stärksten die obersten Farben erreichen. Das funktioniert mit jeder Farbpalette gleich, und nur der Wasserfall ändert sich: Die Spektrumkurve behält ihre echte dB-Skala. Solange er eingeschaltet ist, sind die Regler Min und Max gesperrt und zeigen das gemessene Grundrauschen und die Spitze; beim Ausschalten kehren sie zu den Einstellungen des Bandes zurück.
 
 ### 3D-Spektrum
 
-Die Schaltfläche **3D** neben **Reverse** unter den Wasserfall-Bedienelementen zeigt das Spektrum als Relief der letzten Sekunden: die Frequenz in der Breite, die Zeit in die Tiefe des Bildes, die Signalstärke als Höhe. Es verwendet dieselben Farben, dieselbe Helligkeit (Min), denselben Kontrast (Max) und dasselbe Auto Adj. wie der Wasserfall und folgt Zoom und Verschieben wie das flache Spektrum. Ein Klick stimmt ab, Ziehen verschiebt das Band und das Mausrad zoomt, genau wie im flachen Spektrum. Die Marken links zeigen, wie viele Sekunden eine Zeile zurückliegt, die rechts, wie viele dB über dem Min-Pegel eine Spitze reicht (bei eingeschaltetem Auto Adj. sind sie ausgeblendet). **✕ 2D** oder ein erneuter Klick auf 3D kehrt zum flachen Spektrum zurück; die Wahl wird im Browser gespeichert. Die Ansicht braucht WebGL2, das jeder aktuelle Browser bietet; ohne WebGL2 erscheint die Schaltfläche nicht. Eine Videoaufnahme bei geöffneter 3D-Ansicht nimmt die 3D-Ansicht anstelle des flachen Spektrums auf. Die 3D-Ansicht ist von PhantomSDR-ORSAT von F1NSK übernommen.
+Die Schaltfläche **3D** neben **Reverse** unter den Wasserfall-Bedienelementen zeigt das Spektrum als Relief der letzten Sekunden: die Frequenz in der Breite, die Zeit in die Tiefe des Bildes, die Signalstärke als Höhe. Es verwendet dieselben Farben, dieselbe Helligkeit (Min), denselben Kontrast (Max) und dasselbe Auto Adj. wie der Wasserfall und folgt Zoom und Verschieben wie das flache Spektrum. Ein Klick stimmt ab, Ziehen verschiebt das Band und das Mausrad zoomt, genau wie im flachen Spektrum. Das Relief verjüngt sich nach hinten wie ein schräg betrachteter Tisch, und je weiter hinten eine Zeile liegt, desto niedriger sind ihre Spitzen. Ein Klick auf eine ältere Zeile stimmt auf deren Frequenz ab, und die Frequenzanzeige unter der Maus nennt dann auch das Alter der Zeile (zum Beispiel 7.074.000 · −6 s). Die Schaltfläche **⚙** öffnet zwei Schieberegler: **Angle** (wie steil der Boden nach hinten ansteigt) und **Depth** (wie stark sich das Relief nach hinten verjüngt und seine Zeilen niedriger werden); **Reset** stellt die Vorgaben wieder her, und Ihre Einstellung wird im Browser gespeichert. Die Marken links zeigen, wie viele Sekunden eine Zeile zurückliegt, die rechts, wie viele dB über dem Min-Pegel eine Spitze reicht (bei eingeschaltetem Auto Adj. sind sie ausgeblendet). **✕ 2D** oder ein erneuter Klick auf 3D kehrt zum flachen Spektrum zurück; die Wahl wird im Browser gespeichert. Die Ansicht braucht WebGL2, das jeder aktuelle Browser bietet; ohne WebGL2 erscheint die Schaltfläche nicht. Eine Videoaufnahme bei geöffneter 3D-Ansicht nimmt die 3D-Ansicht anstelle des flachen Spektrums auf. Die 3D-Ansicht ist von PhantomSDR-ORSAT von F1NSK übernommen.
 
 **Cursorlinie.** Wo immer die Maus über dem Spektrum, dem Wasserfall oder der 3D-Ansicht steht, markiert eine gestrichelte gelbe Linie diese Frequenz im Spektrum und im Wasserfall, und das Spektrum zeigt sie in MHz an.
 
@@ -437,7 +442,7 @@ Die Schaltfläche **3D** neben **Reverse** unter den Wasserfall-Bedienelementen 
 
 Die Schaltfläche **📊 Show** im Bereich Spectrogram öffnet den Audioanalysator unter dem Wasserfall; **📊 Hide** schließt ihn. Er zeigt das Audio, das Sie hören, nach der Demodulation als Spektrum mit dB-Raster und gelber Spitzenwertlinie. **Gain** hebt oder senkt die Kurve, **Color** wählt ihre Farben. Das Spektrum wird als Relief gezeichnet, beleuchtet von rechts oben. In den Rainbow-Farben wird jeder Balken danach gefärbt, wie weit er bei seiner Frequenz über dem Rauschen steht — dunkelblau für das Rauschen, auch in Sprechpausen, wenn die AGC es anhebt, dann blau, cyan, gelb, orange und rot für immer stärkere Signale —, während seine Höhe weiterhin an der dB-Skala abzulesen ist. Wie das Hauptspektrum sind der Analysator und seine Berichte auf schwarzem Grund gezeichnet, mit grauen Rasterlinien.
 
-- **Frequenzachse.** Sie folgt der Betriebsart: 0–4,5 kHz bei SSB, 0–2 kHz bei CW, 0–5,5 kHz bei AM und FM. Bei LSB ist sie umgekehrt (hohe Töne links), sodass sie in derselben Richtung wie das HF-Spektrum läuft. Eine cyanfarbene Linie markiert die eingestellte Frequenz (bei CW den 750-Hz-Ton), und unter der Maus zeigt der Analysator die Audiofrequenz und die HF-Frequenz in kHz.
+- **Frequenzachse.** Sie folgt der Betriebsart: 0–4,5 kHz bei SSB, 0–2 kHz bei CW, 0–5,5 kHz bei AM und FM. Bei LSB ist sie umgekehrt (hohe Töne links), sodass sie in derselben Richtung wie das HF-Spektrum läuft. Eine cyanfarbene Linie markiert die eingestellte Frequenz (bei CW den 600-Hz-Ton), und unter der Maus zeigt der Analysator die Audiofrequenz und die HF-Frequenz in kHz.
 - **Bandbreitenmarken.** Farbige Marken zeigen die empfohlenen Breiten der Betriebsart — SSB-Standard 300–2700 Hz und ESSB 50–4000 Hz, CW 500 Hz und 250 Hz, AM-Rundfunk und AM-Amateurfunk —, ein gestrichelter weißer Rahmen Ihr aktuelles Filter. Die Standardbreite erscheint als durchgezogene cyanfarbene Linie, die Alternative (ESSB, CW 250 Hz, AM-Amateurfunk) gestrichelt in Hellblau.
 - **HF-Ansicht bei AM und FM.** Demoduliertes Audio hat keinen Träger, daher zeigt der Analysator die Station in diesen Betriebsarten so, wie sie im Wasserfall steht: Träger in der Mitte, Seitenbänder links und rechts. Ihre Skala zeigt dB über dem Rauschen.
 - **Belegte Bandbreite.** Die Zeile unter dem Spektrum nennt die Breite, die die eingestellte Station belegt (−26-dB-Methode, im Wasserfall gemessen), mit einer Bewertung für SSB, AM und CW: grün innerhalb der Norm, gelb breit (eine ESSB-Station erscheint gelb), rot für wahrscheinlichen Splatter, der zusätzlich im Spektrum schattiert wird. Nötig sind etwa 2 s Messungen; statische Störungen (Knacke) werden ignoriert.
@@ -511,6 +516,7 @@ Die letzten drei Zeilen sind mit 4.1.0 hinzugekommen; prüfen Sie vor dem Aufruf
 - 10 kHz breit, wird als Stereopaar statt als Mono-AM decodiert
 - Die Tastenbeschriftung wird von selbst **grün**, sobald der 25-Hz-Stereopilot anliegt — so sehen Sie schon vor dem Umschalten, welche Sender wirklich in Stereo senden
 - Aus AM heraus schaltet ein weiterer Druck auf synchrone AM-Demodulation am Träger um; die Beschriftung wird **gelb** und zeigt `SAM`. Ein dritter Druck führt zurück zu einfachem AM
+- Solange SAM läuft, erscheint unter den Statusanzeigen eine Zeile wie `SAM +3.2 Hz · 97%` (beim digitalen S-Meter unter VFO | Betriebsart | Bandbreite): wie weit der Träger des Senders von der Abstimmung entfernt ist (+ = darüber) und wie gut der Detektor eingerastet ist — gelb ab 85 %, unter 60 % wieder grau. Gelb heißt nur, dass ein stetiger Träger da ist, nicht welche Betriebsart: Auch ein gewöhnlicher AM-Träger auf einer als DRM markierten Frequenz färbt sie gelb
 - C-QUAM-Audio wird mit Opus übertragen, alle anderen Betriebsarten nutzen FLAC
 
 **Bewährte Vorgehensweise:**
@@ -589,7 +595,7 @@ Die letzten drei Zeilen sind mit 4.1.0 hinzugekommen; prüfen Sie vor dem Aufruf
 
 Derselbe ±250-Hz-Morsefilter wie **CW**, der Ton wird aber unterhalb statt oberhalb des Trägers entnommen. Nützlich, wenn ein Signal auf der unteren Seite besser aufzunehmen ist oder ein störender Träger direkt über dem gewünschten liegt.
 
-**Auf der Desktop-Seite gibt es keine CW-L-Taste.** Deren Betriebsartenreihe lautet `USB · LSB · CW · AM · QUAM · FM`. CW-L wird auf der vereinfachten Seite `/mobile` angeboten; am Desktop lässt es sich weiterhin über einen Link oder ein Lesezeichen setzen, das es benennt.
+**Auf der Desktop-Seite gibt es keine CW-L-Taste.** Deren Betriebsartenreihe lautet `USB · LSB · CW · AM · QUAM · FM · IQ`. CW-L wird auf der vereinfachten Seite `/mobile` angeboten; am Desktop lässt es sich weiterhin über einen Link oder ein Lesezeichen setzen, das es benennt.
 
 Auch für KiwiSDR oder UberSDR geschriebene Links funktionieren: `modulation=CWU` (oder `CW-U`) öffnet in CW, `modulation=CWL` in CW-L.
 
@@ -609,6 +615,35 @@ Auch für KiwiSDR oder UberSDR geschriebene Links funktionieren: `modulation=CWU
 - für Rundfunk keine Rauschsperre nötig
 - genießen Sie den hochwertigen Klang!
 
+### IQ (rohes I/Q)
+
+**Verwendet für:**
+- einen Ausschnitt des Bandes aufzuzeichnen und später in HDSDR, SDR#, SDR++ oder SDRuno abzuspielen
+- das Hören mit einem anderen Programm — auch ein KiwiSDR-Client kann es anfordern
+
+**Eigenschaften:**
+- 12 kHz des Bandes um die Abstimmung, als I und Q — als Stereo zu hören, I links und Q rechts, so wie ein KiwiSDR es abspielt. Es klingt wie Rauschen: Es ist das Signal vor jeder Demodulation
+- verlustfrei übertragen (FLAC), nie mit Opus, das das I/Q zerstören würde
+- der Pegel folgt dem Band: Rauschen bleibt leise (etwa −45 dBFS), ein starker Sender wird auf etwa −20 dBFS gebracht. NR, NB, NS, AN, AI und die Rauschsperre wirken nicht, und die Wahl von IQ schaltet einen laufenden Decoder ab
+- **Audio** unter *Recording Options* zeichnet das I/Q auf; nach dem Stoppen speichert **Download IQ** es als WAV-Datei (16 Bit Stereo, 12 kHz), zum Beispiel `PhantomSDR_20261026_031500Z_6030000Hz_IQ.wav`. HDSDR, SDR# und SDRuno lesen Frequenz und Uhrzeit aus der Datei, SDR++ aus dem Namen, so dass die Aufnahme schon abgestimmt öffnet
+- die Station entscheidet: Die Taste erscheint nur, wo `[server] iq` eingeschaltet ist (die Voreinstellung)
+
+**Bewährte Praxis:**
+- den gewünschten Sender in die Mitte legen — die Aufnahme umfasst ±6 kHz um die Abstimmung
+- um einen Sender zu hören, ist eine normale Betriebsart einfacher; IQ ist für Aufnahmen, für andere Software und um mehrere Sender zugleich zu hören (unten)
+
+#### IQ-Demodulatoren
+
+Solange der Empfänger in IQ ist, öffnet sich unter den Decodern ein Feld **IQ Demodulators**. Es betreibt bis zu sechs Empfänger auf dem I/Q in Ihrem Browser — der Empfänger wird nicht umgestimmt, und der Rechner der Station hat keine zusätzliche Arbeit:
+
+- Das Bild zeigt die 12 kHz um die Abstimmung mit den echten Frequenzen; jeder Demodulator ist ein farbiges Band, seine eigene Abstimmung eine Linie darin. Ein Klick ins Bild setzt den ausgewählten Demodulator dorthin; das Mausrad darüber verschiebt ihn um 10 Hz (Umschalt 100 Hz)
+- Jede Zeile hat die Betriebsart (USB, LSB, CW, AM, DSB, FM), die Frequenz mit den Tasten « ‹ › » (100 und 10 Hz), eine Pegelanzeige, **M** zum Stummschalten und **✕** zum Entfernen. Die ausgewählte Zeile hat zusätzlich **Width**, **Volume** und **Pan**
+- **DSB** folgt dem Träger selbst (eine Trägerregelschleife): Auf wenige zehn Hz an den Träger gesetzt, bleibt der Ton sauber und stabil — bei DSB mit unterdrücktem Träger ebenso wie bei AM, wo sie als Synchron-AM arbeitet
+- **+ Add** fügt einen Demodulator auf der Abstimmung hinzu, bis zu sechs. **Demodulators** / **Raw I/Q** wählt, ob Sie diese oder das reine I/Q hören
+- Sie sind relativ zur Abstimmung gesetzt, das Abstimmen des Empfängers verschiebt also alle zusammen; ein Sender mehr als 6 kHz von der Abstimmung entfernt ist nicht im Datenstrom
+- Beispiel: eine DX-Station im Split-Betrieb — ein LSB-Demodulator auf dem DX, nach links gelegt, und einer auf den Rufenden einige kHz höher, nach rechts
+- Ihre Demodulatoren merkt sich Ihr Browser. Die Rauschfilter (NR, NB, NS, AN, AI) wirken in IQ nicht: verringern Sie stattdessen **Width**
+
 ---
 
 ## Digitale Decoder
@@ -617,7 +652,7 @@ PhantomSDR-Plus enthält integrierte Decoder für digitale Betriebsarten. Eine v
 
 Der schnellste Weg ist die Tastenreihe **Decoders** im Hauptpanel, direkt unter **Wheel Tuning Steps**: zehn Tasten — **FT8, FT4, FT2, JS8, CW, WSPR, FAX, SSTV, NAVTX, FLDIGI** —, die mit einem einzigen Druck ihren Decoder starten, den Hauptschalter Decoder auf ON stellen und das Fenster des Decoders in den sichtbaren Bereich holen. Die Taste bleibt blau, solange der Decoder läuft; ein erneuter Druck stoppt den Decoder und schließt sein Fenster. Das Dropdown-Menü **Decoder Options** funktioniert weiterhin genau wie bisher und bleibt mit den Tasten synchron.
 
-**RADEL** und **RADEU** (RADE v1 Digital Voice) haben eigene Tasten neben der Überschrift **Modes selector** sowie in den Popup-Fenstern **Modes** und **Bands** und arbeiten nach demselben Prinzip: drücken zum Starten, erneut drücken zum Stoppen.
+**RADE-v2U**, **RADE-v1L** und **RADE-v1U** (RADE Digital Voice) haben eigene Tasten neben der Überschrift **Modes** sowie in den Popup-Fenstern **Modes** und **Bands** und arbeiten nach demselben Prinzip: drücken zum Starten, erneut drücken zum Stoppen. **RADE-v2U** startet RADE V2 (beta), immer in USB; **RADE-v1L** und **RADE-v1U** starten RADE v1.
 
 Die Decoder für SSTV, HF-FAX, NAVTEX, FSK/RTTY und CW laufen jeweils in einem eigenen Hintergrund-Thread, sodass das Ein- oder Ausschalten eines Decoders den Ton nie unterbricht und der Wasserfall während des Dekodierens flüssig bleibt. Sie erhalten das Audiosignal vor der Rauschminderung und Stummschaltung Ihres Browsers – Sie können den Empfänger stummschalten, und die Dekodierung läuft unbeeinflusst weiter. Solange ein Decoder geöffnet ist, wird die AGC auf Slow gehalten, damit die Verstärkung für ihn gleichmäßig bleibt.
 

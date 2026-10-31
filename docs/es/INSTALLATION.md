@@ -416,7 +416,7 @@ La instalación transcurre en 22 pasos numerados. Como las preguntas de la estac
 | 2 | Qué recibir | Opciones listas para cada receptor (por ejemplo *HF 0–30 MHz* para el RX888, *2 m* para un RTL-SDR), o su propia frecuencia central y tasa de muestreo. |
 | 3 | Su estación | Indicativo, nombre, e-mail, QTH locator, ciudad y país, antena, ordenador, región UIT (propuesta a partir del locator). |
 | 4 | Internet | Su dirección pública (IP o nombre DNS), y si el receptor aparecerá en sdr-list.xyz y en el mapa de websdr.org. También si servir el receptor además por https:// (necesita un nombre DNS). Escriba un nombre o una IP, no un puerto — el puerto se pregunta en el paso 5. |
-| 5 | Puertos y extras | Panel de administración, FreeDV RADE, estadísticas, relay WebSDR, arranque al encender — y el puerto público. |
+| 5 | Puertos y extras | Panel de administración, FreeDV RADE, DRM, estadísticas, relay WebSDR, arranque al encender — y el puerto público. |
 
 Las respuestas se guardan en **`station.conf`**, y a partir de él el asistente escribe todo lo que debe coincidir: el `config-<receptor>.toml` del receptor (tasa de muestreo, frecuencia, puerto, listados en directorios, websdr.org), `frontend/site_information.json` y la configuración del relay. Los scripts de arranque leen ellos mismos la frecuencia y la tasa de muestreo de `station.conf`, así que nunca se editan. Solo cambian los ajustes que pertenecen al asistente, y cada archivo se copia a `<nombre>.bak-<fecha>` antes de tocarlo.
 
@@ -424,12 +424,13 @@ Las respuestas se guardan en **`station.conf`**, y a partir de él el asistente 
 
 | Puerto | Qué | Abierto en el router |
 |---|---|---|
-| 9000 | la página del receptor — `proxy.py`, que lleva también `/admin`, `/rade`, `/stats` y `/relay` | **sí, solo este** |
+| 9000 | la página del receptor — `proxy.py`, que lleva también `/admin`, `/rade`, `/drm`, `/stats` y `/relay` | **sí, solo este** |
 | 9001 | spectrumserver | no |
 | 9010 | panel de administración | no |
 | 9011 | servidor de estadísticas | no |
 | 9012 | decodificador FreeDV RADE | no |
 | 9013 | relay de diversidad WebSDR | no |
+| 9015 | decodificador DRM | no |
 
 Un puerto que ya está en uso en el ordenador se salta en favor del siguiente libre. Para cambiar algo más adelante:
 
@@ -457,7 +458,7 @@ No hay que preparar nada a mano: ninguna lista de dependencias que pegar, ningú
 | 10–11 | Instala las dependencias del frontend y construye la página de escritorio y `/mobile` |
 | 12 | Instala OpenCL para el hardware que encuentra |
 | 13 | Instala el panel de administración — o, sin él, solo el proxy en el puerto público |
-| 14–16 | Instala el relay WebSDR, FreeDV RADE y el servidor de estadísticas, si los eligió |
+| 14–16 | Instala el relay WebSDR, FreeDV RADE, DRM y el servidor de estadísticas, si los eligió |
 | 17 | Vuelve a aplicar las cabeceras parcheadas de websocketpp y las comprueba |
 | 18 | Instala la emulación de cliente KiwiSDR, para que clientes Kiwi como AetherSDR puedan conectarse |
 | 19 | Recompila el backend a partir de las fuentes parcheadas |
@@ -479,6 +480,7 @@ Cada pregunta tiene una variable de entorno que la sustituye, y el instalador pa
 | `PHANTOM_OPENCL_PROVIDER=1\|2\|3` | Intel · Mesa/Rusticl · POCL (default: from the detected hardware) |
 | `PHANTOM_ADMIN=y\|n` | admin panel (y interactive, n unattended) |
 | `PHANTOM_RADE=y\|n` | RADE / FreeDV (y interactive, n unattended) |
+| `PHANTOM_DRM=y\|n` | DRM decoder (default y) |
 | `PHANTOM_STATS=y\|n` | statistics server (y interactive, n unattended) |
 | `PHANTOM_KIWI=y\|n` | KiwiSDR client emulation (default y) |
 | `PHANTOM_RECOMPILE=y\|n` | final rebuild (default y) |
@@ -505,7 +507,7 @@ Tras reiniciar, las reglas udev del RX888 y cualquier driver de OpenCL quedan pl
 
 Al configurar el panel de administración, el instalador ofrece también las dos unidades systemd y **recomienda encarecidamente** aceptarlas: la protección contra sobrecalentamiento se ejecuta dentro del panel, así que sin ellas un reinicio o un fallo deja la máquina desprotegida. El paso se omite automáticamente donde systemd no está en marcha (contenedores, WSL1, OpenRC) — véase la [guía del panel](ADMIN_PANEL_SETUP.md).
 
-Cada extra es un script normal que también puede ejecutar por separado en cualquier momento — `./setup_admin.sh` ([manual](ADMIN_PANEL_SETUP.md)), `./install_rade.sh` ([manual](RADE_README.md)), `./install-stats-server.sh` ([manual](sdr-stats/README.md)), `./setup-rx888-udev.sh` y los scripts de los receptores `./setup-rsp1a.sh`, `./setup-fobos.sh`, `./setup-airspyhf.sh` y `./setup-hackrf.sh` — son exactamente los que llama el instalador.
+Cada extra es un script normal que también puede ejecutar por separado en cualquier momento — `./setup_admin.sh` ([manual](ADMIN_PANEL_SETUP.md)), `./install_rade.sh` ([manual](RADE_README.md)), `./setup-drm.sh` ([decodificador DRM](DECODERS.md#13-drm)), `./install-stats-server.sh` ([manual](sdr-stats/README.md)), `./setup-rx888-udev.sh` y los scripts de los receptores `./setup-rsp1a.sh`, `./setup-fobos.sh`, `./setup-airspyhf.sh` y `./setup-hackrf.sh` — son exactamente los que llama el instalador.
 
 ### Compilar a mano (referencia)
 
@@ -714,6 +716,7 @@ nano config-rtl.toml
 port = 9002                      # Web interface port (or everything else)
 html_root = "frontend/dist/"     # Frontend location
 otherusers = 1                   # Show other users (1=yes, 0=no)
+iq = true                        # Offer the IQ mode to listeners (true/false)
 threads = 2                      # Number of server threads
 
 [websdr]
@@ -772,7 +775,7 @@ Edite los siguientes campos:
   "siteCity": "Your City, Country",
   "siteInformation": "https://github.com/sv1btl/PhantomSDR-Plus",
   "siteHardware": "Computer specifications",
-  "siteSoftware": "PhantomSDR-Plus v5.3.0",
+  "siteSoftware": "PhantomSDR-Plus v5.4.0",
   "siteReceiver": "Your SDR model",
   "siteAntenna": "Antenna description",
   "siteNote": "Additional information",
@@ -1600,7 +1603,7 @@ Las copias anteriores al 23 de septiembre de 2026 están en la carpeta oculta `.
 ./update.sh --apply --yes     # no pregunta nunca; TODO lo que usted editó se CONSERVA
 ./update.sh --check           # solo informe, nunca pregunta — para cron (10 = hay actualización)
 ./update.sh --from FILE|DIR   # la versión nueva desde .zip/.tar.gz o una carpeta — sin red
-./update.sh --ref v5.3.0      # una etiqueta, rama o commit en lugar del árbol actual
+./update.sh --ref v5.4.0      # una etiqueta, rama o commit en lugar del árbol actual
 ./update.sh --list-excludes   # imprime las reglas de "no tocar" tal como se aplican aquí
 ./update.sh --verbose         # lista todos los archivos, no sólo los 40 primeros
 ```

@@ -30,6 +30,8 @@
   export let frequencyCalibration = 1.0;
   /** Current demodulation mode (USB, LSB, CW, AM, FM…). */
   export let mode = "USB";
+  /** Audio pitch (Hz) of a CW signal on the dial. */
+  export let cwPitch = 600;
   /** Current filter as audio frequencies [low, high] (Hz), or null. */
   export let passband = null;
   /** "lin" (range follows the mode) or "log". */
@@ -76,7 +78,7 @@
   $: isCw = modeU.startsWith("CW");
   $: symmetric = ["AM", "QUAM", "FM", "WBFM", "SAM"].includes(modeU);
   /** Audio frequency (Hz) of the dial frequency: 0 Hz, or the CW note. */
-  $: baseAudio = isCw ? 750 : 0;
+  $: baseAudio = isCw ? cwPitch : 0;
   export function fmtKhz(k) {
     return Number(k).toFixed(3);
   }
@@ -468,7 +470,7 @@
     ctx.fillRect(0, 0, W, H);
 
     // ── Spectrum: dB grid ──
-    ctx.font = `${Math.round(9.5 * s)}px monospace`;
+    ctx.font = `${Math.round(11.5 * s)}px monospace`;
     ctx.textBaseline = "middle";
     for (let db = -100; db <= -40; db += 20) {
       const y = top + specH - ((db - DB_MIN) / (DB_MAX - DB_MIN)) * specH;
@@ -524,15 +526,15 @@
           ctx.beginPath(); ctx.moveTo(xx, yTop); ctx.lineTo(xx, yBot); ctx.stroke();
         }
         ctx.setLineDash([]);
-        ctx.font = `bold ${Math.round(9.5 * s)}px sans-serif`;
+        ctx.font = `bold ${Math.round(11.5 * s)}px sans-serif`;
         ctx.textAlign = "left"; ctx.textBaseline = "top";
         const tw = ctx.measureText(mk.label).width + 6 * s;
         const tx = Math.min(Math.max(a + 3 * s, left), left + pw - tw);
         ctx.fillStyle = "rgba(34,34,34,0.85)";
-        ctx.fillRect(tx - 2 * s, ly - 1 * s, tw, 13 * s);
+        ctx.fillRect(tx - 2 * s, ly - 1 * s, tw, 15.5 * s);
         ctx.fillStyle = `rgb(${mk.color})`;
         ctx.fillText(mk.label, tx, ly);
-        ly += Math.round(14 * s);
+        ly += Math.round(17 * s);
       }
     }
     if (passband && passband.length === 2 && passband[1] > passband[0]) {
@@ -543,7 +545,7 @@
       ctx.setLineDash([2 * s, 3 * s]);
       ctx.strokeRect(Math.max(left, x0), top + 1, Math.min(left + pw, x1) - Math.max(left, x0), specH - 2);
       ctx.setLineDash([]);
-      ctx.font = `${Math.round(9 * s)}px sans-serif`;
+      ctx.font = `${Math.round(11 * s)}px sans-serif`;
       ctx.textAlign = "right"; ctx.textBaseline = "bottom";
       ctx.fillStyle = "rgba(255,255,255,0.85)";
       ctx.fillText(`Current filter ${Math.round(passband[0])}–${Math.round(passband[1])} Hz`,
@@ -585,10 +587,10 @@
     curve(ltasRef, "rgba(255,255,255,0.8)", [4 * s, 3 * s]);
     curve(ltas, "rgba(56,189,248,0.95)", []);
     if (ltas || ltasRef) {
-      ctx.font = `bold ${Math.round(9 * s)}px sans-serif`;
+      ctx.font = `bold ${Math.round(11 * s)}px sans-serif`;
       ctx.textAlign = "right"; ctx.textBaseline = "top";
       let ly = top + Math.round(3 * s);
-      if (ltas) { ctx.fillStyle = "rgb(56,189,248)"; ctx.fillText("— average voice", left + pw - 4 * s, ly); ly += 12 * s; }
+      if (ltas) { ctx.fillStyle = "rgb(56,189,248)"; ctx.fillText("— average voice", left + pw - 4 * s, ly); ly += 14 * s; }
       if (ltasRef) { ctx.fillStyle = "rgba(255,255,255,0.85)"; ctx.fillText("- - curve A", left + pw - 4 * s, ly); }
     }
 
@@ -599,14 +601,14 @@
       ctx.lineWidth = 2 * s;
       ctx.beginPath(); ctx.moveTo(xb, top); ctx.lineTo(xb, yBot); ctx.stroke();
       const tag = (isCw ? "CW " : symmetric ? "Carrier " : "Dial ") + fmtKhz(base);
-      ctx.font = `bold ${Math.round(10 * s)}px monospace`;
+      ctx.font = `bold ${Math.round(12 * s)}px monospace`;
       ctx.textBaseline = "bottom";
       const tw = ctx.measureText(tag).width + 8 * s;
       const right = xb > left + pw / 2;
       const tx = right ? xb - tw - 2 * s : xb + 3 * s;
       const ty = top + Math.round(specH * 0.55);
       ctx.fillStyle = "rgba(34,34,34,0.85)";
-      ctx.fillRect(tx, ty - 13 * s, tw, 13 * s);
+      ctx.fillRect(tx, ty - 15.5 * s, tw, 15.5 * s);
       ctx.fillStyle = "#fff";
       ctx.textAlign = "left";
       ctx.fillText(tag, tx + 4 * s, ty - 1 * s);
@@ -621,7 +623,7 @@
     if (showLabels) {
       ctx.fillStyle = "#000";
       ctx.fillRect(0, 0, W, top);
-      ctx.font = `${Math.round(10 * s)}px monospace`;
+      ctx.font = `${Math.round(12 * s)}px monospace`;
       ctx.textAlign = "center"; ctx.textBaseline = "top";
       const ticks = [];
       if (scale === "log") {
@@ -643,7 +645,7 @@
       ctx.fillStyle = "#aaa";
       ctx.fillText("dB", 4 * s, 3 * s);
       if (mirrored) {
-        ctx.font = `bold ${Math.round(9 * s)}px sans-serif`;
+        ctx.font = `bold ${Math.round(11 * s)}px sans-serif`;
         ctx.textBaseline = "bottom";
         ctx.fillStyle = "#aaa";
         ctx.fillText("◂ LSB: reversed axis", left + 4 * s, top + specH - 2 * s);
@@ -661,7 +663,7 @@
     ctx.fillStyle = "#000";
     ctx.fillRect(0, 0, W, H);
     const msg = (t) => {
-      ctx.fillStyle = "#9ca3af"; ctx.font = `italic ${Math.round(11 * s)}px sans-serif`;
+      ctx.fillStyle = "#9ca3af"; ctx.font = `italic ${Math.round(13 * s)}px sans-serif`;
       ctx.textAlign = "center"; ctx.textBaseline = "middle";
       ctx.fillText(t, left + pw / 2, top + specH / 2);
     };
@@ -710,7 +712,7 @@
     const yOf = (v) => top + specH - Math.max(0, Math.min(1, (v - floor) / (rfTop - floor))) * specH;
 
     // Grid: dB above the noise, every 10 dB
-    ctx.font = `${Math.round(9.5 * s)}px monospace`; ctx.textBaseline = "middle"; ctx.textAlign = "right";
+    ctx.font = `${Math.round(11.5 * s)}px monospace`; ctx.textBaseline = "middle"; ctx.textAlign = "right";
     for (let d = 10; nz + 2 * d < rfTop; d += 10) {
       const y = yOf(nz + 2 * d);
       ctx.strokeStyle = "rgba(255,255,255,0.22)"; ctx.lineWidth = 1;
@@ -730,12 +732,12 @@
       ctx.strokeStyle = `rgba(${mk.color},0.9)`; ctx.lineWidth = 1.2 * s; ctx.setLineDash(mk.dash ? [5 * s, 4 * s] : []);
       for (const xx of [x0, x1]) { ctx.beginPath(); ctx.moveTo(xx, top); ctx.lineTo(xx, top + specH); ctx.stroke(); }
       ctx.setLineDash([]);
-      ctx.font = `bold ${Math.round(9.5 * s)}px sans-serif`; ctx.textAlign = "left"; ctx.textBaseline = "top";
+      ctx.font = `bold ${Math.round(11.5 * s)}px sans-serif`; ctx.textAlign = "left"; ctx.textBaseline = "top";
       const lbl = mk.label;
       const tw = ctx.measureText(lbl).width + 6 * s;
-      ctx.fillStyle = "rgba(34,34,34,0.85)"; ctx.fillRect(left + 3 * s, ly - s, tw, 13 * s);
+      ctx.fillStyle = "rgba(34,34,34,0.85)"; ctx.fillRect(left + 3 * s, ly - s, tw, 15.5 * s);
       ctx.fillStyle = `rgb(${mk.color})`; ctx.fillText(lbl, left + 5 * s, ly);
-      ly += Math.round(14 * s);
+      ly += Math.round(17 * s);
     }
 
     // RF spectrum, lit relief
@@ -771,9 +773,9 @@
     ctx.strokeStyle = "rgba(34,211,238,0.95)"; ctx.lineWidth = 2 * s;
     ctx.beginPath(); ctx.moveTo(xc, top); ctx.lineTo(xc, top + specH); ctx.stroke();
     const tag = "Carrier " + fmtKhz(base);
-    ctx.font = `bold ${Math.round(10 * s)}px monospace`; ctx.textAlign = "left"; ctx.textBaseline = "bottom";
+    ctx.font = `bold ${Math.round(12 * s)}px monospace`; ctx.textAlign = "left"; ctx.textBaseline = "bottom";
     const tw = ctx.measureText(tag).width + 8 * s, ty = top + Math.round(specH * 0.55);
-    ctx.fillStyle = "rgba(34,34,34,0.85)"; ctx.fillRect(xc + 3 * s, ty - 13 * s, tw, 13 * s);
+    ctx.fillStyle = "rgba(34,34,34,0.85)"; ctx.fillRect(xc + 3 * s, ty - 15.5 * s, tw, 15.5 * s);
     ctx.fillStyle = "#fff"; ctx.fillText(tag, xc + 7 * s, ty - s);
     if (hoverX != null) {
       ctx.strokeStyle = "rgba(255,255,255,0.55)"; ctx.lineWidth = 1;
@@ -782,7 +784,7 @@
 
     // Ticks: offset from the carrier
     ctx.fillStyle = "#000"; ctx.fillRect(0, 0, W, top);
-    ctx.font = `${Math.round(10 * s)}px monospace`; ctx.textAlign = "center"; ctx.textBaseline = "top";
+    ctx.font = `${Math.round(12 * s)}px monospace`; ctx.textAlign = "center"; ctx.textBaseline = "top";
     const step = half > 50000 ? 20000 : half > 7000 ? 2000 : 1000;
     const nk = Math.floor(half / step);
     for (let k = -nk; k <= nk; k++) {
@@ -831,7 +833,7 @@
           </div>
         {/if}
       </span>
-      <span class="hint">{isCw ? "CW note at 750 Hz audio" : symmetric ? "automatic RF view: carrier in the centre, sidebands either side" : mirrored ? "0 Hz audio = carrier, RF frequency falls to the right" : "0 Hz audio = carrier"}</span>
+      <span class="hint">{isCw ? `CW note at ${cwPitch} Hz audio` : symmetric ? "automatic RF view: carrier in the centre, sidebands either side" : mirrored ? "0 Hz audio = carrier, RF frequency falls to the right" : "0 Hz audio = carrier"}</span>
       <span style="flex:1"></span>
       <button class="spg-mute" class:on={muted} on:click={() => dispatch("togglemute")}
         title={muted ? "Unmute the receiver" : "Mute the receiver (analysis continues): to analyse your own transmission without feeding the audio back into your microphone"}>
@@ -856,14 +858,17 @@
   .spg-base {
     display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; margin-bottom: 4px;
     padding: 3px 8px; border-radius: 4px; border: 1px solid #444; background: #222;
+    /* the height it had before the larger text; min, not fixed, so it can
+       still wrap onto two lines on a phone */
+    min-height: 2.18rem; box-sizing: border-box;
   }
-  .spg-base .lbl { font-size: 0.72rem; color: #aaa; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; }
-  .spg-base .val { font-family: monospace; font-size: 1.05rem; font-weight: 700; color: #fff; }
+  .spg-base .lbl { font-size: 0.84rem; color: #aaa; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; }
+  .spg-base .val { font-family: monospace; font-size: 1.22rem; line-height: 1.2; font-weight: 700; color: #fff; }
   .spg-base .dial { cursor: pointer; display: inline-flex; align-items: baseline; user-select: none; }
   .spg-base .dial .dg { padding: 0 1px; border-radius: 3px; transition: background-color 0.1s; }
   .spg-base .dial .dg.hov { background: #0891b2; }
   .spg-base .dial .unit { margin-left: 0.4em; }
-  .spg-base .mode { font-size: 0.72rem; font-weight: 700; color: #fff; background: #2563eb; border-radius: 3px; padding: 0 5px; cursor: pointer; border: 0; }
+  .spg-base .mode { font-size: 0.84rem; font-weight: 700; color: #fff; background: #2563eb; border-radius: 3px; padding: 0 5px; cursor: pointer; border: 0; }
   .spg-base .mode:hover, .spg-base .mode.open { background: #1d4ed8; }
   .spg-base .modewrap { position: relative; display: inline-block; }
   .spg-base .modemenu {
@@ -878,12 +883,12 @@
   .spg-base .modemenu button.cur { background: #2563eb; }
   .spg-mute {
     display: inline-flex; align-items: center; gap: 0.35rem; padding: 0.15rem 0.6rem; border-radius: 0.375rem;
-    font-size: 0.75rem; font-weight: 600; white-space: nowrap; cursor: pointer;
+    font-size: 0.86rem; font-weight: 600; white-space: nowrap; cursor: pointer; line-height: 1.25;
     color: #fff; background: #374151; border: 1px solid #4b5563;
   }
   .spg-mute:hover { background: #4b5563; }
   .spg-mute.on { background: #2563eb; border-color: #4b5563; }
-  .spg-base .hint { font-size: 0.68rem; color: #9ca3af; font-style: italic; }
+  .spg-base .hint { font-size: 0.8rem; color: #9ca3af; font-style: italic; }
   .spg-cv { position: relative; }
   .spg-tip {
     position: absolute; top: 20px; transform: translateX(8px); pointer-events: none; white-space: nowrap;

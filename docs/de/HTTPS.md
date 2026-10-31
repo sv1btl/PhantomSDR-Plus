@@ -52,6 +52,8 @@ bash setup-https.sh --status    # ist es an, und antwortet das Zertifikat?
 bash setup-https.sh --remove    # https ausschalten; http bleibt genau wie es ist
 ```
 
+Das Admin-Panel zeigt dasselbe unter **Einstellungen → HTTPS**: **🔍 CHECK** auf einer https-Station, und auf einer reinen http-Station **🔒 SET UP HTTPS**, das prüft, was es kann, und die Befehle oben zum Kopieren in ein Terminal gibt. Siehe [Admin-Panel](ADMIN_PANEL_SETUP.md).
+
 Ändern Sie den DNS-Namen später mit `bash configure-station.sh`, zieht Caddy von selbst auf den neuen Namen um.
 
 ---

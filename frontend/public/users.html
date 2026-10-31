@@ -233,6 +233,18 @@ img.emoji {
   .mode-fm   { background: rgba(0,255,180,.1);   color: #00ffb3; }
   .mode-iq   { background: rgba(255,220,0,.1);   color: #ffd800; }
   .mode-other{ background: rgba(255,255,255,.05); color: var(--muted); }
+  /* Decoder the listener runs in the page (FT8, DRM, HFDL …) */
+  .dec-badge {
+    display: inline-block;
+    margin-left: 4px;
+    padding: 1px 6px;
+    border: 1px solid rgba(0,255,120,.45);
+    border-radius: 2px;
+    color: #4dff9a;
+    font-size: .8rem;
+    font-weight: bold;
+    letter-spacing: .08em;
+  }
 
   /* Connected at:*/
   .td-conn { color: var(--glow); font-size: .9rem; }
@@ -445,6 +457,12 @@ function modeBadge(mode) {
   return `<span class="mode-badge ${cls}">${m.toUpperCase()}</span>`;
 }
 
+// The decoder running in the listener's page, sent by the page (empty: none;
+// older servers do not send the field at all).
+function decoderBadge(name) {
+  return name ? `<span class="dec-badge" title="Decoder in use">${attr(name)}</span>` : '';
+}
+
 // -----------------------------------------------------------------------
 // Format duration from seconds
 // -----------------------------------------------------------------------
@@ -594,11 +612,13 @@ function renderTable(users) {
       <td class="td-freq">
         ${fmtFreq(u.freq_khz)}
       </td>
-      <td>${modeBadge(u.mode)}</td>
+      <td>${modeBadge(u.mode)}${decoderBadge(u.decoder)}</td>
       <td class="td-conn">${fmtConnTime(u.connected_at)}</td>
       <td class="td-dur" data-id="${u.id}" data-start="${t ? t.connectedAtMs : (now - u.duration_s * 1000)}">${fmtDur(elapsedS)}</td>
       <td class="td-tune">${isMe ? '' : `<button class="tune-btn" data-hz="${Number(u.freq_hz) || 0}" data-mode="${attr(u.mode)}"
-                title="Tune the receiver to this listener's frequency">Tune</button>`}</td>
+                data-lo="${Number(u.pb_lo_hz) || 0}" data-hi="${Number(u.pb_hi_hz) || 0}"
+                data-decoder="${attr(u.decoder)}"
+                title="Tune the receiver to this listener's frequency, mode, bandwidth and decoder">Tune</button>`}</td>
     </tr>`;
   });
 
@@ -619,7 +639,7 @@ function tickDurations() {
 }
 
 // -----------------------------------------------------------------------
-// Tune — jump the receiver to a listener's frequency + mode.
+// Tune — jump the receiver to a listener's frequency + mode + passband.
 //
 // This page is served two ways: standalone, and inside an <iframe> in the
 // main app's "Connected Users" window. Embedded, we ask the parent to tune
@@ -630,6 +650,12 @@ function tickDurations() {
 // Server mode strings come from AudioClient::get_mode_str() in signal.cpp.
 // "iq" has no demodulation to select — those rows still tune, they just
 // leave the current mode alone, same as the mobile page does.
+//
+// The passband (pb_lo_hz/pb_hi_hz, filter edges as Hz offsets from freq_hz)
+// only travels to the embedding app; the standalone link has no parameter
+// for it, so that path lands on the mode's default bandwidth. The decoder
+// (u.decoder, the label the app reported: "FAX", "FT8", "" for none) is the
+// same: the app starts or stops its own to match.
 // -----------------------------------------------------------------------
 const APP_MODE = { usb: 'USB', lsb: 'LSB', am: 'AM', 'am-s': 'QUAM', fm: 'FM' };
 
@@ -648,12 +674,14 @@ function parentOrigin() {
   return '*';
 }
 
-function tuneTo(hz, serverMode) {
+function tuneTo(hz, serverMode, lo, hi, decoder) {
   if (!isFinite(hz) || hz <= 0) return;
   const mode = APP_MODE[String(serverMode || '').toLowerCase()] || null;
 
   if (window.parent && window.parent !== window) {
-    window.parent.postMessage({ type: 'phantomsdr-tune', freq_hz: hz, mode }, parentOrigin());
+    const passband = isFinite(lo) && isFinite(hi) && hi > lo ? [lo, hi] : null;
+    window.parent.postMessage({ type: 'phantomsdr-tune', freq_hz: hz, mode, passband,
+                               decoder: String(decoder || '') }, parentOrigin());
     return;
   }
 
@@ -729,7 +757,9 @@ window.addEventListener('message', (e) => {
 document.getElementById('tbody').addEventListener('click', (e) => {
   const btn = e.target.closest('.tune-btn');
   if (!btn) return;
-  tuneTo(parseFloat(btn.dataset.hz), btn.dataset.mode);
+  tuneTo(parseFloat(btn.dataset.hz), btn.dataset.mode,
+         parseFloat(btn.dataset.lo), parseFloat(btn.dataset.hi),
+         btn.dataset.decoder);
 });
 
 // -----------------------------------------------------------------------
@@ -1021,7 +1051,7 @@ async function updateUsersMap(users) {
 
       const twGeo = s => (typeof twemoji !== 'undefined') ? twemoji.parse(s) : s;
       marker.bindTooltip(
-        `${mapName(u)}${twGeo(geoStr)}<br/>${fmtFreq(u.freq_khz).replace(/<[^>]+>/g, ' ')} · ${(u.mode||'').toUpperCase()}`,
+        `${mapName(u)}${twGeo(geoStr)}<br/>${fmtFreq(u.freq_khz).replace(/<[^>]+>/g, ' ')} · ${(u.mode||'').toUpperCase()}${u.decoder ? ' · ' + attr(u.decoder) : ''}`,
         { className: 'map-tip', direction: 'top' }
       );
       markersByUid.set(uid, marker);
@@ -1035,7 +1065,7 @@ async function updateUsersMap(users) {
     if (marker && geoStr) {
       const twGeo = s => (typeof twemoji !== 'undefined') ? twemoji.parse(s) : s;
       marker.setTooltipContent(
-        `${mapName(u)}${twGeo(geoStr)}<br/>${fmtFreq(u.freq_khz).replace(/<[^>]+>/g, ' ')} · ${(u.mode||'').toUpperCase()}`
+        `${mapName(u)}${twGeo(geoStr)}<br/>${fmtFreq(u.freq_khz).replace(/<[^>]+>/g, ' ')} · ${(u.mode||'').toUpperCase()}${u.decoder ? ' · ' + attr(u.decoder) : ''}`
       );
     }
   }

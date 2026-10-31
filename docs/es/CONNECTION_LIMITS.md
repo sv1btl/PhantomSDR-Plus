@@ -226,7 +226,7 @@ Ambos están en el rango privado 4000–4999, así que ninguno puede confundirse
 
 Ese silencio tras una expulsión es intencionado. **Expulsar es el sysop terminando una sesión, no un castigo** — no se anuncia nada, y quien quiera volver carga la página otra vez y es un oyente corriente un segundo después. Lo único que aporta el código 4001 es que el navegador sepa que aquello no fue una conexión caída, de modo que la expulsión surta efecto en lugar de deshacerse sola.
 
-Un **bloqueo** — el ⛔ Ban 24h del panel de administración — es la única excepción: es la misma expulsión con un rechazo de 24 horas, así que la recarga se rechaza con 4001 hasta que el bloqueo expira o el operador lo levanta.
+Un **bloqueo** — el ⛔ Ban ▾ del panel de administración — es la única excepción: es la misma expulsión con un rechazo de 8, 16 o 24 horas, así que la recarga se rechaza con 4001 hasta que el bloqueo expira o el operador lo levanta.
 
 De la expulsión se encarga `spectrumserver` mismo, no `proxy.py`: los oyentes se conectan directamente al puerto del receptor, así que el proxy no posee ninguna de sus conexiones y su expulsión no alcanza a nadie. El panel llama a `/~~kick?ip=&secs=`, accesible solo por loopback y comprobado contra el interlocutor TCP real, no contra `X-Forwarded-For`, que lo envía el cliente. `secs` vale cero por defecto — sin bloqueo — pero acepta una duración si quiere dejar la dirección fuera un rato, y eso reutiliza el mismo mecanismo de bloqueo que `per_ip_rate`, de modo que la reconexión se rechaza en la puerta. El Ban 24h del panel envía `secs=86400`, lo máximo que acepta, y `/~~unban?ip=` levanta un bloqueo antes de tiempo.
 

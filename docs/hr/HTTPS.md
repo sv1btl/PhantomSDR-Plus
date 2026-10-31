@@ -52,6 +52,8 @@ bash setup-https.sh --status    # je li uključeno i odgovara li certifikat?
 bash setup-https.sh --remove    # isključuje https; http ostaje točno kakav jest
 ```
 
+Administratorska ploča pokazuje isto pod **Postavke → HTTPS**: **🔍 CHECK** na https stanici, a na stanici samo s http-om **🔒 SET UP HTTPS**, koji provjerava što može i daje gornje naredbe za kopiranje u terminal. Vidi [Administratorska ploča](ADMIN_PANEL_SETUP.md).
+
 Promijenite li kasnije DNS ime s `bash configure-station.sh`, Caddy sam prelazi na novo ime.
 
 ---

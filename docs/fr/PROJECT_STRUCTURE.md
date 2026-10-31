@@ -27,13 +27,18 @@ PhantomSDR-Plus
 │   ├── audiotap.js
 │   ├── bandplan.js
 │   ├── decodeworker.js
+│   ├── drm-helper.js          # DRM pour les auditeurs : un ubersdr-drm par session, sur une prise IQ
+│   ├── drmheard.js            # services DRM décodés ici (« heard here »), ajoutés à la grille
+│   ├── drmschedule.js         # grille DRM : drmrx.org + confirmations KiwiSDR + HFCC
 │   ├── index.js
+│   ├── iqtap.js               # AudioTap dans le mode IQ du serveur
 │   ├── manager.js
 │   ├── package.json
 │   ├── pool.js
 │   ├── probe-ft8.js
 │   ├── probe-js8.js
 │   ├── pskreporter.js
+│   ├── serverport.js          # où les prises trouvent spectrumserver (tient compte de receivers.toml)
 │   ├── spotparse.js
 │   ├── wasm-shim.js
 │   └── wsprnet.js
@@ -197,6 +202,7 @@ PhantomSDR-Plus
 │   ├── websdr2.png
 │   ├── websdr3.png
 │   └── websdr.png
+├── drm                        # créé par setup-drm.sh : src/ et bin/ (pas dans git)
 ├── favicon.ico
 ├── fftw_wisdom
 ├── fix_local_geo.py
@@ -239,6 +245,8 @@ PhantomSDR-Plus
 │   │   ├── analyze_users.py
 │   │   ├── decoders
 │   │   │   ├── ft8_lib.wasm
+│   │   │   ├── hfdl_systable.conf # stations au sol HFDL (table système de dumphfdl)
+│   │   │   ├── hfdl.wasm      # décodeur HFDL, compilé depuis jsdsp/hfdl_wasm
 │   │   │   ├── js8_dict.bin   # dictionnaire de mots JS8, chargé seulement au besoin
 │   │   │   └── js8.wasm       # décodeur JS8, compilé depuis jsdsp/js8_wasm
 │   │   ├── logo.jpg
@@ -282,6 +290,8 @@ PhantomSDR-Plus
 │   │   ├── fsk.worker.js
 │   │   ├── fskWorkerProxy.js
 │   │   ├── hell.js
+│   │   ├── hfdl.worker.js
+│   │   ├── hfdlWorkerProxy.js
 │   │   ├── ifk.js                    # DominoEX et THOR
 │   │   ├── kiwiSource.js
 │   │   ├── lib
@@ -294,6 +304,8 @@ PhantomSDR-Plus
 │   │   │   ├── colormaps.js
 │   │   │   ├── Counter.svelte
 │   │   │   ├── DiversityPanel.svelte
+│   │   │   ├── DrmPanel.svelte # panneau DRM : voyants, mesures, station, sélecteur de grille
+│   │   │   ├── drmSchedule.js # copie de la grille DRM + « à l'antenne » selon le jour
 │   │   │   ├── fftRadix2.js
 │   │   │   ├── freedv-reporter.js
 │   │   │   ├── FreeDVReporter.svelte
@@ -302,6 +314,8 @@ PhantomSDR-Plus
 │   │   │   ├── FrequencyMarkers.svelte
 │   │   │   ├── FtxSpectrum.svelte
 │   │   │   ├── hammeractions.js
+│   │   │   ├── HfdlPanel.svelte # panneau HFDL et carte des avions (de PhantomSDR-ORSAT)
+│   │   │   ├── hfdlStations.js # stations au sol et fréquences HFDL
 │   │   │   ├── identity.js               # nom/indicatif de l'auditeur : case, stockage, passage par l'URL
 │   │   │   ├── LineThroughButton.svelte
 │   │   │   ├── Logger.svelte
@@ -348,6 +362,7 @@ PhantomSDR-Plus
 │   │   │   ├── encode.wasm
 │   │   │   ├── ft4.js
 │   │   │   ├── ft8.js
+│   │   │   ├── hfdl.mjs
 │   │   │   ├── js8-decoder.js
 │   │   │   ├── js8-format.js
 │   │   │   ├── js8.js
@@ -438,6 +453,7 @@ PhantomSDR-Plus
 │   │   │   └── internal.h
 │   │   └── liquid
 │   │       └── liquid.h
+│   ├── hfdl_wasm              # décodeur HFDL : dumphfdl + libacars en WebAssembly — voir son README
 │   ├── js8_wasm               # décodeur JS8 en C, compilé en WebAssembly, avec ses tests et son banc de référence — voir son README
 │   │   ├── build_js8_wasm.sh
 │   │   ├── check_against_reference.sh
@@ -509,7 +525,7 @@ PhantomSDR-Plus
 ├── phantomsdr-proxy.service   # unité systemd d'exemple pour le proxy, à installer avec celle du panneau
 ├── phantomsdr-websdr-relay.service  # unité systemd d'exemple pour le relais de diversité WebSDR
 ├── proxy.py                   # l'unique port public : la page, /admin, /rade, /stats, /relay et récepteurs ?rx=
-├── rade_helper.py
+├── rade_helper.py             # le sidecar RADE : V1 via ~/radae, V2 (beta) via ~/rade_c
 ├── rade_loadtest.csv          # sortie de rade_loadtest.py (une ligne par palier de charge)
 ├── rade_loadtest.py           # test de charge RADE : combien de décodeurs simultanés la machine supporte — voir docs/RADE_README.md
 ├── rade.sh
@@ -522,6 +538,7 @@ PhantomSDR-Plus
 ├── setup-airspyhf.sh          # chaîne de pilote Airspy HF+ : libairspyhf + SoapyAirspyHF + rx_sdr + udev
 ├── setup-autostart.sh         # démarrage au boot : phantomsdr-receiver.service pour le script de démarrage de station.conf
 ├── setup-cpufreq-perms.sh     # donne au groupe l'écriture sur scaling_max_freq pour que la protection puisse brider sans root
+├── setup-drm.sh               # compile le décodeur DRM (ubersdr-drm + fdk-aac 2.0.3) dans drm/bin
 ├── setup-firewall.sh          # garde nftables optionnelle — voir docs/CONNECTION_LIMITS.md
 ├── setup-fobos.sh             # chaîne de pilote Fobos : libfobos + SoapyFobosSDR + rx_sdr + cf32_to_real + udev
 ├── setup-hackrf.sh            # HackRF : paquet hackrf de la distribution + udev (rien de compilé)
@@ -965,8 +982,8 @@ L'interface utilisateur web construite avec Svelte et Vite.
 - Composant de plus haut niveau
 - Structure de la mise en page
 - Orchestration des composants
-- **Rangée de boutons de décodeur** — un bouton par décodeur sur le panneau principal, juste sous le sélecteur de modes ; une pression démarre le décodeur et ouvre sa fenêtre, une seconde l'arrête. Elle a remplacé l'ancienne rangée de largeur de bande. RADEL/RADEU se trouvent dans `lib/ModesSelector.svelte`, à côté du sélecteur de modes et dans les fenêtres **Modes** et **Bands**.
-- **Ligne de version** — « PhantomSDR+ | v5.3.0 original from github.com/sv1btl/PhantomSDR-Plus », l'adresse servant de lien ; la même ligne figure sur la page /mobile. Le numéro de version et l'adresse se trouvent dans `lib/version.js` ; la ligne est une attribution d'auteur couverte par `ADDITIONAL_TERMS.md`.
+- **Rangée de boutons de décodeur** — un bouton par décodeur sur le panneau principal, juste sous le sélecteur de modes ; une pression démarre le décodeur et ouvre sa fenêtre, une seconde l'arrête. Elle a remplacé l'ancienne rangée de largeur de bande. RADE-v2U/RADE-v1L/RADE-v1U se trouvent dans `lib/ModesSelector.svelte`, à côté du sélecteur de modes et dans les fenêtres **Modes** et **Bands**.
+- **Ligne de version** — « PhantomSDR+ | v5.4.0 original from github.com/sv1btl/PhantomSDR-Plus », l'adresse servant de lien ; la même ligne figure sur la page /mobile. Le numéro de version et l'adresse se trouvent dans `lib/version.js` ; la ligne est une attribution d'auteur couverte par `ADDITIONAL_TERMS.md`.
 
 #### 2. Affichage en cascade (`waterfall.js` + `lib/`)
 - Rendu du spectre et de la cascade sur canevas et palettes de couleurs dans `waterfall.js` (JS pur, pas un composant) ; le remappage luminosité/contraste de **Auto Adj.** est `lib/wfAutoLevel.js`
@@ -1072,7 +1089,8 @@ Le rôle `fsk` héberge en outre des décodeurs qui n'utilisent pas du tout sa c
 - La case de nom à côté de **Open Additional Info** garde le nom ou l'indicatif dans `localStorage` (`chatusername`) et l'envoie sur `/audio` sous la forme `{"cmd":"identity","name":…}` ; `audio.js` le renvoie à chaque ouverture de son socket. Un lien vers un récepteur à une autre adresse le transporte en `?idname=`, lu une fois puis retiré de la barre d'adresse
 - Le serveur le nettoie (`clean_listener_name` dans `utils.cpp`) : 10 caractères au plus et sans espace comme sur un WebSDR, au moins une lettre ou un chiffre ; les noms réservés du chat et les `anonymous1234` valent aucun nom. `/users` le donne en `name` ; les étiquettes du waterfall l'affichent suivi de la ville
 - Le `/users` public, `users.json` et les `/logs/users_*.jsonl` que lit `stats.html` ne contiennent aucune adresse IP : la copie du journal porte à la place un code opaque `visitor` (hachage à clé, clé dans `logs/.visitor_salt`) ; les fichiers sur disque gardent les adresses. Le panneau d'administration lit `/~~users`, qui ne répond qu'à un pair loopback sans `X-Forwarded-For`
-- Les bannissements de 24 heures du panneau sont conservés dans `admin_bans.json` (jamais distribué) et renvoyés à chaque récepteur une fois par minute ; `/~~unban` en lève un
+- Le décodeur en cours suit le même chemin : `App.svelte` envoie `{"cmd":"decoder","name":"FT8"}` (vide quand aucun ne tourne) à chaque changement, et `audio.js` le renvoie sur un nouveau socket. Le serveur garde une étiquette courte (lettres, chiffres, espace, `-+/`, 12 au plus) et la donne comme `decoder` dans `/users` et dans chaque ligne de `users_*.jsonl` ; un changement est journalisé comme un changement de fréquence, pour que `stats.html` (Decoder Popularity) et la page Visitors du panneau puissent le compter
+- Les bannissements de 8/16/24 heures du panneau sont conservés dans `admin_bans.json` (jamais distribué) et renvoyés à chaque récepteur une fois par minute ; `/~~unban` en lève un
 
 #### 5. Gestion d'état (`stores/`)
 - Magasins de données réactifs
@@ -1134,6 +1152,7 @@ port = 9002
 html_root = "frontend/dist/"
 threads = 2
 otherusers = 1
+iq = true
 
 [limits]
 # Limites par adresse — toutes désactivées ou à une valeur raisonnable par défaut,

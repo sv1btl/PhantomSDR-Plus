@@ -225,7 +225,7 @@ Both are in the 4000–4999 private range, so neither can be confused with a pro
 
 That silence after a kick is intentional. **Kicking is the sysop ending a session, not a punishment** — nothing is announced, and whoever wants back in loads the page again and is an ordinary listener one second later. The only thing the 4001 code buys is that the browser knows this was not a dropped connection, so the kick actually takes instead of undoing itself.
 
-A **ban** — the admin panel's ⛔ Ban 24h — is the one exception: it is the same kick with a 24-hour refusal attached, so the reload is turned away with 4001 until the ban runs out or the sysop lifts it.
+A **ban** — the admin panel's ⛔ Ban ▾ — is the one exception: it is the same kick with an 8-, 16- or 24-hour refusal attached, so the reload is turned away with 4001 until the ban runs out or the sysop lifts it.
 
 The kick is done by `spectrumserver` itself, not by `proxy.py`: listeners connect to the receiver's own port directly, so the proxy owns none of their sockets and its version of a kick reaches nobody. The panel calls `/~~kick?ip=&secs=`, which is loopback-only and checks the real TCP peer rather than `X-Forwarded-For`, that being client-supplied. `secs` defaults to zero — no ban — but it accepts a length if you do want the address kept out for a while, and that reuses the same ban machinery as `per_ip_rate` so the reconnect is refused at the door. The panel's Ban 24h sends `secs=86400`, the most it accepts, and `/~~unban?ip=` lifts a ban early.
 

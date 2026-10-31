@@ -94,15 +94,15 @@ Au chargement de la page, vous verrez :
 │   Compressor Equalizer├────────────────────────────┤ Zoom In Out Max Min │
 │ Filters               │  Fine Tuning (kHz)         │ Waterfall Spectrum  │
 │   NR NB NS AN CTCSS   │  VFO A · Modes · Bands     │ Auto Adj. Height    │
-│ Modes selector        │           · IF Filters     │ [ profile ▾ ]       │
-│   ...  RADEL  RADEU   │  Wheel Tuning Steps        │ [ Bookmarks ]       │
+│ Modes  RADE-v2U       │           · IF Filters     │ [ profile ▾ ]       │
+│   RADE-v1L RADE-v1U   │  Wheel Tuning Steps        │ [ Bookmarks ]       │
 │   USB LSB CW AM QUAM  │  Decoders                  │                     │
-│   FM                  │   FT8 FT4 FT2 JS8 CW WSPR  │                     │
+│   FM IQ               │   FT8 FT4 FT2 JS8 CW WSPR  │                     │
 │ Band selector         │   FAX SSTV NAVTEX RTTY ... │                     │
 └───────────────────────┴────────────────────────────┴─────────────────────┘
 ```
 
-Les trois panneaux sous la cascade défilent comme une seule page ; dans une fenêtre étroite ils s'empilent au lieu de se placer côte à côte. **RADEL** et **RADEU** se trouvent sur la ligne de titre *Modes selector* elle-même, à sa droite.
+Les trois panneaux sous la cascade défilent comme une seule page ; dans une fenêtre étroite ils s'empilent au lieu de se placer côte à côte. **RADE-v2U**, **RADE-v1L** et **RADE-v1U** se trouvent sur la ligne de titre *Modes* elle-même, à sa droite.
 
 ### 1. Affichage en cascade
 
@@ -140,8 +140,9 @@ Sélectionnez le mode de démodulation :
 - **CW** : code Morse (onde entretenue)
 - **WBFM** : FM à large bande (radiodiffusion)
 - **QUAM** : AM stéréo C-QUAM — le libellé passe au vert dès qu'un pilote stéréo est détecté
+- **IQ** : I/Q brut — 12 kHz de la bande tels qu'ils arrivent, pour enregistrer ou pour un autre logiciel (voir la section IQ plus bas)
 
-À côté du titre **Modes selector** se trouvent les boutons **RADEL** et **RADEU**, qui lancent la voix numérique RADE v1 en une seule pression — voir [Décodeurs numériques](#décodeurs-numériques).
+À côté du titre **Modes** se trouvent les boutons **RADE-v2U**, **RADE-v1L** et **RADE-v1U**, qui lancent la voix numérique RADE en une seule pression — voir [Décodeurs numériques](#décodeurs-numériques). **RADE-v2U** lance RADE V2 (beta), toujours en USB ; **RADE-v1L** et **RADE-v1U** lancent RADE v1.
 
 ### 5. Panneau de commande
 
@@ -318,7 +319,7 @@ L'AGC maintient l'audio à un niveau stable. Les quatre boutons fonctionnent com
 
 NR, NB, NS et AN sont des boutons marche/arrêt distincts, chacun s'attaquant à un type de bruit différent. Ils sont indépendants — en activer un n'en active aucun autre — et se combinent librement.
 
-Aucun n'atteint les décodeurs : FT8, CW, WSPR, SSTV, FAX, NAVTEX, RTTY/PSK31/Olivia/Packet/APRS et le grabber QRSS lisent l'audio *avant* ces filtres. Vous pouvez donc les régler purement à l'oreille sans influer sur ce qui est décodé. Voir le [manuel des décodeurs](DECODERS.md#12-conseils-généraux).
+Aucun n'atteint les décodeurs : FT8, CW, WSPR, SSTV, FAX, NAVTEX, RTTY/PSK31/Olivia/Packet/APRS et le grabber QRSS lisent l'audio *avant* ces filtres. Vous pouvez donc les régler purement à l'oreille sans influer sur ce qui est décodé. Voir le [manuel des décodeurs](DECODERS.md#14-conseils-généraux).
 
 ### Réduction de bruit (NR)
 
@@ -404,6 +405,8 @@ Votre nom apparaît dans la fenêtre **Users**, sur vos lignes de chat et sur l'
 
 Comme sur un WebSDR, l'adresse IP d'aucun auditeur n'est montrée aux autres — ni dans la fenêtre Users, ni dans les Statistiques des utilisateurs, qui comptent les visiteurs par un code anonyme.
 
+La fenêtre Users montre aussi quel décodeur chaque auditeur utilise — FT8, CW, DRM, HFDL, etc. — sous forme d'une petite étiquette verte après le mode, et les Statistiques des utilisateurs ont un panneau **Decoder Popularity** : combien de sessions ont utilisé chaque décodeur. Dans la fenêtre Users ouverte depuis la page du récepteur, **Tune** à côté d'un auditeur vous place sur ce qu'il écoute : la même fréquence et le même mode, sa largeur de filtre et son décodeur — lancé pour vous, ou le vôtre arrêté s'il n'en utilise aucun. La bande est ensuite cadrée comme avec **To Band** : la cascade montre toute la bande où il se trouve, avec la luminosité, le contraste et le pas d'accord de cette bande.
+
 ### Chat
 
 Quand l'opérateur a activé le chat, il a son propre panneau sur la page de bureau et un onglet **Chat** sur /mobile. Tapez votre message et envoyez-le : il part sous le nom de votre case de nom (voir ci-dessus), ou en *anonymous* suivi d'un nombre.
@@ -423,13 +426,15 @@ Agrandit l'affichage en cascade :
 
 **À utiliser quand** : vous devez mieux voir les signaux ou vous accorder finement.
 
+**To Band** affiche toute la bande de la fréquence en cours, avec 10 kHz de marge à chaque bord.
+
 ### Auto Adj. (cascade)
 
 L'interrupteur **Auto Adj.** des commandes de la cascade règle pour vous la luminosité et le contraste de la cascade. Il mesure le bruit de fond sur toute l'étendue visible et en fait un fond sombre et régulier — y compris là où le bruit diffère d'une partie de l'étendue à l'autre — puis étire tout ce qui se trouve au-dessus, si bien que les signaux faibles ressortent et que les plus forts atteignent les couleurs du haut. Il fonctionne de la même façon avec toutes les palettes, et seule la cascade change : la trace du spectre garde sa véritable échelle en dB. Tant qu'il est actif, les curseurs Min et Max sont verrouillés et affichent le bruit de fond et le pic mesurés ; en le désactivant, ils reviennent aux réglages de la bande.
 
 ### Spectre 3D
 
-Le bouton **3D**, à côté de **Reverse** dans les commandes de la cascade, affiche le spectre en relief sur les dernières secondes : la fréquence en largeur, le temps vers le fond de l'écran, la force du signal en hauteur. Il utilise les mêmes couleurs, la même luminosité (Min), le même contraste (Max) et le même Auto Adj. que la cascade, et suit le zoom et le glissement comme le spectre plat. Un clic accorde, un glissement parcourt la bande et la molette de la souris zoome, exactement comme sur le spectre plat. Les repères de gauche indiquent à combien de secondes remonte une ligne, ceux de droite de combien de dB un pic dépasse le niveau Min (ils sont masqués tant qu'Auto Adj. est actif). **✕ 2D**, ou de nouveau le bouton 3D, revient au spectre plat, et votre choix est mémorisé dans le navigateur. La vue nécessite WebGL2, que propose tout navigateur actuel ; sans lui, le bouton n'apparaît pas. Un enregistrement vidéo fait avec la vue 3D ouverte enregistre la vue 3D à la place du spectre plat. La vue 3D est adaptée de PhantomSDR-ORSAT de F1NSK.
+Le bouton **3D**, à côté de **Reverse** dans les commandes de la cascade, affiche le spectre en relief sur les dernières secondes : la fréquence en largeur, le temps vers le fond de l'écran, la force du signal en hauteur. Il utilise les mêmes couleurs, la même luminosité (Min), le même contraste (Max) et le même Auto Adj. que la cascade, et suit le zoom et le glissement comme le spectre plat. Un clic accorde, un glissement parcourt la bande et la molette de la souris zoome, exactement comme sur le spectre plat. Le relief se rétrécit vers le fond comme une table vue de biais, et plus une ligne est loin, plus ses pics sont bas. Un clic sur une ligne plus ancienne accorde sur la fréquence de cette ligne, et la fréquence affichée sous la souris indique alors aussi l'âge de la ligne (par exemple 7.074.000 · −6 s). Le bouton **⚙** ouvre deux curseurs : **Angle** (la pente du sol vers le fond) et **Depth** (combien le relief se rétrécit et ses lignes s'abaissent vers le fond) ; **Reset** rétablit les valeurs par défaut, et votre réglage est mémorisé dans le navigateur. Les repères de gauche indiquent à combien de secondes remonte une ligne, ceux de droite de combien de dB un pic dépasse le niveau Min (ils sont masqués tant qu'Auto Adj. est actif). **✕ 2D**, ou de nouveau le bouton 3D, revient au spectre plat, et votre choix est mémorisé dans le navigateur. La vue nécessite WebGL2, que propose tout navigateur actuel ; sans lui, le bouton n'apparaît pas. Un enregistrement vidéo fait avec la vue 3D ouverte enregistre la vue 3D à la place du spectre plat. La vue 3D est adaptée de PhantomSDR-ORSAT de F1NSK.
 
 **Ligne du curseur.** Partout où se trouve la souris au-dessus du spectre, de la cascade ou de la vue 3D, une ligne jaune pointillée marque cette fréquence sur le spectre et sur la cascade, et le spectre l'affiche en MHz.
 
@@ -437,7 +442,7 @@ Le bouton **3D**, à côté de **Reverse** dans les commandes de la cascade, aff
 
 Le bouton **📊 Show** de la section Spectrogram ouvre l'analyseur audio sous la cascade ; **📊 Hide** le ferme. Il montre l'audio que vous entendez, après démodulation, sous forme de spectre avec une grille en dB et une ligne de crête jaune. **Gain** monte ou baisse la courbe et **Color** choisit ses couleurs. Le spectre est dessiné en relief, éclairé depuis le haut à droite. Dans les couleurs Rainbow, chaque barre est colorée selon son écart au bruit à sa fréquence — bleu foncé pour le bruit, y compris dans les pauses de la parole quand l'AGC le remonte, puis bleu, cyan, jaune, orange et rouge pour des signaux de plus en plus forts —, tandis que sa hauteur se lit toujours sur l'échelle en dB. Comme le spectre principal, l'analyseur et ses rapports sont dessinés sur fond noir, avec un quadrillage gris.
 
-- **Axe des fréquences.** Il suit le mode : 0–4,5 kHz en SSB, 0–2 kHz en CW, 0–5,5 kHz en AM et FM. En LSB il est inversé (les aigus à gauche), pour se lire dans le même sens que le spectre RF. Un trait cyan marque la fréquence d'accord (en CW, la note à 750 Hz), et sous la souris l'analyseur affiche la fréquence audio et la fréquence RF en kHz.
+- **Axe des fréquences.** Il suit le mode : 0–4,5 kHz en SSB, 0–2 kHz en CW, 0–5,5 kHz en AM et FM. En LSB il est inversé (les aigus à gauche), pour se lire dans le même sens que le spectre RF. Un trait cyan marque la fréquence d'accord (en CW, la note à 600 Hz), et sous la souris l'analyseur affiche la fréquence audio et la fréquence RF en kHz.
 - **Balises de largeur de bande.** Des balises colorées montrent les largeurs préconisées pour le mode — SSB standard 300–2700 Hz et ESSB 50–4000 Hz, CW 500 Hz et 250 Hz, AM radiodiffusion et AM radioamateur — et un cadre blanc pointillé montre votre filtre actuel. La largeur standard est tracée en trait cyan continu, l'alternative (ESSB, CW 250 Hz, AM radioamateur) en pointillé bleu clair.
 - **Vue RF en AM et FM.** L'audio démodulé n'a plus de porteuse ; dans ces modes l'analyseur montre donc la station telle qu'elle est dans la cascade : porteuse au centre, bandes latérales de part et d'autre. Son échelle est en dB au-dessus du bruit.
 - **Largeur occupée.** La ligne sous le spectre donne la largeur occupée par la station accordée (méthode −26 dB, mesurée sur la cascade) avec un verdict pour SSB, AM et CW : vert conforme, ambre large (une station ESSB apparaît en ambre), rouge pour un splatter probable, aussi ombré sur le spectre. Il faut environ 2 s de mesures ; les parasites statiques sont ignorés.
@@ -511,6 +516,7 @@ Les trois dernières lignes sont nouvelles avec la 4.1.0 ; vérifiez qu'une fonc
 - 10 kHz de large, décodé en paire stéréo plutôt qu'en AM mono
 - Le libellé du bouton passe au **vert** de lui-même dès que le pilote stéréo de 25 Hz est présent : on voit ainsi quelles stations émettent réellement en stéréo avant de sélectionner le mode
 - Depuis l'AM, un nouvel appui bascule en détection synchrone sur la porteuse ; le libellé passe au **jaune** et affiche `SAM`. Un troisième appui revient à l'AM simple
+- Tant que le SAM tourne, une ligne comme `SAM +3.2 Hz · 97%` apparaît sous les indicateurs d'état (avec le S-mètre numérique, sous VFO | mode | largeur de bande) : l'écart entre la porteuse de la station et l'accord (+ = au-dessus) et la qualité du verrouillage du détecteur — jaune à partir de 85 %, de nouveau grise sous 60 %. Le jaune indique seulement qu'une porteuse stable est présente, pas le mode : une simple porteuse AM sur une fréquence marquée DRM la fait aussi passer au jaune
 - L'audio C-QUAM est transporté en Opus ; tous les autres modes utilisent FLAC
 
 **Bonnes pratiques :**
@@ -589,7 +595,7 @@ Les trois dernières lignes sont nouvelles avec la 4.1.0 ; vérifiez qu'une fonc
 
 Le même filtre morse de ±250 Hz que **CW**, mais la tonalité est prise sous la porteuse au lieu d'au-dessus. Utile lorsqu'un signal se copie mieux du côté bas, ou lorsqu'une porteuse brouilleuse se trouve juste au-dessus de celle visée.
 
-**Il n'y a pas de bouton CW-L sur la page de bureau.** Sa rangée de modes est `USB · LSB · CW · AM · QUAM · FM`. CW-L est proposé sur la page simplifiée `/mobile` ; sur le bureau il reste accessible par un lien ou un signet qui le nomme.
+**Il n'y a pas de bouton CW-L sur la page de bureau.** Sa rangée de modes est `USB · LSB · CW · AM · QUAM · FM · IQ`. CW-L est proposé sur la page simplifiée `/mobile` ; sur le bureau il reste accessible par un lien ou un signet qui le nomme.
 
 Les liens écrits pour KiwiSDR ou UberSDR fonctionnent aussi : `modulation=CWU` (ou `CW-U`) ouvre en CW et `modulation=CWL` en CW-L.
 
@@ -609,6 +615,35 @@ Les liens écrits pour KiwiSDR ou UberSDR fonctionnent aussi : `modulation=CWU` 
 - aucun squelch nécessaire pour la radiodiffusion
 - profitez d'un son de haute qualité !
 
+### IQ (I/Q brut)
+
+**Utilisé pour :**
+- enregistrer un morceau de la bande pour le relire plus tard dans HDSDR, SDR#, SDR++ ou SDRuno
+- écouter avec un autre logiciel — un client KiwiSDR peut aussi le demander
+
+**Caractéristiques :**
+- 12 kHz de la bande centrés sur l'accord, en I et Q — entendus en stéréo, I à gauche et Q à droite, comme un KiwiSDR les joue. Cela sonne comme un souffle : c'est le signal avant toute démodulation
+- transmis sans perte (FLAC), jamais en Opus, qui détruirait l'I/Q
+- le niveau suit la bande : le bruit reste discret (environ −45 dBFS) et une station forte est amenée vers −20 dBFS. NR, NB, NS, AN, AI et le squelch ne s'appliquent pas, et choisir IQ arrête tout décodeur en cours
+- **Audio** sous *Recording Options* enregistre l'I/Q ; à l'arrêt, **Download IQ** l'enregistre en fichier WAV (16 bits stéréo, 12 kHz) nommé par exemple `PhantomSDR_20261026_031500Z_6030000Hz_IQ.wav`. HDSDR, SDR# et SDRuno lisent la fréquence et l'heure dans le fichier, SDR++ dans le nom : l'enregistrement s'ouvre déjà accordé
+- c'est la station qui décide : le bouton n'apparaît que là où `[server] iq` est activé (le réglage par défaut)
+
+**Bonnes pratiques :**
+- placez la station voulue au milieu — l'enregistrement couvre ±6 kHz autour de l'accord
+- pour écouter une station, un mode normal est plus simple ; IQ sert à enregistrer, aux autres logiciels et à écouter plusieurs stations à la fois (ci-dessous)
+
+#### Démodulateurs IQ
+
+Tant que le récepteur est en IQ, un panneau **IQ Demodulators** s'ouvre sous les décodeurs. Il fait tourner jusqu'à six récepteurs sur l'I/Q dans votre navigateur — le récepteur n'est pas réaccordé et l'ordinateur de la station n'a rien de plus à faire :
+
+- L'image montre les 12 kHz autour de l'accord avec les fréquences réelles ; chaque démodulateur est une bande de couleur, son propre accord une ligne à l'intérieur. Un clic sur l'image y place le démodulateur sélectionné ; la molette de la souris au-dessus le déplace de 10 Hz (Maj 100 Hz)
+- Chaque ligne porte le mode (USB, LSB, CW, AM, DSB, FM), la fréquence avec les boutons « ‹ › » (100 et 10 Hz), une barre de niveau, **M** pour couper le son et **✕** pour supprimer. La ligne sélectionnée a en plus **Width**, **Volume** et **Pan**
+- **DSB** suit la porteuse d’elle-même (une boucle de poursuite de porteuse) : placée à quelques dizaines de Hz de la porteuse, l’audio reste propre et stable, en DSB à porteuse supprimée comme en AM, où elle fait office d’AM synchrone
+- **+ Add** ajoute un démodulateur sur l'accord, jusqu'à six. **Demodulators** / **Raw I/Q** choisit si vous les entendez ou l'I/Q brut
+- Ils sont placés par rapport à l'accord : réaccorder le récepteur les déplace tous ensemble ; une station à plus de 6 kHz de l'accord n'est pas dans le flux
+- Exemple : une station DX en split — un démodulateur LSB sur le DX, à gauche, et un sur les appelants quelques kHz plus haut, à droite
+- Votre navigateur retient vos démodulateurs. Les filtres de bruit (NR, NB, NS, AN, AI) n'agissent pas en IQ : réduisez plutôt **Width**
+
 ---
 
 ## Décodeurs numériques
@@ -617,7 +652,7 @@ PhantomSDR-Plus intègre des décodeurs pour les modes numériques. Pour un guid
 
 Le plus rapide est la rangée de boutons **Decoders** du panneau principal, juste sous **Wheel Tuning Steps** : dix boutons — **FT8, FT4, FT2, JS8, CW, WSPR, FAX, SSTV, NAVTX, FLDIGI** — qui, en une seule pression, démarrent leur décodeur, basculent l'interrupteur principal Decoder sur ON et amènent la fenêtre du décodeur à l'écran. Le bouton reste bleu tant que le décodeur tourne ; appuyez de nouveau pour l'arrêter et fermer sa fenêtre. Le menu déroulant **Decoder Options** fonctionne exactement comme avant et reste synchronisé avec les boutons.
 
-**RADEL** et **RADEU** (voix numérique RADE v1) disposent de leurs propres boutons à côté du titre **Modes selector** ainsi que dans les fenêtres **Modes** et **Bands**, et fonctionnent de la même manière : une pression pour démarrer, une seconde pour arrêter.
+**RADE-v2U**, **RADE-v1L** et **RADE-v1U** (voix numérique RADE) disposent de leurs propres boutons à côté du titre **Modes** ainsi que dans les fenêtres **Modes** et **Bands**, et fonctionnent de la même manière : une pression pour démarrer, une seconde pour arrêter. **RADE-v2U** lance RADE V2 (beta), toujours en USB ; **RADE-v1L** et **RADE-v1U** lancent RADE v1.
 
 Les décodeurs SSTV, FAX HF, NAVTEX, FSK/RTTY et CW s'exécutent chacun sur leur propre thread d'arrière-plan : activer ou désactiver un décodeur n'interrompt jamais l'audio, et la cascade reste fluide pendant le décodage. Ils reçoivent l'audio prélevé avant la réduction de bruit et la coupure du son de votre navigateur — vous pouvez couper le son du récepteur, le décodage se poursuit sans être affecté. Tant qu'un décodeur est ouvert, l'AGC est maintenue sur Slow pour que le gain reste stable pour lui.
 

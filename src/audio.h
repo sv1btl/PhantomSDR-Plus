@@ -4,6 +4,7 @@
 #include <string>
 #include <vector>
 #include <cstdlib>
+#include <cmath>
 #include <deque>
 
 #include <nlohmann/json.hpp>
@@ -29,7 +30,8 @@ enum class FlacMode {
 class AudioEncoder {
   public:
     AudioEncoder(websocketpp::connection_hdl hdl, PacketSender& sender);
-    void set_data(uint64_t frame_num, int l, double m, int r, double pwr, int channels = 1, bool sam_locked = false);
+    void set_data(uint64_t frame_num, int l, double m, int r, double pwr, int channels = 1, bool sam_locked = false,
+                  float sam_offset_hz = NAN, float sam_quality = NAN);
     virtual int process(int32_t *data, size_t size) = 0;
     virtual int finish_encoder() = 0;
     virtual ~AudioEncoder();

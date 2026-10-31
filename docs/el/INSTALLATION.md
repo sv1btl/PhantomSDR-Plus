@@ -417,7 +417,7 @@ bash install.sh
 | 2 | Τι θα λαμβάνει | Έτοιμες επιλογές για κάθε δέκτη (π.χ. *HF 0–30 MHz* για το RX888, *2 m* για ένα RTL-SDR), ή δική σας κεντρική συχνότητα και ρυθμός δειγματοληψίας. |
 | 3 | Ο σταθμός σας | Διακριτικό, όνομα, e-mail, QTH locator, πόλη και χώρα, κεραία, υπολογιστής, περιοχή ITU (προτείνεται από τον locator). |
 | 4 | Internet | Η δημόσια διεύθυνσή σας (IP ή όνομα DNS), και αν ο δέκτης θα εμφανίζεται στο sdr-list.xyz και στον χάρτη του websdr.org. Επίσης αν ο δέκτης θα σερβίρεται και μέσω https:// (χρειάζεται όνομα DNS). Γράψτε όνομα ή IP, όχι θύρα — η θύρα ρωτιέται στο βήμα 5. |
-| 5 | Θύρες και πρόσθετα | Admin panel, FreeDV RADE, στατιστικά, WebSDR relay, εκκίνηση με το boot — και η δημόσια θύρα. |
+| 5 | Θύρες και πρόσθετα | Admin panel, FreeDV RADE, DRM, στατιστικά, WebSDR relay, εκκίνηση με το boot — και η δημόσια θύρα. |
 
 Οι απαντήσεις αποθηκεύονται στο **`station.conf`**, και από αυτό ο οδηγός γράφει ό,τι πρέπει να συμφωνεί: το `config-<δέκτης>.toml` του δέκτη (ρυθμός δειγματοληψίας, συχνότητα, θύρα, καταχωρίσεις σε καταλόγους, websdr.org), το `frontend/site_information.json` και τις ρυθμίσεις του relay. Τα start scripts διαβάζουν μόνα τους τη συχνότητα και τον ρυθμό δειγματοληψίας από το `station.conf`, οπότε δεν τα επεξεργάζεστε ποτέ. Αλλάζουν μόνο οι ρυθμίσεις που ανήκουν στον οδηγό, και κάθε αρχείο αντιγράφεται σε `<όνομα>.bak-<ημερομηνία>` πριν αλλάξει.
 
@@ -425,12 +425,13 @@ bash install.sh
 
 | Θύρα | Τι | Ανοιχτή στο router |
 |---|---|---|
-| 9000 | η σελίδα του δέκτη — το `proxy.py`, που μεταφέρει επίσης τα `/admin`, `/rade`, `/stats` και `/relay` | **ναι, μόνο αυτή** |
+| 9000 | η σελίδα του δέκτη — το `proxy.py`, που μεταφέρει επίσης τα `/admin`, `/rade`, `/drm`, `/stats` και `/relay` | **ναι, μόνο αυτή** |
 | 9001 | spectrumserver | όχι |
 | 9010 | admin panel | όχι |
 | 9011 | server στατιστικών | όχι |
 | 9012 | αποκωδικοποιητής FreeDV RADE | όχι |
 | 9013 | WebSDR diversity relay | όχι |
+| 9015 | αποκωδικοποιητής DRM | όχι |
 
 Μια θύρα που χρησιμοποιείται ήδη στον υπολογιστή παραλείπεται υπέρ της επόμενης ελεύθερης. Για να αλλάξετε κάτι αργότερα:
 
@@ -458,7 +459,7 @@ bash configure-station.sh --show   # δείχνει τις τρέχουσες α
 | 10–11 | Εγκαθιστά τις εξαρτήσεις του frontend και φτιάχνει τη σελίδα υπολογιστή και τη `/mobile` |
 | 12 | Εγκαθιστά OpenCL για το υλικό που βρίσκει |
 | 13 | Εγκαθιστά το admin panel — ή, χωρίς αυτό, μόνο το proxy στη δημόσια θύρα |
-| 14–16 | Εγκαθιστά το WebSDR relay, το FreeDV RADE και τον server στατιστικών, αν τα επιλέξατε |
+| 14–16 | Εγκαθιστά το WebSDR relay, το FreeDV RADE, DRM και τον server στατιστικών, αν τα επιλέξατε |
 | 17 | Εφαρμόζει ξανά τις διορθωμένες κεφαλίδες websocketpp και τις ελέγχει |
 | 18 | Εγκαθιστά την εξομοίωση πελάτη KiwiSDR, ώστε πελάτες Kiwi όπως το AetherSDR να μπορούν να συνδεθούν |
 | 19 | Ξαναμεταγλωττίζει το backend από τις διορθωμένες πηγές |
@@ -480,6 +481,7 @@ bash configure-station.sh --show   # δείχνει τις τρέχουσες α
 | `PHANTOM_OPENCL_PROVIDER=1\|2\|3` | Intel · Mesa/Rusticl · POCL (default: from the detected hardware) |
 | `PHANTOM_ADMIN=y\|n` | admin panel (y interactive, n unattended) |
 | `PHANTOM_RADE=y\|n` | RADE / FreeDV (y interactive, n unattended) |
+| `PHANTOM_DRM=y\|n` | DRM decoder (default y) |
 | `PHANTOM_STATS=y\|n` | statistics server (y interactive, n unattended) |
 | `PHANTOM_KIWI=y\|n` | KiwiSDR client emulation (default y) |
 | `PHANTOM_RECOMPILE=y\|n` | final rebuild (default y) |
@@ -506,7 +508,7 @@ PHANTOM_NONINTERACTIVE=1 PHANTOM_SDR=1 \
 
 Όταν στήνει τον πίνακα διαχείρισης, ο installer προσφέρει και τις δύο μονάδες systemd και **συνιστά έντονα** να τις δεχτείτε: η προστασία υπερθέρμανσης της CPU τρέχει μέσα στον πίνακα, οπότε χωρίς αυτές μια επανεκκίνηση ή μια κατάρρευση αφήνει το μηχάνημα απροστάτευτο. Το βήμα παραλείπεται αυτόματα όπου δεν τρέχει systemd (containers, WSL1, OpenRC) — δείτε τον [οδηγό του πίνακα](ADMIN_PANEL_SETUP.md).
 
-Κάθε extra είναι ένα κανονικό script που μπορείτε να τρέξετε και μόνο του, οποτεδήποτε — `./setup_admin.sh` ([οδηγός](ADMIN_PANEL_SETUP.md)), `./install_rade.sh` ([οδηγός](RADE_README.md)), `./install-stats-server.sh` ([οδηγός](sdr-stats/README.md)), `./setup-rx888-udev.sh` και τα scripts των δεκτών `./setup-rsp1a.sh`, `./setup-fobos.sh`, `./setup-airspyhf.sh` και `./setup-hackrf.sh` — αυτά ακριβώς καλεί το πρόγραμμα εγκατάστασης.
+Κάθε extra είναι ένα κανονικό script που μπορείτε να τρέξετε και μόνο του, οποτεδήποτε — `./setup_admin.sh` ([οδηγός](ADMIN_PANEL_SETUP.md)), `./install_rade.sh` ([οδηγός](RADE_README.md)), `./setup-drm.sh` ([αποκωδικοποιητής DRM](DECODERS.md#13-drm)), `./install-stats-server.sh` ([οδηγός](sdr-stats/README.md)), `./setup-rx888-udev.sh` και τα scripts των δεκτών `./setup-rsp1a.sh`, `./setup-fobos.sh`, `./setup-airspyhf.sh` και `./setup-hackrf.sh` — αυτά ακριβώς καλεί το πρόγραμμα εγκατάστασης.
 
 ### Χειροκίνητο build (αναφορά)
 
@@ -715,6 +717,7 @@ nano config-rtl.toml
 port = 9002                      # Web interface port (or everything else)
 html_root = "frontend/dist/"     # Frontend location
 otherusers = 1                   # Show other users (1=yes, 0=no)
+iq = true                        # Offer the IQ mode to listeners (true/false)
 threads = 2                      # Number of server threads
 
 [websdr]
@@ -773,7 +776,7 @@ nano frontend/site_information.json
   "siteCity": "Your City, Country",
   "siteInformation": "https://github.com/sv1btl/PhantomSDR-Plus",
   "siteHardware": "Computer specifications",
-  "siteSoftware": "PhantomSDR-Plus v5.3.0",
+  "siteSoftware": "PhantomSDR-Plus v5.4.0",
   "siteReceiver": "Your SDR model",
   "siteAntenna": "Antenna description",
   "siteNote": "Additional information",
@@ -1601,7 +1604,7 @@ update-backups/phantomsdr-backup-20260923-164530.zip
 ./update.sh --apply --yes     # δεν ρωτά ποτέ· ό,τι έχετε αλλάξει ΔΙΑΤΗΡΕΙΤΑΙ
 ./update.sh --check           # μόνο αναφορά, ποτέ ερώτηση — για cron (10 = υπάρχει ενημέρωση)
 ./update.sh --from FILE|DIR   # η νέα έκδοση από .zip/.tar.gz ή φάκελο — χωρίς δίκτυο
-./update.sh --ref v5.3.0      # ετικέτα, κλάδος ή commit αντί για το τρέχον δέντρο
+./update.sh --ref v5.4.0      # ετικέτα, κλάδος ή commit αντί για το τρέχον δέντρο
 ./update.sh --list-excludes   # τυπώνει τους κανόνες "μην αγγίζεις" όπως ισχύουν εδώ
 ./update.sh --verbose         # εμφανίζει όλα τα αρχεία, όχι μόνο τα πρώτα 40
 ```

@@ -94,15 +94,15 @@ Kada se stranica učita, vidjet ćete:
 │   Compressor Equalizer├────────────────────────────┤ Zoom In Out Max Min │
 │ Filters               │  Fine Tuning (kHz)         │ Waterfall Spectrum  │
 │   NR NB NS AN CTCSS   │  VFO A · Modes · Bands     │ Auto Adj. Height    │
-│ Modes selector        │           · IF Filters     │ [ profile ▾ ]       │
-│   ...  RADEL  RADEU   │  Wheel Tuning Steps        │ [ Bookmarks ]       │
+│ Modes  RADE-v2U       │           · IF Filters     │ [ profile ▾ ]       │
+│   RADE-v1L RADE-v1U   │  Wheel Tuning Steps        │ [ Bookmarks ]       │
 │   USB LSB CW AM QUAM  │  Decoders                  │                     │
-│   FM                  │   FT8 FT4 FT2 JS8 CW WSPR  │                     │
+│   FM IQ               │   FT8 FT4 FT2 JS8 CW WSPR  │                     │
 │ Band selector         │   FAX SSTV NAVTEX RTTY ... │                     │
 └───────────────────────┴────────────────────────────┴─────────────────────┘
 ```
 
-Tri ploče ispod slapa pomiču se kao jedna stranica; u uskom se prozoru slažu jedna ispod druge umjesto jedna uz drugu. **RADEL** i **RADEU** stoje na samom retku naslova *Modes selector*, njemu zdesna.
+Tri ploče ispod slapa pomiču se kao jedna stranica; u uskom se prozoru slažu jedna ispod druge umjesto jedna uz drugu. **RADE-v2U**, **RADE-v1L** i **RADE-v1U** stoje na samom retku naslova *Modes*, njemu zdesna.
 
 ### 1. Prikaz slapa
 
@@ -140,8 +140,9 @@ Odaberite način demodulacije:
 - **CW**: Morseov kod (neprekinuti val)
 - **WBFM**: širokopojasni FM (radiodifuzija)
 - **QUAM**: C-QUAM AM stereo — natpis postaje zelen kada se otkrije stereo pilot
+- **IQ**: sirovi I/Q — 12 kHz pojasa kako stižu, za snimanje ili za drugi program (vidi odjeljak IQ niže)
 
-Uz naslov **Modes selector** nalaze se gumbi **RADEL** i **RADEU**, koji jednim pritiskom pokreću RADE v1 digitalni glas — pogledajte [Digitalni dekoderi](#digitalni-dekoderi).
+Uz naslov **Modes** nalaze se gumbi **RADE-v2U**, **RADE-v1L** i **RADE-v1U**, koji jednim pritiskom pokreću RADE digitalni glas — pogledajte [Digitalni dekoderi](#digitalni-dekoderi). **RADE-v2U** pokreće RADE V2 (beta), uvijek u USB-u; **RADE-v1L** i **RADE-v1U** pokreću RADE v1.
 
 ### 5. Upravljačka ploča
 
@@ -319,7 +320,7 @@ AGC drži zvuk na ujednačenoj razini. Četiri tipke rade kao preklopnik AGC-a n
 NR, NB, NS i AN zasebni su prekidači, svaki protiv druge vrste šuma. Neovisni su — uključivanje jednoga ne uključuje drugi — i mogu se slobodno kombinirati.
 
 Nijedan ne doseže dekodere: FT8, CW, WSPR, SSTV, FAX, NAVTEX, RTTY/PSK31/Olivia/Packet/APRS i QRSS grabber čitaju zvuk *prije* ovih filtara, pa ih možete namještati isključivo po sluhu bez utjecaja na dekodiranje. Vidjeti
-[priručnik za dekodere](DECODERS.md#12-opći-savjeti).
+[priručnik za dekodere](DECODERS.md#14-opći-savjeti).
 
 ### Smanjenje šuma (NR)
 
@@ -403,6 +404,8 @@ Vaše ime pojavljuje se u prozoru **Users**, u vašim redcima chata i na oznaci 
 
 Kao na WebSDR-u, IP adresa nijednog slušatelja ne prikazuje se drugima — ni u prozoru Users ni u Statistici korisnika, koja posjetitelje broji po anonimnom kodu.
 
+Prozor Users prikazuje i koji dekoder pojedini slušatelj koristi — FT8, CW, DRM, HFDL itd. — kao malu zelenu oznaku iza načina rada, a Statistika korisnika ima ploču **Decoder Popularity**: koliko je sesija koristilo koji dekoder. U prozoru Users otvorenom sa stranice prijemnika, **Tune** pokraj slušatelja postavlja vas na ono što on sluša: istu frekvenciju i način rada, širinu njegova filtra i njegov dekoder — pokrenut za vas, ili se vaš zaustavlja kad on ne koristi nijedan. Zatim se pojas uokviruje kao s **To Band**: slap prikazuje cijeli pojas u kojem je, sa svjetlinom, kontrastom i korakom ugađanja tog pojasa.
+
 ### Chat
 
 Kad je operater uključio chat, on ima vlastitu ploču na desktop stranici i karticu **Chat** na /mobile. Upišite poruku i pošaljite je: odlazi pod imenom iz vašeg polja za ime (vidi gore) ili kao *anonymous* i broj.
@@ -422,13 +425,15 @@ Uvećava prikaz slapa:
 
 **Koristite kada**: trebate jasnije vidjeti signale ili se precizno ugoditi.
 
+**To Band** prikazuje cijeli pojas frekvencije na kojoj ste, s 10 kHz rezerve na svakom rubu.
+
 ### Auto Adj. (slap)
 
 Prekidač **Auto Adj.** među kontrolama slapa sam podešava svjetlinu i kontrast slapa. Mjeri razinu šuma preko cijelog vidljivog raspona i pretvara je u jednoliku, tamnu pozadinu — i ondje gdje se šum razlikuje od jednog dijela raspona do drugog — a sve iznad nje razvlači, tako da se slabi signali ističu, a najjači dosežu gornje boje. Radi jednako sa svakom paletom boja, a mijenja se samo slap: krivulja spektra zadržava svoju stvarnu dB ljestvicu. Dok je uključen, klizači Min i Max su zaključani i prikazuju izmjerenu razinu šuma i vrh; isključivanjem se vraćaju na postavke opsega.
 
 ### 3D spektar
 
-Gumb **3D** pokraj **Reverse**, među kontrolama slapa, prikazuje spektar kao reljef posljednjih nekoliko sekundi: frekvencija u širinu, vrijeme u dubinu zaslona, jakost signala kao visina. Koristi iste boje, istu svjetlinu (Min), isti kontrast (Max) i isti Auto Adj. kao slap, a zumiranje i povlačenje prati kao ravni spektar. Klik ugađa, povlačenje pomiče po opsegu, a kotačić miša zumira, točno kao na ravnom spektru. Oznake lijevo pokazuju koliko je sekundi neki red star, a desno koliko dB iznad razine Min doseže vrh (skrivene su dok je Auto Adj. uključen). **✕ 2D**, ili ponovno gumb 3D, vraća ravni spektar, a izbor se pamti u pregledniku. Prikaz traži WebGL2, koji nudi svaki današnji preglednik; bez njega se gumb ne pojavljuje. Video snimka napravljena dok je 3D prikaz otvoren snima 3D prikaz umjesto ravnog spektra. 3D prikaz preuzet je iz PhantomSDR-ORSAT autora F1NSK.
+Gumb **3D** pokraj **Reverse**, među kontrolama slapa, prikazuje spektar kao reljef posljednjih nekoliko sekundi: frekvencija u širinu, vrijeme u dubinu zaslona, jakost signala kao visina. Koristi iste boje, istu svjetlinu (Min), isti kontrast (Max) i isti Auto Adj. kao slap, a zumiranje i povlačenje prati kao ravni spektar. Klik ugađa, povlačenje pomiče po opsegu, a kotačić miša zumira, točno kao na ravnom spektru. Reljef se prema natrag sužava kao stol gledan pod kutom, a što je red dalje, to su mu vrhovi niži. Klik na stariji red ugađa na frekvenciju tog reda, a frekvencija prikazana ispod miša tada pokazuje i starost reda (na primjer 7.074.000 · −6 s). Gumb **⚙** otvara dva klizača: **Angle** (koliko strmo se dno penje prema natrag) i **Depth** (koliko se reljef sužava i redovi snižavaju prema natrag); **Reset** vraća zadane vrijednosti, a postavka se pamti u pregledniku. Oznake lijevo pokazuju koliko je sekundi neki red star, a desno koliko dB iznad razine Min doseže vrh (skrivene su dok je Auto Adj. uključen). **✕ 2D**, ili ponovno gumb 3D, vraća ravni spektar, a izbor se pamti u pregledniku. Prikaz traži WebGL2, koji nudi svaki današnji preglednik; bez njega se gumb ne pojavljuje. Video snimka napravljena dok je 3D prikaz otvoren snima 3D prikaz umjesto ravnog spektra. 3D prikaz preuzet je iz PhantomSDR-ORSAT autora F1NSK.
 
 **Linija pokazivača.** Gdje god se miš nalazi iznad spektra, slapa ili 3D prikaza, isprekidana žuta linija označava tu frekvenciju i na spektru i na slapu, a spektar je ispisuje u MHz.
 
@@ -436,7 +441,7 @@ Gumb **3D** pokraj **Reverse**, među kontrolama slapa, prikazuje spektar kao re
 
 Gumb **📊 Show** u odjeljku Spectrogram otvara audio analizator ispod slapa; **📊 Hide** ga zatvara. Prikazuje zvuk koji slušate, nakon demodulacije, kao spektar s mrežom u dB i žutom linijom vršnih vrijednosti. **Gain** podiže ili spušta krivulju, a **Color** bira njezine boje. Spektar se crta reljefno, osvijetljen odozgo zdesna. U bojama Rainbow svaki se stupac boji prema tome koliko se na svojoj frekvenciji izdiže iznad šuma — tamnoplavo za šum, i u stankama govora kad ga AGC podigne, zatim plavo, cijan, žuto, narančasto i crveno za sve jače signale — dok se njegova visina i dalje očitava na ljestvici u dB. Kao i glavni spektar, analizator i njegova izvješća crtaju se na crnoj podlozi, sa sivim linijama mreže.
 
-- **Frekvencijska os.** Prati način rada: 0–4,5 kHz u SSB-u, 0–2 kHz u CW-u, 0–5,5 kHz u AM-u i FM-u. U LSB-u je obrnuta (visoki tonovi lijevo), pa se čita u istom smjeru kao RF spektar. Cijan linija označava ugođenu frekvenciju (u CW-u ton od 750 Hz), a ispod miša analizator prikazuje audio frekvenciju i RF frekvenciju u kHz.
+- **Frekvencijska os.** Prati način rada: 0–4,5 kHz u SSB-u, 0–2 kHz u CW-u, 0–5,5 kHz u AM-u i FM-u. U LSB-u je obrnuta (visoki tonovi lijevo), pa se čita u istom smjeru kao RF spektar. Cijan linija označava ugođenu frekvenciju (u CW-u ton od 600 Hz), a ispod miša analizator prikazuje audio frekvenciju i RF frekvenciju u kHz.
 - **Oznake širine pojasa.** Obojene oznake pokazuju preporučene širine za način rada — SSB standard 300–2700 Hz i ESSB 50–4000 Hz, CW 500 Hz i 250 Hz, AM radiodifuzija i AM radioamateri — a isprekidani bijeli okvir pokazuje vaš trenutni filtar. Standardna širina crta se punom cijan linijom, alternativna (ESSB, CW 250 Hz, AM radioamateri) isprekidanom svijetloplavom.
 - **RF prikaz u AM-u i FM-u.** Demodulirani zvuk nema nosilac, pa u tim načinima analizator prikazuje stanicu onakvu kakva je na slapu: nosilac u sredini, bočni pojasevi s obje strane. Njegova ljestvica je u dB iznad šuma.
 - **Zauzeta širina.** Redak ispod spektra daje širinu koju zauzima ugođena stanica (metoda −26 dB, mjereno na slapu) s ocjenom za SSB, AM i CW: zeleno unutar norme, narančasto široko (ESSB stanica je narančasta), crveno za vjerojatan splatter, koji je i osjenčan na spektru. Potrebno je oko 2 s mjerenja; statičke smetnje se zanemaruju.
@@ -510,6 +515,7 @@ Posljednja tri retka nova su u inačici 4.1.0; prije poziva provjerite postoji l
 - Širina 10 kHz, dekodira se kao stereo par umjesto mono AM-a
 - Natpis na gumbu sam postaje **zelen** kada je prisutan stereo pilot od 25 Hz, pa vidite koje postaje doista emitiraju u stereu prije nego što ga odaberete
 - Iz AM-a novi pritisak prebacuje na sinkronu detekciju na nosiocu; natpis postaje **žut** i prikazuje `SAM`. Treći pritisak vraća na obični AM
+- Dok SAM radi, ispod pokazivača stanja pojavljuje se redak poput `SAM +3.2 Hz · 97%` (kod digitalnog S-metra ispod VFO | način rada | širina pojasa): koliko je nosilac stanice udaljen od ugođene frekvencije (+ = iznad nje) i koliko je dobro detektor zaključan — žut od 85 %, ispod 60 % opet siv. Žuto znači samo da postoji stabilan nosilac, ne i koji je način rada: i obični AM nosilac na frekvenciji označenoj kao DRM boji ga žuto
 - C-QUAM zvuk prenosi se Opusom; svi ostali načini koriste FLAC
 
 **Preporuke:**
@@ -588,7 +594,7 @@ Posljednja tri retka nova su u inačici 4.1.0; prije poziva provjerite postoji l
 
 Isti Morseov filtar od ±250 Hz kao **CW**, ali se ton uzima ispod nosioca umjesto iznad njega. Korisno kada se signal bolje prima s donje strane ili kada smetajući nosilac leži tik iznad željenoga.
 
-**Na stolnoj stranici nema gumba CW-L.** Njezin red načina rada je `USB · LSB · CW · AM · QUAM · FM`. CW-L se nudi na pojednostavljenoj stranici `/mobile`, a na stolnoj se i dalje može postaviti poveznicom ili knjižnom oznakom koja ga imenuje.
+**Na stolnoj stranici nema gumba CW-L.** Njezin red načina rada je `USB · LSB · CW · AM · QUAM · FM · IQ`. CW-L se nudi na pojednostavljenoj stranici `/mobile`, a na stolnoj se i dalje može postaviti poveznicom ili knjižnom oznakom koja ga imenuje.
 
 Rade i poveznice pisane za KiwiSDR ili UberSDR: `modulation=CWU` (ili `CW-U`) otvara u CW-u, a `modulation=CWL` u CW-L-u.
 
@@ -608,6 +614,35 @@ Rade i poveznice pisane za KiwiSDR ili UberSDR: `modulation=CWU` (ili `CW-U`) ot
 - za radiodifuziju squelch nije potreban
 - uživajte u zvuku visoke kvalitete!
 
+### IQ (sirovi I/Q)
+
+**Koristi se za:**
+- snimanje dijela pojasa za kasnije reproduciranje u HDSDR-u, SDR#-u, SDR++-u ili SDRuno-u
+- slušanje drugim programom — može ga zatražiti i KiwiSDR klijent
+
+**Značajke:**
+- 12 kHz pojasa oko ugođene frekvencije, kao I i Q — čuje se stereo, I lijevo i Q desno, kako ga reproducira KiwiSDR. Zvuči kao šum: to je signal prije ikakve demodulacije
+- šalje se bez gubitaka (FLAC), nikad Opusom, koji bi uništio I/Q
+- razina prati pojas: šum ostaje tih (oko −45 dBFS), a jaka stanica dovodi se na oko −20 dBFS. NR, NB, NS, AN, AI i squelch ne primjenjuju se, a odabir IQ-a isključuje dekoder koji radi
+- **Audio** pod *Recording Options* snima I/Q; kad zaustavite, **Download IQ** sprema ga kao WAV datoteku (16-bitni stereo, 12 kHz) s imenom na primjer `PhantomSDR_20261026_031500Z_6030000Hz_IQ.wav`. HDSDR, SDR# i SDRuno čitaju frekvenciju i vrijeme iz datoteke, SDR++ iz imena, pa se snimka otvara već ugođena
+- odlučuje stanica: gumb se pojavljuje samo gdje je `[server] iq` uključen (zadano)
+
+**Dobre prakse:**
+- stanicu koju želite stavite u sredinu — snimka obuhvaća ±6 kHz oko ugođene frekvencije
+- za slušanje jedne stanice jednostavniji je normalan način rada; IQ je za snimanje, za druge programe i za slušanje više stanica odjednom (niže)
+
+#### IQ demodulatori
+
+Dok je prijemnik u IQ-u, ispod dekodera otvara se ploča **IQ Demodulators**. Pokreće do šest prijemnika na I/Q-u u vašem pregledniku — prijemnik se ne preugađa, a računalo stanice nema dodatnog posla:
+
+- Slika prikazuje 12 kHz oko ugođene frekvencije sa stvarnim frekvencijama; svaki demodulator je obojena traka, a njegova vlastita frekvencija crta u njoj. Klik na sliku premješta onamo odabrani demodulator; kotačić miša iznad nje pomiče ga za 10 Hz (Shift 100 Hz)
+- Svaki redak ima način rada (USB, LSB, CW, AM, DSB, FM), frekvenciju s gumbima « ‹ › » (100 i 10 Hz), pokazivač razine, **M** za utišavanje i **✕** za uklanjanje. Odabrani redak ima još **Width**, **Volume** i **Pan**
+- **DSB** sama prati nosilac (petlja za praćenje nosioca): postavljena unutar nekoliko desetaka Hz od nosioca, zvuk ostaje čist i stabilan, kod DSB-a s potisnutim nosiocem kao i kod AM-a, gdje radi kao sinkroni AM
+- **+ Add** dodaje demodulator na ugođenoj frekvenciji, do šest. **Demodulators** / **Raw I/Q** bira slušate li njih ili čisti I/Q
+- Postavljeni su u odnosu na ugođenu frekvenciju, pa ugađanje prijemnika pomiče sve zajedno; stanica više od 6 kHz od ugođene frekvencije nije u toku
+- Primjer: DX stanica koja radi split — jedan LSB demodulator na DX-u, lijevo, i jedan na pozivateljima nekoliko kHz više, desno
+- Vaš preglednik pamti vaše demodulatore. Filtri šuma (NR, NB, NS, AN, AI) ne djeluju u IQ-u: umjesto toga suzite **Width**
+
 ---
 
 ## Digitalni dekoderi
@@ -616,7 +651,7 @@ PhantomSDR-Plus uključuje ugrađene dekodere za digitalne načine rada. Za potp
 
 Najbrži je put red gumba **Decoders** na glavnoj ploči, odmah ispod **Wheel Tuning Steps**: deset gumba — **FT8, FT4, FT2, JS8, CW, WSPR, FAX, SSTV, NAVTX, FLDIGI** — od kojih svaki jednim pritiskom pokreće svoj dekoder, uključuje glavni prekidač Decoder i dovodi prozor dekodera na zaslon. Gumb ostaje plav dok dekoder radi; pritisnite ga ponovno da zaustavite dekoder i zatvorite njegov prozor. Padajući izbornik **Decoder Options** radi točno kao i prije te ostaje usklađen s gumbima.
 
-**RADEL** i **RADEU** (RADE v1 digitalni glas) imaju vlastite gumbe uz naslov **Modes selector** te u skočnim prozorima **Modes** i **Bands**, i rade na isti način: pritisak za pokretanje, ponovni pritisak za zaustavljanje.
+**RADE-v2U**, **RADE-v1L** i **RADE-v1U** (RADE digitalni glas) imaju vlastite gumbe uz naslov **Modes** te u skočnim prozorima **Modes** i **Bands**, i rade na isti način: pritisak za pokretanje, ponovni pritisak za zaustavljanje. **RADE-v2U** pokreće RADE V2 (beta), uvijek u USB-u; **RADE-v1L** i **RADE-v1U** pokreću RADE v1.
 
 Dekoderi za SSTV, HF FAX, NAVTEX, FSK/RTTY i CW rade svaki u vlastitoj pozadinskoj dretvi, pa uključivanje ili isključivanje dekodera nikada ne prekida zvuk, a slap ostaje gladak tijekom dekodiranja. Dobivaju zvuk uzet prije smanjenja šuma i utišavanja u vašem pregledniku — možete utišati prijamnik, a dekodiranje se nastavlja bez smetnji. Dok je dekoder otvoren, AGC se drži na Slow, kako bi pojačanje za njega ostalo ujednačeno.
 

@@ -372,7 +372,7 @@ Journal attendu :
    - **RADE v1 — RADEU (USB)** pour 20 m / 17 m / 15 m / 12 m / 10 m (> 10 MHz)
 5. Cliquez sur **Decoder: ON**
 
-Les étapes 4 et 5 peuvent être remplacées par une seule pression : les boutons **RADEL** / **RADEU** se trouvent à côté du titre **Modes selector** ainsi que dans les fenêtres **Modes** et **Bands**. Une pression sélectionne le décodeur, le met sur ON et amène le panneau RADE à l'écran ; appuyez de nouveau pour arrêter RADE. Voir le [manuel RADE](RADE_README.md).
+Les étapes 4 et 5 peuvent être remplacées par une seule pression : les boutons **RADE-v1L** / **RADE-v1U** se trouvent à côté du titre **Modes** ainsi que dans les fenêtres **Modes** et **Bands**. Une pression sélectionne le décodeur, le met sur ON et amène le panneau RADE à l'écran ; appuyez de nouveau pour arrêter RADE. Voir le [manuel RADE](RADE_README.md).
 
 | Indicateur | Signification |
 |---|---|
@@ -398,6 +398,22 @@ RADE_TORCH_THREADS=2 ./rade.sh restart
 | 20 | ~180 % |
 
 > Ces chiffres ont été mesurés sur x86_64. Un Raspberry Pi décode RADE sans problème, mais le coût par utilisateur y est plus élevé et le tableau ci-dessus ne se transpose pas — mesurez votre propre carte avec `top` pendant qu'un utilisateur est synchronisé avant d'annoncer une limite d'utilisateurs.
+
+---
+
+## Facultatif — RADE V2 (beta) avec rade_c
+
+RADE V2 (beta) — le bouton RADE-v2U — est décodé par rade_c de FreeDV, qui vit dans son propre dossier et ne touche pas à `~/radae`. `install_rade.sh` le compile pour vous ; à la main (sous Ubuntu 22.04, d'abord `sudo apt-get install autoconf automake libtool`) :
+
+```bash
+cd ~
+git clone https://github.com/freedv/rade_c.git
+cd rade_c
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build -j4
+```
+
+`rade_helper.py` l'utilise dès la connexion RADE2 suivante — voir le [RADE README](RADE_README.md#rade-v2-beta--rade2).
 
 ---
 

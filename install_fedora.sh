@@ -21,6 +21,7 @@ set -euo pipefail
 #   PHANTOM_OPENCL=y|n         install OpenCL                     (default y)
 #   PHANTOM_ADMIN=y|n          admin panel      (y interactive, n unattended)
 #   PHANTOM_WEBSDR_RELAY=y|n   WebSDR diversity relay (y interactive, n unattended)
+#   PHANTOM_DRM=y|n            DRM decoder      (default y)
 #   PHANTOM_RADE=y|n           RADE / FreeDV    (y interactive, n unattended)
 #   PHANTOM_STATS=y|n          statistics server(y interactive, n unattended)
 #   PHANTOM_KIWI=y|n           Kiwi client emulation  (default y interactive, n unattended)
@@ -56,6 +57,7 @@ set -euo pipefail
 NEEDS_REBOOT=false
 RX888_UDEV_DONE=false
 RADE_INSTALLED=false
+DRM_INSTALLED=false
 STATS_INSTALLED=false
 KIWI_INSTALLED=false
 RELAY_INSTALLED=false
@@ -1021,6 +1023,7 @@ station_to_phantom_env() {
     PHANTOM_ADMIN="${PHANTOM_ADMIN:-$(station_value STATION_ADMIN)}"
     PHANTOM_WEBSDR_RELAY="${PHANTOM_WEBSDR_RELAY:-$(station_value STATION_RELAY)}"
     PHANTOM_RADE="${PHANTOM_RADE:-$(station_value STATION_RADE)}"
+    PHANTOM_DRM="${PHANTOM_DRM:-$(station_value STATION_DRM)}"
     PHANTOM_STATS="${PHANTOM_STATS:-$(station_value STATION_STATS)}"
     PHANTOM_KIWI="${PHANTOM_KIWI:-y}"
     PHANTOM_OPENCL="${PHANTOM_OPENCL:-y}"
@@ -1433,7 +1436,7 @@ echo "   STEP  9  Your site information — opens an editor (callsign, QTH, …)
 echo "   STEP 12  OpenCL acceleration — yes / no"
 echo "   STEP 13  Admin panel         — yes / no  (asks its own questions)"
 echo "   STEP 14  WebSDR relay        — yes / no  (asks its own questions)"
-echo "   STEP 15  RADE / FreeDV       — yes / no  (asks its own questions)"
+echo "   STEP 15  RADE / FreeDV, DRM  — yes / no  (asks its own questions)"
 echo "   STEP 16  Statistics server   — yes / no  (asks its own questions)"
 echo "   STEP 18  Kiwi emulation      — yes / no  (patches source for Kiwi clients)"
 echo "   STEP 19  Final rebuild       — yes / no"
@@ -2327,7 +2330,7 @@ if [ "$USE_STATION" = true ]; then
 fi
 
 if [ -f "$PHANTOM_DIR/install_rade.sh" ]; then
-    step "RADE / FreeDV decoder (optional)" "$(ask_hint "⌨️  YOU WILL BE ASKED — and setup asks its own questions")"
+    step "RADE / FreeDV and DRM decoders (optional)" "$(ask_hint "⌨️  YOU WILL BE ASKED — and setup asks its own questions")"
     echo ""
     echo "RADE (Radio Autoencoder) decodes FreeDV RADE V1 voice in the browser."
     echo "It builds the radae repository into ~/radae and runs as a small Python"
@@ -2362,6 +2365,47 @@ if [ -f "$PHANTOM_DIR/install_rade.sh" ]; then
     fi
     echo ""
 fi
+
+# ------------------------------------------------------------------------------
+# DRM decoder (part of the decoders step)
+# ------------------------------------------------------------------------------
+# autorun/drm-helper.js decodes DRM on this server for each listener who
+# presses the DRM button, one ubersdr-drm per listener. setup-drm.sh installs
+# what it needs with apt / dnf / pacman / zypper and builds the decoder into
+# drm/bin/, with fdk-aac 2.0.3 (xHE-AAC) fetched and linked in on this machine,
+# so no decoder binary is ever shipped. It asks nothing, so it runs unattended
+# too. A failed build leaves the rest of the install alone.
+
+DRM_PORT=8075
+if [ "$USE_STATION" = true ]; then
+    DRM_PORT="$(station_value PORT_DRM)"
+    DRM_PORT="${DRM_PORT:-8075}"
+fi
+if [ -f "$PHANTOM_DIR/setup-drm.sh" ]; then
+    echo ""
+    echo "DRM (Digital Radio Mondiale) is decoded on this server for each listener"
+    echo "who presses the DRM button — about 2 % of one CPU core per listener."
+    echo "setup-drm.sh builds the decoder into drm/bin/ (a few minutes, needs internet)."
+    echo ""
+    yellow "   Installed by default — answer 'n' to skip it."
+    if confirm PHANTOM_DRM y y "Install the DRM decoder now?"; then
+        echo ""
+        if ( cd "$PHANTOM_DIR" && bash ./setup-drm.sh ) < "$SUB_IN"; then
+            DRM_INSTALLED=true
+            green "✅ DRM decoder installed"
+            component "DRM" "installed via setup-drm.sh — helper on port $DRM_PORT"
+        else
+            yellow "⚠️  DRM setup did not finish — run ./setup-drm.sh again later"
+            component "DRM" "FAILED — re-run ./setup-drm.sh"
+        fi
+    else
+        echo "Skipping DRM — run ./setup-drm.sh later if you change your mind."
+        component "DRM" "not installed — ./setup-drm.sh installs it later"
+    fi
+else
+    component "DRM" "not installed — setup-drm.sh missing from the tree"
+fi
+echo ""
 
 # ------------------------------------------------------------------------------
 # Statistics server
@@ -2771,6 +2815,17 @@ if [ "$RELAY_INSTALLED" = true ]; then
     echo "   • Manual: docs/RECEIVE_DIVERSITY.md"
 fi
 
+if [ "$DRM_INSTALLED" = true ]; then
+    echo ""
+    green "✅ DRM:"
+    echo "   • Decoder built in drm/bin/, helper started and stopped with the receiver"
+    if [ "$USE_STATION" = true ]; then
+        echo "   • Reached as /drm on the public port — nothing extra to forward"
+    else
+        echo "   • Forward TCP port 8075 for DRM decoding"
+    fi
+fi
+
 if [ "$RADE_INSTALLED" = true ]; then
     echo ""
     green "✅ RADE / FreeDV:"
@@ -2829,7 +2884,7 @@ if [ "$USE_STATION" = true ]; then
         && echo "🔒 and over https:     https://${ST_HOST}/      (forward 443 and 80 as well)"
     echo ""
     yellow "   Forward TCP port ${ST_PORT} on your router to ${ST_LAN} — it is the"
-    yellow "   only port listeners need. RADE, statistics and the relay share it."
+    yellow "   only port listeners need. RADE, DRM, statistics and the relay share it."
     if [ "$ADMIN_INSTALLED" = true ]; then
         echo ""
         echo "🛠  Admin panel:  http://${ST_LAN}:${ST_PORT}/admin"

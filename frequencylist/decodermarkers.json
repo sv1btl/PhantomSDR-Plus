@@ -1,0 +1,1047 @@
+[
+    {
+      "frequency": 136000,
+      "name": "WSPR",
+      "mode": "WSPR"
+    },
+    {
+      "frequency": 147300,
+      "name": "DWD DDH47",
+      "mode": "RTTY-WX"
+    },
+    {
+      "frequency": 474200,
+      "name": "WSPR",
+      "mode": "WSPR"
+    },
+    {
+      "frequency": 490000,
+      "name": "NAVTEX",
+      "mode": "NAVTEX"
+    },
+    {
+      "frequency": 518000,
+      "name": "NAVTEX",
+      "mode": "NAVTEX"
+    },
+    {
+      "frequency": 1836600,
+      "name": "WSPR",
+      "mode": "WSPR"
+    },
+    {
+      "frequency": 1840000,
+      "name": "FT8",
+      "mode": "FT8"
+    },
+    {
+      "frequency": 1843000,
+      "name": "FT2",
+      "mode": "FT2"
+    },
+    {
+      "frequency": 1846000,
+      "name": "JS8",
+      "mode": "JS8"
+    },
+    {
+      "frequency": 1870000,
+      "name": "FreeDV",
+      "mode": "RADEL"
+    },
+    {
+      "frequency": 2174500,
+      "name": "SITOR MSI",
+      "mode": "SITOR"
+    },
+    {
+      "frequency": 2618500,
+      "name": "FAX GYA",
+      "mode": "FAX"
+    },
+    {
+      "frequency": 2986000,
+      "name": "HFDL Bahrain",
+      "mode": "HFDL"
+    },
+    {
+      "frequency": 2998000,
+      "name": "HFDL Shannon",
+      "mode": "HFDL"
+    },
+    {
+      "frequency": 3016000,
+      "name": "HFDL Johannesburg",
+      "mode": "HFDL"
+    },
+    {
+      "frequency": 3205000,
+      "name": "DRM KCBS (Korea)",
+      "mode": "DRM"
+    },
+    {
+      "frequency": 3455000,
+      "name": "HFDL Shannon",
+      "mode": "HFDL"
+    },
+    {
+      "frequency": 3560000,
+      "name": "CW QRP",
+      "mode": "MORSE"
+    },
+    {
+      "frequency": 3568600,
+      "name": "WSPR",
+      "mode": "WSPR"
+    },
+    {
+      "frequency": 3573000,
+      "name": "FT8",
+      "mode": "FT8"
+    },
+    {
+      "frequency": 3575000,
+      "name": "FT4",
+      "mode": "FT4"
+    },
+    {
+      "frequency": 3578000,
+      "name": "JS8",
+      "mode": "JS8"
+    },
+    {
+      "frequency": 3578000,
+      "name": "FT2",
+      "mode": "FT2"
+    },
+    {
+      "frequency": 3580150,
+      "name": "PSK31",
+      "mode": "PSK31"
+    },
+    {
+      "frequency": 3583000,
+      "name": "Olivia",
+      "mode": "OLIVIA"
+    },
+    {
+      "frequency": 3590000,
+      "name": "RTTY",
+      "mode": "RTTY"
+    },
+    {
+      "frequency": 3625000,
+      "name": "FreeDV",
+      "mode": "RADEL"
+    },
+    {
+      "frequency": 3735000,
+      "name": "SSTV",
+      "mode": "SSTV"
+    },
+    {
+      "frequency": 3767000,
+      "name": "FreeDV",
+      "mode": "RADEL"
+    },
+    {
+      "frequency": 3855000,
+      "name": "FAX DDH/DDK",
+      "mode": "FAX"
+    },
+    {
+      "frequency": 3900000,
+      "name": "HFDL Reykjavik",
+      "mode": "HFDL"
+    },
+    {
+      "frequency": 4209500,
+      "name": "NAVTEX Heraklion",
+      "mode": "NAVTEX"
+    },
+    {
+      "frequency": 4210000,
+      "name": "SITOR MSI",
+      "mode": "SITOR"
+    },
+    {
+      "frequency": 4280000,
+      "name": "PBB RTTY (Holland)",
+      "mode": "RTTY"
+    },
+    {
+      "frequency": 4405000,
+      "name": "Istanbul Marine Weather",
+      "mode": "SITOR"
+    },
+    {
+      "frequency": 4482900,
+      "name": "FAX SVJ4",
+      "mode": "FAX"
+    },
+    {
+      "frequency": 4583000,
+      "name": "DWD DDK2",
+      "mode": "RTTY-WX"
+    },
+    {
+      "frequency": 4610000,
+      "name": "FAX GYA",
+      "mode": "FAX"
+    },
+    {
+      "frequency": 4681000,
+      "name": "HFDL Johannesburg",
+      "mode": "HFDL"
+    },
+    {
+      "frequency": 5336000,
+      "name": "FAX RBW41",
+      "mode": "FAX"
+    },
+    {
+      "frequency": 5357000,
+      "name": "JS8",
+      "mode": "JS8"
+    },
+    {
+      "frequency": 5360000,
+      "name": "FT2",
+      "mode": "FT2"
+    },
+    {
+      "frequency": 5364700,
+      "name": "WSPR",
+      "mode": "WSPR"
+    },
+    {
+      "frequency": 5366500,
+      "name": "FreeDV",
+      "mode": "RADEL"
+    },
+    {
+      "frequency": 5529000,
+      "name": "HFDL Johannesburg",
+      "mode": "HFDL"
+    },
+    {
+      "frequency": 5544000,
+      "name": "HFDL Bahrain",
+      "mode": "HFDL"
+    },
+    {
+      "frequency": 5547000,
+      "name": "HFDL Shannon",
+      "mode": "HFDL"
+    },
+    {
+      "frequency": 5622000,
+      "name": "HFDL Krasnoyarsk",
+      "mode": "HFDL"
+    },
+    {
+      "frequency": 5720000,
+      "name": "HFDL Reykjavik",
+      "mode": "HFDL"
+    },
+    {
+      "frequency": 5955000,
+      "name": "DRM RRI (EU)",
+      "mode": "DRM"
+    },
+    {
+      "frequency": 6030000,
+      "name": "DRM CNR-1 (China)",
+      "mode": "DRM"
+    },
+    {
+      "frequency": 6110000,
+      "name": "DRM RRI (EU)",
+      "mode": "DRM"
+    },
+    {
+      "frequency": 6140000,
+      "name": "DRM KCBS (Korea)",
+      "mode": "DRM"
+    },
+    {
+      "frequency": 6314000,
+      "name": "SITOR MSI",
+      "mode": "SITOR"
+    },
+    {
+      "frequency": 6445500,
+      "name": "FAX RBW41",
+      "mode": "FAX"
+    },
+    {
+      "frequency": 6529000,
+      "name": "HFDL Canarias",
+      "mode": "HFDL"
+    },
+    {
+      "frequency": 6532000,
+      "name": "HFDL Shannon",
+      "mode": "HFDL"
+    },
+    {
+      "frequency": 6596000,
+      "name": "HFDL Krasnoyarsk",
+      "mode": "HFDL"
+    },
+    {
+      "frequency": 6646000,
+      "name": "HFDL Bahrain",
+      "mode": "HFDL"
+    },
+    {
+      "frequency": 6712000,
+      "name": "HFDL Reykjavik",
+      "mode": "HFDL"
+    },
+    {
+      "frequency": 7030000,
+      "name": "CW QRP",
+      "mode": "MORSE"
+    },
+    {
+      "frequency": 7038600,
+      "name": "WSPR",
+      "mode": "WSPR"
+    },
+    {
+      "frequency": 7040000,
+      "name": "Olivia",
+      "mode": "OLIVIA"
+    },
+    {
+      "frequency": 7040150,
+      "name": "PSK31",
+      "mode": "PSK31"
+    },
+    {
+      "frequency": 7043000,
+      "name": "RTTY",
+      "mode": "RTTY"
+    },
+    {
+      "frequency": 7047500,
+      "name": "FT4",
+      "mode": "FT4"
+    },
+    {
+      "frequency": 7062000,
+      "name": "FT2",
+      "mode": "FT2"
+    },
+    {
+      "frequency": 7072500,
+      "name": "Olivia",
+      "mode": "OLIVIA"
+    },
+    {
+      "frequency": 7074000,
+      "name": "FT8",
+      "mode": "FT8"
+    },
+    {
+      "frequency": 7078000,
+      "name": "JS8",
+      "mode": "JS8"
+    },
+    {
+      "frequency": 7087000,
+      "name": "FreeDV",
+      "mode": "RADEL"
+    },
+    {
+      "frequency": 7171000,
+      "name": "SSTV",
+      "mode": "SSTV"
+    },
+    {
+      "frequency": 7177000,
+      "name": "FreeDV",
+      "mode": "RADEL"
+    },
+    {
+      "frequency": 7225000,
+      "name": "DRM Music 4 Joy (EU)",
+      "mode": "DRM"
+    },
+    {
+      "frequency": 7285000,
+      "name": "DRM RNZ Pacific (Pacific)",
+      "mode": "DRM"
+    },
+    {
+      "frequency": 7646000,
+      "name": "DWD DDH7",
+      "mode": "RTTY-WX"
+    },
+    {
+      "frequency": 7880000,
+      "name": "FAX DDH/DDK",
+      "mode": "FAX"
+    },
+    {
+      "frequency": 7908800,
+      "name": "FAX RBW41",
+      "mode": "FAX"
+    },
+    {
+      "frequency": 8040000,
+      "name": "FAX GYA",
+      "mode": "FAX"
+    },
+    {
+      "frequency": 8106900,
+      "name": "FAX SVJ4",
+      "mode": "FAX"
+    },
+    {
+      "frequency": 8416500,
+      "name": "SITOR MSI",
+      "mode": "SITOR"
+    },
+    {
+      "frequency": 8444000,
+      "name": "FAX RBW41",
+      "mode": "FAX"
+    },
+    {
+      "frequency": 8834000,
+      "name": "HFDL Johannesburg",
+      "mode": "HFDL"
+    },
+    {
+      "frequency": 8843000,
+      "name": "HFDL Shannon",
+      "mode": "HFDL"
+    },
+    {
+      "frequency": 8885000,
+      "name": "HFDL Bahrain",
+      "mode": "HFDL"
+    },
+    {
+      "frequency": 8886000,
+      "name": "HFDL Krasnoyarsk",
+      "mode": "HFDL"
+    },
+    {
+      "frequency": 8942000,
+      "name": "HFDL Shannon",
+      "mode": "HFDL"
+    },
+    {
+      "frequency": 8948000,
+      "name": "HFDL Canarias",
+      "mode": "HFDL"
+    },
+    {
+      "frequency": 8977000,
+      "name": "HFDL Reykjavik",
+      "mode": "HFDL"
+    },
+    {
+      "frequency": 9470000,
+      "name": "DRM RRI (China)",
+      "mode": "DRM"
+    },
+    {
+      "frequency": 9500000,
+      "name": "DRM RRI (S.America)",
+      "mode": "DRM"
+    },
+    {
+      "frequency": 9570000,
+      "name": "DRM RRI (EU)",
+      "mode": "DRM"
+    },
+    {
+      "frequency": 9655000,
+      "name": "DRM CNR-1 (China)",
+      "mode": "DRM"
+    },
+    {
+      "frequency": 9720000,
+      "name": "DRM RRI (EU)",
+      "mode": "DRM"
+    },
+    {
+      "frequency": 9810000,
+      "name": "DRM Music 4 Joy (Africa)",
+      "mode": "DRM"
+    },
+    {
+      "frequency": 10030000,
+      "name": "HFDL Bahrain",
+      "mode": "HFDL"
+    },
+    {
+      "frequency": 10081000,
+      "name": "HFDL Shannon",
+      "mode": "HFDL"
+    },
+    {
+      "frequency": 10087000,
+      "name": "HFDL Krasnoyarsk",
+      "mode": "HFDL"
+    },
+    {
+      "frequency": 10100800,
+      "name": "DWD DDK9",
+      "mode": "RTTY-WX"
+    },
+    {
+      "frequency": 10108000,
+      "name": "FT2",
+      "mode": "FT2"
+    },
+    {
+      "frequency": 10116000,
+      "name": "CW QRP",
+      "mode": "MORSE"
+    },
+    {
+      "frequency": 10130000,
+      "name": "JS8",
+      "mode": "JS8"
+    },
+    {
+      "frequency": 10136000,
+      "name": "FT8",
+      "mode": "FT8"
+    },
+    {
+      "frequency": 10138700,
+      "name": "WSPR",
+      "mode": "WSPR"
+    },
+    {
+      "frequency": 10140000,
+      "name": "FT4",
+      "mode": "FT4"
+    },
+    {
+      "frequency": 10142150,
+      "name": "PSK31",
+      "mode": "PSK31"
+    },
+    {
+      "frequency": 10143000,
+      "name": "RTTY",
+      "mode": "RTTY"
+    },
+    {
+      "frequency": 10144000,
+      "name": "FT2",
+      "mode": "FT2"
+    },
+    {
+      "frequency": 10147600,
+      "name": "HF APRS",
+      "mode": "APRS"
+    },
+    {
+      "frequency": 11039000,
+      "name": "DWD DDH9",
+      "mode": "RTTY-WX"
+    },
+    {
+      "frequency": 11086500,
+      "name": "FAX GYA",
+      "mode": "FAX"
+    },
+    {
+      "frequency": 11184000,
+      "name": "HFDL Reykjavik",
+      "mode": "HFDL"
+    },
+    {
+      "frequency": 11321000,
+      "name": "HFDL Johannesburg",
+      "mode": "HFDL"
+    },
+    {
+      "frequency": 11348000,
+      "name": "HFDL Canarias",
+      "mode": "HFDL"
+    },
+    {
+      "frequency": 11384000,
+      "name": "HFDL Shannon",
+      "mode": "HFDL"
+    },
+    {
+      "frequency": 11690000,
+      "name": "DRM RNZ Pacific (Pacific)",
+      "mode": "DRM"
+    },
+    {
+      "frequency": 11695000,
+      "name": "DRM CNR-1 (China)",
+      "mode": "DRM"
+    },
+    {
+      "frequency": 12579000,
+      "name": "SITOR MSI",
+      "mode": "SITOR"
+    },
+    {
+      "frequency": 13303000,
+      "name": "HFDL Canarias",
+      "mode": "HFDL"
+    },
+    {
+      "frequency": 13312000,
+      "name": "HFDL Bahrain",
+      "mode": "HFDL"
+    },
+    {
+      "frequency": 13321000,
+      "name": "HFDL Johannesburg/Krasnoyarsk",
+      "mode": "HFDL"
+    },
+    {
+      "frequency": 13650000,
+      "name": "DRM Music 4 Joy (Asia)",
+      "mode": "DRM"
+    },
+    {
+      "frequency": 13730000,
+      "name": "DRM Music 4 Joy (Africa)",
+      "mode": "DRM"
+    },
+    {
+      "frequency": 13790000,
+      "name": "DRM CNR-1 (China)",
+      "mode": "DRM"
+    },
+    {
+      "frequency": 13825000,
+      "name": "DRM CNR-1 (China)",
+      "mode": "DRM"
+    },
+    {
+      "frequency": 13835000,
+      "name": "DRM CNR-1 (China)",
+      "mode": "DRM"
+    },
+    {
+      "frequency": 13840000,
+      "name": "DRM RNZ Pacific (Pacific)",
+      "mode": "DRM"
+    },
+    {
+      "frequency": 13882500,
+      "name": "FAX DDH/DDK",
+      "mode": "FAX"
+    },
+    {
+      "frequency": 14060000,
+      "name": "CW QRP",
+      "mode": "MORSE"
+    },
+    {
+      "frequency": 14070150,
+      "name": "PSK31",
+      "mode": "PSK31"
+    },
+    {
+      "frequency": 14072500,
+      "name": "Olivia",
+      "mode": "OLIVIA"
+    },
+    {
+      "frequency": 14074000,
+      "name": "FT8",
+      "mode": "FT8"
+    },
+    {
+      "frequency": 14078000,
+      "name": "JS8",
+      "mode": "JS8"
+    },
+    {
+      "frequency": 14080000,
+      "name": "FT4",
+      "mode": "FT4"
+    },
+    {
+      "frequency": 14083000,
+      "name": "RTTY",
+      "mode": "RTTY"
+    },
+    {
+      "frequency": 14084000,
+      "name": "FT2",
+      "mode": "FT2"
+    },
+    {
+      "frequency": 14095600,
+      "name": "WSPR",
+      "mode": "WSPR"
+    },
+    {
+      "frequency": 14108500,
+      "name": "Olivia",
+      "mode": "OLIVIA"
+    },
+    {
+      "frequency": 14230000,
+      "name": "SSTV",
+      "mode": "SSTV"
+    },
+    {
+      "frequency": 14233000,
+      "name": "SSTV",
+      "mode": "SSTV"
+    },
+    {
+      "frequency": 14236000,
+      "name": "FreeDV",
+      "mode": "RADEU"
+    },
+    {
+      "frequency": 14467300,
+      "name": "DWD DDH8",
+      "mode": "RTTY-WX"
+    },
+    {
+      "frequency": 15025000,
+      "name": "HFDL Reykjavik",
+      "mode": "HFDL"
+    },
+    {
+      "frequency": 15250000,
+      "name": "DRM RRI (India)",
+      "mode": "DRM"
+    },
+    {
+      "frequency": 15290000,
+      "name": "DRM CNR-1 (China)",
+      "mode": "DRM"
+    },
+    {
+      "frequency": 15785000,
+      "name": "DRM funklust (EU)",
+      "mode": "DRM"
+    },
+    {
+      "frequency": 16806500,
+      "name": "SITOR MSI",
+      "mode": "SITOR"
+    },
+    {
+      "frequency": 17575000,
+      "name": "DRM BBC WS (India)",
+      "mode": "DRM"
+    },
+    {
+      "frequency": 17605000,
+      "name": "DRM CNR-1 (China)",
+      "mode": "DRM"
+    },
+    {
+      "frequency": 17650000,
+      "name": "DRM CNR-1 (China)",
+      "mode": "DRM"
+    },
+    {
+      "frequency": 17660000,
+      "name": "DRM CNR-1 (China)",
+      "mode": "DRM"
+    },
+    {
+      "frequency": 17700000,
+      "name": "DRM CNR-1 (China)",
+      "mode": "DRM"
+    },
+    {
+      "frequency": 17710000,
+      "name": "DRM CNR-1 (China)",
+      "mode": "DRM"
+    },
+    {
+      "frequency": 17720000,
+      "name": "DRM CNR-1 (China)",
+      "mode": "DRM"
+    },
+    {
+      "frequency": 17770000,
+      "name": "DRM CNR-1 (China)",
+      "mode": "DRM"
+    },
+    {
+      "frequency": 17830000,
+      "name": "DRM CNR-1 (China)",
+      "mode": "DRM"
+    },
+    {
+      "frequency": 17870000,
+      "name": "DRM CNR-1 (China)",
+      "mode": "DRM"
+    },
+    {
+      "frequency": 17912000,
+      "name": "HFDL Krasnoyarsk",
+      "mode": "HFDL"
+    },
+    {
+      "frequency": 17922000,
+      "name": "HFDL Johannesburg",
+      "mode": "HFDL"
+    },
+    {
+      "frequency": 17928000,
+      "name": "HFDL Canarias",
+      "mode": "HFDL"
+    },
+    {
+      "frequency": 17967000,
+      "name": "HFDL Bahrain",
+      "mode": "HFDL"
+    },
+    {
+      "frequency": 17985000,
+      "name": "HFDL Reykjavik",
+      "mode": "HFDL"
+    },
+    {
+      "frequency": 18086000,
+      "name": "CW QRP",
+      "mode": "MORSE"
+    },
+    {
+      "frequency": 18099000,
+      "name": "Olivia",
+      "mode": "OLIVIA"
+    },
+    {
+      "frequency": 18100000,
+      "name": "FT8",
+      "mode": "FT8"
+    },
+    {
+      "frequency": 18100150,
+      "name": "PSK31",
+      "mode": "PSK31"
+    },
+    {
+      "frequency": 18104000,
+      "name": "FT4",
+      "mode": "FT4"
+    },
+    {
+      "frequency": 18104000,
+      "name": "JS8",
+      "mode": "JS8"
+    },
+    {
+      "frequency": 18104600,
+      "name": "WSPR",
+      "mode": "WSPR"
+    },
+    {
+      "frequency": 18118000,
+      "name": "FreeDV",
+      "mode": "RADEU"
+    },
+    {
+      "frequency": 19680500,
+      "name": "SITOR MSI",
+      "mode": "SITOR"
+    },
+    {
+      "frequency": 21060000,
+      "name": "CW QRP",
+      "mode": "MORSE"
+    },
+    {
+      "frequency": 21072500,
+      "name": "Olivia",
+      "mode": "OLIVIA"
+    },
+    {
+      "frequency": 21074000,
+      "name": "FT8",
+      "mode": "FT8"
+    },
+    {
+      "frequency": 21078000,
+      "name": "JS8",
+      "mode": "JS8"
+    },
+    {
+      "frequency": 21080150,
+      "name": "PSK31",
+      "mode": "PSK31"
+    },
+    {
+      "frequency": 21083000,
+      "name": "RTTY",
+      "mode": "RTTY"
+    },
+    {
+      "frequency": 21094600,
+      "name": "WSPR",
+      "mode": "WSPR"
+    },
+    {
+      "frequency": 21140000,
+      "name": "FT4",
+      "mode": "FT4"
+    },
+    {
+      "frequency": 21144000,
+      "name": "FT2",
+      "mode": "FT2"
+    },
+    {
+      "frequency": 21313000,
+      "name": "FreeDV",
+      "mode": "RADEU"
+    },
+    {
+      "frequency": 21340000,
+      "name": "SSTV",
+      "mode": "SSTV"
+    },
+    {
+      "frequency": 21470000,
+      "name": "DRM RRI (India)",
+      "mode": "DRM"
+    },
+    {
+      "frequency": 21949000,
+      "name": "HFDL Johannesburg",
+      "mode": "HFDL"
+    },
+    {
+      "frequency": 21955000,
+      "name": "HFDL Canarias",
+      "mode": "HFDL"
+    },
+    {
+      "frequency": 21982000,
+      "name": "HFDL Bahrain",
+      "mode": "HFDL"
+    },
+    {
+      "frequency": 21990000,
+      "name": "HFDL Krasnoyarsk",
+      "mode": "HFDL"
+    },
+    {
+      "frequency": 22376000,
+      "name": "SITOR MSI",
+      "mode": "SITOR"
+    },
+    {
+      "frequency": 24906000,
+      "name": "CW QRP",
+      "mode": "MORSE"
+    },
+    {
+      "frequency": 24915000,
+      "name": "FT8",
+      "mode": "FT8"
+    },
+    {
+      "frequency": 24919000,
+      "name": "FT4",
+      "mode": "FT4"
+    },
+    {
+      "frequency": 24920150,
+      "name": "PSK31",
+      "mode": "PSK31"
+    },
+    {
+      "frequency": 24922000,
+      "name": "JS8",
+      "mode": "JS8"
+    },
+    {
+      "frequency": 24922500,
+      "name": "Olivia",
+      "mode": "OLIVIA"
+    },
+    {
+      "frequency": 24923000,
+      "name": "FT2",
+      "mode": "FT2"
+    },
+    {
+      "frequency": 24924600,
+      "name": "WSPR",
+      "mode": "WSPR"
+    },
+    {
+      "frequency": 24933000,
+      "name": "FreeDV",
+      "mode": "RADEU"
+    },
+    {
+      "frequency": 26100500,
+      "name": "SITOR MSI",
+      "mode": "SITOR"
+    },
+    {
+      "frequency": 28060000,
+      "name": "CW QRP",
+      "mode": "MORSE"
+    },
+    {
+      "frequency": 28074000,
+      "name": "FT8",
+      "mode": "FT8"
+    },
+    {
+      "frequency": 28078000,
+      "name": "JS8",
+      "mode": "JS8"
+    },
+    {
+      "frequency": 28083000,
+      "name": "RTTY",
+      "mode": "RTTY"
+    },
+    {
+      "frequency": 28120150,
+      "name": "PSK31",
+      "mode": "PSK31"
+    },
+    {
+      "frequency": 28122500,
+      "name": "Olivia",
+      "mode": "OLIVIA"
+    },
+    {
+      "frequency": 28124600,
+      "name": "WSPR",
+      "mode": "WSPR"
+    },
+    {
+      "frequency": 28180000,
+      "name": "FT4",
+      "mode": "FT4"
+    },
+    {
+      "frequency": 28184000,
+      "name": "FT2",
+      "mode": "FT2"
+    },
+    {
+      "frequency": 28330000,
+      "name": "FreeDV",
+      "mode": "RADEU"
+    },
+    {
+      "frequency": 28680000,
+      "name": "SSTV",
+      "mode": "SSTV"
+    }
+]

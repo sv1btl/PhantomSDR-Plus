@@ -273,6 +273,7 @@ main {
 .bar-fill.amber { background: var(--amber); }
 .bar-fill.blue  { background: var(--blue); }
 .bar-fill.red   { background: var(--red); }
+.td-dec { color: var(--green); font-size: .72rem; font-weight: 600; margin-left: 4px; }
 .bar-count { color: var(--muted); text-align: right; font-size: .7rem; }
 
 /* ── HOURLY CHART ──────────────────────────────────── */
@@ -782,7 +783,7 @@ function analyze(events) {
   }
 
   // ── Main pass: pair tune → disconnect to build sessions ──────────────────
-  const open = {};   // uid → {start, geo, ip, mode, freq_khz, hour}
+  const open = {};   // uid → {start, geo, ip, mode, freq_khz, hour, decoders}
   const sessions = [];
 
   for (const ev of [...events].sort((a,b) => a.ts < b.ts ? -1 : 1)) {
@@ -796,12 +797,16 @@ function analyze(events) {
           mode:     ev.mode || '?',
           freq_khz: ev.freq_khz || 0,
           hour:     new Date(ev.ts).getUTCHours(),
+          decoders: [],
         };
       } else {
         open[uid].mode     = ev.mode     || open[uid].mode;
         open[uid].freq_khz = ev.freq_khz || open[uid].freq_khz;
         open[uid].geo      = safeGeo(ev.geo, ev.ip, uid, bestGeoById, bestGeoByIP);
       }
+      // Every decoder the listener ran in this session (logs from servers
+      // before the "decoder" field simply have none).
+      if (ev.decoder && !open[uid].decoders.includes(ev.decoder)) open[uid].decoders.push(ev.decoder);
     } else if (ev.event === 'disconnect') {
       const s = open[uid] || {
         start:    ev.ts,
@@ -810,6 +815,7 @@ function analyze(events) {
         mode:     ev.mode || '?',
         freq_khz: ev.freq_khz || 0,
         hour:     new Date(ev.ts).getUTCHours(),
+        decoders: ev.decoder ? [ev.decoder] : [],
       };
       // Always upgrade geo with best known value before closing the session.
       s.geo = safeGeo(s.geo, s.ip, uid, bestGeoById, bestGeoByIP);
@@ -895,6 +901,8 @@ function analyze(events) {
   const geoCount    = counter(sessions.map(s => s.geo).filter(Boolean));
   const bandCount   = counter(sessions.map(s => band(s.freq_khz)));
   const modeCount   = counter(sessions.map(s => (s.mode || '?').toUpperCase()));
+  // Sessions per decoder (a session that ran two decoders counts for both).
+  const decoderCount = counter(sessions.flatMap(s => s.decoders || []));
 
   // freq bucketed to nearest 5 kHz
   const freqCount   = counter(sessions
@@ -916,7 +924,7 @@ function analyze(events) {
     uniqueIPs:    uniqueIPs.size,
     uniqueGeos:   uniqueGeos.size,
     totalSecs, avgDur, maxDur,
-    geoCount, bandCount, modeCount, freqCount, hourCount, topSessions,
+    geoCount, bandCount, modeCount, decoderCount, freqCount, hourCount, topSessions,
   };
 }
 
@@ -958,7 +966,7 @@ function sessionTable(sessions) {
       <td style="color:var(--muted)">${String(i+1).padStart(2,'0')}</td>
       <td class="td-geo">${escHtml(s.geo||'?')}</td>
       <td class="td-freq">${fmtFreq(s.freq_khz)}</td>
-      <td class="td-mode">${escHtml((s.mode||'?').toUpperCase())}</td>
+      <td class="td-mode">${escHtml((s.mode||'?').toUpperCase())}${(s.decoders || []).length ? ` <span class="td-dec">${escHtml(s.decoders.join(', '))}</span>` : ''}</td>
       <td class="td-dur">${s.still_open ? '~' : ''}${fmtDur(s.duration)}</td>
       <td class="td-tune">${Number(s.freq_khz) > 0 ? `<button class="tune-btn"
         data-hz="${Math.round(Number(s.freq_khz) * 1000)}" data-mode="${escHtml(s.mode || '')}"
@@ -972,6 +980,7 @@ function render(stats, from, to) {
   const maxGeo  = stats.geoCount[0]?.[1]  || 1;
   const maxBand = stats.bandCount[0]?.[1] || 1;
   const maxMode = stats.modeCount[0]?.[1] || 1;
+  const maxDec  = stats.decoderCount[0]?.[1] || 1;
   const maxFreq = stats.freqCount[0]?.[1] || 1;
 
   dash.innerHTML = `
@@ -1043,6 +1052,17 @@ function render(stats, from, to) {
       <div class="panel-head"><span class="panel-title">Mode Popularity</span></div>
       <div class="panel-body">${barChart(stats.modeCount, maxMode)}</div>
     </div>
+  </div>
+
+  <!-- Decoders -->
+  <div class="panel">
+    <div class="panel-head">
+      <span class="panel-title">Decoder Popularity</span>
+      <span style="font-size:.65rem;color:var(--muted)">sessions that ran each decoder</span>
+    </div>
+    <div class="panel-body">${stats.decoderCount.length
+      ? barChart(stats.decoderCount, maxDec)
+      : '<p style="color:var(--muted);font-size:.75rem;padding:8px 0">No decoder used in this period.</p>'}</div>
   </div>
 
   <!-- Longest sessions table -->

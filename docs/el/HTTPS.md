@@ -52,6 +52,8 @@ bash setup-https.sh --status    # είναι ενεργό, και απαντά �
 bash setup-https.sh --remove    # κλείνει το https· το http μένει ακριβώς όπως είναι
 ```
 
+Το admin panel δείχνει το ίδιο στις **Ρυθμίσεις → HTTPS**: **🔍 CHECK** σε σταθμό με https, και σε σταθμό μόνο με http **🔒 SET UP HTTPS**, που ελέγχει ό,τι μπορεί και δίνει τις παραπάνω εντολές για αντιγραφή σε τερματικό. Δείτε [Admin Panel](ADMIN_PANEL_SETUP.md).
+
 Αν αλλάξετε αργότερα το όνομα DNS με το `bash configure-station.sh`, ο Caddy μεταφέρεται μόνος του στο νέο όνομα.
 
 ---

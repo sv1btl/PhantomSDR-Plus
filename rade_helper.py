@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-rade_helper.py — RADE v1 sidecar for PhantomSDR-Plus
+rade_helper.py — RADE sidecar for PhantomSDR-Plus (V1, and V2 beta via rade_c)
 =====================================================
 
 PER-CONNECTION ARCHITECTURE
@@ -15,7 +15,7 @@ of all available cores.
 
 Pipeline per connection:
   Browser (f32 real PCM @ audioOutputSps)
-      | resample to 8000 Hz
+      | resample continuously to 8000 Hz
       | zero-pad to complex f32
       v
   radae_rxe.py  --model_name <path>   [OMP_NUM_THREADS=2]
@@ -69,6 +69,35 @@ RADE_MODEL    = os.environ.get(
 )
 LPCNET_DEMO   = os.environ.get("LPCNET_DEMO", str(RADAE_DIR / "build" / "src" / "lpcnet_demo"))
 USE_AUXDATA   = os.environ.get("RADE_AUXDATA", "1") != "0"
+# RADE V2 (beta) runs on FreeDV's C port, kept in its own tree so the V1
+# install above is never touched. A client asks for it with "version": 2 in
+# its init frame; without rade_c that client gets an error and V1 is unaffected.
+RADE_C_DIR    = Path(os.environ.get("RADE_C_DIR", Path.home() / "rade_c")).expanduser()
+RADE_C_RX     = os.environ.get("RADE_C_RX", str(RADE_C_DIR / "build" / "src" / "radae_rx"))
+RADE_C_LPCNET = os.environ.get("RADE_C_LPCNET", str(RADE_C_DIR / "build" / "src" / "lpcnet_demo"))
+# V2 (beta) false-locks on busy LSB phone traffic heard on USB: on 40 m it sat
+# in "sync" 65 % of the time at -12..-1 dB and played garbled speech, where V1
+# never synced on the same audio. Below this SNR its audio is dropped and the
+# panel says "Searching"; it blocked 97 % of that false-lock time.
+V2_MIN_SNR    = float(os.environ.get("RADE_V2_MIN_SNR", "-2"))
+# Real V2 still decodes 3-4 dB below that mute. Between RADE_V2_WEAK_SNR and
+# V2_MIN_SNR the audio also passes when the last 2 s look like real V2: the
+# decoder's own signal flag set >= 60 % of the time and its frequency estimate
+# steady (std <= 0.05 Hz over the 2 s). Real V2 on air (3690/3697/3790/7087
+# kHz) passes that 77-99 % of the time with a median of 0.01-0.035 Hz; the
+# 40 m false locks wander ~0.8 Hz and never pass. Bench (2026-10-30,
+# ~/sdr-shots/radev2/bench): AWGN -5 dB 2 % -> 84 % of the speech decoded
+# right, -3 dB 82 -> 96 %, poor-HF fading 0 dB 69 -> 85 %, with the 40 m
+# false-lock garbage about unchanged (0.8 -> 0.9 s in 40 s). Set it to
+# V2_MIN_SNR or higher to switch it off.
+V2_WEAK_SNR   = float(os.environ.get("RADE_V2_WEAK_SNR", "-6"))
+# Decoded RADE speech is as loud as the sender's microphone. A V2 station on
+# 3697 kHz decoded ~16 dB below a normal decode and, after the page's 0.20
+# RADE trim, was all but silent for listeners. V2 output gets a slow level
+# control towards this target (0 = off); a normal-level decode is left as is.
+# -16 dBFS is where a normal V1 decode sits: -12 was tried first and, with the
+# page's 2.65x RADE gain (0.20 x volume), clipped 2-3 % of the samples.
+V2_TARGET_DB  = float(os.environ.get("RADE_V2_TARGET_DB", "-16"))
 # PyTorch/OpenBLAS threads per radae_rxe.py instance.
 # 1 thread = ~70-80% of one core, sufficient for real-time RADE decode.
 # 2 threads = ~100% of one core, use if you hear dropouts with 1 thread.
@@ -99,25 +128,144 @@ def _taskset_prefix():
     return ["taskset", "-c", ",".join(cores)]
 
 
-def _resample_f32(data, from_sps):
-    if from_sps == SPS_RADAE or from_sps <= 0:
-        return data
-    try:
+class _StreamResampler:
+    """Continuous resampler to SPS_RADAE for both pipelines.
+
+    Resampling every browser chunk on its own (as V1 once did) leaves a small
+    glitch at the edge of each ~512-sample chunk. V1 rode over it at a cost of
+    weak-signal decodes; V2 loses lock on it and re-acquires again and again, and every acquisition replays
+    the speech it buffered while searching. On a live 3697 kHz over that gave
+    56 s of audio for 40 s and 17 acquisitions, against 1 when resampled in one
+    pass. This keeps the input history and the fractional read position from
+    one chunk to the next, so chunk boundaries leave no trace: a Kaiser-windowed
+    sinc evaluated at each output instant."""
+    HALF = 32                                   # taps on each side of the read point
+
+    def __init__(self, in_sps, out_sps=SPS_RADAE, cutoff_hz=3800.0):
         import numpy as np
-        samples = np.frombuffer(data, dtype=np.float32).copy()
-        try:
-            from scipy.signal import resample_poly
-            from fractions import Fraction
-            r = Fraction(SPS_RADAE, from_sps).limit_denominator(50)
-            out = resample_poly(samples, r.numerator, r.denominator)
-        except ImportError:
-            n_out = max(1, int(round(len(samples) * SPS_RADAE / from_sps)))
-            x_in  = np.linspace(0.0, 1.0, len(samples), endpoint=False)
-            x_out = np.linspace(0.0, 1.0, n_out, endpoint=False)
-            out   = np.interp(x_out, x_in, samples)
-        return out.astype(np.float32).tobytes()
-    except ImportError:
-        return data
+        self.np = np
+        self.step = float(in_sps) / float(out_sps)      # input samples per output sample
+        self.fc = min(cutoff_hz, 0.475 * out_sps) / float(in_sps)
+        self.hist = np.zeros(2 * self.HALF, np.float32)
+        self.pos = float(self.HALF)
+        self.win = np.kaiser(2 * self.HALF + 1, 8.0)
+        self.win_x = np.linspace(-self.HALF, self.HALF, 2 * self.HALF + 1)
+        self.k = np.arange(-self.HALF + 1, self.HALF + 1)
+
+    def process(self, real_bytes):
+        np = self.np
+        x = np.concatenate([self.hist, np.frombuffer(real_bytes, dtype=np.float32)])
+        last = len(x) - self.HALF - 1
+        if self.pos > last:
+            self.hist = x
+            return b""
+        n = int(np.floor((last - self.pos) / self.step)) + 1
+        p = self.pos + self.step * np.arange(n)
+        idx = np.floor(p).astype(np.int64)[:, None] + self.k[None, :]
+        d = p[:, None] - idx
+        h = 2 * self.fc * np.sinc(2 * self.fc * d) * np.interp(d, self.win_x, self.win)
+        y = (x[idx] * h).sum(axis=1).astype(np.float32)
+        nxt = self.pos + self.step * n
+        keep_from = int(np.floor(nxt)) - self.HALF
+        self.hist = x[keep_from:]
+        self.pos = nxt - keep_from
+        return y.tobytes()
+
+
+class _V2Mute:
+    """Decides, per radae_rx --v2 -v 2 status line, whether V2 audio passes.
+
+    Open while in sync at or above V2_MIN_SNR, or at or above V2_WEAK_SNR
+    while the last WIN symbols (~2 s) look like real V2 (see V2_WEAK_SNR)."""
+    WIN, SIG_MIN, JIT_MAX = 100, 0.6, 0.05
+
+    def __init__(self, min_snr=V2_MIN_SNR, weak_snr=V2_WEAK_SNR):
+        from collections import deque
+        self.min_snr, self.weak_snr = min_snr, weak_snr
+        self.sig, self.foff = deque(maxlen=self.WIN), deque(maxlen=self.WIN)
+
+    def update(self, state, sig, f_off, snr):
+        self.sig.append(sig)
+        self.foff.append(f_off)
+        if state != 'sync' or snr < self.weak_snr:
+            return False
+        if snr >= self.min_snr:
+            return True
+        if len(self.sig) < self.WIN or sum(self.sig) < self.SIG_MIN * self.WIN:
+            return False
+        n = float(len(self.foff))
+        mean = sum(self.foff) / n
+        return sum((f - mean) ** 2 for f in self.foff) / n <= self.JIT_MAX ** 2
+
+
+class _SpeechLevel:
+    """Slow level control for decoded V2 speech. A level follower that rises
+    fast on speech and falls back slowly (pauses between words do not pull it
+    down) sets the gain towards target_db: never below unity, at most +24 dB,
+    ramped across each chunk, with a hard limit against clipping."""
+
+    def __init__(self, target_db, sps=SPS_OUT, max_db=24.0, floor_db=-55.0, rise_s=0.05, fall_s=4.0):
+        import numpy as np
+        self.np = np
+        self.target = 10 ** (target_db / 20.0)
+        self.maxg = 10 ** (max_db / 20.0)
+        self.floor = 10 ** (floor_db / 20.0)
+        self.sps, self.rise, self.fall = sps, rise_s, fall_s
+        self.level = None
+        self.g = 1.0
+
+    def process(self, f32_bytes):
+        np = self.np
+        x = np.frombuffer(f32_bytes, dtype=np.float32)
+        if len(x) == 0:
+            return f32_bytes
+        rms = float(np.sqrt(np.mean(x * x)))
+        dt = len(x) / float(self.sps)
+        if rms > self.floor:
+            if self.level is None:
+                self.level = rms
+            tc = self.rise if rms > self.level else self.fall
+            self.level += (rms - self.level) * (1 - np.exp(-dt / tc))
+        want = 1.0 if self.level is None else min(self.maxg, max(1.0, self.target / self.level))
+        g0 = self.g
+        self.g += (want - self.g) * (1 - np.exp(-dt / 0.5))
+        y = x * np.linspace(g0, self.g, len(x), dtype=np.float32)
+        pk = float(np.max(np.abs(y)))
+        if pk > 0.98:
+            y = y * (0.98 / pk)
+        return y.astype(np.float32).tobytes()
+
+
+class _InputLevel:
+    """Slow gain on V2's input. The page sends receiver audio at RMS ~0.0005;
+    at that level rade_c's V2 stays in sync but decodes only the first few
+    seconds of each over to speech and the rest to near-silence. Brought to
+    RMS ~0.1 first, a real 3697 kHz over gave 25 s of speech instead of 4 s.
+    V2's own AGC does the fine work; this only puts the signal in its range."""
+
+    def __init__(self, target_rms=0.1, sps=SPS_RADAE, tc_s=1.0, min_g=0.1, max_g=3000.0):
+        import numpy as np
+        self.np = np
+        self.target, self.sps, self.tc = target_rms, sps, tc_s
+        self.min_g, self.max_g = min_g, max_g
+        self.rms = None
+        self.g = None
+
+    def process(self, f32_bytes):
+        np = self.np
+        x = np.frombuffer(f32_bytes, dtype=np.float32)
+        if len(x) == 0:
+            return f32_bytes
+        r = float(np.sqrt(np.mean(x * x)))
+        if r > 1e-7:
+            a = 1 - np.exp(-len(x) / (self.sps * self.tc))
+            self.rms = r if self.rms is None else self.rms + (r - self.rms) * a
+        if self.rms is None:
+            return f32_bytes
+        want = min(self.max_g, max(self.min_g, self.target / self.rms))
+        g0 = want if self.g is None else self.g
+        self.g = want
+        return (x * np.linspace(g0, want, len(x), dtype=np.float32)).astype(np.float32).tobytes()
 
 
 def _to_complex_f32(real_bytes):
@@ -169,6 +317,7 @@ async def handle_client(websocket):
     print("[RADE] client connected: %s" % addr, file=sys.stderr)
 
     input_sps = SPS_RADAE
+    version   = 1
 
     # Wait for JSON init frame
     try:
@@ -177,19 +326,25 @@ async def handle_client(websocket):
             cfg       = json.loads(raw)
             input_sps = int(cfg.get("sps", SPS_RADAE))
             sideband  = cfg.get("sideband", "USB")
-            print("[RADE] %s  sps=%d sideband=%s" % (addr, input_sps, sideband), file=sys.stderr)
+            version   = 2 if str(cfg.get("version", 1)) == "2" else 1
+            print("[RADE] %s  sps=%d sideband=%s version=V%d" % (addr, input_sps, sideband, version), file=sys.stderr)
     except asyncio.TimeoutError:
         print("[RADE] %s timeout waiting for init frame" % addr, file=sys.stderr)
     except Exception as exc:
         print("[RADE] %s init error: %s" % (addr, exc), file=sys.stderr)
 
     # Validate paths
-    for label, path in [("radae_rxe.py", RADAE_RX),
-                        ("model",        RADE_MODEL),
-                        ("lpcnet_demo",  LPCNET_DEMO)]:
+    if version == 2:
+        needed = [("rade_c radae_rx", RADE_C_RX), ("rade_c lpcnet_demo", RADE_C_LPCNET)]
+    else:
+        needed = [("radae_rxe.py", RADAE_RX), ("model", RADE_MODEL), ("lpcnet_demo", LPCNET_DEMO)]
+    for label, path in needed:
         if not Path(path).exists():
             msg = "%s not found: %s" % (label, path)
             print("[RADE] ERROR: %s" % msg, file=sys.stderr)
+            if version == 2:
+                # The listener sees this; the path stays in rade.log.
+                msg = "RADE V2 is not installed on this station yet — the station owner can add it by running ./install_rade.sh"
             await _send_json(websocket, {"type": "error", "msg": msg})
             return
 
@@ -197,21 +352,27 @@ async def handle_client(websocket):
     r_fd, w_fd = os.pipe()
 
     pin        = _taskset_prefix()
-    radae_cmd  = pin + ["python3", RADAE_RX, "--model_name", RADE_MODEL]
-    if not USE_AUXDATA:
-        radae_cmd.append("--noauxdata")
-    lpcnet_cmd = pin + [LPCNET_DEMO, "-fargan-synthesis", "-", "-"]
+    radae_env  = os.environ.copy()
+    if version == 2:
+        # -v 2 prints one status line per OFDM symbol, which carries the sync
+        # state and SNR the panel shows. The C port needs no PyTorch threads.
+        radae_cmd  = pin + [RADE_C_RX, "--v2", "-v", "2"]
+        lpcnet_cmd = pin + [RADE_C_LPCNET, "-fargan-synthesis", "-", "-"]
+    else:
+        radae_cmd  = pin + ["python3", RADAE_RX, "--model_name", RADE_MODEL]
+        if not USE_AUXDATA:
+            radae_cmd.append("--noauxdata")
+        lpcnet_cmd = pin + [LPCNET_DEMO, "-fargan-synthesis", "-", "-"]
+        # Limit PyTorch threads to prevent CPU exhaustion
+        radae_env["OMP_NUM_THREADS"]      = TORCH_THREADS
+        radae_env["MKL_NUM_THREADS"]      = TORCH_THREADS
+        radae_env["OPENBLAS_NUM_THREADS"] = TORCH_THREADS
+        radae_env["NUMEXPR_NUM_THREADS"]  = TORCH_THREADS
     if pin:
         print("[RADE] %s pinned to cores %s" % (addr, pin[2]), file=sys.stderr)
 
-    # Limit PyTorch threads to prevent CPU exhaustion
-    radae_env = os.environ.copy()
-    radae_env["OMP_NUM_THREADS"]      = TORCH_THREADS
-    radae_env["MKL_NUM_THREADS"]      = TORCH_THREADS
-    radae_env["OPENBLAS_NUM_THREADS"] = TORCH_THREADS
-    radae_env["NUMEXPR_NUM_THREADS"]  = TORCH_THREADS
-
-    print("[RADE] %s spawning pipeline (torch_threads=%s)" % (addr, TORCH_THREADS), file=sys.stderr)
+    print("[RADE] %s spawning V%d pipeline%s" % (addr, version,
+          "" if version == 2 else " (torch_threads=%s)" % TORCH_THREADS), file=sys.stderr)
 
     try:
         proc_radae = await asyncio.create_subprocess_exec(
@@ -220,6 +381,9 @@ async def handle_client(websocket):
             stdout = w_fd,
             stderr = asyncio.subprocess.PIPE,   # capture for sync/SNR parsing
             env    = radae_env,
+            # rade_c's radae_rx always creates eoo_rx.f32 in its working
+            # directory; keep it in rade_c's own build tree, not this repo.
+            cwd    = str(Path(RADE_C_RX).parent) if version == 2 else None,
         )
         os.close(w_fd)
         w_fd = -1   # mark closed so exception handler doesn't double-close
@@ -254,6 +418,24 @@ async def handle_client(websocket):
     await _send_json(websocket, {"type": "status", "connected": True})
 
     send_q = asyncio.Queue(maxsize=128)
+    # Both versions resample continuously (see _StreamResampler) from the rate the
+    # old per-chunk resampler ran at: 8000/sps rounded to a ratio with a
+    # denominator <= 50, which for the page's reported 12016.29 Hz is 2/3,
+    # i.e. 12000 Hz. That is the stream's real rate: V2 locks once at 12000 Hz
+    # and re-acquires from about 250 ppm away, so the reported 12016.29 Hz
+    # (1390 ppm off) cannot be used as it is. V1 used to resample each chunk
+    # on its own; continuously it decoded 25 points more of the speech right
+    # on the 2026-10-30 bench (AWGN -3 dB 30 -> 82 %, poor-HF fading 2 dB
+    # 41 -> 74 %, disturbed 4 dB 58 -> 86 %).
+    v2_level = _SpeechLevel(V2_TARGET_DB) if version == 2 and V2_TARGET_DB != 0 else None
+    v2_input = _InputLevel() if version == 2 else None
+    from fractions import Fraction
+    r = Fraction(SPS_RADAE, max(1, int(input_sps))).limit_denominator(50)
+    resampler = _StreamResampler(SPS_RADAE * r.denominator / r.numerator)
+    print("[RADE] %s V%d input resampled continuously from %.1f Hz" % (addr, version, SPS_RADAE * r.denominator / r.numerator), file=sys.stderr)
+    # V2 only: audio passes while _V2Mute says so.
+    v2_gate = {"open": version != 2}
+    v2_mute = _V2Mute() if version == 2 else None
 
     async def pump_radae_stderr():
         """Parse radae_rxe.py stderr for sync state and SNR, forward to browser.
@@ -263,12 +445,26 @@ async def handle_client(websocket):
           5 state: sync       ... SNRdB:  4.03 uw_err: 0
           6 state: sync       ... SNRdB:  7.58 uw_err: 0
 
+        rade_c's radae_rx --v2 -v 2 emits one line per OFDM symbol instead:
+          36   11 sync sig: 1 f_off:  0.09 snr:   5.0 dB eoo: 0.544
+          497  241 idle sig: 0 f_off:  0.09 snr: -18.9 dB eoo: 0.000
+
         We forward {type:'snr', synced:bool, snr:float} JSON frames so the
         browser panel can show the green 'Synced · SNR x.x dB' indicator.
+        V2 prints ~25 lines a second, so its frames go out only when the state
+        changes or every 10th line. Every V2 line updates the audio mute: a V2
+        "sync" that _V2Mute keeps closed is reported as not synced ("weak") and
+        its audio dropped.
         """
         import re
-        snr_re  = re.compile(r'SNRdB:\s*([\-0-9.]+)')
-        state_re = re.compile(r'state:\s*(\w+)')
+        if version == 2:
+            snr_re   = re.compile(r'snr:\s*([\-0-9.]+)\s*dB')
+            state_re = re.compile(r'^\s*\d+\s+\d+\s+(\w+)\s+sig:\s*(\d)\s+f_off:\s*([\-0-9.]+)')
+        else:
+            snr_re   = re.compile(r'SNRdB:\s*([\-0-9.]+)')
+            state_re = re.compile(r'state:\s*(\w+)')
+        last_state = None
+        n_lines    = 0
         try:
             while True:
                 line = await proc_radae.stderr.readline()
@@ -278,10 +474,20 @@ async def handle_client(websocket):
                 # Parse state
                 sm = state_re.search(text)
                 ss = snr_re.search(text)
+                if sm and version == 2:
+                    snr_now = float(ss.group(1)) if ss else -99.0
+                    v2_gate["open"] = v2_mute.update(sm.group(1), int(sm.group(2)), float(sm.group(3)), snr_now)
+                    n_lines += 1
+                    key = 'sync' if v2_gate["open"] else 'nosync'
+                    if key == last_state and n_lines % 10:
+                        continue
+                    last_state = key
                 if sm:
                     state  = sm.group(1)          # 'search', 'candidate', 'sync'
                     synced = (state == 'sync')
                     snr    = float(ss.group(1)) if ss else 0.0
+                    if version == 2 and synced and not v2_gate["open"]:
+                        synced, state = False, "weak"
                     await _send_json(websocket, {
                         "type":   "snr",
                         "synced": synced,
@@ -299,7 +505,12 @@ async def handle_client(websocket):
                 chunk = await proc_lpcnet.stdout.read(4096)
                 if not chunk:
                     break
-                await send_q.put(_s16_to_f32(chunk))
+                if not v2_gate["open"]:
+                    continue
+                pcm = _s16_to_f32(chunk)
+                if v2_level is not None:
+                    pcm = v2_level.process(pcm)
+                await send_q.put(pcm)
         except Exception as exc:
             print("[RADE] %s lpcnet pump: %s" % (addr, exc), file=sys.stderr)
         finally:
@@ -325,7 +536,10 @@ async def handle_client(websocket):
             if isinstance(msg, bytes):
                 if proc_radae.stdin is None or proc_radae.stdin.is_closing():
                     break
-                data = _to_complex_f32(_resample_f32(msg, input_sps))
+                data = resampler.process(msg)
+                if v2_input is not None:
+                    data = v2_input.process(data)
+                data = _to_complex_f32(data)
                 proc_radae.stdin.write(data)
                 try:
                     await proc_radae.stdin.drain()
@@ -367,6 +581,9 @@ async def main():
     print("[RADE] auxdata        : %s" % ("ON (default)" if USE_AUXDATA else "OFF (--noauxdata)"), file=sys.stderr)
     print("[RADE] torch threads  : %s per instance (RADE_TORCH_THREADS to override)" % TORCH_THREADS, file=sys.stderr)
     print("[RADE] architecture   : per-connection (each user tunes independently)", file=sys.stderr)
+    v2_ok = Path(RADE_C_RX).exists() and Path(RADE_C_LPCNET).exists()
+    print("[RADE] V2 (beta)      : %s" % (("rade_c at %s, muted below %.1f dB SNR (%.1f dB when it looks like real V2), speech level %s" % (RADE_C_DIR, V2_MIN_SNR, V2_WEAK_SNR, ("towards %.0f dBFS" % V2_TARGET_DB) if V2_TARGET_DB != 0 else "off")) if v2_ok
+          else "not installed (no %s)" % RADE_C_RX), file=sys.stderr)
 
     for label, path in [("radae_rxe.py", RADAE_RX),
                         ("model",        RADE_MODEL),

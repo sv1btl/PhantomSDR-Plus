@@ -79,6 +79,40 @@ struct glz::meta<identity_cmd>
     );
 };
 
+// The decoder the listener is running in the page (FT8, DRM, HFDL …; empty
+// when none), for /users. Sent on /audio; an older server refuses the
+// unknown command, which the page does not mind.
+struct decoder_cmd {
+    std::string name;
+};
+
+template <>
+struct glz::meta<decoder_cmd>
+{
+    using T = decoder_cmd;
+    static constexpr auto value = object(
+        "name", &T::name
+    );
+};
+
+// The receive-diversity partner the listener's page is combining with
+// (type phantom/kiwi/uber/websdr and host[:port]; both empty when off), for
+// the admin panel. Sent on /audio; an older server refuses it, harmlessly.
+struct diversity_cmd {
+    std::string type;
+    std::string host;
+};
+
+template <>
+struct glz::meta<diversity_cmd>
+{
+    using T = diversity_cmd;
+    static constexpr auto value = object(
+        "type", &T::type,
+        "host", &T::host
+    );
+};
+
 struct mute_cmd {
     bool mute;
 };
@@ -198,7 +232,8 @@ struct glz::meta<set_codec_cmd>
 
 using msg_variant = std::variant<window_cmd, demodulation_cmd, userid_cmd, mute_cmd, chat_cmd,
                                   noise_gate_enable_cmd, noise_gate_preset_cmd, agc_enable_cmd,
-                                  codec_caps_cmd, set_codec_cmd, agc_speed_cmd, identity_cmd>;
+                                  codec_caps_cmd, set_codec_cmd, agc_speed_cmd, identity_cmd,
+                                  decoder_cmd, diversity_cmd>;
 
 template <>
 struct glz::meta<msg_variant>
@@ -216,7 +251,9 @@ struct glz::meta<msg_variant>
         "codec_caps",
         "set_codec",
         "agc_speed",
-        "identity"
+        "identity",
+        "decoder",
+        "diversity"
     };
 };
 
@@ -268,6 +305,12 @@ void Client::on_message(std::string &msg) {
             },
             [&](identity_cmd &cmd) {
                 on_identity_message(cmd.name);
+            },
+            [&](decoder_cmd &cmd) {
+                on_decoder_message(cmd.name);
+            },
+            [&](diversity_cmd &cmd) {
+                on_diversity_message(cmd.type, cmd.host);
             }
         },
         msg_parsed);
@@ -284,6 +327,8 @@ void Client::on_userid_message(std::string &userid) {
     user_id = userid.substr(0, 32);
 }
 void Client::on_identity_message(std::string &) {}
+void Client::on_decoder_message(std::string &) {}
+void Client::on_diversity_message(std::string &, std::string &) {}
 void Client::on_mute(bool mute) { this->mute = mute; }
 
 // Default empty implementations for noise gate and AGC (AudioClient will override)

@@ -92,6 +92,14 @@ std::string broadcast_server::get_users_json(bool with_ip) {
                     std::round(client->audio_mid * sps / fft_size));
             const double freq_khz = static_cast<double>(freq_hz) / 1000.0;
 
+            // --- Passband ---
+            // The listener's filter edges (l, r are FFT bins like audio_mid),
+            // as Hz offsets from freq_hz, so a Tune can copy the bandwidth too.
+            const int64_t pb_lo_hz = static_cast<int64_t>(
+                std::round((client->l - client->audio_mid) * sps / fft_size));
+            const int64_t pb_hi_hz = static_cast<int64_t>(
+                std::round((client->r - client->audio_mid) * sps / fft_size));
+
             // --- Connected-at timestamp (ISO-8601 UTC) ---
             const auto conn_sys =
                 std::chrono::system_clock::now() -
@@ -115,6 +123,7 @@ std::string broadcast_server::get_users_json(bool with_ip) {
             // the field is never blank; the public one stays empty ("resolving").
             if (geo.empty() && with_ip) geo = client->ip_address;
             const std::string name = client->get_listener_name();
+            const std::string decoder = client->get_decoder_name();
 
             // Escape geo for safe embedding in a JSON string literal.
             // (append_user_log already does this for JSONL — mirror it here.)
@@ -129,6 +138,9 @@ std::string broadcast_server::get_users_json(bool with_ip) {
               << "      \"id\": \""           << client->get_unique_id() << "\",\n";
             if (with_ip)
                 o << "      \"ip\": \""       << client->ip_address      << "\",\n";
+            // The diversity partner, like the IP, is for the sysop only.
+            if (with_ip)
+                o << "      \"diversity\": \"" << client->get_diversity()  << "\",\n";
             // name is plain text by construction (clean_listener_name drops
             // quotes and backslashes), so no escaping needed.
             o << "      \"name\": \""         << name                    << "\",\n"
@@ -137,6 +149,9 @@ std::string broadcast_server::get_users_json(bool with_ip) {
               << "      \"freq_khz\": "
                   << std::fixed << std::setprecision(3) << freq_khz      << ",\n"
               << "      \"mode\": \""         << client->get_mode_str()  << "\",\n"
+              << "      \"pb_lo_hz\": "       << pb_lo_hz                << ",\n"
+              << "      \"pb_hi_hz\": "       << pb_hi_hz                << ",\n"
+              << "      \"decoder\": \""      << decoder                 << "\",\n"
               << "      \"connected_at\": \"" << conn_ts                 << "\",\n"
               << "      \"duration\": \""     << dur                     << "\",\n"
               << "      \"duration_s\": "     << secs_total              << "\n"
@@ -185,10 +200,13 @@ void broadcast_server::write_users_json() {
 //
 //  {"ts":"2024-11-15T14:32:07Z","event":"tune","id":"a3f9c2",
 //   "ip":"82.104.x.x","geo":"🇬🇷 Athens, GR",
-//   "freq_hz":7100000,"freq_khz":7100.000,"mode":"usb","duration_s":45}
+//   "freq_hz":7100000,"freq_khz":7100.000,"mode":"usb","decoder":"FT8",
+//   "duration_s":45}
+//
+// "decoder" is the decoder running in the listener's page ("" for none).
 //
 // event values:
-//   "tune"       — user connected or changed frequency / mode
+//   "tune"       — user connected or changed frequency / mode / decoder
 //   "disconnect" — user closed the connection (duration_s = full session length)
 //
 // Files are written to: <docroot>/logs/users_YYYY-MM-DD.jsonl
@@ -217,7 +235,7 @@ void broadcast_server::append_user_log(const std::string &event,
     }
 
     // Look up the live client to get ip / geo / mode / session duration.
-    std::string ip_str, geo_str, mode_str = "?";
+    std::string ip_str, geo_str, mode_str = "?", decoder_str;
     long duration_s = 0;
     bool is_tap = false;
     {
@@ -232,6 +250,7 @@ void broadcast_server::append_user_log(const std::string &event,
                 }
                 if (geo_str.empty()) geo_str = client->ip_address;
                 mode_str   = client->get_mode_str();
+                decoder_str = client->get_decoder_name();
                 duration_s = std::chrono::duration_cast<std::chrono::seconds>(
                     std::chrono::steady_clock::now() - client->connected_at).count();
                 break;
@@ -271,6 +290,7 @@ void broadcast_server::append_user_log(const std::string &event,
          << ",\"freq_hz\":"    << freq_hz
          << ",\"freq_khz\":"   << std::fixed << std::setprecision(3) << freq_khz
          << ",\"mode\":\""     << mode_str  << "\""
+         << ",\"decoder\":\""  << decoder_str << "\""
          << ",\"duration_s\":" << duration_s
          << "}\n";
 

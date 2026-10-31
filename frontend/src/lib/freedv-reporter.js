@@ -50,18 +50,17 @@ function makeStation(o) {
   };
 }
 
-// Sort: Transmitting first, then by frequency, then callsign.
-// Deliberately NOT by last-update — sorting on recency makes rows jump on
-// every packet. A stable key keeps rows in place while their cells update
-// live (Svelte re-renders each row by sid without moving it).
+// Sort: Transmitting first, then by most recent transmission, stations
+// that have never transmitted after them and receive-only ones last, then
+// callsign. lastTx only moves when a station transmits (not on every
+// packet), so rows stay put while their cells update live.
 export function sortStations(list) {
   return list.slice().sort((a, b) => {
-    const ra = a.status === "Transmitting" ? 0 : 1;
-    const rb = b.status === "Transmitting" ? 0 : 1;
-    if (ra !== rb) return ra - rb;
-    const fa = a.freq == null ? Infinity : a.freq;
-    const fb = b.freq == null ? Infinity : b.freq;
-    if (fa !== fb) return fa - fb; // ascending frequency
+    const ta = a.status === "Transmitting" ? 0 : 1;
+    const tb = b.status === "Transmitting" ? 0 : 1;
+    if (ta !== tb) return ta - tb;
+    if (a.rxOnly !== b.rxOnly) return a.rxOnly ? 1 : -1;
+    if (a.lastTx !== b.lastTx) return b.lastTx - a.lastTx;
     return a.callsign.localeCompare(b.callsign); // stable tiebreaker
   });
 }

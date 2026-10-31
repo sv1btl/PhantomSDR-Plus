@@ -93,7 +93,7 @@ Auf einer Station, die mit den Stationsfragen (`configure-station.sh`) eingerich
 
 **Router-Port.** Hinter dem Proxy ist keiner freizugeben: Die Seite erreicht das Relay als `/relay` über die Adresse, die die Zuhörer ohnehin benutzen, über http wie über https. Nur eine ältere Station, eingerichtet vor den Stationsfragen, betreibt das Relay auf einem eigenen Port; die Browser der Zuhörer verbinden sich dann direkt damit, dieser Port muss also im Router freigegeben werden, sonst funktioniert WebSDR-Diversity nur aus Ihrem eigenen Netz. Die anderen drei Empfängertypen brauchen das Relay nicht — außer von einer über https ausgelieferten Seite, wo es auch PhantomSDR+- und KiwiSDR-Partner nur mit http überträgt (siehe oben).
 
-Ist das Admin-Panel installiert, zeigt sein Dashboard eine Karte **WebSDR Diversity Relay** mit Zustand, Port und der Zahl der laufenden Sitzungen samt Gegenstellen.
+Ist das Admin-Panel installiert, zeigt sein Dashboard eine Karte **WebSDR Diversity Relay** mit Zustand, Port und der Zahl der laufenden Sitzungen samt Gegenstellen. Darüber listet eine Karte **Receive Diversity** jeden Hörer auf, der Ihren Empfänger mit einem anderen kombiniert — jeder Art, nicht nur WebSDR — mit Empfänger, Name und Ort, Frequenz und Betriebsart sowie Typ und Adresse des Partners.
 
 ### Ein guter Gast sein
 

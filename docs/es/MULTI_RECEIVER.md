@@ -10,6 +10,8 @@ Desde la v5.0.0 un ordenador PhantomSDR-Plus puede hacer funcionar varios recept
 
 > **La manera más fácil:** ejecute `./add-receiver.sh` (los instaladores lo ofrecen al final). Pregunta qué receptor y qué debe cubrir, instala su controlador, escribe todo lo descrito en la [sección 3](#3-añadir-un-segundo-receptor) y la [sección 4](#4-receiverstoml), y ofrece arrancar el receptor y reiniciar el proxy. El resto de este manual explica lo que hace, por si quiere cambiar algo a mano.
 
+> **Desde el panel de administración:** la página **Receivers** lista cada receptor con lo que cubre, cambia por sí misma la frecuencia y el ancho de banda de un receptor adicional (y reinicia solo ese) y prepara un receptor nuevo: guarda sus respuestas y da `./add-receiver.sh --answers instances/.add-rx.env` para un terminal. Vea [Panel de administración](ADMIN_PANEL_SETUP.md).
+
 ---
 
 ## Contenido

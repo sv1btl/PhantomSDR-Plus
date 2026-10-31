@@ -15,7 +15,8 @@ AudioEncoder::AudioEncoder(websocketpp::connection_hdl hdl,
 AudioEncoder::~AudioEncoder() = default;
 
 void AudioEncoder::set_data(uint64_t frame_num, int l, double m, int r,
-                            double pwr, int channels, bool sam_locked) {
+                            double pwr, int channels, bool sam_locked,
+                            float sam_offset_hz, float sam_quality) {
     packet["frame_num"] = frame_num;
     packet["l"] = l;
     packet["m"] = m;
@@ -23,6 +24,14 @@ void AudioEncoder::set_data(uint64_t frame_num, int l, double m, int r,
     packet["pwr"] = pwr;
     packet["channels"] = channels;
     packet["sam_locked"] = sam_locked;
+    // Only while mono SAM runs, so other modes do not carry the two floats.
+    if (std::isnan(sam_offset_hz)) {
+        packet.erase("sam_hz");
+        packet.erase("sam_q");
+    } else {
+        packet["sam_hz"] = sam_offset_hz;
+        packet["sam_q"]  = sam_quality;
+    }
 }
 
 int AudioEncoder::send(const void *buffer, size_t bytes, unsigned) {
@@ -59,10 +68,12 @@ FlacEncoder::~FlacEncoder() { this->finish(); }
 
 int PcmEncoder::process(int32_t *data, size_t size) {
     // `size` is frames-per-channel; `data` holds int32 interleaved samples.
-    // The autorun loopback client is always mono, but handle the general
-    // interleaved case so a stereo caller would still get valid PCM.
-    pcm_buf.resize(size);
-    for (size_t i = 0; i < size; ++i) {
+    // The autorun loopback client is mono; the DRM helper's IQ tap is stereo
+    // (I, Q), so the channel count set by set_data() decides the length.
+    const size_t channels = std::max(1, packet.value("channels", 1));
+    const size_t total = size * channels;
+    pcm_buf.resize(total);
+    for (size_t i = 0; i < total; ++i) {
         pcm_buf[i] = static_cast<int16_t>(std::clamp(data[i], -32768, 32767));
     }
     // int16 little-endian on the wire; matches Int16Array on the JS side.

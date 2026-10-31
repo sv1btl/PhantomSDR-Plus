@@ -33,7 +33,7 @@
                           {#if printBandButton(bandData.startFreq, bandData.endFreq, bandData.publishBand)}
                             <button
                               id="band-selector"
-                              class="retro-button text-sm text-white fontrbold h-7 text-base rounded-md flex items-center justify-center border border-gray-600 shadow-inner transition-all duration-200 ease-in-out {currentBand ===
+                              class="retro-button text-xs text-white font-bold h-7 rounded-md flex items-center justify-center border border-gray-600 shadow-inner transition-all duration-200 ease-in-out {currentBand ===
                               index
                                 ? 'bg-blue-600 pressed scale-95'
                                 : 'bg-gray-700 hover:bg-gray-600'}"
@@ -54,7 +54,7 @@
                           {#if printBandButton(bandData.startFreq, bandData.endFreq, bandData.publishBand)}
                             <button
                               id="band-selector"
-                              class="retro-button text-sm text-white fontrbold h-7 text-base rounded-md flex items-center justify-center border border-gray-600 shadow-inner transition-all duration-200 ease-in-out {currentBand ===
+                              class="retro-button text-xs text-white font-bold h-7 rounded-md flex items-center justify-center border border-gray-600 shadow-inner transition-all duration-200 ease-in-out {currentBand ===
                               index
                                 ? 'bg-blue-600 pressed scale-95'
                                 : 'bg-gray-700 hover:bg-gray-600'}"

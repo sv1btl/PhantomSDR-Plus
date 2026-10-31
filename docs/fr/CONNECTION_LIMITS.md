@@ -226,7 +226,7 @@ Tous deux sont dans la plage privée 4000–4999, aucun ne peut donc être confo
 
 Ce silence après une exclusion est intentionnel. **Exclure, c'est le sysop qui met fin à une session, ce n'est pas une punition** — rien n'est annoncé, et qui veut revenir recharge la page et redevient un auditeur ordinaire une seconde plus tard. Tout ce qu'apporte le code 4001, c'est que le navigateur sache qu'il ne s'agissait pas d'une connexion tombée : l'exclusion prend donc effet au lieu de s'annuler d'elle-même.
 
-Un **bannissement** — le ⛔ Ban 24h du panneau d'administration — est la seule exception : c'est la même expulsion assortie d'un refus de 24 heures, donc le rechargement est refusé avec 4001 jusqu'à ce que le bannissement expire ou que l'opérateur le lève.
+Un **bannissement** — le ⛔ Ban ▾ du panneau d'administration — est la seule exception : c'est la même expulsion assortie d'un refus de 8, 16 ou 24 heures, donc le rechargement est refusé avec 4001 jusqu'à ce que le bannissement expire ou que l'opérateur le lève.
 
 L'exclusion est faite par `spectrumserver` lui-même, et non par `proxy.py` : les auditeurs se connectent directement au port du récepteur, le proxy ne possède donc aucune de leurs connexions et son exclusion n'atteint personne. Le panneau appelle `/~~kick?ip=&secs=`, joignable en boucle locale seulement et vérifié sur le vrai pair TCP, non sur `X-Forwarded-For`, que le client fournit. `secs` vaut zéro par défaut — aucun bannissement — mais accepte une durée si vous voulez garder l'adresse dehors un moment, et cela réutilise le mécanisme de bannissement de `per_ip_rate`, si bien que la reconnexion est refusée à la porte. Le Ban 24h du panneau envoie `secs=86400`, le maximum accepté, et `/~~unban?ip=` lève un bannissement plus tôt.
 

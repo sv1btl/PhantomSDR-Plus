@@ -21,13 +21,14 @@ export const DEMOD_DEFAULTS = {
   FM:      { type: 'FM',   offsets: [5000, 5000] },
   WBFM:    { type: 'FM',   offsets: [80000, 80000] },
   RADEL:   { type: 'LSB',  offsets: [2200, -700] },  // RADE v1, 700–2200 Hz below carrier
-  RADEU:   { type: 'USB',  offsets: [-700, 2200] }   // RADE v1, 700–2200 Hz above carrier
+  RADEU:   { type: 'USB',  offsets: [-700, 2200] },  // RADE v1, 700–2200 Hz above carrier
+  RADE2:   { type: 'USB',  offsets: [-1040, 1930] }  // RADE V2 (beta), USB on every band, 1040–1930 Hz (see App.svelte)
 }
 
 /** Modes offered in the mobile mode picker, in display order.
  *  WBFM is deliberately absent. Its entry stays in DEMOD_DEFAULTS above so an
  *  older bookmark carrying it still tunes correctly instead of falling back. */
-export const MODES = ['USB', 'LSB', 'CW', 'CW-L', 'AM', 'SAM', 'QUAM', 'FM', 'RADEL', 'RADEU']
+export const MODES = ['USB', 'LSB', 'CW', 'CW-L', 'AM', 'SAM', 'QUAM', 'FM', 'RADE2', 'RADEL', 'RADEU']
 
 /** Hz → FFT bin offset. Mirrors frequencyToFFTOffset in lib/backend.js. */
 export function frequencyToFFTOffset (frequency, settings) {
@@ -56,7 +57,7 @@ export function coverage (settings) {
  * does, and it reduces to the same l/m/r as the click path's USB/LSB
  * special-casing (USB has offsets[0] === 0, LSB has offsets[1] === 0).
  *
- * The second triple carries the CW pitch (m - 750 Hz), same as the desktop
+ * The second triple carries the CW pitch (m - 600 Hz), same as the desktop
  * sends; audio.js _cwWindow() moves the whole window by it for CW / CW-L.
  */
 export function tune (audio, frequency, mode, settings) {
@@ -76,6 +77,6 @@ export function tune (audio, frequency, mode, settings) {
   audio.setAudioDemodulation(mode === 'AM' ? 'AM-ENV' : def.type)
 
   const params = [l, m, r].map((f) => frequencyToFFTOffset(f, settings))
-  const offsets = [l - 200, m - 750, r - 200].map((f) => frequencyToFFTOffset(f, settings))
+  const offsets = [l - 200, m - 600, r - 200].map((f) => frequencyToFFTOffset(f, settings))
   audio.setAudioRange(...params, ...offsets)
 }

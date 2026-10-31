@@ -46,5 +46,6 @@ export const {
   siteRegion,
   siteChatEnabled,
   siteRade,
+  siteDrm,
   siteRelay,
 } = siteInfo

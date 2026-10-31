@@ -16,7 +16,7 @@
 #    ./update.sh --check           report only, never ask (for cron)
 #    ./update.sh --apply           actually update, asking about your own edits
 #    ./update.sh --apply --yes     unattended; anything you edited is KEPT
-#    ./update.sh --ref v5.3.0      a tag, branch or commit instead of main
+#    ./update.sh --ref v5.4.0      a tag, branch or commit instead of main
 #    ./update.sh --from FILE|DIR   the new version from a .tar.gz / .zip or a
 #                                  folder (a USB stick, a download) — no network
 #    ./update.sh --apply --prune   also offer to delete files GitHub removed
@@ -44,6 +44,8 @@
 #    PHANTOM_NONINTERACTIVE=1      never ask; use the unattended defaults
 #    PHANTOM_STOP_SERVICES=y|n     stop the receiver + panel before writing
 #    PHANTOM_RECOMPILE=y|n         rebuild what changed afterwards
+#    PHANTOM_DRM=y|n               build the DRM decoder (setup-drm.sh) when it is
+#                                  not built yet (default y, n unattended)
 #    PHANTOM_UPDATE_NOW=y|n        answer "update now?" after a report
 #    UPDATE_REF=main               same as --ref
 # ─────────────────────────────────────────────────────────────────────────────
@@ -257,6 +259,9 @@ TIER_A=(
     'frontend/variant.json' '.tap_token'
     # The relay's own config: the .example beside it is what gets distributed.
     'websdr_relay.json' 'websdr_relay.json.bak'
+    # the DRM settings the admin panel writes (on/off, maximum listeners),
+    # and the DRM services this receiver has decoded (drmheard.js)
+    'drm.json' 'drm-heard.json' 'drm-heard.json.tmp'
     # our own marker, which must never travel to a copy — a copy that had it
     # would refuse every --apply from then on
     '.update-source-of-truth'
@@ -327,6 +332,15 @@ matches_any() {
 tier_of() {
     local path="$1"
     if [ ${#EXTRA_EXCLUDES[@]} -gt 0 ] && matches_any "$path" "${EXTRA_EXCLUDES[@]}"; then echo A; return; fi
+    # frequencylist/ is per-site data (Tier A), except the files the
+    # project ships in it (and its README): the decoder markers (ours, so always updated — a
+    # sysop's own markers go in mymarkers.json, which wins on any frequency)
+    # and the script that merges the lists (a script, so asked about if edited).
+    case "$path" in
+        frequencylist/decodermarkers.json) echo C; return ;;
+        frequencylist/README.md)           echo C; return ;;
+        frequencylist/update-markers.sh)   echo B; return ;;
+    esac
     if matches_any "$path" "${TIER_A[@]}"; then echo A; return; fi
     if matches_any "$path" "${TIER_B[@]}"; then echo B; return; fi
     echo C
@@ -349,6 +363,9 @@ if [ "$MODE" = "make-known" ]; then
 import hashlib, os, subprocess, sys
 root, extras = sys.argv[1], sys.argv[2:]
 skip = ("frequencylist/", "tools/", "subprojects/packagecache/", "update-known.txt")
+# the two files the project ships inside frequencylist/ (see tier_of)
+shipped = ("frequencylist/decodermarkers.json", "frequencylist/update-markers.sh",
+           "frequencylist/README.md")
 log = subprocess.run(["git", "-C", root, "log", "--all", "--format=", "--raw",
                       "--no-abbrev", "--no-renames"],
                      capture_output=True, text=True, check=True).stdout
@@ -370,7 +387,7 @@ for path, blob in sorted(pairs):
     if len(head) < 3 or head[1] != b"blob":
         continue
     data = cat.stdout.read(int(head[2])); cat.stdout.read(1)
-    if not path.startswith(skip):
+    if not path.startswith(skip) or path in shipped:
         known.add((hashlib.sha256(data).hexdigest(), path))
 cat.stdin.close(); cat.wait()
 for extra in extras:
@@ -378,7 +395,7 @@ for extra in extras:
         for name in files:
             full = os.path.join(dirpath, name)
             rel = os.path.relpath(full, extra)
-            if rel.startswith(skip):
+            if rel.startswith(skip) and rel not in shipped:
                 continue
             with open(full, "rb") as fh:
                 known.add((hashlib.sha256(fh.read()).hexdigest(), rel))
@@ -1217,6 +1234,27 @@ if [ "$NEEDS_BUILD" = true ]; then
         fi
     else
         yellow "     Remember to run ./recompile.sh $BUILD_FLAG before the changes take effect."
+    fi
+fi
+
+# DRM: the update brings the helper, not the decoder — that is built on each
+# station by setup-drm.sh (it fetches and links fdk-aac 2.0.3 here; no binary
+# is shipped). Offered once, while drm/bin/ubersdr-drm does not exist yet.
+if [ -f "$PHANTOM_DIR/setup-drm.sh" ] && [ ! -x "$PHANTOM_DIR/drm/bin/ubersdr-drm" ]; then
+    banner "DRM decoder"
+    echo ""
+    echo "     This release decodes DRM (digital shortwave radio) on the server for"
+    echo "     listeners who press the DRM button. The decoder is built here by"
+    echo "     setup-drm.sh: a few minutes, needs internet, installs packages with sudo."
+    echo ""
+    if confirm PHANTOM_DRM y n "Build the DRM decoder now?"; then
+        if ( cd "$PHANTOM_DIR" && bash ./setup-drm.sh ); then
+            green "  ✅ DRM decoder built. The helper starts with the receiver — restart it once."
+        else
+            warn "The DRM build did not finish — run it by hand:  ./setup-drm.sh"
+        fi
+    else
+        yellow "     Run ./setup-drm.sh whenever you want DRM, then restart the receiver."
     fi
 fi
 

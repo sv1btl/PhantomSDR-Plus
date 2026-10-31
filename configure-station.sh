@@ -108,8 +108,8 @@ VARS=(STATION_RECEIVER STATION_LAUNCHER STATION_CONFIG STATION_RTL_V4
       STATION_CALLSIGN STATION_NAME STATION_EMAIL STATION_LOCATOR STATION_CITY
       STATION_ANTENNA STATION_HARDWARE STATION_REGION
       STATION_PUBLIC_HOST STATION_SDR_LIST STATION_WEBSDR_ORG
-      PORT_PUBLIC PORT_SDR PORT_ADMIN PORT_STATS PORT_RADE PORT_RELAY
-      STATION_ADMIN STATION_RADE STATION_STATS STATION_RELAY STATION_AUTOSTART
+      PORT_PUBLIC PORT_SDR PORT_ADMIN PORT_STATS PORT_RADE PORT_RELAY PORT_DRM
+      STATION_ADMIN STATION_RADE STATION_DRM STATION_STATS STATION_RELAY STATION_AUTOSTART
       STATION_ACCELERATOR STATION_HTTPS PORT_TLS)
 declare -A FROM_ENV=()
 for v in "${VARS[@]}"; do
@@ -126,7 +126,7 @@ SAVED_TLS="${PORT_TLS:-}"
 SAVED_HOST="${STATION_PUBLIC_HOST:-}"
 # The ports this station runs on now, to tell afterwards whether they moved.
 SAVED_PORTS=""
-[ -f "$STATION_CONF" ] && SAVED_PORTS="${PORT_PUBLIC:-} ${PORT_SDR:-} ${PORT_ADMIN:-} ${PORT_STATS:-} ${PORT_RADE:-} ${PORT_RELAY:-}"
+[ -f "$STATION_CONF" ] && SAVED_PORTS="${PORT_PUBLIC:-} ${PORT_SDR:-} ${PORT_ADMIN:-} ${PORT_STATS:-} ${PORT_RADE:-} ${PORT_RELAY:-} ${PORT_DRM:-}"
 for v in "${!FROM_ENV[@]}"; do
     printf -v "$v" '%s' "${FROM_ENV[$v]}"
 done
@@ -393,6 +393,7 @@ save_conf() {
         echo "PORT_ADMIN=$PORT_ADMIN"
         echo "PORT_STATS=$PORT_STATS"
         echo "PORT_RADE=$PORT_RADE"
+        echo "PORT_DRM=$PORT_DRM"
         echo "PORT_RELAY=$PORT_RELAY"
         echo ""
         echo "# https:// through Caddy on port 443 (setup-https.sh): y, lan or n"
@@ -406,6 +407,7 @@ save_conf() {
         echo "# Extras (y/n)"
         echo "STATION_ADMIN=$(q "$STATION_ADMIN")"
         echo "STATION_RADE=$(q "$STATION_RADE")"
+        echo "STATION_DRM=$(q "$STATION_DRM")"
         echo "STATION_STATS=$(q "$STATION_STATS")"
         echo "STATION_RELAY=$(q "$STATION_RELAY")"
         echo "STATION_AUTOSTART=$(q "$STATION_AUTOSTART")"
@@ -589,6 +591,7 @@ ask_everything() {
         say "  'n' only means it is not downloaded and installed again."
     fi
     ask_yn STATION_RADE "Install the FreeDV RADE decoder? (large: ~1 GB download, +20 min install)" y
+    ask_yn STATION_DRM "Install the DRM decoder? (digital shortwave radio, a few minutes to build)" y
     ask_yn STATION_STATS "CPU / memory / temperature box on the page?" y
     # An https page may not open ws:// sockets, and most diversity partners
     # (PhantomSDR+, KiwiSDR) are plain http — so over https the relay is what
@@ -628,6 +631,7 @@ ask_everything() {
             old_relay="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1])).get("port",""))' \
                          "$PHANTOMDIR/websdr_relay.json" 2>/dev/null)" || old_relay=""
             : "${PORT_RADE:=8074}" "${PORT_STATS:=${old_stats:-3001}}" "${PORT_RELAY:=${old_relay:-8898}}"
+            : "${PORT_DRM:=8075}"
         fi
     fi
     if [ -n "${PORT_PUBLIC:-}" ]; then pub_def="$PORT_PUBLIC"; TAKEN[$PORT_PUBLIC]=1
@@ -658,11 +662,12 @@ ask_everything() {
     suggest_port PORT_RADE  $((PORT_PUBLIC + 12))
     suggest_port PORT_RELAY $((PORT_PUBLIC + 13))
     suggest_port PORT_TLS   $((PORT_PUBLIC + 14))
+    suggest_port PORT_DRM   $((PORT_PUBLIC + 15))
     show_ports
     CHANGE_PORTS=n
     ask_yn CHANGE_PORTS "Change any of the internal ports (e.g. keep the old numbers)?" n
     if [ "$CHANGE_PORTS" = y ]; then
-        local pv pvs=(PORT_SDR PORT_ADMIN PORT_STATS PORT_RADE PORT_RELAY)
+        local pv pvs=(PORT_SDR PORT_ADMIN PORT_STATS PORT_RADE PORT_DRM PORT_RELAY)
         [ "${STATION_HTTPS:-n}" != n ] && pvs+=(PORT_TLS)
         # Each port is checked against the public one and the ones already
         # answered, so two services can never be handed the same port.
@@ -692,6 +697,7 @@ show_ports() {
     printf '    %-6s %s\n' "$PORT_ADMIN" "admin panel    (reached as /admin)"
     printf '    %-6s %s\n' "$PORT_STATS" "statistics     (reached as /stats)"
     printf '    %-6s %s\n' "$PORT_RADE"  "RADE decoder   (reached as /rade)"
+    printf '    %-6s %s\n' "$PORT_DRM"   "DRM decoder    (reached as /drm)"
     printf '    %-6s %s\n' "$PORT_RELAY" "WebSDR relay   (reached as /relay)"
     if [ "${STATION_HTTPS:-n}" != n ]; then
         printf '    %-6s %s\n' "$PORT_TLS" "https front    (Caddy on 443 hands visitors to it)"
@@ -723,7 +729,7 @@ summary() {
         "Address" "${STATION_PUBLIC_HOST:-(not set)}:$PORT_PUBLIC" \
         "Listings" "sdr-list.xyz: $STATION_SDR_LIST   websdr.org: $STATION_WEBSDR_ORG" \
         "https" "$( [ "${STATION_HTTPS:-n}" = y ] && echo "yes — https://$STATION_PUBLIC_HOST/" || { [ "${STATION_HTTPS:-n}" = lan ] && echo "local network only" || echo no; } )" \
-        "Extras" "admin: $STATION_ADMIN  RADE: $STATION_RADE  stats: $STATION_STATS  relay: $STATION_RELAY  autostart: $STATION_AUTOSTART"
+        "Extras" "admin: $STATION_ADMIN  RADE: $STATION_RADE  DRM: $STATION_DRM  stats: $STATION_STATS  relay: $STATION_RELAY  autostart: $STATION_AUTOSTART"
 }
 
 # ═════════════════════════════════════════════════════════════════════════════
@@ -944,6 +950,7 @@ info.update({
     "siteIP": site_ip,
     "siteStats": "/stats" if yes("STATION_STATS") else "",
     "siteRade": "/rade",
+    "siteDrm": "/drm",
     "siteRelay": "/relay",
     "siteSDRBaseFrequency": sdr_base,
     "siteSDRBandwidth": sdr_bw,
@@ -1056,7 +1063,7 @@ for p in sorted(root.glob("instances/*/www/site_information.json")):
     except Exception as ex:
         print(f"  ! {p.relative_to(root)}: {ex} — left as it was")
         continue
-    d.update({k: info[k] for k in ("siteIP", "siteStats", "siteRade", "siteRelay")})
+    d.update({k: info[k] for k in ("siteIP", "siteStats", "siteRade", "siteDrm", "siteRelay")})
     fix_list(d)
     write(p, json.dumps(d, indent="\t" if "\n\t" in raw else 2, ensure_ascii=False) + "\n")
 
@@ -1094,7 +1101,7 @@ stats_ours() {
 }
 
 carry_ports() {
-    local now="$PORT_PUBLIC $PORT_SDR $PORT_ADMIN $PORT_STATS $PORT_RADE $PORT_RELAY"
+    local now="$PORT_PUBLIC $PORT_SDR $PORT_ADMIN $PORT_STATS $PORT_RADE $PORT_RELAY $PORT_DRM"
     PORTS_MOVED=n
     [ -n "$SAVED_PORTS" ] && [ "$SAVED_PORTS" != "$now" ] && PORTS_MOVED=y
     # https on/off or its loopback port: the proxy has to open or close that

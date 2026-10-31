@@ -17,7 +17,7 @@ Toutes les commandes qu'un sysop utilise pour faire fonctionner une station Phan
 | `bash configure-station.sh --ask` | Pose les questions et enregistre seulement `station.conf`. | [Guide d'installation](INSTALLATION.md#les-questions-de-la-station) |
 | `bash configure-station.sh --apply` | Réécrit les fichiers de configuration depuis `station.conf` sans rien demander. | [Guide d'installation](INSTALLATION.md#les-questions-de-la-station) |
 | `bash configure-station.sh --show` | Affiche les réponses actuelles. | [Guide d'installation](INSTALLATION.md#les-questions-de-la-station) |
-| `./add-receiver.sh` | Ajoute un récepteur supplémentaire (par exemple un RTL-SDR pour le 2 m) à côté du principal. | [Guide d'installation](INSTALLATION.md#plusieurs-récepteurs-sur-un-ordinateur) |
+| `./add-receiver.sh` | Ajoute un récepteur supplémentaire (par exemple un RTL-SDR pour le 2 m) à côté du principal. | [Configuration du panneau d'administration](ADMIN_PANEL_SETUP.md#récepteurs) |
 
 ## Pilotes des récepteurs
 
@@ -30,6 +30,7 @@ Toutes les commandes qu'un sysop utilise pour faire fonctionner une station Phan
 | `./setup-airspyhf.sh` | Installe la chaîne de pilotes de l'Airspy HF+. | [Guide d'installation](INSTALLATION.md#récepteurs-sur-soapysdr-rsp1a-fobos-airspy-hf) |
 | `./setup-fobos.sh` | Installe la chaîne de pilotes du RigExpert Fobos. | [Guide d'installation](INSTALLATION.md#récepteurs-sur-soapysdr-rsp1a-fobos-airspy-hf) |
 | `./setup-hackrf.sh` | Installe le paquet hackrf et sa règle udev. | [Guide d'installation](INSTALLATION.md#hackrf-one) |
+| `./setup-drm.sh` | Compile le décodeur DRM (ubersdr-drm avec fdk-aac 2.0.3) dans `drm/bin/`. | [Décodeurs](DECODERS.md#lire-le-panneau) |
 | `rtl_test` | Vérifie que la clé RTL-SDR est détectée. | [Guide d'installation](INSTALLATION.md#testez-le-rtl-sdr) |
 | `SoapySDRUtil --find="driver=soapyMiri"` | Vérifie que le RSP1A est détecté (`driver=fobos`, `driver=airspyhf` pour les autres). | [Guide d'installation](INSTALLATION.md#récepteurs-sur-soapysdr-rsp1a-fobos-airspy-hf) |
 | `SoapySDRUtil --info` | Liste les pilotes SoapySDR installés. | [Guide d'installation](INSTALLATION.md#fobos-ou-airspy-hf-introuvable) |
@@ -50,6 +51,7 @@ Toutes les commandes qu'un sysop utilise pour faire fonctionner une station Phan
 | `INSTANCE=vhf ./start-rtl.sh` | Démarre un second récepteur configuré dans `instances/vhf/`. | [Plusieurs récepteurs](MULTI_RECEIVER.md#3-ajouter-un-second-récepteur) |
 | `SPECTRUM_CORES=0-3 ./start-rx888mk2.sh` | Fixe le serveur sur ces cœurs CPU (`none` = aucune affectation). | [README](README.md#fonctionnement-de-base) |
 | `RADE_ENABLED=0 ./start-rx888mk2.sh` | Démarre sans le sidecar RADE. | [RADE README](RADE_README.md#contrôle-du-sidecar) |
+| `DRM_ENABLED=0 ./start-rx888mk2.sh` | Démarre sans l'assistant DRM. | [Décodeurs](DECODERS.md#lire-le-panneau) |
 | `./stop-websdr.sh` | Arrête tous les récepteurs de cette installation et leur watchdog. | [Guide d'installation](INSTALLATION.md#7-arrêtez-le-serveur) |
 | `./stop-websdr.sh main` | Arrête seulement le récepteur principal. | [Plusieurs récepteurs](MULTI_RECEIVER.md#5-démarrer-et-arrêter) |
 | `./stop-websdr.sh vhf` | Arrête seulement le récepteur démarré avec `INSTANCE=vhf`. | [Plusieurs récepteurs](MULTI_RECEIVER.md#5-démarrer-et-arrêter) |
@@ -82,7 +84,7 @@ Toutes les commandes qu'un sysop utilise pour faire fonctionner une station Phan
 | `./update.sh --apply --yes` | Met à jour sans surveillance ; chaque fichier que vous avez modifié est conservé. | [Guide d'installation](INSTALLATION.md#autres-options) |
 | `./update.sh --apply --prune` | Propose aussi de supprimer les fichiers retirés en amont. | [Guide d'installation](INSTALLATION.md#utilisation) |
 | `./update.sh --from FILE` | Prend la nouvelle version depuis un `.zip`/`.tar.gz` ou un dossier — sans réseau. | [Guide d'installation](INSTALLATION.md#autres-options) |
-| `./update.sh --ref v5.3.0` | Met à jour vers un tag, une branche ou un commit au lieu de l'arbre courant. | [Guide d'installation](INSTALLATION.md#autres-options) |
+| `./update.sh --ref v5.4.0` | Met à jour vers un tag, une branche ou un commit au lieu de l'arbre courant. | [Guide d'installation](INSTALLATION.md#autres-options) |
 | `./update.sh --list-excludes` | Affiche les fichiers que l'outil de mise à jour ne touche jamais. | [Guide d'installation](INSTALLATION.md#autres-options) |
 | `./update.sh --verbose` | Liste tous les fichiers, pas seulement les 40 premiers. | [Guide d'installation](INSTALLATION.md#autres-options) |
 | `./update.sh --restore LAST` | Remet les fichiers écrasés par la dernière mise à jour. | [Guide d'installation](INSTALLATION.md#annuler-une-mise-à-jour) |
@@ -155,6 +157,7 @@ Toutes les commandes qu'un sysop utilise pour faire fonctionner une station Phan
 | `sudo journalctl -u sdr-stats.service -f` | Suit son journal. | [Serveur de statistiques](../sdr-stats/readme_fr.md#gestion-du-service) |
 | `curl http://localhost:3001/api/system-stats` | Vérifie qu'il répond. | [Serveur de statistiques](../sdr-stats/readme_fr.md#test-1--vérifier-le-point-de-terminaison-de-lapi) |
 | `./install_rade.sh` | Installe le sidecar RADE / FreeDV (`install_rade_ubuntu22.sh` sous Ubuntu 22.04). | [RADE README](RADE_README.md#linstallation--la-voie-courte) |
+| `cd ~/rade_c && git pull && cmake --build build` | Met à jour rade_c, le décodeur de RADE V2 (beta) ; les nouvelles connexions RADE2 utilisent la nouvelle version. | [RADE README](RADE_README.md#rade-v2-beta--rade2) |
 | `./rade.sh start` | Démarre le sidecar RADE avec son watchdog. | [RADE README](RADE_README.md#contrôle-du-sidecar) |
 | `./rade.sh stop` | L'arrête, avec son watchdog et ses processus de décodage. | [RADE README](RADE_README.md#contrôle-du-sidecar) |
 | `./rade.sh restart` | L'arrête et le redémarre proprement. | [RADE README](RADE_README.md#contrôle-du-sidecar) |

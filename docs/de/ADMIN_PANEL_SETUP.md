@@ -25,15 +25,18 @@ Beide Dienste lesen ihre Konfiguration aus `admin_config.json`, das von `setup_a
 - **Marker** — Frequenzmarker ansehen und bearbeiten
 - **Chatverlauf** — das WebSDR-Chatprotokoll ansehen, vollständig leeren oder einzelne Nachrichten löschen, ohne den Server neu zu starten
 - **Wasserfallnachricht** — ein dauerhaftes Banner an alle verbundenen Nutzer senden, in Echtzeit auf der Wasserfallanzeige sichtbar
-- **Nutzer** — Live-Liste der verbundenen Hörer mit Name oder Rufzeichen, Standort und IP-Adresse, Frequenz, Betriebsart und Dauer, je einer ⚡-Kick- und ⛔-Ban-24h-Schaltfläche und einer Karte, wo sie sind
+- **Nutzer** — Live-Liste der verbundenen Hörer mit Name oder Rufzeichen, Standort und IP-Adresse, Frequenz, Betriebsart und Dauer, einer ⚡-Kick-Schaltfläche und einem ⛔-Ban-▾-Menü (8, 16 oder 24 Stunden) und einer Karte, wo sie sind
 - **Löschen von Chatnachrichten** — 🗑-Delete-Schaltfläche, die genau diese eine Nachricht sofort aus dem Protokoll entfernt
 - **Wasserfall-Rundnachrichten** — erlaubt es, ein dauerhaftes Textbanner in den Wasserfall jedes verbundenen Nutzers zu schieben
 - **Spot Reporting** — den Autorun-Decoder für FT8/FT4/JS8/WSPR starten/stoppen, Bänder/Betriebsarten wählen und Spots an PSK Reporter / wsprnet melden (standardmäßig AUS), mit zwei Zählern: Kacheln je Decoder für den aktuellen Lauf und ein Gesamtwert seit Beginn neben jedem Band-/Betriebsart-Kontrollkästchen
 - **Graphen** — CPU-Frequenz, CPU-Last, CPU-Temperatur und verbundene Nutzer, aufgezeichnet über die letzten 15 Minuten / 1 Stunde / 4 Stunden / 12 Stunden / 24 Stunden
 - **Thermischer Schutz (Thermal Guard)** — stoppt den Server, wenn die CPU überhitzt, und startet ihn wieder, sobald sie abgekühlt ist; die Schwellen leiten sich aus Ihrer eigenen CPU ab. Funktioniert mit jeder Start-/Stopp-Methode und läuft ausgeliefert nur im Protokollmodus, tut also nichts, bis Sie ihn aktivieren
-- **Einstellungen** — Admin-Passwort, SDR-Basisverzeichnis, Prozessname und öffentlichen Port ändern
+- **Einstellungen** — Admin-Passwort, SDR-Basisverzeichnis, Prozessname und Spectrumserver-Port ändern (der Hörer-Port steht darunter); das Standard-Start- oder -Stopp-Skript mit ▶ START / ■ STOP ausführen; eine **HTTPS**-Karte, die https prüft oder durch das Einschalten führt
+- **Empfänger** — jeder Empfänger der Station mit dem Bereich, den er abdeckt, seiner Bandbreite und ob er sendet; Frequenz und Bandbreite eines zusätzlichen Empfängers direkt ändern, und einen neuen Empfänger für `add-receiver.sh` vorbereiten
 - **Systemzustand** (Dashboard) — jeder Empfänger auf Sendung oder aus, mit seiner Laufzeit, der freie Plattenplatz und die Größe jedes Log-Ordners, der letzte `crash.log`-Eintrag und die letzten Alarme
-- **Besucher** — private Besucherstatistik für 1 bis 31 Tage: Besucher, Sitzungen, Hörstunden, die meisten gleichzeitig, pro Tag, die stärksten Stunden, Länder, und die Adressen mit den meisten gleichzeitigen Sitzungen, mit ⛔ Ban 24h
+- **DRM** (Dashboard) — der DRM-Decoder: ob sein Helfer läuft, wie viele Decoder belegt sind und wer welche Frequenz decodiert (Sender, Codec, WMER); DRM ein- oder ausschalten und die Höchstzahl der DRM-Hörer (1–20) festlegen, wirksam innerhalb von 5 s ohne Neustart. Die Benutzerseite zeigt diese Hörer als DRM
+- **Receive Diversity** (Dashboard) — jeder Hörer, der Ihren Empfänger per Empfangsdiversität mit einem anderen kombiniert: Name und Ort, Frequenz und Betriebsart, der Partner (PhantomSDR+, KiwiSDR, UberSDR oder WebSDR) und seine Adresse. Nur das Admin-Panel sieht das, nie die öffentliche Benutzerliste
+- **Besucher** — private Besucherstatistik für 1 bis 31 Tage: Besucher, Sitzungen, Hörstunden, die meisten gleichzeitig, pro Tag, die stärksten Stunden, Länder, und die Adressen mit den meisten gleichzeitigen Sitzungen, mit ⛔ Ban ▾
 - **Alarme** — eine E-Mail und/oder Telegram-Nachricht, wenn ein Empfänger ausfällt, zurückkommt oder neu gestartet wird, der Thermal Guard die Stufe wechselt oder `crash.log` einen neuen Eintrag bekommt
 - **Sicherung & Wiederherstellung** — ein Zip mit den eigenen Einstellungen der Station, und eine Wiederherstellung, die jede ersetzte Datei vorher nach `admin-backups/` kopiert
 - **Themes** — Phosphor green, Amber display, Metal panel, Modern dark, Light und Auto (hell am Tag, dunkel in der Nacht), gewählt mit **THEME** in der oberen Leiste jeder Seite
@@ -214,11 +217,13 @@ sudo ufw allow <proxy_port>
 
 Die Seite Users zeigt jeden aktuell verbundenen Hörer. Jede Zeile nennt den Namen oder das Rufzeichen, das der Hörer eingegeben hat (`--`, wenn keines), den Standort mit der IP-Adresse darunter, die eingestellte Frequenz, die Betriebsart und die Verbindungsdauer. Um einen Nutzer zu trennen, klicken Sie in seiner Zeile auf **⚡ Kick** — nur die Verbindungen dieses Hörers werden beendet. Alle anderen Hörer bleiben verbunden und merken nichts.
 
+Neben der Betriebsart zeigt die Seite Users den Decoder, den ein Hörer in seiner Seite nutzt, zum Beispiel `USB · FT8` (DRM-Hörer erscheinen als `DRM`). Seiten, die vor dem Server-Update geöffnet wurden, melden ihn erst nach einem Neuladen.
+
 Die IP-Adressen stehen nur auf dieser Seite. Seit 5.3.0 enthalten die öffentliche Nutzerliste (`/users`) und die Nutzerstatistik keine, wie bei einem WebSDR; das Panel liest seine Liste von `/~~users`, das spectrumserver nur auf dem eigenen Rechner beantwortet und nie über den Proxy.
 
 Der Kick ist sofort und punktgenau: Der Server startet nicht neu, für niemanden sonst wird der Ton unterbrochen, und der getrennte Nutzer kann sich sofort wieder verbinden (die Funktion dient dem Entfernen störender oder hängender Verbindungen; wer draußen bleiben soll, bekommt die Sperre unten).
 
-**⛔ Ban 24h** trennt den Hörer von allen Empfängern der Station und weist seine Adresse 24 Stunden lang ab (Close-Code 4001, den die Seite nicht erneut versucht). Die Sperre wird in `admin_bans.json` neben dem Panel gespeichert und einmal pro Minute erneut an jeden Empfänger geschickt, sodass ein Neustart eines Empfängers sie nicht aufhebt. Solange Sperren gelten, zeigt eine Liste **Banned for 24 h** unter der Tabelle jede mit Name, Adresse und Ablaufzeit, und eine Schaltfläche **Unban** hebt sie sofort auf. Alle hinter demselben Internetanschluss teilen sich die Adresse und sind mitgesperrt.
+**⛔ Ban ▾** öffnet ein kleines Menü — **8**, **16** oder **24 Stunden** — und die gewählte Dauer trennt den Hörer von allen Empfängern der Station und weist seine Adresse so lange ab (24 Stunden sind das Höchste, was der Empfänger annimmt) (Close-Code 4001, den die Seite nicht erneut versucht). Die Sperre wird in `admin_bans.json` neben dem Panel gespeichert und einmal pro Minute erneut an jeden Empfänger geschickt, sodass ein Neustart eines Empfängers sie nicht aufhebt. Solange Sperren gelten, zeigt eine Liste **Banned** unter der Tabelle jede mit Name, Adresse und Ablaufzeit, und eine Schaltfläche **Unban** hebt sie sofort auf. Alle hinter demselben Internetanschluss teilen sich die Adresse und sind mitgesperrt.
 
 Intern nutzt der Kick `ss -K dst <IP> dport <port>`, um den betreffenden TCP-Socket abzubauen. Das erfordert eine Linux-Fähigkeit, die das Einrichtungsskript automatisch gewährt. Falls Sie die Einrichtung übersprungen haben oder die Schaltfläche einen Fehler meldet, setzen Sie sie manuell:
 
@@ -239,7 +244,7 @@ Wichtige von `setup_admin.sh` geschriebene Felder:
 | Schlüssel | Beschreibung |
 |---|---|
 | `port` | Interner Port des Admin-Panels (`admin_server.py` bindet hier) |
-| `public_port` | Spectrumserver-Port (von der Seite Users genutzt, um `/users` abzufragen) |
+| `public_port` | Spectrumserver-Port des Hauptempfängers (8901 hinter proxy.py) — **nicht** der Port der Hörer, das ist `proxy_port`. proxy.py leitet dorthin weiter; Kick, die Seite Users und die Hörerzahl fragen ihn ab |
 | `proxy_port` | Öffentlicher Port, auf dem der Proxy lauscht |
 | `sdr_host` | Host, über den der Proxy spectrumserver erreicht — `127.0.0.1` (siehe unten) |
 | `password_hash` | SHA-256-Hash des Admin-Passworts |
@@ -839,7 +844,8 @@ Die Seite **Visitors** in der Seitenleiste (am Telefon: die Schaltfläche **📈
 - **Pro Tag** — dieselben vier Zahlen für jeden Tag.
 - **Stärkste Stunden** — wann Sitzungen begannen, nach UTC-Stunde.
 - **Länder** — Besucher pro Land.
-- **Adressen** — die 20 Adressen mit den meisten Sitzungen *gleichzeitig* zuerst, dann mit den meisten Sitzungen; eine Verbindungsflut wie die vom 16. September 2026 steht sofort oben (**AT ONCE** wird über 3 rot). Jede Zeile hat **BAN 24h**.
+- **Decoder** — wie viele Sitzungen welchen Decoder benutzt haben (gezählt aus den Logzeilen, die den Decoder enthalten, also seit dem Server-Update).
+- **Adressen** — die 20 Adressen mit den meisten Sitzungen *gleichzeitig* zuerst, dann mit den meisten Sitzungen; eine Verbindungsflut wie die vom 16. September 2026 steht sofort oben (**AT ONCE** wird über 3 rot). Jede Zeile hat **BAN ▾** (8, 16 oder 24 Stunden).
 
 Tage und Stunden sind UTC. Die eigenen Decoder der Station (lokale Verbindungen) zählen nicht; eine noch offene Sitzung zählt höchstens 12 Stunden. Namen stehen nicht in diesen Logs, daher zeigt die Seite Adressen, keine Namen. Die Zahlen werden höchstens einmal pro Minute neu berechnet.
 
@@ -872,6 +878,43 @@ Jedes Ereignis hat sein eigenes Kästchen. Derselbe Alarm wird höchstens einmal
 
 ---
 
+## Empfänger
+
+**Receivers** im linken Menü listet jeden Empfänger der Station — aus `receivers.toml`, oder auf einer Station mit einem Empfänger nur den Hauptempfänger — mit seinem Namen, seinem `?rx=`-Namen, der Hardware, dem abgedeckten Bereich und seiner Mitte, der Bandbreite, der Frequenz und Betriebsart, mit der ein neuer Hörer beginnt, und ob er auf Sendung ist.
+
+**✎ CHANGE FREQUENCY AND BANDWIDTH** erscheint bei jedem zusätzlichen Empfänger (einem in `instances/<name>/`), der abstimmbar ist. Geben Sie die Mittenfrequenz in MHz an, wählen Sie die Bandbreite aus den Abtastraten, die diese Hardware kann, und legen Sie fest, wo ein neuer Hörer beginnt, in welcher Betriebsart, und den Namen auf seinem Knopf; das Formular zeigt den neuen Bereich, bevor Sie ihn anwenden. Eine Frequenz, die die Hardware nicht abstimmt, eine Abtastrate, die sie nicht kann, oder eine Startfrequenz außerhalb des neuen Bereichs wird abgelehnt. **✔ APPLY AND RESTART THIS RECEIVER** dann:
+
+- setzt `-f` und `-s` in `instance.env`, und `frequency`, `sps`, `fft_size` sowie Startfrequenz und Betriebsart in `config.toml` — eine Quarzkorrektur (ein `frequency` einige Hz neben `-f`) bleibt als derselbe Fehler in ppm erhalten und stimmt so auch auf dem neuen Band, und `fft_size` wird skaliert, damit der Wasserfall seine Auflösung behält
+- setzt `siteSDRBaseFrequency` und `siteSDRBandwidth` in `www/site_information.json` — die Seite des Empfängers liest sie beim Öffnen, also wird nichts neu gebaut
+- setzt den Knopfnamen in `receivers.toml`; der Verzeichnisname und der Hardwarename des Empfängers bleiben, wie sie sind
+- legt die alten Dateien in `admin-backups/retune-<name>-<datum>/` ab und startet **nur diesen Empfänger** neu — seine Hörer werden für einige Sekunden getrennt, die anderen merken nichts
+
+Ein direkt abtastender Empfänger (RX888, Fobos HF) deckt 0 Hz bis zur halben Abtastrate ab und hat nichts abzustimmen. Der **Haupt**empfänger wird mit `bash configure-station.sh` geändert: seine Seite trägt ihr Band aus dem Build, braucht also einen Neubau der Seite, und der Assistent startet die Dienste mit sudo neu.
+
+**➕ ADD NEW RECEIVER** öffnet ein Formular mit den Fragen von `add-receiver.sh`: der Empfängertyp (mit *RTL-SDR Blog V4* für einen RTL-Stick), Mittenfrequenz, Bandbreite, ein Kurzname (aus dem Band vorgeschlagen und auf Freiheit geprüft), der Name auf seinem Knopf, seine Antenne und die öffentliche Adresse der Station, und ob der Treiber installiert, die Empfängerauswahl auch auf der Hauptseite gezeigt, das Startskript dieses Panels auf `start-all.sh` gesetzt, der Empfänger gestartet und der Proxy neu gestartet werden soll. Darüber listet die Seite die USB-Empfänger, die dieser Computer sieht, damit Sie wissen, dass der Stick eingesteckt ist. **▶ PREPARE** prüft die Antworten, speichert sie in `instances/.add-rx.env` und gibt zwei Zeilen für ein Terminal, jede mit **📋 COPY**:
+
+```bash
+cd ~/PhantomSDR-Plus
+./add-receiver.sh --answers instances/.add-rx.env
+```
+
+Das Skript nimmt jede Antwort aus dieser Datei und fragt nur nach Ihrem sudo-Passwort (Treiber und Proxy-Neustart brauchen es — das Admin-Panel führt nie etwas als root aus), dann entfernt es die Datei. Laden Sie die Seite danach neu, und der neue Empfänger steht in der Liste. `--answers DATEI` funktioniert auch allein: ein `ADD_RX_…=wert` pro Zeile; die Namen stehen oben in `add-receiver.sh`.
+
+---
+
+## Einstellungen — Ports, Start/Stopp und HTTPS
+
+**SPECTRUMSERVER PORT (MAIN RECEIVER)** ist `public_port`: der Port, auf dem der Spectrumserver des Hauptempfängers lauscht — 8901 hinter `proxy.py`, oder 9001 auf einer mit `configure-station.sh` eingerichteten Station. Es ist **nicht** der Port der Hörer; dieser steht schreibgeschützt unter dem Feld als **Listener port (proxy)** (`proxy_port`), oder als *none* auf einer Station ohne Proxy, wo beide gleich sind. **💾 SAVE SETTINGS** prüft die Zahl: der eigene Port des Proxys wird abgelehnt, und ein Port, der vom `[server] port` des laufenden Empfängers abweicht, fragt zuerst nach einer Bestätigung — mit einer falschen Zahl leitet `proxy.py` die Hörer ab seinem nächsten Neustart auf einen Port, an dem nichts antwortet. Um den Spectrumserver wirklich zu verlegen, setzen Sie `[server] port` in der `.toml` des Empfängers, seine Zeile in `receivers.toml` und dieses Feld auf dieselbe Zahl und starten dann Empfänger und Proxy neu.
+
+**▶ START** und **■ STOP** neben **DEFAULT START SCRIPT** und **DEFAULT STOP SCRIPT** führen das **gespeicherte** Skript nach einer Bestätigung sofort aus — beide trennen alle Hörer. Haben Sie eine Auswahl geändert, speichern Sie zuerst: der Knopf lehnt eine ungespeicherte ab. Die ersten Sekunden der Ausgabe erscheinen unter den Knöpfen; die ganze Ausgabe dieser Skripte, und der Neustarts durch den Thermal Guard, landet in `logs/admin-scripts.log`.
+
+**HTTPS** zeigt, ob die Station über https erreichbar ist.
+
+- Auf einer https-Station führt **🔍 CHECK** `setup-https.sh --status` aus: läuft Caddy, und antwortet das Zertifikat?
+- Auf einer reinen http-Station prüft **🔒 SET UP HTTPS**, was es kann — `station.conf`, ob Ihr DNS-Name auflöst (eine IP-Adresse bekommt kein Zertifikat), ob die Ports 443 und 80 frei sind oder schon Caddy gehören —, erinnert daran, TCP 443 und 80 im Router weiterzuleiten, und gibt die zwei Zeilen für ein Terminal, jede mit **📋 COPY**. `setup-https.sh` fragt dort nach Ihrem sudo-Passwort: das Admin-Panel führt nie etwas als root aus. Laden Sie die Seite danach neu, und der Knopf wird zu **CHECK**. Siehe [Sicherer Zugang — https://](HTTPS.md).
+
+---
+
 ## Sicherung & Wiederherstellung der Stationseinstellungen
 
 **Settings → Backup & restore of the station settings.**
@@ -880,7 +923,7 @@ Jedes Ereignis hat sein eigenes Kästchen. Derselbe Alarm wird höchstens einmal
 
 - jede `*.toml` der Installation (Empfänger-Konfigurationen und `receivers.toml`) und `station.conf`
 - `frontend/site_information.json`, `frontend/src/bands-config.js`, `markers.json`
-- `autorun.json` (Spot Reporting), `websdr_relay.json`, `admin_bans.json`
+- `autorun.json` (Spot Reporting), `websdr_relay.json`, `drm.json`, `admin_bans.json`
 - für jeden weiteren Empfänger: `instances/<id>/config.toml`, `instance.env`, `markers.json`
 
 und eine `BACKUP-INFO.json` mit Datum, Rechner und Dateiliste. **Nicht** enthalten: `admin_config.json` (Admin-Passwort, Alarm-Geheimnisse), die Logs und das Programm selbst.
@@ -914,6 +957,14 @@ Alle Themes verwenden dieselben Schriften und Größen; nur Farben und Finish ä
 | `POST /admin/api/alerts/test` | Speichern und Test senden; Antwort pro Kanal |
 | `GET /admin/api/backup` | Einstellungs-Zip herunterladen |
 | `POST /admin/api/restore` | Einstellungs-Zip wiederherstellen (multipart, Feld `file`) |
+| `POST /admin/api/run-default-script` | Das gespeicherte Standard-Start- oder -Stopp-Skript ausführen (`{"which": "start"}` oder `"stop"`) |
+| `GET /admin/api/https` | Der https-Zustand, aus `station.conf` |
+| `POST /admin/api/https/check` | `setup-https.sh --status` ausführen |
+| `POST /admin/api/https/precheck` | Die Prüfungen vor dem Einschalten von https, und die auszuführenden Befehle |
+| `GET /admin/api/receivers-info` | Jeder Empfänger mit Bereich, Bandbreite und Zustand |
+| `POST /admin/api/receivers-info/retune` | Frequenz und Bandbreite eines zusätzlichen Empfängers ändern und ihn neu starten |
+| `GET /admin/api/receivers-info/add-defaults` | Startwerte für das Hinzufügen-Formular und die gesehenen USB-Empfänger |
+| `POST /admin/api/receivers-info/add-plan` | Das Hinzufügen-Formular prüfen und `instances/.add-rx.env` schreiben |
 | `GET /admin/api/station-grid` | Der Locator aus Site Info, für das Theme Auto |
 
 ---

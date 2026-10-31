@@ -18,6 +18,7 @@ import threading
 import time
 import signal
 import re
+import shlex
 import glob
 import logging
 from collections import deque
@@ -94,7 +95,7 @@ DEFAULT_CONFIG = {
     "log_lines": 200,
     "start_script": "",
     "stop_script":  "",
-    "public_port":  PUBLIC_PORT   # port users connect to (proxy.py / nginx / spectrumserver direct)
+    "public_port":  PUBLIC_PORT   # spectrumserver port (main receiver); listeners use proxy_port when proxy.py runs
 }
 
 # ─── App setup ─────────────────────────────────────────────────────────────────
@@ -121,6 +122,7 @@ LOG_FILES = {
     "spectrumserver.log": "spectrumserver.log",
     "admin.log": "admin.log",
     "rade.log": "rade.log",
+    "drm.log": "drm.log",
     "crash.log": "crash.log",
     "autorun.log": "autorun.log",
     "proxy.log": "proxy.log",
@@ -556,6 +558,42 @@ def _receivers_toml():
         return {}
 
 
+def _main_receiver_port():
+    """(port, source) of the MAIN receiver's spectrumserver — the one public_port
+    must name — or (None, None). Taken from the running spectrumserver's own
+    --config (the copies of the receiver templates in the base dir all say 9001,
+    so a file on disk cannot tell which one is live), else from the receivers.toml
+    entry without an instance."""
+    import tomllib
+    if HAS_PSUTIL:
+        try:
+            for proc in psutil.process_iter(["name", "cmdline"]):
+                cmd = proc.info.get("cmdline") or []
+                if "spectrumserver" not in (proc.info.get("name") or "") or "--config" not in cmd:
+                    continue
+                i = cmd.index("--config")
+                if i + 1 >= len(cmd):
+                    continue
+                conf = Path(cmd[i + 1])
+                if not conf.is_absolute():
+                    conf = get_sdr_dir() / conf
+                if "instances" in conf.parts:
+                    continue
+                with open(conf, "rb") as f:
+                    port = tomllib.load(f).get("server", {}).get("port")
+                if port:
+                    return int(port), conf.name + " [server] port (running receiver)"
+        except Exception:
+            pass
+    for r in _receivers_toml().get("receiver", []):
+        if not str(r.get("instance") or "").strip() and r.get("port"):
+            try:
+                return int(r["port"]), "receivers.toml (main receiver)"
+            except (TypeError, ValueError):
+                pass
+    return None, None
+
+
 def _sdr_ports():
     """Every spectrumserver port on this box: public_port first, then any other
     receiver receivers.toml lists. One entry on a single-receiver station."""
@@ -671,7 +709,7 @@ def start_thermal_guard():
         return False
 
 
-def run_script(script_name):
+def run_script(script_name, args=None, env=None):
     base = get_sdr_dir()
     sh   = get_allowed_scripts()
     # Resolve absolute path from whitelist map
@@ -685,18 +723,31 @@ def run_script(script_name):
         return False, "Script not found: " + str(script_path)
     try:
         script_path.chmod(script_path.stat().st_mode | 0o111)
-        proc = subprocess.Popen(
-            ["bash", str(script_path)],
-            cwd=str(script_path.parent),
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            text=True,
-            start_new_session=True,
-        )
+        # Output goes to a file, not a pipe: a start script tails its log for
+        # minutes, and a pipe nobody reads after 3 s fills up and blocks it.
+        log_path = get_sdr_dir() / "logs" / "admin-scripts.log"
+        log_path.parent.mkdir(parents=True, exist_ok=True)
+        with open(log_path, "a", encoding="utf-8") as logf:
+            logf.write("\n=== " + datetime.now().strftime("%Y-%m-%d %H:%M:%S") + "  " + script_path.name + " ===\n")
+            logf.flush()
+            offset = logf.tell()
+            proc = subprocess.Popen(
+                ["bash", str(script_path)] + list(args or []),
+                cwd=str(script_path.parent),
+                env=dict(os.environ, **env) if env else None,
+                stdout=logf,
+                stderr=subprocess.STDOUT,
+                stdin=subprocess.DEVNULL,
+                start_new_session=True,
+            )
         try:
-            out, _ = proc.communicate(timeout=3)
+            proc.wait(timeout=3)
+            tail = ""
         except subprocess.TimeoutExpired:
-            out = "(running in background)"
+            tail = chr(10) + "(still running — full output in logs/admin-scripts.log)"
+        with open(log_path, encoding="utf-8", errors="replace") as f:
+            f.seek(offset)
+            out = f.read(4000) + tail
         with log_lock:
             log_buffer.append("[" + datetime.now().strftime("%H:%M:%S") + "] RAN " + script_name + ": " + out[:200])
         return True, "Started " + script_path.name + " (PID " + str(proc.pid) + ")" + chr(10) + out
@@ -1525,6 +1576,16 @@ html[data-theme=light] .bar-wrap{background:var(--row);}
 html[data-theme=metal] .scanlines,html[data-theme=dark] .scanlines,html[data-theme=light] .scanlines{display:none;}
 input[type=text],input[type=password],input[type=number],select,textarea.code,.log-box,.chat-log{box-shadow:var(--recess);}
 select{background:var(--field);color:var(--text);border:1px solid var(--border);border-radius:2px;}
+/* the open drop-down list follows the theme instead of the system's white */
+select option{background:var(--panel);color:var(--text);}
+/* native drop-down frames: dark on the dark themes */
+html{color-scheme:dark;}
+html[data-theme=light]{color-scheme:light;}
+/* BAN duration menu, drawn by the page so its frame takes the theme too */
+.ban-menu{position:fixed;z-index:9999;background:var(--panel);border:1px solid rgba(var(--amber-rgb),.5);
+  border-radius:3px;box-shadow:0 4px 14px rgba(0,0,0,.35);padding:.2rem 0;min-width:5rem;}
+.ban-menu div{padding:.3rem .8rem;font-size:.7rem;color:var(--text);cursor:pointer;white-space:nowrap;}
+.ban-menu div:hover{background:rgba(var(--amber-rgb),.15);color:var(--amber);}
 </style>
 </head>
 <body>
@@ -1535,7 +1596,7 @@ select{background:var(--field);color:var(--text);border:1px solid var(--border);
     <div class="sidebar-logo">
       <div class="icon">📡</div>
       <div class="title">PHANTOM<span style="color:var(--amber)">SDR</span></div>
-      <div class="sub">ADMIN v5.3.0</div>
+      <div class="sub">ADMIN v5.4.0</div>
     </div>
     <div class="nav-section">
       <div class="nav-label">MAIN</div>
@@ -1545,6 +1606,9 @@ select{background:var(--field);color:var(--text);border:1px solid var(--border);
     </div>
     <div class="nav-section">
       <div class="nav-label">CONFIGURATION</div>
+      <a class="nav-item" onclick="showPage('receivers',this)" href="#">
+        <span class="icon">📡</span><span>Receivers</span>
+      </a>
       <a class="nav-item" onclick="showPage('config',this)" href="#">
         <span class="icon">⚙</span><span>Config Editor</span>
       </a>
@@ -1675,6 +1739,8 @@ select{background:var(--field);color:var(--text);border:1px solid var(--border);
             <div>
               <div style="font-size:.65rem;color:var(--text3);margin-bottom:.3rem;">RECEIVERS</div>
               <div id="hl-rx" style="font-size:.75rem;line-height:1.7;">Loading...</div>
+              <div style="font-size:.65rem;color:var(--text3);margin:.6rem 0 .3rem;">RADE</div>
+              <div id="hl-rade" style="font-size:.75rem;line-height:1.7;"></div>
               <div style="font-size:.65rem;color:var(--text3);margin:.6rem 0 .3rem;">DISK &amp; LOG FOLDERS</div>
               <div id="hl-disk" style="font-size:.75rem;line-height:1.7;"></div>
             </div>
@@ -1685,6 +1751,16 @@ select{background:var(--field);color:var(--text);border:1px solid var(--border);
               <pre id="hl-crash" style="font-size:.62rem;color:var(--text2);white-space:pre-wrap;max-height:9rem;overflow:auto;margin:0;"></pre>
             </div>
           </div>
+        </div>
+
+        <!-- ══════ RECEIVE DIVERSITY (every listener, every source type) ══════ -->
+        <div class="card" id="div-card" style="margin-bottom:1rem;">
+          <div class="card-header">
+            <div class="dot" id="dv-dot" style="background:var(--text3);box-shadow:none"></div>
+            RECEIVE DIVERSITY
+            <span style="margin-left:auto;font-size:.6rem;color:var(--text3);">listeners combining with another receiver &#183; WebSDR partners go through the relay below</span>
+          </div>
+          <div id="dv-list" style="font-size:.7rem;color:var(--text2);">--</div>
         </div>
 
         <!-- ══════ WEBSDR DIVERSITY RELAY ══════ -->
@@ -1706,6 +1782,36 @@ select{background:var(--field);color:var(--text);border:1px solid var(--border);
           </div>
           <div id="rl-hosts" style="font-size:.7rem;color:var(--text2);"></div>
           <div id="rl-reason" style="font-size:.65rem;color:var(--text3);margin-top:.3rem;"></div>
+        </div>
+
+        <!-- ══════ DRM DECODER ══════ -->
+        <div class="card" id="drm-card" style="margin-bottom:1rem;display:none;">
+          <div class="card-header">
+            <div class="dot" id="drm-dot" style="background:var(--text3);box-shadow:none"></div>
+            DRM DECODER
+            <span style="margin-left:auto;font-size:.6rem;color:var(--text3);">autorun/drm-helper.js &#183; one ubersdr-drm per listener</span>
+          </div>
+          <div class="grid grid-4" style="gap:.6rem;margin-bottom:.6rem;">
+            <div><div style="font-size:.6rem;color:var(--text3);">STATE</div>
+                 <div id="drm-state" style="font-size:.9rem;color:var(--green);">--</div></div>
+            <div><div style="font-size:.6rem;color:var(--text3);">DECODERS IN USE</div>
+                 <div id="drm-used" style="font-size:.9rem;color:var(--amber);">--</div></div>
+            <div><div style="font-size:.6rem;color:var(--text3);">PER LISTENER</div>
+                 <div id="drm-perip" style="font-size:.9rem;color:var(--text);">--</div></div>
+            <div><div style="font-size:.6rem;color:var(--text3);">PORT</div>
+                 <div id="drm-port" style="font-size:.9rem;color:var(--text);">--</div></div>
+          </div>
+          <div id="drm-sessions" style="font-size:.7rem;color:var(--text2);font-family:'Share Tech Mono',monospace;"></div>
+          <div style="display:flex;flex-wrap:wrap;align-items:center;gap:.8rem;margin-top:.7rem;font-size:.72rem;">
+            <label style="display:flex;align-items:center;gap:.4rem;">
+              <input type="checkbox" id="drm-enabled" onchange="this.dataset.dirty='1'"> DRM on</label>
+            <label style="display:flex;align-items:center;gap:.4rem;">Maximum listeners
+              <input id="drm-max" type="number" min="1" max="20" onchange="this.dataset.dirty='1'"
+                     style="width:3.4rem;background:var(--tile);border:1px solid var(--border);color:var(--green);padding:.15rem;"></label>
+            <button class="btn btn-green" style="padding:.2rem .6rem;font-size:.65rem;" onclick="saveDrm()">&#128190; SAVE</button>
+            <span style="font-size:.6rem;color:var(--text3);">applied within 5 s, no restart &#183; each listener costs ~2 % of one core and ~192 kbit/s upload</span>
+          </div>
+          <div id="drm-reason" style="font-size:.65rem;color:var(--text3);margin-top:.3rem;"></div>
         </div>
 
         <!-- ══════ THERMAL GUARD ══════ -->
@@ -1788,6 +1894,95 @@ select{background:var(--field);color:var(--text);border:1px solid var(--border);
       </div>
 
       <!-- ══════ CONFIG EDITOR PAGE ══════ -->
+      <div class="page" id="page-receivers">
+        <div class="section-head">RECEIVERS</div>
+        <div class="card" style="margin-bottom:1rem;">
+          <div style="overflow-x:auto;"><table class="top-procs" id="rx-table" style="width:100%;"></table></div>
+          <div style="margin-top:.8rem;display:flex;gap:.6rem;flex-wrap:wrap;align-items:center;">
+            <button class="btn btn-green" onclick="rxShowAdd()">➕ ADD NEW RECEIVER</button>
+            <span style="font-size:.7rem;color:var(--text3);">Guide: docs/MULTI_RECEIVER.md</span>
+          </div>
+        </div>
+
+        <div class="card" id="rx-change-card" style="margin-bottom:1rem;display:none;">
+          <div class="card-header"><div class="dot"></div><span id="rx-change-title">CHANGE FREQUENCY AND BANDWIDTH</span></div>
+          <div class="field-row" style="margin-bottom:.6rem;">
+            <div><label style="font-size:.65rem;color:var(--text3);display:block;margin-bottom:.3rem;">CENTRE FREQUENCY (MHz)</label>
+              <input type="number" id="rx-c-freq" step="0.001" style="width:100%;" oninput="rxChangePreview()"></div>
+            <div><label style="font-size:.65rem;color:var(--text3);display:block;margin-bottom:.3rem;">BANDWIDTH (sample rate)</label>
+              <select id="rx-c-sps" style="width:100%;" onchange="rxChangePreview()"></select></div>
+          </div>
+          <div class="field-row" style="margin-bottom:.6rem;">
+            <div><label style="font-size:.65rem;color:var(--text3);display:block;margin-bottom:.3rem;">A NEW LISTENER STARTS ON (MHz)</label>
+              <input type="number" id="rx-c-dflt" step="0.0001" style="width:100%;" oninput="rxChangePreview()"></div>
+            <div><label style="font-size:.65rem;color:var(--text3);display:block;margin-bottom:.3rem;">IN MODE</label>
+              <select id="rx-c-mode" style="width:100%;"></select></div>
+          </div>
+          <div style="margin-bottom:.6rem;"><label style="font-size:.65rem;color:var(--text3);display:block;margin-bottom:.3rem;">NAME ON ITS BUTTON</label>
+            <input type="text" id="rx-c-name" style="width:100%;"></div>
+          <div id="rx-c-preview" style="font-size:.75rem;color:var(--text2);margin-bottom:.6rem;"></div>
+          <div style="display:flex;gap:.6rem;flex-wrap:wrap;">
+            <button class="btn btn-amber" id="rx-c-apply" onclick="rxApplyChange()">✔ APPLY AND RESTART THIS RECEIVER</button>
+            <button class="btn" onclick="document.getElementById('rx-change-card').style.display='none'">CANCEL</button>
+          </div>
+          <div id="rx-c-out" style="margin-top:.6rem;font-size:.7rem;color:var(--text2);white-space:pre-wrap;max-height:14rem;overflow:auto;"></div>
+        </div>
+
+        <div class="card" id="rx-add-card" style="margin-bottom:1rem;display:none;">
+          <div class="card-header"><div class="dot"></div>ADD NEW RECEIVER</div>
+          <p style="color:var(--text2);font-size:.75rem;margin-bottom:.6rem;">
+            Fill this in, press PREPARE, and run the two lines it gives in a terminal on this computer.
+            Installing the driver and restarting the proxy need your sudo password, so that part never runs from this page.
+          </p>
+          <div id="rx-a-usb" style="font-size:.7rem;color:var(--text2);margin-bottom:.6rem;"></div>
+          <div class="field-row" style="margin-bottom:.6rem;">
+            <div><label style="font-size:.65rem;color:var(--text3);display:block;margin-bottom:.3rem;">RECEIVER</label>
+              <select id="rx-a-type" style="width:100%;" onchange="rxAddType()">
+                <option value="2">RTL-SDR (Blog V3/V4, other RTL2832U)</option>
+                <option value="6">Airspy HF+</option>
+                <option value="3">SDRplay RSP1A</option>
+                <option value="7">HackRF One</option>
+                <option value="4">Fobos SDR — RF path</option>
+                <option value="5">Fobos SDR — HF1/HF2 direct sampling</option>
+                <option value="1">RX888 MkII / RX888 (direct sampling)</option>
+              </select></div>
+            <div id="rx-a-v4-wrap" style="display:flex;align-items:flex-end;"><label style="font-size:.75rem;color:var(--text2);">
+              <input type="checkbox" id="rx-a-v4"> it is an RTL-SDR Blog V4</label></div>
+          </div>
+          <div class="field-row" style="margin-bottom:.6rem;">
+            <div id="rx-a-freq-wrap"><label style="font-size:.65rem;color:var(--text3);display:block;margin-bottom:.3rem;">CENTRE FREQUENCY (MHz)</label>
+              <input type="number" id="rx-a-freq" step="0.001" style="width:100%;" oninput="rxAddName()"></div>
+            <div><label style="font-size:.65rem;color:var(--text3);display:block;margin-bottom:.3rem;">BANDWIDTH (sample rate)</label>
+              <select id="rx-a-sps" style="width:100%;"></select>
+              <input type="number" id="rx-a-sps-num" style="width:100%;display:none;"></div>
+          </div>
+          <div class="field-row" style="margin-bottom:.6rem;">
+            <div><label style="font-size:.65rem;color:var(--text3);display:block;margin-bottom:.3rem;">SHORT NAME (?rx=&lt;name&gt;)</label>
+              <input type="text" id="rx-a-name" style="width:100%;"></div>
+            <div><label style="font-size:.65rem;color:var(--text3);display:block;margin-bottom:.3rem;">NAME ON ITS BUTTON</label>
+              <input type="text" id="rx-a-label" style="width:100%;"></div>
+          </div>
+          <div class="field-row" style="margin-bottom:.6rem;">
+            <div><label style="font-size:.65rem;color:var(--text3);display:block;margin-bottom:.3rem;">ITS ANTENNA</label>
+              <input type="text" id="rx-a-antenna" style="width:100%;" placeholder="Antenna"></div>
+            <div><label style="font-size:.65rem;color:var(--text3);display:block;margin-bottom:.3rem;">STATION'S PUBLIC ADDRESS</label>
+              <input type="text" id="rx-a-host" style="width:100%;"></div>
+          </div>
+          <div style="font-size:.75rem;color:var(--text2);display:grid;gap:.25rem;margin-bottom:.6rem;">
+            <label><input type="checkbox" id="rx-a-driver" checked> install or update its driver (sudo)</label>
+            <label><input type="checkbox" id="rx-a-picker" checked> show the receiver picker on the main page too (rebuilds the page)</label>
+            <label><input type="checkbox" id="rx-a-admin" checked> set this panel's start script to start-all.sh (so Restart and the thermal guard bring back every receiver)</label>
+            <label><input type="checkbox" id="rx-a-start" checked> start the new receiver at the end</label>
+            <label><input type="checkbox" id="rx-a-proxy" checked> restart the proxy at the end, so listeners reach it (sudo)</label>
+          </div>
+          <div style="display:flex;gap:.6rem;flex-wrap:wrap;">
+            <button class="btn btn-green" onclick="rxAddPrepare()">▶ PREPARE</button>
+            <button class="btn" onclick="document.getElementById('rx-add-card').style.display='none'">CANCEL</button>
+          </div>
+          <div id="rx-a-out" style="margin-top:.6rem;font-size:.7rem;color:var(--text2);"></div>
+        </div>
+      </div>
+
       <div class="page" id="page-config">
         <div class="section-head">FILE EDITOR</div>
         <div class="editor-toolbar">
@@ -1952,6 +2147,7 @@ select{background:var(--field);color:var(--text);border:1px solid var(--border);
           <div class="tab log-tab" data-log-name="spectrumserver.log" onclick="switchLogTab('spectrumserver.log', this)">SPECTRUMSERVER</div>
           <div class="tab log-tab" data-log-name="admin.log" onclick="switchLogTab('admin.log', this)">ADMIN</div>
           <div class="tab log-tab" data-log-name="rade.log" onclick="switchLogTab('rade.log', this)">RADE</div>
+          <div class="tab log-tab" data-log-name="drm.log" onclick="switchLogTab('drm.log', this)">DRM</div>
           <div class="tab log-tab" data-log-name="crash.log" onclick="switchLogTab('crash.log', this)">CRASH</div>
           <div class="tab log-tab" data-log-name="autorun.log" onclick="switchLogTab('autorun.log', this)">AUTORUN</div>
           <div class="tab log-tab" data-log-name="proxy.log" onclick="switchLogTab('proxy.log', this)">PROXY</div>
@@ -1967,6 +2163,9 @@ select{background:var(--field);color:var(--text);border:1px solid var(--border);
         </div>
         <div class="tab-pane log-tab-pane" id="log-pane-rade">
           <div class="log-box" id="main-log-rade" style="height:550px;"></div>
+        </div>
+        <div class="tab-pane log-tab-pane" id="log-pane-drm">
+          <div class="log-box" id="main-log-drm" style="height:550px;"></div>
         </div>
         <div class="tab-pane log-tab-pane" id="log-pane-crash">
           <div class="log-box" id="main-log-crash" style="height:550px;"></div>
@@ -2031,23 +2230,44 @@ select{background:var(--field);color:var(--text);border:1px solid var(--border);
             <input type="text" id="sdr-dir" style="width:100%;margin-bottom:1rem;" placeholder="/path/to/PhantomSDR-Plus">
             <div class="card-header" style="margin:.4rem 0;">
               <div class="dot" style="background:var(--blue);box-shadow:0 0 6px var(--blue);"></div>
-              PUBLIC WEBSDR PORT
+              SPECTRUMSERVER PORT (MAIN RECEIVER)
             </div>
-            <p style="color:var(--text2);font-size:.7rem;margin-bottom:.4rem;">Port users connect to (proxy.py / nginx / spectrumserver direct). Used for the Users page.</p>
-            <input type="number" id="public-port" style="width:100%;margin-bottom:1rem;" placeholder="8900" min="1" max="65535">
+            <p style="color:var(--text2);font-size:.7rem;margin-bottom:.4rem;">Port spectrumserver listens on (8901 behind proxy.py; listeners use the proxy port 8900). With no proxy, this is also the port listeners connect to. Used for Kick and connection counts.</p>
+            <input type="number" id="public-port" style="width:100%;margin-bottom:.4rem;" placeholder="8900" min="1" max="65535">
+            <p style="color:var(--text2);font-size:.7rem;margin-bottom:1rem;">Listener port (proxy): <b id="proxy-port-ro">—</b> <span style="opacity:.7;">(read-only, proxy_port in admin_config.json)</span></p>
             <div class="card-header" style="margin:.4rem 0;">
               <div class="dot" style="background:var(--green);box-shadow:0 0 6px var(--green);"></div>
               DEFAULT START SCRIPT
             </div>
-            <select class="script-select" id="default-start-sel" style="width:100%;margin-bottom:.8rem;"></select>
+            <div style="display:flex;gap:.5rem;margin-bottom:.8rem;">
+              <select class="script-select" id="default-start-sel" style="flex:1;min-width:0;"></select>
+              <button class="btn btn-green" id="run-start-btn" onclick="runDefaultScript('start')" title="Run the saved start script now">▶ START</button>
+            </div>
             <div class="card-header" style="margin:.4rem 0;">
               <div class="dot" style="background:var(--red);box-shadow:0 0 6px var(--red);"></div>
               DEFAULT STOP SCRIPT
             </div>
-            <select class="script-select" id="default-stop-sel" style="width:100%;margin-bottom:.8rem;"></select>
+            <div style="display:flex;gap:.5rem;margin-bottom:.8rem;">
+              <select class="script-select" id="default-stop-sel" style="flex:1;min-width:0;"></select>
+              <button class="btn btn-red" id="run-stop-btn" onclick="runDefaultScript('stop')" title="Run the saved stop script now">■ STOP</button>
+            </div>
             <button class="btn btn-amber" onclick="saveSettings()">💾 SAVE SETTINGS</button>
-            <div id="settings-msg" style="margin-top:.5rem;font-size:.7rem;color:var(--text3);"></div>
+            <div id="settings-msg" style="margin-top:.5rem;font-size:.7rem;color:var(--text3);white-space:pre-wrap;max-height:16rem;overflow:auto;"></div>
           </div>
+        </div>
+
+        <!-- ══════ HTTPS ══════ -->
+        <div class="section-head">HTTPS</div>
+        <div class="card" style="margin-bottom:1rem;">
+          <p style="color:var(--text2);font-size:.75rem;margin-bottom:.6rem;">
+            Serve the receiver over https:// as well as http:// (Caddy in front, free Let's Encrypt certificate).
+            The http address keeps working. Turning it on needs your sudo password, so it runs in a terminal — never from this page.
+          </p>
+          <div style="display:flex;gap:.8rem;align-items:center;flex-wrap:wrap;margin-bottom:.6rem;">
+            <span id="https-state" style="font-size:.75rem;color:var(--text2);">—</span>
+            <button class="btn btn-green" id="https-btn" onclick="httpsAction()" disabled>…</button>
+          </div>
+          <div id="https-out" style="font-size:.7rem;color:var(--text2);white-space:pre-wrap;"></div>
         </div>
 
         <!-- ══════ THERMAL GUARD SETTINGS ══════ -->
@@ -2141,7 +2361,7 @@ select{background:var(--field);color:var(--text);border:1px solid var(--border);
           </div>
           <div class="card">
             <div class="card-header"><div class="dot" style="background:var(--blue);box-shadow:0 0 6px var(--blue)"></div>BACKUP &amp; RESTORE OF THE STATION SETTINGS</div>
-            <p style="color:var(--text2);font-size:.7rem;margin-bottom:.6rem;">One zip with this station's own settings: the receiver .toml configs, receivers.toml, station.conf, site information, markers, band settings, the relay and spot-reporting settings, the ban list, and the same for every extra receiver in instances/. Not included: the admin password, the alert secrets, the logs and the program itself.</p>
+            <p style="color:var(--text2);font-size:.7rem;margin-bottom:.6rem;">One zip with this station's own settings: the receiver .toml configs, receivers.toml, station.conf, site information, markers, band settings, the relay, DRM and spot-reporting settings, the ban list, and the same for every extra receiver in instances/. Not included: the admin password, the alert secrets, the logs and the program itself.</p>
             <button class="btn btn-green" onclick="window.location='/admin/api/backup'">⬇ DOWNLOAD BACKUP</button>
             <div style="margin-top:1.2rem;font-size:.65rem;color:var(--text3);margin-bottom:.3rem;">RESTORE FROM A BACKUP ZIP</div>
             <input type="file" id="rs-file" accept=".zip,application/zip" style="width:100%;margin-bottom:.5rem;">
@@ -2175,6 +2395,8 @@ select{background:var(--field);color:var(--text);border:1px solid var(--border);
             <div style="display:flex;justify-content:space-between;font-size:.55rem;color:var(--text3);"><span>00</span><span>06</span><span>12</span><span>18</span><span>23</span></div>
             <div class="card-header" style="margin-top:1rem;"><div class="dot" style="background:var(--blue);box-shadow:0 0 6px var(--blue)"></div>COUNTRIES (visitors)</div>
             <div id="vs-cc" style="font-size:.75rem;line-height:1.7;"></div>
+            <div class="card-header" style="margin-top:1rem;"><div class="dot" style="background:var(--green);box-shadow:0 0 6px var(--green)"></div>DECODERS (sessions that ran each)</div>
+            <div id="vs-dec" style="font-size:.75rem;line-height:1.7;"></div>
           </div>
         </div>
         <div class="card">
@@ -2263,7 +2485,7 @@ select{background:var(--field);color:var(--text);border:1px solid var(--border);
         </div>
         <div class="card" id="bans-card" style="display:none;margin-top:.8rem;overflow-x:auto;padding:0;">
           <div class="card-header" style="padding:.6rem .9rem;margin:0;display:flex;align-items:center;gap:.6rem;">
-            <div class="dot"></div>BANNED FOR 24 H
+            <div class="dot"></div>BANNED
             <span style="font-size:.6rem;color:var(--text3);margin-left:auto;">kept across receiver restarts</span>
           </div>
           <table style="width:100%;border-collapse:collapse;font-size:.75rem;">
@@ -2397,6 +2619,7 @@ const LOG_TAB_TARGETS = {
   'spectrumserver.log': 'main-log-spectrumserver',
   'admin.log': 'main-log-admin',
   'rade.log': 'main-log-rade',
+  'drm.log': 'main-log-drm',
   'crash.log': 'main-log-crash',
   'autorun.log': 'main-log-autorun',
   'proxy.log': 'main-log-proxy',
@@ -2407,6 +2630,7 @@ const LOG_TAB_PANES = {
   'spectrumserver.log': 'log-pane-spectrumserver',
   'admin.log': 'log-pane-admin',
   'rade.log': 'log-pane-rade',
+  'drm.log': 'log-pane-drm',
   'crash.log': 'log-pane-crash',
   'autorun.log': 'log-pane-autorun',
   'proxy.log': 'log-pane-proxy',
@@ -2428,6 +2652,7 @@ function showPage(name, el) {
   });
   if (name === 'dashboard') { loadDashboard(); }
   if (name === 'config') { loadConfigList(); }
+  if (name === 'receivers') { loadReceiversPage(); }
   if (name === 'siteinfo') { loadJsonList(); }
   if (name === 'markers') { loadMarkers(); }
   if (name === 'reporting') { autorunLoad(); }
@@ -2443,6 +2668,7 @@ function showPage(name, el) {
 
 // ─── System health (Dashboard) ───────────────────────────────────────────────
 let _healthTick = 0;
+const _HL_KIND = {up: 'var(--ok)', restart: 'var(--amber)', down: 'var(--red)', crash: 'var(--red)'};
 function _fmtBytes(b) {
   if (b >= 1073741824) return (b / 1073741824).toFixed(1) + ' GB';
   if (b >= 1048576) return (b / 1048576).toFixed(0) + ' MB';
@@ -2470,6 +2696,12 @@ async function loadHealth() {
       ' <span style="color:var(--text3)">:' + r.port + '</span> — ' +
       (r.up ? 'on air, up ' + _fmtDur(r.uptime_s) : '<b style="color:var(--red)">OFF THE AIR</b>');
   }).join('<br>');
+  document.getElementById('hl-rade').innerHTML = (d.rade || []).map(r => {
+    const c = {ready: 'var(--ok)', starting: 'var(--amber)', missing: 'var(--text3)'}[r.state] || 'var(--red)';
+    const txt = r.state === 'ready' ? 'ready to decode, up ' + _fmtDur(r.uptime_s)
+              : r.state === 'off' ? '<b style="color:var(--red)">NOT RUNNING</b>' : escHtml(r.detail);
+    return '<span style="color:' + c + '">●</span> ' + escHtml(r.label) + ' — ' + txt;
+  }).join('<br>');
   const dot = document.getElementById('hl-dot');
   dot.style.background = allUp ? 'var(--ok)' : 'var(--red)';
   dot.style.boxShadow = '0 0 6px ' + (allUp ? 'var(--ok)' : 'var(--red)');
@@ -2479,7 +2711,8 @@ async function loadHealth() {
     '<span style="color:' + fc + '">' + _fmtBytes(d.disk.free) + ' free</span> of ' + _fmtBytes(d.disk.total) + ' (' + pct + '% used)<br>' +
     d.folders.map(f => escHtml(f.path) + ': ' + _fmtBytes(f.bytes)).join('<br>');
   document.getElementById('hl-events').innerHTML = d.events.length
-    ? d.events.map(e => '<span style="color:var(--text3)">' + _fmtWhen(e.t) + '</span> ' + escHtml(e.text)).join('<br>')
+    ? d.events.map(e => '<span style="color:var(--text3)">' + _fmtWhen(e.t) + '</span> ' +
+        '<span style="color:' + (_HL_KIND[e.kind] || 'inherit') + '">' + escHtml(e.text) + '</span>').join('<br>')
     : '<span style="color:var(--text3)">none since the panel started</span>';
   const cr = d.crash;
   document.getElementById('hl-crash-when').textContent = cr ? '— ' + cr.label + ', ' + _fmtWhen(cr.mtime) : '';
@@ -2571,18 +2804,24 @@ async function loadVisitors() {
   document.getElementById('vs-cc').innerHTML = d.countries.length
     ? d.countries.map(c => '<span style="display:inline-block;min-width:3.2rem;">' + escHtml(c[0]) + '</span>' + c[1]).join('<br>')
     : '<span style="color:var(--text3)">no visitors</span>';
+  document.getElementById('vs-dec').innerHTML = (d.decoders || []).length
+    ? d.decoders.map(c => '<span style="display:inline-block;min-width:4.5rem;">' + escHtml(c[0]) + '</span>' + c[1]).join('<br>')
+    : '<span style="color:var(--text3)">no decoder used</span>';
   document.getElementById('vs-addr').innerHTML = d.addresses.length ? _vsTable(
     ['ADDRESS', 'WHERE', 'SESSIONS', 'AT ONCE', 'HOURS', 'RECEIVERS', 'LAST SEEN', ''],
     d.addresses.map(a => [escHtml(a.ip), escHtml(a.geo || ''), a.sessions,
       '<b style="color:' + (a.peak > 3 ? 'var(--red)' : 'inherit') + '">' + a.peak + '</b>',
       a.hours, escHtml(a.rx.join(', ')), _fmtWhen(a.last),
-      '<button class="btn btn-red" style="padding:.1rem .4rem;font-size:.6rem;" onclick="vsBan(' + "'" + escHtml(a.ip) + "'" + ')">BAN 24h</button>']))
+      '<button class="btn btn-red" style="padding:.1rem .4rem;font-size:.6rem;" onclick="vsBan(' + "'" + escHtml(a.ip) + "'" + ', this)">BAN ▾</button>']))
     : '<span style="color:var(--text3)">no visitors</span>';
 }
-async function vsBan(ip) {
-  if (!confirm('Ban ' + ip + ' for 24 hours and disconnect it now?')) return;
+function vsBan(ip, btn) {
+  openBanMenu(btn, function(h) { vsBanFor(ip, h); });
+}
+async function vsBanFor(ip, hours) {
+  if (!confirm('Ban ' + ip + ' for ' + hours + ' hours and disconnect it now?')) return;
   const d = await fetch('/admin/api/ban', {method: 'POST', headers: {'Content-Type': 'application/json'},
-                                           body: JSON.stringify({ip: ip})}).then(r => r.json());
+                                           body: JSON.stringify({ip: ip, hours: hours})}).then(r => r.json());
   toast(d.msg || (d.ok ? 'Banned' : 'Ban failed'), d.ok ? 'ok' : 'err');
 }
 
@@ -2756,6 +2995,65 @@ async function thermalReset() {
   updateThermal();
 }
 
+// ─── DRM decoder ─────────────────────────────────────────────────────────────
+async function updateDrm() {
+  try {
+    const d = await fetch('/admin/api/drm').then(r => r.json());
+    const card = document.getElementById('drm-card');
+    if (!card) return;
+    // Not installed and not running: nothing to show on this station.
+    if (!d.installed && !d.running) { card.style.display = 'none'; return; }
+    card.style.display = '';
+    const set = (id, txt) => { const e = document.getElementById(id); if (e) e.textContent = txt; };
+    const state = !d.running ? 'STOPPED' : (d.enabled ? 'RUNNING' : 'SWITCHED OFF');
+    const color = !d.running ? 'var(--red)' : (d.enabled ? 'var(--green)' : 'var(--amber)');
+    set('drm-state', state);
+    const st = document.getElementById('drm-state'); if (st) st.style.color = color;
+    const dot = document.getElementById('drm-dot');
+    if (dot) { dot.style.background = color; dot.style.boxShadow = '0 0 6px ' + color; }
+    const sess = d.sessions || [];
+    set('drm-used', d.running ? (sess.length + ' / ' + d.max_sessions) : '--');
+    set('drm-perip', d.per_ip ? String(d.per_ip) : '--');
+    set('drm-port', d.port ? String(d.port) : '--');
+    // Who is on which frequency, and what their decoder is doing.
+    const list = document.getElementById('drm-sessions');
+    if (list) {
+      list.textContent = '';
+      if (d.running && !sess.length) list.textContent = 'No one is listening to DRM.';
+      for (const x of sess) {
+        const row = document.createElement('div');
+        const mins = Math.max(0, Math.round((Date.now() - x.since) / 60000));
+        const what = x.decoding
+          ? 'decoding ' + (x.service || '?') + (x.codec ? ' (' + x.codec + ')' : '') +
+            (x.wmer !== null && x.wmer !== undefined ? ', WMER ' + Number(x.wmer).toFixed(1) + ' dB' : '')
+          : (x.acquired ? 'syncing' : 'searching');
+        row.textContent = (x.name ? x.name + ' \u00b7 ' : '') + x.ip + ' \u00b7 ' +
+          (x.freq / 1000).toFixed(1) + ' kHz' + (x.rx ? ' (' + x.rx + ')' : '') +
+          ' \u00b7 ' + what + ' \u00b7 ' + mins + ' min';
+        list.appendChild(row);
+      }
+    }
+    // The settings follow the helper, unless the sysop is changing them.
+    const en = document.getElementById('drm-enabled'), mx = document.getElementById('drm-max');
+    if (en && !en.dataset.dirty) en.checked = !!d.enabled;
+    if (mx && !mx.dataset.dirty && document.activeElement !== mx) mx.value = d.max_sessions || 5;
+    set('drm-reason', d.running
+      ? (d.env_override ? 'DRM_MAX_SESSIONS or DRM_PER_IP is set in the environment of the start script and wins over these settings.' : '')
+      : (d.reason || ''));
+  } catch (e) { console.error('updateDrm:', e); }
+}
+
+async function saveDrm() {
+  const en = document.getElementById('drm-enabled'), mx = document.getElementById('drm-max');
+  const d = await fetch('/admin/api/drm', {
+    method: 'POST', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({enabled: en.checked, max_sessions: parseInt(mx.value, 10)})
+  }).then(r => r.json()).catch(() => ({ok: false, msg: 'request failed'}));
+  delete en.dataset.dirty; delete mx.dataset.dirty;
+  toast(d.msg || (d.ok ? 'Saved' : 'Failed'), d.ok ? '' : 'err');
+  updateDrm();
+}
+
 // ─── WebSDR diversity relay ──────────────────────────────────────────────────
 async function updateRelay() {
   try {
@@ -2814,6 +3112,48 @@ updateThermal();
 setInterval(updateRelay, 10000);
 updateRelay();
 
+// ─── Receive diversity: who combines with which receiver ─────────────────────
+// Each listener's page reports its partner (type + host) on /audio; the
+// receivers give it only on the loopback /~~users, merged by sdr-users.
+var DV_TYPES = {phantom: 'PhantomSDR+', kiwi: 'KiwiSDR', uber: 'UberSDR', websdr: 'WebSDR'};
+async function updateDiversity() {
+  var list = document.getElementById('dv-list');
+  if (!list) return;
+  try {
+    var d = await fetch('/admin/api/sdr-users', {cache: 'no-store'}).then(function(r){ return r.json(); });
+    var rows = (d.users || []).filter(function(u){ return u.diversity; });
+    var dot = document.getElementById('dv-dot');
+    var on = rows.length > 0;
+    if (dot) {
+      dot.style.background = on ? 'var(--green)' : 'var(--text3)';
+      dot.style.boxShadow = on ? '0 0 6px var(--green)' : 'none';
+    }
+    if (!d.ok) { list.textContent = d.error || 'no receiver answered'; return; }
+    if (!on) { list.textContent = 'Nobody is using receive diversity.'; return; }
+    var multi = !!d.multi;
+    var html = '<table style="width:100%;border-collapse:collapse;">';
+    rows.forEach(function(u) {
+      var sp = u.diversity.indexOf(' ');
+      var type = sp > 0 ? u.diversity.slice(0, sp) : u.diversity;
+      var host = sp > 0 ? u.diversity.slice(sp + 1) : '';
+      var who = (u.name ? u.name + ' - ' : '') + (u.geo || u.ip || '');
+      var freq = Number(u.freq_khz || 0).toFixed(2) + ' kHz ' + String(u.mode || '').toUpperCase();
+      html += '<tr>' +
+        (multi ? '<td style="padding:.15rem .4rem;color:var(--text3);">' + escHtml(String(u.rx || '')) + '</td>' : '') +
+        '<td style="padding:.15rem .4rem;">' + escHtml(who) + '</td>' +
+        '<td style="padding:.15rem .4rem;color:var(--text);">' + escHtml(freq) + '</td>' +
+        '<td style="padding:.15rem .4rem;color:var(--amber);">' + escHtml(DV_TYPES[type] || type) + '</td>' +
+        '<td style="padding:.15rem .4rem;">' + escHtml(host) + '</td>' +
+        '</tr>';
+    });
+    list.innerHTML = html + '</table>';
+  } catch(e) { console.error('updateDiversity:', e); }
+}
+setInterval(updateDiversity, 10000);
+updateDiversity();
+setInterval(updateDrm, 10000);
+updateDrm();
+
 // ─── Dashboard & Terminal ────────────────────────────────────────────────────
 let _dashLogTimer = null;
 let _termCwd  = '';
@@ -2827,8 +3167,10 @@ async function loadDashboard() {
   loadLogs('dash-log', 'logwebsdr.txt');
   if (_dashLogTimer) clearInterval(_dashLogTimer);
   _dashLogTimer = setInterval(() => {
-    if (currentPage === 'dashboard') loadLogs('dash-log', 'logwebsdr.txt');    if (currentPage === 'dashboard' && (++_healthTick % 6) === 0) loadHealth();
-
+    if (currentPage === 'dashboard') {
+      loadLogs('dash-log', 'logwebsdr.txt');
+      if ((++_healthTick % 2) === 0) loadHealth();
+    }
     else { clearInterval(_dashLogTimer); _dashLogTimer = null; }
   }, 5000);
   // Set terminal cwd to sdr base dir
@@ -3518,6 +3860,8 @@ async function loadSettingsPage() {
   document.getElementById('sdr-dir').value = d.sdr_base_dir || '';
   const ppEl = document.getElementById('public-port');
   if (ppEl) ppEl.value = d.public_port || 8900;
+  const pxEl = document.getElementById('proxy-port-ro');
+  if (pxEl) pxEl.textContent = d.proxy_port || 'none — no proxy, listeners use the port above';
   // Populate start/stop script selectors
   const sh = await fetch('/admin/api/scripts').then(r => r.json());
   const all = sh.all || [];
@@ -3535,7 +3879,9 @@ async function loadSettingsPage() {
     document.getElementById('default-start-sel').value = d.start_script || '';
   if (document.getElementById('default-stop-sel'))
     document.getElementById('default-stop-sel').value = d.stop_script || '';
+  _savedScripts = {start: d.start_script || '', stop: d.stop_script || ''};
   loadThermalSettings(d);
+  loadHttpsCard();
 }
 
 // ─── Thermal guard settings ──────────────────────────────────────────────────
@@ -3596,7 +3942,7 @@ async function saveThermal() {
   } else toast(d.msg || 'Failed', 'err');
 }
 
-async function saveSettings() {
+async function saveSettings(confirmPort) {
   const dir   = document.getElementById('sdr-dir').value.trim();
   const start = document.getElementById('default-start-sel')?.value || '';
   const stop  = document.getElementById('default-stop-sel')?.value || '';
@@ -3604,13 +3950,285 @@ async function saveSettings() {
   const r = await fetch('/admin/api/settings', {
     method: 'POST',
     headers: {'Content-Type':'application/json'},
-    body: JSON.stringify({sdr_base_dir: dir, start_script: start, stop_script: stop, public_port: pp})
+    body: JSON.stringify({sdr_base_dir: dir, start_script: start, stop_script: stop, public_port: pp,
+                          confirm_port: !!confirmPort})
   });
   const d = await r.json();
+  if (!d.ok && d.confirm) {
+    if (confirm(d.msg)) return saveSettings(true);
+    document.getElementById('settings-msg').textContent = 'Not saved — the port was left as it was.';
+    return;
+  }
+  if (!d.ok) document.getElementById('settings-msg').textContent = d.msg || '';
   if (d.ok) {
     toast('Settings saved');
     document.getElementById('settings-msg').textContent = 'Saved';
+    _savedScripts = {start: start, stop: stop};
   } else toast(d.msg, 'err');
+}
+
+// ─── Receivers page ──────────────────────────────────────────────────────────
+let _rxList = [], _rxEdit = null, _rxAdd = null;
+function _mhz(hz) { return (hz / 1e6).toFixed(hz % 1000 ? 4 : 3).replace(/0+$/, '').replace(/[.]$/, ''); }
+function _rate(sps) { return sps >= 1e6 ? (sps / 1e6) + ' MHz' : (sps / 1e3) + ' kHz'; }
+async function loadReceiversPage() {
+  const tb = document.getElementById('rx-table');
+  if (!tb) return;
+  let d;
+  try { d = await fetch('/admin/api/receivers-info', {cache: 'no-store'}).then(r => r.json()); }
+  catch (e) { tb.innerHTML = '<tr><td>could not read the receivers</td></tr>'; return; }
+  _rxList = d.receivers || [];
+  let h = '<thead><tr><th>Receiver</th><th>?rx=</th><th>Hardware</th><th>Covers</th><th>Bandwidth</th>' +
+          '<th>Starts on</th><th>State</th><th></th></tr></thead><tbody>';
+  _rxList.forEach((r, i) => {
+    let act = '';
+    if (r.changeable) act = '<button class="btn btn-amber" onclick="rxShowChange(' + i + ')">✎ CHANGE FREQUENCY AND BANDWIDTH</button>';
+    else if (r.direct) act = '<span style="color:var(--text3);">direct sampling — covers 0–' + _mhz(r.high) + ' MHz, nothing to tune</span>';
+    else if (!r.instance) act = '<span style="color:var(--text3);">main receiver — change it in a terminal: <code>bash configure-station.sh</code></span>';
+    h += '<tr><td>' + _esc(r.name) + '</td><td>' + _esc(r.id) + '</td><td>' + _esc(r.hardware) + '</td>' +
+         '<td>' + _mhz(r.low) + ' – ' + _mhz(r.high) + ' MHz' + (r.direct ? '' : '<br><span style="color:var(--text3);">centre ' + _mhz(r.tune || r.frequency) + '</span>') + '</td>' +
+         '<td>' + _rate(r.span) + '</td><td>' + (r.default_frequency ? _mhz(r.default_frequency) + ' MHz ' + _esc(r.modulation) : '') + '</td>' +
+         '<td style="color:' + (r.on_air ? 'var(--green)' : 'var(--red)') + ';">' + (r.on_air ? '● on air' : '● off') + '</td><td>' + act + '</td></tr>';
+  });
+  tb.innerHTML = h + '</tbody>';
+}
+function rxShowChange(i) {
+  const r = _rxList[i];
+  _rxEdit = r;
+  document.getElementById('rx-add-card').style.display = 'none';
+  document.getElementById('rx-change-title').textContent = 'CHANGE FREQUENCY AND BANDWIDTH — ' + r.name + ' (' + r.id + ')';
+  document.getElementById('rx-c-freq').value = _mhz(r.tune || r.frequency);
+  const sel = document.getElementById('rx-c-sps');
+  const rates = r.rates.slice();
+  if (rates.indexOf(r.sps) < 0) rates.push(r.sps);
+  rates.sort((a, b) => a - b);
+  sel.innerHTML = rates.map(x => '<option value="' + x + '"' + (x === r.sps ? ' selected' : '') + '>' + _rate(x) + '</option>').join('');
+  document.getElementById('rx-c-dflt').value = _mhz(r.default_frequency);
+  document.getElementById('rx-c-mode').innerHTML = r.modes.map(m => '<option' + (m === r.modulation ? ' selected' : '') + '>' + m + '</option>').join('');
+  document.getElementById('rx-c-name').value = r.name;
+  document.getElementById('rx-c-out').textContent = '';
+  document.getElementById('rx-change-card').style.display = '';
+  rxChangePreview();
+  document.getElementById('rx-change-card').scrollIntoView({behavior: 'smooth'});
+}
+function rxChangePreview() {
+  const r = _rxEdit; if (!r) return;
+  const f = Math.round(parseFloat(document.getElementById('rx-c-freq').value) * 1e6);
+  const sps = parseInt(document.getElementById('rx-c-sps').value, 10);
+  const dflt = Math.round(parseFloat(document.getElementById('rx-c-dflt').value) * 1e6);
+  const pv = document.getElementById('rx-c-preview');
+  if (!f || !sps) { pv.textContent = ''; return; }
+  const lo = f - sps / 2, hi = f + sps / 2;
+  let t = 'It will cover ' + _mhz(lo) + ' – ' + _mhz(hi) + ' MHz.';
+  const inRange = r.ranges.some(x => f >= x[0] && f <= x[1]);
+  if (!inRange) t += ' ✖ ' + r.hardware + ' does not tune ' + _mhz(f) + ' MHz.';
+  if (dflt && (dflt < lo || dflt > hi)) t += ' ✖ The start frequency is outside that range.';
+  if (r.note) t += ' ' + r.note;
+  pv.textContent = t;
+}
+async function rxApplyChange() {
+  const r = _rxEdit; if (!r) return;
+  const body = {
+    id: r.id,
+    frequency: Math.round(parseFloat(document.getElementById('rx-c-freq').value) * 1e6),
+    sps: parseInt(document.getElementById('rx-c-sps').value, 10),
+    default_frequency: Math.round(parseFloat(document.getElementById('rx-c-dflt').value) * 1e6),
+    modulation: document.getElementById('rx-c-mode').value,
+    name: document.getElementById('rx-c-name').value.trim()
+  };
+  if (!confirm('Apply and restart ' + r.name + '? Its listeners are cut off for a few seconds; the other receivers keep running.')) return;
+  const btn = document.getElementById('rx-c-apply'), out = document.getElementById('rx-c-out');
+  btn.disabled = true; out.textContent = 'Writing the files and restarting …';
+  try {
+    const d = await fetch('/admin/api/receivers-info/retune', {method: 'POST',
+      headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)}).then(x => x.json());
+    out.textContent = d.msg || '';
+    toast(d.ok ? 'Saved' : (d.msg || 'Failed'), d.ok ? 'ok' : 'err');
+    if (d.ok) setTimeout(loadReceiversPage, 8000);
+  } catch (e) { out.textContent = String(e); }
+  finally { btn.disabled = false; }
+}
+async function rxShowAdd() {
+  document.getElementById('rx-change-card').style.display = 'none';
+  const card = document.getElementById('rx-add-card');
+  card.style.display = '';
+  document.getElementById('rx-a-out').innerHTML = '';
+  try { _rxAdd = await fetch('/admin/api/receivers-info/add-defaults', {cache: 'no-store'}).then(r => r.json()); }
+  catch (e) { toast('could not read the defaults', 'err'); return; }
+  const u = _rxAdd.usb;
+  document.getElementById('rx-a-usb').innerHTML = u === null ? 'lsusb is not installed, so the page cannot list the USB receivers.'
+    : (u.length ? 'USB receivers this computer sees: <b>' + u.map(_esc).join('</b>, <b>') + '</b>' : 'No known USB receiver is plugged in.');
+  document.getElementById('rx-a-host').value = _rxAdd.host || '';
+  rxAddType();
+  card.scrollIntoView({behavior: 'smooth'});
+}
+function rxAddType() {
+  if (!_rxAdd) return;
+  const t = document.getElementById('rx-a-type').value, d = _rxAdd.types[t];
+  document.getElementById('rx-a-v4-wrap').style.visibility = t === '2' ? 'visible' : 'hidden';
+  document.getElementById('rx-a-freq-wrap').style.visibility = d.direct ? 'hidden' : 'visible';
+  document.getElementById('rx-a-freq').value = d.direct ? '' : _mhz(d.frequency);
+  const sel = document.getElementById('rx-a-sps'), num = document.getElementById('rx-a-sps-num');
+  if (d.rates && d.rates.length) {
+    sel.style.display = ''; num.style.display = 'none';
+    sel.innerHTML = d.rates.map(x => '<option value="' + x + '"' + (x === d.sps ? ' selected' : '') + '>' + _rate(x) + '</option>').join('');
+  } else {
+    sel.style.display = 'none'; num.style.display = ''; num.value = d.sps;
+  }
+  rxAddName();
+}
+function rxAddName() {
+  const t = document.getElementById('rx-a-type').value, d = _rxAdd.types[t];
+  const f = d.direct ? 0 : Math.round(parseFloat(document.getElementById('rx-a-freq').value || '0') * 1e6);
+  let base = (d.direct || f < 30e6) ? 'hf2' : f < 300e6 ? 'vhf' : f < 3e9 ? 'uhf' : 'rx2';
+  let n = base, k = 2;
+  while (_rxAdd.taken.indexOf(n) >= 0) { n = base + k; k++; }
+  document.getElementById('rx-a-name').value = n;
+  const sel = document.getElementById('rx-a-type');
+  const hw = sel.options[sel.selectedIndex].text.split(' (')[0].split(' — ')[0];
+  document.getElementById('rx-a-label').value = d.direct ? 'HF (' + hw + ')' : _mhz(f) + ' MHz (' + hw + ')';
+}
+async function rxAddPrepare() {
+  const t = document.getElementById('rx-a-type').value, d = _rxAdd.types[t];
+  const body = {
+    type: parseInt(t, 10), v4: document.getElementById('rx-a-v4').checked,
+    frequency: d.direct ? 0 : Math.round(parseFloat(document.getElementById('rx-a-freq').value) * 1e6),
+    sps: parseInt((d.rates && d.rates.length) ? document.getElementById('rx-a-sps').value : document.getElementById('rx-a-sps-num').value, 10),
+    name: document.getElementById('rx-a-name').value.trim(), label: document.getElementById('rx-a-label').value.trim(),
+    antenna: document.getElementById('rx-a-antenna').value.trim(), host: document.getElementById('rx-a-host').value.trim(),
+    driver: document.getElementById('rx-a-driver').checked, picker: document.getElementById('rx-a-picker').checked,
+    admin: document.getElementById('rx-a-admin').checked, start: document.getElementById('rx-a-start').checked,
+    proxy: document.getElementById('rx-a-proxy').checked
+  };
+  const out = document.getElementById('rx-a-out');
+  const r = await fetch('/admin/api/receivers-info/add-plan', {method: 'POST',
+    headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)}).then(x => x.json());
+  if (!r.ok) {
+    out.innerHTML = (r.errors || []).map(e => '<div><span style="color:var(--red);">✖</span> ' + _esc(e) + '</div>').join('');
+    return;
+  }
+  let h = '<div><span style="color:var(--green);">✔</span> Answers saved. Now open a terminal on this computer and run these two lines:</div>';
+  r.commands.forEach((c, n) => {
+    h += '<div style="display:flex;gap:.5rem;align-items:center;margin-top:.3rem;">' +
+         '<code id="rx-cmd' + n + '" style="flex:1;min-width:0;padding:.3rem .5rem;border:1px solid var(--border);' +
+         'border-radius:3px;overflow-x:auto;white-space:nowrap;">' + _esc(c) + '</code>' +
+         '<button class="btn btn-amber" onclick="httpsCopy(' + "'rx-cmd" + n + "'" + ')">📋 COPY</button></div>';
+  });
+  (r.notes || []).forEach(n => { h += '<div style="margin-top:.4rem;color:var(--amber);">! ' + _esc(n) + '</div>'; });
+  h += '<div style="margin-top:.6rem;color:var(--text3);">The script asks only what is not answered here (and your sudo password).' +
+       ' When it has finished, reload this page — the new receiver appears in the list.</div>';
+  out.innerHTML = h;
+}
+
+// ─── HTTPS card ──────────────────────────────────────────────────────────────
+// An https station gets CHECK (setup-https.sh --status, no root needed); an
+// http-only one gets SET UP HTTPS: what this page can verify, what it cannot
+// (router, DNS), and the command to run in a terminal with the sysop's own sudo.
+let _httpsInfo = null;
+function _esc(t) { const d = document.createElement('div'); d.textContent = t; return d.innerHTML; }
+async function loadHttpsCard() {
+  const st = document.getElementById('https-state'), btn = document.getElementById('https-btn');
+  if (!st || !btn) return;
+  try {
+    _httpsInfo = await fetch('/admin/api/https', {cache: 'no-store'}).then(r => r.json());
+  } catch (e) { st.textContent = 'could not read the https state'; return; }
+  const i = _httpsInfo;
+  if (i.mode === 'y') st.innerHTML = 'https is <b>on</b> — https://' + _esc(i.host || '?') + '/';
+  else if (i.mode === 'lan') st.innerHTML = 'https is <b>on</b> for the local network only';
+  else st.innerHTML = 'https is <b>off</b> — this station is http only';
+  btn.textContent = i.https ? '🔍 CHECK' : '🔒 SET UP HTTPS';
+  btn.disabled = false;
+}
+function _copyText(t) {
+  // navigator.clipboard needs a secure context, and this page is usually plain http.
+  if (navigator.clipboard && window.isSecureContext) return navigator.clipboard.writeText(t).then(() => true, () => false);
+  const ta = document.createElement('textarea');
+  ta.value = t; ta.style.position = 'fixed'; ta.style.opacity = '0';
+  document.body.appendChild(ta); ta.select();
+  let ok = false;
+  try { ok = document.execCommand('copy'); } catch (e) {}
+  document.body.removeChild(ta);
+  return Promise.resolve(ok);
+}
+async function httpsCopy(id) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  const ok = await _copyText(el.textContent);
+  toast(ok ? 'Copied' : 'Copy failed — select the text by hand', ok ? 'ok' : 'err');
+}
+async function httpsAction() {
+  const out = document.getElementById('https-out'), btn = document.getElementById('https-btn');
+  if (!_httpsInfo) return;
+  btn.disabled = true;
+  out.textContent = _httpsInfo.https ? 'Checking … (up to 15 s)' : 'Checking what can be checked …';
+  try {
+    const d = await fetch('/admin/api/https/' + (_httpsInfo.https ? 'check' : 'precheck'),
+                          {method: 'POST'}).then(r => r.json());
+    if (_httpsInfo.https) {
+      out.innerHTML = '<span style="color:' + (d.ok ? 'var(--green)' : 'var(--amber)') + ';">' +
+                      (d.ok ? '✔ https works' : '! https needs attention') + '</span>' +
+                      String.fromCharCode(10) + _esc(d.output || d.msg || '');
+    } else {
+      const mark = {ok: '✔', warn: '!', bad: '✖', todo: '☐'};
+      const col  = {ok: 'var(--green)', warn: 'var(--amber)', bad: 'var(--red)', todo: 'var(--text2)'};
+      let h = '';
+      (d.items || []).forEach(it => {
+        h += '<div style="margin-bottom:.25rem;"><span style="color:' + col[it.state] + ';">' + mark[it.state] +
+             '</span> ' + _esc(it.text) + '</div>';
+      });
+      if (d.ready) {
+        h += '<div style="margin-top:.6rem;">Then open a terminal on this computer and run these two lines' +
+             ' (it asks for your sudo password):</div>';
+        (d.commands || []).forEach((c, n) => {
+          h += '<div style="display:flex;gap:.5rem;align-items:center;margin-top:.3rem;">' +
+               '<code id="https-cmd' + n + '" style="flex:1;min-width:0;padding:.3rem .5rem;border:1px solid var(--border);' +
+               'border-radius:3px;overflow-x:auto;white-space:nowrap;">' + _esc(c) + '</code>' +
+               '<button class="btn btn-amber" onclick="httpsCopy(' + "'https-cmd" + n + "'" + ')">📋 COPY</button></div>';
+        });
+        h += '<div style="margin-top:.6rem;color:var(--text3);">For the local network only (browsers warn about the certificate):' +
+             ' bash setup-https.sh --lan. When it has finished, reload this page — the button becomes CHECK.</div>';
+      } else {
+        h += '<div style="margin-top:.6rem;color:var(--amber);">Fix the ✖ line first, then press SET UP HTTPS again.</div>';
+      }
+      out.innerHTML = h;
+    }
+  } catch (e) {
+    out.textContent = String(e);
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+// Run the SAVED default start/stop script — the same one the thermal guard uses.
+let _savedScripts = {start: '', stop: ''};
+async function runDefaultScript(which) {
+  const sel = document.getElementById('default-' + which + '-sel');
+  const name = _savedScripts[which];
+  if (sel && sel.value !== name) { toast('Save settings first — the selection is not saved yet', 'err'); return; }
+  if (which === 'start' && !name) { toast('No default start script set', 'err'); return; }
+  const what = which === 'start'
+    ? 'Run ' + name + ' now? Running receivers are restarted, so every listener is dropped.'
+    : 'Run ' + (name || 'stop-websdr.sh') + ' now? Every receiver stops and every listener is dropped.';
+  if (!confirm(what)) return;
+  const btn = document.getElementById('run-' + which + '-btn');
+  const msg = document.getElementById('settings-msg');
+  if (btn) btn.disabled = true;
+  msg.textContent = 'Running ' + (name || 'stop-websdr.sh') + ' …';
+  try {
+    const r = await fetch('/admin/api/run-default-script', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({which: which})
+    });
+    const d = await r.json();
+    msg.textContent = d.msg || '';
+    toast(d.ok ? (which === 'start' ? 'Start script launched' : 'Stop script launched') : (d.msg || 'Failed'), d.ok ? undefined : 'err');
+  } catch (e) {
+    msg.textContent = String(e);
+    toast('Failed', 'err');
+  } finally {
+    if (btn) btn.disabled = false;
+  }
 }
 
 async function changePassword(e) {
@@ -4175,7 +4793,8 @@ async function loadUsers() {
       // Mode
       var tdM = document.createElement('td');
       tdM.style.cssText = CL + 'color:var(--text2);font-size:.7rem;';
-      tdM.textContent = (u.mode || '--').toUpperCase();
+      tdM.textContent = (u.mode || '--').toUpperCase() +
+                        (u.decoder && u.mode !== 'drm' ? ' · ' + u.decoder : '');
       tr.appendChild(tdM);
       // Duration (live ticking)
       var tdDur = document.createElement('td');
@@ -4198,8 +4817,10 @@ async function loadUsers() {
         var bb = document.createElement('button');
         bb.className = 'btn btn-amber';
         bb.style.cssText = 'padding:.25rem .6rem;font-size:.65rem;margin-left:.3rem;';
-        bb.textContent = '⛔ BAN 24H';
-        bb.onclick = (function(ip, nm){ return function(){ banUser(ip, nm); }; })(rawIp, u.name || '');
+        bb.textContent = '⛔ BAN ▾';
+        bb.onclick = (function(ip, nm){ return function(){
+          openBanMenu(this, function(h){ banUser(ip, nm, h); });
+        }; })(rawIp, u.name || '');
         tdK.appendChild(bb);
       }
       tdK.style.whiteSpace = 'nowrap';
@@ -4234,14 +4855,56 @@ async function kickUser(ip) {
   }
 }
 
-async function banUser(ip, name) {
+// "⛔ BAN ▾" menu: 8/16/24 h under the button, in the theme's colours.
+var BAN_HOURS = [8, 16, 24];
+function closeBanMenu() {
+  var m = document.getElementById('ban-menu');
+  if (m) m.remove();
+  document.removeEventListener('mousedown', _banMenuOutside, true);
+  document.removeEventListener('keydown', _banMenuKey, true);
+  window.removeEventListener('scroll', closeBanMenu, true);
+}
+function _banMenuOutside(e) {
+  var m = document.getElementById('ban-menu');
+  if (m && !m.contains(e.target)) closeBanMenu();
+}
+function _banMenuKey(e) { if (e.key === 'Escape') closeBanMenu(); }
+function openBanMenu(btn, onPick) {
+  var was = document.getElementById('ban-menu');
+  closeBanMenu();
+  if (was && was._btn === btn) return;          // second click closes it
+  var m = document.createElement('div');
+  m.id = 'ban-menu';
+  m.className = 'ban-menu';
+  m._btn = btn;
+  BAN_HOURS.forEach(function(h) {
+    var it = document.createElement('div');
+    it.textContent = h + ' hours';
+    it.onclick = function() { closeBanMenu(); onPick(h); };
+    m.appendChild(it);
+  });
+  document.body.appendChild(m);
+  var r = btn.getBoundingClientRect();
+  var top = r.bottom + 2;
+  if (top + m.offsetHeight > window.innerHeight) top = r.top - m.offsetHeight - 2;
+  m.style.top = top + 'px';
+  m.style.left = Math.max(4, Math.min(r.left, window.innerWidth - m.offsetWidth - 4)) + 'px';
+  setTimeout(function() {
+    document.addEventListener('mousedown', _banMenuOutside, true);
+    document.addEventListener('keydown', _banMenuKey, true);
+    window.addEventListener('scroll', closeBanMenu, true);
+  }, 0);
+}
+
+async function banUser(ip, name, hours) {
+  hours = hours || 24;
   var who = name ? name + ' (' + ip + ')' : ip;
-  if (!confirm('Ban ' + who + ' for 24 hours? They are disconnected from every receiver and refused until the ban runs out.')) return;
+  if (!confirm('Ban ' + who + ' for ' + hours + ' hours? They are disconnected from every receiver and refused until the ban runs out.')) return;
   try {
     var r = await fetch('/admin/api/ban', {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({ip: ip, name: name})
+      body: JSON.stringify({ip: ip, name: name, hours: hours})
     });
     var d = await r.json();
     toast(d.msg || (d.ok ? 'Banned ' + ip : 'Ban failed'), d.ok ? 'ok' : 'err');
@@ -4420,7 +5083,9 @@ async function umapUpdate(users) {
       p.list.forEach(function(u) {
         var row = document.createElement('div');
         row.textContent = (u.rx ? u.rx + ' · ' : '') + _uFmtFreq(u.freq_khz) + ' ' +
-                          (u.mode || '--').toUpperCase() + ' · ' + (u.ip || '').replace(/^::ffff:/, '');
+                          (u.mode || '--').toUpperCase() +
+                          (u.decoder && u.mode !== 'drm' ? ' · ' + u.decoder : '') +
+                          ' · ' + (u.ip || '').replace(/^::ffff:/, '');
         box.appendChild(row);
       });
       L.circleMarker(ll, {radius: Math.min(5 + 2 * p.list.length, 16), color: '#065f46', weight: 2,
@@ -4598,6 +5263,513 @@ def api_status():
                         "system": {}, "top_procs": []})
 
 # ── API: Scripts ─────────────────────────────────────────────────────────────
+def _station_conf():
+    """station.conf as {KEY: value} (configure-station.sh writes it), or None."""
+    path = get_sdr_dir() / "station.conf"
+    if not path.exists():
+        return None
+    out = {}
+    for line in read_file_safe(path).splitlines():
+        m = re.match(r'\s*([A-Z_][A-Z0-9_]*)=(.*)', line)
+        if not m:
+            continue
+        v = m.group(2).strip()
+        if v[:1] in ('"', "'"):
+            v = v[1:].split(v[0], 1)[0]
+        else:
+            v = v.split("#", 1)[0].strip()
+        out[m.group(1)] = v
+    return out
+
+
+@app.route("/admin/api/https")
+@login_required
+def api_https():
+    sc = _station_conf()
+    mode = (sc or {}).get("STATION_HTTPS", "n") or "n"
+    return jsonify({"station_conf": sc is not None, "mode": mode,
+                    "https": mode in ("y", "lan"),
+                    "host": (sc or {}).get("STATION_PUBLIC_HOST", "")})
+
+
+@app.route("/admin/api/https/check", methods=["POST"])
+@login_required
+def api_https_check():
+    """setup-https.sh --status: reads state and probes the local Caddy, no root."""
+    script = get_sdr_dir() / "setup-https.sh"
+    if not script.exists():
+        return jsonify({"ok": False, "msg": "setup-https.sh not found in " + str(script.parent)})
+    try:
+        r = subprocess.run(["bash", str(script), "--status"], cwd=str(script.parent),
+                           capture_output=True, text=True, timeout=20, stdin=subprocess.DEVNULL,
+                           env=dict(os.environ, PHANTOM_NONINTERACTIVE="1"))
+        out = re.sub(r"\x1b\[[0-9;]*m", "", (r.stdout or "") + (r.stderr or "")).strip()
+    except subprocess.TimeoutExpired:
+        return jsonify({"ok": False, "output": "setup-https.sh --status took longer than 20 s"})
+    # A named station is fine when its certificate answers; a LAN one when Caddy runs.
+    ok = r.returncode == 0 and "running" in out and ("✔" in out or "local network" in out) and "!" not in out
+    return jsonify({"ok": ok, "output": out})
+
+
+@app.route("/admin/api/https/precheck", methods=["POST"])
+@login_required
+def api_https_precheck():
+    """What can be verified before setup-https.sh runs, and the command to run."""
+    import socket, ipaddress, shlex
+    base = get_sdr_dir()
+    items, ready = [], True
+    sc = _station_conf()
+    if not (base / "setup-https.sh").exists():
+        items.append({"state": "bad", "text": "setup-https.sh is missing from " + str(base) + " — update PhantomSDR-Plus first."})
+        ready = False
+    if sc is None:
+        items.append({"state": "bad", "text": "No station.conf yet. Run once in a terminal: bash configure-station.sh "
+                                             "(on an older station it keeps all your ports)."})
+        return jsonify({"items": items, "ready": False})
+    items.append({"state": "ok", "text": "station.conf found."})
+    host = sc.get("STATION_PUBLIC_HOST", "")
+    is_ip = False
+    try:
+        ipaddress.ip_address(host)
+        is_ip = True
+    except ValueError:
+        pass
+    if not host:
+        items.append({"state": "bad", "text": "station.conf has no public address. Set your DNS name with: bash configure-station.sh"})
+        ready = False
+    elif is_ip:
+        items.append({"state": "bad", "text": host + " is an IP address. Let's Encrypt certifies names only: get a free "
+                                             "dynamic-DNS name, set it with bash configure-station.sh, then come back. "
+                                             "(Or use --lan below, for the local network only.)"})
+        ready = False
+    else:
+        try:
+            addr = socket.gethostbyname(host)
+            items.append({"state": "ok", "text": "DNS name " + host + " resolves (" + addr + ")."})
+        except OSError:
+            items.append({"state": "warn", "text": "DNS name " + host + " does not resolve yet — the certificate can only "
+                                                  "be issued once it does."})
+    for port in (443, 80):
+        busy = ""
+        try:
+            busy = subprocess.run(["ss", "-ltnH", "sport = :%d" % port], capture_output=True,
+                                  text=True, timeout=5).stdout.strip()
+        except Exception:
+            pass
+        caddy = subprocess.run(["systemctl", "is-active", "--quiet", "caddy"]).returncode == 0
+        if busy and caddy:
+            items.append({"state": "ok", "text": "Caddy already runs and holds port %d — the script adds this station to it." % port})
+        elif busy:
+            items.append({"state": "warn", "text": "Something already listens on port %d on this computer. If it is "
+                                                  "nginx or Apache, the script keeps it and prints what to add to it." % port})
+        else:
+            items.append({"state": "ok", "text": "Port %d is free on this computer." % port})
+    items.append({"state": "todo", "text": "Router: forward TCP 443 and TCP 80 to this computer (80 is only used to "
+                                          "prove the name is yours). This page cannot check it."})
+    return jsonify({"items": items, "ready": ready,
+                    "commands": ["cd " + shlex.quote(str(base)), "bash setup-https.sh"]})
+
+
+# ── API: Receivers page ───────────────────────────────────────────────────────
+# Every receiver of this station with what it covers; an extra receiver
+# (instances/<name>/) can be moved to another band from here — the panel writes
+# its four files in step and restarts only that receiver. Adding one, and
+# changing the main receiver, need sudo or a page rebuild: the page gives the
+# command for a terminal instead.
+
+# Sample rates each launcher's receiver can do, and the frequencies it tunes.
+_RX_HW = {
+    "start-rtl.sh":     {"type": 2, "label": "RTL-SDR",
+                         "rates": [1024000, 1400000, 1800000, 1920000, 2048000, 2400000, 2560000, 2880000, 3200000],
+                         "ranges": [(500000, 1766000000)],
+                         "note": "Below 24 MHz only an RTL-SDR Blog V4 (or a V3 in direct sampling) receives. Above 2.4 MHz of sample rate some sticks drop samples."},
+    "start-airspyhf.sh": {"type": 6, "label": "Airspy HF+",
+                         "rates": [192000, 256000, 384000, 456000, 768000, 912000],
+                         "ranges": [(9000, 31000000), (60000000, 260000000)], "note": ""},
+    "start-rsp1a.sh":   {"type": 3, "label": "SDRplay RSP1A",
+                         "rates": [2000000, 4000000, 6000000, 8000000, 10000000],
+                         "ranges": [(1000, 2000000000)], "note": ""},
+    "start-fobos.sh":   {"type": 4, "label": "Fobos SDR",
+                         "rates": [8000000, 10000000, 12500000, 16000000, 20000000, 25000000],
+                         "ranges": [(50000000, 6000000000)], "note": ""},
+    "start-hackrf.sh":  {"type": 7, "label": "HackRF One",
+                         "rates": [2000000, 4000000, 8000000, 10000000, 12500000, 16000000, 20000000],
+                         "ranges": [(1000000, 6000000000)], "note": ""},
+    "start-rx888mk2.sh": {"type": 1, "label": "RX888 MkII", "rates": [], "ranges": [], "note": ""},
+    "start-fobos-hf.sh": {"type": 5, "label": "Fobos SDR (HF direct)", "rates": [], "ranges": [], "note": ""},
+}
+_RX_TEMPLATES = {1: "config-rx888mk2.toml", 2: "config-rtl.toml", 3: "config-rsp1a.toml",
+                 4: "config-fobos.toml", 5: "config-fobos-hf.toml", 6: "config-airspyhf.toml",
+                 7: "config-hackrf.toml"}
+_RX_ARGS_RE = re.compile(r'^(RX_ARGS|RX_ARGS_MIRI|RX_ARGS_SDRPLAY|RX888_ARGS)=')
+_RX_MODES = ["AM", "FM", "WBFM", "USB", "LSB", "CW"]
+
+
+def _toml_values(path):
+    """{(section, key): value-string} — the same plain reading add-receiver.sh does."""
+    vals, sect = {}, ""
+    try:
+        for line in open(path, encoding="utf-8"):
+            t = line.split("#", 1)[0].strip()
+            m = re.match(r"^\[([^\]]+)\]$", t)
+            if m:
+                sect = m.group(1)
+                continue
+            m = re.match(r"^(\w+)\s*=\s*(.+)$", t)
+            if m:
+                vals[(sect, m.group(1))] = m.group(2).strip().strip('"')
+    except OSError:
+        pass
+    return vals
+
+
+def _toml_set(lines, sect, key, value, comment=None):
+    """Set key in [sect] of a list of lines; keeps the line's comment unless given."""
+    start = end = None
+    for i, l in enumerate(lines):
+        m = re.match(r"^\s*\[([^\]]+)\]\s*(#.*)?$", l)
+        if m:
+            if start is not None:
+                end = i
+                break
+            if m.group(1) == sect:
+                start = i
+    if start is None:
+        return False
+    end = end if end is not None else len(lines)
+    for i in range(start + 1, end):
+        m = re.match(r"^(\s*)" + re.escape(key) + r"(\s*)=(\s*)[^#]*?(\s*#.*)?$", lines[i])
+        if m:
+            tail = (" # " + comment) if comment is not None else (m.group(4) or "")
+            lines[i] = m.group(1) + key + m.group(2) + "=" + m.group(3) + str(value) + tail
+            return True
+    lines.insert(start + 1, key + "=" + str(value) + ((" # " + comment) if comment else ""))
+    return True
+
+
+def _env_args(path):
+    """[(line index, var, -f value or None, -s value or None)] from an instance.env."""
+    out = []
+    try:
+        lines = read_file_safe(path).splitlines()
+    except Exception:
+        return out
+    for i, l in enumerate(lines):
+        m = _RX_ARGS_RE.match(l)
+        if m:
+            f = re.search(r"(?:^|\s|\")-f\s+(\d+)", l)
+            sp = re.search(r"(?:^|\s|\")-s\s+(\d+)", l)
+            out.append((i, m.group(1), int(f.group(1)) if f else None, int(sp.group(1)) if sp else None))
+    return out
+
+
+def _receivers_info():
+    """Every receiver: id, name, port, launcher, instance, frequency, span, on air."""
+    rt = _receivers_toml().get("receiver", [])
+    entries = []
+    if rt:
+        for r in rt:
+            entries.append({"id": str(r.get("id", "")), "name": str(r.get("name") or r.get("id") or ""),
+                            "port": int(r.get("port") or 0), "launcher": str(r.get("launcher") or ""),
+                            "instance": str(r.get("instance") or "").strip()})
+    else:
+        port, _ = _main_receiver_port()
+        cfg = load_admin_config()
+        entries.append({"id": "main", "name": "Main receiver", "port": port or int(cfg.get("public_port", PUBLIC_PORT)),
+                        "launcher": "", "instance": ""})
+    sc = _station_conf() or {}
+    on_air = {r["port"]: r for r in _receiver_list()}
+    base = get_sdr_dir()
+    out = []
+    for e in entries:
+        inst = e["instance"]
+        launcher = e["launcher"] or sc.get("STATION_LAUNCHER", "")
+        if inst:
+            conf = base / "instances" / inst / "config.toml"
+        else:
+            conf = None
+            # The running main receiver names its config; else its launcher's CONFIG=.
+            if HAS_PSUTIL:
+                try:
+                    for proc in psutil.process_iter(["name", "cmdline"]):
+                        cmd = proc.info.get("cmdline") or []
+                        if "spectrumserver" in (proc.info.get("name") or "") and "--config" in cmd:
+                            c = Path(cmd[cmd.index("--config") + 1])
+                            if "instances" not in c.parts:
+                                conf = c
+                                break
+                except Exception:
+                    pass
+            if conf is None and launcher and (base / launcher).exists():
+                m = re.search(r'^CONFIG="\$PHANTOMDIR/([^"]+)"', read_file_safe(base / launcher), re.M)
+                if m:
+                    conf = base / m.group(1)
+        v = _toml_values(conf) if conf else {}
+        try:
+            sps = int(v.get(("input", "sps"), 0))
+            freq = int(v.get(("input", "frequency"), 0))
+            dflt = int(v.get(("input.defaults", "frequency"), 0))
+        except ValueError:
+            sps = freq = dflt = 0
+        real = v.get(("input", "signal"), "iq") == "real" or (sps and freq == 0)
+        tune = None
+        if inst:
+            for _, _, f, _ in _env_args(base / "instances" / inst / "instance.env"):
+                if f is not None:
+                    tune = f
+                    break
+        lo, hi = (0, sps // 2) if real else (freq - sps // 2, freq + sps // 2)
+        hw = _RX_HW.get(launcher, {})
+        st = on_air.get(e["port"], {})
+        out.append(dict(e, launcher=launcher, config=str(conf.relative_to(base)) if conf and base in conf.parents else str(conf or ""),
+                        hardware=hw.get("label", launcher or "?"), sps=sps, frequency=freq, tune=tune,
+                        default_frequency=dflt, modulation=v.get(("input.defaults", "modulation"), ""),
+                        direct=bool(real), low=max(lo, 0), high=hi, span=hi - max(lo, 0),
+                        fft_size=int(v.get(("input", "fft_size"), 0) or 0),
+                        on_air=bool(st.get("pid")), uptime_s=st.get("uptime_s"),
+                        changeable=bool(inst) and not real and launcher in _RX_HW and bool(hw.get("rates")),
+                        rates=hw.get("rates", []), ranges=hw.get("ranges", []), note=hw.get("note", ""),
+                        modes=_RX_MODES))
+    return out
+
+
+@app.route("/admin/api/receivers-info")
+@login_required
+def api_receivers_info():
+    return jsonify({"receivers": _receivers_info(), "station_conf": _station_conf() is not None})
+
+
+@app.route("/admin/api/receivers-info/retune", methods=["POST"])
+@login_required
+def api_receivers_retune():
+    """Move an extra receiver to another band: instance.env, config.toml,
+    www/site_information.json and its button name in receivers.toml, then
+    restart it. Its directory-listing name and hardware name stay as they are."""
+    data = request.get_json(silent=True) or {}
+    rid = str(data.get("id", ""))
+    rx = next((r for r in _receivers_info() if r["id"] == rid), None)
+    if not rx:
+        return jsonify({"ok": False, "msg": "no receiver " + rid})
+    if not rx["changeable"]:
+        return jsonify({"ok": False, "msg": "this receiver cannot be changed from here"})
+    try:
+        f_new = int(data["frequency"])
+        sps_new = int(data["sps"])
+        dflt = int(data.get("default_frequency") or f_new)
+    except (KeyError, TypeError, ValueError):
+        return jsonify({"ok": False, "msg": "frequency, sample rate and start frequency must be numbers"})
+    name = re.sub(r"[\r\n\"]", "", str(data.get("name") or rx["name"])).strip() or rx["name"]
+    mod = str(data.get("modulation") or rx["modulation"] or "AM").upper()
+    if mod not in _RX_MODES:
+        return jsonify({"ok": False, "msg": "unknown mode " + mod})
+    if sps_new not in rx["rates"] and sps_new != rx["sps"]:
+        return jsonify({"ok": False, "msg": "%s cannot do %d samples per second" % (rx["hardware"], sps_new)})
+    lo, hi = f_new - sps_new // 2, f_new + sps_new // 2
+    if not any(a <= f_new <= b for a, b in rx["ranges"]):
+        return jsonify({"ok": False, "msg": "%s does not tune %.6g MHz" % (rx["hardware"], f_new / 1e6)})
+    if not (lo <= dflt <= hi):
+        return jsonify({"ok": False, "msg": "the start frequency must lie inside %.6g – %.6g MHz" % (lo / 1e6, hi / 1e6)})
+
+    base = get_sdr_dir()
+    idir = base / "instances" / rx["instance"]
+    env_p, conf_p, site_p = idir / "instance.env", idir / "config.toml", idir / "www" / "site_information.json"
+
+    # The crystal correction is an error in ppm: keep it, scaled to the new band.
+    tune_old = rx["tune"] or rx["frequency"]
+    ppm = (rx["frequency"] - tune_old) / tune_old if tune_old else 0.0
+    f_conf = int(round(f_new * (1 + ppm)))
+    fft = rx["fft_size"]
+    if fft and rx["sps"]:
+        # Same Hz per bin as before, as a power of two.
+        import math
+        fft = int(2 ** round(math.log2(max(fft * sps_new / rx["sps"], 1))))
+        fft = min(max(fft, 16384), 4194304)
+
+    stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+    try:
+        # instance.env: -f and -s on every argument line
+        el = read_file_safe(env_p).splitlines()
+        for i, _, _, _ in _env_args(env_p):
+            el[i] = re.sub(r"((?:^|\s|\")-f\s+)\d+", lambda m: m.group(1) + str(f_new), el[i])
+            el[i] = re.sub(r"((?:^|\s|\")-s\s+)\d+", lambda m: m.group(1) + str(sps_new), el[i])
+        # config.toml
+        cl = read_file_safe(conf_p).splitlines()
+        corr = f_conf - f_new
+        _toml_set(cl, "input", "frequency", f_conf,
+                  "Baseband frequency: the receiver tunes %d (-f in instance.env)%s" % (
+                      f_new, "; %+d Hz here keeps its crystal correction (%+.2f ppm)" % (corr, ppm * 1e6) if corr else ""))
+        _toml_set(cl, "input", "sps", sps_new, "Input Sample Rate — must match -s in instance.env")
+        if fft:
+            _toml_set(cl, "input", "fft_size", fft)
+        _toml_set(cl, "input.defaults", "frequency", dflt, "frequency shown first")
+        _toml_set(cl, "input.defaults", "modulation", '"%s"' % mod)
+        # www/site_information.json — read by the page when it opens, no rebuild
+        site = json.loads(read_file_safe(site_p)) if site_p.exists() else {}
+        site.update({"siteSDRBaseFrequency": max(lo, 0), "siteSDRBandwidth": sps_new})
+        # receivers.toml: the button name
+        rt_p = base / "receivers.toml"
+        rtl = read_file_safe(rt_p).splitlines()
+        cur = None
+        for i, l in enumerate(rtl):
+            if re.match(r"^\s*\[\[receiver\]\]", l):
+                cur = None
+            m = re.match(r'^\s*id\s*=\s*"([^"]*)"', l)
+            if m:
+                cur = m.group(1)
+            if cur == rid and re.match(r"^\s*name\s*=", l):
+                rtl[i] = re.sub(r'=\s*"[^"]*"', '= "%s"' % name.replace("\\", ""), l, count=1)
+        # Keep the old files beside the new ones, then write.
+        bdir = base / "admin-backups" / ("retune-%s-%s" % (rx["instance"], stamp))
+        bdir.mkdir(parents=True, exist_ok=True)
+        for src in (env_p, conf_p, site_p, rt_p):
+            if src.exists():
+                (bdir / src.name).write_bytes(src.read_bytes())
+        env_p.write_text("\n".join(el) + "\n", encoding="utf-8")
+        conf_p.write_text("\n".join(cl) + "\n", encoding="utf-8")
+        site_p.write_text(json.dumps(site, indent="\t", ensure_ascii=False) + "\n", encoding="utf-8")
+        rt_p.write_text("\n".join(rtl) + "\n", encoding="utf-8")
+    except Exception as e:
+        return jsonify({"ok": False, "msg": "could not write the files: %s" % e})
+
+    restarted, out = False, ""
+    if data.get("restart", True):
+        restarted, out = run_script(rx["launcher"], args=["-q"], env={"INSTANCE": rx["instance"]})
+    with log_lock:
+        log_buffer.append("[" + datetime.now().strftime("%H:%M:%S") + "] RETUNE " + rid + ": %d Hz, %d sps" % (f_new, sps_new))
+    return jsonify({"ok": True, "restarted": restarted,
+                    "msg": "Saved (old files in admin-backups/%s). %s" % (bdir.name,
+                           ("Restarting " + rid + " — its listeners are back in a few seconds." + chr(10) + out) if restarted
+                           else "Restart it to apply: INSTANCE=%s ./%s" % (rx["instance"], rx["launcher"]))})
+
+
+def _usb_receivers():
+    """Receivers lsusb can see, by USB id."""
+    known = {"0bda:2838": "RTL-SDR (RTL2838)", "0bda:2832": "RTL-SDR (RTL2832U)",
+             "04b4:00f1": "RX888 MkII", "04b4:00f3": "RX888 (not yet loaded with firmware)",
+             "03eb:800c": "Airspy HF+", "1d50:6089": "HackRF One", "1d50:60a1": "Airspy",
+             "1df7:3000": "SDRplay RSP1A", "1df7:3010": "SDRplay RSP1A"}
+    try:
+        txt = subprocess.run(["lsusb"], capture_output=True, text=True, timeout=5).stdout
+    except Exception:
+        return None
+    found = []
+    for line in txt.splitlines():
+        m = re.search(r"ID ([0-9a-f]{4}:[0-9a-f]{4})", line)
+        if m and (m.group(1) in known or m.group(1).startswith("1df7:")):
+            found.append(known.get(m.group(1), "SDRplay receiver") + "  (" + m.group(1) + ")")
+    return found
+
+
+@app.route("/admin/api/receivers-info/add-defaults")
+@login_required
+def api_receivers_add_defaults():
+    """Starting values for the Add form: per receiver type from its template."""
+    base = get_sdr_dir()
+    types = {}
+    for t, tpl in _RX_TEMPLATES.items():
+        v = _toml_values(base / tpl)
+        types[t] = {"frequency": int(v.get(("input", "frequency"), 0) or 0),
+                    "sps": int(v.get(("input", "sps"), 0) or 0),
+                    "direct": t in (1, 5)}
+        for hw in _RX_HW.values():
+            if hw["type"] == t:
+                types[t].update(rates=hw["rates"], ranges=hw["ranges"])
+    sc = _station_conf() or {}
+    host = sc.get("STATION_PUBLIC_HOST", "")
+    if not host:
+        for conf in sorted(base.glob("config*.toml")):
+            h = _toml_values(conf).get(("websdr", "hostname"), "")
+            if h and not h.isdigit():
+                host = h
+                break
+    taken = [r["id"] for r in _receivers_info()] + [p.name for p in (base / "instances").glob("*") if p.is_dir()]
+    return jsonify({"types": types, "host": host, "taken": taken, "usb": _usb_receivers(),
+                    "has_receivers_toml": (base / "receivers.toml").exists(), "dir": str(base)})
+
+
+@app.route("/admin/api/receivers-info/add-plan", methods=["POST"])
+@login_required
+def api_receivers_add_plan():
+    """Check the Add form and write instances/.add-rx.env for add-receiver.sh."""
+    d = request.get_json(silent=True) or {}
+    base = get_sdr_dir()
+    errs = []
+    try:
+        t = int(d.get("type"))
+        assert t in _RX_TEMPLATES
+    except Exception:
+        return jsonify({"ok": False, "errors": ["choose the receiver type"]})
+    name = str(d.get("name", "")).strip()
+    if not re.fullmatch(r"[A-Za-z0-9_-]+", name) or name == "main":
+        errs.append("the name may only contain letters, digits, - and _ (and not be \"main\")")
+    elif (base / "instances" / name).exists() or name in [r["id"] for r in _receivers_info()]:
+        errs.append("a receiver called \"%s\" already exists" % name)
+    direct = t in (1, 5)
+    try:
+        sps = int(d.get("sps"))
+        freq = 0 if direct else int(d.get("frequency"))
+    except (TypeError, ValueError):
+        sps = freq = 0
+        errs.append("frequency and sample rate must be numbers")
+    hw = next((h for h in _RX_HW.values() if h["type"] == t), {})
+    if not direct and hw.get("ranges") and freq and not any(a <= freq <= b for a, b in hw["ranges"]):
+        errs.append("%s does not tune %.6g MHz" % (hw["label"], freq / 1e6))
+    if sps <= 0:
+        errs.append("the sample rate must be above 0")
+    host = re.sub(r"\s", "", str(d.get("host", "")))
+    host = re.sub(r"^[a-z]+://", "", host).split("/")[0]
+    if not host or host.isdigit():
+        errs.append("give the station's public address (a DNS name or an IP address)")
+    if errs:
+        return jsonify({"ok": False, "errors": errs})
+    clean = lambda x: re.sub(r"[\r\n\"]", "", str(x or "")).strip()
+    yn = lambda k, dflt: "y" if d.get(k, dflt) else "n"
+    lines = ["# Written by the admin panel's Receivers page for add-receiver.sh --answers.",
+             "# Removed by add-receiver.sh once the receiver is added.",
+             "ADD_RX_TYPE=%d" % t, "ADD_RX_SPS=%d" % sps, "ADD_RX_NAME=" + name,
+             'ADD_RX_LABEL="%s"' % (clean(d.get("label")) or name),
+             'ADD_RX_ANTENNA="%s"' % (clean(d.get("antenna")) or "Antenna"),
+             "ADD_RX_HOST=" + host,
+             "ADD_RX_DRIVER=" + yn("driver", True), "ADD_RX_PICKER_MAIN=" + yn("picker", True),
+             "ADD_RX_ADMIN=" + yn("admin", True), "ADD_RX_START=" + yn("start", True),
+             "ADD_RX_PROXY=" + yn("proxy", True)]
+    if not direct:
+        lines.append("ADD_RX_FREQ=%d" % freq)
+    if t == 2:
+        lines.append("RTL_V4=" + yn("v4", False))
+    path = base / "instances" / ".add-rx.env"
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    except Exception as e:
+        return jsonify({"ok": False, "errors": ["could not write %s: %s" % (path, e)]})
+    notes = []
+    if t == 1:
+        notes.append("An RX888 needs its Rust driver built first (installer, receiver option 1, then ./setup-rx888-udev.sh) — add-receiver.sh does not build it.")
+    if not (base / "receivers.toml").exists():
+        notes.append("This is the station's first extra receiver: the script also asks which start-*.sh starts your main receiver.")
+    return jsonify({"ok": True, "commands": ["cd " + shlex.quote(str(base)),
+                                             "./add-receiver.sh --answers instances/.add-rx.env"],
+                    "file": "\n".join(lines), "notes": notes})
+
+
+@app.route("/admin/api/run-default-script", methods=["POST"])
+@login_required
+def api_run_default_script():
+    """Settings page buttons: run the saved default start or stop script."""
+    which = (request.get_json(silent=True) or {}).get("which")
+    if which == "start":
+        name = (load_admin_config().get("start_script") or "").strip()
+        if not name:
+            return jsonify({"ok": False, "msg": "no default start script set"})
+        ok, msg = run_script(name)
+    elif which == "stop":
+        ok, msg = stop_server()
+    else:
+        return jsonify({"ok": False, "msg": "which must be start or stop"})
+    return jsonify({"ok": ok, "msg": msg})
+
+
 @app.route("/admin/api/scripts")
 @login_required
 def api_scripts():
@@ -5302,6 +6474,7 @@ def api_settings():
             "start_script":  cfg.get("start_script", ""),
             "stop_script":   cfg.get("stop_script", ""),
             "public_port":   cfg.get("public_port", 8900),
+            "proxy_port":    cfg.get("proxy_port"),
         }
         if HAS_THERMAL:
             for k, v in thermal_guard.DEFAULTS.items():
@@ -5337,9 +6510,26 @@ def api_settings():
         cfg["stop_script"] = data["stop_script"]
     if "public_port" in data:
         try:
-            cfg["public_port"] = int(data["public_port"])
+            pp = int(data["public_port"])
         except (ValueError, TypeError):
-            pass
+            pp = None
+        if pp is not None:
+            # proxy.py forwards to public_port: the proxy's own port would make
+            # it forward to itself, and any port the receiver does not listen on
+            # takes the station down at the proxy's next restart.
+            proxy_port = cfg.get("proxy_port")
+            if proxy_port and pp == int(proxy_port):
+                return jsonify({"ok": False, "msg": "Port %d is the proxy's own port (the one listeners use). "
+                                "The spectrumserver port must be different — proxy.py would forward to "
+                                "itself and refuse to start. Nothing saved." % pp})
+            real, source = _main_receiver_port()
+            if real and pp != real and not data.get("confirm_port"):
+                return jsonify({"ok": False, "confirm": True,
+                                "msg": "Port %d does not match the receiver: spectrumserver listens on %d "
+                                       "(%s). With %d, proxy.py forwards listeners to a port where nothing "
+                                       "answers from its next restart on, and the station is down. "
+                                       "Save anyway?" % (pp, real, source, pp)})
+            cfg["public_port"] = pp
     save_admin_config(cfg)
     return jsonify({"ok": True})
 
@@ -5390,6 +6580,90 @@ def api_websdr_relay():
 
     return jsonify(out)
 
+
+# ── DRM decoder (autorun/drm-helper.js) ────────────────────────────────────────
+# The helper's port is PORT_DRM in station.conf (wizard stations), else 8075.
+# Its settings live in drm.json, which the helper re-reads within 5 s; an
+# environment variable in the start script (DRM_MAX_SESSIONS, DRM_PER_IP)
+# still wins over the file. GET /status on the helper answers direct loopback
+# callers only, because the sessions carry listeners' addresses.
+DRM_SETTINGS = BASE_DIR / "drm.json"
+
+def _drm_port():
+    try:
+        m = re.search(r'^PORT_DRM=["\']?(\d+)', (BASE_DIR / "station.conf").read_text(), re.M)
+        if m:
+            return int(m.group(1))
+    except OSError:
+        pass
+    return 8075
+
+def _drm_status():
+    """The helper's live /status, or None when it is not running."""
+    import urllib.request
+    try:
+        with urllib.request.urlopen("http://127.0.0.1:%d/status" % _drm_port(), timeout=2) as r:
+            return json.loads(r.read().decode("utf-8"))
+    except Exception:
+        return None
+
+def _drm_settings_file():
+    try:
+        d = json.loads(DRM_SETTINGS.read_text())
+        return d if isinstance(d, dict) else {}
+    except Exception:
+        return {}
+
+@app.route("/admin/api/drm", methods=["GET", "POST"])
+@login_required
+def api_drm():
+    if request.method == "POST":
+        data = request.get_json(silent=True) or {}
+        try:
+            mx = int(data.get("max_sessions"))
+        except (TypeError, ValueError):
+            return jsonify({"ok": False, "msg": "Maximum listeners must be a number"})
+        if not 1 <= mx <= 20:
+            return jsonify({"ok": False, "msg": "Maximum listeners: 1 to 20"})
+        cur = _drm_settings_file()
+        cur.update({"enabled": bool(data.get("enabled")), "max_sessions": mx,
+                    "per_ip": int(cur.get("per_ip") or 1)})
+        tmp = DRM_SETTINGS.with_name(DRM_SETTINGS.name + ".tmp")
+        tmp.write_text(json.dumps(cur, indent=1) + "\n")
+        os.replace(tmp, DRM_SETTINGS)
+        return jsonify({"ok": True, "msg": "DRM %s, at most %d listener%s — applied within 5 s"
+                        % ("on" if cur["enabled"] else "off", mx, "" if mx == 1 else "s")})
+    f = _drm_settings_file()
+    out = {"installed": (BASE_DIR / "drm" / "bin" / "ubersdr-drm").exists(), "port": _drm_port(),
+           "running": False, "enabled": f.get("enabled", True) is not False,
+           "max_sessions": int(f.get("max_sessions") or 5), "per_ip": int(f.get("per_ip") or 1),
+           "sessions": [], "env_override": False}
+    live = _drm_status()
+    if live is None:
+        out["reason"] = ("helper not running — it starts with the receiver" if out["installed"]
+                         else "decoder not built — run ./setup-drm.sh")
+        return jsonify(out)
+    out["running"] = True
+    for k in ("enabled", "max_sessions", "per_ip"):
+        if k in live:
+            out[k] = live[k]
+    out["env_override"] = (int(live.get("max_sessions") or 0) != int(f.get("max_sessions") or 5)
+                           or int(live.get("per_ip") or 0) != int(f.get("per_ip") or 1))
+    # Listener names, from the receivers' own user lists.
+    names = {}
+    for port in _sdr_ports():
+        try:
+            for u in _sdr_users_with_ip(port).get("users", []):
+                ip = (u.get("ip") or "").replace("::ffff:", "")
+                if ip and u.get("name"):
+                    names[ip] = u["name"]
+        except Exception:
+            continue
+    for x in live.get("sessions", []):
+        x = dict(x)
+        x["name"] = names.get(x.get("ip", ""), "")
+        out["sessions"].append(x)
+    return jsonify(out)
 
 @app.route("/admin/api/thermal", methods=["GET", "POST"])
 @login_required
@@ -5467,8 +6741,8 @@ def api_graph_stats():
 def _get_public_port():
     """Return the PUBLIC port users connect to for 'ss' connection counting.
 
-    When running behind proxy.py this must be proxy_port (e.g. 8902), because
-    all connections to spectrumserver's internal port (public_port, e.g. 8900)
+    When running behind proxy.py this must be proxy_port (e.g. 8900), because
+    all connections to spectrumserver's internal port (public_port, e.g. 8901)
     come from 127.0.0.1 (the proxy itself) — real client IPs are invisible there.
     Falls back to public_port for standalone (no-proxy) deployments.
     """
@@ -5525,6 +6799,16 @@ def api_sdr_users():
             users.append(u)
     if not seen:
         return jsonify({"ok": False, "users": [], "error": "; ".join(errors) or "no receiver"})
+    # A DRM listener's own stream is AM (that is what the server demodulates);
+    # the DRM helper knows who is really decoding DRM, and where.
+    drm = _drm_status()
+    if drm:
+        for u in users:
+            ip = (u.get("ip") or "").replace("::ffff:", "")
+            for x in drm.get("sessions", []):
+                if x.get("ip") == ip and abs(float(u.get("freq_hz") or 0) - float(x.get("freq") or 0)) <= 10000:
+                    u["mode"] = "drm"
+                    break
     return jsonify({"ok": True, "users": users, "multi": len(labels) > 1, "errors": errors})
 
 # ── Listener map: IP → coordinates ────────────────────────────────────────────
@@ -5714,15 +6998,15 @@ def _server_kick(ip, ban_s=0):
     return (ok, count, None if count is not None else err)
 
 
-# ── 24-hour ban ───────────────────────────────────────────────────────────────
+# ── 8/16/24-hour ban ───────────────────────────────────────────────────────────────
 # A ban is a kick with a refusal attached: spectrumserver closes the sockets
-# (code 4001, which the page does not retry) and refuses the address for 24 h
-# (the most /~~kick allows). That refusal lives in spectrumserver's memory, so
+# (code 4001, which the page does not retry) and refuses the address for 8, 16 or 24 h
+# (24 h is the most /~~kick allows). That refusal lives in spectrumserver's memory, so
 # a receiver restart would forget it — the bans are kept in admin_bans.json
 # and re-sent to every receiver once a minute (_ban_keeper). Renewing a ban
 # that is still in force is silent in the spectrumserver log.
 BANS_FILE   = BASE_DIR / "admin_bans.json"
-BAN_SECONDS = 24 * 3600
+BAN_HOURS   = (8, 16, 24)       # the admin's drop-down; 24 h is /~~kick's ceiling
 _bans_lock  = threading.Lock()
 
 def _valid_listener_ip(ip):
@@ -5783,24 +7067,31 @@ def api_bans():
 @app.route("/admin/api/ban", methods=["POST"])
 @login_required
 def api_ban():
-    """Disconnect `ip` from every receiver and refuse it for 24 hours."""
+    """Disconnect `ip` from every receiver and refuse it for 8, 16 or 24 hours."""
     data = request.get_json(silent=True) or {}
     ip = _valid_listener_ip(data.get("ip"))
     if not ip:
         return jsonify({"ok": False, "msg": "Invalid or disallowed IP"})
     name = str(data.get("name") or "")[:14]
+    try:
+        hours = int(data.get("hours") or 24)
+    except (TypeError, ValueError):
+        hours = 24
+    if hours not in BAN_HOURS:
+        return jsonify({"ok": False, "msg": "Ban length must be 8, 16 or 24 hours"})
+    ban_s = hours * 3600
     with _bans_lock:
         bans = _load_bans()
-        bans[ip] = {"until": time.time() + BAN_SECONDS, "name": name}
+        bans[ip] = {"until": time.time() + ban_s, "name": name}
         _save_bans(bans)
     _pok, proxy_count, _perr = _proxy_kick(ip)
-    _sok, server_count, serr = _server_kick(ip, BAN_SECONDS)
+    _sok, server_count, serr = _server_kick(ip, ban_s)
     if server_count is None:
-        return jsonify({"ok": True, "msg": "Ban on %s saved for 24 h, but no receiver "
-                        "answered (%s) — it is applied when one does" % (ip, serr)})
+        return jsonify({"ok": True, "msg": "Ban on %s saved for %d h, but no receiver "
+                        "answered (%s) — it is applied when one does" % (ip, hours, serr)})
     total = (server_count or 0) + (proxy_count or 0)
-    return jsonify({"ok": True, "msg": "Banned %s for 24 h — %d connection%s closed" % (
-        ip, total, "s" if total != 1 else "")})
+    return jsonify({"ok": True, "msg": "Banned %s for %d h — %d connection%s closed" % (
+        ip, hours, total, "s" if total != 1 else "")})
 
 @app.route("/admin/api/unban", methods=["POST"])
 @login_required
@@ -5980,6 +7271,64 @@ def _receiver_answers(port):
         return False
 
 
+def _rade_status():
+    """[{key, label, state, detail, uptime_s}] for RADE V1 and V2 (beta).
+
+    state: "ready" (helper listening and that version's files present),
+    "starting" (helper running, port not open yet), "missing" (helper up but
+    that version is not installed) or "off" (no rade_helper.py running).
+    Paths and port come from the running helper's own environment, with the
+    same defaults rade_helper.py uses."""
+    import socket as _so
+    proc = None
+    if HAS_PSUTIL:
+        for p in psutil.process_iter(["pid", "cmdline", "create_time"]):
+            try:
+                if any(a.endswith("rade_helper.py") for a in (p.info["cmdline"] or [])):
+                    proc = p
+                    break
+            except Exception:
+                continue
+    env = {}
+    if proc:
+        try:
+            env = proc.environ()
+        except Exception:
+            env = {}
+    home = Path.home()
+    radae = Path(env.get("RADAE_DIR", home / "radae")).expanduser()
+    rade_c = Path(env.get("RADE_C_DIR", home / "rade_c")).expanduser()
+    need = {
+        "v1": [radae / "radae_rxe.py",
+               Path(env.get("RADE_MODEL", radae / "model19_check3" / "checkpoints" / "checkpoint_epoch_100.pth")),
+               Path(env.get("LPCNET_DEMO", radae / "build" / "src" / "lpcnet_demo"))],
+        "v2": [Path(env.get("RADE_C_RX", rade_c / "build" / "src" / "radae_rx")),
+               Path(env.get("RADE_C_LPCNET", rade_c / "build" / "src" / "lpcnet_demo"))],
+    }
+    port = int(env.get("RADE_HELPER_PORT", 8074) or 8074)
+    listening = False
+    if proc:
+        try:
+            with _so.create_connection(("127.0.0.1", port), timeout=1):
+                listening = True
+        except OSError:
+            pass
+    up = int(time.time() - proc.info["create_time"]) if proc else None
+    out = []
+    for key, label in (("v1", "RADE V1"), ("v2", "RADE V2 (beta)")):
+        missing = [str(f) for f in need[key] if not f.exists()]
+        if not proc:
+            state, detail = "off", "helper not running"
+        elif not listening:
+            state, detail = "starting", "helper starting (port %d not open yet)" % port
+        elif missing:
+            state, detail = "missing", "not installed — " + missing[0] + " not found"
+        else:
+            state, detail = "ready", "ready on port %d" % port
+        out.append({"key": key, "label": label, "state": state, "detail": detail, "uptime_s": up})
+    return out
+
+
 # ── 1. Alerts (email / Telegram) ──────────────────────────────────────────────
 # A monitor thread looks every 30 s at each receiver (down / back up /
 # restarted), the thermal guard's stage and every receiver's crash.log, and
@@ -6071,12 +7420,13 @@ def _alert_send(subject, body):
     return res
 
 
-def _alert_event(kind, key, subject, body):
-    """Record an event; send it if that kind is enabled and not just sent."""
+def _alert_event(kind, key, subject, body, send=True):
+    """Record an event; send it if that kind is enabled and not just sent.
+    send=False only puts it on the Dashboard."""
     now = time.time()
     with _alert_lock:
         _alert_events.appendleft({"t": int(now), "kind": kind, "text": subject})
-        if not _alert_cfg()["events"].get(kind, True):
+        if not send or not _alert_cfg()["events"].get(kind, True):
             return
         if now - _alert_last.get(key, 0) < ALERT_REPEAT_S:
             return
@@ -6127,6 +7477,26 @@ def _alert_monitor():
                         if not first:
                             _alert_event("down", "down%d" % port, "%s is OFF the air" % label,
                                          "%s (port %d) has not answered for about a minute." % (label, port))
+            # RADE V1 / V2: every change into "ready" goes on the Dashboard;
+            # email/Telegram only when it had been out for about a minute,
+            # like the receivers above. "missing" (not installed) is quiet.
+            for r in _rade_status():
+                k = "rade:" + r["key"]
+                ready = r["state"] == "ready"
+                st = state.setdefault(k, {"ready": ready, "fails": 0, "down": False})
+                if ready:
+                    if not st["ready"] and not first:
+                        _alert_event("up", k + "up", "%s is ready" % r["label"],
+                                     "%s: %s." % (r["label"], r["detail"]), send=st["down"])
+                    st.update(ready=True, fails=0, down=False)
+                elif r["state"] != "missing":
+                    st["ready"] = False
+                    st["fails"] += 1
+                    if st["fails"] == 2 and not st["down"]:
+                        st["down"] = True
+                        if not first:
+                            _alert_event("down", k + "down", "%s is not available" % r["label"],
+                                         "%s: %s." % (r["label"], r["detail"]))
             for label, f in _crash_files(receivers):
                 try:
                     size = f.stat().st_size
@@ -6222,7 +7592,7 @@ def api_alerts_test():
 # not logs, not the program. A restore takes only these same paths, and every
 # file it replaces is copied first to admin-backups/restore-<time>/.
 BACKUP_PATTERNS = (
-    "*.toml", "station.conf", "markers.json", "autorun.json", "websdr_relay.json",
+    "*.toml", "station.conf", "markers.json", "autorun.json", "websdr_relay.json", "drm.json", "drm-heard.json",
     "admin_bans.json", "frontend/site_information.json", "frontend/src/bands-config.js",
     "instances/*/config.toml", "instances/*/instance.env", "instances/*/markers.json",
 )
@@ -6318,7 +7688,8 @@ def api_restore():
 # From every receiver's logs/users_YYYY-MM-DD.jsonl as written on disk — the
 # copies with the IP addresses, which the public /logs/ no longer serves. A
 # session is one listener id, from its first to its last logged event. Names
-# are not in these logs.
+# are not in these logs. "decoder" (the decoder running in the listener's
+# page) is in the lines written since the field was added.
 _vstats_cache = {}
 
 
@@ -6364,7 +7735,9 @@ def api_visitor_stats():
                     key = (rx, ev.get("id"))
                     s = sess.get(key)
                     if s is None:
-                        s = sess[key] = {"rx": rx, "ip": "", "geo": "", "start": t, "end": t}
+                        s = sess[key] = {"rx": rx, "ip": "", "geo": "", "start": t, "end": t, "dec": set()}
+                    if ev.get("decoder"):
+                        s["dec"].add(str(ev["decoder"])[:12])
                     s["end"] = max(s["end"], t)
                     s["start"] = min(s["start"], t)
                     if ev.get("event") == "disconnect":
@@ -6401,6 +7774,11 @@ def api_visitor_stats():
     for s in S:
         by_cc.setdefault(_cc_of(s["geo"]) or "?", set()).add(s["ip"])
     countries = sorted(([cc, len(v)] for cc, v in by_cc.items()), key=lambda x: -x[1])[:20]
+    by_dec = {}
+    for s in S:
+        for name in s["dec"]:
+            by_dec[name] = by_dec.get(name, 0) + 1
+    decoders = sorted(([n, c] for n, c in by_dec.items()), key=lambda x: -x[1])
     by_ip = {}
     for s in S:
         by_ip.setdefault(s["ip"], []).append(s)
@@ -6416,7 +7794,8 @@ def api_visitor_stats():
            "total": {"sessions": len(S), "visitors": len(by_ip),
                      "hours": round(sum(s["end"] - s["start"] for s in S) / 3600, 1),
                      "peak": max([d["peak"] for d in per_day] or [0])},
-           "per_day": per_day, "hours": hours, "countries": countries, "addresses": addrs[:20]}
+           "per_day": per_day, "hours": hours, "countries": countries, "decoders": decoders,
+           "addresses": addrs[:20]}
     _vstats_cache[days] = (time.time(), out)
     return jsonify(out)
 
@@ -6469,7 +7848,8 @@ def api_health():
         events = list(_alert_events)[:15]
     return jsonify({"ok": True,
                     "disk": {"total": du.total, "used": du.used, "free": du.free},
-                    "folders": folders, "receivers": rx, "crash": newest, "events": events})
+                    "folders": folders, "receivers": rx, "rade": _rade_status(),
+                    "crash": newest, "events": events})
 
 
 # ── Access-log noise filter ───────────────────────────────────────────────────
@@ -6484,16 +7864,29 @@ def api_health():
 # access line is written to admin.log *after* the truncate, so a successful clear
 # always left one fresh line behind and the pane looked like it had not cleared.
 _QUIET_PATHS = ("/admin/api/status", "/admin/api/thermal", "/admin/api/logs",
-                "/admin/api/logs/clear",
+                "/admin/api/logs/clear", "/admin/api/health",
                 "/admin/api/autorun/status", "/admin/api/users", "/admin/api/sdr-users",
-                "/admin/api/graph-stats", "/admin/api/chat", "/admin/api/bans")
+                "/admin/api/graph-stats", "/admin/api/chat", "/admin/api/bans",
+                "/admin/api/websdr-relay", "/admin/api/drm",
+                # every open listener page polls these every few seconds; who
+                # listened is in the /audio and /waterfall lines and logs/users_*.jsonl
+                "/users", "/wf-message.json", "/receivers.json", "/api/dxspots",
+                "/logo.jpg", "/favicon.ico", "/stats/api/system-stats",
+                # websdr.org's registration check, every 10 s while listed
+                "/~~orgstatus")
+# 404 is the normal answer here (no waterfall message set), so it is quiet too.
+_QUIET_404 = ("/wf-message.json",)
 _ACCESS_RE = re.compile(r'"[A-Z]+ (?P<path>[^ ?"]+)[^"]*" (?P<status>\d{3})')
 
 
 class QuietPollFilter(logging.Filter):
     def filter(self, record):
         m = _ACCESS_RE.search(record.getMessage())
-        if not m or m.group("status") != "200":
+        if not m:
+            return True
+        if m.group("status") == "404":
+            return m.group("path") not in _QUIET_404
+        if m.group("status") != "200":
             return True
         return m.group("path") not in _QUIET_PATHS
 

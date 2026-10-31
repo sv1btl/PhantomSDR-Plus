@@ -16,6 +16,7 @@
 #    SPECTRUM_CORES=0-3            pin spectrumserver to these CPUs (taskset list)
 #    SPECTRUM_CORES=none          do not pin at all
 #    RADE_ENABLED=0               do not run the RADE sidecar at all
+#    DRM_ENABLED=0                do not run the DRM helper at all
 #    INSTANCE=vhf                 run as a separate receiver set up in
 #                                 instances/vhf/; stop it with ./stop-websdr.sh vhf
 #    RX_ARGS="…"                  override the rx_sdr argument string
@@ -47,6 +48,10 @@ if [ -f "$PHANTOMDIR/station.conf" ] && { [ -z "${INSTANCE:-}" ] || [ "${INSTANC
     if [ -n "${PORT_RADE:-}" ]; then
         export RADE_HELPER_PORT="${RADE_HELPER_PORT:-$PORT_RADE}"
         export RADE_HELPER_HOST="${RADE_HELPER_HOST:-127.0.0.1}"
+    fi
+    if [ -n "${PORT_DRM:-}" ]; then             # proxy.py carries it as /drm
+        export DRM_HELPER_PORT="${DRM_HELPER_PORT:-$PORT_DRM}"
+        export DRM_HELPER_HOST="${DRM_HELPER_HOST:-127.0.0.1}"
     fi
     # "No" in the wizard means "do not install RADE". A station that already
     # has ~/radae keeps decoding, as it always did; RADE_ENABLED=0 still
@@ -121,6 +126,11 @@ LOCK="$PHANTOMDIR/.watchdog$SFX.lock"
 # RADE v1 sidecar (optional — skipped silently if rade_helper.py isn't present).
 RADE="$PHANTOMDIR/rade_helper.py"
 RADE_LOG="$PHANTOMDIR/rade.log"
+
+# DRM helper (optional — skipped when setup-drm.sh has not built the decoder).
+DRM_HELPER="$PHANTOMDIR/autorun/drm-helper.js"
+DRM_BIN="$PHANTOMDIR/drm/bin/ubersdr-drm"
+DRM_LOG="$PHANTOMDIR/drm.log"
 
 # spectrumserver's own stdout/stderr (client connects, [WebSDROrg] registration,
 # curl errors). Kept out of $LOG so the bring-up log stays readable; the
@@ -446,11 +456,52 @@ start_rade() {
     disown 2>/dev/null
 }
 
+# ── DRM helper ───────────────────────────────────────────────────────────────
+# autorun/drm-helper.js taps the running spectrumserver for each DRM listener,
+# so it lives and dies with the server exactly like the RADE sidecar above.
+# Echoes: ok | instance | off | missing | nonode.
+drm_state() {
+    [ -n "$INSTANCE" ]            && { echo instance; return; }
+    [ "${DRM_ENABLED:-1}" = "0" ] && { echo off;      return; }
+    [ -f "$DRM_HELPER" ] && [ -x "$DRM_BIN" ] || { echo missing; return; }
+    command -v node >/dev/null 2>&1 || { echo nonode; return; }
+    echo ok
+}
+
+drm_reason() {
+    case "$(drm_state)" in
+        instance) echo "DRM runs with the main receiver only — helper not activated for instance $INSTANCE" ;;
+        off)      echo "DRM disabled (DRM_ENABLED=0) — helper not activated" ;;
+        missing)  echo "DRM not installed (run ./setup-drm.sh) — helper not activated" ;;
+        nonode)   echo "DRM not activated — node not found in PATH" ;;
+    esac
+}
+
+drm_wanted() { [ "$(drm_state)" = "ok" ]; }
+drm_running() { pgrep -f "autorun/drm-helper\.js" >/dev/null 2>&1; }
+
+# A singleton on a fixed port that belongs to the main receiver; its decoders
+# (one ubersdr-drm per listener) go with it.
+stop_drm() {
+    [ -n "$INSTANCE" ] && return 0
+    pkill -f "autorun/drm-helper\.js" 2>/dev/null
+    pkill -9 -f "drm/bin/ubersdr-drm" 2>/dev/null
+}
+
+start_drm() {
+    drm_wanted || return 0
+    drm_running && return 0
+    log "[DRM] helper starting at $(date --rfc-email)"
+    node "$DRM_HELPER" >> "$DRM_LOG" 2>&1 &
+    disown 2>/dev/null
+}
+
 # ── bring the whole chain up and confirm it (polls, no fixed sleep) ──────────
 bring_up() {
     local kind="$1" i failed=""
     kill_receivers
     stop_rade
+    stop_drm
     if ! start_receiver; then
         stamp; log "Server ${kind} FAILED — $RX_COMM did not start"; log " "
         return 1
@@ -461,6 +512,7 @@ bring_up() {
         if is_running spectrumserver && is_running "$RX_COMM"; then
             stamp
             start_rade
+            start_drm
             [ "$kind" = "initial" ] && log "Server started normally" || log "Server restarted normally"
             log " "
             return 0
@@ -497,6 +549,10 @@ watchdog_loop() {
             log "[RADE] sidecar exited — restarting"
             start_rade
         fi
+        if drm_wanted && ! drm_running; then
+            log "[DRM] helper exited — restarting"
+            start_drm
+        fi
     done
 }
 
@@ -529,6 +585,11 @@ watchdog_main() {
         log "RADE: enabled — sidecar will start once the server is up"
     else
         log "$(rade_reason)"
+    fi
+    if drm_wanted; then
+        log "DRM: enabled — helper will start once the server is up"
+    else
+        log "$(drm_reason)"
     fi
     prestart
     bring_up "initial"
@@ -605,6 +666,13 @@ launch() {
             echo "  ✔ RADE sidecar running"
         else
             echo "  ! RADE sidecar not up — see $RADE_LOG"
+        fi
+        if ! drm_wanted; then
+            echo "  · $(drm_reason)"
+        elif drm_running; then
+            echo "  ✔ DRM helper running"
+        else
+            echo "  ! DRM helper not up — see $DRM_LOG"
         fi
         case "$org_state" in
             ok)      echo "  ✔ websdr.org registered ($(toml_get "websdr.org" public_host):$(toml_get "websdr.org" public_port))" ;;

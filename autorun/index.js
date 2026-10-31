@@ -18,12 +18,12 @@
  * it by hand on such a box:  taskset -c 8-11 node autorun/index.js
  */
 import { readFileSync, existsSync, writeFileSync, unlinkSync } from 'node:fs';
-import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { AutorunManager } from './manager.js';
 import { PskReporter } from './pskreporter.js';
 import { WsprNet } from './wsprnet.js';
+import { readServerPort } from './serverport.js';
 import { parseFtxSpot, parseJs8Spot, reporterGrid } from './spotparse.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -84,41 +84,6 @@ function loadConfig() {
     if (!port) port = readServerPort() || 8900;
 
     return { callsign, grid, grid6: (grid || '').slice(0, 6), slots, report, dryRun, host, port };
-}
-
-/** Parse the [server] port out of a TOML file (the port spectrumserver binds). */
-function portFromToml(path) {
-    try {
-        const toml = readFileSync(path, 'utf8');
-        // Grab the first `port = N` at/after the [server] header, ignoring
-        // public_port/proxy_port and inline "# ..." comments.
-        const seg = toml.split(/^\s*\[/m).find((s) => s.startsWith('server]')) ?? toml;
-        const m = seg.match(/^\s*port\s*=\s*(\d+)/m);
-        if (m) return Number(m[1]);
-    } catch { /* unreadable — caller falls back */ }
-    return 0;
-}
-
-/**
- * Resolve spectrumserver's listen port. Different installs run different config
- * files (config.toml, config-rx888mk2.toml, config-rtl.toml, …) on different
- * ports, so we first ask the RUNNING spectrumserver which config it was launched
- * with (`--config <file>` or a positional `<file>.toml`) and read that file's
- * [server] port. Falls back to config.toml, then the caller's default.
- */
-function readServerPort() {
-    try {
-        const out = execFileSync('pgrep', ['-af', 'spectrumserver'], { encoding: 'utf8' });
-        for (const line of out.split('\n')) {
-            if (!/spectrumserver/.test(line) || /pgrep/.test(line)) continue;
-            const cfg = line.match(/--config\s+(\S+)/)?.[1] || line.match(/(\S+\.toml)\b/)?.[1];
-            if (!cfg) continue;
-            const path = cfg.startsWith('/') ? cfg : join(ROOT, cfg);
-            const p = portFromToml(path);
-            if (p) return p;
-        }
-    } catch { /* pgrep absent or nothing running — fall back to config.toml */ }
-    return portFromToml(join(ROOT, 'config.toml'));
 }
 
 function main() {

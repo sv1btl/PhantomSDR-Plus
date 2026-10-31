@@ -374,7 +374,7 @@ Expected log:
    - **RADE v1 — RADEU (USB)** for 20 m / 17 m / 15 m / 12 m / 10 m (> 10 MHz)
 5. Click **Decoder: ON**
 
-Steps 4 and 5 can be replaced by a single press: **RADEL** / **RADEU** buttons sit next to the **Modes selector** heading and inside the **Modes** and **Bands** popup windows. One press selects the decoder, switches it ON and scrolls the RADE panel into view; press the same button again to switch RADE off. See the [RADE manual](RADE_README.md).
+Steps 4 and 5 can be replaced by a single press: **RADE-v1L** / **RADE-v1U** buttons sit next to the **Modes** heading and inside the **Modes** and **Bands** popup windows. One press selects the decoder, switches it ON and scrolls the RADE panel into view; press the same button again to switch RADE off. See the [RADE manual](RADE_README.md).
 
 | Indicator | Meaning |
 |---|---|
@@ -402,6 +402,22 @@ The launcher passes its environment through to the sidecar, so setting the varia
 | 20 | ~180 % |
 
 > These figures were measured on x86_64. A Raspberry Pi decodes RADE fine, but the per-user cost is higher and the table above does not transfer — measure your own board with `top` while a user is synced before advertising a user limit.
+
+---
+
+## Optional — RADE V2 (beta) with rade_c
+
+RADE V2 (beta) — the RADE-v2U button — is decoded by FreeDV's rade_c, which lives in its own folder and leaves `~/radae` alone. `install_rade.sh` builds it for you; by hand (on Ubuntu 22.04 first `sudo apt-get install autoconf automake libtool`):
+
+```bash
+cd ~
+git clone https://github.com/freedv/rade_c.git
+cd rade_c
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build -j4
+```
+
+`rade_helper.py` uses it from the next RADE2 connection — see the [RADE README](RADE_README.md#rade-v2-beta--rade2).
 
 ---
 

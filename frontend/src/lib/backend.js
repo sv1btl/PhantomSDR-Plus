@@ -43,6 +43,11 @@ export function sendIdentity (name) {
   try { audio.setIdentity(name) } catch (e) {}
 }
 
+// The running decoder's label for /users ("" for none); same path as above.
+export function sendDecoder (name) {
+  try { audio.setDecoder(name) } catch (e) {}
+}
+
 // The WASM side (zstd, codecs) may be started only once. The receiver strips
 // (lib/RxStrip.svelte) need it too and can mount before init() has run.
 let _wrappersReady = null

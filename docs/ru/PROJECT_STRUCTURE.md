@@ -27,13 +27,18 @@ PhantomSDR-Plus
 │   ├── audiotap.js
 │   ├── bandplan.js
 │   ├── decodeworker.js
+│   ├── drm-helper.js          # DRM для слушателей: один ubersdr-drm на сеанс, на отводе IQ
+│   ├── drmheard.js            # службы DRM, декодированные здесь («heard here»), в расписании
+│   ├── drmschedule.js         # расписание DRM: drmrx.org + подтверждения KiwiSDR + HFCC
 │   ├── index.js
+│   ├── iqtap.js               # AudioTap в режиме IQ сервера
 │   ├── manager.js
 │   ├── package.json
 │   ├── pool.js
 │   ├── probe-ft8.js
 │   ├── probe-js8.js
 │   ├── pskreporter.js
+│   ├── serverport.js          # где отводы находят spectrumserver (с учётом receivers.toml)
 │   ├── spotparse.js
 │   ├── wasm-shim.js
 │   └── wsprnet.js
@@ -197,6 +202,7 @@ PhantomSDR-Plus
 │   ├── websdr2.png
 │   ├── websdr3.png
 │   └── websdr.png
+├── drm                        # создаёт setup-drm.sh: src/ и bin/ (не в git)
 ├── favicon.ico
 ├── fftw_wisdom
 ├── fix_local_geo.py
@@ -239,6 +245,8 @@ PhantomSDR-Plus
 │   │   ├── analyze_users.py
 │   │   ├── decoders
 │   │   │   ├── ft8_lib.wasm
+│   │   │   ├── hfdl_systable.conf # наземные станции HFDL (системная таблица dumphfdl)
+│   │   │   ├── hfdl.wasm      # декодер HFDL, собранный из jsdsp/hfdl_wasm
 │   │   │   ├── js8_dict.bin   # словарь слов JS8, загружается только при необходимости
 │   │   │   └── js8.wasm       # декодер JS8, собран из jsdsp/js8_wasm
 │   │   ├── logo.jpg
@@ -282,6 +290,8 @@ PhantomSDR-Plus
 │   │   ├── fsk.worker.js
 │   │   ├── fskWorkerProxy.js
 │   │   ├── hell.js
+│   │   ├── hfdl.worker.js
+│   │   ├── hfdlWorkerProxy.js
 │   │   ├── ifk.js                    # DominoEX и THOR
 │   │   ├── kiwiSource.js
 │   │   ├── lib
@@ -294,6 +304,8 @@ PhantomSDR-Plus
 │   │   │   ├── colormaps.js
 │   │   │   ├── Counter.svelte
 │   │   │   ├── DiversityPanel.svelte
+│   │   │   ├── DrmPanel.svelte # панель DRM: индикаторы, измерения, станция, выбор по расписанию
+│   │   │   ├── drmSchedule.js # копия расписания DRM + «сейчас в эфире» с учётом дня
 │   │   │   ├── fftRadix2.js
 │   │   │   ├── freedv-reporter.js
 │   │   │   ├── FreeDVReporter.svelte
@@ -302,6 +314,8 @@ PhantomSDR-Plus
 │   │   │   ├── FrequencyMarkers.svelte
 │   │   │   ├── FtxSpectrum.svelte
 │   │   │   ├── hammeractions.js
+│   │   │   ├── HfdlPanel.svelte # панель HFDL и карта самолётов (из PhantomSDR-ORSAT)
+│   │   │   ├── hfdlStations.js # наземные станции и частоты HFDL
 │   │   │   ├── identity.js               # имя/позывной слушателя: поле, хранение, передача через URL
 │   │   │   ├── LineThroughButton.svelte
 │   │   │   ├── Logger.svelte
@@ -348,6 +362,7 @@ PhantomSDR-Plus
 │   │   │   ├── encode.wasm
 │   │   │   ├── ft4.js
 │   │   │   ├── ft8.js
+│   │   │   ├── hfdl.mjs
 │   │   │   ├── js8-decoder.js
 │   │   │   ├── js8-format.js
 │   │   │   ├── js8.js
@@ -438,6 +453,7 @@ PhantomSDR-Plus
 │   │   │   └── internal.h
 │   │   └── liquid
 │   │       └── liquid.h
+│   ├── hfdl_wasm              # декодер HFDL: dumphfdl + libacars в WebAssembly — см. его README
 │   ├── js8_wasm               # декодер JS8 на C, собранный в WebAssembly, с тестами и эталонной проверкой — см. его README
 │   │   ├── build_js8_wasm.sh
 │   │   ├── check_against_reference.sh
@@ -509,7 +525,7 @@ PhantomSDR-Plus
 ├── phantomsdr-proxy.service   # пример юнита systemd для прокси, ставится вместе с юнитом панели
 ├── phantomsdr-websdr-relay.service  # пример systemd-юнита для ретранслятора WebSDR
 ├── proxy.py                   # единственный публичный порт: страница, /admin, /rade, /stats, /relay и приёмники ?rx=
-├── rade_helper.py
+├── rade_helper.py             # сайдкар RADE: V1 через ~/radae, V2 (beta) через ~/rade_c
 ├── rade_loadtest.csv          # вывод rade_loadtest.py (одна строка на ступень нагрузки)
 ├── rade_loadtest.py           # нагрузочный тест RADE: сколько одновременных декодеров выдерживает машина — см. docs/RADE_README.md
 ├── rade.sh
@@ -522,6 +538,7 @@ PhantomSDR-Plus
 ├── setup-airspyhf.sh          # цепочка драйвера Airspy HF+: libairspyhf + SoapyAirspyHF + rx_sdr + udev
 ├── setup-autostart.sh         # запуск при загрузке: phantomsdr-receiver.service для скрипта из station.conf
 ├── setup-cpufreq-perms.sh     # даёт группе право записи в scaling_max_freq, чтобы защита могла снижать частоту без root
+├── setup-drm.sh               # собирает декодер DRM (ubersdr-drm + fdk-aac 2.0.3) в drm/bin
 ├── setup-firewall.sh          # необязательная защита nftables — см. docs/CONNECTION_LIMITS.md
 ├── setup-fobos.sh             # цепочка драйвера Fobos: libfobos + SoapyFobosSDR + rx_sdr + cf32_to_real + udev
 ├── setup-hackrf.sh            # HackRF: пакет hackrf из дистрибутива + udev (ничего не собирается)
@@ -966,8 +983,8 @@ PhantomSDR-Plus
 - Компонент верхнего уровня
 - Структура компоновки
 - Оркестрация компонентов
-- **Ряд кнопок декодеров** — по одной кнопке на декодер на главной панели, сразу под селектором режимов; одно нажатие запускает декодер и открывает его окно, второе — останавливает. Он заменил прежний ряд полосы пропускания. RADEL/RADEU находятся в `lib/ModesSelector.svelte` — рядом с селектором режимов и во всплывающих окнах **Modes** и **Bands**.
-- **Строка версии** — «PhantomSDR+ | v5.3.0 original from github.com/sv1btl/PhantomSDR-Plus», адрес — ссылка; та же строка есть на странице /mobile. Номер версии и адрес находятся в `lib/version.js`; строка — указание авторства, на которое распространяется `ADDITIONAL_TERMS.md`.
+- **Ряд кнопок декодеров** — по одной кнопке на декодер на главной панели, сразу под селектором режимов; одно нажатие запускает декодер и открывает его окно, второе — останавливает. Он заменил прежний ряд полосы пропускания. RADE-v2U/RADE-v1L/RADE-v1U находятся в `lib/ModesSelector.svelte` — рядом с селектором режимов и во всплывающих окнах **Modes** и **Bands**.
+- **Строка версии** — «PhantomSDR+ | v5.4.0 original from github.com/sv1btl/PhantomSDR-Plus», адрес — ссылка; та же строка есть на странице /mobile. Номер версии и адрес находятся в `lib/version.js`; строка — указание авторства, на которое распространяется `ADDITIONAL_TERMS.md`.
 
 #### 2. Отображение водопада (`waterfall.js` + `lib/`)
 - Отрисовка спектра и водопада на canvas и цветовые палитры — в `waterfall.js` (обычный JS, не компонент); пересчёт яркости/контраста для **Auto Adj.** — `lib/wfAutoLevel.js`
@@ -1073,7 +1090,8 @@ PhantomSDR-Plus
 - Поле имени рядом с **Open Additional Info** хранит имя или позывной в `localStorage` (`chatusername`) и отправляет его по `/audio` как `{"cmd":"identity","name":…}`; `audio.js` отправляет его заново при каждом открытии своего сокета. Ссылка на приёмник по другому адресу передаёт его как `?idname=`, который читается один раз и убирается из адресной строки
 - Сервер очищает его (`clean_listener_name` в `utils.cpp`): не больше 10 символов и без пробелов, как на WebSDR, хотя бы одна буква или цифра; зарезервированные имена чата и `anonymous1234` считаются отсутствием имени. `/users` отдаёт его как `name`; метки водопада показывают его, а за ним город
 - Публичные `/users`, `users.json` и `/logs/users_*.jsonl`, которые читает `stats.html`, не содержат IP-адресов: в копии журнала вместо адреса — непрозрачный код `visitor` (хеш с ключом, ключ в `logs/.visitor_salt`); файлы на диске сохраняют адреса. Панель администратора читает `/~~users`, на который отвечают только loopback-клиенту без `X-Forwarded-For`
-- 24-часовые блокировки панели хранятся в `admin_bans.json` (никогда не распространяется) и раз в минуту заново отправляются каждому приёмнику; `/~~unban` снимает одну
+- Работающий декодер передаётся так же: `App.svelte` при каждом изменении отправляет `{"cmd":"decoder","name":"FT8"}` (пусто, если декодер не запущен), `audio.js` повторяет его на новом сокете. Сервер хранит короткую метку (буквы, цифры, пробел, `-+/`, не больше 12) и отдаёт её как `decoder` в `/users` и в каждой строке `users_*.jsonl`; смена записывается как перестройка, поэтому `stats.html` (Decoder Popularity) и страница Visitors панели администратора могут её подсчитать
+- Блокировки панели на 8/16/24 часа хранятся в `admin_bans.json` (никогда не распространяется) и раз в минуту заново отправляются каждому приёмнику; `/~~unban` снимает одну
 
 #### 5. Управление состоянием (`stores/`)
 - Реактивные хранилища данных
@@ -1135,6 +1153,7 @@ port = 9002
 html_root = "frontend/dist/"
 threads = 2
 otherusers = 1
+iq = true
 
 [limits]
 # Ограничения по адресу — все по умолчанию выключены или на разумном значении,

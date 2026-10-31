@@ -17,7 +17,9 @@ Ovaj vodič obuhvaća sve ugrađene dekodere dostupne u PhantomSDR-Plusu. Svi se
 9. [NAVTEX](#9-navtex)
 10. [FLDIGI — RTTY, PSK31, Olivia, MFSK, DominoEX, THOR, THROB, Hellschreiber, MT63, Packet i APRS](#10-fldigi--rtty-psk31-olivia-mfsk-dominoex-thor-throb-hellschreiber-mt63-packet-i-aprs)
 11. [SSTV](#11-sstv)
-12. [Opći savjeti](#12-opći-savjeti)
+12. [HFDL](#12-hfdl)
+13. [DRM](#13-drm)
+14. [Opći savjeti](#14-opći-savjeti)
 
 ---
 
@@ -39,16 +41,19 @@ Padajući izbornik nije jedini put. Glavna ploča ima red gumba **Decoders** —
 | Gumb | Dekoder | Gumb | Dekoder |
 |---|---|---|---|
 | **FT8** | FT8 | **SSTV** | SSTV |
-| **FT4** | FT4 | **NAVTEX** | NAVTEX |
-| **FT2** | FT2 | **FLDIGI** | RTTY, SITOR, PSK31, Olivia, MFSK, DominoEX, THOR, THROB, Hellschreiber, MT63, Packet, APRS |
-| **CW** | CW | | |
-| **WSPR** | WSPR | **FAX** | HF FAX / WEFAX |
+| **FT4** | FT4 | **FLDIGI** | RTTY, SITOR, PSK31, Olivia, MFSK, DominoEX, THOR, THROB, Hellschreiber, MT63, Packet, APRS |
+| **FT2** | FT2 | **NAVTEX** | NAVTEX |
+| **CW** | CW | **FAX** | HF FAX / WEFAX |
+| **JS8** | JS8 | **HFDL** | HFDL — poruke zrakoplova |
+| **WSPR** | WSPR | **DRM** | DRM — digitalno emitiranje |
 
 Pritisak na gumb odrađuje cijeli slijed odjednom: odabire dekoder, uključuje dekoder (ON) i dovodi njegov prozor na zaslon. Gumb je plav dok njegov dekoder radi. **Ponovni pritisak na isti gumb isključuje dekoder** — njegov se prozor zatvara s njim.
 
-**RADEL** i **RADEU** namjerno nisu u ovom redu. To su načini digitalnog glasa, a ne tekstualni dekoderi, pa imaju vlastiti par gumba uz naslov **Modes selector** te u skočnim prozorima **Modes** i **Bands**. Ponašaju se posve jednako — pritisak za pokretanje, ponovni pritisak za zaustavljanje. Pogledajte [priručnik za RADE](RADE_README.md).
+**RADE-v2U**, **RADE-v1L** i **RADE-v1U** namjerno nisu u ovom redu. To su načini digitalnog glasa, a ne tekstualni dekoderi, pa imaju vlastite gumbe uz naslov **Modes** te u skočnim prozorima **Modes** i **Bands**. Ponašaju se posve jednako — pritisak za pokretanje, ponovni pritisak za zaustavljanje. Pogledajte [priručnik za RADE](RADE_README.md). **RADE-v2U** pokreće RADE V2 (beta), uvijek u USB-u; **RADE-v1L** i **RADE-v1U** pokreću RADE v1.
 
 Gumbi, padajući izbornik i gumb ON/OFF upravljaju istim stanjem, pa što god upotrijebili, ostalo ga slijedi.
+
+Gdje dekoder ima vlastiti popis frekvencija — QRSS popis **Band**, postaje HF FAX-a i NAVTEX-a, FLDIGI popis **Known frequency** te popisi postaja HFDL-a i DRM-a — njegov gumb Tune uokviruje i pojas kao **To Band**: slap prikazuje cijeli pojas postaje, sa svjetlinom, kontrastom i korakom ugađanja tog pojasa. Pojas se bira prema objavljenoj frekvenciji postaje, a ne prema skali, pa se 10100,800 kHz (DWD vremenski RTTY) otvara na 30 m iako je skala malo ispod 10100 kHz.
 
 ### Pokretanje dekodera s oznake frekvencije
 
@@ -64,14 +69,18 @@ Oznaka frekvencije (žute oznake iznad vodopada, iz `markers.json`) inače ugađ
 | `MFSK16`, `MFSK32`, `MFSK64`, `FELDHELL` | FLDIGI u toj inačici i tom podnačinu | kao gore |
 | `PACKET`, `APRS` | FLDIGI u toj inačici | kanal; 300 Bd (USB) ispod 30 MHz, 1200 Bd (FM) iznad |
 | `RADEU`, `RADE`, `FREEDV` / `RADEL` | FreeDV RADE V1 na gornjem / donjem bočnom pojasu (`RADE` i `FREEDV` znače gornji) | frekvencija dial-a |
+| `RADE2` | FreeDV RADE V2 (beta), uvijek gornji bočni pojas | frekvencija dial-a |
+| `HFDL` | HFDL | frekvencija skale (USB; HFDL signal je 1440 Hz iznad nje) |
+| `DRM` | DRM | sredina DRM kanala |
+| `MORSE` | CW dekoder, s CW-om i filtrom od ±250 Hz | frekvencija signala |
 
-Dekoder koji već radi ostaje uključen. `CW` ostaje običan način rada prijemnika, jer ga koriste radiofarovi i postaje — ne pokreće CW dekoder. Oznake se prikazuju samo dok vodopad obuhvaća 3,5 MHz ili manje. Dekoder postavlja vlastiti način rada i vlastiti filtar, kao kad se pokrene svojim gumbom.
+Dekoder koji već radi ostaje uključen. `CW` ostaje običan način rada prijemnika, jer ga koriste radiofarovi i postaje — ne pokreće CW dekoder. Oznake se prikazuju samo dok vodopad obuhvaća 3,5 MHz ili manje. Dekoder postavlja vlastiti način rada i vlastiti filtar, kao kad se pokrene svojim gumbom. Da biste CW dekoder pokrenuli s oznake, dajte joj način `MORSE`. Oznake za svaki dekoder dolaze s PhantomSDR-Plusom u `frequencylist/decodermarkers.json`; vaša oznaka u `mymarkers.json` na istoj frekvenciji uvijek ima prednost.
 
 > Istodobno može biti aktivan samo jedan dekoder. Prelazak na drugi dekoder automatski zaustavlja prethodni.
 >
 > **QRSS grabber** nije dio ovog izbornika — ima vlastiti odjeljak **QRSS** i može raditi istodobno s nekim dekoderom.
 
-**Dekodiranje se odvija u pozadini.** SSTV, HF FAX, NAVTEX, FLDIGI i CW rade svaki u zasebnoj dretvi Web Workera, pa se dekodiranje nikada ne natječe s reprodukcijom zvuka ni sa slapom. Pokretanje ili zaustavljanje dekodera ne prekida zvuk, a sučelje ostaje odzivno dok se prima slika ili stranica. Svi dekoderi dobivaju sirovi zvuk uzet *prije* smanjenja šuma i utišavanja — utišavanje prijamnika ili prilagodba tih postavki vlastitom uhu stoga ne utječe na dekodiranje. S AGC-om je drukčije: primjenjuje ga prijamnik prije nego što zvuk stigne u vaš preglednik, pa ga dekoderi dijele s vama. Zato se, dok je otvoren bilo koji dekoder, drži na **Slow**, bez obzira na odabranu tipku AGC-a, a to pokazuje mala napomena *Slow (decoder)* pokraj naslova AGC; vaš se izbor vraća kad se zatvori posljednji dekoder.
+**Dekodiranje se odvija u pozadini.** SSTV, HF FAX, NAVTEX, HFDL, FLDIGI i CW rade svaki u zasebnoj dretvi Web Workera, pa se dekodiranje nikada ne natječe s reprodukcijom zvuka ni sa slapom. Pokretanje ili zaustavljanje dekodera ne prekida zvuk, a sučelje ostaje odzivno dok se prima slika ili stranica. Svi dekoderi dobivaju sirovi zvuk uzet *prije* smanjenja šuma i utišavanja — utišavanje prijamnika ili prilagodba tih postavki vlastitom uhu stoga ne utječe na dekodiranje. S AGC-om je drukčije: primjenjuje ga prijamnik prije nego što zvuk stigne u vaš preglednik, pa ga dekoderi dijele s vama. Zato se, dok je otvoren bilo koji dekoder, drži na **Slow**, bez obzira na odabranu tipku AGC-a, a to pokazuje mala napomena *Slow (decoder)* pokraj naslova AGC; vaš se izbor vraća kad se zatvori posljednji dekoder. Iznimka je DRM: dekodira se na poslužitelju stanice (poglavlje 13).
 
 **Dekoder koji radi drži način rada i propusni pojas.** Uobičajeno način rada slijedi plan opsega iz `bands-config.js`: pomaknite ugađanje u odsječak označen kao LSB ili AM i prijamnik se prebaci na njega. Dok dekoder radi, toga više nema. Dekoder zadržava način rada koji mu treba (USB kod većine, vlastiti kod RADE-a) i propusni pojas koji mu treba — PSK31 oko ±100 Hz, Olivia, MFSK, DominoEX, THOR, THROB, Hellschreiber i MT63 svoju punu širinu, RTTY svoj shift — i oboje preživljava preugađanje, uključujući skok na drugi opseg. Bez toga bi FT8 na 40 m prebacio prijamnik na LSB čim se ugađanje pomakne, a uski propusni pojasi dekodera opet bi se raširili na puni SSB filtar.
 
@@ -106,8 +115,8 @@ Nikada sam ne mijenja vaš dekoder. Uvijek samo predlaže. A čim pokrenete deko
 
 **Tri poštena ograničenja:**
 
-* **FT8, JS8 i FT2 su isti signal.** Ista 8-FSK modulacija, isti razmak tonova, a JS8 pri brzini Normal koristi FT8-ov ciklus od 15 sekundi. Ništa u samom signalu ih ne razdvaja. Frekvencija ih razdvaja: na FT8 pozivnoj frekvenciji javlja FT8, na JS8 frekvenciji javlja JS8, a bilo gdje drugdje pošteno javlja obitelj — *FT8 / JS8 / FT2*. Pokrenite bilo koji od ta dva dekodera i vidite koji daje tekst.
-* **Radije šuti nego da nagađa.** Ispod otprilike 10 dB odnosa signal/šum javlja *Nothing above the noise* ili *Not recognised* umjesto da imenuje način rada koji zapravo ne vidi. To je namjerno: samouvjeren pogrešan odgovor gori je od nikakvog.
+* **FT8, JS8 i FT2 su isti signal.** Ista 8-FSK modulacija, isti razmak tonova, a JS8 pri brzini Normal koristi FT8-ov ciklus od 15 sekundi. Ništa u samom signalu ih ne razdvaja. Frekvencija ih razdvaja: na FT8 pozivnoj frekvenciji javlja FT8, na JS8 frekvenciji javlja JS8, a bilo gdje drugdje pošteno javlja obitelj — *FT8 / JS8 / FT2*. Pokrenite bilo koji od ta dva dekodera i vidite koji daje tekst. FT2 ima vlastiti, brži ritam (3,75 s) koji se ne mjeri, pa se FT2 signal obično uopće ne imenuje.
+* **Radije šuti nego da nagađa.** Ispod otprilike 10 dB odnosa signal/šum javlja *Nothing above the noise* ili *Not recognised* umjesto da imenuje način rada koji zapravo ne vidi. To je namjerno: samouvjeren pogrešan odgovor gori je od nikakvog. Tih 10 dB mjeri se preko širine samog signala, pa uske vrste rada sežu mnogo dublje: u uobičajenoj širini prijemnika od 2,5 kHz FT8 se prepoznaje do otprilike −5 dB, FT4 do otprilike 0 dB, a WSPR i CW do otprilike −10 dB.
 * **Signal koji slabi čita se drukčije.** WSPR odašilje 110 sekundi bez prekida, dulje nego što traje uobičajeni QSB propad, pa duboko slabljenje razreže emisiju na komade i njezin dvominutni ritam iz njih se više ne može očitati. Tada se dolazi do njega drugim putem: cijela se povijest slušanja uspoređuje s dvominutnom mrežom umjesto s pojedinačnim emisijama, a redak s mjerenjima piše *120 s grid (through fading)*. To je slabiji dokaz od emisije čute u cijelosti, pa je prikazana pouzdanost namjerno niža. Slabljenje dovoljno duboko da signal zakopa u šum ne da se vratiti uopće. Olivia je stroža od ostalih: neće biti imenovana dok joj se ne izmjeri simbolska brzina, pa zašuti ranije.
 
 ---
@@ -143,6 +152,8 @@ Popis poruka prikazuje dekodirane emisije kako pristižu. Svaki ciklus od 15 sek
 Tipičan oblik poruke: `CQ DX AA1BB FN31` — CQ poziv pozivnog znaka AA1BB smještenog u polju FN31.
 
 **SNR** prikazan uz svako dekodiranje pravi je omjer signala i šuma, izmjeren na dekodiranom signalu u odnosu na šum oko njega i sveden na širinu pojasa od 2500 Hz, kako ga daje WSJT-X. Slabe stanice pokazuju negativne vrijednosti, do oko −20 dB, a jake pozitivne; na istim snimkama oba programa u prosjeku se slažu, obično unutar oko 3 dB za pojedino dekodiranje. FT4 i FT2 koriste istu metodu.
+
+**Prometni pojasi i slabe stanice.** Svaka dekodirana stanica oduzima se iz zvuka, a ostatak se ponovno dekodira, do tri puta, kao što to radi WSJT-X — tako izlazi i stanica skrivena ispod jače pokraj nje; na snimkama stvarnih pojasa dekoder pronalazi 86–88 % onoga što pronalazi WSJT-X. Kad uobičajena korekcija pogrešaka odustane od slabog FT8 signala, dublja (ordered-statistics decoding) pokušava ponovno; podliježe strogim provjerama, kako šum ne bi postao izmišljene poruke. FT4 i FT2 također koriste oduzimanje.
 
 > **Nakon ažuriranja:** FT8/FT4/FT2 dekoder zasebna je datoteka koju preglednici dugo čuvaju. Ako su svi SNR i dalje između oko 0 i +5 dB, ponovno učitajte stranicu potpunim osvježavanjem (**Ctrl+Shift+R**, ili **Cmd+Shift+R** na Macu).
 
@@ -185,6 +196,8 @@ Tipičan oblik poruke: `CQ DX AA1BB FN31` — CQ poziv pozivnog znaka AA1BB smje
 3. Ploča **FT4 Messages** ili **FT2 Messages** pojavljuje se ispod, istog rasporeda kao FT8 ploča.
 
 > **Napomena:** FT4 i FT8 koriste različite spektralne formate i nisu zamjenjivi. Pri korištenju ovog dekodera pobrinite se da ste na FT4 frekvenciji.
+
+> **Sat:** FT4 i FT2 dekodiraju i kad sat vašeg računala ili put zvuka kasni do otprilike jedne sekunde (FT2 oko 0,9 s); vremenski raspored dekodera tada se sam ispravlja prema dekodiranjima.
 
 ---
 
@@ -291,12 +304,15 @@ CW je aktivan na svim amaterskim pojasevima, obično u njihovu donjem dijelu. Uo
 - Ako signal nije otkriven, zaglavlje prikazuje **scanning…**
 - Na praznom kanalu ništa se ne ispisuje, a brzina i ton se ne prikazuju. Dekoder počinje pisati tek kad postoji jasna razlika između pritisnutog i otpuštenog tipkala, što sam šum ne proizvodi, dok signal još čitljiv na oko −10 dB to ima u izobilju.
 - Dekodirani tekst kliže u jantarnom fontu jednolike širine. Trepćući pokazivač (▋) označava mjesto na kojem se tekst trenutačno ispisuje.
+- Klizač **Pitch** ispred **Clear** postavlja audio ton CW signala dok dekoder radi: od 500 do 800 Hz u koracima od 50 Hz, 600 Hz dok ga ne promijenite. Vaš preglednik pamti izbor. I obično slušanje CW-a je na 600 Hz.
 - Kliknite **Clear** da izbrišete međuspremnik ispisa.
 
 > **Savjeti:**
 > - Centrirajte propusni pojas na CW ton. Dekoder radi najbolje kada CW signal leži otprilike između 400 i 900 Hz u audiospektru.
 > - Čitaju se brzine od oko 8 do 40 WPM, uključujući Farnsworth odašiljanje (znakovi poslani brzo s duljim razmacima među njima): zaključavanje brzine drži, a slova se ne raspadaju u zasebne riječi. Izrazito ručno tipkan (nepravilan) Morse i dalje može smanjiti točnost.
 > - Dekoder daje najbolje rezultate na jednom čistom signalu. Jak QRM od obližnjih signala na istom pojasu može ga zbuniti.
+> - Feding (QSB) se prati: signal koji iščezne i vrati se i dalje se čita, a čita se i prva riječ odašiljanja — također na početku odgovora nakon stanke u QSO-u.
+> - Svako se slovo odlučuje na samom signalu, a ne na prethodno prebrojanim točkama i crtama, što otprilike prepolovljuje pogrešna slova kod slabih i ručno tipkanih signala.
 
 ---
 
@@ -439,6 +455,8 @@ Svaki uspješno dekodirani spot prikazuje se u tablici sa sljedećim stupcima:
 
 Kliknite **Clear** da izbrišete popis spotova.
 
+Na prometnom pojasu dekoder radi kao WSJT-X: uzima do 40 kandidata po intervalu, oduzima svaku dekodiranu stanicu i ponovno traži, do tri prolaza — tako se pronalaze i slabije stanice između jakih.
+
 > **Savjet:** WSPR dekodiranje zahtijeva vrlo točno vrijeme sustava (unutar ±1 sekunde od UTC-a). Prvi interval nakon uključivanja dekodera počet će u sljedećoj parnoj UTC minuti — kratko je čekanje uobičajeno.
 
 ---
@@ -534,7 +552,7 @@ Dekodirani tekst pojavljuje se u tirkiznom fontu jednolike širine. Granice poru
 
 `ZCZC` označava početak poruke. Četiri znaka nakon njega označavaju stanicu (`M`), temu (`A` = navigacijska upozorenja) i redni broj (`12`). Natpis čeka cijelo zaglavlje, pa glasi `ZCZC MA12`, a ne `ZCZC ????`. `NNNN` označava kraj.
 
-Ako se ugodite nakon što je poruka već počela, ili joj se zaglavlje izgubi u šumu, tekst se svejedno pojavljuje, ispod natpisa **━━ (header missed) ━━**. On se otvara tek kad stigne nekoliko znakova zaredom kod kojih se obje NAVTEX emisije slažu, što šum praktički nikad ne proizvodi. Zatvara se na `NNNN` kao i obično, s **━━ (signal lost) ━━** ako signal nestane prije, ili kad počne nova poruka.
+Ako se ugodite nakon što je poruka već počela, ili joj se zaglavlje izgubi u šumu, tekst se svejedno pojavljuje, ispod natpisa **━━ (header missed) ━━**. On se otvara tek kad stigne nekoliko znakova zaredom kod kojih se obje NAVTEX emisije slažu, što šum praktički nikad ne proizvodi. Zatvara se na `NNNN` kao i obično, s **━━ (signal lost) ━━** ako signal nestane prije, ili kad počne nova poruka. Slab signal zadržava sinkronizaciju i kroz oštećene znakove: svaki NAVTEX znak šalje se dvaput, pa dekoder izdrži pogreške i pušta signal tek kad je stvarno nestao; a ako se zaključao jedan bit pokraj prave granice znaka, prelazi na pravu bez zatvaranja poruke. Pri −6 dB u 2,5 kHz tako prolazi otprilike dvostruko više teksta.
 
 Kliknite **Clear** da izbrišete međuspremnik poruka.
 
@@ -627,7 +645,7 @@ Ploča se prilagođava odabranoj inačici. **Shift**, **Baud**, **Framing**, **E
 | Reverse | FSK Hell 245 / 105, Hell 80 | Drugi ton slika kao tintu |
 | Speed | Packet i APRS | **1200 Bd · VHF/UHF (FM)** ili **300 Bd · HF (USB)**. Bira i način rada prijemnika |
 | Show raw packet | samo APRS | Iznad svakog dekodiranog retka ispisuje i paket kako je primljen (format TNC2) |
-| Squelch (SNR) | Amaterski i meteorološki RTTY | Sprječava da se šum ispisuje kao nasumična slova. Počinje na −5 dB za amaterski RTTY i na −8 dB za meteorološki; skroz lijevo (**off**) je isključen. Brojka SNR postaje siva dok je squelch zatvoren |
+| Squelch (SNR) | Amaterski i meteorološki RTTY | Sprječava da se šum ispisuje kao nasumična slova. Počinje na −5 dB za amaterski RTTY i na −7 dB za meteorološki; skroz lijevo (**off**) je isključen. Brojka SNR postaje siva dok je squelch zatvoren |
 
 ### Mjerenja signala
 
@@ -676,7 +694,7 @@ Olivia žrtvuje brzinu za otpornost. Znatno je sporija od PSK31, ali dekodira si
 MFSK16, MFSK32 i MFSK64 su IZ8BLY načini rada kakve emitira fldigi: 16 tonova, jedan po jedan, međusobno razmaknutih za jedan baud, zaštićenih konvolucijskom korekcijom pogrešaka i preplitanjem. Brži su od Olivije i nešto manje otporni. MFSK16 (15,625 bauda, širina 234 Hz) daje čist tekst do otprilike −12 dB SNR u 2,5 kHz, MFSK32 (31,25 bauda, 469 Hz) do otprilike −10 dB, a MFSK64 (62,5 bauda, 938 Hz) do otprilike −7 dB.
 
 - **Odaberite inačicu MFSK16·32·64**, a zatim brzinu na njezinu popisu **Mode**. Tri se načina razlikuju samo po brzini i postavka mora odgovarati: pogrešna ne daje ništa čitljivo.
-- **Ugađanje:** postavite blok tonova na frekvenciju **Center audio** ili pritisnite **⟳ Auto-tune Center**. Posljednju četvrtinu tona dekoder ispravlja sam — otprilike ±4 Hz kod MFSK16, ±8 Hz kod MFSK32 i ±16 Hz kod MFSK64 — a **Centre** pokazuje gdje se ustalio.
+- **Ugađanje:** postavite blok tonova na frekvenciju **Center audio** ili pritisnite **⟳ Auto-tune Center**. Posljednju četvrtinu tona dekoder ispravlja sam — otprilike ±4 Hz kod MFSK16, ±8 Hz kod MFSK32 i ±16 Hz kod MFSK64 — a **Centre** pokazuje gdje se ustalio. Signal koji je dalje dekoder pronalazi sam, do otprilike ±75 Hz od postavljenog središta: računajte s nekoliko sekundi na početku odašiljanja.
 - Tekst kasni za signalom nekoliko sekundi, koliko trebaju preplitanje i korekcija pogrešaka. Jedan ili dva zalutala znaka na samom početku emisije su normalni; fldigi ih također prikazuje.
 - **Squelch (FEC metric)** zadržava ispis dok kvaliteta dekodiranja ne dosegne postavku. Zadana vrijednost 22 drži šum vani (sam šum doseže oko 20); dobar signal pokazuje 90 % ili više na pokazivaču **FEC**, a 0 isključuje squelch. Kad emisija završi fldigijevom oznakom kraja emisije, ispis odmah prestaje umjesto da propusti još nekoliko sekundi šuma.
 - MFSK prijenosi slika se ne dekodiraju.
@@ -687,7 +705,7 @@ DominoEX i THOR šalju 18 tonova, jedan po jedan, ali znak nije ton: to je *kora
 
 - **Mode** mora odgovarati brzini koja se šalje. DominoEX nudi Micro, 4, 5, 8, 11, 16, 22, 44 i 88; THOR nudi Micro, 4, 5, 8, 11, 16, 22 i brze 25 x4, 50 x1, 50 x2 i 100 (ta četiri koriste jači kod i preplitanje od jedne sekunde). DominoEX 11 i THOR 16 čuju se najčešće.
 - **Ugađanje:** postavite blok tonova na **Center audio** ili pritisnite **⟳ Auto-tune Center**. Razdešenost od četvrtine širine signala još se čita.
-- **Squelch (tone / noise)** uspoređuje primljeni ton s razinom svih ostalih pretinaca tonova, na ljestvici 0–100. Sam šum ostaje na 20 ili niže; čitljiv prijam pokazuje 35 i više; zadano je 25. To nije fldigijev vlastiti broj: on na nekim potpuno čistim signalima pokazuje samo 26, pa bi ih svaka korisna zadana vrijednost odrezala.
+- **Squelch (tone / noise)** uspoređuje primljeni ton s razinom svih ostalih pretinaca tonova, na ljestvici 0–100. Sam šum ostaje na 20 ili niže; čitljiv prijam pokazuje 35 i više; zadano je 25. To nije fldigijev vlastiti broj: on na nekim potpuno čistim signalima pokazuje samo 26, pa bi ih svaka korisna zadana vrijednost odrezala. Kad odašiljanje završi, ispis prestaje unutar nekoliko simbola umjesto da propušta šum.
 - Prijamnik slijedi fldigijeve zadane postavke: tri puta razmaknuta za trećinu FFT pretinca, tvrde odluke za DominoEX, meke odluke i otkrivanje preambule za THOR. Neobavezna MultiPSK korekcija pogrešaka DominoEX-a (u fldigiju zadano isključena) ne dekodira se, kao ni sekundarni tekstni kanal (tekst svjetionika stanice u stankama) ni THOR-ov slikovni način.
 
 ### Napomene o THROB-u
@@ -769,7 +787,9 @@ Packet radio šalje podatke u kratkim naletima koji se zovu okviri (frames). Sva
 | Scottie DX | 320×256 u boji | 269 s |
 | Robot 36 / 72 | 320×240 u boji | 36 s / 72 s |
 
-**Auto** radi na dva načina: čita **VIS zaglavlje** — digitalni kod načina rada poslan u prvih 300 ms emisije — a ako je zaglavlje propušteno (ugodili ste se prekasno ili se izgubilo u QSB-u), način rada prepoznaje prema vremenskim odnosima sinkroimpulsa. Odabir određenog načina rada nameće taj način, ali dekoder i dalje provjerava sinkronizaciju prije nego što išta nacrta, pa pogrešan odabir daje izostanak slike umjesto šuma.
+**Auto** radi na dva načina: čita **VIS zaglavlje** — digitalni kod načina rada poslan u prvih 300 ms emisije — a ako je zaglavlje propušteno (ugodili ste se prekasno ili se izgubilo u QSB-u), način rada prepoznaje prema vremenskim odnosima sinkroimpulsa. Odabir određenog načina rada nameće taj način, ali dekoder i dalje provjerava sinkronizaciju prije nego što išta nacrta, pa pogrešan odabir daje izostanak slike umjesto šuma. Robot 36 se ispravno prepoznaje čak i kad se uključite usred slike (njegov ritam redaka odgovara i Robotu 72 i Scottie DX-u, pa se prije s njima miješao).
+
+**Slabe slike** crtaju se do kraja: čak i kad se nijedan pojedinačni sinkronizacijski impuls ne razlikuje od šuma, dekoder iz mnogo redaka zajedno vidi da je slika još tu. Kad odašiljanje zaista završi, zaustavlja se u nekoliko sekundi.
 
 ### Čitanje ispisa
 
@@ -810,7 +830,63 @@ Budući da Force preskače svaku sigurnosnu provjeru, rado će nacrtati šum ako
 
 ---
 
-## 12. Opći savjeti
+## 12. HFDL
+
+HFDL (HF Data Link) prenosi poruke koje zrakoplovi iznad oceana i udaljenih područja razmjenjuju s zemaljskim stanicama na kratkim valovima: izvješća o položaju, ACARS tekstove, prijave i podatke o frekvencijama. Dekoder je dumphfdl (Tomasz Lemiech, GPL-3) preveden u WebAssembly. Radi u vašem pregledniku na USB zvuku, pa prijemnik ništa ne košta.
+
+### Postavljanje
+
+1. Pritisnite **HFDL** (ili ga odaberite u padajućem izborniku). Prijemnik prelazi na USB s filtrom od 150–2750 Hz.
+2. Odaberite **zemaljsku stanicu** i jednu od njezinih frekvencija, pa kliknite **⇒ Tune & Set IF**. Frekvencija s popisa je USB skala; HFDL signal je 1440 Hz iznad nje.
+3. Pričekajte. Zemaljske stanice šalju squitter svakih 32 s, a zrakoplovi odgovaraju kad imaju promet. Dekoder sam pronalazi točnu brzinu zvuka (±1 %) i odstupanje frekvencije (±240 Hz) te se zaključava na prvom dekodiranom okviru.
+
+### Frekvencije
+
+Popis sadrži sve HFDL zemaljske stanice. Danju se iz Europe dobro čuju 17967 kHz (Al Muharraq, Bahrein) i 21955 kHz (Kanari); navečer i noću preuzimaju niže frekvencije Shannona, Reykjavika i Kanara. HFDL oznake frekvencija pokreću dekoder kad ih kliknete.
+
+### Čitanje izlaza
+
+Svaki redak prikazuje vrijeme (UTC), frekvenciju, smjer (▼ zemlja→zrak ili ▲ zrak→zemlja), zemaljsku stanicu, zrakoplov — registraciju, let i 24-bitnu ICAO adresu, svaku kao poveznicu na FlightAware —, vrstu poruke, njezin SNR i brzinu prijenosa te 📍 položaj kad ga poruka sadrži. ACARS tekst pojavljuje se ispod. Prijeđite mišem preko retka da vidite cijeli okvir. Označite **Squitters** da vidite i najave zemaljskih stanica.
+
+**🗺 Map** u ploči prikazuje zrakoplove koji su javili položaj; **⤢ Large map** otvara istu kartu u prozoru koji se može pomicati i mijenjati mu se veličina. Svaki zrakoplov pokazuje smjer svoje putanje i ostavlja crveni trag. **💾 Save** sprema poruke u tekstnu datoteku, **Clear** prazni popis.
+
+---
+
+## 13. DRM
+
+DRM (Digital Radio Mondiale) je digitalno emitiranje na kratkim i srednjim valovima. Za razliku od ostalih dekodera, dekodira se na poslužitelju stanice: kad pritisnete **DRM**, poslužitelj za vas pokreće dekoder — ubersdr-drm, Dream dekoder bez grafičkog sučelja koji koristi i UberSDR — na cijelom DRM kanalu od 10 kHz i šalje vam dekodirani zvuk i njegovo stanje. Zato svira u svakom pregledniku, uključujući xHE-AAC. Stanica istodobno pokreće najviše pet DRM dekodera, jedan po slušatelju.
+
+### Postavljanje
+
+1. Pritisnite **DRM** (ili ga odaberite u padajućem izborniku). Ispod frekvencije piše **DRM**, a propusni pojas pokriva cijeli kanal od 10 kHz.
+2. Odaberite emisiju u izborniku i kliknite **⇒ Tune**, ili sami ugodite skalu na sredinu DRM kanala — dekoder prati skalu.
+3. Pratite lampice: čim **Audio** postane zelen, čuje se zvuk.
+
+Dok je DRM uključen, jedini zvuk je dekodirani DRM. Vlastiti zvuk prijemnika je utišan, pa bez DRM signala ne čujete ništa. Kod slabog signala ili signala s fedingom oštećeni okvir utihne u kratku jeku i tišinu umjesto u nalet šuma, a dekoder se sam ponovno sinkronizira čim se signal vrati; svaki okvir uz to prolazi i drugi krug ispravljanja pogrešaka.
+
+### Izbornik stanica
+
+Izbornik prikazuje raspored DRM Reception Projecta (drmrx.org), koji poslužitelj osvježava svaki sat: frekvenciju, stanicu, UTC vremena, dane kad se ne emitira svakodnevno, područje kojemu je emisija namijenjena, ✓ kad su je slušatelji potvrdili u eteru i HFCC kad ju je emiter prijavio HFCC-u. Skupine su **Beamed at this station (locator) — on air now**, **On air now — beamed elsewhere, nearest first**, **Later (next 24 h)** i **Medium wave**. **Confirmed only**, uključen prema zadanim postavkama, skriva unose koje nitko nije potvrdio. Redoslijed slijedi lokator stanice (`grid_locator` u odjeljku `[websdr]` konfiguracije): emisija se smatra usmjerenom na stanicu kad joj ciljano područje dopire do oko 1000 km od nje; kad je cilj nepoznat ("Various"), uzima se država odašiljača. Bez lokatora emisije u eteru prikazuju se u jednoj skupini. Emisije usmjerene daleko često se čuju slabo ili nikako. **heard here** označava emisiju koju je ovaj prijemnik dekodirao u posljednjih 30 dana — dekoder bilježi svaku uslugu koju dekodira, nikada tko je slušao — a **Confirmed only** zadržava i njih; emisija koje nema ni u jednom rasporedu, primjerice probno emitiranje, dobiva vlastitu skupinu na vrhu, **Heard on this receiver — on air now, in no schedule**, u polusatima u kojima je čuta.
+
+Dobar prijem iz Europe (zimski raspored od 25. listopada 2026.): Radio Romania International na 9720 kHz (17:00–18:00 UTC), 9570 kHz (18:00–19:00), 6110 kHz (19:00–20:00) i 5955 kHz (19:00–19:30). Rasporedi emitiranja mijenjaju se krajem ožujka i krajem listopada, a izbornik ih prati.
+
+### Čitanje ploče
+
+| Stavka | Značenje |
+|---|---|
+| **Signal, Time, Frame, FAC, SDC, Audio** | Lampice sinkronizacije: zeleno OK, narančasto pogreška podataka, crveno CRC pogreška, sivo nije prisutno. Zvuk se čuje kad je **Audio** zelen. |
+| **WMER** | Veličina koja predviđa dekodiranje: od oko 10 dB zvuk se dekodira. |
+| **MER, SNR** | Omjer pogreške modulacije i omjer signala i šuma, u dB. |
+| **Mode, BW, QAM, Prot** | Način otpornosti (A–E), širina kanala, MSC konstelacija i razine zaštite. |
+| **Codec** | AAC, AAC+SBR ili xHE-AAC, kako ga stanica signalizira. |
+
+Ispod su ime, zemlja, jezik i način zvuka stanice te njezina tekstna poruka. „No decoder on the server for …“ znači da ova stanica ne može dekodirati taj kodek.
+
+**Za sysope.** Dekoder gradi `./setup-drm.sh` (pokreću ga instalacijske skripte; `update.sh` ga nudi), a pomoćnik `autorun/drm-helper.js` pokreće se i zaustavlja s prijemnikom; `DRM_ENABLED=0` ispred skripte za pokretanje isključuje ga. Pogledajte priručnik za instalaciju. Nakon ažuriranja ponovno pokrenite `./setup-drm.sh`: zakrpa i ponovno gradi dekoder (manje prekida, bez naleta šuma kod xHE-AAC); novi dekoder koristi se čim se pomoćnik ponovno pokrene s prijemnikom.
+
+---
+
+## 14. Opći savjeti
 
 **Prvo se mora uključiti Decoder: ON.** Padajući je izbornik onemogućen (zasivljen) dok ne kliknete gumb Decoder.
 

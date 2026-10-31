@@ -420,32 +420,32 @@ ${img ? `<h2>Audio spectrum at the time of the report</h2><img alt="Audio spectr
      colours (green / amber / red) keep their meaning. */
   .sr { margin-top: 6px; padding: 6px 8px; border-radius: 4px; border: 1px solid #444; background: #000; position: relative; z-index: 1; }
   .sr-head { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 4px; }
-  .sr-title { font-size: 0.78rem; font-weight: 600; color: #fff; text-transform: uppercase; letter-spacing: 0.05em; }
+  .sr-title { font-size: 0.9rem; font-weight: 600; color: #fff; text-transform: uppercase; letter-spacing: 0.05em; }
   .sr-refbar { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; margin: 2px 0 6px; padding: 5px 8px;
     border-radius: 4px; background: rgba(255, 255, 255, 0.03); border: 1px solid #444; }
-  .sr-reflbl { font-size: 0.74rem; font-weight: 600; color: #d1d5db; }
+  .sr-reflbl { font-size: 0.86rem; font-weight: 600; color: #d1d5db; }
   .sr-seg { display: inline-flex; border: 1px solid #4b5563; border-radius: 0.375rem; overflow: hidden; }
-  .sr-seg button { font-size: 0.74rem; font-weight: 600; padding: 0.2rem 0.75rem; color: #fff; background: #374151;
+  .sr-seg button { font-size: 0.86rem; font-weight: 600; padding: 0.1rem 0.75rem; line-height: 1.25; color: #fff; background: #374151;
     border-right: 1px solid #4b5563; cursor: pointer; }
   .sr-seg button:last-child { border-right: 0; }
   .sr-seg button:hover { background: #4b5563; }
   .sr-seg button.on { background: #2563eb; }
-  .sr-refdesc { font-size: 0.7rem; color: #9ca3af; font-style: italic; }
+  .sr-refdesc { font-size: 0.8rem; color: #9ca3af; font-style: italic; }
   .sr-btn {
-    font-size: 0.68rem; padding: 0.1rem 0.5rem; border-radius: 0.375rem; font-weight: 600; white-space: nowrap;
+    font-size: 0.78rem; padding: 0.05rem 0.5rem; line-height: 1.3; border-radius: 0.375rem; font-weight: 600; white-space: nowrap;
     color: #fff; border: 1px solid #4b5563; background: #374151;
   }
   .sr-btn:hover:not(:disabled) { background: #4b5563; }
   .sr-btn:disabled { opacity: 0.4; cursor: default; }
   .sr-line {
-    font-size: 0.66rem; color: #9ca3af; font-style: italic; display: flex; gap: 0.35rem; align-items: center;
+    font-size: 0.76rem; color: #9ca3af; font-style: italic; display: flex; gap: 0.35rem; align-items: center;
     height: 1.4rem; margin-top: 3px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
   }
   .sr-line .weak { color: #fcd34d; }
   .sr-line .imp { color: #fcd34d; margin-left: auto; }
   .num { font-family: monospace; font-style: normal; color: #d1d5db; }
-  .sr-tab { width: 100%; border-collapse: collapse; font-size: 0.74rem; table-layout: fixed; }
-  .sr-tab td { padding: 2px 6px; height: 1.35rem; border-top: 1px solid rgba(255, 255, 255, 0.22); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .sr-tab { width: 100%; border-collapse: collapse; font-size: 0.87rem; table-layout: fixed; }
+  .sr-tab td { padding: 2px 6px; height: 1.48rem; line-height: 1.15; border-top: 1px solid rgba(255, 255, 255, 0.22); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .sr-tab .wait .txt, .sr-tab .wait .val { color: #6b7280; font-style: italic; }
   .sr-tab .dot { width: 14px; }
   .sr-tab .dot span { display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: #6b7280; }

@@ -17,7 +17,7 @@
 | `bash configure-station.sh --ask` | Ρωτά και αποθηκεύει μόνο το `station.conf`. | [Οδηγός εγκατάστασης](INSTALLATION.md#οι-ερωτήσεις-του-σταθμού) |
 | `bash configure-station.sh --apply` | Ξαναγράφει τα αρχεία ρυθμίσεων από το `station.conf` χωρίς ερωτήσεις. | [Οδηγός εγκατάστασης](INSTALLATION.md#οι-ερωτήσεις-του-σταθμού) |
 | `bash configure-station.sh --show` | Εμφανίζει τις τρέχουσες απαντήσεις. | [Οδηγός εγκατάστασης](INSTALLATION.md#οι-ερωτήσεις-του-σταθμού) |
-| `./add-receiver.sh` | Προσθέτει έναν ακόμη δέκτη (π.χ. ένα RTL-SDR για τα 2 m) δίπλα στον κύριο. | [Οδηγός εγκατάστασης](INSTALLATION.md#πολλοί-δέκτες-σε-έναν-υπολογιστή) |
+| `./add-receiver.sh` | Προσθέτει έναν ακόμη δέκτη (π.χ. ένα RTL-SDR για τα 2 m) δίπλα στον κύριο. | [Πίνακας διαχείρισης](ADMIN_PANEL_SETUP.md#δέκτες) |
 
 ## Οδηγοί δεκτών
 
@@ -30,6 +30,7 @@
 | `./setup-airspyhf.sh` | Εγκαθιστά την αλυσίδα οδηγών του Airspy HF+. | [Οδηγός εγκατάστασης](INSTALLATION.md#δέκτες-μέσω-soapysdr-rsp1a-fobos-airspy-hf) |
 | `./setup-fobos.sh` | Εγκαθιστά την αλυσίδα οδηγών του RigExpert Fobos. | [Οδηγός εγκατάστασης](INSTALLATION.md#δέκτες-μέσω-soapysdr-rsp1a-fobos-airspy-hf) |
 | `./setup-hackrf.sh` | Εγκαθιστά το πακέτο hackrf και τον κανόνα udev του. | [Οδηγός εγκατάστασης](INSTALLATION.md#hackrf-one) |
+| `./setup-drm.sh` | Χτίζει τον αποκωδικοποιητή DRM (ubersdr-drm με fdk-aac 2.0.3) στο `drm/bin/`. | [Αποκωδικοποιητές](DECODERS.md#ανάγνωση-του-πίνακα) |
 | `rtl_test` | Ελέγχει ότι το RTL-SDR αναγνωρίζεται. | [Οδηγός εγκατάστασης](INSTALLATION.md#δοκιμάστε-το-rtl-sdr) |
 | `SoapySDRUtil --find="driver=soapyMiri"` | Ελέγχει ότι το RSP1A αναγνωρίζεται (`driver=fobos`, `driver=airspyhf` για τα άλλα). | [Οδηγός εγκατάστασης](INSTALLATION.md#δέκτες-μέσω-soapysdr-rsp1a-fobos-airspy-hf) |
 | `SoapySDRUtil --info` | Εμφανίζει τους οδηγούς SoapySDR που είναι εγκατεστημένοι. | [Οδηγός εγκατάστασης](INSTALLATION.md#δεν-βρέθηκε-ο-fobos-ή-ο-airspy-hf) |
@@ -50,6 +51,7 @@
 | `INSTANCE=vhf ./start-rtl.sh` | Ξεκινά δεύτερο δέκτη, ρυθμισμένο στο `instances/vhf/`. | [Πολλοί δέκτες](MULTI_RECEIVER.md#3-προσθήκη-δεύτερου-δέκτη) |
 | `SPECTRUM_CORES=0-3 ./start-rx888mk2.sh` | Δεσμεύει τον server σε αυτούς τους πυρήνες CPU (`none` = χωρίς δέσμευση). | [README](README.md#βασική-λειτουργία) |
 | `RADE_ENABLED=0 ./start-rx888mk2.sh` | Ξεκινά χωρίς το RADE sidecar. | [RADE README](RADE_README.md#έλεγχος-του-sidecar) |
+| `DRM_ENABLED=0 ./start-rx888mk2.sh` | Ξεκινά χωρίς τον βοηθό DRM. | [Αποκωδικοποιητές](DECODERS.md#ανάγνωση-του-πίνακα) |
 | `./stop-websdr.sh` | Σταματά όλους τους δέκτες αυτής της εγκατάστασης και τον επιτηρητή τους. | [Οδηγός εγκατάστασης](INSTALLATION.md#7-σταματήστε-τον-διακομιστή) |
 | `./stop-websdr.sh main` | Σταματά μόνο τον κύριο δέκτη. | [Πολλοί δέκτες](MULTI_RECEIVER.md#5-εκκίνηση-και-διακοπή) |
 | `./stop-websdr.sh vhf` | Σταματά μόνο τον δέκτη που ξεκίνησε με `INSTANCE=vhf`. | [Πολλοί δέκτες](MULTI_RECEIVER.md#5-εκκίνηση-και-διακοπή) |
@@ -82,7 +84,7 @@
 | `./update.sh --apply --yes` | Ενημερώνει χωρίς ερωτήσεις· κάθε αρχείο που επεξεργαστήκατε διατηρείται. | [Οδηγός εγκατάστασης](INSTALLATION.md#άλλες-επιλογές) |
 | `./update.sh --apply --prune` | Προτείνει επίσης τη διαγραφή αρχείων που αφαιρέθηκαν από το αποθετήριο. | [Οδηγός εγκατάστασης](INSTALLATION.md#εκτέλεση) |
 | `./update.sh --from FILE` | Παίρνει τη νέα έκδοση από `.zip`/`.tar.gz` ή φάκελο — χωρίς δίκτυο. | [Οδηγός εγκατάστασης](INSTALLATION.md#άλλες-επιλογές) |
-| `./update.sh --ref v5.3.0` | Ενημερώνει σε tag, branch ή commit αντί για το τρέχον δέντρο. | [Οδηγός εγκατάστασης](INSTALLATION.md#άλλες-επιλογές) |
+| `./update.sh --ref v5.4.0` | Ενημερώνει σε tag, branch ή commit αντί για το τρέχον δέντρο. | [Οδηγός εγκατάστασης](INSTALLATION.md#άλλες-επιλογές) |
 | `./update.sh --list-excludes` | Εμφανίζει τα αρχεία που ο updater δεν αγγίζει ποτέ. | [Οδηγός εγκατάστασης](INSTALLATION.md#άλλες-επιλογές) |
 | `./update.sh --verbose` | Εμφανίζει όλα τα αρχεία, όχι μόνο τα πρώτα 40. | [Οδηγός εγκατάστασης](INSTALLATION.md#άλλες-επιλογές) |
 | `./update.sh --restore LAST` | Επαναφέρει τα αρχεία που αντικατέστησε η τελευταία ενημέρωση. | [Οδηγός εγκατάστασης](INSTALLATION.md#αναίρεση-μιας-ενημέρωσης) |
@@ -155,6 +157,7 @@
 | `sudo journalctl -u sdr-stats.service -f` | Παρακολουθεί το log του. | [Διακομιστής στατιστικών](../sdr-stats/readme_el.md#διαχείριση-υπηρεσίας) |
 | `curl http://localhost:3001/api/system-stats` | Ελέγχει ότι απαντά. | [Διακομιστής στατιστικών](../sdr-stats/readme_el.md#δοκιμή-1-έλεγχος-του-σημείου-πρόσβασης-api) |
 | `./install_rade.sh` | Εγκαθιστά το RADE / FreeDV sidecar (`install_rade_ubuntu22.sh` σε Ubuntu 22.04). | [RADE README](RADE_README.md#η-εγκατάσταση--ο-σύντομος-δρόμος) |
+| `cd ~/rade_c && git pull && cmake --build build` | Ενημερώνει το rade_c, τον αποκωδικοποιητή RADE V2 (beta)· οι νέες συνδέσεις RADE2 χρησιμοποιούν τη νέα έκδοση. | [RADE README](RADE_README.md#rade-v2-beta--rade2) |
 | `./rade.sh start` | Ξεκινά το RADE sidecar με τον επιτηρητή του. | [RADE README](RADE_README.md#έλεγχος-του-sidecar) |
 | `./rade.sh stop` | Το σταματά, μαζί με τον επιτηρητή και τις διεργασίες αποκωδικοποίησης. | [RADE README](RADE_README.md#έλεγχος-του-sidecar) |
 | `./rade.sh restart` | Το σταματά και το ξεκινά καθαρά. | [RADE README](RADE_README.md#έλεγχος-του-sidecar) |

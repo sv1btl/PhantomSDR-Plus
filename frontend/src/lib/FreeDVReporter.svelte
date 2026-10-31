@@ -3,10 +3,29 @@
   // Data comes live from the shared Socket.IO store in freedv-reporter.js.
   import { reporter, sortStations } from "./freedv-reporter.js";
 
-  // Sorted view: Transmitting first, then most recent, then frequency.
-  $: sorted = sortStations($reporter.stations);
+  // dialHz: where the receiver is tuned; only the stations on that amateur
+  // band are listed (all of them outside the bands). onTune(hz): QSY on a
+  // click on a station's frequency.
+  export let dialHz = 0;
+  export let onTune = null;
+
+  // Stations within this of the dial get the on-frequency dot.
+  const ONFREQ_HZ = 100;
+
+  $: dialBand = band(dialHz);
+  $: sorted = sortStations(
+    $reporter.stations.filter((s) => !dialBand || band(s.freq) === dialBand),
+  );
   $: connected = $reporter.connected;
-  $: count = $reporter.stations.length;
+  $: count = sorted.length;
+
+  // On the press, not the click: the list re-renders on every reporter
+  // update, and a press + release split by one was lost as a click.
+  function tune(ev, hz) {
+    if (ev.button !== 0 || !hz || !onTune) return;
+    ev.preventDefault();
+    onTune(hz);
+  }
 
   function freqMHz(hz) {
     if (hz == null) return "--";
@@ -50,6 +69,7 @@
   <div class="fdv-head">
     <span class="fdv-dot" class:on={connected}></span>
     <span>{connected ? "Live" : "Connecting…"}</span>
+    <span class="fdv-band">— {dialBand || "all bands"}</span>
     <span class="fdv-count">{count} station{count === 1 ? "" : "s"}</span>
   </div>
 
@@ -76,8 +96,19 @@
             <td class="call">{s.callsign}</td>
             <td class="mono">{dash(s.grid)}</td>
             <td class="mono">
-              {freqMHz(s.freq)}{#if s.freq != null}<span class="unit"> MHz</span>{/if}
-              {#if band(s.freq)}<span class="band">{band(s.freq)}</span>{/if}
+              {#if s.freq != null}
+                <button
+                  type="button"
+                  class="qsy"
+                  title="Tune to {freqMHz(s.freq)} MHz"
+                  on:mousedown={(ev) => tune(ev, s.freq)}
+                  >{freqMHz(s.freq)}<span class="unit"> MHz</span></button
+                >{#if Math.abs(s.freq - dialHz) <= ONFREQ_HZ}<span
+                    class="onfreq"
+                    title="Tuned here"> ●</span
+                  >{/if}
+              {:else}--{/if}
+              {#if !dialBand && band(s.freq)}<span class="band">{band(s.freq)}</span>{/if}
             </td>
             <td>
               <span class="status" class:s-tx={s.status === "Transmitting"} class:s-ro={s.status === "Receive Only"}>{s.status}</span>
@@ -92,7 +123,11 @@
           </tr>
         {:else}
           <tr>
-            <td colspan="11" class="empty">{connected ? "No active stations." : "Connecting to FreeDV Reporter…"}</td>
+            <td colspan="11" class="empty">{connected
+                ? dialBand
+                  ? `No FreeDV stations on ${dialBand}.`
+                  : "No active stations."
+                : "Connecting to FreeDV Reporter…"}</td>
           </tr>
         {/each}
       </tbody>
@@ -134,6 +169,26 @@
     border-bottom: 1px solid #374151;
     font-size: 11px;
     white-space: nowrap;
+  }
+  .fdv-band {
+    color: #93c5fd;
+  }
+  .qsy {
+    padding: 0;
+    border: 0;
+    background: none;
+    color: #93c5fd;
+    font: inherit;
+    cursor: pointer;
+    text-decoration: underline dotted;
+    text-underline-offset: 2px;
+  }
+  .qsy:hover {
+    color: #bfdbfe;
+    text-decoration-style: solid;
+  }
+  .onfreq {
+    color: #34d399;
   }
   .fdv-count {
     margin-left: auto;

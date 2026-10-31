@@ -277,6 +277,7 @@ broadcast_server::broadcast_server(
     limit_idle_per_ip    = config["limits"]["idle_per_ip"].value_or(8);
     limit_idle_total     = config["limits"]["idle_total"].value_or(512);
     min_client_version   = config["server"]["min_client_version"].value_or(0);
+    g_public_iq_enabled  = config["server"]["iq"].value_or(true);
     if (min_client_version > 0)
         std::cout << "Minimum client build on /audio: v"
                   << min_client_version

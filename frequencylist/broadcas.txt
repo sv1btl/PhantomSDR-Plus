@@ -1,4 +1,4 @@
-;         20-May-2026 BROADCAS.TXT REFERENCE TABLE
+;          5-Aug-2026 BROADCAS.TXT REFERENCE TABLE
 ;-- --------------------------------------------------
 ;CO BROADCASTER
 ;DE
@@ -45,6 +45,7 @@ CVC CVC
 CVO Christian Voice
 DEN Studio Denakker
 DIB Maldives Radio & Television
+DIS disco.miami
 DJR Djibouti Radio
 DRM Digital Radio Mondial
 DTK Media Broadcast GmbH (former:Deutsche Telekom)

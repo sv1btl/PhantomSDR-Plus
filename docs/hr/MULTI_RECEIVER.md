@@ -10,6 +10,8 @@ Od v5.0.0 jedno PhantomSDR-Plus računalo može istodobno pokretati više prijem
 
 > **Najjednostavnije:** pokrenite `./add-receiver.sh` (instalacijske skripte nude ga na kraju). Pita koji prijemnik i što treba pokrivati, instalira njegov upravljački program, zapisuje sve što je opisano u [odjeljku 3](#3-dodavanje-drugog-prijemnika) i [odjeljku 4](#4-receiverstoml) te nudi pokretanje prijemnika i ponovno pokretanje proxyja. Ostatak priručnika objašnjava što radi, za slučaj da nešto želite promijeniti ručno.
 
+> **Iz administratorske ploče:** stranica **Receivers** prikazuje svaki prijemnik s onim što pokriva, sama mijenja frekvenciju i širinu pojasa dodatnog prijemnika (i ponovno pokreće samo njega), te priprema novi prijemnik: sprema vaše odgovore i daje `./add-receiver.sh --answers instances/.add-rx.env` za terminal. Vidi [Administratorska ploča](ADMIN_PANEL_SETUP.md).
+
 ---
 
 ## Sadržaj

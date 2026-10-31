@@ -267,6 +267,15 @@ class AudioClient : public Client,
     // other threads afterwards, hence atomic.
     std::atomic<bool> is_internal_tap{false};
 
+    // IQ mode (DRM helper and listeners): slow level control on the complex baseband so the
+    // int16 I/Q sits near -20 dBFS whatever the signal strength. 0 = unset.
+    float iq_gain = 0.0f;
+    float iq_rms = 0.0f;
+    // Listener IQ only: smoothed noise-floor RMS on the same scale as iq_rms,
+    // and the scratch the per-frame bin percentile is taken in.
+    float iq_noise = 0.0f;
+    std::vector<float> iq_bin_pow;
+
     // Set to true at the start of on_close(), before signal_slices.erase().
     // write_users_json() / get_users_json() skip clients where this is true so
     // the user count drops immediately on disconnect — fixing the off-by-one
@@ -285,6 +294,13 @@ class AudioClient : public Client,
     // Written on the websocket thread, read by get_users_json().
     void on_identity_message(std::string &name) override;
     std::string get_listener_name();
+    // The decoder running in the listener's page ("" when none), for /users.
+    void on_decoder_message(std::string &name) override;
+    std::string get_decoder_name();
+    // The receive-diversity partner ("" when off) as "type host", for the
+    // admin panel's loopback /~~users only.
+    void on_diversity_message(std::string &type, std::string &host) override;
+    std::string get_diversity();
 
   protected:
     // User requested demodulation mode.
@@ -327,6 +343,8 @@ class AudioClient : public Client,
     DCBlocker<float>    dc;
     std::mutex identity_mtx_;
     std::string listener_name_;
+    std::string decoder_name_;
+    std::string diversity_;
     std::mutex agc_mtx_;              // guards agc against set_am_stereo / on_demodulation_message races
     AGC                 agc;
     MovingAverage<float> ma;
@@ -350,6 +368,10 @@ class AudioClient : public Client,
     // True while mono SAM (AM, non-stereo) has PLL lock — drives the UI's
     // "SAM" lock indicator on the AM button.  False in every other mode.
     std::atomic<bool> sam_locked{false};
+    // Mono SAM read-outs shown beside the AM/SAM button: carrier offset from
+    // the dial (Hz) and lock quality (0..1).  NaN = SAM not running.
+    std::atomic<float> sam_offset_hz{NAN};
+    std::atomic<float> sam_quality{NAN};
     // True = mono AM uses the synchronous PLL detector (SAM); false = classic
     // envelope (magnitude) detector.  Toggled from the UI by re-clicking AM.
     // Defaults false so AM starts as plain envelope; SAM is opt-in.

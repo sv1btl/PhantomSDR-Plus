@@ -25,15 +25,18 @@ Obje usluge čitaju konfiguraciju iz `admin_config.json`, koju zapisuje `setup_a
 - **Oznake** — pregled i uređivanje frekvencijskih oznaka
 - **Povijest razgovora** — pregled zapisnika WebSDR razgovora, potpuno brisanje ili uklanjanje pojedinačnih poruka bez ponovnog pokretanja poslužitelja
 - **Poruka na slapu** — emitiranje trajne poruke svim spojenim korisnicima, vidljive u stvarnom vremenu na prikazu slapa
-- **Korisnici** — živi popis spojenih slušatelja s imenom ili pozivnim znakom, lokacijom i IP adresom, frekvencijom, načinom i trajanjem, gumbima ⚡ Kick i ⛔ Ban 24h te kartom njihovih položaja
+- **Korisnici** — živi popis spojenih slušatelja s imenom ili pozivnim znakom, lokacijom i IP adresom, frekvencijom, načinom i trajanjem, gumbom ⚡ Kick i izbornikom ⛔ Ban ▾ (8, 16 ili 24 sata) te kartom njihovih položaja
 - **Brisanje poruka razgovora** — gumb 🗑 Delete koji odmah uklanja tu jednu poruku iz zapisnika
 - **Emitirane poruke na slapu** — omogućuje slanje trajnog tekstualnog natpisa na slap svakog spojenog korisnika
 - **Spot Reporting** — pokretanje/zaustavljanje autorun dekodera FT8/FT4/JS8/WSPR, odabir pojaseva/načina rada i prijava spotova na PSK Reporter / wsprnet (prema zadanom isključeno), s dva brojača: pločice po dekoderu za tekući rad i ukupan zbroj od početka uz svaki potvrdni okvir pojasa/načina rada
 - **Grafikoni** — frekvencija procesora, opterećenje procesora, temperatura procesora i povezani korisnici, prikazani kroz zadnjih 15 minuta / 1 sat / 4 sata / 12 sati / 24 sata
 - **Toplinska zaštita (Thermal Guard)** — zaustavlja poslužitelj ako se procesor pregrije i ponovno ga pokreće kad se ohladi, s pragovima izvedenima iz vašeg vlastitog procesora; radi s bilo kojim načinom pokretanja/zaustavljanja i isporučuje se u načinu samo zapisivanja, pa ne čini ništa dok ga ne uključite
-- **Postavke** — promjena administratorske lozinke, osnovnog direktorija SDR-a, naziva procesa i javnog porta
+- **Postavke** — promjena administratorske lozinke, osnovnog direktorija SDR-a, naziva procesa i porta spectrumservera (port slušatelja prikazan je ispod); pokretanje zadane skripte za pokretanje ili zaustavljanje s ▶ START / ■ STOP; kartica **HTTPS** koja provjerava https ili vas vodi kroz uključivanje
+- **Prijemnici** — svaki prijemnik stanice s opsegom koji pokriva, širinom pojasa i je li u eteru; promjena frekvencije i širine pojasa dodatnog prijemnika na licu mjesta, i priprema novog prijemnika za `add-receiver.sh`
 - **Stanje sustava** (Dashboard) — svaki prijamnik u eteru ili isključen, s vremenom rada, slobodan prostor na disku i veličina svake mape zapisa, posljednji unos u `crash.log` i nedavna upozorenja
-- **Posjetitelji** — privatna statistika posjetitelja za 1 do 31 dan: posjetitelji, sesije, sati slušanja, najviše istodobno, po danu, najprometniji sati, zemlje, i adrese s najviše istodobnih sesija, s ⛔ Ban 24h
+- **DRM** (Dashboard) — DRM dekoder: radi li njegov pomoćnik, koliko je dekodera zauzeto i tko dekodira koju frekvenciju (stanica, kodek, WMER); uključivanje ili isključivanje DRM-a i najveći broj DRM slušatelja (1–20), primjenjuje se unutar 5 s bez ponovnog pokretanja. Stranica korisnika prikazuje te slušatelje kao DRM
+- **Receive Diversity** (Dashboard) — svaki slušatelj koji vaš prijemnik kombinira s drugim prijemnom raznolikošću: ime i grad, frekvencija i način rada, partner (PhantomSDR+, KiwiSDR, UberSDR ili WebSDR) i njegova adresa. Vidi ga samo administracijska ploča, nikad javni popis korisnika
+- **Posjetitelji** — privatna statistika posjetitelja za 1 do 31 dan: posjetitelji, sesije, sati slušanja, najviše istodobno, po danu, najprometniji sati, zemlje, i adrese s najviše istodobnih sesija, s ⛔ Ban ▾
 - **Upozorenja** — e-pošta i/ili Telegram poruka kada prijamnik ispadne iz etera, vrati se ili se ponovno pokrene, kada thermal guard promijeni stupanj, ili kada `crash.log` dobije novi unos
 - **Sigurnosna kopija i vraćanje** — jedan zip s vlastitim postavkama stanice, i vraćanje koje svaku datoteku koju zamjenjuje najprije kopira u `admin-backups/`
 - **Teme** — Phosphor green, Amber display, Metal panel, Modern dark, Light i Auto (svijetlo danju, tamno noću), birane s **THEME** u gornjoj traci svake stranice
@@ -214,11 +217,13 @@ sudo ufw allow <proxy_port>
 
 Stranica Users prikazuje svakog trenutačno spojenog slušatelja. Svaki redak prikazuje ime ili pozivni znak koji je slušatelj upisao (`--` ako ga nema), lokaciju s IP adresom ispod, ugođenu frekvenciju, način i koliko je dugo spojen. Da biste odspojili jednog korisnika, kliknite gumb **⚡ Kick** u njegovom retku — zatvaraju se samo veze tog slušatelja. Svi ostali slušatelji ostaju spojeni i ništa ne primjećuju.
 
+Pokraj načina rada stranica Users prikazuje dekoder koji slušatelj koristi na svojoj stranici, na primjer `USB · FT8` (DRM slušatelji prikazuju se kao `DRM`). Stranice otvorene prije ažuriranja poslužitelja javljaju ga tek nakon ponovnog učitavanja.
+
 IP adrese nalaze se samo na ovoj stranici. Od 5.3.0 javni popis korisnika (`/users`) i Statistika korisnika ne sadrže nijednu, kao na WebSDR-u; ploča čita svoj popis s `/~~users`, na koji spectrumserver odgovara samo na vlastitom računalu i nikad kroz proxy.
 
 Izbacivanje je trenutačno i precizno: poslužitelj se ne pokreće ponovno, ničiji se zvuk ne prekida, a izbačeni korisnik može se odmah ponovno spojiti (funkcija služi za uklanjanje problematičnih ili zaglavljenih veza; da nekoga zadržite vani, koristite zabranu ispod).
 
-**⛔ Ban 24h** odspaja slušatelja sa svih prijemnika postaje i odbija tu adresu 24 sata (kod zatvaranja 4001, koji stranica ne pokušava ponovno). Zabrana se čuva u `admin_bans.json` pokraj ploče i jednom u minuti ponovno šalje svakom prijemniku, pa je ponovno pokretanje prijemnika ne ukida. Dok zabrane vrijede, popis **Banned for 24 h** ispod tablice prikazuje svaku s imenom, adresom i vremenom isteka, a gumb **Unban** odmah je ukida. Svi iza iste internetske veze dijele adresu i zabranjeni su s njom.
+**⛔ Ban ▾** otvara mali izbornik — **8**, **16** ili **24 sata** — a odabrano trajanje odspaja slušatelja sa svih prijemnika postaje i odbija tu adresu toliko dugo (24 sata najviše je što prijemnik prihvaća) (kod zatvaranja 4001, koji stranica ne pokušava ponovno). Zabrana se čuva u `admin_bans.json` pokraj ploče i jednom u minuti ponovno šalje svakom prijemniku, pa je ponovno pokretanje prijemnika ne ukida. Dok zabrane vrijede, popis **Banned** ispod tablice prikazuje svaku s imenom, adresom i vremenom isteka, a gumb **Unban** odmah je ukida. Svi iza iste internetske veze dijele adresu i zabranjeni su s njom.
 
 U pozadini prekid koristi `ss -K dst <IP> dport <port>` za rušenje te konkretne TCP utičnice. To zahtijeva Linux mogućnost koju skripta za postavljanje dodjeljuje automatski. Ako ste preskočili postavljanje ili gumb javlja pogrešku, primijenite je ručno:
 
@@ -239,7 +244,7 @@ Ključna polja koja zapisuje `setup_admin.sh`:
 | Ključ | Opis |
 |---|---|
 | `port` | Interni port administratorske ploče (ondje se veže `admin_server.py`) |
-| `public_port` | Port spectrumservera (koristi ga stranica Users za upit na `/users`) |
+| `public_port` | Port spectrumservera glavnog prijemnika (8901 iza proxy.py) — **nije** port slušatelja, to je `proxy_port`. proxy.py prosljeđuje na njega; Kick, stranica Users i broj slušatelja ga pitaju |
 | `proxy_port` | Javni port na kojem sluša proxy |
 | `sdr_host` | Računalo preko kojeg proxy doseže spectrumserver — `127.0.0.1` (vidi dolje) |
 | `password_hash` | SHA-256 sažetak administratorske lozinke |
@@ -839,7 +844,8 @@ Stranica **Visitors** u bočnom izborniku (na telefonu: gumb **📈 VISITOR STAT
 - **Po danu** — iste četiri brojke za svaki dan.
 - **Najprometniji sati** — kada su sesije počele, po UTC satu.
 - **Zemlje** — posjetitelji po zemlji.
-- **Adrese** — 20 adresa s najviše *istodobnih* sesija prvo, zatim s najviše sesija; poplava veza poput one od 16. rujna 2026. odmah se vidi na vrhu (**AT ONCE** postaje crveno iznad 3). Svaki redak ima **BAN 24h**.
+- **Dekoderi** — koliko je sesija koristilo koji dekoder (broji se iz redaka zapisa koji ga sadrže, dakle od ažuriranja poslužitelja).
+- **Adrese** — 20 adresa s najviše *istodobnih* sesija prvo, zatim s najviše sesija; poplava veza poput one od 16. rujna 2026. odmah se vidi na vrhu (**AT ONCE** postaje crveno iznad 3). Svaki redak ima **BAN ▾** (8, 16 ili 24 sata).
 
 Dani i sati su u UTC-u. Vlastiti dekoderi stanice (lokalne veze) se ne broje; sesija koja je još otvorena broji se najviše 12 sati. Imena nisu u tim zapisima, pa stranica prikazuje adrese, a ne imena. Brojke se ponovno izračunavaju najviše jednom u minuti.
 
@@ -872,6 +878,43 @@ Svaki događaj ima svoj kvadratić. Isto upozorenje šalje se najviše jednom u 
 
 ---
 
+## Prijemnici
+
+**Receivers** u lijevom izborniku prikazuje svaki prijemnik stanice — iz `receivers.toml`, ili samo glavni na stanici s jednim prijemnikom — s njegovim imenom, `?rx=` imenom, hardverom, opsegom koji pokriva i njegovim središtem, širinom pojasa, frekvencijom i načinom rada na kojem počinje novi slušatelj, i je li u eteru.
+
+**✎ CHANGE FREQUENCY AND BANDWIDTH** pojavljuje se kod svakog dodatnog prijemnika (onog u `instances/<ime>/`) koji se ugađa. Upišite središnju frekvenciju u MHz, odaberite širinu pojasa među brzinama uzorkovanja koje taj hardver podržava, i odredite gdje počinje novi slušatelj, u kojem načinu rada, i ime na njegovu gumbu; obrazac pokazuje novi opseg prije nego ga primijenite. Frekvencija koju hardver ne može ugoditi, brzina koju ne podržava, ili početna frekvencija izvan novog opsega se odbija. **✔ APPLY AND RESTART THIS RECEIVER** zatim:
+
+- postavlja `-f` i `-s` u `instance.env`, te `frequency`, `sps`, `fft_size` i početnu frekvenciju i način rada u `config.toml` — korekcija kristala (`frequency` nekoliko Hz od `-f`) zadržava se kao ista pogreška u ppm, pa ostaje točna i na novom pojasu, a `fft_size` se skalira da vodopad zadrži razlučivost
+- postavlja `siteSDRBaseFrequency` i `siteSDRBandwidth` u `www/site_information.json` — stranica prijemnika to čita pri otvaranju, pa se ništa ne gradi ponovno
+- postavlja ime gumba u `receivers.toml`; ime u imeniku i ime hardvera prijemnika ostaju kakva jesu
+- čuva stare datoteke u `admin-backups/retune-<ime>-<datum>/` i ponovno pokreće **samo taj prijemnik** — njegovi slušatelji ostaju bez veze nekoliko sekundi, ostali ne primijete ništa
+
+Prijemnik s izravnim uzorkovanjem (RX888, Fobos HF) pokriva od 0 Hz do polovice brzine uzorkovanja i nema što ugađati. **Glavni** prijemnik mijenja se s `bash configure-station.sh`: njegova stranica nosi pojas iz builda, pa treba ponovno izgraditi stranicu, a čarobnjak ponovno pokreće servise sa sudo.
+
+**➕ ADD NEW RECEIVER** otvara obrazac s pitanjima skripte `add-receiver.sh`: vrsta prijemnika (s *RTL-SDR Blog V4* za RTL stick), središnja frekvencija, širina pojasa, kratko ime (predloženo prema pojasu i provjereno da je slobodno), ime na njegovu gumbu, njegova antena i javna adresa stanice, te treba li instalirati upravljački program, prikazati izbor prijemnika i na glavnoj stranici, postaviti `start-all.sh` kao skriptu za pokretanje ove ploče, pokrenuti prijemnik i ponovno pokrenuti proxy. Iznad toga stranica prikazuje USB prijemnike koje ovo računalo vidi, da znate da je stick priključen. **▶ PREPARE** provjerava odgovore, sprema ih u `instances/.add-rx.env` i daje dva retka za terminal, svaki s **📋 COPY**:
+
+```bash
+cd ~/PhantomSDR-Plus
+./add-receiver.sh --answers instances/.add-rx.env
+```
+
+Skripta uzima svaki odgovor iz te datoteke i traži samo vašu sudo lozinku (trebaju je upravljački program i ponovno pokretanje proxyja — administratorska ploča nikad ništa ne pokreće kao root), a zatim briše datoteku. Nakon toga ponovno učitajte stranicu i novi prijemnik je na popisu. `--answers DATOTEKA` radi i samostalno: jedan `ADD_RX_…=vrijednost` po retku; imena su navedena na vrhu `add-receiver.sh`.
+
+---
+
+## Postavke — portovi, pokretanje/zaustavljanje i HTTPS
+
+**SPECTRUMSERVER PORT (MAIN RECEIVER)** je `public_port`: port na kojem sluša spectrumserver glavnog prijemnika — 8901 iza `proxy.py`, ili 9001 na stanici postavljenoj s `configure-station.sh`. To **nije** port slušatelja; on je prikazan samo za čitanje ispod polja kao **Listener port (proxy)** (`proxy_port`), ili kao *none* na stanici bez proxyja, gdje su oba ista. **💾 SAVE SETTINGS** provjerava broj: vlastiti port proxyja se odbija, a port različit od `[server] port` prijemnika koji radi najprije traži potvrdu — s pogrešnim brojem `proxy.py` od svog sljedećeg ponovnog pokretanja šalje slušatelje na port na kojem ništa ne odgovara. Da biste spectrumserver stvarno premjestili, upišite isti broj u `[server] port` u `.toml` prijemnika, u njegov redak u `receivers.toml` i u ovo polje, a zatim ponovno pokrenite prijemnik i proxy.
+
+**▶ START** i **■ STOP**, pokraj **DEFAULT START SCRIPT** i **DEFAULT STOP SCRIPT**, odmah pokreću **spremljenu** skriptu, nakon potvrde — obje prekidaju vezu svim slušateljima. Ako ste promijenili odabir, najprije spremite: gumb odbija nespremljeni. Prve sekunde izlaza pojavljuju se ispod gumba; cijeli izlaz tih skripti, i ponovnih pokretanja koja radi thermal guard, ide u `logs/admin-scripts.log`.
+
+**HTTPS** pokazuje radi li stanica preko https-a.
+
+- Na https stanici **🔍 CHECK** pokreće `setup-https.sh --status`: radi li Caddy i odgovara li certifikat?
+- Na stanici samo s http-om **🔒 SET UP HTTPS** provjerava što može — `station.conf`, razrješava li se vaše DNS ime (IP adresa ne može dobiti certifikat), jesu li portovi 443 i 80 slobodni ili već Caddyjevi —, podsjeća vas da na routeru proslijedite TCP 443 i 80, i daje dva retka za terminal, svaki s **📋 COPY**. Tamo `setup-https.sh` traži vašu sudo lozinku: administratorska ploča nikad ništa ne pokreće kao root. Kad završi, ponovno učitajte stranicu i gumb postaje **CHECK**. Vidi [Siguran pristup — https://](HTTPS.md).
+
+---
+
 ## Sigurnosna kopija i vraćanje postavki stanice
 
 **Settings → Backup & restore of the station settings.**
@@ -880,7 +923,7 @@ Svaki događaj ima svoj kvadratić. Isto upozorenje šalje se najviše jednom u 
 
 - svaki `*.toml` instalacije (konfiguracije prijamnika i `receivers.toml`) i `station.conf`
 - `frontend/site_information.json`, `frontend/src/bands-config.js`, `markers.json`
-- `autorun.json` (spot reporting), `websdr_relay.json`, `admin_bans.json`
+- `autorun.json` (spot reporting), `websdr_relay.json`, `drm.json`, `admin_bans.json`
 - za svaki dodatni prijamnik: `instances/<id>/config.toml`, `instance.env`, `markers.json`
 
 i `BACKUP-INFO.json` s datumom, računalom i popisom datoteka. **Nije** uključeno: `admin_config.json` (administratorska lozinka, tajne upozorenja), zapisi i sam program.
@@ -914,6 +957,14 @@ Sve teme koriste iste fontove i iste veličine; mijenjaju se samo boje i završn
 | `POST /admin/api/alerts/test` | Spremi pa pošalji probu; odgovor po kanalu |
 | `GET /admin/api/backup` | Preuzimanje zipa postavki |
 | `POST /admin/api/restore` | Vraćanje zipa postavki (multipart, polje `file`) |
+| `POST /admin/api/run-default-script` | Pokreće spremljenu zadanu skriptu za pokretanje ili zaustavljanje (`{"which": "start"}` ili `"stop"`) |
+| `GET /admin/api/https` | Stanje https-a, iz `station.conf` |
+| `POST /admin/api/https/check` | Pokreće `setup-https.sh --status` |
+| `POST /admin/api/https/precheck` | Provjere prije uključivanja https-a, i naredbe za pokretanje |
+| `GET /admin/api/receivers-info` | Svaki prijemnik s opsegom, širinom pojasa i stanjem |
+| `POST /admin/api/receivers-info/retune` | Mijenja frekvenciju i širinu pojasa dodatnog prijemnika i ponovno ga pokreće |
+| `GET /admin/api/receivers-info/add-defaults` | Početne vrijednosti obrasca za dodavanje, i viđeni USB prijemnici |
+| `POST /admin/api/receivers-info/add-plan` | Provjerava obrazac za dodavanje i piše `instances/.add-rx.env` |
 | `GET /admin/api/station-grid` | Lokator iz Site Info, za temu Auto |
 
 ---

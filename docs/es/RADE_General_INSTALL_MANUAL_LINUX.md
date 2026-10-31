@@ -372,7 +372,7 @@ Registro esperado:
    - **RADE v1 — RADEU (USB)** para 20 m / 17 m / 15 m / 12 m / 10 m (> 10 MHz)
 5. Haga clic en **Decoder: ON**
 
-Los pasos 4 y 5 pueden sustituirse por una sola pulsación: los botones **RADEL** / **RADEU** están junto al encabezado **Modes selector** y dentro de las ventanas emergentes **Modes** y **Bands**. Una pulsación selecciona el decodificador, lo pone en ON y desplaza el panel de RADE hasta hacerlo visible; púlselo de nuevo para detener RADE. Consulte el [manual de RADE](RADE_README.md).
+Los pasos 4 y 5 pueden sustituirse por una sola pulsación: los botones **RADE-v1L** / **RADE-v1U** están junto al encabezado **Modes** y dentro de las ventanas emergentes **Modes** y **Bands**. Una pulsación selecciona el decodificador, lo pone en ON y desplaza el panel de RADE hasta hacerlo visible; púlselo de nuevo para detener RADE. Consulte el [manual de RADE](RADE_README.md).
 
 | Indicador | Significado |
 |---|---|
@@ -398,6 +398,22 @@ RADE_TORCH_THREADS=2 ./rade.sh restart
 | 20 | ~180 % |
 
 > Estas cifras se midieron en x86_64. Una Raspberry Pi decodifica RADE sin problemas, pero el coste por usuario es mayor y la tabla anterior no es trasladable: mida su propia placa con `top` mientras un usuario está sincronizado antes de anunciar un límite de usuarios.
+
+---
+
+## Opcional — RADE V2 (beta) con rade_c
+
+RADE V2 (beta) —el botón RADE-v2U— lo decodifica rade_c de FreeDV, que vive en su propia carpeta y no toca `~/radae`. `install_rade.sh` lo compila por usted; a mano (en Ubuntu 22.04, primero `sudo apt-get install autoconf automake libtool`):
+
+```bash
+cd ~
+git clone https://github.com/freedv/rade_c.git
+cd rade_c
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build -j4
+```
+
+`rade_helper.py` lo usa desde la siguiente conexión RADE2 — consulte el [RADE README](RADE_README.md#rade-v2-beta--rade2).
 
 ---
 

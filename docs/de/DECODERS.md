@@ -17,7 +17,9 @@ Dieses Handbuch behandelt alle in PhantomSDR-Plus integrierten Decoder. Alle Dec
 9. [NAVTEX](#9-navtex)
 10. [FLDIGI — RTTY, PSK31, Olivia, MFSK, DominoEX, THOR, THROB, Hellschreiber, MT63, Packet und APRS](#10-fldigi--rtty-psk31-olivia-mfsk-dominoex-thor-throb-hellschreiber-mt63-packet-und-aprs)
 11. [SSTV](#11-sstv)
-12. [Allgemeine Tipps](#12-allgemeine-tipps)
+12. [HFDL](#12-hfdl)
+13. [DRM](#13-drm)
+14. [Allgemeine Tipps](#14-allgemeine-tipps)
 
 ---
 
@@ -39,16 +41,19 @@ Das Dropdown-Menü ist nicht der einzige Weg. Das Hauptpanel enthält eine Taste
 | Taste | Decoder | Taste | Decoder |
 |---|---|---|---|
 | **FT8** | FT8 | **SSTV** | SSTV |
-| **FT4** | FT4 | **NAVTEX** | NAVTEX |
-| **FT2** | FT2 | **FLDIGI** | RTTY, SITOR, PSK31, Olivia, MFSK, DominoEX, THOR, THROB, Hellschreiber, MT63, Packet, APRS |
-| **CW** | CW | | |
-| **WSPR** | WSPR | **FAX** | HF FAX / WEFAX |
+| **FT4** | FT4 | **FLDIGI** | RTTY, SITOR, PSK31, Olivia, MFSK, DominoEX, THOR, THROB, Hellschreiber, MT63, Packet, APRS |
+| **FT2** | FT2 | **NAVTEX** | NAVTEX |
+| **CW** | CW | **FAX** | HF FAX / WEFAX |
+| **JS8** | JS8 | **HFDL** | HFDL — Flugzeugmeldungen |
+| **WSPR** | WSPR | **DRM** | DRM — digitaler Rundfunk |
 
 Ein Tastendruck erledigt den ganzen Ablauf: Er wählt den Decoder aus, schaltet den Decoder ON und holt sein Fenster in den sichtbaren Bereich. Die Taste leuchtet blau, solange ihr Decoder läuft. **Ein erneuter Druck auf dieselbe Taste schaltet den Decoder ab** — sein Fenster schließt sich mit.
 
-**RADEL** und **RADEU** fehlen in dieser Reihe absichtlich. Sie sind Digital-Voice-Betriebsarten und keine Text-Decoder, deshalb haben sie ein eigenes Tastenpaar neben der Überschrift **Modes selector** sowie in den Popup-Fenstern **Modes** und **Bands**. Diese verhalten sich genau gleich — drücken zum Starten, erneut drücken zum Stoppen. Siehe das [RADE-Handbuch](RADE_README.md).
+**RADE-v2U**, **RADE-v1L** und **RADE-v1U** fehlen in dieser Reihe absichtlich. Sie sind Digital-Voice-Betriebsarten und keine Text-Decoder, deshalb haben sie eigene Tasten neben der Überschrift **Modes** sowie in den Popup-Fenstern **Modes** und **Bands**. Diese verhalten sich genau gleich — drücken zum Starten, erneut drücken zum Stoppen. Siehe das [RADE-Handbuch](RADE_README.md). **RADE-v2U** startet RADE V2 (beta), immer in USB; **RADE-v1L** und **RADE-v1U** starten RADE v1.
 
 Die Tasten, das Dropdown-Menü und die ON/OFF-Taste steuern denselben Zustand — was Sie auch benutzen, das Übrige folgt.
+
+Wo ein Decoder eine eigene Frequenzliste hat — die QRSS-Liste **Band**, die Stationen von HF FAX und NAVTEX, die FLDIGI-Liste **Known frequency** und die Stationslisten von HFDL und DRM —, rahmt seine Tune-Taste das Band zusätzlich so ein wie **To Band**: Der Wasserfall zeigt das ganze Band der Station, mit Helligkeit, Kontrast und Abstimmschritt dieses Bandes. Das Band richtet sich nach der gelisteten Frequenz der Station, nicht nach der Skala, sodass 10100,800 kHz (DWD-Wetter-RTTY) auf 30 m öffnet, obwohl die Skala knapp unter 10100 kHz steht.
 
 ### Einen Decoder über eine Frequenzmarkierung starten
 
@@ -64,14 +69,18 @@ Eine Frequenzmarkierung (die gelben Beschriftungen über dem Wasserfall, aus `ma
 | `MFSK16`, `MFSK32`, `MFSK64`, `FELDHELL` | FLDIGI in dieser Variante und Unterbetriebsart | wie oben |
 | `PACKET`, `APRS` | FLDIGI in dieser Variante | der Kanal; 300 Bd (USB) unter 30 MHz, 1200 Bd (FM) darüber |
 | `RADEU`, `RADE`, `FREEDV` / `RADEL` | FreeDV RADE V1 im oberen / unteren Seitenband (`RADE` und `FREEDV` bedeuten oberes) | die Dial-Frequenz |
+| `RADE2` | FreeDV RADE V2 (beta), immer oberes Seitenband | die Dial-Frequenz |
+| `HFDL` | HFDL | die Skalenfrequenz (USB; das HFDL-Signal liegt 1440 Hz darüber) |
+| `DRM` | DRM | die Mitte des DRM-Kanals |
+| `MORSE` | den CW-Decoder, mit CW und einem ±250-Hz-Filter | die Signalfrequenz |
 
-Ein bereits laufender Decoder bleibt an. `CW` bleibt eine normale Empfänger-Betriebsart, da Baken und Stationen sie verwenden — sie startet nicht den CW-Decoder. Markierungen werden nur angezeigt, solange der Wasserfall 3,5 MHz oder weniger umfasst. Der Decoder stellt seine eigene Betriebsart und sein eigenes Filter ein, wie beim Start über seine Schaltfläche.
+Ein bereits laufender Decoder bleibt an. `CW` bleibt eine normale Empfänger-Betriebsart, da Baken und Stationen sie verwenden — sie startet nicht den CW-Decoder. Markierungen werden nur angezeigt, solange der Wasserfall 3,5 MHz oder weniger umfasst. Der Decoder stellt seine eigene Betriebsart und sein eigenes Filter ein, wie beim Start über seine Schaltfläche. Um den CW-Decoder von einer Markierung aus zu starten, geben Sie ihr den Modus `MORSE`. Decoder-Marker für jeden Decoder werden in `frequencylist/decodermarkers.json` mit PhantomSDR-Plus ausgeliefert; ein eigener Marker in `mymarkers.json` auf derselben Frequenz hat immer Vorrang.
 
 > Es kann immer nur ein Decoder aktiv sein. Der Wechsel zu einem anderen Decoder beendet den vorherigen automatisch.
 >
 > Der **QRSS-Grabber** gehört nicht zu diesem Auswahlmenü — er hat einen eigenen Bereich **QRSS** und kann gleichzeitig mit einem Decoder laufen.
 
-**Die Dekodierung läuft im Hintergrund.** SSTV, HF-FAX, NAVTEX, FLDIGI und CW laufen jeweils in einem eigenen Web-Worker-Thread, sodass die Dekodierarbeit nie mit der Audiowiedergabe oder dem Wasserfall konkurriert. Das Starten oder Beenden eines Decoders unterbricht den Ton nicht, und die Oberfläche bleibt reaktionsschnell, während ein Bild oder eine Seite empfangen wird. Alle Decoder erhalten Rohaudio, das *vor* Rauschminderung und Stummschaltung abgegriffen wird — den Empfänger stummzuschalten oder diese Einstellungen nach Gehör zu verändern, wirkt sich also nicht auf die Dekodierung aus. Mit der AGC ist es anders: Der Empfänger wendet sie an, bevor der Ton Ihren Browser erreicht, die Decoder teilen sie also mit Ihnen. Solange irgendein Decoder geöffnet ist, wird sie deshalb auf **Slow** gehalten, egal welche AGC-Taste gewählt ist, und der kleine Hinweis *Slow (decoder)* neben der AGC-Überschrift zeigt das an; Ihre eigene Wahl kehrt zurück, wenn der letzte Decoder geschlossen wird.
+**Die Dekodierung läuft im Hintergrund.** SSTV, HF-FAX, NAVTEX, HFDL, FLDIGI und CW laufen jeweils in einem eigenen Web-Worker-Thread, sodass die Dekodierarbeit nie mit der Audiowiedergabe oder dem Wasserfall konkurriert. Das Starten oder Beenden eines Decoders unterbricht den Ton nicht, und die Oberfläche bleibt reaktionsschnell, während ein Bild oder eine Seite empfangen wird. Alle Decoder erhalten Rohaudio, das *vor* Rauschminderung und Stummschaltung abgegriffen wird — den Empfänger stummzuschalten oder diese Einstellungen nach Gehör zu verändern, wirkt sich also nicht auf die Dekodierung aus. Mit der AGC ist es anders: Der Empfänger wendet sie an, bevor der Ton Ihren Browser erreicht, die Decoder teilen sie also mit Ihnen. Solange irgendein Decoder geöffnet ist, wird sie deshalb auf **Slow** gehalten, egal welche AGC-Taste gewählt ist, und der kleine Hinweis *Slow (decoder)* neben der AGC-Überschrift zeigt das an; Ihre eigene Wahl kehrt zurück, wenn der letzte Decoder geschlossen wird. DRM ist die Ausnahme: Es wird auf dem Server der Station decodiert (Kapitel 13).
 
 **Ein laufender Decoder besitzt Betriebsart und Durchlassbereich.** Normalerweise folgt die Betriebsart dem Bandplan in `bands-config.js`: Fährt die Abstimmung in einen als LSB oder AM gekennzeichneten Abschnitt, schaltet der Empfänger um. Solange ein Decoder läuft, geschieht das nicht mehr. Der Decoder hält die Betriebsart, die er braucht (USB bei den meisten, eine eigene bei RADE), und den Durchlassbereich, den er braucht — PSK31 etwa ±100 Hz, Olivia, MFSK, DominoEX, THOR, THROB, Hellschreiber und MT63 ihre volle Bandbreite, RTTY seinen Shift — und beides überlebt ein Umstimmen, auch den Sprung auf ein anderes Band. Ohne das würde FT8 auf 40 m den Empfänger auf LSB umschalten, sobald die Abstimmung bewegt wird, und die schmalen Decoder-Durchlassbereiche würden wieder auf das volle SSB-Filter aufgehen.
 
@@ -106,8 +115,8 @@ Es schaltet Ihren Decoder niemals selbst um. Es schlägt immer nur vor. Und soba
 
 **Drei ehrliche Grenzen:**
 
-* **FT8, JS8 und FT2 sind dasselbe Signal.** Dieselbe 8-FSK-Modulation, derselbe Tonabstand, und JS8 verwendet bei Normal-Geschwindigkeit den 15-Sekunden-Takt von FT8. Am Signal selbst lassen sie sich nicht unterscheiden. An der Frequenz schon: auf einer FT8-Anruffrequenz meldet es FT8, auf einer JS8-Frequenz JS8, und überall sonst meldet es ehrlich die Familie — *FT8 / JS8 / FT2*. Starten Sie einen der beiden Decoder und sehen Sie, welcher Text liefert.
-* **Es schweigt lieber, als zu raten.** Unterhalb von etwa 10 dB Signal-Rausch-Abstand meldet es *Nothing above the noise* oder *Not recognised*, statt eine Betriebsart zu benennen, die es nicht wirklich erkennen kann. Das ist Absicht: eine selbstbewusst falsche Antwort ist schlimmer als gar keine.
+* **FT8, JS8 und FT2 sind dasselbe Signal.** Dieselbe 8-FSK-Modulation, derselbe Tonabstand, und JS8 verwendet bei Normal-Geschwindigkeit den 15-Sekunden-Takt von FT8. Am Signal selbst lassen sie sich nicht unterscheiden. An der Frequenz schon: auf einer FT8-Anruffrequenz meldet es FT8, auf einer JS8-Frequenz JS8, und überall sonst meldet es ehrlich die Familie — *FT8 / JS8 / FT2*. Starten Sie einen der beiden Decoder und sehen Sie, welcher Text liefert. FT2 hat einen eigenen, schnelleren Rhythmus (3,75 s), der nicht gemessen wird; ein FT2-Signal wird daher meist gar nicht benannt.
+* **Es schweigt lieber, als zu raten.** Unterhalb von etwa 10 dB Signal-Rausch-Abstand meldet es *Nothing above the noise* oder *Not recognised*, statt eine Betriebsart zu benennen, die es nicht wirklich erkennen kann. Das ist Absicht: eine selbstbewusst falsche Antwort ist schlimmer als gar keine. Die 10 dB gelten über die Breite des Signals selbst, schmale Betriebsarten reichen daher viel tiefer: in einer üblichen Empfängerbandbreite von 2,5 kHz wird FT8 bis etwa −5 dB erkannt, FT4 bis etwa 0 dB, WSPR und CW bis etwa −10 dB.
 * **Ein schwankendes Signal wird anders gelesen.** WSPR sendet 110 Sekunden ohne Unterbrechung, also länger als ein gewöhnlicher QSB-Einbruch dauert. Ein tiefer Schwund zerschneidet die Aussendung deshalb in Stücke, und ihr Zwei-Minuten-Takt lässt sich daraus nicht mehr ablesen. Er wird dann auf einem anderen Weg zurückgewonnen: Der gesamte Beobachtungszeitraum wird gegen das Zwei-Minuten-Raster geprüft statt gegen einzelne Aussendungen. In der Messzeile steht dann *120 s grid (through fading)*. Das ist ein schwächerer Beleg als eine vollständig gehörte Aussendung, deshalb ist die angezeigte Sicherheit bewusst geringer. Ein Schwund, der das Signal ganz im Rauschen versinken lässt, ist gar nicht mehr zu retten. Olivia ist strenger als die übrigen: Sie wird erst benannt, wenn ihre Symbolrate gemessen ist, und verstummt daher früher.
 
 ---
@@ -143,6 +152,8 @@ Die Meldungsliste zeigt dekodierte Aussendungen, sobald sie eintreffen. Jeder 15
 Typisches Meldungsformat: `CQ DX AA1BB FN31` — ein CQ-Ruf des Rufzeichens AA1BB aus dem Planquadrat FN31.
 
 Die **SNR** bei jeder Dekodierung ist ein echter Signal-Rausch-Abstand, gemessen am dekodierten Signal gegenüber dem umgebenden Rauschen und auf 2500 Hz Bandbreite bezogen, so wie WSJT-X sie angibt. Schwache Stationen zeigen negative Werte bis etwa −20 dB, starke positive; auf denselben Aufnahmen stimmen beide Programme im Mittel überein, bei einer einzelnen Dekodierung typisch auf etwa 3 dB. FT4 und FT2 verwenden dasselbe Verfahren.
+
+**Belebte Bänder und schwache Stationen.** Jede dekodierte Station wird aus dem Audio herausgerechnet und der Rest erneut dekodiert, bis zu dreimal, wie es WSJT-X macht — so kommt auch eine Station heraus, die unter einer stärkeren daneben verborgen war; auf Aufnahmen echter Bänder findet der Decoder 86–88 % dessen, was WSJT-X findet. Gibt die normale Fehlerkorrektur bei einem schwachen FT8-Signal auf, versucht es eine tiefere (Ordered-Statistics-Decoding) noch einmal; sie unterliegt strengen Prüfungen, damit aus Rauschen keine erfundenen Meldungen werden. FT4 und FT2 nutzen das Herausrechnen ebenfalls.
 
 > **Nach einem Update:** Der FT8/FT4/FT2-Decoder ist eine eigene Datei, die Browser lange zwischenspeichern. Liegen alle SNR-Werte weiterhin zwischen etwa 0 und +5 dB, laden Sie die Seite hart neu (**Strg+Umschalt+R**, auf dem Mac **Cmd+Umschalt+R**).
 
@@ -185,6 +196,8 @@ Die **SNR** bei jeder Dekodierung ist ein echter Signal-Rausch-Abstand, gemessen
 3. Das Bedienfeld **FT4 Messages** bzw. **FT2 Messages** erscheint darunter, im Aufbau identisch mit dem FT8-Bedienfeld.
 
 > **Hinweis:** FT4 und FT8 verwenden unterschiedliche Spektralformate und sind nicht austauschbar. Achten Sie darauf, dass Sie auf einer FT4-Frequenz stehen, wenn Sie diesen Decoder nutzen.
+
+> **Uhr:** FT4 und FT2 dekodieren auch, wenn die Uhr Ihres Computers oder der Audioweg bis zu etwa einer Sekunde nachgeht (FT2 etwa 0,9 s); das Timing des Decoders korrigiert sich dann anhand der Dekodierungen selbst.
 
 ---
 
@@ -291,12 +304,15 @@ CW ist auf allen Amateurbändern aktiv, typischerweise im unteren Teil jedes Ban
 - Wird kein Signal erkannt, zeigt die Kopfzeile **scanning…**
 - Auf einem leeren Kanal wird nichts ausgegeben, und Geschwindigkeit und Ton werden nicht angezeigt. Der Decoder beginnt erst zu schreiben, wenn sich Taste gedrückt und Taste offen deutlich unterscheiden, was reines Rauschen nicht erzeugt, ein bei etwa −10 dB noch lesbares Signal aber reichlich.
 - Der dekodierte Text läuft in bernsteinfarbener Festbreitenschrift durch. Der blinkende Cursor (▋) markiert die Stelle, an der gerade geschrieben wird.
+- Der Schieberegler **Pitch** vor **Clear** stellt die Tonhöhe des CW-Signals ein, solange der Decoder läuft: 500 bis 800 Hz in 50-Hz-Schritten, 600 Hz, bis Sie ihn ändern. Ihr Browser merkt sich die Einstellung. Auch das normale CW-Hören liegt bei 600 Hz.
 - Klicken Sie auf **Clear**, um den Ausgabepuffer zu löschen.
 
 > **Tipps:**
 > - Zentrieren Sie Ihren Durchlassbereich auf den CW-Ton. Der Decoder arbeitet am besten, wenn das CW-Signal etwa zwischen 400 und 900 Hz im Audiospektrum liegt.
 > - Geschwindigkeiten von etwa 8 bis 40 WPM werden gelesen, auch Farnsworth-Gebung (schnell gegebene Zeichen mit längeren Pausen dazwischen): Die Geschwindigkeitsverriegelung hält, und Buchstaben werden nicht in einzelne Wörter zerlegt. Stark handgetastetes (unregelmäßiges) Morsen kann die Genauigkeit weiterhin verringern.
 > - Der Decoder liefert die besten Ergebnisse bei einem einzelnen sauberen Signal. Starkes QRM benachbarter Signale auf demselben Band kann ihn verwirren.
+> - Fading (QSB) wird verfolgt: Ein Signal, das schwindet und wiederkommt, wird weiter gelesen, und auch das erste Wort einer Aussendung wird gelesen — ebenso am Anfang einer Antwort nach einer Pause im QSO.
+> - Jeder Buchstabe wird am Signal selbst entschieden statt an den zuerst gezählten Punkten und Strichen; das halbiert bei schwachen und von Hand gegebenen Signalen etwa die falschen Buchstaben.
 
 ---
 
@@ -439,6 +455,8 @@ Jeder erfolgreich dekodierte Spot erscheint in einer Tabelle mit folgenden Spalt
 
 Klicken Sie auf **Clear**, um die Spot-Liste zu löschen.
 
+Auf einem belebten Band arbeitet der Decoder wie WSJT-X: Er nimmt bis zu 40 Kandidaten je Zeitschlitz, rechnet jede dekodierte Station heraus und sucht erneut, bis zu drei Durchgänge — so werden auch die schwächeren Stationen zwischen starken gefunden.
+
 > **Tipp:** Die WSPR-Dekodierung erfordert eine sehr genaue Systemzeit (innerhalb ±1 Sekunde zu UTC). Der erste Zeitschlitz nach dem Aktivieren des Decoders beginnt mit der nächsten geraden UTC-Minute — eine kurze Wartezeit ist normal.
 
 ---
@@ -534,7 +552,7 @@ Der dekodierte Text erscheint in blaugrüner Festbreitenschrift. Die Meldungsgre
 
 `ZCZC` markiert den Anfang einer Meldung. Die vier folgenden Zeichen kennzeichnen Station (`M`), Thema (`A` = Navigationswarnungen) und laufende Nummer (`12`). Das Banner wartet auf die vollständige Kopfzeile und lautet daher `ZCZC MA12`, nicht `ZCZC ????`. `NNNN` markiert das Ende.
 
-Stimmen Sie ein, nachdem eine Meldung schon begonnen hat, oder geht ihre Kopfzeile im Rauschen unter, erscheint der Text trotzdem, unter einem Banner **━━ (header missed) ━━**. Es öffnet sich erst, wenn mehrere Zeichen hintereinander eintreffen, bei denen beide NAVTEX-Aussendungen übereinstimmen, was Rauschen praktisch nie erzeugt. Es schließt wie gewohnt bei `NNNN`, mit **━━ (signal lost) ━━**, wenn das Signal vorher verschwindet, oder wenn eine neue Meldung beginnt.
+Stimmen Sie ein, nachdem eine Meldung schon begonnen hat, oder geht ihre Kopfzeile im Rauschen unter, erscheint der Text trotzdem, unter einem Banner **━━ (header missed) ━━**. Es öffnet sich erst, wenn mehrere Zeichen hintereinander eintreffen, bei denen beide NAVTEX-Aussendungen übereinstimmen, was Rauschen praktisch nie erzeugt. Es schließt wie gewohnt bei `NNNN`, mit **━━ (signal lost) ━━**, wenn das Signal vorher verschwindet, oder wenn eine neue Meldung beginnt. Ein schwaches Signal behält seine Synchronisation auch bei verstümmelten Zeichen: Jedes NAVTEX-Zeichen wird zweimal gesendet, deshalb hält der Decoder über Fehler hinweg fest und lässt erst los, wenn das Signal wirklich weg ist; hat er sich ein Bit neben der wahren Zeichengrenze eingerastet, wechselt er auf die richtige, ohne die Meldung zu schließen. Bei −6 dB in 2,5 kHz kommt so etwa doppelt so viel Text durch.
 
 Klicken Sie auf **Clear**, um den Meldungspuffer zu löschen.
 
@@ -627,7 +645,7 @@ Das Bedienfeld passt sich der gewählten Variante an. **Shift**, **Baud**, **Fra
 | Reverse | FSK Hell 245 / 105, Hell 80 | Malt den anderen Ton als Tinte |
 | Speed | Packet und APRS | **1200 Bd · VHF/UHF (FM)** oder **300 Bd · HF (USB)**. Damit wird auch die Betriebsart des Empfängers gewählt |
 | Show raw packet | nur APRS | Gibt zusätzlich über jeder dekodierten Zeile das Paket so aus, wie es empfangen wurde (TNC2-Format) |
-| Squelch (SNR) | Amateur- und Wetter-RTTY | Verhindert, dass Rauschen als zufällige Buchstaben ausgegeben wird. Beginnt bei −5 dB für Amateur-RTTY und −8 dB für Wetter-RTTY; ganz links (**off**) ist sie abgeschaltet. Die SNR-Anzeige wird grau, solange die Squelch geschlossen ist |
+| Squelch (SNR) | Amateur- und Wetter-RTTY | Verhindert, dass Rauschen als zufällige Buchstaben ausgegeben wird. Beginnt bei −5 dB für Amateur-RTTY und −7 dB für Wetter-RTTY; ganz links (**off**) ist sie abgeschaltet. Die SNR-Anzeige wird grau, solange die Squelch geschlossen ist |
 
 ### Signalmesswerte
 
@@ -676,7 +694,7 @@ Olivia tauscht Geschwindigkeit gegen Robustheit. Es ist deutlich langsamer als P
 MFSK16, MFSK32 und MFSK64 sind die IZ8BLY-Betriebsarten, wie fldigi sie sendet: 16 Töne, jeweils einer zur Zeit, im Abstand von einem Baud, geschützt durch Faltungs-Fehlerkorrektur und Interleaving. Sie sind schneller als Olivia und etwas weniger robust. MFSK16 (15,625 Baud, 234 Hz breit) liefert sauberen Text bis etwa −12 dB SNR in 2,5 kHz, MFSK32 (31,25 Baud, 469 Hz) bis etwa −10 dB und MFSK64 (62,5 Baud, 938 Hz) bis etwa −7 dB.
 
 - **Wählen Sie die Variante MFSK16·32·64**, dann die Geschwindigkeit in ihrer **Mode**-Liste. Die drei Betriebsarten unterscheiden sich nur in der Geschwindigkeit, und die Einstellung muss passen: die falsche liefert nichts Lesbares.
-- **Abstimmung:** den Tonblock auf die Frequenz **Center audio** legen oder **⟳ Auto-tune Center** drücken. Den letzten Viertelton korrigiert der Decoder selbst — etwa ±4 Hz bei MFSK16, ±8 Hz bei MFSK32 und ±16 Hz bei MFSK64 —, und **Centre** zeigt, wo er sich eingependelt hat.
+- **Abstimmung:** den Tonblock auf die Frequenz **Center audio** legen oder **⟳ Auto-tune Center** drücken. Den letzten Viertelton korrigiert der Decoder selbst — etwa ±4 Hz bei MFSK16, ±8 Hz bei MFSK32 und ±16 Hz bei MFSK64 —, und **Centre** zeigt, wo er sich eingependelt hat. Ein weiter entferntes Signal findet der Decoder selbst, bis etwa ±75 Hz von der eingestellten Mitte: Rechnen Sie mit einigen Sekunden am Anfang einer Aussendung.
 - Der Text läuft dem Signal um ein paar Sekunden hinterher, die Zeit, die Interleaver und Fehlerkorrektur brauchen. Ein oder zwei verirrte Zeichen ganz am Anfang einer Aussendung sind normal; fldigi zeigt sie ebenfalls.
 - **Squelch (FEC metric)** hält die Ausgabe zurück, bis die Dekodierqualität die Einstellung erreicht. Die Vorgabe 22 hält Rauschen fern (Rauschen allein erreicht etwa 20); ein gutes Signal zeigt 90 % oder mehr auf der **FEC**-Anzeige, und 0 schaltet die Squelch ab. Endet eine Aussendung mit der Ende-Kennung von fldigi, stoppt die Ausgabe sofort, statt noch ein paar Sekunden Rauschen durchzulassen.
 - MFSK-Bildübertragungen werden nicht dekodiert.
@@ -687,7 +705,7 @@ DominoEX und THOR senden 18 Töne, einen nach dem anderen, doch ein Zeichen ist 
 
 - **Mode** muss zur gesendeten Geschwindigkeit passen. DominoEX bietet Micro, 4, 5, 8, 11, 16, 22, 44 und 88; THOR bietet Micro, 4, 5, 8, 11, 16, 22 und die schnellen 25 x4, 50 x1, 50 x2 und 100 (diese vier nutzen einen stärkeren Code und einen Interleaver von einer Sekunde). DominoEX 11 und THOR 16 hört man am häufigsten.
 - **Abstimmung:** Legen Sie den Tonblock auf **Center audio** oder drücken Sie **⟳ Auto-tune Center**. Eine Verstimmung um ein Viertel der Signalbreite wird noch gelesen.
-- **Squelch (tone / noise)** vergleicht den empfangenen Ton mit dem Boden aller übrigen Ton-Bins, auf einer Skala von 0–100. Rauschen allein bleibt bei höchstens 20; lesbare Aussendungen zeigen 35 und mehr; die Vorgabe ist 25. Das ist nicht fldigis eigene Zahl: Sie zeigt bei manchen völlig sauberen Signalen nur 26, sodass jede brauchbare Vorgabe diese abgeschnitten hätte.
+- **Squelch (tone / noise)** vergleicht den empfangenen Ton mit dem Boden aller übrigen Ton-Bins, auf einer Skala von 0–100. Rauschen allein bleibt bei höchstens 20; lesbare Aussendungen zeigen 35 und mehr; die Vorgabe ist 25. Das ist nicht fldigis eigene Zahl: Sie zeigt bei manchen völlig sauberen Signalen nur 26, sodass jede brauchbare Vorgabe diese abgeschnitten hätte. Endet eine Aussendung, hört die Ausgabe nach wenigen Symbolen auf, statt Rauschen durchzulassen.
 - Der Empfänger folgt den Standardeinstellungen von fldigi: drei Pfade im Abstand eines Drittel-Bins, harte Entscheidungen bei DominoEX, weiche Entscheidungen und Präambelerkennung bei THOR. Die optionale MultiPSK-Fehlerkorrektur von DominoEX (bei fldigi standardmäßig aus) wird nicht dekodiert, ebenso wenig der Sekundärtext-Kanal (der Bakentext der Station in Sendepausen) und der Bildmodus von THOR.
 
 ### Hinweise zu THROB
@@ -769,7 +787,9 @@ Packet Radio überträgt Daten in kurzen Blöcken, den Frames. Jeder Frame enth�
 | Scottie DX | 320×256 Farbe | 269 s |
 | Robot 36 / 72 | 320×240 Farbe | 36 s / 72 s |
 
-**Auto** arbeitet auf zwei Wegen: Es liest den **VIS-Kopf** — den digitalen Betriebsartencode, der in den ersten 300 ms einer Aussendung gesendet wird — und bestimmt, falls der Kopf verpasst wurde (Sie sind zu spät eingestiegen oder er ging im QSB verloren), die Betriebsart stattdessen aus dem Timing der Synchronimpulse. Die Wahl einer bestimmten Betriebsart erzwingt diese, aber der Decoder prüft dennoch die Synchronisation, bevor er etwas zeichnet — eine falsche Wahl liefert also kein Bild statt Rauschen.
+**Auto** arbeitet auf zwei Wegen: Es liest den **VIS-Kopf** — den digitalen Betriebsartencode, der in den ersten 300 ms einer Aussendung gesendet wird — und bestimmt, falls der Kopf verpasst wurde (Sie sind zu spät eingestiegen oder er ging im QSB verloren), die Betriebsart stattdessen aus dem Timing der Synchronimpulse. Die Wahl einer bestimmten Betriebsart erzwingt diese, aber der Decoder prüft dennoch die Synchronisation, bevor er etwas zeichnet — eine falsche Wahl liefert also kein Bild statt Rauschen. Robot 36 wird auch dann richtig erkannt, wenn Sie mitten in einem Bild einschalten (sein Zeilentakt passt auch zu Robot 72 und Scottie DX und wurde früher mit ihnen verwechselt).
+
+**Schwache Bilder** werden bis zum Ende gezeichnet: Auch wenn sich kein einzelner Synchronimpuls vom Rauschen unterscheiden lässt, erkennt der Decoder aus vielen Zeilen zusammen, dass das Bild noch da ist. Endet die Aussendung wirklich, hört er innerhalb weniger Sekunden auf.
 
 ### Die Ausgabe lesen
 
@@ -810,7 +830,63 @@ Da Force sämtliche Sicherheitsprüfungen überspringt, malt es bereitwillig Rau
 
 ---
 
-## 12. Allgemeine Tipps
+## 12. HFDL
+
+HFDL (HF Data Link) überträgt die Meldungen, die Flugzeuge über Ozeanen und abgelegenen Gebieten auf Kurzwelle mit Bodenstationen austauschen: Positionsmeldungen, ACARS-Texte, Anmeldungen und Frequenzdaten. Der Decoder ist dumphfdl (Tomasz Lemiech, GPL-3), nach WebAssembly übersetzt. Er läuft in Ihrem Browser auf dem USB-Audio und kostet den Empfänger daher nichts.
+
+### Einrichtung
+
+1. Drücken Sie **HFDL** (oder wählen Sie es im Auswahlmenü). Der Empfänger schaltet auf USB mit einem Filter von 150–2750 Hz.
+2. Wählen Sie eine **Bodenstation** und eine ihrer Frequenzen und klicken Sie auf **⇒ Tune & Set IF**. Die angezeigte Frequenz ist die USB-Skala; das HFDL-Signal liegt 1440 Hz darüber.
+3. Warten Sie. Bodenstationen senden alle 32 s einen Squitter, Flugzeuge antworten, wenn sie Verkehr haben. Der Decoder findet die genaue Audiorate (±1 %) und eine Frequenzablage (±240 Hz) selbst und rastet beim ersten decodierten Rahmen ein.
+
+### Frequenzen
+
+Die Stationsliste enthält alle HFDL-Bodenstationen. Tagsüber in Europa gut zu hören: 17967 kHz (Al Muharraq, Bahrain) und 21955 kHz (Kanaren); abends und nachts übernehmen die niedrigeren Frequenzen von Shannon, Reykjavik und den Kanaren. HFDL-Frequenzmarkierungen starten den Decoder, wenn Sie sie anklicken.
+
+### Die Ausgabe lesen
+
+Jede Zeile zeigt die Uhrzeit (UTC), die Frequenz, die Richtung (▼ Boden→Luft oder ▲ Luft→Boden), die Bodenstation, das Flugzeug — Kennzeichen, Flugnummer und 24-Bit-ICAO-Adresse, jeweils ein Link zu FlightAware —, die Meldungsart, ihren SNR und ihre Bitrate sowie 📍 eine Position, wenn die Meldung eine enthält. ACARS-Text erscheint darunter. Fahren Sie mit der Maus über eine Zeile, um den ganzen Rahmen zu sehen. Setzen Sie das Häkchen bei **Squitters**, um auch die Ansagen der Bodenstationen zu sehen.
+
+**🗺 Map** zeigt die Flugzeuge, die eine Position gemeldet haben, im Panel; **⤢ Large map** öffnet dieselbe Karte in einem verschieb- und vergrößerbaren Fenster. Jedes Flugzeug zeigt in Flugrichtung und hinterlässt eine rote Spur. **💾 Save** speichert die Meldungen als Textdatei, **Clear** leert die Liste.
+
+---
+
+## 13. DRM
+
+DRM (Digital Radio Mondiale) ist digitaler Rundfunk auf Kurz- und Mittelwelle. Anders als die übrigen Decoder wird DRM auf dem Server der Station decodiert: Wenn Sie **DRM** drücken, startet der Server für Sie einen Decoder — ubersdr-drm, den Dream-Decoder ohne Oberfläche, den auch UberSDR verwendet — auf dem ganzen 10-kHz-DRM-Kanal und schickt Ihnen das decodierte Audio und seinen Status. Deshalb spielt es in jedem Browser, auch xHE-AAC. Eine Station betreibt höchstens fünf DRM-Decoder gleichzeitig, einen pro Hörer.
+
+### Einrichtung
+
+1. Drücken Sie **DRM** (oder wählen Sie es im Auswahlmenü). Unter der Frequenz steht **DRM**, und der Durchlassbereich umfasst den ganzen 10-kHz-Kanal.
+2. Wählen Sie eine Sendung im Auswahlfeld und klicken Sie auf **⇒ Tune**, oder stellen Sie die Skala selbst auf die Mitte eines DRM-Kanals — der Decoder folgt der Skala.
+3. Achten Sie auf die Lampen: Sobald **Audio** grün ist, kommt Ton.
+
+Solange DRM eingeschaltet ist, ist der einzige Ton decodiertes DRM. Das eigene Audio des Empfängers ist stummgeschaltet — ohne DRM-Signal hören Sie also nichts. Bei schwachem oder schwundbehaftetem Signal blendet ein beschädigter Rahmen in einen kurzen Nachhall und Stille aus statt in einen Rauschstoß, und der Decoder synchronisiert sich von selbst neu, sobald das Signal zurückkommt; jeder Rahmen erhält außerdem einen zweiten Durchgang der Fehlerkorrektur.
+
+### Die Stationsauswahl
+
+Das Auswahlfeld zeigt den Sendeplan des DRM Reception Project (drmrx.org), den der Server stündlich erneuert: Frequenz, Sender, UTC-Zeiten, die Wochentage, wenn nicht täglich gesendet wird, das Zielgebiet, ✓ wenn Hörer die Sendung bestätigt haben, und HFCC, wenn der Sender sie bei der HFCC angemeldet hat. Die Gruppen sind **Beamed at this station (locator) — on air now**, **On air now — beamed elsewhere, nearest first**, **Later (next 24 h)** und **Medium wave**. **Confirmed only**, standardmäßig eingeschaltet, blendet unbestätigte Einträge aus. Die Reihenfolge richtet sich nach dem Locator der Station (`grid_locator` im Abschnitt `[websdr]` der Konfiguration): Eine Sendung gilt als auf die Station gerichtet, wenn ihr Zielgebiet bis auf etwa 1000 km an sie heranreicht; ist das Zielgebiet unbekannt ("Various"), zählt das Land des Senders. Ohne Locator stehen die laufenden Sendungen in einer Gruppe. Weit entfernt ausgerichtete Sendungen sind oft schwach oder gar nicht zu hören. **heard here** kennzeichnet eine Sendung, die dieser Empfänger in den letzten 30 Tagen decodiert hat — der Decoder merkt sich jeden Dienst, den er decodiert, nie aber, wer zugehört hat —, und **Confirmed only** lässt auch diese stehen; eine Sendung, die in keinem Sendeplan steht, etwa eine Testaussendung, erhält oben eine eigene Gruppe, **Heard on this receiver — on air now, in no schedule**, über die halben Stunden, in denen sie gehört wurde.
+
+Gut zu empfangen in Europa (Winterplan ab 25. Oktober 2026): Radio Romania International auf 9720 kHz (17:00–18:00 UTC), 9570 kHz (18:00–19:00), 6110 kHz (19:00–20:00) und 5955 kHz (19:00–19:30). Die Sendepläne wechseln Ende März und Ende Oktober, und die Auswahl folgt ihnen.
+
+### Das Panel lesen
+
+| Element | Bedeutung |
+|---|---|
+| **Signal, Time, Frame, FAC, SDC, Audio** | Die Synchronlampen: grün OK, gelb Datenfehler, rot CRC-Fehler, grau nicht vorhanden. Ton kommt, wenn **Audio** grün ist. |
+| **WMER** | Die Größe, die über das Decodieren entscheidet: ab etwa 10 dB wird das Audio decodiert. |
+| **MER, SNR** | Modulationsfehlerverhältnis und Signal-Rausch-Verhältnis, in dB. |
+| **Mode, BW, QAM, Prot** | Robustheitsmodus (A–E), Kanalbandbreite, MSC-Konstellation und Schutzstufen. |
+| **Codec** | AAC, AAC+SBR oder xHE-AAC, wie der Sender es signalisiert. |
+
+Darunter stehen Name, Land, Sprache und Audiomodus des Senders sowie seine Textmeldung. „No decoder on the server for …“ bedeutet, dass diese Station den Codec nicht decodieren kann.
+
+**Für Sysops.** Der Decoder wird von `./setup-drm.sh` gebaut (die Installer führen es aus, `update.sh` bietet es an), und der Helfer `autorun/drm-helper.js` startet und stoppt mit dem Empfänger; `DRM_ENABLED=0` vor dem Startskript schaltet ihn ab. Siehe das Installationshandbuch. Führen Sie nach einem Update `./setup-drm.sh` erneut aus: Es patcht und baut den Decoder neu (weniger Aussetzer, keine Rauschstöße bei xHE-AAC); der neue Decoder wird verwendet, sobald der Helfer mit dem Empfänger neu startet.
+
+---
+
+## 14. Allgemeine Tipps
 
 **Decoder: ON muss zuerst eingeschaltet werden.** Das Auswahlmenü ist deaktiviert (ausgegraut), bis Sie die Decoder-Schaltfläche anklicken.
 

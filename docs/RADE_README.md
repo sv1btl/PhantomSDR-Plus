@@ -6,6 +6,8 @@
 
 This document covers the complete integration of RADE v1 receive support into PhantomSDR-Plus, implemented as a Python sidecar (`rade_helper.py`) that bridges the browser to the `radae_rxe.py` + `lpcnet_demo` decode pipeline.
 
+It also decodes **RADE V2 (beta)**, the new waveform of FreeDV 3.0, with the **RADE-v2U** button — see [RADE V2 (beta) — RADE2](#rade-v2-beta--rade2).
+
 ## Installing it — the short way
 
 ```bash
@@ -13,7 +15,7 @@ cd ~/PhantomSDR-Plus
 ./install_rade.sh
 ```
 
-That is the whole installation. The script installs the system packages through whichever package manager the machine has (apt, pacman, dnf or zypper), falls back to pip for anything a distribution does not ship, upgrades `websockets` if the distro version is older than the 11.0 the sidecar needs, clones and builds radae, checks the model weights, rebuilds the frontend and starts the sidecar. On Ubuntu 22.04 it hands over to `install_rade_ubuntu22.sh` for you. `./install.sh` offers to run it as part of the normal PhantomSDR-Plus installation, so on a fresh machine RADE is already there.
+That is the whole installation. The script installs the system packages through whichever package manager the machine has (apt, pacman, dnf or zypper), falls back to pip for anything a distribution does not ship, upgrades `websockets` if the distro version is older than the 11.0 the sidecar needs, clones and builds radae, checks the model weights, rebuilds the frontend and starts the sidecar. On Ubuntu 22.04 it hands over to `install_rade_ubuntu22.sh` for you. `./install.sh` offers to run it as part of the normal PhantomSDR-Plus installation, so on a fresh machine RADE is already there. It also builds FreeDV's rade_c for RADE V2 (beta); if that step fails, RADE V1 is installed anyway.
 
 **This document explains how RADE works and how to run it — it is not the install procedure.** If you need to do the installation by hand, on a system the script does not cover or to repair one step, follow the manual guide linked below; it is the single place the steps are written down. Everything here — the architecture, the patched files, the port, using RADE in the browser, the environment variables, troubleshooting and concurrency measurement — applies to every installation however it was made.
 
@@ -27,6 +29,7 @@ That is the whole installation. The script installs the system packages through 
 2. [How It Works](#how-it-works)
 3. [Architecture Overview](#architecture-overview)
 4. [RADEL vs RADEU](#radel-vs-radeu)
+   - [RADE V2 (beta) — RADE2](#rade-v2-beta--rade2)
 5. [Prerequisites](#prerequisites)
 6. [Installing by hand](#installing-by-hand)
 7. [The Patched Files](#the-patched-files)
@@ -110,6 +113,40 @@ RADE v1 is always transmitted over SSB. By convention:
 |-------|----------|------------------------------------------|
 | RADEL | LSB      | 160 m, 80 m, 40 m  (≤ 10 MHz)           |
 | RADEU | USB      | 20 m, 17 m, 15 m, 12 m, 10 m (> 10 MHz) |
+
+---
+
+## RADE V2 (beta) — RADE2
+
+**RADE V2** is the new waveform of FreeDV 3.0: about 800 Hz wide instead of 1500 Hz, with no pilot symbols, and about 3 dB more sensitive at low SNR. It is **still a beta at FreeDV** — only stations testing FreeDV 3.0 send it, and the signal may still change before the release. PhantomSDR-Plus decodes it next to RADE V1:
+
+| Button | Version | Sideband | Filter |
+|---|---|---|---|
+| **RADE-v2U** (RADE2) | RADE V2 (beta) | USB on every band | 1040–1930 Hz |
+| **RADE-v1L** / **RADE-v1U** (RADEL / RADEU) | RADE V1 | LSB / USB | 700–2200 Hz |
+
+V2 is decoded on the server by FreeDV's C port **rade_c** (`radae_rx --v2` and its own `lpcnet_demo`), built in its own folder `~/rade_c`, so the V1 installation in `~/radae` is never touched. `./install_rade.sh` clones and builds it (step "rade_c (RADE V2, beta)"); if that step fails it only warns, and RADE V1 is installed anyway. `rade_helper.py` uses rade_c from the next RADE2 connection — no restart is needed — and without it RADE2 tells the listener "RADE V2 is not installed on this station yet". A V2 decode costs about 1 % of one CPU core per listener (V1: about 70–80 %).
+
+To build rade_c by hand (on Ubuntu 22.04 first `sudo apt-get install autoconf automake libtool`):
+
+```bash
+cd ~
+git clone https://github.com/freedv/rade_c.git
+cd rade_c
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build -j4
+```
+
+**On the air**
+
+- Tune within about **±30 Hz** of the station's frequency. Further off, V2 still shows "Synced" but the speech is garbled.
+- Each over starts **2–3 s late**: while V2 locks it keeps the signal, then plays the beginning of the over.
+- Below about **−2 dB SNR** V2's audio is muted and the panel says "Searching for signal…" — unless the last 2 seconds look like real V2 (the decoder sees its signal most of the time and its frequency estimate stays steady); then it plays down to about **−6 dB**. On busy LSB phone frequencies heard on USB (40 m) V2 can lock onto ordinary voices and play garbled sound; those never look steady, so they stay muted. `RADE_V2_MIN_SNR` and `RADE_V2_WEAK_SNR` set the two levels.
+- Between overs the panel goes back to "Searching for signal…".
+
+**What the sidecar does for V2.** The receiver's audio is resampled to 8 kHz in one continuous stream — in separate pieces V2 kept losing lock; it is brought up to a level the decoder works at — at the receiver's low level V2 decoded only the first seconds of each over; and the decoded speech is levelled towards −16 dBFS (`RADE_V2_TARGET_DB`), because it is only as loud as the transmitting station's microphone. RADE V1 now goes through the same continuous resampling, which lets it decode weaker and fading signals better than before.
+
+**When FreeDV 3.0 is released**, run `./install_rade.sh` again — or `git pull` in `~/rade_c` and `cmake --build build` — and new RADE2 connections then use the new build.
 
 ---
 
@@ -239,19 +276,22 @@ ss -tlnp | grep 8074
 2. Find active stations at **[qso.freedv.org](https://qso.freedv.org)**
 3. Tune to the station's dial frequency
 4. In **Decoder Options**, select:
+   - **RADE v2 · RADE2** for RADE V2 (beta), USB on every band
    - **RADE v1 — RADEL (LSB)** for 40 m / 80 m / 160 m
    - **RADE v1 — RADEU (USB)** for 20 m / 17 m / 15 m / 12 m / 10 m
 5. Click **Decoder: ON**
 
-### The RADEL / RADEU buttons (one-touch)
+### The RADE-v1L / RADE-v1U buttons (one-touch)
 
-Steps 4 and 5 can be replaced by a single press. A pair of **RADEL** / **RADEU** buttons is available in three places:
+Steps 4 and 5 can be replaced by a single press. A pair of **RADE-v1L** / **RADE-v1U** buttons is available in three places:
 
-- next to the **Modes selector** heading on the main panel;
+- next to the **Modes** heading on the main panel;
 - inside the **Modes** popup window;
 - inside the **Bands** popup window.
 
 Pressing one selects the decoder, switches the decoder ON, closes the popup you pressed it in, and scrolls the RADE panel into view. The button turns blue while RADE is running. **Press the same button again to switch RADE off** — the panel closes and mode and passband revert as described below. The buttons, the **Decoder Options** dropdown and the ON/OFF button all share the same state.
+
+A **RADE-v2U** button sits before RADE-v1L and RADE-v1U in the same three places (and a RADE2 button on `/mobile`); it starts RADE V2 (beta) on USB — see [RADE V2 (beta) — RADE2](#rade-v2-beta--rade2).
 
 ### Panel indicator states
 
@@ -331,6 +371,12 @@ Port 8074 is unreachable — check firewall and router NAT rule.
 | `RADE_TORCH_THREADS` | `1` | PyTorch/OpenBLAS threads per `radae_rxe.py` instance — limits CPU usage |
 | `RADE_PIN_CORES` | `1` | Pin each decode pipeline to its own core set; `0` disables pinning |
 | `RADE_CORES_PER_CLIENT` | `2` | Cores allocated per client when pinning is enabled |
+| `RADE_C_DIR` | `~/rade_c` | Root of rade_c (RADE V2) |
+| `RADE_C_RX` | `RADE_C_DIR/build/src/radae_rx` | rade_c receiver program |
+| `RADE_C_LPCNET` | `RADE_C_DIR/build/src/lpcnet_demo` | rade_c's own lpcnet_demo |
+| `RADE_V2_MIN_SNR` | `-2` | V2 audio is muted below this SNR (dB) |
+| `RADE_V2_WEAK_SNR` | `-6` | Down to this SNR (dB) V2 still plays while the signal looks like real V2; set it to `RADE_V2_MIN_SNR` or higher to switch that off |
+| `RADE_V2_TARGET_DB` | `-16` | Level V2 speech is brought towards, in dBFS (`0` = off) |
 
 ---
 

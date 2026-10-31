@@ -103,6 +103,8 @@
   let radeConnected = false
   let radeSynced = false
   let radeSnr = null
+  let radeVersion = 1   // 2 while the RADE2 chip (RADE V2 beta, USB) runs
+  let radeError = ''    // the helper's own refusal (e.g. V2 not installed)
 
   // ── Receive diversity ────────────────────────────────────────────────────
   // The engine is already in this bundle — audio.js imports the combiner and
@@ -620,7 +622,7 @@
     if (!m) return
     // RADE owns the receiver while it runs, the way a decoder does on the
     // desktop: moving the dial must not drop it back to a listening mode.
-    if (mode === 'RADEL' || mode === 'RADEU') return
+    if (isRadeMode(mode)) return
     mode = m
   }
 
@@ -656,17 +658,21 @@
   }
 
   function setMode (m) {
-    // RADEL/RADEU are ordinary sideband modes plus the sidecar decoder, so the
-    // decoder is torn down whenever we leave them (mirrors _radeDeactivate).
-    const wasRade = mode === 'RADEL' || mode === 'RADEU'
-    const isRade = m === 'RADEL' || m === 'RADEU'
+    // RADE2/RADEL/RADEU are ordinary sideband modes plus the sidecar decoder,
+    // so the decoder is torn down whenever we leave one (mirrors
+    // _radeDeactivate) — also between two of them, since RADE2 runs another
+    // pipeline and a second start would leave the first socket open.
+    const wasRade = isRadeMode(mode)
+    const isRade = isRadeMode(m)
 
     mode = m
     retune()
 
-    if (wasRade && !isRade) stopRade()
-    if (isRade) startRade(m === 'RADEL' ? 'LSB' : 'USB')
+    if (wasRade) stopRade()
+    if (isRade) startRade(m === 'RADEL' ? 'LSB' : 'USB', m === 'RADE2' ? 2 : 1)
   }
+
+  function isRadeMode (m) { return m === 'RADE2' || m === 'RADEL' || m === 'RADEU' }
 
   /** Focus + select the frequency field as soon as it appears, so tapping the
    *  readout goes straight to typing. An action rather than the autofocus
@@ -913,7 +919,9 @@
   // ═══════════════════════════════════════════════════════════════════════
   // RADE
   // ═══════════════════════════════════════════════════════════════════════
-  function startRade (sideband) {
+  function startRade (sideband, version) {
+    radeVersion = version === 2 ? 2 : 1
+    radeError = ''
     radeEnabled = true
     radeConnected = false
     radeSynced = false
@@ -925,12 +933,14 @@
         if (!radeConnected) { radeSynced = false; radeSnr = null }
       } else if (event.type === 'error') {
         radeConnected = false
+        const m = String(event.msg || '')
+        radeError = /^RADE sidecar unreachable/.test(m) ? '' : m
       } else {
         if ('synced' in event) radeSynced = !!event.synced
         if ('snr' in event) radeSnr = event.snr
       }
     })
-    audio.setRADEDecoding(true, sideband)
+    audio.setRADEDecoding(true, sideband, undefined, radeVersion)
   }
 
   function stopRade () {
@@ -1376,7 +1386,8 @@
         <canvas class="smeter" bind:this={smeterCanvas}></canvas>
 
         <div class="grid-row modes">
-          {#each MODES as m}
+          <!-- No CW-L chip (user's choice); CW-L still works from links and markers. -->
+          {#each MODES.filter((x) => x !== 'CW-L') as m}
             <button class="chip" class:active={mode === m} on:click={() => setMode(m)}>{m}</button>
           {/each}
         </div>
@@ -1385,12 +1396,14 @@
           <div class="rade-status">
             <span class="dot" class:ok={radeConnected && radeSynced}
                   class:warn={radeConnected && !radeSynced} class:bad={!radeConnected}></span>
-            {#if !radeConnected}
+            {#if !radeConnected && radeError}
+              {radeError}
+            {:else if !radeConnected}
               RADE sidecar offline — is rade_helper.py running?
             {:else if radeSynced}
-              RADE synced{radeSnr !== null ? ` · SNR ${Number(radeSnr).toFixed(1)} dB` : ''}
+              RADE{radeVersion === 2 ? ' V2 (beta)' : ''} synced{radeSnr !== null ? ` · SNR ${Number(radeSnr).toFixed(1)} dB` : ''}
             {:else}
-              RADE connected, searching…
+              RADE{radeVersion === 2 ? ' V2 (beta)' : ''} connected, searching…
             {/if}
           </div>
         {/if}
@@ -1490,7 +1503,7 @@
                     <span class="row-title">
                       {#if u.name}{u.name} - {/if}{u.geo || 'resolving …'}{#if myId && u.id === myId}<em class="me">you</em>{/if}
                     </span>
-                    <span class="row-sub">{Number(u.freq_khz).toFixed(2)} kHz · {u.mode} · {u.duration}</span>
+                    <span class="row-sub">{Number(u.freq_khz).toFixed(2)} kHz · {(u.mode || '').toUpperCase()}{#if u.decoder}{' '}[{u.decoder}]{/if} · {u.duration}</span>
                   </div>
                   <!-- No Tune on our own row: it would retune us to where we already are. -->
                   {#if !(myId && u.id === myId)}

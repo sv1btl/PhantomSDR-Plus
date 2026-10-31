@@ -73,8 +73,10 @@
   } from "svelte";
   import { fade, fly, scale } from "svelte/transition";
   import copy from "copy-to-clipboard";
-  import { withRx } from "./lib/rx";
+  import { withRx, rx } from "./lib/rx";
   import { AprsMap } from "./lib/aprsMap.js";
+  import HfdlPanel from "./lib/HfdlPanel.svelte";
+  import DrmPanel from "./lib/DrmPanel.svelte";
   // Sub-mode lists and squelch defaults of the fldigi-family modems (MFSK,
   // DominoEX, THOR, THROB, Hell, MT63). fsk.js is in this bundle already.
   import { FLDIGI_MODEMS } from "./fsk.js";
@@ -99,6 +101,7 @@
   import StatusIndicators from "./lib/StatusIndicators.svelte";
   import BandSelector from "./lib/BandSelector.svelte";
   import ModesSelector from "./lib/ModesSelector.svelte";
+  import IqDemodPanel from "./lib/IqDemodPanel.svelte";
   import { writable } from "svelte/store";
 
   import PassbandTuner from "./lib/PassbandTuner.svelte";
@@ -161,6 +164,7 @@
     waterfallOffsetToFrequency,
     sendUserID,
     sendIdentity,
+    sendDecoder,
   } from "./lib/backend.js";
   import {
     constructLink,
@@ -212,6 +216,10 @@
     threadMessages,
   } from "./lib/chatReply.js";
 
+  // CW pitch: the audio tone of a CW signal on the dial (the offset of the
+  // shifted carrier point in every CW window). 600 Hz, the usual rig default.
+  const CW_PITCH_HZ = 600;
+
   // ── CAT sync over TCI (transceiver <-> PhantomSDR) ──────────────────────
   // Muting the audio while the rig transmits (PTT) is always on, there is no
   // switch for it. Frequency tracking is a single toggle: either both ways
@@ -248,7 +256,7 @@
   // This receiver's modes in TCI's names. CW-L has no TCI name of its own.
   const CAT_TCI_MODES = {
     USB: "usb", LSB: "lsb", CW: "cw", "CW-L": "cw", AM: "am", QUAM: "am",
-    FM: "nfm", WBFM: "wfm", RADEU: "usb", RADEL: "lsb",
+    FM: "nfm", WBFM: "wfm", RADEU: "usb", RADE2: "usb", RADEL: "lsb", DRM: "am",
   };
 
   // CAT sync over TCI, Phantom -> rig: the receiver's mode. Every mode change
@@ -694,7 +702,7 @@
     // Edges as audio frequencies, for drawing.
     let alo, ahi;
     if (m === "LSB" || m === "RADEL") { alo = dial - best.hi; ahi = dial - best.lo; }
-    else if (kind === "CW") { alo = 750 + (best.lo - dial); ahi = 750 + (best.hi - dial); }
+    else if (kind === "CW") { const p = cwEnabled ? cwPitchHz : CW_PITCH_HZ; alo = p + (best.lo - dial); ahi = p + (best.hi - dial); }
     else if (kind === "AM") { alo = 0; ahi = Math.max(Math.abs(best.lo - dial), Math.abs(best.hi - dial)); }
     else { alo = best.lo - dial; ahi = best.hi - dial; }
     const norm = kind === "AM" ? N.ok / 2 : kind === "CW" ? null : N.ok;
@@ -1215,6 +1223,8 @@
     } catch (e) {
       console.warn("[QRSS] tune error", e);
     }
+    // Framed as "To Band" frames it: band edges, brightness/contrast, step.
+    applyBandSettingsForFrequency(hz);
   }
 
   // Toggle spectrogram on/off
@@ -1367,8 +1377,11 @@
   }
   // End of Site Information addition //
 
+  // The take in hand is IQ (a WAV of I/Q) rather than audio.
+  let recordingIsIQ = false;
   function toggleRecording() {
     if (!isRecording) {
+      recordingIsIQ = demodulation === "IQ";
       audio.startRecording();
       isRecording = true;
       canDownload = false;
@@ -1502,8 +1515,8 @@
       const [fl, fm, fr] = frequencies;
       const m = String(demodulation || "").toUpperCase();
       const a = Math.abs(fl - fm), b = Math.abs(fr - fm);
-      if (m.startsWith("CW")) spectroPassband = [750 - (fr - fl) / 2, 750 + (fr - fl) / 2];
-      else if (m === "USB" || m === "RADEU") spectroPassband = [fl - fm, fr - fm];
+      if (m.startsWith("CW")) { const p = cwEnabled ? cwPitchHz : CW_PITCH_HZ; spectroPassband = [p - (fr - fl) / 2, p + (fr - fl) / 2]; }
+      else if (m === "USB" || m === "RADEU" || m === "RADE2") spectroPassband = [fl - fm, fr - fm];
       else if (m === "LSB" || m === "RADEL") spectroPassband = [fm - fr, fm - fl];
       else spectroPassband = [0, Math.max(a, b)];
     }
@@ -1743,11 +1756,8 @@
   // {type:'phantomsdr-tune'} message up to us, because it has no receiver of
   // its own -- the waterfall and audio socket live here.
   //
-  // Deliberately a PLAIN tune: frequency + mode, nothing else. Unlike
-  // tuneToDXFrequency(), this does not zoom to the band, does not overwrite
-  // min/max_waterfall with the band presets and does not switch auto-adjust
-  // off. Someone checking what another listener is hearing expects their own
-  // display to survive the trip.
+  // Frequency, mode and the listener's passband (so we hear what they hear),
+  // plus the band framing below. Auto-adjust is left alone.
   // bands-config spells CW as 'CW-U' and marks data segments 'DIGITAL';
   // neither is a demodulator we can hand to SetMode as-is. Returns null for
   // anything with no matching entry, meaning "leave the mode alone".
@@ -1759,7 +1769,13 @@
 
   // wholeBand: frame the band as its band button does, centred on the band
   // (a typed frequency); otherwise centred on where we landed (a user label).
-  function tuneToUserFrequency(hz, mode, wholeBand = false) {
+  // passband: [lo, hi] filter edges in Hz relative to hz, from the users
+  // window; omitted, the mode's default bandwidth stays.
+  // decoder: the other listener's decoder label as /users reports it ("FAX",
+  // "FT8", "" for none); undefined leaves ours alone.
+  function tuneToUserFrequency(
+    hz, mode, wholeBand = false, passband = null, decoder = undefined,
+  ) {
     const f = Number(hz);
     if (!isFinite(f) || f <= 0) return;
     try {
@@ -1767,6 +1783,22 @@
       //    so it has to reflect the new position before we ask for the mode.
       frequencyInputComponent.setFrequency(f);
       handleFrequencyChange({ detail: f });
+
+      // 1b. Decoder: run what the other listener runs, or stop ours when they
+      //     run none. Before the mode step, so a decoder that is now running
+      //     sets its own mode and passband there.
+      if (typeof decoder === "string") {
+        const key = _decoderKeyFromLabel(decoder, mode);
+        if (key && key !== activeDecoder) {
+          selectedDecoder = key;
+          decoderOn = true;
+          activateSelectedDecoder();
+        } else if (!key && !decoder && decoderOn) {
+          decoderOn = false;
+          _deactivateAll();
+          selectedDecoder = "none";
+        }
+      }
 
       // 2. Mode: what the other listener is actually using wins, so we hear
       //    what they hear. The server reports "iq" when there is no real
@@ -1776,6 +1808,23 @@
       const wanted = _tuneModeToDemod(mode) || _bandDefaultMode();
       if (_decoderOwnsReceiver()) _decoderReassertReceiver();
       else if (wanted && wanted !== demodulation) SetMode(wanted);
+
+      // 2b. Passband: the other listener's filter edges, unless a decoder
+      //     owns the receiver. Values come from another page, so anything
+      //     inverted or wider than the receiver allows is dropped.
+      if (Array.isArray(passband) && !_decoderOwnsReceiver()) {
+        const lo = Number(passband[0]);
+        const hi = Number(passband[1]);
+        const max = getMaximumBandwidth();
+        if (
+          Number.isFinite(lo) && Number.isFinite(hi) && hi > lo &&
+          !(max > 0 && hi - lo > max)
+        ) {
+          const m = FFTOffsetToFrequency(audio.getAudioRange()[1]);
+          applyIFEdges(m + lo, m, m + hi);
+          updateLink();
+        }
+      }
 
       // 3. Band framing -- zoom, brightness (Min slider) and contrast (Max
       //    slider) follow the band we landed in, the same way a band change
@@ -1889,7 +1938,14 @@
     }
 
     if (d.type !== "phantomsdr-tune") return;
-    tuneToUserFrequency(d.freq_hz, d.mode);
+    tuneToUserFrequency(d.freq_hz, d.mode, false, d.passband, d.decoder);
+    // Then frame the band as "To Band" does: its edges, brightness/contrast,
+    // tuning step. After a tick, so the decoder just started has set
+    // decoderDisplayOffsetHz: FAX, NAVTEX and FLDIGI pick the band by the
+    // signal (dial + their centre), the dial-frequency modes by the dial.
+    tick().then(() =>
+      applyBandSettingsForFrequency(Number(d.freq_hz) + decoderDisplayOffsetHz),
+    );
     // Both the users and the statistics iframes send this, and we cannot tell
     // which from the message alone. Closing both is safe -- they are plain
     // booleans, and closing one that is already shut is a no-op. Either way we
@@ -2464,6 +2520,19 @@
   }
   let ft2Enabled = false;
   let cwEnabled = false;
+  // The CW decoder window can pick its own, 500-800 Hz in 50 Hz steps,
+  // remembered; it applies only while the decoder runs.
+  const CW_PITCH_KEY = "cwDecoderPitchHz";
+  let cwPitchHz = CW_PITCH_HZ;
+  try {
+    const v = Number(localStorage.getItem(CW_PITCH_KEY));
+    if (v >= 500 && v <= 800 && v % 50 === 0) cwPitchHz = v;
+  } catch (e) {}
+  function setCwPitchHz(v) {
+    cwPitchHz = Number(v) || CW_PITCH_HZ;
+    try { localStorage.setItem(CW_PITCH_KEY, String(cwPitchHz)); } catch (e) {}
+    if (cwEnabled) audio.setCwPitch(cwPitchHz);
+  }
   let wsprEnabled = false;
 
   // ── JS8 ────────────────────────────────────────────────────────────────
@@ -2879,6 +2948,11 @@
     demodulation = "USB";
     handleDemodulationChange(null, true);
     _faxUpdateParams();
+    // Framed as "To Band" frames it: band edges, brightness/contrast, step.
+    // By the listed frequency, not the dial: the dial sits below it by the
+    // tone offset, which can drop it into the band underneath (10100.8 kHz
+    // would land at the right edge of 9900-10100 instead of in 30 m).
+    applyBandSettingsForFrequency(Math.round(freqKhz * 1000));
   }
 
   function faxToggleAutoAlign() {
@@ -3348,6 +3422,33 @@
   let radeSynced = false;
   let radeSnr = null;
   let radeReporterOpen = false;
+  // What the helper said when it refused (e.g. "RADE V2 is not installed…");
+  // empty when the helper simply could not be reached.
+  let radeError = "";
+  // RADE V2 (beta): FreeDV 3.0's new waveform, decoded by the helper's rade_c
+  // pipeline. Its own RADE2 button and mode; always USB, as FreeDV sends it.
+  $: radeVersion = selectedDecoder === "rade2" ? 2 : 1;
+
+  // The RADE sideband the band plan gives a frequency: LSB below 10 MHz
+  // (160/80/40 m), USB from 30 m up and on 60 m, where USB is the rule.
+  function _radeBandPlanKey(hz) {
+    const isLsb = hz < 10e6 && !(hz >= 5.25e6 && hz <= 5.45e6);
+    return isLsb ? "radel" : "radeu";
+  }
+
+  // QSY from the FreeDV Reporter list. RADE stays on, switched to the band
+  // plan's sideband for where we landed (RADEL on 40 m, RADEU on 20 m), and
+  // the band is framed as "To Band" frames it: its edges, its brightness and
+  // contrast, its tuning step.
+  function radeReporterTune(hz) {
+    tuneToUserFrequency(hz);
+    const key = _radeBandPlanKey(hz);
+    if (radeEnabled && selectedDecoder !== "rade2" && selectedDecoder !== key) {
+      selectedDecoder = key;
+      activateSelectedDecoder();
+    }
+    applyBandSettingsForFrequency(hz);
+  }
 
   function _radeDeactivate() {
     if (!radeEnabled) return;
@@ -3462,6 +3563,11 @@
     demodulation = "USB";
     handleDemodulationChange(null, true);
     _navtexNarrowFilter(hz);
+    // Framed as "To Band" frames it: band edges, brightness/contrast, step.
+    // By the listed frequency, not the dial: the dial sits below it by the
+    // tone offset, which can drop it into the band underneath (10100.8 kHz
+    // would land at the right edge of 9900-10100 instead of in 30 m).
+    applyBandSettingsForFrequency(Math.round(st.freqKhz * 1000));
     if (typeof updateLink === "function") updateLink();
   }
 
@@ -3481,6 +3587,135 @@
     );
     audio.setAudioRange(...audioParameters, ...audioParametersOffset);
     if (typeof updatePassband === "function") updatePassband();
+  }
+
+  // ── HFDL (HF Data Link) ───────────────────────────────────────────────────
+  // dumphfdl in WebAssembly (hfdl.worker.js). HfdlPanel receives the frames;
+  // here we only drive the receiver: USB, a wide IF filter (the HFDL
+  // subcarrier is at 1440 Hz, ±1.2 kHz) and the frequency label.
+  let hfdlEnabled = false;
+
+  $: hfdlDialKhz = Number(frequency) || 0;
+  $: if (hfdlEnabled && audio && typeof audio.setHFDLDial === "function")
+    audio.setHFDLDial(Math.round(hfdlDialKhz * 1000));
+
+  function _hfdlActivate() {
+    tick().then(async () => {
+      // USB first, like NAVTEX: changing mode resyncs the stream.
+      if (demodulation !== "USB") {
+        demodulation = "USB";
+        handleDemodulationChange(null, true);
+        await tick();
+        await new Promise((resolve) => setTimeout(resolve, 60));
+      }
+      audio.setHFDLDial(Math.round((Number(frequency) || 0) * 1000));
+      _hfdlGateOff(true);
+      audio.setHFDLDecoding(true);
+      _modeIdApplyReceiverDefaults("hfdl");
+    });
+  }
+
+  // The server noise gate acts before the decoder and would pump the level in
+  // the middle of a weak frame. It is held open while HFDL decodes and put
+  // back to the listener's choice afterwards.
+  function _hfdlGateOff(off) {
+    if (!backendNoiseGateEnabled) return;
+    if (
+      audio &&
+      audio.decoder &&
+      typeof audio.decoder.set_noise_gate_enable === "function"
+    ) {
+      audio.decoder.set_noise_gate_enable(!off);
+      if (!off) setTimeout(() => { lastAppliedNoiseGatePreset = null; applyNoiseGatePreset(); }, 100);
+    }
+  }
+
+  function _hfdlDeactivate() {
+    if (!hfdlEnabled) return;
+    hfdlEnabled = false;
+    audio.setHFDLDecoding(false);
+    _hfdlGateOff(false);
+    demodulation = _bandDefaultMode();
+    handleDemodulationChange(null, true);
+    if (audio && typeof audio.updateFilters === "function")
+      audio.updateFilters();
+  }
+
+  /** Tune to an HFDL frequency (kHz): USB, the dial is the listed frequency. */
+  function hfdlTune(khz) {
+    const hz = Math.round(Number(khz) * 1000);
+    if (!(hz > 0)) return;
+    try {
+      tuneToUserFrequency(hz, "USB");
+    } catch (e) {
+      console.warn("[HFDL] tune error", e);
+    }
+    audio.setHFDLDial(hz);
+    audio.resetHFDL();
+    // Framed as "To Band" frames it: band edges, brightness/contrast, step.
+    applyBandSettingsForFrequency(hz);
+    _modeIdApplyReceiverDefaults("hfdl");
+  }
+
+  // ── DRM (Digital Radio Mondiale) ──────────────────────────────────────────
+  // Decoded on the server by autorun/drm-helper.js (one ubersdr-drm per
+  // listener, on zero-IF I/Q it taps itself). Here we only drive the receiver:
+  // mode DRM (AM to the server, as RADEU is USB) with a ±5 kHz passband, so
+  // the frequency reads "DRM", the waterfall shows the whole DRM block, the
+  // dial is the channel centre, and the helper follows the dial.
+  let drmEnabled = false;
+  let drmRetuneTimer = null;
+
+  $: drmDialKhz = Number(frequency) || 0;
+  $: if (drmEnabled && audio && typeof audio.setDRMFrequency === "function") {
+    const hz = Math.round(drmDialKhz * 1000);
+    clearTimeout(drmRetuneTimer);
+    drmRetuneTimer = setTimeout(() => audio.setDRMFrequency(hz), 300);
+  }
+
+  function _drmActivate() {
+    // Silent from the press on: the switch to AM below would otherwise let a
+    // moment of the receiver's own audio through before the helper is asked.
+    audio.drmSelected = true;
+    tick().then(async () => {
+      if (demodulation !== "DRM") {
+        demodulation = "DRM";
+        handleDemodulationChange(null, true);
+        await tick();
+        await new Promise((resolve) => setTimeout(resolve, 60));
+      }
+      audio.setDRMDecoding(true, {
+        freqHz: Math.round((Number(frequency) || 0) * 1000),
+        rx,
+      });
+      _modeIdApplyReceiverDefaults("drm");
+    });
+  }
+
+  function _drmDeactivate() {
+    if (!drmEnabled) return;
+    drmEnabled = false;
+    clearTimeout(drmRetuneTimer);
+    audio.setDRMDecoding(false);
+    demodulation = _bandDefaultMode();
+    handleDemodulationChange(null, true);
+    if (audio && typeof audio.updateFilters === "function")
+      audio.updateFilters();
+  }
+
+  /** Tune to a DRM channel (kHz): the dial is the centre of the channel. */
+  function drmTune(khz) {
+    const hz = Math.round(Number(khz) * 1000);
+    if (!(hz > 0)) return;
+    try {
+      tuneToUserFrequency(hz, "DRM");
+    } catch (e) {
+      console.warn("[DRM] tune error", e);
+    }
+    audio.setDRMFrequency(hz);
+    // Framed as "To Band" frames it: band edges, brightness/contrast, step.
+    applyBandSettingsForFrequency(hz);
+    _modeIdApplyReceiverDefaults("drm");
   }
 
   function navtexClear() {
@@ -3511,7 +3746,8 @@
       framing: "5N1.5",
       encoding: "ita2",
       invert: true,
-      squelch: -8,
+      // −7 dB: −8 let 54 noise characters through in 20 min, −7 dB 10 (fsk.js)
+      squelch: -7,
     },
     ham: {
       center: 1000,
@@ -3920,7 +4156,7 @@
           const m = currentHz + (dm.bfo || 0);
           const r = currentHz + defaults[1];
           const lOffset = l - 200;
-          const mOffset = m - 750;
+          const mOffset = m - CW_PITCH_HZ;
           const rOffset = r - 200;
           const audioParameters = [l, m, r].map(frequencyToFFTOffset);
           const audioParametersOffset = [lOffset, mOffset, rOffset].map(
@@ -3954,7 +4190,7 @@
       const pl = hz - fm[0], pm = hz, ph = hz + fm[1];
       audio.setAudioRange(
         ...[pl, pm, ph].map(frequencyToFFTOffset),
-        ...[pl - 200, pm - 750, ph - 200].map(frequencyToFFTOffset),
+        ...[pl - 200, pm - CW_PITCH_HZ, ph - 200].map(frequencyToFFTOffset),
       );
       if (typeof updatePassband === "function") updatePassband();
       if (typeof updateLink === "function") updateLink();
@@ -3989,7 +4225,7 @@
     const mid = hz;
     const high = hz + Math.round(cfg.center + halfWidth);
     const audioParameters = [low, mid, high].map(frequencyToFFTOffset);
-    const audioParametersOffset = [low - 200, mid - 750, high - 200].map(
+    const audioParametersOffset = [low - 200, mid - CW_PITCH_HZ, high - 200].map(
       frequencyToFFTOffset,
     );
     audio.setAudioRange(...audioParameters, ...audioParametersOffset);
@@ -4432,6 +4668,11 @@
     } catch (e) {
       console.warn("[FSK] tune error", e);
     }
+    // Framed as "To Band" frames it: band edges, brightness/contrast, step.
+    // By the listed frequency, not the dial: the dial sits below it by the
+    // tone offset, which can drop it into the band underneath (10100.8 kHz
+    // would land at the right edge of 9900-10100 instead of in 30 m).
+    applyBandSettingsForFrequency(Math.round(khz * 1000));
   }
 
   _applyFskVariantDefaults(fskVariant);
@@ -4503,6 +4744,24 @@
     waterfallDragTotal = 0;
     waterfallDragging = true;
     waterfallBeginX = e.clientX;
+    clickX3D = null;
+  }
+
+  // 3D view: a click or hover on a back row means the frequency of that row,
+  // which Waterfall3D.pick() turns into the front-row (2D) x position.
+  let clickX3D = null;
+  let hoverAge3D = null;
+  function handle3DMouseDown(e) {
+    handleWaterfallMouseDown(e);
+    const p = view3DComponent && view3DComponent.pick(e.clientX, e.clientY);
+    clickX3D = p ? p.clientX : null;
+  }
+
+  function handle3DMouseMove(e) {
+    const p = view3DComponent && view3DComponent.pick(e.clientX, e.clientY);
+    handleSpectrumMouseMove(p ? { clientX: p.clientX, clientY: e.clientY } : e);
+    cursorX = e.clientX;
+    hoverAge3D = p && p.age >= 0.5 ? p.age : null;
   }
 
   function handleWindowMouseMove(e) {
@@ -4554,6 +4813,7 @@
   function handleSpectrumMouseLeave() {
     showCursorFreq = false;
     hoverLinePct = null;
+    hoverAge3D = null;
   }
 
   function handleWaterfallMouseMove(e) {
@@ -4591,8 +4851,11 @@
     if (waterfallDragging) {
       // If mouseup without moving, handle as click
       if (waterfallDragTotal < 2) {
-        passbandTunerComponent.handlePassbandClick(e);
+        passbandTunerComponent.handlePassbandClick(
+          clickX3D !== null ? { clientX: clickX3D } : e,
+        );
       }
+      clickX3D = null;
       waterfallDragging = false;
     }
   }
@@ -4898,12 +5161,23 @@
     WBFM: { type: "FM", offsets: [80000, 80000] },
     RADEL: { type: "LSB", offsets: [2200, -700] }, // RADE v1 Lower sideband — 700 Hz to 2200 Hz from carrier
     RADEU: { type: "USB", offsets: [-700, 2200] }, // RADE v1 Upper sideband — 700 Hz to 2200 Hz from carrier
+    RADE2: { type: "USB", offsets: [-1040, 1930] }, // RADE V2 (beta), USB on every band — 1040 Hz to 1930 Hz: its 1076–1896 Hz signal plus room for the ±30 Hz it tolerates. Narrower than the 1000–2000 Hz it had: a strong neighbour reaching 30–70 Hz into those edges cut V2 to 20–50 % of the speech (bench 2026-10-30)
+    DRM: { type: "AM", offsets: [5000, 5000] }, // DRM decoder: AM to the server, the whole 10 kHz channel
+    IQ: { type: "IQ", offsets: [6000, 6000] }, // raw zero-IF I/Q, the full ±6 kHz the audio rate carries
   };
+  // The server offers IQ to listeners ([server] iq, in basic_info).
+  let iqAvailable = false;
+  const MODE_BUTTONS = ["USB", "LSB", "CW", "AM", "QUAM", "FM"];
+  $: modeButtons = iqAvailable ? [...MODE_BUTTONS, "IQ"] : MODE_BUTTONS;
 
   let demodulation = "USB";
   let cquamPilotDetected = false; // C-QUAM 25 Hz stereo pilot present -> QUAM button turns green
-  let samLocked = false; // mono SAM (AM) PLL locked -> AM button shows "SAM" in red
+  let samLocked = false; // mono SAM (AM) PLL locked -> AM/SAM button text turns yellow
+  let samReadout = ""; // "+3.2 Hz · 97%" under the mode buttons while SAM runs
   let samEnabled = false; // AM detector: false = envelope (default), true = SAM (synchronous)
+  // The mode as shown under the frequency: AM with the synchronous detector
+  // reads "SAM", as DRM and RADE show their own names.
+  $: modeLabel = demodulation === "AM" && samEnabled ? "SAM" : demodulation;
   function roundAudioOffsets(offsets) {
     const [l, m, r] = offsets;
     return [Math.floor(l), m, Math.floor(r)];
@@ -4931,10 +5205,11 @@
   // Kiwi has no CW-L or wideband FM, so those report as their nearest mode.
   function catsyncModeForTool(mode) {
     switch (mode) {
-      case "USB": case "RADEU": return "usb";
+      case "USB": case "RADEU": case "RADE2": return "usb";
       case "LSB": case "RADEL": return "lsb";
       case "CW": case "CW-L": return "cw";
       case "AM": return samEnabled ? "sam" : "am";
+      case "DRM": return "am";
       case "QUAM": return "qam";
       case "FM": case "WBFM": return "nbfm";
       default: return "usb";
@@ -4983,10 +5258,20 @@
     }
   }
 
+  // Every decoder reads the stream as demodulated audio; in IQ it is I and Q,
+  // so whatever is running is switched off rather than left decoding nonsense.
+  function _iqStopDecoders() {
+    if (!decoderOn) return;
+    decoderOn = false;
+    _deactivateAll();
+    selectedDecoder = "none";
+  }
+
   function SetMode(mode, userClick = false) {
     if (mode == "CW-U") {
       mode = "CW";
     }
+    if (mode === "IQ") _iqStopDecoders();
     // Picking a mode by hand takes the receiver back from the QRSS grabber.
     if (userClick) qrssHoldsReceiver = false;
     if (mode === "AM") {
@@ -5005,6 +5290,7 @@
     if (mode == "CW-U") {
       mode = "CW";
     }
+    if (mode === "IQ") _iqStopDecoders();
     qrssHoldsReceiver = false; // a deliberate mode choice, as in SetMode()
     if (mode === "AM") {
       // Re-selecting AM in the popup toggles SAM, else plain envelope AM.
@@ -5058,7 +5344,7 @@
 
     // CW
     const lOffset = l - 200;
-    const mOffset = m - 750;
+    const mOffset = m - CW_PITCH_HZ;
     const rOffset = r - 200;
     const audioParametersOffset = [lOffset, mOffset, rOffset].map(
       frequencyToFFTOffset,
@@ -5116,6 +5402,8 @@
       faxEnabled ||
       sstvEnabled ||
       navtexEnabled ||
+      hfdlEnabled ||
+      drmEnabled ||
       fskEnabled ||
       radeEnabled
     );
@@ -5156,6 +5444,14 @@
     }
     // RADE carries its own demodulation (RADEL/RADEU), set by its own path.
     if (radeEnabled) return;
+    // DRM is its own mode (AM to the server, ±5 kHz), not USB.
+    if (drmEnabled) {
+      if (demodulation !== "DRM") {
+        demodulation = "DRM";
+        handleDemodulationChange(null, true);
+      }
+      return;
+    }
     // The rest are USB decoders; handleFrequencyChange() carries the USB
     // passband across a tune unchanged, so only the mode can need restoring.
     if (demodulation !== "USB") {
@@ -5199,6 +5495,7 @@
       cwEnabled = false;
       audio.setCWDecoding(false);
       audio.setCWCallback(null);
+      audio.setCwPitch(null);
       cwDetectedHz = 0;
       cwDetectedWpm = 0;
     }
@@ -5220,6 +5517,14 @@
     // NAVTEX
     if (navtexEnabled) {
       _navtexDeactivate();
+    }
+    // HFDL
+    if (hfdlEnabled) {
+      _hfdlDeactivate();
+    }
+    // DRM
+    if (drmEnabled) {
+      _drmDeactivate();
     }
     // FSK / RTTY
     if (fskEnabled) {
@@ -5361,6 +5666,7 @@
       _js8TickStart();
     } else if (d === "cw") {
       cwEnabled = true;
+      audio.setCwPitch(cwPitchHz);
       cwMessages = [];
       cwCurrentLine = "";
       cwDetectedHz = 0;
@@ -5416,12 +5722,20 @@
     } else if (d === "navtex") {
       navtexEnabled = true;
       _navtexActivate();
+    } else if (d === "hfdl") {
+      hfdlEnabled = true;
+      _hfdlActivate();
+    } else if (d === "drm") {
+      drmEnabled = true;
+      _drmActivate();
     } else if (d === "fsk") {
       _fskActivate();
-    } else if (d === "radel" || d === "radeu") {
+    } else if (d === "radel" || d === "radeu" || d === "rade2") {
       radeEnabled = true;
+      radeError = "";
+      // RADE2 is V2 (beta) and always USB; RADEL/RADEU are V1.
       const sideband = d === "radel" ? "LSB" : "USB";
-      demodulation = d === "radel" ? "RADEL" : "RADEU";
+      demodulation = d === "radel" ? "RADEL" : d === "rade2" ? "RADE2" : "RADEU";
       // NOTE: handleDemodulationChange is intentionally deferred — do NOT call
       // it here. It runs inside the callback below, only after the sidecar
       // socket confirms open. Calling it eagerly would fire demodulation/window
@@ -5432,6 +5746,7 @@
         if (event.type === "status") {
           if (event.connected) {
             handleDemodulationChange(null, true);
+            radeError = "";
           }
           radeConnected = event.connected;
           radeConnected = radeConnected;
@@ -5443,9 +5758,13 @@
         } else if (event.type === "error") {
           radeConnected = false;
           radeConnected = radeConnected;
+          // audio.js reports an unreachable sidecar itself; anything else
+          // is the helper's own answer, worth showing as it is.
+          const m = String(event.msg || "");
+          radeError = /^RADE sidecar unreachable/.test(m) ? "" : m;
         }
       });
-      audio.setRADEDecoding(true, sideband);
+      audio.setRADEDecoding(true, sideband, undefined, d === "rade2" ? 2 : 1);
     }
     // 'none' → everything already off from _deactivateAll()
   }
@@ -5542,6 +5861,8 @@
     js8: { mode: "USB", passband: [0, 3000] },
     wspr: { mode: "USB", passband: [1350, 1650] },
     navtex: { mode: "USB", passband: [250, 750] },
+    hfdl: { mode: "USB", passband: [150, 2750] },
+    drm: { mode: "DRM", passband: [-5000, 5000] },
     hffax: { mode: "USB", passband: [800, 2700] },
     sstv: { mode: null, passband: [900, 2600] },
     cw: { mode: "CW", passband: [-250, 250] },
@@ -5712,35 +6033,65 @@
     return f.centerHz < RELIABLE_LO_HZ || f.centerHz > RELIABLE_HI_HZ;
   })();
 
-  /** RADEL/RADEU buttons pass the mode name rather than the decoder key. */
+  /** RADE2/RADEL/RADEU buttons pass the mode name rather than the decoder key. */
   function launchRadeDecoder(which) {
-    launchDecoder(which === "RADEL" ? "radel" : "radeu");
+    launchDecoder(which === "RADEL" ? "radel" : which === "RADE2" ? "rade2" : "radeu");
   }
 
   /** The decoder currently running, or "none" — drives the button highlight. */
   $: activeDecoder = decoderOn ? selectedDecoder : "none";
 
+  // Tell the server which decoder runs, for the Users list (users.html).
+  const DECODER_LABELS = { fsk: "FLDIGI", hffax: "FAX", radel: "RADE", radeu: "RADE", rade2: "RADE V2" };
+  $: sendDecoder(activeDecoder === "none" ? ""
+    : DECODER_LABELS[activeDecoder] || activeDecoder.toUpperCase());
+
+  // The inverse, for Tune in the Users list: a reported label back to the
+  // decoder key, or null when it names nothing we have. RADE is reported for
+  // both sidebands, so the listener's server mode ("lsb"/"usb") picks one.
+  function _decoderKeyFromLabel(label, serverMode) {
+    const up = String(label || "").toUpperCase();
+    if (!up) return null;
+    if (up === "RADE")
+      return String(serverMode || "").toLowerCase() === "lsb" ? "radel" : "radeu";
+    for (const [key, l] of Object.entries(DECODER_LABELS))
+      if (l === up) return key;
+    const key = up.toLowerCase();
+    return decoderButtons.some((b) => b.key === key) ? key : null;
+  }
+
   /**
    * The Decoders button row.  RADEL/RADEU are deliberately absent — they have
    * their own buttons in the Modes selector and the Modes/Bands popups.
-   * `label` is kept short so all ten buttons fit on ONE line at any width --
-   * hence NAVTX rather than NAVTEX, with the full name in the tooltip.
+   * Laid out as two rows of six, no spare cells.
    */
   const decoderButtons = [
+    // Row one
     { key: "ft8", label: "FT8", title: "FT8" },
     { key: "ft4", label: "FT4", title: "FT4" },
     { key: "ft2", label: "FT2", title: "FT2" },
-    { key: "js8", label: "JS8", title: "JS8 (JS8Call)" },
     { key: "cw", label: "CW", title: "CW" },
+    { key: "js8", label: "JS8", title: "JS8 (JS8Call)" },
     { key: "wspr", label: "WSPR", title: "WSPR" },
-    { key: "hffax", label: "FAX", title: "HF FAX / WEFAX" },
+    // Row two
     { key: "sstv", label: "SSTV", title: "SSTV" },
-    { key: "navtex", label: "NAVTX", title: "NAVTEX" },
     {
       key: "fsk",
       label: "FLDIGI",
       title:
         "fldigi modes: RTTY / SITOR / PSK31 / Olivia / MFSK / DominoEX / THOR / THROB / Hellschreiber / MT63 / Packet / APRS",
+    },
+    { key: "navtex", label: "NAVTEX", title: "NAVTEX" },
+    { key: "hffax", label: "FAX", title: "HF FAX / WEFAX" },
+    {
+      key: "hfdl",
+      label: "HFDL",
+      title: "HFDL — HF Data Link: aircraft ACARS messages on shortwave",
+    },
+    {
+      key: "drm",
+      label: "DRM",
+      title: "DRM — Digital Radio Mondiale, decoded on the station's server",
     },
   ];
 
@@ -5833,7 +6184,7 @@
 
     // CW offsets
     const lOffset = l - 200;
-    const mOffset = m - 750;
+    const mOffset = m - CW_PITCH_HZ;
     const rOffset = r - 200;
 
     bandwidth = ((r - l) / 1000).toFixed(2);
@@ -5901,7 +6252,7 @@
     const newm = audioParameters[1];
 
     const lOffset = frequencyHz - (m - l) - 200;
-    const mOffset = frequencyHz - 750;
+    const mOffset = frequencyHz - CW_PITCH_HZ;
     const rOffset = frequencyHz + (r - m) - 200;
 
     const audioParametersOffset = [lOffset, mOffset, rOffset].map(
@@ -6001,16 +6352,26 @@
   // Zoom the waterfall to the full band the current frequency belongs to.
   // Also applies the band's min/max brightness from bands-config.js.
   // The tuned frequency is NOT recentered — view snaps to the band edges.
+  // The waterfall view "To Band" gives a band, shared with
+  // applyBandSettingsForFrequency() so every "framed as To Band" path lands
+  // on the very same view.
+  // Via frequencyToFFTOffset, not sps/fftSize: the waterfall range is
+  // measured in fft_result_size bins from the receiver's baseband frequency,
+  // and dividing a plain RF frequency by the bin width ignores that offset --
+  // which puts the view megahertz away on every receiver whose baseband is
+  // not 0 Hz (RTL, RSP1A).
+  // 10 kHz of margin either side, so the band edges are not flush with the
+  // waterfall edges; clamped to what the receiver actually covers.
+  function _bandViewRange(band) {
+    const l = Math.max(0, Math.floor(frequencyToFFTOffset(band.startFreq - 10000)));
+    const r = Math.min(waterfall.waterfallMaxSize, Math.ceil(frequencyToFFTOffset(band.endFreq + 10000)));
+    return [l, r];
+  }
+
   function handleZoomToBand() {
     if (currentBand < 0) return;
     const band = bandArray[currentBand];
-    // Via frequencyToFFTOffset, not sps/fftSize: the waterfall range is
-    // measured in fft_result_size bins from the receiver's baseband frequency,
-    // and dividing a plain RF frequency by the bin width ignores that offset --
-    // which puts the view megahertz away on every receiver whose baseband is
-    // not 0 Hz (RTL, RSP1A).
-    const l = Math.floor(frequencyToFFTOffset(band.startFreq));
-    const r = Math.ceil(frequencyToFFTOffset(band.endFreq));
+    const [l, r] = _bandViewRange(band);
     waterfall.setWaterfallRange(l, r);
     min_waterfall = parseInt(band.min);
     max_waterfall = parseInt(band.max);
@@ -6327,11 +6688,10 @@
 
   // The wheel tunes anywhere in the black frequency box, not only over the
   // digits: over a digit it steps that digit, elsewhere by the tuning step
-  // (Shift 1 kHz, Alt 10 kHz). Only the analog S-meter is left out, so the
-  // wheel over it scrolls the page as usual.
+  // (Shift 1 kHz, Alt 10 kHz). The analog S-meter tunes too; only its click
+  // is its own (face style).
   function freqBoxWheel(node) {
     function onWheel(event) {
-      if (event.target.closest && event.target.closest(".smeter-canvas-wrap")) return;
       tuneByWheel(event);
     }
     node.addEventListener("wheel", onWheel, { passive: false });
@@ -6420,7 +6780,7 @@
     }
     let audioParameters = [l, m, r].map(frequencyToFFTOffset);
     const lOffset = l - 200;
-    const mOffset = m - 750;
+    const mOffset = m - CW_PITCH_HZ;
     const rOffset = r - 200;
     const audioParametersOffset = [lOffset, mOffset, rOffset].map(
       frequencyToFFTOffset,
@@ -6531,6 +6891,9 @@
 
   function toggleBackendNoiseGate() {
     backendNoiseGateEnabled = !backendNoiseGateEnabled;
+    // While HFDL decodes the server gate stays open (it acts before the
+    // decoder); the new choice is applied when HFDL is switched off.
+    if (hfdlEnabled) return;
 
     if (
       audio &&
@@ -6826,6 +7189,16 @@
           ? audio.getSamLocked()
           : false;
       if (_s !== samLocked) samLocked = _s;
+      const _r =
+        audio && typeof audio.getSamReadout === "function" &&
+        demodulation === "AM" && samEnabled
+          ? audio.getSamReadout()
+          : null;
+      const _t =
+        _r && _r.hz !== null && _r.q !== null
+          ? `${_r.hz >= 0 ? "+" : ""}${_r.hz.toFixed(1)} Hz · ${Math.round(Math.max(0, _r.q) * 100)}%`
+          : "";
+      if (_t !== samReadout) samReadout = _t;
     }
     if (events.getLastModified() > lastUpdated) {
       const myRange = audio.getAudioRange();
@@ -6867,7 +7240,8 @@
   // decoder's own Tune button reads its list: dial frequency for the WSJT
   // modes, SSTV, Packet and APRS; the signal's centre for FAX (dial 1900 Hz
   // below), NAVTEX (500 Hz below) and RTTY / PSK31 / Olivia (the panel's
-  // audio centre below). CW stays a receiver mode — beacons and stations use it.
+  // audio centre below). HFDL and DRM read the dial too. CW stays a receiver
+  // mode — beacons and stations use it; MORSE starts the CW decoder.
   const MARKER_DECODERS = {
     FT8: { key: "ft8" },
     FT4: { key: "ft4" },
@@ -6899,8 +7273,16 @@
     // band, so the bare names start the upper-sideband decoder.
     RADEU: { key: "radeu" },
     RADEL: { key: "radel" },
+    RADE2: { key: "rade2" },
     RADE: { key: "radeu" },
     FREEDV: { key: "radeu" },
+    // HFDL lists the USB dial (the subcarrier sits 1440 Hz above it); DRM
+    // lists the channel centre, which is where its dial goes.
+    HFDL: { key: "hfdl" },
+    DRM: { key: "drm" },
+    // "CW" stays a receiver mode (beacons, time signals); "MORSE" asks for
+    // the CW decoder on the signal's frequency.
+    MORSE: { key: "cw" },
   };
 
   /** The decoder a marker mode starts, with its dial offset, or null. */
@@ -6948,6 +7330,10 @@
       return;
     }
     launchDecoder(spec.key);
+    // The CW decoder's own start leaves the mode alone (from its button it
+    // decodes whatever is being listened to); a MORSE marker sets the
+    // receiver up for it: CW, ±250 Hz.
+    if (spec.key === "cw") _modeIdApplyReceiverDefaults("cw");
   }
 
   async function handleFrequencyMarkerClick(event) {
@@ -7664,6 +8050,14 @@
       element.disabled = false;
     });
 
+    // IQ only where the server allows it; without it a ?modulation=IQ link
+    // falls back to the band plan below.
+    iqAvailable = !!audio.settings.iq;
+    if (iqAvailable) {
+      demodulators.push("IQ");
+      demodulators = demodulators;
+    }
+
     // Enable WBFM option if bandwidth is wide enough
     if (audio.trueAudioSps > 170000) {
       demodulators.push("WBFM");
@@ -8184,13 +8578,11 @@
       `Applying settings for ${band.name}: min=${band.min}, max=${band.max}`,
     );
 
-    // Framed exactly as "To Band" (handleZoomToBand) does: the view spans
-    // the band's edges, and brightness (Min) and contrast (Max) come from the
-    // band. Via frequencyToFFTOffset, so receivers whose baseband is not 0 Hz
-    // (RTL, RSP1A) land on the right place. Auto Adjust is left alone, as on a
-    // band change: it never writes minWaterfall/maxWaterfall.
-    const l = Math.floor(frequencyToFFTOffset(band.startFreq));
-    const r = Math.ceil(frequencyToFFTOffset(band.endFreq));
+    // Framed exactly as "To Band" (handleZoomToBand) does: the same view
+    // (_bandViewRange: the band's edges plus 10 kHz either side), and
+    // brightness (Min) and contrast (Max) from the band. Auto Adjust is left
+    // alone, as on a band change: it never writes minWaterfall/maxWaterfall.
+    const [l, r] = _bandViewRange(band);
     if (Number.isFinite(l) && Number.isFinite(r) && r > l) waterfall.setWaterfallRange(l, r);
     const bMin = parseInt(band.min), bMax = parseInt(band.max);
     if (Number.isFinite(bMin) && Number.isFinite(bMax)) {
@@ -8667,11 +9059,11 @@
     "3000",
     "3500",
     "4000",
-    "4500",
     "5000",
     "6000",
     "9000",
     "10000",
+    "12500",
   ];
   let newStaticBandwidth = 0;
   // IF Filter bandwidth slider: per-side offset from the carrier/centre (Hz)
@@ -8711,7 +9103,7 @@
   // Apply new passband edges (l, m, r in Hz) reusing the audio-range machinery
   function applyIFEdges(l, m, r) {
     const audioParameters = [l, m, r].map(frequencyToFFTOffset);
-    const audioParametersOffset = [l - 200, m - 750, r - 200].map(
+    const audioParametersOffset = [l - 200, m - CW_PITCH_HZ, r - 200].map(
       frequencyToFFTOffset,
     );
     audio.setAudioRange(...audioParameters, ...audioParametersOffset);
@@ -9845,7 +10237,7 @@
                     <ul style="font-size: 0.91rem; text-align: left;">
                     <b>Setup &amp; Configuration:</b>
                       <img
-                        src="https://img.shields.io/badge/version-5.3.0-cyan?logo=github"
+                        src="https://img.shields.io/badge/version-5.4.0-cyan?logo=github"
                         alt="Version"
                         class="inline-block align-middle ml-2"
                       />
@@ -10292,7 +10684,7 @@
                     />
                     <div
                       class="relative w-full"
-                      style:height={view3D
+                      style:height={view3D && !spectrumDisplay
                         ? Device.isMobile
                           ? "130px"
                           : "190px"
@@ -10304,8 +10696,8 @@
                           {waterfall}
                           onClose={toggleView3D}
                           on:wheel={handleWaterfallWheel}
-                          on:mousedown={handleWaterfallMouseDown}
-                          on:mousemove={handleSpectrumMouseMove}
+                          on:mousedown={handle3DMouseDown}
+                          on:mousemove={handle3DMouseMove}
                           on:mouseleave={handleSpectrumMouseLeave}
                         />
                       {/if}
@@ -10401,7 +10793,9 @@ Shift + Ctrl + Wheel = snap to .00 KHz"
                             15}px; top: {cursorY -
                             30}px; pointer-events: none; z-index: 10000;"
                         >
-                          {formatFrequency(cursorFrequency)}
+                          {formatFrequency(cursorFrequency)}{hoverAge3D !== null
+                            ? ` · −${hoverAge3D.toFixed(0)} s`
+                            : ""}
                         </div>
                       {/if}
 
@@ -10533,6 +10927,7 @@ Shift + Ctrl + Wheel = snap to .00 KHz"
                         enabled={spectrogramEnabled}
                         on:initialized={initSpectrogram}
                         mode={demodulation}
+                        cwPitch={cwEnabled ? cwPitchHz : CW_PITCH_HZ}
                         passband={spectroPassband}
                         occupied={spectroOccupied}
                         baseKhz={frequency}
@@ -10643,6 +11038,7 @@ Shift + Ctrl + Wheel = snap to .00 KHz"
                     {cquamPilotDetected}
                     {samLocked}
                     {samEnabled}
+                    {iqAvailable}
                     {activeDecoder}
                     onSelect={(mode) => SetMode(mode, true)}
                     onRade={(which) => launchRadeDecoder(which)}
@@ -11298,6 +11694,7 @@ Slider: share of denoised audio, the rest is the original"
                     {cquamPilotDetected}
                     {samLocked}
                     {samEnabled}
+                    {iqAvailable}
                     {activeDecoder}
                     onSelect={(mode) => SetMode(mode, true)}
                     onRade={(which) => launchRadeDecoder(which)}
@@ -11332,9 +11729,20 @@ Slider: share of denoised audio, the rest is the original"
                     on:click={openFreqKeypad}
                   >
                     <div
-                      class="flex flex-col sm:flex-row items-center justify-between gap-4"
+                      class="flex flex-col sm:flex-row items-center justify-between gap-4 {isAnalog
+                        ? ''
+                        : 'lg:flex-1'}"
                     >
-                      <div class="flex flex-col items-center">
+                      <!-- Digital face: the column runs the full height of the
+                           row, so the SAM line can sit at its foot. On large
+                           screens the frequency and the SAM line are put exactly
+                           where the analog face has them (53 px and 191 px from
+                           the top of the box), so switching faces moves neither. -->
+                      <div
+                        class="flex flex-col items-center {isAnalog
+                          ? ''
+                          : 'relative sm:self-stretch sm:justify-center lg:justify-start lg:pt-[37px]'}"
+                      >
                         <!--
                   Added by sv2amk to triger the initBandButton function
                   and show the proper band upon startup                  
@@ -11410,12 +11818,21 @@ Slider: share of denoised audio, the rest is the original"
                         >
                           <span class="text-yellow-400 px-1">{vfo}</span>
                           <span class="text-gray-400 px-1">|</span>
-                          <span class="text-green-400 px-1">{demodulation}</span
+                          <span class="text-green-400 px-1">{modeLabel}</span
                           >
                           <span class="text-gray-400 px-1">|</span>
                           <span class="text-cyan-300 px-1">{bandwidth} kHz</span
                           >
                         </div>
+
+                        <!-- The SAM line always holds its place (invisible when SAM
+                             is off), so switching SAM does not move the box. -->
+                        {#if !isAnalog}
+                          <div
+                            class="text-xs font-mono text-center mt-1 sm:mt-0 sm:absolute sm:bottom-0 lg:bottom-1 sm:inset-x-0 {samReadout ? '' : 'invisible'} {samLocked ? 'text-yellow-400' : 'text-gray-400'}"
+                            title="SAM: carrier offset from the dial (+ = above) · lock quality (yellow from 85%)"
+                          >SAM {samReadout || "+0.0 Hz · 0%"}</div>
+                        {/if}
 
                         {#if isAnalog}
                           <div><hr class="border-gray-600 my-2" /></div>
@@ -11430,6 +11847,10 @@ Slider: share of denoised audio, the rest is the original"
                             {ANEnabled}
                             {CTCSSSupressEnabled}
                           />
+                          <div
+                            class="text-xs font-mono text-center {samReadout ? '' : 'invisible'} {samLocked ? 'text-yellow-400' : 'text-gray-400'}"
+                            title="SAM: carrier offset from the dial (+ = above) · lock quality (yellow from 85%)"
+                          >SAM {samReadout || "+0.0 Hz · 0%"}</div>
                         {/if}
                       </div>
 
@@ -11463,7 +11884,7 @@ Slider: share of denoised audio, the rest is the original"
                   </div>
 
                   <div id="frequencyContainer" class="w-full mt-1 sm:mt-1">
-                    <div class="space-y-5">
+                    <div class="space-y-4">
                       <!-- Begin Fine Tuning Buttons -->
 
                       <div class="w-full mt-0">
@@ -11743,7 +12164,7 @@ Slider: share of denoised audio, the rest is the original"
                             </button>
                           {/each}
                         </div>
-                        <hr class="border-gray-600 my-2" />
+                        <hr class="border-gray-600 my-1.5" />
                       </div>
 
                       <!-- Phil -->
@@ -11752,7 +12173,7 @@ Slider: share of denoised audio, the rest is the original"
                         <div class="grid grid-cols-5 sm:grid-cols-5 gap-2">
                           <button
                             id="vfo-ab-button"
-                            class="glass-button h-8 text-white text-sm font-bold py-2 px-1 rounded-lg flex items-center w-full justify-center whitespace-nowrap {toggleVFO ===
+                            class="glass-button h-7 text-white text-sm font-bold py-2 px-1 rounded-lg flex items-center w-full justify-center whitespace-nowrap {toggleVFO ===
                             vfo
                               ? 'bg-green-600 pressed scale-95'
                               : 'bg-blue-700 hover:bg-gray-600'}"
@@ -11764,7 +12185,7 @@ Slider: share of denoised audio, the rest is the original"
 
                           <button
                             id="mode-button"
-                            class="glass-button h-8 text-white text-sm font-bold py-2 px-1 rounded-lg flex items-center w-full justify-center whitespace-nowrap"
+                            class="glass-button h-7 text-white text-sm font-bold py-2 px-1 rounded-lg flex items-center w-full justify-center whitespace-nowrap"
                             on:click={toggleModePopup}
                           >
                             Modes
@@ -11808,9 +12229,11 @@ Slider: share of denoised audio, the rest is the original"
                                 <!--Mode Content Begins -->
                                 <div
                                   id="demodulationModes"
-                                  class="grid grid-cols-3 sm:grid-cols-6 gap-2 w-full max-w-md"
+                                  class="grid {iqAvailable
+                                    ? 'grid-cols-4 sm:grid-cols-8'
+                                    : 'grid-cols-4 sm:grid-cols-7'} gap-2 w-full max-w-md"
                                 >
-                                  {#each ["USB", "LSB", "CW", "AM", "QUAM", "FM"] as mode}
+                                  {#each modeButtons as mode}
                                     <button
                                       class="retro-button {mode === 'QUAM' &&
                                       cquamPilotDetected
@@ -11829,19 +12252,30 @@ Slider: share of denoised audio, the rest is the original"
                                         : mode}
                                     </button>
                                   {/each}
+                                  <!-- DRM after the listening modes (and IQ): starts the DRM decoder, like its Decoders button -->
+                                  <button
+                                    class="retro-button text-white font-bold h-10 text-base rounded-md flex items-center justify-center border border-gray-600 shadow-inner transition-all duration-200 ease-in-out {activeDecoder ===
+                                    'drm'
+                                      ? 'bg-blue-600 pressed scale-95'
+                                      : 'bg-gray-700 hover:bg-gray-600'}"
+                                    title="DRM — Digital Radio Mondiale, decoded on the station's server"
+                                    on:click={() => launchDecoder("drm")}
+                                  >
+                                    DRM
+                                  </button>
                                 </div>
                                 <!-- RADE v1 one-touch decoder launch -->
                                 <div
-                                  class="grid grid-cols-2 gap-2 w-full max-w-md mt-3"
+                                  class="grid grid-cols-3 gap-2 w-full max-w-md mt-3"
                                 >
-                                  {#each [["RADEL", "radel"], ["RADEU", "radeu"]] as [label, key]}
+                                  {#each [["RADE-v2U", "rade2", "RADE2"], ["RADE-v1L", "radel", "RADEL"], ["RADE-v1U", "radeu", "RADEU"]] as [label, key, mode]}
                                     <button
                                       class="retro-button text-white font-bold h-10 text-base rounded-md flex items-center justify-center border border-gray-600 shadow-inner transition-all duration-200 ease-in-out {activeDecoder ===
                                       key
                                         ? 'bg-blue-600 pressed scale-95'
                                         : 'bg-gray-700 hover:bg-gray-600'}"
-                                      title="Start the RADE v1 {label} decoder"
-                                      on:click={() => launchRadeDecoder(label)}
+                                      title={mode === "RADE2" ? "Start the RADE V2 (beta) decoder — USB" : `Start the RADE v1 ${mode} decoder`}
+                                      on:click={() => launchRadeDecoder(mode)}
                                     >
                                       {label}
                                     </button>
@@ -11856,7 +12290,7 @@ Slider: share of denoised audio, the rest is the original"
                           <!-- Begin Bands Popup Menu -->
                           <button
                             id="band-popup-button"
-                            class="glass-button h-8 text-white text-sm font-bold py-2 px-1 rounded-lg flex items-center w-full justify-center whitespace-nowrap"
+                            class="glass-button h-7 text-white text-sm font-bold py-2 px-1 rounded-lg flex items-center w-full justify-center whitespace-nowrap"
                             on:click={toggleBandPopup}
                           >
                             Bands
@@ -11956,7 +12390,7 @@ Slider: share of denoised audio, the rest is the original"
                           <!-- Begin IF Filters Popup Menu -->
                           <button
                             id="if-filter-popup-button"
-                            class="glass-button h-8 text-white text-sm font-bold py-2 px-1 rounded-lg flex items-center w-full justify-center whitespace-nowrap"
+                            class="glass-button h-7 text-white text-sm font-bold py-2 px-1 rounded-lg flex items-center w-full justify-center whitespace-nowrap"
                             on:click={toggleIFPopup}
                           >
                             IF Filters
@@ -12027,11 +12461,11 @@ Slider: share of denoised audio, the rest is the original"
                                         {:else if newbandwidth == 3000}3.0 kHz
                                         {:else if newbandwidth == 3500}3.5 kHz
                                         {:else if newbandwidth == 4000}4.0 kHz
-                                        {:else if newbandwidth == 4500}4.5 kHz
                                         {:else if newbandwidth == 5000}5.0 kHz
                                         {:else if newbandwidth == 6000}6.0 kHz
                                         {:else if newbandwidth == 9000}9.0 kHz
                                         {:else if newbandwidth == 10000}10.0 kHz
+                                        {:else if newbandwidth == 12500}12.5 kHz
                                         {:else}{/if}
                                       </button>
                                     {/each}
@@ -12081,7 +12515,7 @@ Slider: share of denoised audio, the rest is the original"
                           <!-- Begin CAT (TCI) Popup Menu -->
                           <button
                             id="cat-tci-popup-button"
-                            class="glass-button h-8 text-white text-sm font-bold py-2 px-1 rounded-lg flex items-center w-full justify-center whitespace-nowrap"
+                            class="glass-button h-7 text-white text-sm font-bold py-2 px-1 rounded-lg flex items-center w-full justify-center whitespace-nowrap"
                             on:click={toggleCatPopup}
                             title={catConnected
                               ? `CAT control active — ${catActiveSourceLabel}`
@@ -12199,7 +12633,7 @@ Slider: share of denoised audio, the rest is the original"
                           {/if}
                           <!-- End CAT (TCI) Popup Menu -->
                         </div>
-                        <hr class="border-gray-600 my-2" />
+                        <hr class="border-gray-600 my-1.5" />
                       </div>
                       <!-- End of Popup Buttons Menu -->
 
@@ -12207,14 +12641,14 @@ Slider: share of denoised audio, the rest is the original"
                            offset selector used to occupy -->
 
                       <div class="w-full mt-1">
-                        <h3 class="text-white text-base font-semibold mb-2">
+                        <h3 class="text-white text-base font-semibold mb-1.5">
                           Wheel Tuning Steps
                         </h3>
                         <div class="grid grid-cols-3 sm:grid-cols-9 gap-2">
                           {#each tuningsteps as tuningstep (tuningstep)}
                             <button
                               id="tuning-step-selector"
-                              class="text-[11px] tracking-tight whitespace-nowrap px-0.5 overflow-hidden retro-button text-white font-bold h-8 rounded-md flex items-center justify-center border border-gray-600 shadow-inner transition-all duration-200 ease-in-out {currentTuneStep ==
+                              class="text-[11px] tracking-tight whitespace-nowrap px-0.5 overflow-hidden retro-button text-white font-bold h-7 rounded-md flex items-center justify-center border border-gray-600 shadow-inner transition-all duration-200 ease-in-out {currentTuneStep ==
                               tuningstep
                                 ? 'bg-blue-600 pressed scale-95'
                                 : 'bg-gray-700 hover:bg-gray-600'}"
@@ -12236,7 +12670,7 @@ Slider: share of denoised audio, the rest is the original"
                             </button>
                           {/each}
                         </div>
-                        <hr class="border-gray-600 my-2" />
+                        <hr class="border-gray-600 my-1.5" />
                       </div>
 
                       <!-- End of Tuning Step Selection Area -->
@@ -12258,13 +12692,15 @@ Slider: share of denoised audio, the rest is the original"
                             on:recentre={modeIdRecentre}
                           />
                         </div>
-                        <!-- One row, always: ten equal cells that shrink
-                             together rather than wrapping to a second line. -->
-                        <div class="flex flex-nowrap gap-1">
+                        <!-- Two rows of six equal cells. The rows above
+                             were trimmed (h-7 buttons, space-y-4, my-1.5 rules)
+                             to pay for the second row, so this panel stays as
+                             tall as the left and right ones. -->
+                        <div class="grid grid-cols-6 gap-1">
                           {#each decoderButtons as dec (dec.key)}
                             <button
                               id="decoder-selector"
-                              class="retro-button flex-1 min-w-0 px-0.5 text-white font-bold h-8 text-[10px] sm:text-xs rounded-md flex items-center justify-center whitespace-nowrap border border-gray-600 shadow-inner transition-all duration-200 ease-in-out {activeDecoder ===
+                              class="retro-button min-w-0 px-0.5 text-white font-bold h-7 text-[10px] sm:text-xs rounded-md flex items-center justify-center whitespace-nowrap border border-gray-600 shadow-inner transition-all duration-200 ease-in-out {activeDecoder ===
                               dec.key
                                 ? 'bg-blue-600 pressed scale-95'
                                 : 'bg-gray-700 hover:bg-gray-600'}"
@@ -12497,13 +12933,16 @@ Slider: share of denoised audio, the rest is the original"
                           <option value="ft8">FT8</option>
                           <option value="ft4">FT4</option>
                           <option value="ft2">FT2</option>
-                          <option value="js8">JS8</option>
                           <option value="cw">CW</option>
+                          <option value="js8">JS8</option>
                           <option value="wspr">WSPR</option>
-                          <option value="hffax">HF FAX / WEFAX</option>
                           <option value="sstv">SSTV</option>
-                          <option value="navtex">NAVTEX</option>
                           <option value="fsk">FLDIGI</option>
+                          <option value="navtex">NAVTEX</option>
+                          <option value="hffax">HF FAX / WEFAX</option>
+                          <option value="hfdl">HFDL</option>
+                          <option value="drm">DRM</option>
+                          <option value="rade2">RADE v2 — RADE2 (USB)</option>
                           <option value="radel">RADE v1 — RADEL (LSB)</option>
                           <option value="radeu">RADE v1 — RADEU (USB)</option>
                         </select>
@@ -12773,6 +13212,25 @@ Slider: share of denoised audio, the rest is the original"
                             >
                           {/if}
                         </h4>
+                        <div class="flex items-center gap-2 ml-auto mr-3">
+                          <span
+                            class="whitespace-nowrap text-gray-300"
+                            title="Audio pitch of the CW tone (frequency offset from the dial)"
+                          >Pitch</span
+                        >
+                          <input
+                            type="range"
+                            min="500"
+                            max="800"
+                            step="50"
+                            value={cwPitchHz}
+                            on:input={(e) => setCwPitchHz(e.currentTarget.value)}
+                            class="w-24 accent-amber-400"
+                          />
+                          <span class="font-mono w-12 text-right text-amber-300"
+                            >{cwPitchHz} Hz</span
+                          >
+                        </div>
                         <button
                           class="text-green-100 bg-green-900 hover:bg-green-800 hover:text-white text-xs px-2 py-0.5 rounded border border-green-700 hover:border-green-500 transition-colors"
                           on:click={() => {
@@ -13505,7 +13963,22 @@ Slider: share of denoised audio, the rest is the original"
                   {/if}
                   <!-- END NAVTEX Panel -->
 
-                  <!-- ── RADE v1 Digital Voice Panel ──────────────────────── -->
+                  <!-- ── HFDL Decoder Panel ───────────────────────────────── -->
+                  {#if decoderOn && hfdlEnabled}
+                    <HfdlPanel {audio} dialKhz={hfdlDialKhz} onTune={hfdlTune} homeLocator={siteGridSquare} />
+                  {/if}
+
+                  <!-- ── DRM Panel ─────────────────────────────────────────── -->
+                  {#if decoderOn && drmEnabled}
+                    <DrmPanel {audio} dialKhz={drmDialKhz} onTune={drmTune} />
+                  {/if}
+
+                  <!-- ── IQ Demodulators (only in IQ) ─────────────────────── -->
+                  {#if demodulation === "IQ"}
+                    <IqDemodPanel {audio} dialKhz={frequency} />
+                  {/if}
+
+                  <!-- ── RADE Digital Voice Panel (V1 / V2 beta) ──────────────────────── -->
                   {#if decoderOn && radeEnabled}
                     <div
                       class="w-full rounded-lg p-4 mt-6 text-left decoder-window decoder-panel"
@@ -13523,8 +13996,10 @@ Slider: share of denoised audio, the rest is the original"
                                 : 'bg-yellow-400 animate-pulse'
                               : 'bg-red-500'}"
                           ></span>
-                          RADE v1 &nbsp;·&nbsp; {demodulation === "RADEL"
+                          RADE {radeVersion === 2 ? "V2 (beta)" : "v1"} &nbsp;·&nbsp; {demodulation === "RADEL"
                             ? "RADEL (LSB)"
+                            : demodulation === "RADE2"
+                            ? "RADE2 (USB)"
                             : "RADEU (USB)"}
                           <span
                             class="text-xs font-mono font-normal {radeConnected
@@ -13533,7 +14008,9 @@ Slider: share of denoised audio, the rest is the original"
                                 : 'text-yellow-300'
                               : 'text-red-400'}"
                           >
-                            {#if !radeConnected}
+                            {#if !radeConnected && radeError}
+                              Not available
+                            {:else if !radeConnected}
                               Connecting to sidecar…
                             {:else if radeSynced}
                               Synced{radeSnr !== null
@@ -13553,7 +14030,7 @@ Slider: share of denoised audio, the rest is the original"
                             ? 'bg-green-800 text-green-200'
                             : 'bg-gray-800 text-gray-400'}"
                         >
-                          {radeConnected ? "Sidecar OK" : "No Sidecar"}
+                          {radeConnected || radeError ? "Sidecar OK" : "No Sidecar"}
                         </span>
                         <span
                           class="px-2 py-0.5 rounded font-semibold {radeSynced
@@ -13563,12 +14040,16 @@ Slider: share of denoised audio, the rest is the original"
                           {radeSynced ? "Frame Sync" : "Acquiring…"}
                         </span>
                         <span class="text-gray-500 font-mono"
-                          >1500 Hz BW · FARGAN vocoder</span
+                          >{radeVersion === 2 ? "800 Hz BW · FARGAN vocoder" : "1500 Hz BW · FARGAN vocoder"}</span
                         >
                       </div>
 
                       <!-- Info / error -->
-                      {#if !radeConnected}
+                      {#if !radeConnected && radeError}
+                        <div
+                          class="rounded bg-yellow-900/30 border border-yellow-700 px-3 py-2 text-xs text-yellow-200 mb-3"
+                          >{radeError}</div>
+                      {:else if !radeConnected}
                         <div
                           class="rounded bg-red-900/40 border border-red-700 px-3 py-2 text-xs text-red-300 mb-3"
                         >
@@ -13581,13 +14062,23 @@ Slider: share of denoised audio, the rest is the original"
                         </div>
                       {/if}
 
+                      {#if radeVersion === 2}
+                        <div class="rounded bg-yellow-900/30 border border-yellow-700 px-3 py-2 text-xs text-yellow-200 mb-3">
+                          <strong>RADE V2 is still in beta at FreeDV.</strong> Only stations testing
+                          FreeDV 3.0 send it today, and the signal may still change before the
+                          release — a V2 station may then stay on "Searching" until this receiver is updated.
+                        </div>
+                      {/if}
+
                       <!-- Hint -->
                       <p class="text-gray-500 text-xs mt-2 leading-relaxed">
-                        FreeDV RADE v1 · decoded server-side by
+                        FreeDV RADE {radeVersion === 2 ? "V2 (beta)" : "v1"} · decoded server-side by
                         <code class="text-gray-400">rade_helper.py</code> →
-                        <code class="text-gray-400">radae_rxe.py</code> →
+                        <code class="text-gray-400">{radeVersion === 2 ? "rade_c radae_rx --v2" : "radae_rxe.py"}</code> →
                         <code class="text-gray-400">lpcnet_demo</code><br />
-                        {demodulation === "RADEL"
+                        {radeVersion === 2
+                          ? "USB on every band — FreeDV 3.0 sends RADE V2 on USB."
+                          : demodulation === "RADEL"
                           ? "LSB — use on 40 m / 80 m / 160 m."
                           : "USB — use on 20 m / 17 m / 15 m / 10 m."}
                         See
@@ -13626,7 +14117,10 @@ Slider: share of denoised audio, the rest is the original"
                       <!-- FreeDV Reporter — native live list (was qso.freedv.org iframe) -->
                       {#if radeReporterOpen}
                         <div class="mt-2">
-                          <FreeDVReporter />
+                          <FreeDVReporter
+                            dialHz={frequency * 1000}
+                            onTune={radeReporterTune}
+                          />
                         </div>
                         <p class="text-gray-600 text-xs mt-1 text-right">
                           Live · <a
@@ -14832,7 +15326,9 @@ Slider: share of denoised audio, the rest is the original"
                           ? 'ring-2 ring-red-500'
                           : ''}"
                         on:click={toggleRecording}
-                        title="Record the demodulated audio on its own (WAV)"
+                        title={demodulation === "IQ"
+                          ? "Record the I/Q as a WAV file for HDSDR, SDR#, SDR++ or SDRuno"
+                          : "Record the demodulated audio on its own (WAV)"}
                       >
                         {isRecording ? "Stop Audio" : "Audio"}
                       </button>
@@ -14871,7 +15367,7 @@ Slider: share of denoised audio, the rest is the original"
                             class="bg-gray-700 hover:bg-green-600 text-white text-xs font-medium py-2 px-3 rounded-lg whitespace-nowrap transition-colors"
                             on:click={downloadRecording}
                           >
-                            Download Audio
+                            {recordingIsIQ ? "Download IQ" : "Download Audio"}
                           </button>
                         {/if}
 
@@ -15485,7 +15981,7 @@ Slider: share of denoised audio, the rest is the original"
                     />
                     <div
                       class="relative w-full"
-                      style:height={view3D
+                      style:height={view3D && !spectrumDisplay
                         ? Device.isMobile
                           ? "130px"
                           : "190px"
@@ -15497,8 +15993,8 @@ Slider: share of denoised audio, the rest is the original"
                           {waterfall}
                           onClose={toggleView3D}
                           on:wheel={handleWaterfallWheel}
-                          on:mousedown={handleWaterfallMouseDown}
-                          on:mousemove={handleSpectrumMouseMove}
+                          on:mousedown={handle3DMouseDown}
+                          on:mousemove={handle3DMouseMove}
                           on:mouseleave={handleSpectrumMouseLeave}
                         />
                       {/if}
@@ -15683,6 +16179,7 @@ Slider: share of denoised audio, the rest is the original"
                         enabled={spectrogramEnabled}
                         on:initialized={initSpectrogram}
                         mode={demodulation}
+                        cwPitch={cwEnabled ? cwPitchHz : CW_PITCH_HZ}
                         passband={spectroPassband}
                         occupied={spectroOccupied}
                         baseKhz={frequency}
@@ -16046,7 +16543,7 @@ Slider: share of denoised audio, the rest is the original"
                             <span class="text-yellow-400 px-1">{vfo}</span>
                             <span class="text-gray-400 px-1">|</span>
                             <span class="text-green-400 px-1"
-                              >{demodulation}</span
+                              >{modeLabel}</span
                             >
                             <span class="text-gray-400 px-1">|</span>
                             <span class="text-cyan-300 px-1"
@@ -16118,6 +16615,10 @@ Slider: share of denoised audio, the rest is the original"
                               >CTCSS</span
                             >
                           </div>
+                          <div
+                            class="text-xs font-mono text-center {samReadout ? '' : 'invisible'} {samLocked ? 'text-yellow-400' : 'text-gray-400'}"
+                            title="SAM: carrier offset from the dial (+ = above) · lock quality (yellow from 85%)"
+                          >SAM {samReadout || "+0.0 Hz · 0%"}</div>
                         </div>
                       </div>
                     </div>
@@ -16201,9 +16702,11 @@ Slider: share of denoised audio, the rest is the original"
                                 <!--Mode Content Begins -->
                                 <div
                                   id="demodulationModes"
-                                  class="grid grid-cols-3 sm:grid-cols-6 gap-2 w-full max-w-md"
+                                  class="grid {iqAvailable
+                                    ? 'grid-cols-4 sm:grid-cols-8'
+                                    : 'grid-cols-4 sm:grid-cols-7'} gap-2 w-full max-w-md"
                                 >
-                                  {#each ["USB", "LSB", "CW", "AM", "QUAM", "FM"] as mode}
+                                  {#each modeButtons as mode}
                                     <button
                                       class="retro-button {mode === 'QUAM' &&
                                       cquamPilotDetected
@@ -16222,19 +16725,30 @@ Slider: share of denoised audio, the rest is the original"
                                         : mode}
                                     </button>
                                   {/each}
+                                  <!-- DRM after the listening modes (and IQ): starts the DRM decoder, like its Decoders button -->
+                                  <button
+                                    class="retro-button text-white font-bold h-10 text-base rounded-md flex items-center justify-center border border-gray-600 shadow-inner transition-all duration-200 ease-in-out {activeDecoder ===
+                                    'drm'
+                                      ? 'bg-blue-600 pressed scale-95'
+                                      : 'bg-gray-700 hover:bg-gray-600'}"
+                                    title="DRM — Digital Radio Mondiale, decoded on the station's server"
+                                    on:click={() => launchDecoder("drm")}
+                                  >
+                                    DRM
+                                  </button>
                                 </div>
                                 <!-- RADE v1 one-touch decoder launch -->
                                 <div
-                                  class="grid grid-cols-2 gap-2 w-full max-w-md mt-3"
+                                  class="grid grid-cols-3 gap-2 w-full max-w-md mt-3"
                                 >
-                                  {#each [["RADEL", "radel"], ["RADEU", "radeu"]] as [label, key]}
+                                  {#each [["RADE-v2U", "rade2", "RADE2"], ["RADE-v1L", "radel", "RADEL"], ["RADE-v1U", "radeu", "RADEU"]] as [label, key, mode]}
                                     <button
                                       class="retro-button text-white font-bold h-10 text-base rounded-md flex items-center justify-center border border-gray-600 shadow-inner transition-all duration-200 ease-in-out {activeDecoder ===
                                       key
                                         ? 'bg-blue-600 pressed scale-95'
                                         : 'bg-gray-700 hover:bg-gray-600'}"
-                                      title="Start the RADE v1 {label} decoder"
-                                      on:click={() => launchRadeDecoder(label)}
+                                      title={mode === "RADE2" ? "Start the RADE V2 (beta) decoder — USB" : `Start the RADE v1 ${mode} decoder`}
+                                      on:click={() => launchRadeDecoder(mode)}
                                     >
                                       {label}
                                     </button>
@@ -16420,11 +16934,11 @@ Slider: share of denoised audio, the rest is the original"
                                         {:else if newbandwidth == 3000}3.0 kHz
                                         {:else if newbandwidth == 3500}3.5 kHz
                                         {:else if newbandwidth == 4000}4.0 kHz
-                                        {:else if newbandwidth == 4500}4.5 kHz
                                         {:else if newbandwidth == 5000}5.0 kHz
                                         {:else if newbandwidth == 6000}6.0 kHz
                                         {:else if newbandwidth == 9000}9.0 kHz
                                         {:else if newbandwidth == 10000}10.0 kHz
+                                        {:else if newbandwidth == 12500}12.5 kHz
                                         {:else}{/if}
                                       </button>
                                     {/each}
@@ -17349,13 +17863,16 @@ Slider: share of denoised audio, the rest is the original"
                         <option value="ft8">FT8</option>
                         <option value="ft4">FT4</option>
                         <option value="ft2">FT2</option>
-                        <option value="js8">JS8</option>
                         <option value="cw">CW</option>
+                        <option value="js8">JS8</option>
                         <option value="wspr">WSPR</option>
-                        <option value="hffax">HF FAX / WEFAX</option>
                         <option value="sstv">SSTV</option>
-                        <option value="navtex">NAVTEX</option>
                         <option value="fsk">FLDIGI</option>
+                        <option value="navtex">NAVTEX</option>
+                        <option value="hffax">HF FAX / WEFAX</option>
+                        <option value="hfdl">HFDL</option>
+                        <option value="drm">DRM</option>
+                        <option value="rade2">RADE v2 · RADE2</option>
                         <option value="radel">RADE v1 — RADEL (LSB)</option>
                         <option value="radeu">RADE v1 — RADEU (USB)</option>
                       </select>
@@ -17624,6 +18141,25 @@ Slider: share of denoised audio, the rest is the original"
                             >
                           {/if}
                         </h4>
+                        <div class="flex items-center gap-2 ml-auto mr-3">
+                          <span
+                            class="whitespace-nowrap text-gray-300"
+                            title="Audio pitch of the CW tone (frequency offset from the dial)"
+                          >Pitch</span
+                        >
+                          <input
+                            type="range"
+                            min="500"
+                            max="800"
+                            step="50"
+                            value={cwPitchHz}
+                            on:input={(e) => setCwPitchHz(e.currentTarget.value)}
+                            class="w-24 accent-amber-400"
+                          />
+                          <span class="font-mono w-12 text-right text-amber-300"
+                            >{cwPitchHz} Hz</span
+                          >
+                        </div>
                         <button
                           class="text-green-100 bg-green-900 hover:bg-green-800 hover:text-white text-xs px-2 py-0.5 rounded border border-green-700 hover:border-green-500 transition-colors"
                           on:click={() => {
@@ -18356,7 +18892,22 @@ Slider: share of denoised audio, the rest is the original"
                   {/if}
                   <!-- END NAVTEX Panel -->
 
-                  <!-- ── RADE v1 Digital Voice Panel ──────────────────────── -->
+                  <!-- ── HFDL Decoder Panel ───────────────────────────────── -->
+                  {#if decoderOn && hfdlEnabled}
+                    <HfdlPanel {audio} dialKhz={hfdlDialKhz} onTune={hfdlTune} homeLocator={siteGridSquare} />
+                  {/if}
+
+                  <!-- ── DRM Panel ─────────────────────────────────────────── -->
+                  {#if decoderOn && drmEnabled}
+                    <DrmPanel {audio} dialKhz={drmDialKhz} onTune={drmTune} />
+                  {/if}
+
+                  <!-- ── IQ Demodulators (only in IQ) ─────────────────────── -->
+                  {#if demodulation === "IQ"}
+                    <IqDemodPanel {audio} dialKhz={frequency} />
+                  {/if}
+
+                  <!-- ── RADE Digital Voice Panel (V1 / V2 beta) ──────────────────────── -->
                   {#if decoderOn && radeEnabled}
                     <div
                       class="w-full rounded-lg p-4 mt-6 text-left decoder-window decoder-panel"
@@ -18374,8 +18925,10 @@ Slider: share of denoised audio, the rest is the original"
                                 : 'bg-yellow-400 animate-pulse'
                               : 'bg-red-500'}"
                           ></span>
-                          RADE v1 &nbsp;·&nbsp; {demodulation === "RADEL"
+                          RADE {radeVersion === 2 ? "V2 (beta)" : "v1"} &nbsp;·&nbsp; {demodulation === "RADEL"
                             ? "RADEL (LSB)"
+                            : demodulation === "RADE2"
+                            ? "RADE2 (USB)"
                             : "RADEU (USB)"}
                           <span
                             class="text-xs font-mono font-normal {radeConnected
@@ -18384,7 +18937,9 @@ Slider: share of denoised audio, the rest is the original"
                                 : 'text-yellow-300'
                               : 'text-red-400'}"
                           >
-                            {#if !radeConnected}
+                            {#if !radeConnected && radeError}
+                              Not available
+                            {:else if !radeConnected}
                               Connecting to sidecar…
                             {:else if radeSynced}
                               Synced{radeSnr !== null
@@ -18404,7 +18959,7 @@ Slider: share of denoised audio, the rest is the original"
                             ? 'bg-green-800 text-green-200'
                             : 'bg-gray-800 text-gray-400'}"
                         >
-                          {radeConnected ? "Sidecar OK" : "No Sidecar"}
+                          {radeConnected || radeError ? "Sidecar OK" : "No Sidecar"}
                         </span>
                         <span
                           class="px-2 py-0.5 rounded font-semibold {radeSynced
@@ -18414,12 +18969,16 @@ Slider: share of denoised audio, the rest is the original"
                           {radeSynced ? "Frame Sync" : "Acquiring…"}
                         </span>
                         <span class="text-gray-500 font-mono"
-                          >1500 Hz BW · FARGAN vocoder</span
+                          >{radeVersion === 2 ? "800 Hz BW · FARGAN vocoder" : "1500 Hz BW · FARGAN vocoder"}</span
                         >
                       </div>
 
                       <!-- Info / error -->
-                      {#if !radeConnected}
+                      {#if !radeConnected && radeError}
+                        <div
+                          class="rounded bg-yellow-900/30 border border-yellow-700 px-3 py-2 text-xs text-yellow-200 mb-3"
+                          >{radeError}</div>
+                      {:else if !radeConnected}
                         <div
                           class="rounded bg-red-900/40 border border-red-700 px-3 py-2 text-xs text-red-300 mb-3"
                         >
@@ -18432,13 +18991,23 @@ Slider: share of denoised audio, the rest is the original"
                         </div>
                       {/if}
 
+                      {#if radeVersion === 2}
+                        <div class="rounded bg-yellow-900/30 border border-yellow-700 px-3 py-2 text-xs text-yellow-200 mb-3">
+                          <strong>RADE V2 is still in beta at FreeDV.</strong> Only stations testing
+                          FreeDV 3.0 send it today, and the signal may still change before the
+                          release — a V2 station may then stay on "Searching" until this receiver is updated.
+                        </div>
+                      {/if}
+
                       <!-- Hint -->
                       <p class="text-gray-500 text-xs mt-2 leading-relaxed">
-                        FreeDV RADE v1 · decoded server-side by
+                        FreeDV RADE {radeVersion === 2 ? "V2 (beta)" : "v1"} · decoded server-side by
                         <code class="text-gray-400">rade_helper.py</code> →
-                        <code class="text-gray-400">radae_rxe.py</code> →
+                        <code class="text-gray-400">{radeVersion === 2 ? "rade_c radae_rx --v2" : "radae_rxe.py"}</code> →
                         <code class="text-gray-400">lpcnet_demo</code><br />
-                        {demodulation === "RADEL"
+                        {radeVersion === 2
+                          ? "USB on every band — FreeDV 3.0 sends RADE V2 on USB."
+                          : demodulation === "RADEL"
                           ? "LSB — use on 40 m / 80 m / 160 m."
                           : "USB — use on 20 m / 17 m / 15 m / 10 m."}
                         See
@@ -18477,7 +19046,10 @@ Slider: share of denoised audio, the rest is the original"
                       <!-- FreeDV Reporter — native live list (was qso.freedv.org iframe) -->
                       {#if radeReporterOpen}
                         <div class="mt-2">
-                          <FreeDVReporter />
+                          <FreeDVReporter
+                            dialHz={frequency * 1000}
+                            onTune={radeReporterTune}
+                          />
                         </div>
                         <p class="text-gray-600 text-xs mt-1 text-right">
                           Live · <a
@@ -19899,6 +20471,10 @@ Slider: share of denoised audio, the rest is the original"
     margin-top: 4px;
     color: #6b7280;
     font-size: 11px;
+  }
+  .aprs-popup-link {
+    display: inline-block; margin-top: 4px; font-weight: 600;
+    color: #0e7490; text-decoration: underline;
   }
   /* Plain text everywhere - no shadow effect */
   * {

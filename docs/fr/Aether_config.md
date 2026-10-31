@@ -27,10 +27,11 @@ Depuis la v4.1.0, PhantomSDR-Plus sait aussi répondre au **protocole KiwiSDR**,
 
 | | |
 |---|---|
-| **Audio** | `ws://<hôte>:<port>/kiwi/<id>/SND` — audio démodulé dans le format de trame SND propre au Kiwi |
-| **Cascade** | `ws://<hôte>:<port>/kiwi/<id>/W/F` — le spectre, en trames W/F du Kiwi |
+| **Audio** | `ws://<hôte>:<port>/kiwi/<id>/SND` (aussi `ws://<hôte>:<port>/<id>/SND`) — audio démodulé dans le format de trame SND propre au Kiwi |
+| **Cascade** | `ws://<hôte>:<port>/kiwi/<id>/W/F` (aussi `ws://<hôte>:<port>/<id>/W/F`) — le spectre, en trames W/F du Kiwi |
 | **Accord** | réel, pas cosmétique : `SET mod=…` venant du client change la fréquence, la bande latérale et la bande passante côté PhantomSDR, exactement comme le ferait un auditeur au navigateur |
 | **S-mètre** | alimenté par la puissance par bloc du démodulateur lui-même, sur la même échelle que le S-mètre web |
+| **IQ** | `SET mod=iq` fournit 12 kHz d'I/Q dans les trames stéréo du Kiwi, comme `kiwirecorder.py -m iq` les attend. Sans horodatage GPS, donc pas pour le TDoA. Seulement tant que `[server] iq` est activé (le réglage par défaut) |
 
 L'accord est pris en charge pour une entrée **réelle** (`signal = "real"` dans votre `.toml`). Pour une entrée IQ, la relation entre case et fréquence diffère et n'est pas implémentée : un récepteur IQ fournira donc l'audio et la cascade mais ne suivra pas l'accord d'un client Kiwi.
 
@@ -116,6 +117,9 @@ Pointez le client sur la même adresse et le même port que vos auditeurs — pa
 ```bash
 # kiwiclient, enregistrement de 30 secondes sur 7100 kHz LSB
 python3 kiwirecorder.py -s votre.recepteur.example -p 8073 -f 7100 -m lsb --tlimit=30
+
+# 30 secondes d'I/Q autour de 6030 kHz, enregistrées en WAV stéréo
+python3 kiwirecorder.py -s votre.recepteur.example -p 8073 -f 6030 -m iq --tlimit=30
 ```
 
 Le client s'accorde, la cascade se remplit, le S-mètre indique. Si rien ne se passe du tout, la passerelle est presque à coup sûr encore désactivée — voir la [section 3](#3-lactiver).

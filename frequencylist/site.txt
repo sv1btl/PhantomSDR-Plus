@@ -1,4 +1,4 @@
-;         20-May-2026 SITE.TXT REFERENCE TABLE
+;          5-Aug-2026 SITE.TXT REFERENCE TABLE
 ;
 ;--+------------------------------+---+-----+------
 ;Co Site Name                      ADM Lati  Longi
@@ -78,6 +78,7 @@ BKO Bamako                         MLI 12N39 008W01
 BLA Blantyre                       MWI 15S42 035E02
 BLG Blagovechtchen                 RUS 50N16 127E30
 BLN Berlin (Deutschlandradio)      D   52N30 013E20
+BNA Baarle-Nassau                  HOL 51N26 004E56
 BNG Bangui                         CAF 04N21 018E35
 BOA Boa Vista                      B   02N51 060W43
 BOC Bocaue                         PHL 14N48 120E55

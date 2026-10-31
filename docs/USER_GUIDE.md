@@ -94,15 +94,15 @@ When the page loads, you'll see:
 │   Compressor Equalizer├────────────────────────────┤ Zoom In Out Max Min │
 │ Filters               │  Fine Tuning (kHz)         │ Waterfall Spectrum  │
 │   NR NB NS AN CTCSS   │  VFO A · Modes · Bands     │ Auto Adj. Height    │
-│ Modes selector        │           · IF Filters     │ [ profile ▾ ]       │
-│   ...  RADEL  RADEU   │  Wheel Tuning Steps        │ [ Bookmarks ]       │
+│ Modes  RADE-v2U       │           · IF Filters     │ [ profile ▾ ]       │
+│   RADE-v1L RADE-v1U   │  Wheel Tuning Steps        │ [ Bookmarks ]       │
 │   USB LSB CW AM QUAM  │  Decoders                  │                     │
-│   FM                  │   FT8 FT4 FT2 JS8 CW WSPR  │                     │
+│   FM IQ               │   FT8 FT4 FT2 JS8 CW WSPR  │                     │
 │ Band selector         │   FAX SSTV NAVTEX RTTY ... │                     │
 └───────────────────────┴────────────────────────────┴─────────────────────┘
 ```
 
-The three panels below the waterfall scroll as one page; on a narrow window they stack instead of sitting side by side. **RADEL** and **RADEU** sit on the *Modes selector* heading line itself, to its right.
+The three panels below the waterfall scroll as one page; on a narrow window they stack instead of sitting side by side. **RADE-v2U**, **RADE-v1L** and **RADE-v1U** sit on the *Modes* heading line itself, to its right.
 
 ### 1. Waterfall Display
 
@@ -140,8 +140,9 @@ Select demodulation mode:
 - **CW**: Morse Code (Continuous Wave)
 - **WBFM**: Wideband FM (broadcast)
 - **QUAM**: C-QUAM AM stereo — the label turns green when a stereo pilot is detected
+- **IQ**: raw I/Q — 12 kHz of the band as it arrives, for recording or for another program (see the IQ section below)
 
-Next to the **Modes selector** heading sit the **RADEL** and **RADEU** buttons, which start RADE v1 digital voice in one press — see [Digital Decoders](#digital-decoders).
+Next to the **Modes** heading sit the **RADE-v2U**, **RADE-v1L** and **RADE-v1U** buttons, which start RADE digital voice in one press — see [Digital Decoders](#digital-decoders). **RADE-v2U** starts RADE V2 (beta), always on USB; **RADE-v1L** and **RADE-v1U** start RADE v1.
 
 ### 5. Control Panel
 
@@ -319,7 +320,7 @@ AGC keeps the audio at a steady level. The four buttons work like the AGC switch
 NR, NB, NS and AN are separate on/off buttons that each attack a different kind of noise. They are independent — switching one on does not switch on another — and they can be combined freely.
 
 None of them reach the decoders: FT8, CW, WSPR, SSTV, FAX, NAVTEX, RTTY/PSK31/Olivia/Packet/APRS and the QRSS grabber all read the audio *before* these filters, so you can set them purely by ear without affecting what decodes. See the
-[Decoder manual](DECODERS.md#12-general-tips).
+[Decoder manual](DECODERS.md#14-general-tips).
 
 ### Noise Reduction (NR)
 
@@ -403,6 +404,8 @@ Your name appears in the **Users** window, on your chat lines and on the label t
 
 As on a WebSDR, no listener's IP address is shown to the others — neither in the Users window nor in the User Statistics, which count visitors by an anonymous code.
 
+The Users window also shows which decoder each listener is running — FT8, CW, DRM, HFDL and so on — as a small green tag after the mode, and the User Statistics have a **Decoder Popularity** panel: how many sessions ran each decoder. In the Users window opened from the receiver page, **Tune** beside a listener puts you on what they hear: the same frequency and mode, their filter bandwidth and their decoder — started for you, or yours stopped when they run none. The band is then framed as **To Band** does: the waterfall shows the whole band they are in, with that band's brightness, contrast and tuning step.
+
 ### Chat
 
 When the operator has enabled the chat, it has its own panel on the desktop page and a **Chat** tab on /mobile. Type your message and send it: it goes out under the name in your name box (see above), or as *anonymous* plus a number.
@@ -422,13 +425,15 @@ Magnifies the waterfall display:
 
 **Use when**: You need to see signals more clearly or tune precisely.
 
+**To Band** shows the whole band of the frequency you are on, with 10 kHz to spare at each edge.
+
 ### Auto Adj. (waterfall)
 
 The **Auto Adj.** switch under Waterfall Controls sets the waterfall's brightness and contrast for you. It measures the noise floor across the visible span and turns it into an even, dark background — also where the noise differs from one part of the span to another — and stretches everything above it, so that weak signals stand out and the strongest reach the top colours. It works the same with every colour map, and only the waterfall changes: the spectrum trace keeps its true dB scale. While it is on, the Min and Max sliders are locked and show the measured noise floor and peak; switching it off returns them to the band's own settings.
 
 ### 3D spectrum
 
-The **3D** button next to **Reverse** under Waterfall Controls turns the spectrum into a relief of the last few seconds: frequency across, time going back into the screen, signal strength as height. It uses the same colours, brightness (Min), contrast (Max) and Auto Adj. as the waterfall, and follows zoom and drag like the flat spectrum. Click on it to tune, drag to move along the band and turn the mouse wheel to zoom, exactly as on the flat spectrum. The marks on the left show how many seconds back a row is, those on the right how many dB above the Min level a peak reaches (they are hidden while Auto Adj. is on). **✕ 2D**, or the 3D button again, returns to the flat spectrum, and your choice is remembered in your browser. The view needs WebGL2, which every current browser offers; without it the button does not appear. A video recording made while it is open records the 3D view in place of the flat spectrum. The 3D view is adapted from PhantomSDR-ORSAT by F1NSK.
+The **3D** button next to **Reverse** under Waterfall Controls turns the spectrum into a relief of the last few seconds: frequency across, time going back into the screen, signal strength as height. It uses the same colours, brightness (Min), contrast (Max) and Auto Adj. as the waterfall, and follows zoom and drag like the flat spectrum. Click on it to tune, drag to move along the band and turn the mouse wheel to zoom, exactly as on the flat spectrum. The relief narrows towards the back like a table seen at an angle, and the further back a row is, the lower its peaks. A click on an older row tunes to that row's frequency, and the frequency shown under the mouse then also gives the row's age (for example 7.074.000 · −6 s). The **⚙** button opens two sliders: **Angle** (how steeply the floor climbs towards the back) and **Depth** (how strongly the relief narrows and its rows get lower towards the back); **Reset** returns to the defaults, and your setting is remembered in your browser. The marks on the left show how many seconds back a row is, those on the right how many dB above the Min level a peak reaches (they are hidden while Auto Adj. is on). **✕ 2D**, or the 3D button again, returns to the flat spectrum, and your choice is remembered in your browser. The view needs WebGL2, which every current browser offers; without it the button does not appear. A video recording made while it is open records the 3D view in place of the flat spectrum. The 3D view is adapted from PhantomSDR-ORSAT by F1NSK.
 
 **Cursor line.** Wherever the mouse is over the spectrum, the waterfall or the 3D view, a dashed yellow line marks that frequency on both the spectrum and the waterfall, and the spectrum shows it in MHz.
 
@@ -436,7 +441,7 @@ The **3D** button next to **Reverse** under Waterfall Controls turns the spectru
 
 The **📊 Show** button in the Spectrogram section opens the audio analyser under the waterfall; **📊 Hide** closes it. It shows the audio you hear, after demodulation, as a spectrum with a dB grid and a yellow peak-hold line. **Gain** raises or lowers the trace and **Color** picks its colours. The spectrum is drawn in relief, lit from the upper right. In the Rainbow colours each bar is coloured by how far it stands above the noise at its frequency — dark blue for the noise, also in speech pauses when the AGC lifts it, then blue, cyan, yellow, orange and red for ever stronger signals — while its height still reads on the dB scale. Like the main spectrum, the analyser and its reports are drawn on black, with grey grid lines.
 
-- **Frequency axis.** It follows the mode: 0–4.5 kHz in SSB, 0–2 kHz in CW, 0–5.5 kHz in AM and FM. In LSB it is reversed (high tones on the left), so it reads in the same direction as the RF spectrum. A cyan line marks the dial frequency (in CW, the 750 Hz note), and under the mouse the analyser shows both the audio frequency and the RF frequency in kHz.
+- **Frequency axis.** It follows the mode: 0–4.5 kHz in SSB, 0–2 kHz in CW, 0–5.5 kHz in AM and FM. In LSB it is reversed (high tones on the left), so it reads in the same direction as the RF spectrum. A cyan line marks the dial frequency (in CW, the 600 Hz note), and under the mouse the analyser shows both the audio frequency and the RF frequency in kHz.
 - **Bandwidth markers.** Coloured markers show the recommended widths for the mode — SSB standard 300–2700 Hz and ESSB 50–4000 Hz, CW 500 Hz and 250 Hz, AM broadcast and AM amateur — and a dashed white box shows your current filter. The standard width is drawn as a solid cyan line, the alternative one (ESSB, CW 250 Hz, AM amateur) as a dashed light-blue line.
 - **RF view in AM and FM.** Demodulated audio has no carrier, so in these modes the analyser shows the station as it is on the waterfall: the carrier in the centre, the sidebands either side. Its scale is in dB above the noise.
 - **Occupied width.** The line under the spectrum gives the width the tuned station occupies (the −26 dB method, measured on the waterfall) with a verdict for SSB, AM and CW: green within the norm, amber wide (an ESSB station shows amber), red for likely splatter, which is also shaded on the spectrum. It needs about 2 s of measurements; static crashes are ignored.
@@ -510,6 +515,7 @@ The last three rows are new in 4.1.0; check that a function exists before callin
 - 10 kHz wide, decoded as a stereo pair rather than mono AM
 - The button label turns **green** on its own when the 25 Hz stereo pilot is present, so you can see which stations are actually in stereo before selecting it
 - From AM, pressing the button again switches to synchronous AM on the carrier; the label turns **yellow** and reads `SAM`. A third press returns to plain AM
+- While SAM runs, a line such as `SAM +3.2 Hz · 97%` appears under the status indicators (on the digital S-meter, under VFO | mode | bandwidth): how far the station's carrier is from the dial (+ = above it) and how well the detector is locked — yellow from 85 %, grey again below 60 %. Yellow only means a steady carrier is there; it does not tell the mode: an ordinary AM carrier on a frequency marked as DRM turns it yellow too
 - C-QUAM audio is carried with Opus; every other mode uses FLAC
 
 **Best Practices:**
@@ -588,7 +594,7 @@ The last three rows are new in 4.1.0; check that a function exists before callin
 
 The same ±250 Hz Morse filter as **CW**, but the tone is taken from below the carrier instead of above it. Use it when a signal is easier to copy on the low side, or when an interfering carrier sits just above the one you want.
 
-**There is no CW-L button on the desktop page.** Its mode row is `USB · LSB · CW · AM · QUAM · FM`. CW-L is offered on the simplified `/mobile` page, and on the desktop it can still be set by a link or a bookmark that names it.
+**There is no CW-L button on the desktop page.** Its mode row is `USB · LSB · CW · AM · QUAM · FM · IQ`. CW-L is offered on the simplified `/mobile` page, and on the desktop it can still be set by a link or a bookmark that names it.
 
 Links written for KiwiSDR or UberSDR work too: `modulation=CWU` (or `CW-U`) opens in CW and `modulation=CWL` in CW-L.
 
@@ -608,6 +614,35 @@ Links written for KiwiSDR or UberSDR work too: `modulation=CWU` (or `CW-U`) open
 - No squelch needed for broadcast
 - Enjoy high-quality audio!
 
+### IQ (raw I/Q)
+
+**Used for:**
+- Recording a piece of the band to play back later in HDSDR, SDR#, SDR++ or SDRuno
+- Listening with another program — a KiwiSDR client can ask for it too
+
+**Characteristics:**
+- 12 kHz of the band centred on the dial, as I and Q — heard as stereo, I on the left and Q on the right, the way a KiwiSDR plays it. It sounds like hiss: it is the signal before any demodulation
+- Sent lossless (FLAC), never with Opus, which would destroy the I/Q
+- The level follows the band: noise stays quiet (about −45 dBFS) and a strong station is brought to about −20 dBFS. NR, NB, NS, AN, AI and the squelch are not applied, and choosing IQ switches off any decoder that is running
+- **Audio** under *Recording Options* records the I/Q; when you stop, **Download IQ** saves it as a WAV file (16-bit stereo, 12 kHz) named for example `PhantomSDR_20261026_031500Z_6030000Hz_IQ.wav`. HDSDR, SDR# and SDRuno read the frequency and the time from the file, SDR++ from the name, so the recording opens already tuned
+- The station decides: the button appears only where `[server] iq` is on (the default)
+
+**Best Practices:**
+- Put the station you want in the middle — the recording covers ±6 kHz around the dial
+- To hear one station, a normal mode is simpler; IQ is for recording, for other software and for hearing several stations at once (below)
+
+#### IQ demodulators
+
+While the receiver is in IQ, an **IQ Demodulators** panel opens under the decoders. It runs up to six receivers on the I/Q in your browser — the receiver is not retuned and the station's computer does no extra work:
+
+- The picture shows the 12 kHz around the dial with the real frequencies; each demodulator is a coloured band, its own dial a line inside it. Click the picture to move the selected demodulator there; the mouse wheel over it moves it by 10 Hz (Shift 100 Hz)
+- Each row has the mode (USB, LSB, CW, AM, DSB, FM), the frequency with « ‹ › » buttons (100 and 10 Hz), a level bar, **M** to mute and **✕** to remove. The selected row also has **Width**, **Volume** and **Pan**
+- **DSB** follows the carrier by itself (a carrier-tracking loop): put it within a few tens of Hz of the carrier and the audio stays clean and steady, for suppressed-carrier DSB as well as for AM, where it works as synchronous AM
+- **+ Add** adds a demodulator at the dial, up to six. **Demodulators** / **Raw I/Q** chooses whether you hear them or the plain I/Q
+- They are set relative to the dial, so tuning the receiver moves them all together; a station more than 6 kHz from the dial is not in the stream
+- Example: a DX station working split — one LSB demodulator on the DX, panned left, and one on the callers a few kHz up, panned right
+- Your demodulators are remembered in your browser. The noise controls (NR, NB, NS, AN, AI) do not act in IQ: narrow **Width** instead
+
 ---
 
 ## Digital Decoders
@@ -616,7 +651,7 @@ PhantomSDR-Plus includes built-in decoders for digital modes. For a complete gui
 
 The quickest way in is the **Decoders** button row on the main panel, just below **Wheel Tuning Steps**: ten buttons — **FT8, FT4, FT2, JS8, CW, WSPR, FAX, SSTV, NAVTX, FLDIGI** — that each start their decoder, switch the master Decoder toggle ON and scroll the decoder's window into view in a single press. The button stays blue while the decoder runs; press it again to stop the decoder and close its window. The **Decoder Options** dropdown still works exactly as before and stays in sync with the buttons.
 
-**RADEL** and **RADEU** (RADE v1 digital voice) have their own buttons next to the **Modes selector** heading and inside the **Modes** and **Bands** popup windows, and work the same press-on / press-off way.
+**RADE-v2U**, **RADE-v1L** and **RADE-v1U** (RADE digital voice) have their own buttons next to the **Modes** heading and inside the **Modes** and **Bands** popup windows, and work the same press-on / press-off way. **RADE-v2U** starts RADE V2 (beta), always on USB; **RADE-v1L** and **RADE-v1U** start RADE v1.
 
 The SSTV, HF FAX, NAVTEX, FSK/RTTY and CW decoders each run on their own background thread, so switching a decoder on or off never interrupts the audio, and the waterfall stays smooth while decoding. They are fed audio taken before the noise reduction and mute of your browser — you can mute the receiver and decoding continues unaffected. While a decoder is open the AGC is held on Slow, so the gain stays steady for it.
 

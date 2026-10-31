@@ -6,6 +6,7 @@
 #include "kiwi_bridge.h"
 
 #include <atomic>
+#include <cctype>
 #include <chrono>
 #include <thread>
 #include <mutex>
@@ -14,6 +15,8 @@
 #include <cmath>
 #include <curl/curl.h>
 #include <nlohmann/json.hpp>
+
+std::atomic<bool> g_public_iq_enabled{true};
 
 // ---- Synchronous AM (SAM) product detector with simple PI-PLL ----
 namespace {
@@ -67,6 +70,13 @@ struct SAM_PLL {
         lock_ema = 0.0f;
         locked = false;
     }
+
+    // Read-outs for the UI next to the AM/SAM button.  In lock the phase error
+    // is ~0, so the NCO step is just the integrator: acc rad/sample is the
+    // carrier's distance from the dial, + = carrier above.  quality() is the
+    // lock detector's average, 1.0 = fully locked (yellow at 0.85).
+    inline float offset_hz() const { return (float)(acc * fs / (2.0 * M_PI)); }
+    inline float quality()   const { return lock_ema; }
 
     // FIX: wrap() was defined here but never called — step() and step_cquam()
     // both do inline phase wrapping with if-statements.  The dead function
@@ -449,11 +459,11 @@ AudioClient::AudioClient(connection_hdl hdl,
       audio_rate(audio_max_sps),
       signal_slices(sender.get_signal_slices()),
       signal_slice_mtx(sender.get_signal_slice_mtx()),
-      // Look-ahead 25 ms (was 100 ms): every listener's audio is delayed by
-      // exactly this much. The gain needs ~10 ms to come down (3 ms fast
-      // branch in Auto, 2 ms attack in Fast/Medium/Slow), so 25 ms still
-      // lets it drop before a strong onset arrives.
-      agc(0.1f, 100.0f, 30.0f, 25.0f, audio_max_sps) {
+      // Look-ahead 15 ms (was 100, then 25 ms): every listener's audio is
+      // delayed by exactly this much. The gain needs ~10 ms to come down
+      // (3 ms fast branch in Auto, 2 ms attack in Fast/Medium/Slow); offline,
+      // a sudden 60 dB onset overshoots by 0.4 dB at 15 ms, 2.2 dB at 10 ms.
+      agc(0.1f, 100.0f, 30.0f, 15.0f, audio_max_sps) {
 
     base_audio_compression = audio_compression;
     this->encoder = make_audio_encoder(audio_compression, 1);
@@ -597,6 +607,11 @@ void AudioClient::set_audio_range(int l, double m, int r) {
 }
 
 void AudioClient::set_audio_demodulation(demodulation_mode demodulation) {
+    if (demodulation == IQ && this->demodulation != IQ) {
+        iq_gain = 0.0f;   // the IQ level control starts afresh
+        iq_rms = 0.0f;
+        iq_noise = 0.0f;
+    }
     this->demodulation = demodulation;
 
     // Mode-dependent AGC profile, mirroring what on_demodulation_message()
@@ -756,6 +771,8 @@ void AudioClient::send_audio(std::complex<float> *buf, size_t frame_num) {
 
         // SAM lock indicator defaults off; only the mono-SAM branch sets it.
         sam_locked.store(false, std::memory_order_relaxed);
+        sam_offset_hz.store(NAN, std::memory_order_relaxed);
+        sam_quality.store(NAN, std::memory_order_relaxed);
 
         // buf is pre-offset by l, so all local indices are relative to l.
         const int audio_l = 0;          // start of buf in relative coords (= l - l)
@@ -825,8 +842,8 @@ void AudioClient::send_audio(std::complex<float> *buf, size_t frame_num) {
             // Overlap and add the audio waveform, due to the 50% overlap
             dsp_add_float(audio_real.data(), audio_real_prev.data(),
                           audio_fft_size / 2);
-        } else if (demod == AM || demod == FM) {
-            // For AM/SAM/FM, copy the bins to the complex baseband frequencies
+        } else if (demod == AM || demod == FM || demod == IQ) {
+            // For AM/SAM/FM/IQ, copy the bins to the complex baseband frequencies
             std::fill(audio_fft_input.get(),
                       audio_fft_input.get() + audio_fft_size, 0.0f);
 
@@ -894,6 +911,79 @@ void AudioClient::send_audio(std::complex<float> *buf, size_t frame_num) {
                             audio_complex_baseband_prev.get(),
                             audio_fft_size / 2);
 
+            if (demod == IQ) {
+                // Zero-IF I/Q for DRM: no impulse blanker, noise gate, AGC or
+                // DC removal — each of them breaks OFDM. Only a slow gain
+                // (~3 s) holds the RMS near -20 dBFS, cut at once on clipping.
+                //
+                // A listener (browser or Kiwi) gets one more rule, Kiwi's AGC
+                // threshold in effect: the gain may not lift the band noise
+                // above -45 dBFS. Without it an empty frequency was raised to
+                // the same -20 dBFS as a broadcast station -- 12 kHz of hiss at
+                // full level. The DRM tap keeps the plain rule: its decoder
+                // wants the level, not the quiet.
+                const bool listener =
+                    !(is_internal_tap.load(std::memory_order_relaxed) &&
+                      codec_pinned_pcm.load(std::memory_order_relaxed));
+                const int n = audio_fft_size / 2;
+                float pow_sum = 0.0f, peak = 0.0f;
+                for (int i = 0; i < n; i++) {
+                    const float p2 = std::norm(audio_complex_baseband[i]);
+                    pow_sum += p2;
+                    peak = std::max(peak, p2);
+                }
+                const float rms = std::sqrt(pow_sum / n);
+                peak = std::sqrt(peak);
+                if (iq_rms <= 0.0f) iq_rms = rms;
+                iq_rms += (rms - iq_rms) * 0.012f;   // ~3 s at 28.6 frames/s
+                if (listener && len > 8 && rms > 0.0f) {
+                    // Noise floor from the spectrum, not the waveform: the
+                    // quietest 10 % of the passband bins. Noise bin power is
+                    // exponentially distributed, so its 10th percentile is
+                    // 0.105 x the mean; a station would have to fill over 90 %
+                    // of the 12 kHz to move it. Scaled onto the time-domain
+                    // RMS by Parseval: rms^2 is proportional to the bin sum.
+                    iq_bin_pow.resize(len);
+                    double bin_sum = 0.0;
+                    for (int i = 0; i < len; i++) {
+                        iq_bin_pow[i] = std::norm(buf[i]);
+                        bin_sum += iq_bin_pow[i];
+                    }
+                    auto p10 = iq_bin_pow.begin() + len / 10;
+                    std::nth_element(iq_bin_pow.begin(), p10, iq_bin_pow.end());
+                    if (bin_sum > 0.0) {
+                        const double noise_share =
+                            std::min(1.0, (*p10 / 0.1054) * len / bin_sum);
+                        const float nr = rms * static_cast<float>(std::sqrt(noise_share));
+                        if (iq_noise <= 0.0f) iq_noise = nr;
+                        iq_noise += (nr - iq_noise) * 0.03f;   // ~1 s
+                    }
+                }
+                if (iq_rms > 1e-12f) {
+                    float want = 0.1f / iq_rms;
+                    if (listener && iq_noise > 1e-12f)
+                        want = std::min(want, 0.0056f / iq_noise);   // -45 dBFS
+                    iq_gain = (iq_gain <= 0.0f) ? want : iq_gain + (want - iq_gain) * 0.012f;
+                }
+                if (peak * iq_gain > 0.9f && peak > 0.0f) iq_gain = 0.9f / peak;
+                for (int i = 0; i < n; i++) {
+                    audio_real_int16[i * 2] = std::clamp(static_cast<int32_t>(
+                        audio_complex_baseband[i].real() * iq_gain * 32767.0f), -32768, 32767);
+                    audio_real_int16[i * 2 + 1] = std::clamp(static_cast<int32_t>(
+                        audio_complex_baseband[i].imag() * iq_gain * 32767.0f), -32768, 32767);
+                }
+                {
+                    std::scoped_lock lk(encoder_mtx_);
+                    encoder->set_data(frame_num, audio_l, audio_mid, audio_r,
+                                      average_power, 2, false);
+                    encoder->process(audio_real_int16.data(), n);
+                }
+                ensure_audio_monitor_thread_runs();
+                total_audio_bits_sent.fetch_add(static_cast<size_t>(n) * 2 * 16,
+                                                std::memory_order_relaxed);
+                return;
+            }
+
             // Aggressive complex impulse blanker on newly-accumulated baseband
             apply_impulse_blanker_complex(audio_complex_baseband.get(),
                                           audio_fft_size / 2);
@@ -938,6 +1028,8 @@ void AudioClient::send_audio(std::complex<float> *buf, size_t frame_num) {
                     }
                     // Publish PLL lock state for the AM-button "SAM" indicator.
                     sam_locked.store(sam->locked, std::memory_order_relaxed);
+                    sam_offset_hz.store(sam->offset_hz(), std::memory_order_relaxed);
+                    sam_quality.store(sam->quality(), std::memory_order_relaxed);
                 } else {
                     // Classic envelope (non-synchronous) AM: magnitude of the
                     // complex baseband, DC-blocked to strip the carrier term.
@@ -1022,7 +1114,9 @@ void AudioClient::send_audio(std::complex<float> *buf, size_t frame_num) {
                 std::scoped_lock lk(encoder_mtx_);
                 encoder->set_data(frame_num, audio_l, audio_mid, audio_r,
                                   average_power, out_channels,
-                                  sam_locked.load(std::memory_order_relaxed));
+                                  sam_locked.load(std::memory_order_relaxed),
+                                  sam_offset_hz.load(std::memory_order_relaxed),
+                                  sam_quality.load(std::memory_order_relaxed));
                 encoder->process(audio_real_int16.data(), audio_fft_size / 2);
             }
             } else {
@@ -1072,7 +1166,9 @@ void AudioClient::send_audio(std::complex<float> *buf, size_t frame_num) {
                 std::scoped_lock lk(encoder_mtx_);
                 encoder->set_data(frame_num, audio_l, audio_mid, audio_r,
                                 average_power, out_channels,
-                                sam_locked.load(std::memory_order_relaxed));
+                                sam_locked.load(std::memory_order_relaxed),
+                                sam_offset_hz.load(std::memory_order_relaxed),
+                                sam_quality.load(std::memory_order_relaxed));
                 encoder->process(audio_real_int16.data(), audio_fft_size / 2);
             }
         }
@@ -1149,6 +1245,29 @@ void AudioClient::on_demodulation_message(std::string &demodulation) {
     } else if (demodulation == "FM") {
         this->demodulation = FM;
         set_am_stereo(false);
+    } else if (demodulation == "IQ") {
+        // Raw zero-IF I/Q. The DRM helper's tap gets it on its pinned raw PCM
+        // codec; a listener gets it when [server] iq allows, always on stereo
+        // FLAC -- lossless, as I/Q must be: Opus would wreck the phase between
+        // the two channels, which is the whole content of the stream.
+        const bool tap = is_internal_tap.load(std::memory_order_acquire) &&
+                         codec_pinned_pcm.load();
+        if (!tap && !g_public_iq_enabled.load(std::memory_order_relaxed)) return;
+        set_am_stereo(false);
+        if (!tap) {
+            // Stereo encoder first, mode second: for the frame in between, the
+            // mono branch reads half of what the stereo encoder expects, which
+            // audio_real_int16 (sized 2 x audio_fft_size) covers.
+            std::scoped_lock lk(encoder_mtx_);
+            if (encoder) {
+                encoder->finish_encoder();
+                encoder = make_audio_encoder(AUDIO_FLAC, 2);
+            }
+        }
+        iq_gain = 0.0f;
+        iq_rms = 0.0f;
+        iq_noise = 0.0f;
+        this->demodulation = IQ;
     }
 
     // Reset AGC when changing demodulation modes
@@ -1209,6 +1328,52 @@ void AudioClient::on_identity_message(std::string &name) {
 std::string AudioClient::get_listener_name() {
     std::scoped_lock lk(identity_mtx_);
     return listener_name_;
+}
+
+void AudioClient::on_decoder_message(std::string &name) {
+    // A short label from the page's own list; anything else is dropped, so
+    // the result is safe inside a JSON string and in any page that shows it.
+    std::string n;
+    for (unsigned char c : name) {
+        if (n.size() >= 12) break;
+        if (std::isalnum(c) || c == ' ' || c == '-' || c == '+' || c == '/') n += static_cast<char>(c);
+    }
+    {
+        std::scoped_lock lk(identity_mtx_);
+        if (decoder_name_ == n) return;
+        decoder_name_ = std::move(n);
+    }
+    // Log it like a retune, so the statistics page sees which decoder ran.
+    if (closed.load()) return;
+    sender.broadcast_signal_changes(unique_id, l, audio_mid, r, ip_address,
+                                    is_internal_tap.load(std::memory_order_acquire));
+}
+
+std::string AudioClient::get_decoder_name() {
+    std::scoped_lock lk(identity_mtx_);
+    return decoder_name_;
+}
+
+void AudioClient::on_diversity_message(std::string &type, std::string &host) {
+    // Same filtering idea as the decoder label: only characters a source type
+    // or a host[:port] can hold, so the result is safe inside a JSON string.
+    std::string t, h;
+    for (unsigned char c : type) {
+        if (t.size() >= 8) break;
+        if (std::isalnum(c)) t += static_cast<char>(c);
+    }
+    for (unsigned char c : host) {
+        if (h.size() >= 64) break;
+        if (std::isalnum(c) || c == '.' || c == '-' || c == ':' || c == '_' || c == '[' || c == ']')
+            h += static_cast<char>(c);
+    }
+    std::scoped_lock lk(identity_mtx_);
+    diversity_ = (t.empty() || h.empty()) ? std::string() : t + " " + h;
+}
+
+std::string AudioClient::get_diversity() {
+    std::scoped_lock lk(identity_mtx_);
+    return diversity_;
 }
 
 void AudioClient::on_codec_caps_message(bool opus_supported) {

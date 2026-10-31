@@ -58,6 +58,10 @@ const CENTRE_MODES = ["CW", "CW-L", "AM", "QUAM", "SAM"];
 const CENTRE_RES_CW_HZ = 100;
 const CENTRE_RES_AM_HZ = 1000; // AM carriers are whole kHz by allocation
 const CENTRE_MAX_HZ = 2500; // half a 9 kHz step reaches the next carrier
+// Shortwave AM steps 5 kHz, finer than the 9 kHz passband, so a strong
+// station's sideband trips the channel next to it and the scan parks 5 kHz off
+// the carrier.  Below this step the pull-in reaches one whole step instead.
+const AM_CHANNEL_HZ = 9000;
 
 // Dwell on a channel the screen could not rule out.  The settle clears the
 // audio still in flight from the previous channel; the sample peak-holds over a
@@ -151,6 +155,7 @@ export function createScanner(ctx) {
   let parked = false;
   let dir = 1;
   let cursorHz = null; // where the SCAN is, which is not where the VFO is
+  let leftHz = null; // the carrier the scan set off from
   let loHz = null;
   let hiHz = null;
   let timer = null;
@@ -215,7 +220,7 @@ export function createScanner(ctx) {
     const m = String(mode == null ? ctx.getMode() : mode || "").toUpperCase();
     if (m === "CW" || m === "CW-L")
       return { stepHz: STEP_CW_HZ, anchorHz: 0 };
-    if (m === "USB" || m === "LSB" || m === "RADEU" || m === "RADEL")
+    if (m === "USB" || m === "LSB" || m === "RADEU" || m === "RADEL" || m === "RADE2")
       return { stepHz: STEP_SSB_HZ, anchorHz: 0 };
     if (m === "AM" || m === "QUAM" || m === "SAM") {
       if (hz >= LW_LO_HZ && hz <= LW_HI_HZ)
@@ -467,7 +472,9 @@ export function createScanner(ctx) {
 
   // Land on the strongest point near where we stopped, so a stop sits on the
   // signal rather than on its skirt.  The spectrum peak is used for POSITION
-  // only — the decision to stop was already made from a real dwell.
+  // only — the decision to stop was already made from a real dwell.  Returns
+  // false when the stop turns out to be the skirt of the carrier the scan set
+  // off from: that is not a new signal, so the scan carries on.
   function centre() {
     try {
       const cur = Math.round(ctx.getFrequencyHz());
@@ -476,23 +483,40 @@ export function createScanner(ctx) {
       if (CENTRE_MODES.indexOf(mode) < 0) {
         // Not a carrier mode: no centring, and the stop is forced onto the grid
         // so SSB parks on a whole kHz even if the VFO started on a fraction.
-        if (anchorHz == null) return;
+        if (anchorHz == null) return true;
         const snapped =
           anchorHz + Math.round((cur - anchorHz) / stepHz) * stepHz;
         if (snapped !== cur) ctx.tune(snapped);
-        return;
+        return true;
       }
       const wf = ctx.getWaterfall();
-      if (!wf || typeof wf.getPeakFreq !== "function") return;
-      const half = Math.min(stepHz / 2, CENTRE_MAX_HZ);
-      const peak = wf.getPeakFreq(cur, half);
-      if (!Number.isFinite(peak)) return;
+      if (!wf || typeof wf.getPeakFreq !== "function") return true;
+      // Shortwave AM: the skirt that tripped the stop can be a step or two from
+      // its carrier, so climb to the top instead of taking one nudge.
+      const sw = mode.indexOf("CW") !== 0 && stepHz < AM_CHANNEL_HZ;
+      const half = sw ? stepHz : Math.min(stepHz / 2, CENTRE_MAX_HZ);
       const res = mode.indexOf("CW") === 0 ? CENTRE_RES_CW_HZ : CENTRE_RES_AM_HZ;
-      const hz = Math.round(peak / res) * res;
+      let hz = cur;
+      for (let k = 0; k < (sw ? 4 : 1); k++) {
+        const peak = wf.getPeakFreq(hz, half);
+        if (!Number.isFinite(peak)) break;
+        const next = Math.round(peak / res) * res;
+        if (Math.abs(next - hz) < res) break;
+        hz = next;
+      }
+      if (sw && leftHz != null && Math.abs(hz - leftHz) < AM_CHANNEL_HZ / 2)
+        return false;
+      // A carrier a kHz or so off its channel (15389.1 for 15390) belongs on
+      // the raster; the AM filter and SAM take the offset in their stride.
+      if (sw && anchorHz != null) {
+        const ch = anchorHz + Math.round((hz - anchorHz) / stepHz) * stepHz;
+        if (Math.abs(hz - ch) <= 1500) hz = ch;
+      }
       const shift = Math.abs(hz - cur);
-      if (shift < res || shift > half) return;
+      if (shift < res || (!sw && shift > half)) return true;
       ctx.tune(hz);
     } catch (e) {}
+    return true;
   }
 
   // ------------------------------------------------------------------ state
@@ -550,6 +574,7 @@ export function createScanner(ctx) {
     const vfo = Math.round(ctx.getFrequencyHz());
     if (cursorHz == null || Math.abs(vfo - cursorHz) > stepAt(vfo).stepHz) {
       cursorHz = vfo;
+      leftHz = vfo;
       const r = rangeAt(vfo);
       loHz = r ? r.lo : null;
       hiHz = r ? r.hi : null;
@@ -602,9 +627,14 @@ export function createScanner(ctx) {
   // ----------------------------------------------------------------- parked
 
   function park() {
-    parked = true;
     clearTimers();
-    centre(); // park on the signal, not on the raster point next to it
+    // Park on the signal, not on the raster point next to it — unless it is
+    // still the station the scan just left.
+    if (!centre()) {
+      raf = requestAnimationFrame(scanTick);
+      return;
+    }
+    parked = true;
     quietSince = null;
     parkedAt = now();
     publish(true);
@@ -631,6 +661,7 @@ export function createScanner(ctx) {
         maxStayMs > 0 && parkedAt != null && now() - parkedAt >= maxStayMs;
       if (quietLongEnough || stayedTooLong) {
         parked = false;
+        leftHz = Math.round(ctx.getFrequencyHz());
         quietSince = null;
         parkedAt = null;
         publish(true);
@@ -666,6 +697,7 @@ export function createScanner(ctx) {
     parkedAt = null;
     const vfo = Math.round(ctx.getFrequencyHz());
     cursorHz = vfo;
+    leftHz = vfo;
     const r = rangeAt(vfo);
     loHz = r ? r.lo : null;
     hiHz = r ? r.hi : null;

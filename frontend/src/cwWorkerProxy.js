@@ -87,8 +87,8 @@ export class CWWorkerProxy {
   }
 
   /**
-   * `pcm` here is the PROCESSED playback buffer, moments before it is handed to
-   * playPCM() — copying is not optional.
+   * `pcm` here is playAudio()'s raw tap, a buffer the page goes on using for
+   * the other decoders and playback — copying is not optional.
    */
   feed(pcm) {
     if (!pcm || pcm.length === 0) return;

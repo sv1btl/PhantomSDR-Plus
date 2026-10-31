@@ -678,7 +678,9 @@ export class KiwiFSKDecoder {
         return {
           name: 'weather', center: 1000.0, shift: 450.0, baud: 50.0,
           lowpass: 65.0, audioMinimum: 96.0, protocol: 'ita2', encoding: 'ita2', framing: '5N1.5',
-          dataBits: 5, parity: 'N', stopBits: 1.5, squelch: FSK_SQUELCH_DEFAULT,
+          // −7 dB, not the general −8: on pure noise −8 let 54 characters through
+          // in 20 minutes, −7 dB 10, for a little copy at the edge (−4 dB: 69 → 63 %).
+          dataBits: 5, parity: 'N', stopBits: 1.5, squelch: -7,
           // The DWD circuits arrive with mark (idle/1) on the LOWER audio tone
           // in USB. The discriminator reads positive for the HIGHER frequency,
           // so without inversion markState=1 would map to space and every bit
@@ -1052,6 +1054,7 @@ export class KiwiFSKDecoder {
     this._nvBitCount = 0;
     this._nvCodeBits = 0;
     this._nvErrorCount = 0;
+    this._nvErrRate = 0;
     this._nvValidCount = 0;
     this._nvSyncChars = [];
     this._nvWaiting = false;
@@ -1186,6 +1189,7 @@ export class KiwiFSKDecoder {
     this._nvBitCount = 0;
     this._nvCodeBits = 0;
     this._nvErrorCount = 0;
+    this._nvErrRate = 0;
     this._nvValidCount = 0;
     this._nvWaiting = false;
     this._nvShift = false;
@@ -1487,6 +1491,8 @@ export class KiwiFSKDecoder {
                 if (rv.tally === 1) this._nvSucceedTally++;
                 else if (rv.tally === -1) this._nvFailTally++;
               }
+              this._nvErrRate = 0;
+              this._nvFrameScore = null;
               this._nvSetState(NV._NV_STATE_READ_DATA);
               if (this._navtexCb) this._navtexCb({ type: 'status', text: 'Phasing — sync acquired' });
               if (this._isFsk() && this._variant === 'maritime' && this._fskCb) {
@@ -1502,20 +1508,57 @@ export class KiwiFSKDecoder {
         }
         break;
 
-      case NV._NV_STATE_READ_DATA:
+      case NV._NV_STATE_READ_DATA: {
         this._nvWaiting = false;
         this._nvCodeBits = (this._nvCodeBits >> 1) | (bit ? this._nvMsb : 0);
         this._nvBitCount++;
-        if (this._nvBitCount === this._nvNbits) {
+        // Framing tracker. Sync acquisition can lock one or two bits off the
+        // true character boundary, and such a framing still passes ~60 % of
+        // the 4-of-7 checks (it inherits most of the FEC repeat structure),
+        // against ~77 % for the true framing at −6 dB and 100 % when strong.
+        // Rather than wait for that lock to fail — which needed a sync-loss
+        // rule hair-trigger enough to drop real weak signals — every bit
+        // offset keeps a validity score, and the framing moves to an offset
+        // that clearly beats the current one, without closing the message.
+        const N7 = this._nvNbits;
+        this._nvShiftReg = ((this._nvShiftReg || 0) >> 1) | (bit ? this._nvMsb : 0);
+        const fs = this._nvFrameScore || (this._nvFrameScore = new Float32Array(N7).fill(0.5));
+        const o = this._nvBitCount % N7;
+        fs[o] += ((this._nvCheckBits(this._nvShiftReg) ? 1 : 0) - fs[o]) / 32;
+        if (this._nvBitCount === N7) {
+          let best = 0;
+          for (let k = 1; k < N7; k++) if (fs[k] > fs[best]) best = k;
+          if (best !== 0 && fs[best] > fs[0] + 0.12 && fs[best] > 0.55) {
+            // The next boundary becomes the one `best` bits from now: the
+            // code register already holds the sliding window, so only the
+            // count moves; the scores rotate with the boundary.
+            const r = Float32Array.from(fs);
+            for (let k = 0; k < N7; k++) fs[k] = r[(k + best) % N7];
+            this._nvBitCount = N7 - best;
+            break;
+          }
+        }
+        if (this._nvBitCount === N7) {
           const rv = this._nvProcessCode(this._nvCodeBits);
           if (rv.tally === 1) this._nvSucceedTally++;
           else if (rv.tally === -1) this._nvFailTally++;
 
+          // Sync is lost on a sequential test, not on three failed slots
+          // close together. Every SITOR-B character is sent twice, so a weak
+          // signal loses single slots all the time and the copy covers them:
+          // at −6 dB about 30 % of slots fail, and the old rule dropped sync
+          // ~9 times per message, each re-acquisition costing characters.
+          // Wrong bit framing (a false lock, or the signal gone) fails ~73 %
+          // (35 of 128 codes are valid). The score adds the log-likelihood
+          // ratio of those two per slot, floored so a long clean stretch
+          // cannot bank credit: a false lock or the end of a signal is let go
+          // within ~10–20 slots, a real weak signal practically never.
+          this._nvErrRate = Math.max(-3, this._nvErrRate + (rv.success ? -0.95 : 0.89));
           if (rv.success) {
             if (this._nvErrorCount > 0) this._nvErrorCount--;
           } else {
             this._nvErrorCount++;
-            if (this._nvErrorCount > 2) {
+            if (this._nvErrRate > 4) {
               this._nvSyncSetup = 1;
               this._nvCloseHeaderless('lost');
               if (this._navtexCb) this._navtexCb({ type: 'status', text: 'Sync lost — scanning…' });
@@ -1529,6 +1572,7 @@ export class KiwiFSKDecoder {
           this._nvWaiting = true;
         }
         break;
+      }
     }
   }
 

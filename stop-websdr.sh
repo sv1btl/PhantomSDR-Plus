@@ -84,12 +84,16 @@ kill_name cf32_to_real
 sleep 1
 kill_name spectrumserver
 
-# 3) Stop the RADE sidecar and any lpcnet_demo child it spawned. It belongs to
-#    the main receiver, so stopping another instance leaves it alone. Harmless
-#    when RADE was never started (nothing matches).
+# 3) Stop the RADE sidecar and any lpcnet_demo child it spawned, and the DRM
+#    helper with its decoders. They belong to the main receiver, so stopping
+#    another instance leaves them alone. Harmless when they were never started
+#    (nothing matches).
 if [ -z "$TARGET" ] || [ "$TARGET" = "main" ]; then
     pkill -9 -f "rade_helper\.py" 2>/dev/null
     killall -9 lpcnet_demo 2>/dev/null
+    # The DRM helper and its decoders (one ubersdr-drm per listener).
+    pkill -f "autorun/drm-helper\.js" 2>/dev/null
+    pkill -9 -f "drm/bin/ubersdr-drm" 2>/dev/null
 fi
 
 sleep 2

@@ -10,6 +10,8 @@ Since v5.0.0 one PhantomSDR-Plus computer can run several receivers at the same 
 
 > **The easiest way:** run `./add-receiver.sh` (the installers offer it at the end). It asks which receiver and what it should cover, installs its driver, writes everything described in [section 3](#3-adding-a-second-receiver) and [section 4](#4-receiverstoml), and offers to start the receiver and restart the proxy. The rest of this manual explains what it does, for when you want to change something by hand.
 
+> **From the admin panel:** the **Receivers** page lists every receiver with what it covers, changes the frequency and bandwidth of an extra receiver by itself (and restarts only that one), and prepares a new receiver: it saves your answers and gives `./add-receiver.sh --answers instances/.add-rx.env` to run in a terminal. See [Admin Panel](ADMIN_PANEL_SETUP.md).
+
 ---
 
 ## Contents

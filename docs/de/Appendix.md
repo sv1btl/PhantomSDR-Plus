@@ -17,7 +17,7 @@ Alle Befehle, die ein Sysop zum Betrieb einer PhantomSDR-Plus-Station braucht, n
 | `bash configure-station.sh --ask` | Fragt und speichert nur `station.conf`. | [Installationsanleitung](INSTALLATION.md#die-stationsfragen) |
 | `bash configure-station.sh --apply` | Schreibt die Konfigurationsdateien ohne Fragen aus `station.conf` neu. | [Installationsanleitung](INSTALLATION.md#die-stationsfragen) |
 | `bash configure-station.sh --show` | Zeigt die aktuellen Antworten. | [Installationsanleitung](INSTALLATION.md#die-stationsfragen) |
-| `./add-receiver.sh` | Fügt einen weiteren Empfänger (etwa einen RTL-SDR für 2 m) neben dem Hauptempfänger hinzu. | [Installationsanleitung](INSTALLATION.md#mehrere-empfänger-auf-einem-rechner) |
+| `./add-receiver.sh` | Fügt einen weiteren Empfänger (etwa einen RTL-SDR für 2 m) neben dem Hauptempfänger hinzu. | [Admin-Panel einrichten](ADMIN_PANEL_SETUP.md#empfänger) |
 
 ## Empfängertreiber
 
@@ -30,6 +30,7 @@ Alle Befehle, die ein Sysop zum Betrieb einer PhantomSDR-Plus-Station braucht, n
 | `./setup-airspyhf.sh` | Installiert die Treiberkette des Airspy HF+. | [Installationsanleitung](INSTALLATION.md#empfänger-über-soapysdr-rsp1a-fobos-airspy-hf) |
 | `./setup-fobos.sh` | Installiert die Treiberkette des RigExpert Fobos. | [Installationsanleitung](INSTALLATION.md#empfänger-über-soapysdr-rsp1a-fobos-airspy-hf) |
 | `./setup-hackrf.sh` | Installiert das hackrf-Paket und seine udev-Regel. | [Installationsanleitung](INSTALLATION.md#hackrf-one) |
+| `./setup-drm.sh` | Baut den DRM-Decoder (ubersdr-drm mit fdk-aac 2.0.3) nach `drm/bin/`. | [Decoder](DECODERS.md#das-panel-lesen) |
 | `rtl_test` | Prüft, ob ein RTL-SDR-Stick erkannt wird. | [Installationsanleitung](INSTALLATION.md#rtl-sdr-testen) |
 | `SoapySDRUtil --find="driver=soapyMiri"` | Prüft, ob der RSP1A erkannt wird (`driver=fobos`, `driver=airspyhf` für die anderen). | [Installationsanleitung](INSTALLATION.md#empfänger-über-soapysdr-rsp1a-fobos-airspy-hf) |
 | `SoapySDRUtil --info` | Listet die installierten SoapySDR-Treiber. | [Installationsanleitung](INSTALLATION.md#fobos-oder-airspy-hf-nicht-gefunden) |
@@ -50,6 +51,7 @@ Alle Befehle, die ein Sysop zum Betrieb einer PhantomSDR-Plus-Station braucht, n
 | `INSTANCE=vhf ./start-rtl.sh` | Startet einen zweiten Empfänger, eingerichtet in `instances/vhf/`. | [Mehrere Empfänger](MULTI_RECEIVER.md#3-einen-zweiten-empfänger-hinzufügen) |
 | `SPECTRUM_CORES=0-3 ./start-rx888mk2.sh` | Bindet den Server an diese CPU-Kerne (`none` = keine Bindung). | [README](README.md#grundlegender-betrieb) |
 | `RADE_ENABLED=0 ./start-rx888mk2.sh` | Startet ohne den RADE-Sidecar. | [RADE README](RADE_README.md#steuerung-des-sidecars) |
+| `DRM_ENABLED=0 ./start-rx888mk2.sh` | Startet ohne den DRM-Helfer. | [Decoder](DECODERS.md#das-panel-lesen) |
 | `./stop-websdr.sh` | Stoppt alle Empfänger dieser Installation und ihren Watchdog. | [Installationsanleitung](INSTALLATION.md#7-server-stoppen) |
 | `./stop-websdr.sh main` | Stoppt nur den Hauptempfänger. | [Mehrere Empfänger](MULTI_RECEIVER.md#5-starten-und-stoppen) |
 | `./stop-websdr.sh vhf` | Stoppt nur den mit `INSTANCE=vhf` gestarteten Empfänger. | [Mehrere Empfänger](MULTI_RECEIVER.md#5-starten-und-stoppen) |
@@ -82,7 +84,7 @@ Alle Befehle, die ein Sysop zum Betrieb einer PhantomSDR-Plus-Station braucht, n
 | `./update.sh --apply --yes` | Aktualisiert unbeaufsichtigt; jede von Ihnen bearbeitete Datei bleibt erhalten. | [Installationsanleitung](INSTALLATION.md#weitere-optionen) |
 | `./update.sh --apply --prune` | Bietet zusätzlich an, upstream entfernte Dateien zu löschen. | [Installationsanleitung](INSTALLATION.md#aufruf) |
 | `./update.sh --from FILE` | Nimmt die neue Version aus einem `.zip`/`.tar.gz` oder Ordner — ohne Netzwerk. | [Installationsanleitung](INSTALLATION.md#weitere-optionen) |
-| `./update.sh --ref v5.3.0` | Aktualisiert auf einen Tag, Branch oder Commit statt auf den aktuellen Stand. | [Installationsanleitung](INSTALLATION.md#weitere-optionen) |
+| `./update.sh --ref v5.4.0` | Aktualisiert auf einen Tag, Branch oder Commit statt auf den aktuellen Stand. | [Installationsanleitung](INSTALLATION.md#weitere-optionen) |
 | `./update.sh --list-excludes` | Zeigt die Dateien, die der Updater nie anfasst. | [Installationsanleitung](INSTALLATION.md#weitere-optionen) |
 | `./update.sh --verbose` | Listet alle Dateien, nicht nur die ersten 40. | [Installationsanleitung](INSTALLATION.md#weitere-optionen) |
 | `./update.sh --restore LAST` | Stellt die Dateien wieder her, die das letzte Update überschrieben hat. | [Installationsanleitung](INSTALLATION.md#ein-update-rückgängig-machen) |
@@ -155,6 +157,7 @@ Alle Befehle, die ein Sysop zum Betrieb einer PhantomSDR-Plus-Station braucht, n
 | `sudo journalctl -u sdr-stats.service -f` | Verfolgt sein Log. | [Statistikserver](../sdr-stats/readme_de.md#dienstverwaltung) |
 | `curl http://localhost:3001/api/system-stats` | Prüft, ob er antwortet. | [Statistikserver](../sdr-stats/readme_de.md#test-1-api-endpunkt-prüfen) |
 | `./install_rade.sh` | Installiert den RADE-/FreeDV-Sidecar (`install_rade_ubuntu22.sh` unter Ubuntu 22.04). | [RADE README](RADE_README.md#installation--der-kurze-weg) |
+| `cd ~/rade_c && git pull && cmake --build build` | Aktualisiert rade_c, den Decoder für RADE V2 (beta); neue RADE2-Verbindungen verwenden die neue Version. | [RADE README](RADE_README.md#rade-v2-beta--rade2) |
 | `./rade.sh start` | Startet den RADE-Sidecar mit seinem Watchdog. | [RADE README](RADE_README.md#steuerung-des-sidecars) |
 | `./rade.sh stop` | Stoppt ihn, seinen Watchdog und seine Decoder-Prozesse. | [RADE README](RADE_README.md#steuerung-des-sidecars) |
 | `./rade.sh restart` | Stoppt und startet ihn sauber. | [RADE README](RADE_README.md#steuerung-des-sidecars) |

@@ -133,7 +133,7 @@ function percentile(arr, from, to, q) {
  * Returns 0 when the series has no usable structure: noise is dominated by
  * 1-frame runs, which the local-maximum test rejects.
  */
-function shortestRun(series, fill, pos, maxLen, minLen = 2) {
+function shortestRun(series, fill, pos, maxLen, minLen = 2, tol = 0) {
   if (fill < maxLen) return 0;
   const start = (pos - fill + series.length) % series.length;
   const hist = new Int32Array(maxLen);
@@ -149,6 +149,24 @@ function shortestRun(series, fill, pos, maxLen, minLen = 2) {
   }
   if (runs < 20) return 0;
   const need = Math.max(4, runs * 0.12);
+  if (tol > 0) {
+    // Relative tolerance, for runs measured in many frames.  A 20 wpm dot is
+    // ~60 frames of the 1 kHz envelope, and keying edges plus noise spread it
+    // over several adjacent lengths, so no single length ever held 12 % of the
+    // runs: CW measured keyRate 0 even at 34 dB S/N.  Here each length is
+    // credited with every run within ±tol of it, the shortest such cluster
+    // that is a local maximum wins, and the answer is that cluster's centroid.
+    const S = (L) => { let a = 0; for (let k = Math.max(1, Math.round(L * (1 - tol))); k <= Math.min(maxLen - 1, Math.round(L * (1 + tol))); k++) a += hist[k]; return a; };
+    for (let L = Math.max(2, minLen); L < maxLen - 1; L++) {
+      const v = S(L);
+      if (v >= need && v >= S(L - 1) && v >= S(L + 1)) {
+        let w = 0, m = 0;
+        for (let k = Math.max(1, Math.round(L * (1 - tol))); k <= Math.min(maxLen - 1, Math.round(L * (1 + tol))); k++) { w += hist[k]; m += hist[k] * k; }
+        return w ? m / w : L;
+      }
+    }
+    return 0;
+  }
   for (let L = Math.max(2, minLen); L < maxLen - 1; L++) {
     if (hist[L] >= need && hist[L] >= hist[L - 1] && hist[L] >= hist[L + 1]) return L;
   }
@@ -237,12 +255,32 @@ export class ModeIdentifier {
     this._envPowPos = 0; this._envPowFill = 0;
     this._envSeries = new Int8Array(ENV_HZ * 4);
     this._envPos = 0; this._envFill = 0;
+    // Narrow-band twins of the envelope and cadence series: the power of the
+    // baseband signal the mixer already makes (centred on the measured signal,
+    // ~750 Hz noise bandwidth) instead of the whole audio passband.  For a
+    // narrow signal that is ~9 dB less noise under the same on/off ratio — a
+    // 50 Hz FT8 carrier at 0 dB in 2500 Hz lifted the full-band power by under
+    // 2 dB, so its bursts were invisible and it read as continuous.  Used only
+    // while the measured signal is narrow (see _report); wide modes keep the
+    // full-band series their gates were tuned on.
+    this._envPowNb = new Float64Array(ENV_HZ * 4);
+    this._nbEnvAcc = 0; this._nbEnvCnt = 0; this._nbEnvLast = 0;
+    this._nbCadAcc = 0; this._nbCadCnt = 0; this._nbCadLast = 0;
+    this._narrow = false;
+    // A second, signal-sized low-pass on the baseband for those series: a
+    // 25 Hz CW carrier in a 750 Hz window still sat ~15 dB deep in noise
+    // it does not occupy.  Two one-pole stages, cutoff set in _report from
+    // the measured width (25–200 Hz); even at 25 Hz the rise time is ~6 ms,
+    // well inside a 60 wpm dot.
+    this._lpI = 0; this._lpQ = 0; this._lpI2 = 0; this._lpQ2 = 0;
+    this._lpA = 1 - Math.exp(-2 * Math.PI * 200 / this._ifHz);
 
     // (4) slow in-band power, for burst cadence
     this._cadLen = Math.max(1, Math.round(sps / CADENCE_HZ));
     this._cadPos = 0; this._cadAcc = 0;
     this._cad = new Float64Array(CADENCE_HZ * CADENCE_SEC);
     this._cadTime = new Float64Array(CADENCE_HZ * CADENCE_SEC);
+    this._cadNb = new Float64Array(CADENCE_HZ * CADENCE_SEC);
     this._cadIdx = 0; this._cadFill = 0;
 
     this._lastReport = 0;
@@ -345,6 +383,12 @@ export class ModeIdentifier {
             const b = Math.round(hz / IF_BIN_HZ) + (IF_BINS >> 1);
             if (b >= 0 && b < IF_BINS) this._ifHist[b] += I * I + Q * Q;
           }
+          const a = this._lpA;
+          this._lpI += a * (I - this._lpI); this._lpQ += a * (Q - this._lpQ);
+          this._lpI2 += a * (this._lpI - this._lpI2); this._lpQ2 += a * (this._lpQ - this._lpQ2);
+          const pw = this._lpI2 * this._lpI2 + this._lpQ2 * this._lpQ2;
+          this._nbEnvAcc += pw; this._nbEnvCnt++;
+          this._nbCadAcc += pw; this._nbCadCnt++;
         }
       }
 
@@ -352,6 +396,8 @@ export class ModeIdentifier {
       this._envAcc += s * s;
       if (++this._envN >= this._envLen) {
         this._envPow[this._envPowPos] = this._envAcc / this._envLen;
+        if (this._nbEnvCnt) { this._nbEnvLast = this._nbEnvAcc / this._nbEnvCnt; this._nbEnvAcc = 0; this._nbEnvCnt = 0; }
+        this._envPowNb[this._envPowPos] = this._nbEnvLast;
         this._envPowPos = (this._envPowPos + 1) % this._envPow.length;
         if (this._envPowFill < this._envPow.length) this._envPowFill++;
         this._envAcc = 0; this._envN = 0;
@@ -361,6 +407,8 @@ export class ModeIdentifier {
       this._cadAcc += s * s;
       if (++this._cadPos >= this._cadLen) {
         this._cad[this._cadIdx] = this._cadAcc / this._cadLen;
+        if (this._nbCadCnt) { this._nbCadLast = this._nbCadAcc / this._nbCadCnt; this._nbCadAcc = 0; this._nbCadCnt = 0; }
+        this._cadNb[this._cadIdx] = this._nbCadLast;
         this._cadTime[this._cadIdx] = tStart + (i + 1) * msPerSample;
         this._cadIdx = (this._cadIdx + 1) % this._cad.length;
         if (this._cadFill < this._cad.length) this._cadFill++;
@@ -616,21 +664,35 @@ export class ModeIdentifier {
     const n = this._envPowFill;
     const start = (this._envPowPos - n + this._envPow.length) % this._envPow.length;
     const vals = new Float64Array(n);
-    for (let i = 0; i < n; i++) vals[i] = this._envPow[(start + i) % this._envPow.length];
+    const src = this._narrow ? this._envPowNb : this._envPow;
+    for (let i = 0; i < n; i++) vals[i] = src[(start + i) % src.length];
+    // Narrow band: a 9 ms moving average as well.  The shortest element worth
+    // timing is a 60 wpm dot (20 ms), and without it the noise on a weak
+    // keyed carrier dithers across the threshold every few milliseconds.
+    if (this._narrow) {
+      const c = Float64Array.from(vals);
+      for (let i = 0; i < n; i++) { let a = 0, k = 0; for (let j = Math.max(0, i - 4); j <= Math.min(n - 1, i + 4); j++) { a += c[j]; k++; } vals[i] = a / k; }
+    }
     const sorted = Float64Array.from(vals).sort();
     const qLo = sorted[Math.floor(n * 0.05)] || 1e-20;
     const qHi = sorted[Math.floor(n * 0.95)] || 1e-20;
     if (10 * Math.log10(qHi / qLo) < 6) return { rate: 0, dutyOn: 1 };
     const thresh = Math.sqrt(qLo * qHi);
-    let on = 0;
+    // Narrow band: with hysteresis — on above 60 % of the span in dB, off
+    // below 40 % — so noise riding on a weak element cannot chatter it into
+    // a run of 1 ms "elements" (0 dB in 2500 Hz read 256 elements/s without).
+    const hiT = Math.pow(qLo, 0.4) * Math.pow(qHi, 0.6), loT = Math.pow(qLo, 0.6) * Math.pow(qHi, 0.4);
+    let on = 0, st = vals[0] >= thresh ? 1 : -1;
     for (let i = 0; i < n; i++) {
-      const hot = vals[i] >= thresh ? 1 : -1;
+      let hot;
+      if (this._narrow) { if (st > 0 && vals[i] < loT) st = -1; else if (st < 0 && vals[i] > hiT) st = 1; hot = st; }
+      else hot = vals[i] >= thresh ? 1 : -1;
       if (hot > 0) on++;
       this._envSeries[this._envPos] = hot;
       this._envPos = (this._envPos + 1) % this._envSeries.length;
       if (this._envFill < this._envSeries.length) this._envFill++;
     }
-    const L = shortestRun(this._envSeries, this._envFill, this._envPos, 500);
+    const L = shortestRun(this._envSeries, this._envFill, this._envPos, 500, 2, 0.15);
     return { rate: L ? ENV_HZ / L : 0, dutyOn: on / n };
   }
 
@@ -652,7 +714,7 @@ export class ModeIdentifier {
     const x = new Float64Array(n);
     let mean = 0;
     for (let i = 0; i < n; i++) {
-      x[i] = this._envPow[(start + i) % this._envPow.length];
+      x[i] = (this._narrow ? this._envPowNb : this._envPow)[(start + i) % this._envPow.length];
       mean += x[i];
     }
     mean /= n;
@@ -701,7 +763,8 @@ export class ModeIdentifier {
     const n = this._cadFill;
     const start = (this._cadIdx - n + this._cad.length) % this._cad.length;
     const vals = new Float64Array(n);
-    for (let i = 0; i < n; i++) vals[i] = this._cad[(start + i) % this._cad.length];
+    const cad = this._narrow ? this._cadNb : this._cad;
+    for (let i = 0; i < n; i++) vals[i] = cad[(start + i) % cad.length];
     // Smooth over 0.4 s BEFORE deciding anything.  Cadence is about whole
     // transmissions, not about what the amplitude does within a symbol: PSK31
     // drives its envelope through a null at every phase reversal, and judging
@@ -757,7 +820,10 @@ export class ModeIdentifier {
         if (len < 1.0) continue;
         bursts.push({
           sec: len,
-          atMs: this._cadTime[(start + a) % this._cad.length],
+          // The 0.4 s smoothing above is a TRAILING average, so every edge it
+          // finds is 0.2 s late; FT4's grid allows 0.9 s and its bursts already
+          // start 0.5 s into the slot, so weak FT4 lost its grid to this.
+          atMs: this._cadTime[(start + Math.max(0, a - half)) % this._cad.length],
           headClipped: a === 0,
           tailClipped: b >= n,
         });
@@ -891,6 +957,12 @@ export class ModeIdentifier {
     // fixed by the IF rate (see _reset) — its ~1 kHz cutoff already passes every
     // shift we care about while rejecting the rest of the passband.
     if (spec.snrDb >= MIN_SNR_DB) this._mixHz = spec.centerHz;
+    // Narrow enough for the baseband series to hold all of it (see _reset).
+    this._narrow = spec.snrDb >= MIN_SNR_DB && spec.bwHz > 0 && spec.bwHz <= 300;
+    if (this._narrow) {
+      const fc = Math.max(25, Math.min(200, 0.6 * spec.bwHz));
+      this._lpA = 1 - Math.exp(-2 * Math.PI * fc / this._ifHz);
+    }
 
     if (spec.snrDb < MIN_SNR_DB) {
       this._emit({
@@ -1012,9 +1084,13 @@ const MODES = [
       // full confidence.  The tone pair is the right thing to veto on because
       // it is the measurement that survives the noise that causes the mix-up.
       if (f.toneSpacingHz >= 100) return 0;
-      return 0.65 * near(f.gridSec, 15, 0.1) * (0.2 + 0.8 * nearRel(f.burstSec, 12.64, 0.25)) +
-        0.20 * within(f.bwHz, 30, 250) +
-        0.15 * (f.continuous === false ? 1 : 0);
+      const grid = near(f.gridSec, 15, 0.1), burst = nearRel(f.burstSec, 12.64, 0.25);
+      const base = 0.20 * within(f.bwHz, 30, 250) + 0.15 * (f.continuous === false ? 1 : 0);
+      // Width and "not continuous" alone are no evidence of FTx — every keyed
+      // CW signal has both, and collected 27–35 % FT8 for it.  Without a grid
+      // or a burst of the right length, keep that credit below the display.
+      if (!(grid > 0) && !(burst > 0)) return 0.5 * base;
+      return 0.65 * grid * (0.2 + 0.8 * burst) + base;
     },
   },
   {
@@ -1023,9 +1099,10 @@ const MODES = [
     why: '~90 Hz wide, 4.5 s burst on the 7.5 s UTC grid',
     score: (f) => {
       if (f.toneSpacingHz >= 100) return 0;    // see FT8 above
-      return 0.65 * near(f.gridSec, 7.5, 0.05) * (0.2 + 0.8 * nearRel(f.burstSec, 4.48, 0.3)) +
-        0.20 * within(f.bwHz, 50, 300) +
-        0.15 * (f.continuous === false ? 1 : 0);
+      const grid = near(f.gridSec, 7.5, 0.05), burst = nearRel(f.burstSec, 4.48, 0.3);
+      const base = 0.20 * within(f.bwHz, 50, 300) + 0.15 * (f.continuous === false ? 1 : 0);
+      if (!(grid > 0) && !(burst > 0)) return 0.5 * base;  // see FT8 above
+      return 0.65 * grid * (0.2 + 0.8 * burst) + base;
     },
   },
   {
@@ -1292,7 +1369,20 @@ const MODES = [
       // BPSK carrier picks up a spurious 21-23 Hz "spacing" about a quarter of
       // the time even at full strength, and that silently threw the mode away:
       // measured at 30/40 before this line was qualified, 40/40 after.
-      if (f.toneCount >= 2 && f.toneSpacingHz !== 0) return 0;
+      //
+      // And only tones that are really there: in the key-up gaps of a weak
+      // Morse signal the noise leaves a few phantom modes ~30 Hz apart in the
+      // IF histogram, which vetoed real CW at −5 dB.  Phantoms spread far
+      // beyond the measured width (97 Hz of "tones" on a 26 Hz carrier); a
+      // real MFSK signal such as DominoEX keeps its tones inside it.
+      if (f.toneCount >= 2 && f.toneSpacingHz !== 0 &&
+          (f.toneSpacingHz >= 50 || (f.toneCount - 1) * f.toneSpacingHz <= 1.2 * f.bwHz)) return 0;
+      // One tone means one LEVEL.  Speech is keyed too — syllables switch on
+      // and off at Morse-like rates — and a strong vowel harmonic can measure
+      // under 200 Hz wide, so SSB voice was named CW at up to 100 %.  But its
+      // energy sits at many levels across the band (470–1300 Hz measured on
+      // real voices), where a Morse tone measures 0–50 Hz.
+      if (f.levelSpanHz > 300) return 0;
       const bw = within(f.bwHz, 5, 200);
       if (bw <= 0) return 0;
       // Actually keyed: elements at a plausible speed and a duty cycle that is

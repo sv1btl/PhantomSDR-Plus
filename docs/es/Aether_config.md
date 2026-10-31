@@ -27,10 +27,11 @@ Desde la v4.1.0 PhantomSDR-Plus también puede responder al **protocolo KiwiSDR*
 
 | | |
 |---|---|
-| **Audio** | `ws://<host>:<port>/kiwi/<id>/SND` — audio demodulado en el formato SND propio del Kiwi |
-| **Cascada** | `ws://<host>:<port>/kiwi/<id>/W/F` — el espectro, en tramas W/F del Kiwi |
+| **Audio** | `ws://<host>:<port>/kiwi/<id>/SND` (también `ws://<host>:<port>/<id>/SND`) — audio demodulado en el formato SND propio del Kiwi |
+| **Cascada** | `ws://<host>:<port>/kiwi/<id>/W/F` (también `ws://<host>:<port>/<id>/W/F`) — el espectro, en tramas W/F del Kiwi |
 | **Sintonía** | real, no cosmética: `SET mod=…` desde el cliente cambia frecuencia, banda lateral y ancho de paso en el lado de PhantomSDR, exactamente como lo haría un oyente desde el navegador |
 | **S-meter** | alimentado por la potencia por bloque del propio demodulador, en la misma escala que el S-meter web |
+| **IQ** | `SET mod=iq` da 12 kHz de I/Q en las tramas estéreo del Kiwi, como las espera `kiwirecorder.py -m iq`. Sin marcas de tiempo GPS, así que no sirve para TDoA. Solo mientras `[server] iq` esté activado (el valor por defecto) |
 
 La sintonía se admite para una entrada **real** (`signal = "real"` en su `.toml`). Con una entrada IQ la relación entre bin y frecuencia es distinta y no está implementada, así que un receptor IQ servirá audio y cascada pero no seguirá la sintonía de un cliente Kiwi.
 
@@ -116,6 +117,9 @@ Apunte el cliente a la misma dirección y puerto que usan sus oyentes — sin ru
 ```bash
 # kiwiclient, grabando 30 segundos de 7100 kHz LSB
 python3 kiwirecorder.py -s su.receptor.example -p 8073 -f 7100 -m lsb --tlimit=30
+
+# 30 segundos de I/Q alrededor de 6030 kHz, guardados como WAV estéreo
+python3 kiwirecorder.py -s su.receptor.example -p 8073 -f 6030 -m iq --tlimit=30
 ```
 
 El cliente sintoniza, la cascada se llena y el S-meter marca. Si no ocurre absolutamente nada, el puente casi con seguridad sigue desactivado — véase la [sección 3](#3-activarlo).

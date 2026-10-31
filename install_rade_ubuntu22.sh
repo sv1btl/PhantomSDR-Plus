@@ -195,6 +195,7 @@ sudo env DEBIAN_FRONTEND=noninteractive apt-get update -qq
 info "Installing build tools and system dependencies…"
 sudo env DEBIAN_FRONTEND=noninteractive apt-get install -y \
     build-essential cmake git \
+    autoconf automake libtool \
     python3 python3-pip \
     alsa-utils
 
@@ -369,6 +370,58 @@ else
 fi
 
 # =============================================================================
+# STEP 3b — rade_c: FreeDV's C port, for RADE V2 (beta)
+# =============================================================================
+# The RADE2 button decodes V2 with rade_c's radae_rx --v2. It lives in its own
+# tree, so the V1 install above is never touched, and a failure here only
+# leaves V2 unavailable: V1 keeps working, so nothing in this step stops the
+# script. Re-running the installer updates it, which is also how a station
+# follows V2 to the final FreeDV 3.0 release.
+section "Step 3b — rade_c (RADE V2, beta)"
+RADE_C_DIR="$HOME/rade_c"
+RADE_C_BUILD=false
+if [[ -d "$RADE_C_DIR/.git" ]]; then
+    info "Found existing rade_c at $RADE_C_DIR"
+    C_LOCAL=$(git -C "$RADE_C_DIR" rev-parse HEAD 2>/dev/null || echo "unknown")
+    git -C "$RADE_C_DIR" fetch origin --quiet 2>/dev/null || warn "Could not reach GitHub — keeping the current rade_c"
+    C_REMOTE=$(git -C "$RADE_C_DIR" rev-parse origin/main 2>/dev/null || echo "unknown")
+    if [[ "$C_REMOTE" != "unknown" && "$C_LOCAL" != "$C_REMOTE" ]]; then
+        info "rade_c update available: ${C_LOCAL:0:8} → ${C_REMOTE:0:8}"
+        if git -C "$RADE_C_DIR" pull --ff-only --quiet 2>/dev/null; then
+            RADE_C_BUILD=true
+        else
+            warn "Cannot fast-forward rade_c — run manually:  cd $RADE_C_DIR && git pull --rebase"
+        fi
+    else
+        ok "rade_c is up to date (${C_LOCAL:0:8})"
+    fi
+else
+    info "Cloning rade_c from GitHub…"
+    if git clone --quiet https://github.com/freedv/rade_c.git "$RADE_C_DIR"; then
+        ok "Clone complete"
+        RADE_C_BUILD=true
+    else
+        warn "Could not clone rade_c — RADE V2 stays unavailable, RADE V1 is unaffected"
+    fi
+fi
+
+if [[ -d "$RADE_C_DIR/.git" ]] && { $RADE_C_BUILD || [[ ! -x "$RADE_C_DIR/build/src/radae_rx" ]]; }; then
+    info "Building rade_c (radae_rx, lpcnet_demo)…"
+    if cmake -S "$RADE_C_DIR" -B "$RADE_C_DIR/build" -DCMAKE_BUILD_TYPE=Release \
+       && cmake --build "$RADE_C_DIR/build" -j"$(nproc)"; then
+        :
+    else
+        warn "rade_c build failed — see the output above (retry: cmake --build $RADE_C_DIR/build)"
+    fi
+fi
+
+if [[ -x "$RADE_C_DIR/build/src/radae_rx" && -x "$RADE_C_DIR/build/src/lpcnet_demo" ]]; then
+    ok "RADE V2 ready: $RADE_C_DIR/build/src/radae_rx — rade_helper.py uses it from the next RADE2 connection"
+else
+    warn "RADE V2 not available — the RADE2 button will say so; RADE V1 works as before"
+fi
+
+# =============================================================================
 # STEP 4 — Python dependencies (second confirmation, idempotent)
 # =============================================================================
 section "Step 4 — Python dependencies (already installed in Step 2)"
@@ -507,6 +560,12 @@ if [[ -f "$RADAE_DIR/build/src/lpcnet_demo" ]]; then
 echo -e "  ${GREEN}✔${NC}  lpcnet_demo           $(ls -lh "$RADAE_DIR/build/src/lpcnet_demo" | awk '{print $5, $9}')"
 else
 echo -e "  ${RED}✘${NC}  lpcnet_demo           NOT FOUND"
+fi
+
+if [[ -x "$HOME/rade_c/build/src/radae_rx" ]]; then
+echo -e "  ${GREEN}✔${NC}  RADE V2 (beta)        $HOME/rade_c  (RADE2 button)"
+else
+echo -e "  ${YELLOW}!${NC}  RADE V2 (beta)        not built — RADE2 unavailable, V1 unaffected"
 fi
 
 if [[ -f "$RADAE_DIR/$MODEL_CHECKPOINT" ]]; then

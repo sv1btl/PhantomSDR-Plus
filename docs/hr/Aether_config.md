@@ -27,10 +27,11 @@ Od v4.1.0 PhantomSDR-Plus može odgovarati i na **KiwiSDR protokol**, pa se soft
 
 | | |
 |---|---|
-| **Zvuk** | `ws://<host>:<port>/kiwi/<id>/SND` — demodulirani zvuk u Kiwijevom SND okviru |
-| **Slap** | `ws://<host>:<port>/kiwi/<id>/W/F` — spektar, u Kiwijevim W/F okvirima |
+| **Zvuk** | `ws://<host>:<port>/kiwi/<id>/SND` (također `ws://<host>:<port>/<id>/SND`) — demodulirani zvuk u Kiwijevom SND okviru |
+| **Slap** | `ws://<host>:<port>/kiwi/<id>/W/F` (također `ws://<host>:<port>/<id>/W/F`) — spektar, u Kiwijevim W/F okvirima |
 | **Ugađanje** | stvarno, ne kozmetičko: `SET mod=…` s klijenta mijenja frekvenciju, bočni pojas i propusni pojas na PhantomSDR strani, jednako kao što bi to učinio slušatelj u pregledniku |
 | **S-metar** | pogonjen snagom po bloku samog demodulatora, na istoj skali kao i web S-metar |
+| **IQ** | `SET mod=iq` daje 12 kHz I/Q-a u Kiwijevim stereo okvirima, kako ih očekuje `kiwirecorder.py -m iq`. Bez GPS vremenskih oznaka, dakle ne za TDoA. Samo dok je `[server] iq` uključen (zadano) |
 
 Ugađanje je podržano za **realni** ulaz (`signal = "real"` u vašem `.toml`). Za IQ ulaz odnos između binova i frekvencije je drukčiji i nije implementiran, pa će IQ prijamnik davati zvuk i slap, ali neće pratiti ugađanje Kiwi klijenta.
 
@@ -116,6 +117,9 @@ Usmjerite klijent na istu adresu i port koje koriste vaši slušatelji — bez s
 ```bash
 # kiwiclient, snimanje 30 sekundi na 7100 kHz LSB
 python3 kiwirecorder.py -s vas.prijamnik.example -p 8073 -f 7100 -m lsb --tlimit=30
+
+# 30 sekundi I/Q-a oko 6030 kHz, spremljeno kao stereo WAV
+python3 kiwirecorder.py -s vas.prijamnik.example -p 8073 -f 6030 -m iq --tlimit=30
 ```
 
 Klijent se ugađa, slap se puni, S-metar pokazuje. Ako se baš ništa ne događa, most je gotovo sigurno još uvijek isključen — vidi [odjeljak 3](#3-uključivanje).

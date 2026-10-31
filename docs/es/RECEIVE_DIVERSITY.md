@@ -93,7 +93,7 @@ En una estación configurada con las preguntas de la estación (`configure-stati
 
 **Puerto del router.** Detrás del proxy no hay ninguno que abrir: la página llega al relé como `/relay` a través de la dirección que los oyentes ya usan, tanto por http como por https. Solo una estación más antigua, configurada antes de las preguntas de la estación, ejecuta el relé en un puerto propio; los navegadores de los oyentes se conectan entonces directamente a él, así que ese puerto debe abrirse en su router, o la diversidad con WebSDR solo funciona dentro de su propia red. Los otros tres tipos de receptor no necesitan el relé — salvo desde una página servida por https, donde también transporta socios PhantomSDR+ y KiwiSDR que solo tienen http (vea más arriba).
 
-Si el panel de administración está instalado, su dashboard muestra una tarjeta **WebSDR Diversity Relay** con el estado, el puerto y cuántas sesiones hay en curso y hacia qué estaciones.
+Si el panel de administración está instalado, su dashboard muestra una tarjeta **WebSDR Diversity Relay** con el estado, el puerto y cuántas sesiones hay en curso y hacia qué estaciones. Encima, una tarjeta **Receive Diversity** lista cada oyente que combina su receptor con otro — de cualquier tipo, no solo WebSDR — con el receptor, su nombre y ciudad, la frecuencia y el modo, y el tipo y la dirección del socio.
 
 ### Ser un buen invitado
 

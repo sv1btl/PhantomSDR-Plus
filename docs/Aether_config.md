@@ -27,10 +27,11 @@ Since v4.1.0 PhantomSDR-Plus can also answer the **KiwiSDR protocol**, so softwa
 
 | | |
 |---|---|
-| **Audio** | `ws://<host>:<port>/kiwi/<id>/SND` — demodulated audio in the Kiwi's own SND framing |
-| **Waterfall** | `ws://<host>:<port>/kiwi/<id>/W/F` — the spectrum, in Kiwi W/F frames |
+| **Audio** | `ws://<host>:<port>/kiwi/<id>/SND` (also `ws://<host>:<port>/<id>/SND`) — demodulated audio in the Kiwi's own SND framing |
+| **Waterfall** | `ws://<host>:<port>/kiwi/<id>/W/F` (also `ws://<host>:<port>/<id>/W/F`) — the spectrum, in Kiwi W/F frames |
 | **Retuning** | real, not cosmetic: `SET mod=…` from the client changes frequency, sideband and passband on the PhantomSDR side, exactly as a browser listener would |
 | **S-meter** | driven from the demodulator's own per-block power, on the same scale as the web S-meter |
+| **IQ** | `SET mod=iq` gives 12 kHz of I/Q in the Kiwi's stereo frames, as `kiwirecorder.py -m iq` expects. No GPS timestamps, so not for TDoA. Only while `[server] iq` is on (the default) |
 
 Retuning is supported for a **real** input (`signal = "real"` in your `.toml`). For an IQ input the bin-to-frequency relation differs and is not implemented, so an IQ receiver will serve audio and waterfall but will not follow a Kiwi client's tuning.
 
@@ -116,6 +117,9 @@ Point the client at the same address and port your listeners use — no path, no
 ```bash
 # kiwiclient, recording 30 seconds of 7100 kHz LSB
 python3 kiwirecorder.py -s your.receiver.example -p 8073 -f 7100 -m lsb --tlimit=30
+
+# 30 seconds of I/Q around 6030 kHz, saved as a stereo WAV
+python3 kiwirecorder.py -s your.receiver.example -p 8073 -f 6030 -m iq --tlimit=30
 ```
 
 The client tunes, the waterfall fills, and the S-meter reads. If nothing happens at all, the bridge is almost certainly still disabled — see [section 3](#3-switching-it-on).

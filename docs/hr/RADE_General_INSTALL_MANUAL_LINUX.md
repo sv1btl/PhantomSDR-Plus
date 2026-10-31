@@ -372,7 +372,7 @@ Očekivani zapisnik:
    - **RADE v1 — RADEU (USB)** za 20 m / 17 m / 15 m / 12 m / 10 m (> 10 MHz)
 5. Kliknite **Decoder: ON**
 
-Korake 4 i 5 može zamijeniti jedan pritisak: gumbi **RADEL** / **RADEU** nalaze se uz naslov **Modes selector** te u skočnim prozorima **Modes** i **Bands**. Jedan pritisak odabire dekoder, uključuje ga i dovodi RADE ploču na zaslon; ponovni pritisak isključuje RADE. Pogledajte [priručnik za RADE](RADE_README.md).
+Korake 4 i 5 može zamijeniti jedan pritisak: gumbi **RADE-v1L** / **RADE-v1U** nalaze se uz naslov **Modes** te u skočnim prozorima **Modes** i **Bands**. Jedan pritisak odabire dekoder, uključuje ga i dovodi RADE ploču na zaslon; ponovni pritisak isključuje RADE. Pogledajte [priručnik za RADE](RADE_README.md).
 
 | Pokazatelj | Značenje |
 |---|---|
@@ -398,6 +398,22 @@ RADE_TORCH_THREADS=2 ./rade.sh restart
 | 20 | ~180 % |
 
 > Ove su brojke izmjerene na x86_64. Raspberry Pi bez problema dekodira RADE, ali je trošak po korisniku veći i gornja se tablica ne prenosi — izmjerite vlastitu pločicu naredbom `top` dok je korisnik sinkroniziran, prije nego što objavite ograničenje broja korisnika.
+
+---
+
+## Neobavezno — RADE V2 (beta) s rade_c
+
+RADE V2 (beta) — gumb RADE-v2U — dekodira FreeDV-ov rade_c, koji živi u vlastitoj mapi i ne dira `~/radae`. `install_rade.sh` ga gradi umjesto vas; ručno (na Ubuntu 22.04 najprije `sudo apt-get install autoconf automake libtool`):
+
+```bash
+cd ~
+git clone https://github.com/freedv/rade_c.git
+cd rade_c
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build -j4
+```
+
+`rade_helper.py` ga koristi od sljedeće RADE2 veze — pogledajte [RADE README](RADE_README.md#rade-v2-beta--rade2).
 
 ---
 

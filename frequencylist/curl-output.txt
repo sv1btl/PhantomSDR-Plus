@@ -10,9 +10,9 @@
       <A HREF="../index.phtml"><IMG CLASS="titlelogo" SRC="../images/hfcclog.gif" ALT="HFCC Logo" WIDTH="121" HEIGHT="79" BORDER="0"></A><H1 CLASS="titletext">Public Data Files</H1>    </DIV>
     <DIV CLASS="menutabs">
 <UL>
-<LI><A HREF="../index.phtml">Home</A></LI><LI CLASS="curr"><A HREF="../data/guidepost.phtml">Public Data Files</A></LI><LI><A HREF="../about/HFCC-IBD_Basic_Information.phtml">About HFCC</A></LI><LI><A HREF="../delivery/HFCC-IBD_Content_Delivery_Developments.phtml">Content Delivery</A></LI><LI><A HREF="../humanitarian/">Emergency Radio</A></LI><LI><A HREF="../coord.phtml">Shortwave</A></LI><LI><A HREF="../A26/">A26 Conference</A></LI><LI><A HREF="../B26/">B26 Conference</A></LI><LI STYLE="float: right;"><A HREF="../global/select.phtml">Members Area</A></LI></UL>
+<LI><A HREF="../index.phtml">Home</A></LI><LI CLASS="curr"><A HREF="../data/guidepost.phtml">Public Data Files</A></LI><LI><A HREF="../about/HFCC-IBD_Basic_Information.phtml">About HFCC</A></LI><LI><A HREF="../delivery/HFCC-IBD_Content_Delivery_Developments.phtml">Content Delivery</A></LI><LI><A HREF="../humanitarian/">Emergency Radio</A></LI><LI><A HREF="../coord.phtml">Shortwave</A></LI><LI><A HREF="../B26/">B26 Conference</A></LI><LI><A HREF="../A27/">A27 Conference</A></LI><LI STYLE="float: right;"><A HREF="../global/select.phtml">Members Area</A></LI></UL>
 </DIV>
-<DIV CLASS="menutabs"><UL><LI><A HREF="../schedule/">Interactive Schedule</A></LI><LI><A HREF="../data/a25/index.phtml">A25 by Org.</A></LI><LI><A HREF="../data/b25/index.phtml">B25 by Org.</A></LI><LI><A HREF="../data/public_access_HFCC_database.phtml">Availability</A></LI><LI CLASS="curr"><A HREF="../data/index.phtml">Standard Format</A></LI><!--<LI STYLE="float: right;"><A HREF="../global/b23/">B23 Data</A></LI><LI STYLE="float: right;"><A HREF="../global/b23/meeting/">B23 Conference</A></LI>-->
+<DIV CLASS="menutabs"><UL><LI><A HREF="../schedule/">Interactive Schedule</A></LI><LI><A HREF="../data/a26/index.phtml">A26 by Org.</A></LI><LI><A HREF="../data/b26/index.phtml">B26 by Org.</A></LI><LI><A HREF="../data/public_access_HFCC_database.phtml">Availability</A></LI><LI CLASS="curr"><A HREF="../data/index.phtml">Standard Format</A></LI><!--<LI STYLE="float: right;"><A HREF="../global/b23/">B23 Data</A></LI><LI STYLE="float: right;"><A HREF="../global/b23/meeting/">B23 Conference</A></LI>-->
 </UL></DIV>    <DIV CLASS="maincontentdiv">
       <DIV CLASS="maindivwide">
                 <H3 class="lrpaddedtext">
@@ -211,7 +211,10 @@
                   <LI> <A HREF="b25/b25allx2.zip"> B25allx2.zip </A> - B25 Operational Schedule - Last updated on 23-Mar-2026                </UL>
 
                 <UL>
-                  <LI> <A HREF="a26/a26allx2.zip"> A26allx2.zip </A> - A26 Operational Schedule - Last updated on 21-Jul-2026                </UL>
+                  <LI> <A HREF="a26/a26allx2.zip"> A26allx2.zip </A> - A26 Operational Schedule - Last updated on 21-Oct-2026                </UL>
+
+                <UL>
+                  <LI> <A HREF="b26/b26allx2.zip"> B26allx2.zip </A> - B26 Operational Schedule - Last updated on 23-Oct-2026<BR>Note: Schedules are still subject to change as the season B26 has not started yet                </UL>
 
                 <P>Note: Starting from B10, the data has been updated during the season.</P>
               </TD></TR>
@@ -223,7 +226,23 @@
 			</DIV>
       <DIV CLASS="whatsnewdiv">
         <H3>What's New</H3>
-                            <P>[24-Jun-2026] - B26 upload opened.
+        
+                    <P>[14-Oct-2026] - A new post was recently added to the <A HREF="../global/bb/">Forum</A> in Members' Area
+                    </P>
+
+                    <P>[23-Sep-2026] - Details on optional excursion after the A27 Conference
+                    </P>
+
+                    <P>[11-Sep-2026] - B26 GoE Report. Deadline for B26 Operational Data upload: 5th October 2026
+                    </P>
+
+                    <P>[10-Sep-2026] - A27 registration and hotel booking opened on the <A HREF="../members/a27/meeting/">A27 Conference Webpage in the Member's Area</A>
+                    </P>
+
+                    <P>[17-Aug-2026] - <A HREF="../doc/HFCC_RAD_2026-001-Shortwave_in_International_Broadcasting.pdf">HFCC Report on Shortwave International Broadcasting 2026</A>
+                    </P>
+
+                    <P>[24-Jun-2026] - B26 upload opened.
                     </P>
 
                     <P>[23-Jun-2026] - Please <A HREF="https://new.hfcc.org/global/upload/regform.php">review and confirm your contact details</A> prior to uploading the initial version of your B26 data. B26 upload will be opened in the next two days.
@@ -235,7 +254,7 @@
                     <P>[17-Mar-2026] - A26 plenary minutes
                     </P>
 
-                    <P>[9-Feb-2026] - <A HREF="../global/doc/HFCC_GOE_2026-001-GoE_Report_A26.pdf">A26 GoE Report</A>
+                     <P>[9-Feb-2026] - <A HREF="../global/doc/HFCC_GOE_2026-001-GoE_Report_A26.pdf">A26 GoE Report</A>
                     </P>
 
                     <P>[30-Jan-2026] - Deadline for A26 Operational Schedule: 9 March 2026
@@ -243,7 +262,7 @@
 
                     <P>[30-Jan-2026] - ITU <A HREF="https://www.itu.int/itu-r/eterrestrial/ebroadcasting/ehfbc#/reftables/tables/RefTableOverview">Reference Tables</A> updated
                     </P>
-
+                    
                     <P>[16-Dec-2025] - The ITU-BR has published the <A HREF="https://www.itu.int/md/R00-CR-CIR-0525/en">Circular Letter CR/525</A> in application of Article 12 of the Radio Regulations
                     </P>
 

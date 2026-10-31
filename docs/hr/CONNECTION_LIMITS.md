@@ -226,7 +226,7 @@ Oba su u privatnom rasponu 4000–4999, pa se nijedan ne može zamijeniti sa sta
 
 Ta je šutnja nakon izbacivanja namjerna. **Izbacivanje je sysop koji završava sesiju, a ne kazna** — ništa se ne objavljuje, a tko se želi vratiti ponovno učita stranicu i sekundu poslije je običan slušatelj. Jedino što kôd 4001 donosi jest da preglednik zna kako ovo nije bila pala veza, pa izbacivanje doista uhvati umjesto da samo sebe poništi.
 
-**Zabrana** — ⛔ Ban 24h u administracijskoj ploči — jedina je iznimka: to je isto izbacivanje s odbijanjem od 24 sata, pa se ponovno učitavanje odbija s 4001 dok zabrana ne istekne ili je operater ne ukine.
+**Zabrana** — ⛔ Ban ▾ u administracijskoj ploči — jedina je iznimka: to je isto izbacivanje s odbijanjem od 8, 16 ili 24 sata, pa se ponovno učitavanje odbija s 4001 dok zabrana ne istekne ili je operater ne ukine.
 
 Izbacivanje obavlja `spectrumserver` sam, a ne `proxy.py`: slušatelji se spajaju izravno na priključak prijemnika, pa proxy ne posjeduje nijednu njihovu vezu i njegovo izbacivanje ne doseže nikoga. Ploča poziva `/~~kick?ip=&secs=`, dostupan samo s povratne petlje i provjeren na stvarnom TCP sugovorniku, a ne na `X-Forwarded-For`, koji šalje klijent. `secs` je zadano nula — bez zabrane — ali prima trajanje ako adresu želite zadržati izvan neko vrijeme, a to koristi isti mehanizam zabrane kao `per_ip_rate`, pa se ponovno spajanje odbija na vratima. Ban 24h u ploči šalje `secs=86400`, najviše što prihvaća, a `/~~unban?ip=` ukida zabranu ranije.
 

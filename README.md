@@ -1,9 +1,9 @@
-# PhantomSDR-Plus WebSDR (version 5.3.0)
+# PhantomSDR-Plus WebSDR (version 5.4.0, November 1st, 2026)
 
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-cyan.svg)](https://www.gnu.org/licenses/gpl-3.0)
-[![Version](https://img.shields.io/badge/version-5.3.0-cyan.svg)](https://github.com/sv1btl/PhantomSDR-Plus)
+[![Version](https://img.shields.io/badge/version-5.4.0-cyan.svg)](https://github.com/sv1btl/PhantomSDR-Plus)
 
-**Maintained by SV1BTL.** The current version is 5.3.0, and the project lives at
+**Maintained by SV1BTL.** The current version is 5.4.0, and the project lives at
 **https://github.com/sv1btl/PhantomSDR-Plus** — that is the one to clone, link to
 and report issues against.
 
@@ -11,14 +11,33 @@ PhantomSDR-Plus is licensed under the GPL v3 with the [additional terms](ADDITIO
 
 🌐 **Website: [phantomsdr.psychomed.gr](https://phantomsdr.psychomed.gr)** — what PhantomSDR-Plus does, the decoders, the Desktop PhantomSDR+ app, and the documentation PDFs in seven languages.
 
+🎬 **Video tutorial: [PhantomSDR-Plus 5.4.0 — Complete Tutorial](https://www.youtube.com/watch?v=R5UzdGZilcQ)** — every function of the receiver in 18 minutes, recorded live on the SV1BTL station, with subtitles in English, Ελληνικά, Deutsch, Français, Español, Русский and Hrvatski.
+
 ## Note: Tested on Debian 12 (Bookworm), Debian 13 (Trixie), Ubuntu 22.04, Ubuntu 24.04.
+
+**What's new in v.5.4.0**
+
+* **RADE V2 (beta).** A **RADE-v2U** button (mode RADE2) before RADE-v1L and RADE-v1U decodes RADE V2, the new waveform of FreeDV 3.0, on USB — on the station's server through FreeDV's rade_c, which `install_rade.sh` builds in `~/rade_c` next to RADE V1 in `~/radae`, at about 1 % of a CPU core per listener. V2 is still a beta at FreeDV. See the [RADE manual](docs/RADE_README.md#rade-v2-beta--rade2).
+* **DRM in the Modes pop-up**, after IQ; RADE plays 6 dB lower so it no longer clips; `/mobile` gets a RADE2 button and loses its CW-L button.
+* **RADE hears weaker signals.** RADE V2 keeps playing down to about −6 dB SNR when the signal looks like real V2 (it was muted below −2 dB); RADE V1 is resampled in one continuous stream like V2, which helps it most on fading signals; and the RADE2 filter is 1040–1930 Hz, so a strong neighbouring station no longer pulls V2 down. On test signals in noise and HF fading V2 now decodes about 2 dB weaker signals, and V1 gets about a quarter more of the speech through in fading. The RADE buttons read **RADE-v2U**, **RADE-v1L** and **RADE-v1U**, next to the **Modes** heading (was "Modes selector"). See the [RADE manual](docs/RADE_README.md#rade-v2-beta--rade2).
+* **DRM decoder.** The **DRM** button decodes Digital Radio Mondiale on the station's server — one ubersdr-drm (the headless Dream decoder UberSDR uses) per listener, on zero-IF I/Q the server taps itself — so it plays in every browser, xHE-AAC included. A station selector lists the DRM Reception Project schedule with days, target area, listener confirmations and HFCC registrations, plus what this receiver has itself decoded in the last 30 days ("heard here" — also transmissions no schedule lists); with DRM on, the only sound is decoded DRM. On weak and fading signals a damaged frame fades into a short reverb and silence instead of a burst of noise, and the decoder resynchronises by itself (on a fading xHE-AAC broadcast: 515 s of programme in 539 s, 153 s before). New stations build it during installation; existing ones run `./setup-drm.sh` once, and again after an update. See the [decoder manual](docs/DECODERS.md#13-drm).
+* **HFDL decoder.** The **HFDL** button decodes the messages aircraft exchange with ground stations on shortwave — dumphfdl in WebAssembly, ported from F1NSK's PhantomSDR-ORSAT — with FlightAware links and an aircraft map. See the [decoder manual](docs/DECODERS.md#12-hfdl).
+* **Decoder buttons in two rows of six**, the drop-down in the same order; **HFDL**, **DRM** and **MORSE** (the CW decoder) markers start their decoders; AM with the synchronous detector reads **SAM** under the frequency.
+* **Tune puts you on what another listener hears.** In the Users window opened from the receiver page, **Tune** copies the listener's frequency and mode, their filter bandwidth and their decoder.
+* **Who runs which decoder.** The Users window (`users.html`) shows the decoder each listener is running — FT8, CW, DRM, HFDL… — next to the mode; the User Statistics (`stats.html`) get a **Decoder Popularity** panel and show the decoders in the longest sessions; the admin panel shows them on the Users page and as **Decoders** on the Visitors page.
+* **Decoders checked and made more reliable.** FT8, FT4 and FT2 subtract each decoded station and decode the rest again, as WSJT-X does — on real-band recordings they now find 88 % of what WSJT-X finds (74 % before), a crowded 45-station FT8 slot 96 % (57 %) — with ordered-statistics decoding for weak FT8, and FT4/FT2 tolerate a clock up to about a second off. The CW decoder follows fading, keeps the first word, decides each letter on the signal itself (about half the wrong letters on weak signals) and has a **Pitch** slider (500–800 Hz; CW is now at 600 Hz everywhere). WSPR decodes busy bands with three passes and subtraction (15 stations in a slot: 89 % instead of 67 %). SSTV draws weak pictures to the end and recognises Robot 36 caught mid-picture. In the FLDIGI panel MFSK finds a mistuned signal by itself (up to about ±75 Hz), DominoEX stops printing noise after a transmission, and weather RTTY lets far less noise through. NAVTEX keeps its sync on weak signals (about twice the text at −6 dB). **Decoder ID** recognises narrow modes far below its old +10 dB limit — FT8 to about −5 dB, WSPR and CW to about −10 dB — and no longer names speech as CW. False decodes on pure noise stayed at zero throughout. See the [decoder manual](docs/DECODERS.md).
+* **Receive diversity on the admin Dashboard.** A **Receive Diversity** card lists every listener combining your receiver with another one — PhantomSDR+, KiwiSDR, UberSDR or WebSDR — with the partner's address.
+* **A deeper 3D view.** The 3D spectrum is now as tall as the flat spectrum and narrows towards the back, with lower rows further back; a click on an older row tunes to that row's frequency, and the **⚙** button sets the view's **Angle** and **Depth** (remembered in your browser).
+* **IQ for listeners, as on a KiwiSDR or UberSDR.** An **IQ** button after FM sends 12 kHz of the band as raw I/Q — lossless, I left and Q right — with noise kept quiet and strong stations levelled. Recording in IQ saves a WAV that HDSDR, SDR#, SDR++ and SDRuno open already tuned (`PhantomSDR_<UTC>_<Hz>Hz_IQ.wav`), and Kiwi clients get it with `SET mod=iq` (`kiwirecorder.py -m iq`). An **IQ Demodulators** panel runs up to six receivers inside those 12 kHz in the listener's browser — each with its own mode (USB, LSB, CW, AM, DSB with carrier lock, FM), frequency, width, volume and pan, so both sides of a split can be heard at once, one in each ear. On by default; `iq = false` under `[server]` turns it off. See the [User Guide](docs/USER_GUIDE.md#iq-raw-iq).
+* **SAM shows its carrier.** While SAM runs, `SAM +3.2 Hz · 97%` under the status indicators gives the station's carrier offset from the dial and how well the detector is locked.
+* **Static IF Filters** offer 12.5 kHz in place of 4.5 kHz, and **To Band** leaves 10 kHz to spare at each band edge.
 
 **What's new in v.5.3.0**
 
 * **Your name or callsign, as on a WebSDR.** A box next to **Open Additional Info** takes your name or callsign — up to 10 characters, no spaces; left blank, you are anonymous plus a number. It shows in the Connected Users window and on its map, on your chat lines, and on your label under the other listeners' waterfall, followed by your location ("SV1BTL-Athens"); your own ★ carries it too. It is kept in your browser and follows you to the station's other receivers. On a phone the box sits above the frequency display. The chat panel no longer has a name field of its own.
 * **Hover over a listener's label** under the waterfall to see the frequency and mode they are tuned to; click it to tune there.
 * **No IP addresses in public.** As on a WebSDR, the public users list (`/users`, `users.json`) and the User Statistics no longer show any listener's IP address. The statistics count unique visitors by an anonymous code; the log files on disk keep the addresses for the sysop.
-* **Admin panel:** the Users page shows each listener's name, location and IP address, and **⛔ Ban 24h** next to **⚡ Kick** disconnects a listener from every receiver and refuses them for 24 hours — kept across receiver restarts, with a list of active bans and an **Unban** button. The listener map now uses OpenStreetMap, like the APRS map.
+* **Admin panel:** the Users page shows each listener's name, location and IP address, and **⛔ Ban ▾** next to **⚡ Kick** disconnects a listener from every receiver and refuses them for 8, 16 or 24 hours — kept across receiver restarts, with a list of active bans and an **Unban** button. The listener map now uses OpenStreetMap, like the APRS map.
 * **A renewed Admin Panel.** **Alerts** by email and/or Telegram when a receiver goes off the air, comes back or is restarted, the thermal guard changes stage, or `crash.log` gets a new entry (Settings → Alerts, with a ✉ Send test). **Backup & restore** of the station's own settings — configs, `receivers.toml`, `station.conf`, site information, markers, band settings, relay, spot reporting, bans and every extra receiver — as one zip; a restore keeps each file it replaces in `admin-backups/`. A **Visitors** page with private statistics for 1 to 31 days: visitors, sessions, listening hours, most at once, busiest hours, countries, and the addresses with the most sessions at the same time, each with Ban 24h. A **System Health** card on the Dashboard: every receiver on air or off with its uptime, free disk and log folder sizes, the last `crash.log` entry. And **themes** — Phosphor green, Amber display, Metal panel, Modern dark, Light, and Auto (light from sunrise to sunset at the station's locator, dark at night) — picked with **THEME** in the top bar of every page. See [docs/ADMIN_PANEL_SETUP.md](docs/ADMIN_PANEL_SETUP.md).
 * **The mouse wheel tunes anywhere in the black frequency box.** Over a digit it steps that digit as before; anywhere else in the box — the band name, the mode line, the clock — it tunes by the tuning step (Shift 1 kHz, Alt 10 kHz). Only the analog S-meter is left out, so the wheel over it scrolls the page.
 * **Softer Noise Reduction.** NR now keeps about 1 dB more of the voice on weak signals and is more intelligible at every signal level — measured on 80 SSB test recordings with real band noise — for about 2 dB less noise removed between words.
@@ -47,7 +66,7 @@ We also provide a wide range of additional **features**:
 * The sysop's kick and the `X-Forwarded-For` header are trusted only from the same machine, so nobody can kick listeners or slip past the per-IP limits through the proxy.
 * Optional server settings for multi-receiver stations: `[server] host`, `[server] html_fallback_root`, `[websdr] public_port`, and per-receiver `siteReceiverURL` / `siteAntennaURL` links.
 * A full-featured, password-protected Admin Panel for remote server management without requiring direct SSH access. It provides access to server logs, chat moderation, user messaging, chat-message deletion without restarting the server, user disconnection, command execution, file editing, and other administrative functions; its Users and Chat pages cover every receiver of the station.
-* Integrated decoders for **FT8, FT4, FT2, JS8, CW, QRSS Grabber, WSPR, HF FAX, SSTV, NAVTEX, an FLDIGI window with RTTY, PSK31, Olivia, MFSK16/32/64, DominoEX, THOR, THROB, Hellschreiber, MT63, Packet (AX.25) and APRS (with a live map of the stations heard), and FreeDV RADE V1**. RTTY, PSK31, FT8, FT4 and FT2 show a real SNR (the FT modes agree with WSJT-X), and RTTY has a squelch. The FLDIGI modes are ports of fldigi's own receivers, checked against real fldigi recordings, with no fldigi installed anywhere; Hellschreiber is shown as a picture that can be saved as a PNG. A frequency marker whose mode is a digital mode starts its decoder in one click. See the [decoder documentation](docs/DECODERS.md).
+* Integrated decoders for **FT8, FT4, FT2, JS8, CW, QRSS Grabber, WSPR, HF FAX, SSTV, NAVTEX, an FLDIGI window with RTTY, PSK31, Olivia, MFSK16/32/64, DominoEX, THOR, THROB, Hellschreiber, MT63, Packet (AX.25) and APRS (with a live map of the stations heard), HFDL (aircraft messages, with a live aircraft map), DRM (digital broadcasting, decoded on the server) and FreeDV RADE V1 and V2 (beta)**. RTTY, PSK31, FT8, FT4 and FT2 show a real SNR (the FT modes agree with WSJT-X), and RTTY has a squelch. The FLDIGI modes are ports of fldigi's own receivers, checked against real fldigi recordings, with no fldigi installed anywhere; Hellschreiber is shown as a picture that can be saved as a PNG. A frequency marker whose mode is a digital mode starts its decoder in one click. See the [decoder documentation](docs/DECODERS.md).
 * A **channel scanner** on the tuning row: it sweeps the band — or exactly what the waterfall is showing — and stops on the first channel rising a chosen number of dB above the band noise floor, resumes by itself when the channel goes quiet, keeps the step on the mode's own channel grid, and can skip empty channels by reading the spectrum. Locked-out channels and settings live in the listener's browser.
 * A **Decoder ID** tool that identifies an unknown digital signal and offers the matching decoder in one click. Off by default.
 * Picking a digital mode sets both the sideband and the passband.
@@ -147,7 +166,7 @@ Until mid-October 2026 PhantomSDR-Plus measured 0.39 s in the same test. Three c
 
 The SV1BTL WebSDR: http://phantomsdr.no-ip.org:8900/
 
-![Screenshot](docs/websdr.png) ![Screenshot](docs/websdr2.png) ![Screenshot](docs/websdr3.png)
+![Screenshot](docs/websdr.png) ![Screenshot](docs/websdr2.png) ![Screenshot](docs/websdr3.png) ![Screenshot](docs/websdr4.png)
 
 (https://sdr-list.xyz)
 
@@ -444,7 +463,7 @@ http://your_server:port/mobile
 ```
 It is a separate page, not a re-layout of the main app, and it draws **no waterfall**. It opens only the audio connection, which is where the saving comes from: measured on a live receiver, the full interface streams about **68 MiB/hour** (audio + waterfall + events) against roughly **30 MiB/hour** for the mobile view — a little over **half the data**. The first page load is 105 KiB against 294 KiB. <br />
 
-It contains: frequency entry and tuning steps, modes (including SAM and the RADE **RADEL/RADEU** decoders), a digital S-meter bar with the S1…+60 dB scale, volume / squelch / buffer controls, band buttons from `bands-config.js`, bookmarks, the connected-users list with a tune-to button, and chat. The layout adapts to both portrait and landscape. <br />
+It contains: frequency entry and tuning steps, modes (including SAM and the RADE **RADE2/RADEL/RADEU** decoders), a digital S-meter bar with the S1…+60 dB scale, volume / squelch / buffer controls, band buttons from `bands-config.js`, bookmarks, the connected-users list with a tune-to button, and chat. The layout adapts to both portrait and landscape. <br />
 
 Two buttons at the bottom switch to the other interfaces: **Mobile extended view** (the main app's own mobile layout) and **Full desktop view** (the complete interface, forced on a phone). The main app's mobile layout in turn carries a **Simple mobile view** button back to `/mobile`. <br />
 
@@ -492,7 +511,7 @@ Every release carries **`update-known.txt`**, the fingerprint of every version o
 For a machine you do not sit at: <br />
 ```
 bash update.sh --apply --yes   never asks; every file you have edited is KEPT
-bash update.sh --ref v5.3.0    a tag, branch or commit instead of the current tree
+bash update.sh --ref v5.4.0    a tag, branch or commit instead of the current tree
 ```
 
 **On a very old installation the rebuild may fail**, because `update.sh` updates files and not system packages. If the rebuild stops with a compiler or meson error, run `bash install.sh` — itself brought up to date by the same run — and your configuration survives that too. <br />
@@ -692,7 +711,7 @@ For detailed information about installation, usage, and the project structure, p
   - Reading the panel, alignment, and the remote SNR trim
   - Choosing a second receiver, and troubleshooting
 
-- **[RADE Digital Voice](docs/RADE_README.md)** - FreeDV RADE v1 receive support, and how it is wired in
+- **[RADE Digital Voice](docs/RADE_README.md)** - FreeDV RADE V1 and V2 (beta) receive support, and how it is wired in
   - What RADE is, and the quality it gives at low SNR
   - The `rade_helper.py` sidecar and the decode pipeline
   - Using it from the web interface

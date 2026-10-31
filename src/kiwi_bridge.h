@@ -209,12 +209,31 @@ inline bool kiwi_path_ends_with(const std::string &path,
            path.compare(path.size() - suffix.size(), suffix.size(), suffix) == 0;
 }
 
+// "/<digits><suffix>" exactly. A KiwiSDR answers its streams both as
+// /kiwi/<timestamp>/SND (its web page, AetherSDR) and as /<timestamp>/SND
+// without the prefix -- the form kiwiclient's kiwirecorder.py uses, which
+// this bridge used to turn away. Digits only, so no other path can match.
+inline bool kiwi_bare_ts_path(const std::string &path,
+                              const std::string &suffix) {
+    if (path.size() <= 1 + suffix.size() || path[0] != '/' ||
+        !kiwi_path_ends_with(path, suffix))
+        return false;
+    const size_t end = path.size() - suffix.size();
+    for (size_t i = 1; i < end; i++)
+        if (path[i] < '0' || path[i] > '9') return false;
+    return true;
+}
+
 inline bool is_kiwi_snd_path(const std::string &path) {
-    return path.find("/kiwi/") != std::string::npos &&
-           kiwi_path_ends_with(path, "/SND");
+    return (path.find("/kiwi/") != std::string::npos &&
+            kiwi_path_ends_with(path, "/SND")) ||
+           kiwi_bare_ts_path(path, "/SND");
 }
 
 inline bool is_kiwi_wf_path(const std::string &path) {
+    if (kiwi_bare_ts_path(path, "/W/F") || kiwi_bare_ts_path(path, "/W%2FF") ||
+        kiwi_bare_ts_path(path, "/W%2fF"))
+        return true;
     if (path.find("/kiwi/") == std::string::npos) return false;
     return kiwi_path_ends_with(path, "/W/F") ||
            kiwi_path_ends_with(path, "W%2FF") ||
@@ -324,6 +343,28 @@ class KiwiSndEncoder : public AudioEncoder {
         // emitted only once exactly 512 samples are ready to go -- the format
         // of the frame itself does not change at all.
         // ------------------------------------------------------------------
+        // IQ arrives as interleaved I,Q (set_data() says 2 channels) and
+        // leaves as a Kiwi stereo frame. A switch between the two layouts
+        // drops the part-frame of the old one rather than splice it into the
+        // new.
+        const bool iq = packet.value("channels", 1) == 2;
+        if (iq != stereo_) {
+            pending_samples.clear();
+            stereo_ = iq;
+        }
+        if (iq) {
+            // No audio gain and no limiter: the server already holds I/Q near
+            // -20 dBFS, and a per-sample limiter would bend the two channels
+            // independently -- the phase between them is the signal.
+            for (size_t i = 0; i < size * 2; i++) {
+                pending_samples.push_back(static_cast<int16_t>(
+                    std::clamp(data[i], -32768, 32767)));
+            }
+            while (pending_samples.size() >= SAMPLES_PER_FRAME * 2) {
+                emit_frame(SAMPLES_PER_FRAME * 2);
+            }
+            return 0;
+        }
         for (size_t i = 0; i < size; i++) {
             // Gain first, clamp second: clamping and then amplifying would
             // waste the headroom the clamp just threw away. At unity the
@@ -338,7 +379,6 @@ class KiwiSndEncoder : public AudioEncoder {
             pending_samples.push_back(static_cast<int16_t>(v));
         }
 
-        static constexpr size_t SAMPLES_PER_FRAME = 512;
         while (pending_samples.size() >= SAMPLES_PER_FRAME) {
             emit_frame(SAMPLES_PER_FRAME);
         }
@@ -348,6 +388,9 @@ class KiwiSndEncoder : public AudioEncoder {
     int finish_encoder() override { return 0; }
 
   private:
+    // Samples per SND frame and channel: 512, see the note in process().
+    static constexpr size_t SAMPLES_PER_FRAME = 512;
+
     void emit_frame(size_t n) {
         // `pwr` is the demodulator's average power for this block, the exact
         // value the browser meter is driven from; set_data() refreshes it
@@ -436,7 +479,8 @@ class KiwiSndEncoder : public AudioEncoder {
         frame.push_back('S');
         frame.push_back('N');
         frame.push_back('D');
-        frame.push_back(0x00);
+        // 0x08 = SND_FLAG_STEREO, which kiwiclient reads as IQ.
+        frame.push_back(stereo_ ? 0x08 : 0x00);
 
         uint32_t seq = seq_counter++;
         frame.push_back(static_cast<uint8_t>(seq & 0xFF));
@@ -446,6 +490,12 @@ class KiwiSndEncoder : public AudioEncoder {
 
         frame.push_back(static_cast<uint8_t>((smeter_raw >> 8) & 0xFF));
         frame.push_back(static_cast<uint8_t>(smeter_raw & 0xFF));
+
+        // A Kiwi IQ frame carries a 10-byte GPS header before the samples
+        // (last_gps_solution, dummy, gpssec, gpsnsec -- kiwiclient unpacks it
+        // as '<BBII'). This receiver has no GPS: all zero, as a Kiwi with no
+        // fix sends, so TDoA has nothing to work with but recorders do.
+        if (stereo_) frame.insert(frame.end(), 10, 0x00);
 
         // PCM byte order. Kiwi sound payloads are BIG-endian on the wire
         // unless bit 0x80 of the flags byte is set, and the flags byte above
@@ -485,7 +535,8 @@ class KiwiSndEncoder : public AudioEncoder {
                                pending_samples.begin() + static_cast<long>(n));
     }
 
-    std::vector<int16_t> pending_samples;
+    std::vector<int16_t> pending_samples;   // interleaved I,Q while stereo_
+    bool                 stereo_{false};
     KiwiPeakLimiter      limiter_;
     uint32_t seq_counter{0};
     uint64_t call_count{0};
@@ -641,6 +692,9 @@ inline demodulation_mode kiwi_mode_to_demod(const std::string &mode,
     if (mode == "lsb" || mode == "lsn" || mode == "cwn") return LSB;
     if (mode == "am" || mode == "amn" || mode == "sam") return AM;
     if (mode == "nbfm" || mode == "nnfm" || mode == "fm") return FM;
+    // Kiwi's 12 kHz I/Q, when [server] iq offers IQ to listeners.
+    if (mode == "iq" && g_public_iq_enabled.load(std::memory_order_relaxed))
+        return IQ;
     recognized = false;
     return USB;
 }

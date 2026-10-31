@@ -77,6 +77,8 @@ export class AprsMap {
     this._selfMove = false;         // true only inside _move()
     this._fitTimer = null;
     this._lastFit = 0;
+    // HFDL map: small aircraft pointing along their track instead of the APRS dot.
+    this.planeIcons = false;
   }
 
   setAutoFit(on) {
@@ -216,10 +218,33 @@ export class AprsMap {
     this.stations.delete(call);
   }
 
+  /** Small aircraft rotated to its heading (bearing of the last two track points). */
+  _planeIcon(st) {
+    let hdg = 0;
+    if (st.track.length > 1) {
+      const a = st.track[st.track.length - 2], b = st.track[st.track.length - 1];
+      hdg = bearingDeg({ lat: a[0], lon: a[1] }, { lat: b[0], lon: b[1] });
+    }
+    const svg = `<svg viewBox="0 0 24 24" width="24" height="24" style="transform:rotate(${Math.round(hdg)}deg);display:block;filter:drop-shadow(0 0 2px #000)">` +
+      `<path d="M12 2c.8 0 1.3.9 1.3 2v5.2l7.7 4.6v2l-7.7-2.4v4.7l2.2 1.7V21L12 20l-3.5 1v-1.2l2.2-1.7v-4.7L3 15.8v-2l7.7-4.6V4c0-1.1.5-2 1.3-2z" ` +
+      `fill="#fbbf24" stroke="#3b2f05" stroke-width="0.8"/></svg>`;
+    return this.L.divIcon({ html: svg, className: 'hfdl-plane', iconSize: [24, 24], iconAnchor: [12, 12] });
+  }
+
   _draw(call, st) {
     const L = this.L;
     const ll = [st.pos.lat, st.pos.lon];
-    if (!st.marker) {
+    if (this.planeIcons) {
+      if (!st.marker) {
+        st.marker = L.marker(ll, { icon: this._planeIcon(st), keyboard: false }).addTo(this.map);
+        st.marker.bindTooltip(esc(call), { permanent: true, direction: 'right', offset: [10, 0], className: 'aprs-label' });
+        st.marker.bindPopup(() => this._popup(call), { maxWidth: 320 });
+      } else {
+        st.marker.setLatLng(ll);
+        st.marker.setIcon(this._planeIcon(st));
+        if (st.marker.isPopupOpen()) st.marker.setPopupContent(this._popup(call));
+      }
+    } else if (!st.marker) {
       st.marker = L.circleMarker(ll, {
         radius: 6, color: '#065f46', weight: 2, fillColor: '#34d399', fillOpacity: 0.9,
       }).addTo(this.map);
@@ -231,7 +256,9 @@ export class AprsMap {
     }
     if (st.track.length > 1) {
       if (!st.line) {
-        st.line = L.polyline(st.track, { color: '#10b981', weight: 2, opacity: 0.7 }).addTo(this.map);
+        st.line = L.polyline(st.track, this.planeIcons
+          ? { color: '#ff2a2a', weight: 3, opacity: 0.95 }
+          : { color: '#10b981', weight: 2, opacity: 0.7 }).addTo(this.map);
       } else {
         st.line.setLatLngs(st.track);
       }
@@ -261,6 +288,13 @@ export class AprsMap {
     if (st.track.length > 1) bits.push(`${st.track.length} track points`);
     meta.textContent = bits.join(' · ');
     box.appendChild(meta);
+    if (p.link) {
+      const a = document.createElement('a');
+      a.href = p.link; a.target = '_blank'; a.rel = 'noopener noreferrer';
+      a.className = 'aprs-popup-link';
+      a.textContent = (p.linkText || 'Details') + ' ↗';
+      box.appendChild(a);
+    }
     return box;
   }
 }

@@ -93,7 +93,7 @@ Sur une station configurée avec les questions de la station (`configure-station
 
 **Port du routeur.** Derrière le proxy, il n'y en a aucun à ouvrir : la page atteint le relais comme `/relay` par l'adresse que les auditeurs utilisent déjà, en http comme en https. Seule une station plus ancienne, configurée avant les questions de la station, fait tourner le relais sur un port à lui ; les navigateurs des auditeurs s'y connectent alors directement, ce port doit donc être redirigé sur votre routeur, sinon la diversité avec un WebSDR ne fonctionne que depuis votre propre réseau. Les trois autres types de récepteur n'ont pas besoin du relais — sauf depuis une page servie en https, où il transporte aussi les partenaires PhantomSDR+ et KiwiSDR uniquement http (voir plus haut).
 
-Si le panneau d'administration est installé, son tableau de bord affiche une carte **WebSDR Diversity Relay** avec l'état, le port, le nombre de sessions en cours et vers quels sites.
+Si le panneau d'administration est installé, son tableau de bord affiche une carte **WebSDR Diversity Relay** avec l'état, le port, le nombre de sessions en cours et vers quels sites. Au-dessus, une carte **Receive Diversity** liste chaque auditeur qui combine votre récepteur avec un autre — de tout type, pas seulement WebSDR — avec le récepteur, son nom et sa ville, la fréquence et le mode, ainsi que le type et l'adresse du partenaire.
 
 ### Être un invité correct
 

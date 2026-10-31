@@ -93,7 +93,7 @@ Na stanici postavljenoj pitanjima stanice (`configure-station.sh`) prepoznaje da
 
 **Port na ruteru.** Iza proxyja nema ga potrebe otvarati: stranica dolazi do releja kao `/relay` preko adrese koju slušatelji ionako koriste, jednako preko http-a i https-a. Samo starija stanica, postavljena prije pitanja stanice, pokreće relej na vlastitom portu; preglednici slušatelja tada se spajaju izravno na njega, pa taj port treba proslijediti na ruteru, inače WebSDR diverziti radi samo iz vaše vlastite mreže. Ostala tri tipa prijamnika relej ne trebaju — osim sa stranice poslužene preko https-a, gdje on prenosi i PhantomSDR+ i KiwiSDR partnere samo na http-u (vidi gore).
 
-Ako je administracijska ploča instalirana, njezina nadzorna ploča prikazuje karticu **WebSDR Diversity Relay** sa stanjem, portom te brojem sesija i stanicama prema kojima idu.
+Ako je administracijska ploča instalirana, njezina nadzorna ploča prikazuje karticu **WebSDR Diversity Relay** sa stanjem, portom te brojem sesija i stanicama prema kojima idu. Iznad nje kartica **Receive Diversity** navodi svakog slušatelja koji vaš prijemnik kombinira s drugim — bilo koje vrste, ne samo WebSDR — s prijemnikom, njegovim imenom i gradom, frekvencijom i načinom rada te vrstom i adresom partnera.
 
 ### Budite dobar gost
 

@@ -48,7 +48,6 @@ class AGC {
     // Hang system
     size_t hang_time;
     size_t hang_counter;
-    float hang_threshold;
 
     // Transceiver-style AGC (Fast / Medium / Slow buttons). 0 = the legacy
     // mode-dependent AGC above ("Auto"), which stays the default.

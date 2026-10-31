@@ -21,30 +21,60 @@
    *
    * Mouse events on the view are forwarded to the parent (on:mousedown,
    * on:wheel, on:mousemove, on:mouseleave), which handles them like the 2D
-   * spectrum: the front row lines up exactly with the waterfall below, so
-   * click-to-tune, drag and wheel zoom all work unchanged.
+   * spectrum: the front row lines up exactly with the waterfall below. For
+   * clicks and hover further back, pick() finds the row under the pointer
+   * and gives the frequency there as a front-row x position.
    */
   import { onMount, onDestroy } from "svelte";
 
   export let waterfall;          // the waterfall object from lib/backend.js
   export let onClose = () => {};
 
-  const W = 1024;                // history width (frequency points)
-  const H = 96;                  // history depth (lines): fewer, taller rows at 190 px
-  const GX = 1024, GY = 96;      // displayed mesh
+  const W = 1024;                // history width (frequency points; the server sends at most 1024)
+  const H = 320;                 // history depth (lines): more rows = slower motion, longer history
+  const GX = 1024, GY = 320;     // displayed mesh (GY must equal H)
 
   let canvas, gl, prog, vao, histTex, rangeTex, cmapTex, nIdx = 0;
   let viewL = 0, viewR = 1;      // visible window (FFT indices)
-  const hist = new Uint8Array(W * H);
+  // Two levels per point: [height, colour]. The height level is shaped
+  // (SHARPEN, max over merged bins, 10 % time carry); the colour level is the
+  // waterfall's own, untouched, so every point has the waterfall's colour.
+  const hist = new Uint8Array(W * H * 2);
+  const ranges = new Float64Array(H * 2);   // CPU copy of every row's range, for pick()
   let head = 0;                  // most recent row
   let ro, raf = 0, failed = "";
 
   // Geometry, in screen units (-1..1).
-  const RISE = 0.9;    // how far the floor climbs from front to back (lower = flatter angle)
-  const AMP = 1.7;     // peak height at the front (height only; colour follows the level)
-  const K = 0.16;      // perspective: at the back, signals close in on the centre by 1/(1+K)
+  const AMP = 1.3;     // peak height at the front (height only; colour follows the level)
+  // Angle and depth are set by the ⚙ sliders (remembered per browser);
+  // these are the defaults.
+  const ANGLE0 = 1.5;  // how far the floor climbs from front to back (lower = flatter angle)
+  const DEPTH0 = 0.5;  // 0 = flat-on, 1 = strongest depth
+  let angle = ANGLE0, depth = DEPTH0;
+  try {
+    const g = JSON.parse(localStorage.getItem("view3dGeom") || "null");
+    if (g && g.angle >= 0.3 && g.angle <= 1.6) angle = g.angle;
+    if (g && g.depth >= 0 && g.depth <= 1) depth = g.depth;
+  } catch (e) {}
+  let K, BACKH, RISE, angleMax = 1.6;
+  $: {
+    K = Math.max(0.6 * depth, 0.01);   // perspective: at the back, signals close in on the centre by 1/(1+K); never 0 (the floor rise divides by it)
+    BACKH = 1 - depth;   // extra height drop: back-row peaks are this fraction of the perspective height (1 = none)
+    // The steepest angle at which a full-level peak on the back row (height
+    // AMP·BACKH/(1+K)) still ends at the top edge instead of running off it;
+    // it is also the Angle slider's top, so the slider has no dead end.
+    angleMax = Math.max(0.3, Math.min(1.6, 2 - AMP * BACKH / (1 + K)));
+    if (angle > angleMax) angle = angleMax;
+    RISE = angle;
+    lastMarks = 0;
+    schedule();
+    try { localStorage.setItem("view3dGeom", JSON.stringify({ angle, depth })); } catch (e) {}
+  }
+  let showGeom = false;
+  function resetGeom() { angle = ANGLE0; depth = DEPTH0; }
   const FLOORV = "0.0";   // level outside a row's range (the waterfall's black), as a GLSL literal
-  const HPOW = "1.0";     // height curve: linear, so height follows the waterfall's level exactly
+  const SHARPEN = 0.7;    // column sharpening across frequency: lowers a peak's sides, never lifts the peak (0 = off)
+  const HPOW = "2.0";     // height curve: squared, so weak signals stay low and strong ones stand out
 
   const VS = `#version 300 es
   in vec2 aUV;
@@ -53,41 +83,50 @@
   uniform int uHead;
   uniform vec2 uView;               // visible window [L, R]
   uniform float uRise;
+  uniform float uK;                 // perspective (see K)
+  uniform float uBackH;             // back-row height fraction (see BACKH)
   uniform float uAmp;
   out float vVal;
 
-  // Level (0-1) of a row at position u of the visible window.
-  float sampleAt(float u, int age) {
+  // Levels (0-1) of a row at position u of the visible window: x = height, y = colour.
+  vec2 sampleAt(float u, int age) {
     int row = (uHead - age + ${H}) % ${H};
     vec2 rr = texelFetch(uRange, ivec2(row, 0), 0).rg;
     float idx = uView.x + u * (uView.y - uView.x);
+    // A row recorded at a much wider range (before a zoom in) holds only a
+    // few coarse points here and would show as a bright smeared band: floor.
+    if (rr.y - rr.x > 1.5 * (uView.y - uView.x)) return vec2(${FLOORV});
     float t = (idx - rr.x) / max(rr.y - rr.x, 1e-6);
-    if (t < 0.0 || t >= 1.0) return ${FLOORV};   // outside the row: noise level
+    if (t < 0.0 || t >= 1.0) return vec2(${FLOORV});   // outside the row: noise level
     int x = int(t * float(${W}));
-    return float(texelFetch(uHist, ivec2(min(x, ${W - 1}), row), 0).r) / 255.0;
+    return vec2(texelFetch(uHist, ivec2(min(x, ${W - 1}), row), 0).rg) / 255.0;
   }
 
   void main() {
     int age = int(aUV.y * float(${H - 1}) + 0.5);
     float d = aUV.y;                              // 0 = newest row (front)
-    // Every row spans the full screen width; the further back, the more
-    // frequencies it shows (factor 1/s), so signals converge gently on the
-    // centre while the sheet keeps straight edges.
-    float s = 1.0 / (1.0 + ${K} * d);
-    float sx = aUV.x * 2.0 - 1.0;
-    float u = 0.5 + 0.5 * sx / s;
-    float v = sampleAt(u, age);
+    // Every row shows exactly the visible window; the further back, the
+    // narrower it is drawn (factor s), so the sheet tapers to the back like
+    // a table seen at an angle and every frequency runs in a straight line
+    // towards the centre.
+    float s = 1.0 / (1.0 + uK * d);
+    float u = aUV.x;
+    float sx = (u * 2.0 - 1.0) * s;
+    vec2 hc = sampleAt(u, age);
+    float v = hc.x;
 
     // At the front s = 1: the newest row lines up exactly with the waterfall.
-    float sBack = 1.0 / (1.0 + ${K});
+    float sBack = 1.0 / (1.0 + uK);
     // The noise floor (≈ FLOORV) sits on the bottom edge: no black gap below.
     float ground = -1.0 - pow(${FLOORV}, ${HPOW}) * uAmp + uRise * (1.0 - s) / (1.0 - sBack);
-    float amp = uAmp * s;
+    // Heights shrink with the perspective and, on top of that, fall
+    // linearly to BACKH at the back row, for a deeper look.
+    float amp = uAmp * s * mix(1.0, uBackH, d);
     float y = ground + pow(v, ${HPOW}) * amp;
 
-    // No lighting: the depth comes from the shape alone, so every point
-    // keeps exactly the colour the waterfall gives that level.
-    vVal = v;
+    // No lighting: the depth comes from the shape alone, and the colour is
+    // the waterfall's own level, so every point has the waterfall's colour.
+    vVal = hc.y;
     gl_Position = vec4(sx, y, d * 0.98, 1.0);
   }`;
 
@@ -126,7 +165,7 @@
     gl.attachShader(prog, sh(gl.FRAGMENT_SHADER, FS));
     gl.linkProgram(prog);
     if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(prog));
-    for (const n of ["uHist", "uCmap", "uRange", "uView", "uHead", "uRise", "uAmp"])
+    for (const n of ["uHist", "uCmap", "uRange", "uView", "uHead", "uRise", "uK", "uBackH", "uAmp"])
       uLoc[n] = gl.getUniformLocation(prog, n);
 
     // GX×GY mesh (u,v coordinates) + triangle indices.
@@ -153,11 +192,11 @@
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ib);
     gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, idx, gl.STATIC_DRAW);
 
-    // History: 8-bit integer texture (exact reads with texelFetch).
+    // History: two 8-bit integer channels, height and colour (exact reads with texelFetch).
     histTex = gl.createTexture();
     gl.bindTexture(gl.TEXTURE_2D, histTex);
     gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.R8UI, W, H, 0, gl.RED_INTEGER, gl.UNSIGNED_BYTE, hist);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RG8UI, W, H, 0, gl.RG_INTEGER, gl.UNSIGNED_BYTE, hist);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
 
@@ -193,42 +232,58 @@
   }
 
   /** New line: palette indices 0-255 covering FFT indices [l, r]. */
-  const line = new Uint8Array(W);
+  const line = new Uint8Array(W * 2);   // [height, colour] per point
   const times = new Float64Array(H);   // arrival time of every row
   // Scale marks over the view (recomputed 4 times a second).
   let dbMarks = [], timeMarks = [], lastMarks = 0;
   const norm = new Float32Array(W), prev = new Float32Array(W);
+  const col = new Uint8Array(W);      // colour level: the waterfall's own level of the bin that sets the height
+  let src = new Float32Array(W);      // the sharpened line at the server's resolution
   let havePrev = false, prevL = 0, prevR = 0;
   const rng = new Float32Array(2);
   function pushLine(arr, l, r) {
     if (!gl || !arr || !arr.length || !(r > l)) return;
     if (l !== prevL || r !== prevR) { havePrev = false; prevL = l; prevR = r; }
     const n = arr.length;
+    // The levels are the waterfall's own (Min/Max sliders and Auto Adj.
+    // already applied by waterfall.js), so the 3D view brightens, darkens and
+    // levels exactly like the waterfall. The colour takes them as they are
+    // (the unsharpened level of the bin that sets the height); only the
+    // height is shaped.
+    // Columns are sharpened across frequency at the server's own resolution,
+    // before the line is stretched to W points, so each point is compared
+    // with its real neighbours (zoomed in, the server sends fewer than W).
+    if (src.length < n) src = new Float32Array(n);
+    for (let i = 0; i < n; i++) {
+      const a = arr[i > 0 ? i - 1 : 0], c = arr[i < n - 1 ? i + 1 : n - 1];
+      // Never above the point's own level: the peak keeps its true height
+      // (so it reads right on the +dB scale), only its sides are lowered.
+      const v = Math.min(arr[i], arr[i] + SHARPEN * (arr[i] - 0.5 * (a + c)));
+      src[i] = v <= 0 ? 0 : v;
+    }
     for (let x = 0; x < W; x++) {
       const i0 = Math.floor((x * n) / W);
       const i1 = Math.max(i0 + 1, Math.floor(((x + 1) * n) / W));
-      let m = 0;
-      for (let i = i0; i < i1 && i < n; i++) if (arr[i] > m) m = arr[i];   // max keeps thin carriers
-      line[x] = m;
+      let m = 0, k = Math.min(i0, n - 1);
+      for (let i = i0; i < i1 && i < n; i++) if (src[i] > m) { m = src[i]; k = i; }   // max keeps thin carriers
+      norm[x] = m / 255;
+      col[x] = arr[k];   // same bin as the height, so a column never takes a neighbour's colour
     }
-    // The levels are the waterfall's own (Min/Max sliders and Auto Adj.
-    // already applied by waterfall.js), mapped straight to height and colour,
-    // so the 3D view brightens, darkens and levels exactly like the waterfall.
-    for (let x = 0; x < W; x++) norm[x] = line[x] / 255;
-    // No smoothing across frequency (keeps narrow signals sharp); a light
-    // 10 % carry-over in time steadies the noise floor. (An unsharp mask was
-    // tried and removed: it tore the ridges into jagged, shimmering spikes.)
+    // A light 10 % carry-over in time steadies the noise floor.
     for (let x = 0; x < W; x++) {
       let v = norm[x];
       if (havePrev) v = 0.9 * v + 0.1 * prev[x];
       prev[x] = v;
-      line[x] = Math.round(v * 255);
+      line[2 * x] = Math.round(v * 255);
+      line[2 * x + 1] = col[x];
     }
     havePrev = true;
     head = (head + 1) % H;
     times[head] = performance.now();
     gl.bindTexture(gl.TEXTURE_2D, histTex);
-    gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, head, W, 1, gl.RED_INTEGER, gl.UNSIGNED_BYTE, line);
+    gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, head, W, 1, gl.RG_INTEGER, gl.UNSIGNED_BYTE, line);
+    hist.set(line, head * W * 2);
+    ranges[head * 2] = l; ranges[head * 2 + 1] = r;
     rng[0] = l; rng[1] = r;
     gl.bindTexture(gl.TEXTURE_2D, rangeTex);
     gl.texSubImage2D(gl.TEXTURE_2D, 0, head, 0, 1, 1, gl.RG, gl.FLOAT, rng);
@@ -247,8 +302,8 @@
   // ── Scale marks: same formulas as the vertex shader, in JavaScript ──
   const fl = Math.pow(Number(FLOORV), Number(HPOW));
   const sOf = (d) => 1 / (1 + K * d);
-  const sBack = 1 / (1 + K);
-  const groundOf = (d) => -1 - fl * AMP + RISE * (1 - sOf(d)) / (1 - sBack);
+  const ampOf = (d) => AMP * sOf(d) * (1 + (BACKH - 1) * d);
+  const groundOf = (d) => -1 - fl * AMP + RISE * (1 - sOf(d)) / (1 - sOf(1));
   const pct = (y) => ((1 - y) / 2) * 100;          // screen y (-1..1) → % from the top
 
   function updateMarks() {
@@ -282,7 +337,7 @@
       for (let sec = step; sec < total; sec += step) {
         while (a < oldest && (now - times[(head - a + H) % H]) / 1000 < sec) a++;
         const d = a / (H - 1);
-        const y = groundOf(d) + fl * AMP * sOf(d);
+        const y = groundOf(d) + fl * ampOf(d);
         tm.push({ sec, top: pct(y) });
       }
     }
@@ -316,6 +371,8 @@
     gl.uniform2f(uLoc.uView, viewL, viewR);
     gl.uniform1i(uLoc.uHead, head);
     gl.uniform1f(uLoc.uRise, RISE);
+    gl.uniform1f(uLoc.uK, K);
+    gl.uniform1f(uLoc.uBackH, BACKH);
     gl.uniform1f(uLoc.uAmp, AMP);
     gl.drawElements(gl.TRIANGLES, nIdx, gl.UNSIGNED_INT, 0);
   }
@@ -351,6 +408,42 @@
     if (ext) ext.loseContext();
     gl = null;
   });
+
+  /** Level (0-1) of a row at position u of the visible window, as sampleAt() in the shader. */
+  function levelAt(u, age) {
+    const row = (head - age + H) % H;
+    const l = ranges[row * 2], r = ranges[row * 2 + 1];
+    if (!(r > l) || r - l > 1.5 * (viewR - viewL)) return Number(FLOORV);
+    const t = (viewL + u * (viewR - viewL) - l) / (r - l);
+    if (t < 0 || t >= 1) return Number(FLOORV);
+    return hist[(row * W + Math.min(Math.floor(t * W), W - 1)) * 2] / 255;   // height level
+  }
+
+  /** The row under the pointer: the front-most row whose surface reaches
+   *  up to it (as the depth test draws them). Returns the frequency there as
+   *  a front-row clientX, plus the row's age in seconds; null off the sheet. */
+  export function pick(clientX, clientY) {
+    if (!canvas || !(viewR > viewL)) return null;
+    const rc = canvas.getBoundingClientRect();
+    if (!rc.width || !rc.height) return null;
+    const xs = ((clientX - rc.left) / rc.width) * 2 - 1;
+    const ys = 1 - ((clientY - rc.top) / rc.height) * 2;
+    const hp = Number(HPOW);
+    for (let a = 0; a < H; a++) {
+      const d = a / (H - 1), sd = sOf(d);
+      if (Math.abs(xs) > sd) return null;       // beside the tapered sheet
+      const u = 0.5 + 0.5 * xs / sd;
+      const top = groundOf(d) + Math.pow(levelAt(u, a), hp) * ampOf(d);
+      if (ys <= top) {
+        const t = times[(head - a + H) % H];
+        return {
+          clientX: rc.left + u * rc.width,
+          age: t > 0 ? (times[head] - t) / 1000 : 0,
+        };
+      }
+    }
+    return null;
+  }
 
   /** The WebGL canvas, for the video recorder. */
   export function getCanvas() { return canvas; }
@@ -408,8 +501,16 @@
     <div class="w3d-db" style="top:{m.top}%"><span>+{m.k} dB</span></div>
   {/each}
   <div class="w3d-tools" on:mousedown={stop} on:wheel={stop} on:mousemove={stop}>
+    <button class="w3d-btn" class:w3d-on={showGeom} on:click={() => (showGeom = !showGeom)} title="Angle and depth">⚙</button>
     <button class="w3d-btn" on:click={onClose} title="Back to the 2D spectrum">✕ 2D</button>
   </div>
+  {#if showGeom}
+    <div class="w3d-geom" on:mousedown={stop} on:wheel={stop} on:mousemove={stop}>
+      <label><span>Angle</span><input type="range" min="0.3" max={angleMax} step="any" bind:value={angle} /></label>
+      <label><span>Depth</span><input type="range" min="0" max="1" step="0.05" bind:value={depth} /></label>
+      <button class="w3d-btn" on:click={resetGeom} title="Back to the default angle and depth">Reset</button>
+    </div>
+  {/if}
 </div>
 
 <style>
@@ -457,6 +558,18 @@
       -1px 2px 3px rgba(0, 0, 0, 0.6);
     transition: background-color 0.2s ease, color 0.2s ease;
   }
+  .w3d-btn.w3d-on { color: rgb(165, 243, 252); background-color: #2a3442; }
+  .w3d-geom {
+    position: absolute; top: 34px; right: 10px; z-index: 1;
+    display: flex; flex-direction: column; gap: 4px; align-items: stretch;
+    padding: 6px 8px; border-radius: 6px; cursor: default;
+    background: rgba(10, 14, 22, 0.88); border: 1px solid rgba(0, 0, 0, 0.85);
+    box-shadow: -1px 2px 4px rgba(0, 0, 0, 0.6);
+    font-size: 10px; color: rgba(165, 243, 252, 0.9);
+  }
+  .w3d-geom label { display: flex; align-items: center; gap: 6px; }
+  .w3d-geom span { width: 34px; }
+  .w3d-geom input { width: 110px; accent-color: rgb(34, 211, 238); }
   .w3d-btn:hover { background-color: #232b35; color: rgb(103, 232, 249); }
   .w3d-btn:active {
     box-shadow: inset 1px -1px 0 rgba(255, 255, 255, 0.08), inset -1px 2px 3px rgba(0, 0, 0, 0.7);

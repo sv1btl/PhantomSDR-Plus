@@ -27,10 +27,11 @@ Seit v4.1.0 kann PhantomSDR-Plus auch das **KiwiSDR-Protokoll** beantworten, sod
 
 | | |
 |---|---|
-| **Audio** | `ws://<host>:<port>/kiwi/<id>/SND` — demoduliertes Audio in der SND-Rahmung des Kiwi |
-| **Wasserfall** | `ws://<host>:<port>/kiwi/<id>/W/F` — das Spektrum in Kiwi-W/F-Rahmen |
+| **Audio** | `ws://<host>:<port>/kiwi/<id>/SND` (auch `ws://<host>:<port>/<id>/SND`) — demoduliertes Audio in der SND-Rahmung des Kiwi |
+| **Wasserfall** | `ws://<host>:<port>/kiwi/<id>/W/F` (auch `ws://<host>:<port>/<id>/W/F`) — das Spektrum in Kiwi-W/F-Rahmen |
 | **Abstimmen** | echt, nicht kosmetisch: `SET mod=…` vom Client ändert Frequenz, Seitenband und Durchlassbereich auf der PhantomSDR-Seite, genau wie es ein Browser-Hörer täte |
 | **S-Meter** | gespeist aus der blockweisen Leistung des Demodulators, auf derselben Skala wie das Web-S-Meter |
+| **IQ** | `SET mod=iq` liefert 12 kHz I/Q in den Stereo-Frames des Kiwi, wie `kiwirecorder.py -m iq` sie erwartet. Ohne GPS-Zeitstempel, daher nicht für TDoA. Nur solange `[server] iq` eingeschaltet ist (die Voreinstellung) |
 
 Das Abstimmen wird für einen **reellen** Eingang unterstützt (`signal = "real"` in Ihrer `.toml`). Bei einem IQ-Eingang ist die Beziehung zwischen Bin und Frequenz eine andere und nicht implementiert; ein IQ-Empfänger liefert also Audio und Wasserfall, folgt aber der Abstimmung eines Kiwi-Clients nicht.
 
@@ -116,6 +117,9 @@ Richten Sie den Client auf dieselbe Adresse und denselben Port, die Ihre Hörer 
 ```bash
 # kiwiclient, 30 Sekunden 7100 kHz LSB aufzeichnen
 python3 kiwirecorder.py -s ihr.empfaenger.example -p 8073 -f 7100 -m lsb --tlimit=30
+
+# 30 Sekunden I/Q um 6030 kHz, als Stereo-WAV gespeichert
+python3 kiwirecorder.py -s ihr.empfaenger.example -p 8073 -f 6030 -m iq --tlimit=30
 ```
 
 Der Client stimmt ab, der Wasserfall füllt sich, das S-Meter zeigt an. Passiert überhaupt nichts, ist die Brücke mit ziemlicher Sicherheit noch abgeschaltet — siehe [Abschnitt 3](#3-einschalten).

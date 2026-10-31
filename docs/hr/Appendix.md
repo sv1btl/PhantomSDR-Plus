@@ -17,7 +17,7 @@ Sve naredbe koje sysop koristi za rad PhantomSDR-Plus stanice, grupirane po zada
 | `bash configure-station.sh --ask` | Pita i sprema samo `station.conf`. | [Vodič za instalaciju](INSTALLATION.md#pitanja-o-stanici) |
 | `bash configure-station.sh --apply` | Ponovno piše konfiguracijske datoteke iz `station.conf` bez pitanja. | [Vodič za instalaciju](INSTALLATION.md#pitanja-o-stanici) |
 | `bash configure-station.sh --show` | Prikazuje trenutne odgovore. | [Vodič za instalaciju](INSTALLATION.md#pitanja-o-stanici) |
-| `./add-receiver.sh` | Dodaje još jedan prijemnik (npr. RTL-SDR za 2 m) uz glavni. | [Vodič za instalaciju](INSTALLATION.md#više-prijemnika-na-jednom-računalu) |
+| `./add-receiver.sh` | Dodaje još jedan prijemnik (npr. RTL-SDR za 2 m) uz glavni. | [Postavljanje administratorske ploče](ADMIN_PANEL_SETUP.md#prijemnici) |
 
 ## Upravljački programi prijemnika
 
@@ -30,6 +30,7 @@ Sve naredbe koje sysop koristi za rad PhantomSDR-Plus stanice, grupirane po zada
 | `./setup-airspyhf.sh` | Instalira lanac upravljačkih programa za Airspy HF+. | [Vodič za instalaciju](INSTALLATION.md#prijamnici-preko-soapysdr-a-rsp1a-fobos-airspy-hf) |
 | `./setup-fobos.sh` | Instalira lanac upravljačkih programa za RigExpert Fobos. | [Vodič za instalaciju](INSTALLATION.md#prijamnici-preko-soapysdr-a-rsp1a-fobos-airspy-hf) |
 | `./setup-hackrf.sh` | Instalira paket hackrf i njegovo udev pravilo. | [Vodič za instalaciju](INSTALLATION.md#hackrf-one) |
+| `./setup-drm.sh` | Gradi DRM dekoder (ubersdr-drm s fdk-aac 2.0.3) u `drm/bin/`. | [Dekoderi](DECODERS.md#čitanje-ploče) |
 | `rtl_test` | Provjerava je li RTL-SDR stick prepoznat. | [Vodič za instalaciju](INSTALLATION.md#testirajte-rtl-sdr) |
 | `SoapySDRUtil --find="driver=soapyMiri"` | Provjerava je li RSP1A prepoznat (`driver=fobos`, `driver=airspyhf` za ostale). | [Vodič za instalaciju](INSTALLATION.md#prijamnici-preko-soapysdr-a-rsp1a-fobos-airspy-hf) |
 | `SoapySDRUtil --info` | Prikazuje instalirane SoapySDR upravljačke programe. | [Vodič za instalaciju](INSTALLATION.md#fobos-ili-airspy-hf-nije-pronađen) |
@@ -50,6 +51,7 @@ Sve naredbe koje sysop koristi za rad PhantomSDR-Plus stanice, grupirane po zada
 | `INSTANCE=vhf ./start-rtl.sh` | Pokreće drugi prijemnik postavljen u `instances/vhf/`. | [Više prijemnika](MULTI_RECEIVER.md#3-dodavanje-drugog-prijemnika) |
 | `SPECTRUM_CORES=0-3 ./start-rx888mk2.sh` | Veže poslužitelj uz ove CPU jezgre (`none` = bez vezivanja). | [README](README.md#osnovni-rad) |
 | `RADE_ENABLED=0 ./start-rx888mk2.sh` | Pokreće bez RADE sidecara. | [RADE README](RADE_README.md#upravljanje-sidecarom) |
+| `DRM_ENABLED=0 ./start-rx888mk2.sh` | Pokreće bez DRM pomoćnika. | [Dekoderi](DECODERS.md#čitanje-ploče) |
 | `./stop-websdr.sh` | Zaustavlja sve prijemnike ove instalacije i njihov nadzornik. | [Vodič za instalaciju](INSTALLATION.md#7-zaustavite-poslužitelj) |
 | `./stop-websdr.sh main` | Zaustavlja samo glavni prijemnik. | [Više prijemnika](MULTI_RECEIVER.md#5-pokretanje-i-zaustavljanje) |
 | `./stop-websdr.sh vhf` | Zaustavlja samo prijemnik pokrenut s `INSTANCE=vhf`. | [Više prijemnika](MULTI_RECEIVER.md#5-pokretanje-i-zaustavljanje) |
@@ -82,7 +84,7 @@ Sve naredbe koje sysop koristi za rad PhantomSDR-Plus stanice, grupirane po zada
 | `./update.sh --apply --yes` | Ažurira bez pitanja; svaka datoteka koju ste uredili ostaje sačuvana. | [Vodič za instalaciju](INSTALLATION.md#ostale-mogućnosti) |
 | `./update.sh --apply --prune` | Nudi i brisanje datoteka uklonjenih u izvornom repozitoriju. | [Vodič za instalaciju](INSTALLATION.md#pokretanje) |
 | `./update.sh --from FILE` | Uzima novu verziju iz `.zip`/`.tar.gz` ili mape — bez mreže. | [Vodič za instalaciju](INSTALLATION.md#ostale-mogućnosti) |
-| `./update.sh --ref v5.3.0` | Ažurira na oznaku, granu ili commit umjesto trenutnog stabla. | [Vodič za instalaciju](INSTALLATION.md#ostale-mogućnosti) |
+| `./update.sh --ref v5.4.0` | Ažurira na oznaku, granu ili commit umjesto trenutnog stabla. | [Vodič za instalaciju](INSTALLATION.md#ostale-mogućnosti) |
 | `./update.sh --list-excludes` | Prikazuje datoteke koje alat za ažuriranje nikad ne dira. | [Vodič za instalaciju](INSTALLATION.md#ostale-mogućnosti) |
 | `./update.sh --verbose` | Prikazuje sve datoteke, ne samo prvih 40. | [Vodič za instalaciju](INSTALLATION.md#ostale-mogućnosti) |
 | `./update.sh --restore LAST` | Vraća datoteke koje je zadnje ažuriranje prepisalo. | [Vodič za instalaciju](INSTALLATION.md#poništavanje-ažuriranja) |
@@ -155,6 +157,7 @@ Sve naredbe koje sysop koristi za rad PhantomSDR-Plus stanice, grupirane po zada
 | `sudo journalctl -u sdr-stats.service -f` | Prati njegov log. | [Poslužitelj statistike](../sdr-stats/readme_hr.md#upravljanje-uslugom) |
 | `curl http://localhost:3001/api/system-stats` | Provjerava odgovara li. | [Poslužitelj statistike](../sdr-stats/readme_hr.md#test-1-provjerite-api-krajnju-točku) |
 | `./install_rade.sh` | Instalira RADE / FreeDV sidecar (`install_rade_ubuntu22.sh` na Ubuntu 22.04). | [RADE README](RADE_README.md#instalacija--kraći-put) |
+| `cd ~/rade_c && git pull && cmake --build build` | Ažurira rade_c, dekoder za RADE V2 (beta); nove RADE2 veze koriste novu verziju. | [RADE README](RADE_README.md#rade-v2-beta--rade2) |
 | `./rade.sh start` | Pokreće RADE sidecar s nadzornikom. | [RADE README](RADE_README.md#upravljanje-sidecarom) |
 | `./rade.sh stop` | Zaustavlja ga, zajedno s nadzornikom i procesima dekodiranja. | [RADE README](RADE_README.md#upravljanje-sidecarom) |
 | `./rade.sh restart` | Čisto ga zaustavlja i pokreće. | [RADE README](RADE_README.md#upravljanje-sidecarom) |

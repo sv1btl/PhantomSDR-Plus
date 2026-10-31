@@ -1,7 +1,8 @@
 #!/bin/bash
 
-#enter here the full path to your 'frequencylist' folder
-cd /home/sv1btl/PhantomSDR-Plus/frequencylist/
+# Work in the folder this script lives in (frequencylist/), wherever the
+# station is installed and whoever calls it — cron included.
+cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" || exit 1
 
 #is the last HFCC DB downloaded?
 curl https://new.hfcc.org/data/ > ./curl-output.txt
@@ -57,8 +58,10 @@ python3 generate-current-shortwave.py
 
 ##############################################################
 # Combine marker files using Python
-# Priority: mymarkers.json first, then shortwavestations.json
-# Duplicates removed by FREQUENCY ONLY (mymarkers.json version kept)
+# Priority: mymarkers.json first, then decodermarkers.json, then
+# shortwavestations.json. Duplicates removed by FREQUENCY ONLY (the earlier
+# file's version kept). decodermarkers.json ships with PhantomSDR-Plus and is
+# replaced by every update: put your own markers in mymarkers.json.
 
 echo ""
 echo "Combining marker files..."
@@ -84,6 +87,22 @@ except json.JSONDecodeError as e:
     print(f"  ✗ JSON error: {e}")
     sys.exit(1)
 
+# 1b. decodermarkers.json — the project's decoder markers (clicking one starts
+#     its decoder). Skipped where mymarkers.json already has that frequency.
+print("Loading decodermarkers.json...")
+decoder_markers = []
+try:
+    with open('decodermarkers.json', 'r') as f:
+        decoder_markers = json.load(f)
+        print(f"  ✓ Loaded {len(decoder_markers)} decoder markers")
+except FileNotFoundError:
+    print("  ⚠ File not found, skipping")
+except json.JSONDecodeError as e:
+    print(f"  ✗ JSON error: {e}")
+    sys.exit(1)
+_mine = set(m['frequency'] for m in my_markers)
+decoder_markers = [m for m in decoder_markers if m['frequency'] not in _mine]
+
 # 2. Load shortwavestations.json (auto-generated)
 print("Loading shortwavestations.json...")
 shortwave_markers = []
@@ -101,8 +120,8 @@ except json.JSONDecodeError as e:
 # IMPORTANT: Check by FREQUENCY ONLY (not frequency + name)
 print("\nRemoving duplicates by frequency (keeping your custom markers)...")
 
-# Create a set of frequencies from mymarkers for fast lookup
-my_frequencies = set(m['frequency'] for m in my_markers)
+# Frequencies already taken by your markers or the decoder markers
+my_frequencies = set(m['frequency'] for m in my_markers) | set(m['frequency'] for m in decoder_markers)
 
 # Filter shortwave markers - remove any with same frequency as mymarkers
 filtered_shortwave = []
@@ -115,7 +134,7 @@ for sw in shortwave_markers:
     else:
         duplicates_removed += 1
         # Find the corresponding mymarker
-        my_marker = next((m for m in my_markers if m['frequency'] == sw['frequency']), None)
+        my_marker = next((m for m in my_markers + decoder_markers if m['frequency'] == sw['frequency']), None)
         if my_marker:
             removed_details.append({
                 'frequency': sw['frequency'],
@@ -140,6 +159,7 @@ else:
 
 # 4. Combine: YOUR MARKERS FIRST, then filtered shortwave
 markers.extend(my_markers)
+markers.extend(decoder_markers)
 markers.extend(filtered_shortwave)
 
 # Create final structure
@@ -156,6 +176,7 @@ try:
     print("========================================")
     print(f"✓ Created markers.json successfully!")
     print(f"  Your custom markers: {len(my_markers)} (first)")
+    print(f"  Decoder markers:     {len(decoder_markers)} (not already yours)")
     print(f"  Shortwave markers:   {len(filtered_shortwave)} (after)")
     print(f"  Total markers:       {len(markers)}")
     print("========================================")

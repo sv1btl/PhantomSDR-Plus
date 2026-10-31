@@ -10,6 +10,8 @@ Depuis la v5.0.0, un ordinateur PhantomSDR-Plus peut faire tourner plusieurs ré
 
 > **Le plus simple :** lancez `./add-receiver.sh` (les installeurs le proposent à la fin). Il demande quel récepteur et ce qu'il doit couvrir, installe son pilote, écrit tout ce que décrivent la [section 3](#3-ajouter-un-second-récepteur) et la [section 4](#4-receiverstoml), et propose de démarrer le récepteur et de redémarrer le proxy. Le reste de ce manuel explique ce qu'il fait, pour le jour où vous voulez modifier quelque chose à la main.
 
+> **Depuis le panneau d'administration :** la page **Receivers** liste chaque récepteur avec ce qu'il couvre, change elle-même la fréquence et la largeur de bande d'un récepteur supplémentaire (et ne redémarre que lui), et prépare un nouveau récepteur : elle enregistre vos réponses et donne `./add-receiver.sh --answers instances/.add-rx.env` à lancer dans un terminal. Voir [Panneau d'administration](ADMIN_PANEL_SETUP.md).
+
 ---
 
 ## Sommaire

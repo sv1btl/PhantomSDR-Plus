@@ -6,6 +6,8 @@
 
 Ovaj dokument obrađuje potpunu integraciju prijama RADE v1 u PhantomSDR-Plus, izvedenu kao sidecar proces u Pythonu (`rade_helper.py`) koji povezuje preglednik s lancem dekodiranja `radae_rxe.py` + `lpcnet_demo`.
 
+Dekodira i **RADE V2 (beta)**, novi valni oblik FreeDV-a 3.0, gumbom **RADE-v2U** — pogledajte [RADE V2 (beta) — RADE2](#rade-v2-beta--rade2).
+
 ## Instalacija — kraći put
 
 ```bash
@@ -13,7 +15,7 @@ cd ~/PhantomSDR-Plus
 ./install_rade.sh
 ```
 
-To je cijela instalacija. Skripta instalira sistemske pakete preko upravitelja paketa koji stroj ima (apt, pacman, dnf ili zypper), za ono što distribucija ne isporučuje poseže za pipom, nadograđuje `websockets` ako je verzija iz distribucije starija od 11.0 koju sidecar treba, klonira i gradi radae, provjerava težine modela, ponovno gradi frontend i pokreće sidecar. Na Ubuntuu 22.04 predaje posao skripti `install_rade_ubuntu22.sh`. `./install.sh` nudi da je pokrene u sklopu normalne instalacije, pa je na svježem stroju RADE već tu.
+To je cijela instalacija. Skripta instalira sistemske pakete preko upravitelja paketa koji stroj ima (apt, pacman, dnf ili zypper), za ono što distribucija ne isporučuje poseže za pipom, nadograđuje `websockets` ako je verzija iz distribucije starija od 11.0 koju sidecar treba, klonira i gradi radae, provjerava težine modela, ponovno gradi frontend i pokreće sidecar. Na Ubuntuu 22.04 predaje posao skripti `install_rade_ubuntu22.sh`. `./install.sh` nudi da je pokrene u sklopu normalne instalacije, pa je na svježem stroju RADE već tu. Gradi i FreeDV-ov rade_c za RADE V2 (beta); ako taj korak ne uspije, RADE V1 se svejedno instalira.
 
 **Ovaj dokument objašnjava kako RADE radi i kako ga pokrenuti — nije postupak instalacije.** Ako instalaciju morate obaviti ručno, na sustavu koji skripta ne pokriva ili da biste popravili jedan korak, slijedite vodič povezan niže; koraci su zapisani ondje i nigdje drugdje. Sve ovdje — arhitektura, zakrpane datoteke, vrata, upotreba RADE-a u pregledniku, varijable okoline, rješavanje problema i mjerenje istodobnosti — vrijedi za svaku instalaciju, kako god je napravljena.
 
@@ -27,6 +29,7 @@ To je cijela instalacija. Skripta instalira sistemske pakete preko upravitelja p
 2. [Kako to radi](#kako-to-radi)
 3. [Pregled arhitekture](#pregled-arhitekture)
 4. [RADEL naspram RADEU](#radel-naspram-radeu)
+   - [RADE V2 (beta) — RADE2](#rade-v2-beta--rade2)
 5. [Preduvjeti](#preduvjeti)
 6. [Ručna instalacija](#ručna-instalacija)
 7. [Postavljanje zakrpanih datoteka](#postavljanje-zakrpanih-datoteka)
@@ -110,6 +113,40 @@ RADE v1 uvijek se prenosi putem SSB-a. Prema konvenciji:
 |------------|-------------|------------------------------------------|
 | RADEL      | LSB         | 160 m, 80 m, 40 m  (≤ 10 MHz)           |
 | RADEU      | USB         | 20 m, 17 m, 15 m, 12 m, 10 m (> 10 MHz) |
+
+---
+
+## RADE V2 (beta) — RADE2
+
+**RADE V2** je novi valni oblik FreeDV-a 3.0: širok oko 800 Hz umjesto 1500 Hz, bez pilotskih simbola i oko 3 dB osjetljiviji pri niskom SNR-u. **U FreeDV-u je još u beta fazi** — šalju ga samo postaje koje testiraju FreeDV 3.0, a signal se do izlaska još može promijeniti. PhantomSDR-Plus ga dekodira uz RADE V1:
+
+| Gumb | Verzija | Bočni pojas | Filtar |
+|---|---|---|---|
+| **RADE-v2U** (RADE2) | RADE V2 (beta) | USB na svakom pojasu | 1040–1930 Hz |
+| **RADE-v1L** / **RADE-v1U** (RADEL / RADEU) | RADE V1 | LSB / USB | 700–2200 Hz |
+
+V2 se dekodira na poslužitelju FreeDV-ovim prijenosom u C, **rade_c** (`radae_rx --v2` i njegov vlastiti `lpcnet_demo`), izgrađenim u vlastitoj mapi `~/rade_c`, tako da se V1 instalacija u `~/radae` nikada ne dira. `./install_rade.sh` ga preuzima i gradi (korak „rade_c (RADE V2, beta)”); ako taj korak ne uspije, samo upozorava, a RADE V1 se svejedno instalira. `rade_helper.py` koristi rade_c od sljedeće RADE2 veze — ponovno pokretanje nije potrebno — a bez njega RADE2 slušatelju javlja „RADE V2 is not installed on this station yet”. Dekodiranje V2 stoji oko 1 % jedne CPU jezgre po slušatelju (V1: oko 70–80 %).
+
+Ručna izgradnja rade_c (na Ubuntu 22.04 najprije `sudo apt-get install autoconf automake libtool`):
+
+```bash
+cd ~
+git clone https://github.com/freedv/rade_c.git
+cd rade_c
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build -j4
+```
+
+**U eteru**
+
+- Ugodite se do oko **±30 Hz** od frekvencije postaje. Dalje od toga V2 i dalje pokazuje „Synced”, ali je govor nerazumljiv.
+- Svako javljanje počinje **2–3 s kasnije**: dok se V2 zaključava, zadržava signal i zatim reproducira početak javljanja.
+- Ispod oko **−2 dB SNR-a** zvuk V2 se utišava, a ploča piše „Searching for signal…” — osim ako zadnje 2 sekunde izgledaju kao pravi V2 (dekoder većinu vremena vidi svoj signal, a njegova procjena frekvencije ostaje mirna); tada svira do oko **−6 dB**. Na zauzetim LSB fonijskim frekvencijama slušanima u USB-u (40 m) V2 se može zaključati na obične glasove i puštati nerazumljiv zvuk; oni nikad ne izgledaju mirno pa ostaju utišani. `RADE_V2_MIN_SNR` i `RADE_V2_WEAK_SNR` određuju oba praga.
+- Između javljanja ploča se vraća na „Searching for signal…”.
+
+**Što sidecar radi za V2.** Zvuk prijamnika ponovno se uzorkuje na 8 kHz u jednom neprekinutom toku — u odvojenim komadima V2 je stalno gubio sinkronizaciju; podiže se na razinu na kojoj dekoder radi — na niskoj razini prijamnika V2 je dekodirao samo prve sekunde svakog javljanja; a dekodirani govor izjednačava se prema −16 dBFS (`RADE_V2_TARGET_DB`), jer je glasan samo koliko i mikrofon postaje koja odašilje. RADE V1 sada prolazi kroz isto neprekinuto ponovno uzorkovanje, pa slabe signale i signale s fedingom dekodira bolje nego prije.
+
+**Kad izađe FreeDV 3.0**, ponovno pokrenite `./install_rade.sh` — ili `git pull` u `~/rade_c` i `cmake --build build` — i nove RADE2 veze tada koriste novu verziju.
 
 ---
 
@@ -239,19 +276,22 @@ ss -tlnp | grep 8074
 2. Aktivne postaje potražite na **[qso.freedv.org](https://qso.freedv.org)**
 3. Ugodite se na prikazanu frekvenciju postaje
 4. U **Decoder Options** odaberite:
+   - **RADE v2 · RADE2** za RADE V2 (beta), USB na svakom pojasu
    - **RADE v1 — RADEL (LSB)** za 40 m / 80 m / 160 m
    - **RADE v1 — RADEU (USB)** za 20 m / 17 m / 15 m / 12 m / 10 m
 5. Kliknite **Decoder: ON**
 
-### Gumbi RADEL / RADEU (jedan pritisak)
+### Gumbi RADE-v1L / RADE-v1U (jedan pritisak)
 
-Korake 4 i 5 može zamijeniti jedan pritisak. Par gumba **RADEL** / **RADEU** dostupan je na tri mjesta:
+Korake 4 i 5 može zamijeniti jedan pritisak. Par gumba **RADE-v1L** / **RADE-v1U** dostupan je na tri mjesta:
 
-- uz naslov **Modes selector** na glavnoj ploči;
+- uz naslov **Modes** na glavnoj ploči;
 - u skočnom prozoru **Modes**;
 - u skočnom prozoru **Bands**.
 
 Pritisak odabire dekoder, uključuje dekoder (ON), zatvara skočni prozor u kojem ste ga pritisnuli i dovodi RADE ploču na zaslon. Gumb je plav dok RADE radi. **Ponovni pritisak na isti gumb isključuje RADE** — ploča se zatvara, a način rada i propusni pojas vraćaju se kako je opisano niže. Gumbi, padajući izbornik **Decoder Options** i gumb ON/OFF dijele isto stanje.
+
+Gumb **RADE-v2U** stoji ispred RADE-v1L i RADE-v1U na ista tri mjesta (i gumb RADE2 na `/mobile`); pokreće RADE V2 (beta) u USB-u — pogledajte [RADE V2 (beta) — RADE2](#rade-v2-beta--rade2).
 
 ### Stanja pokazatelja na ploči
 
@@ -331,6 +371,12 @@ Port 8074 nije dostupan — provjerite vatrozid i NAT pravilo usmjerivača.
 | `RADE_TORCH_THREADS` | `1` | PyTorch/OpenBLAS dretve po instanci `radae_rxe.py` — ograničava potrošnju CPU-a |
 | `RADE_PIN_CORES` | `1` | Veže svaki lanac dekodiranja uz vlastiti skup jezgri; `0` isključuje vezanje |
 | `RADE_CORES_PER_CLIENT` | `2` | Jezgri dodijeljenih po klijentu kada je vezanje uključeno |
+| `RADE_C_DIR` | `~/rade_c` | Korijen rade_c (RADE V2) |
+| `RADE_C_RX` | `RADE_C_DIR/build/src/radae_rx` | Prijamni program rade_c |
+| `RADE_C_LPCNET` | `RADE_C_DIR/build/src/lpcnet_demo` | Vlastiti lpcnet_demo rade_c-a |
+| `RADE_V2_MIN_SNR` | `-2` | Ispod ovog SNR-a (dB) zvuk V2 se utišava |
+| `RADE_V2_WEAK_SNR` | `-6` | Do ovog SNR-a (dB) V2 i dalje svira dok signal izgleda kao pravi V2; postavite ga na `RADE_V2_MIN_SNR` ili više da to isključite |
+| `RADE_V2_TARGET_DB` | `-16` | Razina prema kojoj se dovodi govor V2, u dBFS (`0` = isključeno) |
 
 ---
 

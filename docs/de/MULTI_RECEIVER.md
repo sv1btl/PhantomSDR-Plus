@@ -10,6 +10,8 @@ Seit v5.0.0 kann ein PhantomSDR-Plus-Rechner mehrere Empfänger gleichzeitig bet
 
 > **Am einfachsten:** Führen Sie `./add-receiver.sh` aus (die Installer bieten es am Ende an). Das Skript fragt, welcher Empfänger und was er abdecken soll, installiert seinen Treiber, schreibt alles, was in [Abschnitt 3](#3-einen-zweiten-empfänger-hinzufügen) und [Abschnitt 4](#4-receiverstoml) beschrieben ist, und bietet an, den Empfänger zu starten und den Proxy neu zu starten. Der Rest dieses Handbuchs erklärt, was es tut — für den Fall, dass Sie etwas von Hand ändern möchten.
 
+> **Aus dem Admin-Panel:** die Seite **Receivers** listet jeden Empfänger mit dem, was er abdeckt, ändert Frequenz und Bandbreite eines zusätzlichen Empfängers selbst (und startet nur diesen neu) und bereitet einen neuen Empfänger vor: sie speichert Ihre Antworten und gibt `./add-receiver.sh --answers instances/.add-rx.env` für ein Terminal. Siehe [Admin-Panel](ADMIN_PANEL_SETUP.md).
+
 ---
 
 ## Inhalt

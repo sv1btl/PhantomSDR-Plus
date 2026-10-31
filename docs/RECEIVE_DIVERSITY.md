@@ -93,7 +93,7 @@ On a station set up with the station questions (`configure-station.sh`) it sees 
 
 **Router port.** Behind the proxy there is none to open: the page reaches the relay as `/relay` through the address listeners already use, over http and https alike. Only an older station, set up before the station questions, runs the relay on a port of its own; visitors' browsers then connect to it directly, so that port must be forwarded on your router, or WebSDR diversity works only from inside your own network. The other three receiver types do not need the relay — except from a page served over https, where it also carries http-only PhantomSDR+ and KiwiSDR partners (see above).
 
-If the admin panel is installed, its dashboard shows a **WebSDR Diversity Relay** card with the relay's state, the port, how many sessions are running and to which sites.
+If the admin panel is installed, its dashboard shows a **WebSDR Diversity Relay** card with the relay's state, the port, how many sessions are running and to which sites. Above it, a **Receive Diversity** card lists every listener who is combining your receiver with another one — of any type, not only WebSDR — with the receiver, their name and city, frequency and mode, and the partner's type and address.
 
 ### Being a good guest
 

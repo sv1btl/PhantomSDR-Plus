@@ -17,7 +17,7 @@
 | `bash configure-station.sh --ask` | Спрашивает и сохраняет только `station.conf`. | [Руководство по установке](INSTALLATION.md#вопросы-о-станции) |
 | `bash configure-station.sh --apply` | Переписывает файлы настроек из `station.conf` без вопросов. | [Руководство по установке](INSTALLATION.md#вопросы-о-станции) |
 | `bash configure-station.sh --show` | Показывает текущие ответы. | [Руководство по установке](INSTALLATION.md#вопросы-о-станции) |
-| `./add-receiver.sh` | Добавляет ещё один приёмник (например, RTL-SDR на 2 м) рядом с основным. | [Руководство по установке](INSTALLATION.md#несколько-приёмников-на-одном-компьютере) |
+| `./add-receiver.sh` | Добавляет ещё один приёмник (например, RTL-SDR на 2 м) рядом с основным. | [Настройка панели администратора](ADMIN_PANEL_SETUP.md#приёмники) |
 
 ## Драйверы приёмников
 
@@ -30,6 +30,7 @@
 | `./setup-airspyhf.sh` | Устанавливает цепочку драйверов Airspy HF+. | [Руководство по установке](INSTALLATION.md#приёмники-через-soapysdr-rsp1a-fobos-airspy-hf) |
 | `./setup-fobos.sh` | Устанавливает цепочку драйверов RigExpert Fobos. | [Руководство по установке](INSTALLATION.md#приёмники-через-soapysdr-rsp1a-fobos-airspy-hf) |
 | `./setup-hackrf.sh` | Устанавливает пакет hackrf и его правило udev. | [Руководство по установке](INSTALLATION.md#hackrf-one) |
+| `./setup-drm.sh` | Собирает декодер DRM (ubersdr-drm с fdk-aac 2.0.3) в `drm/bin/`. | [Декодеры](DECODERS.md#чтение-панели) |
 | `rtl_test` | Проверяет, виден ли донгл RTL-SDR. | [Руководство по установке](INSTALLATION.md#проверьте-rtl-sdr) |
 | `SoapySDRUtil --find="driver=soapyMiri"` | Проверяет, виден ли RSP1A (`driver=fobos`, `driver=airspyhf` для остальных). | [Руководство по установке](INSTALLATION.md#приёмники-через-soapysdr-rsp1a-fobos-airspy-hf) |
 | `SoapySDRUtil --info` | Показывает установленные драйверы SoapySDR. | [Руководство по установке](INSTALLATION.md#fobos-или-airspy-hf-не-найден) |
@@ -50,6 +51,7 @@
 | `INSTANCE=vhf ./start-rtl.sh` | Запускает второй приёмник, настроенный в `instances/vhf/`. | [Несколько приёмников](MULTI_RECEIVER.md#3-добавление-второго-приёмника) |
 | `SPECTRUM_CORES=0-3 ./start-rx888mk2.sh` | Привязывает сервер к этим ядрам CPU (`none` = без привязки). | [README](README.md#основные-операции) |
 | `RADE_ENABLED=0 ./start-rx888mk2.sh` | Запускает без сайдкара RADE. | [RADE README](RADE_README.md#управление-sidecar) |
+| `DRM_ENABLED=0 ./start-rx888mk2.sh` | Запускает без помощника DRM. | [Декодеры](DECODERS.md#чтение-панели) |
 | `./stop-websdr.sh` | Останавливает все приёмники этой установки и их сторож. | [Руководство по установке](INSTALLATION.md#7-остановите-сервер) |
 | `./stop-websdr.sh main` | Останавливает только основной приёмник. | [Несколько приёмников](MULTI_RECEIVER.md#5-запуск-и-остановка) |
 | `./stop-websdr.sh vhf` | Останавливает только приёмник, запущенный с `INSTANCE=vhf`. | [Несколько приёмников](MULTI_RECEIVER.md#5-запуск-и-остановка) |
@@ -82,7 +84,7 @@
 | `./update.sh --apply --yes` | Обновляет без вопросов; каждый изменённый вами файл сохраняется. | [Руководство по установке](INSTALLATION.md#другие-возможности) |
 | `./update.sh --apply --prune` | Также предлагает удалить файлы, убранные в основном репозитории. | [Руководство по установке](INSTALLATION.md#запуск) |
 | `./update.sh --from FILE` | Берёт новую версию из `.zip`/`.tar.gz` или папки — без сети. | [Руководство по установке](INSTALLATION.md#другие-возможности) |
-| `./update.sh --ref v5.3.0` | Обновляет до тега, ветки или коммита вместо текущего дерева. | [Руководство по установке](INSTALLATION.md#другие-возможности) |
+| `./update.sh --ref v5.4.0` | Обновляет до тега, ветки или коммита вместо текущего дерева. | [Руководство по установке](INSTALLATION.md#другие-возможности) |
 | `./update.sh --list-excludes` | Показывает файлы, которые программа обновления никогда не трогает. | [Руководство по установке](INSTALLATION.md#другие-возможности) |
 | `./update.sh --verbose` | Показывает все файлы, а не только первые 40. | [Руководство по установке](INSTALLATION.md#другие-возможности) |
 | `./update.sh --restore LAST` | Возвращает файлы, перезаписанные последним обновлением. | [Руководство по установке](INSTALLATION.md#отмена-обновления) |
@@ -155,6 +157,7 @@
 | `sudo journalctl -u sdr-stats.service -f` | Следит за его журналом. | [Сервер статистики](../sdr-stats/readme_ru.md#управление-службой) |
 | `curl http://localhost:3001/api/system-stats` | Проверяет, отвечает ли он. | [Сервер статистики](../sdr-stats/readme_ru.md#тест-1-проверьте-конечную-точку-api) |
 | `./install_rade.sh` | Устанавливает сайдкар RADE / FreeDV (`install_rade_ubuntu22.sh` на Ubuntu 22.04). | [RADE README](RADE_README.md#установка--коротким-путём) |
+| `cd ~/rade_c && git pull && cmake --build build` | Обновляет rade_c, декодер RADE V2 (beta); новые подключения RADE2 используют новую версию. | [RADE README](RADE_README.md#rade-v2-beta--rade2) |
 | `./rade.sh start` | Запускает сайдкар RADE со сторожем. | [RADE README](RADE_README.md#управление-sidecar) |
 | `./rade.sh stop` | Останавливает его вместе со сторожем и процессами декодирования. | [RADE README](RADE_README.md#управление-sidecar) |
 | `./rade.sh restart` | Чисто останавливает и запускает его. | [RADE README](RADE_README.md#управление-sidecar) |

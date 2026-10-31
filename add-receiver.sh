@@ -35,12 +35,30 @@
 #    ADD_RX_START=y|n        start the new receiver now
 #    ADD_RX_PROXY=y|n        restart the proxy now (sudo)
 #
+#  Or all of them from a file — one NAME=value per line, as the admin panel's
+#  Receivers page writes it (the file is removed once the receiver is added):
+#    ./add-receiver.sh --answers instances/.add-rx.env
+#
 #  The complete guide is docs/MULTI_RECEIVER.md.
 # ─────────────────────────────────────────────────────────────────────────────
 set -o pipefail
 
 PHANTOMDIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$PHANTOMDIR" || exit 1
+
+# --answers FILE: ADD_RX_*/RTL_V4 lines, read as plain text (never sourced).
+ANSWERS=""
+if [ "${1:-}" = "--answers" ]; then
+    ANSWERS="${2:-}"
+    [ -f "$ANSWERS" ] || { echo "add-receiver.sh: answers file not found: $ANSWERS" >&2; exit 1; }
+    while IFS= read -r line || [ -n "$line" ]; do
+        if [[ $line =~ ^(ADD_RX_[A-Z_]+|RTL_V4)=(.*)$ ]]; then
+            k="${BASH_REMATCH[1]}"; v="${BASH_REMATCH[2]}"
+            [[ $v =~ ^\"(.*)\"$ ]] && v="${BASH_REMATCH[1]}"
+            export "$k=$v"
+        fi
+    done < "$ANSWERS"
+fi
 
 green()  { echo -e "\e[32m$*\e[0m"; }
 yellow() { echo -e "\e[33m$*\e[0m"; }
@@ -666,3 +684,4 @@ echo "  Its log:         logwebsdr-$NAME.txt"
                    add  -d <serial>  to RX_ARGS in $INST/instance.env."
 echo "  Guide:           docs/MULTI_RECEIVER.md"
 echo ""
+[ -n "$ANSWERS" ] && rm -f "$ANSWERS"

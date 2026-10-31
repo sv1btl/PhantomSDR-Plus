@@ -417,7 +417,7 @@ Instalacija se odvija u 22 numerirana koraka. Budući da se pitanja o stanici od
 | 2 | Što primati | Gotovi izbori za svaki prijemnik (npr. *HF 0–30 MHz* za RX888, *2 m* za RTL-SDR) ili vlastita središnja frekvencija i brzina uzorkovanja. |
 | 3 | Vaša stanica | Pozivni znak, ime, e-pošta, QTH lokator, grad i država, antena, računalo, ITU regija (predložena prema lokatoru). |
 | 4 | Internet | Vaša javna adresa (IP ili DNS ime) te treba li prijemnik biti na sdr-list.xyz i na karti websdr.org. Također hoće li se prijemnik posluživati i preko https:// (treba DNS ime). Upišite ime ili IP, ne port — port se pita u koraku 5. |
-| 5 | Portovi i dodaci | Administratorska ploča, FreeDV RADE, statistika, WebSDR relay, pokretanje pri podizanju sustava — i javni port. |
+| 5 | Portovi i dodaci | Administratorska ploča, FreeDV RADE, DRM, statistika, WebSDR relay, pokretanje pri podizanju sustava — i javni port. |
 
 Odgovori se spremaju u **`station.conf`**, a iz njega čarobnjak zapisuje sve što se mora slagati: `config-<prijemnik>.toml` prijemnika (brzina uzorkovanja, frekvencija, port, upisi u imenike, websdr.org), `frontend/site_information.json` i postavke relaya. Skripte za pokretanje same čitaju frekvenciju i brzinu uzorkovanja iz `station.conf`, pa se nikad ne uređuju. Mijenjaju se samo postavke koje pripadaju čarobnjaku, a svaka se datoteka prije promjene kopira u `<ime>.bak-<datum>`.
 
@@ -425,12 +425,13 @@ Odgovori se spremaju u **`station.conf`**, a iz njega čarobnjak zapisuje sve š
 
 | Port | Što | Otvoren na usmjerniku |
 |---|---|---|
-| 9000 | stranica prijemnika — `proxy.py`, koji prosljeđuje i `/admin`, `/rade`, `/stats` i `/relay` | **da, samo ovaj** |
+| 9000 | stranica prijemnika — `proxy.py`, koji prosljeđuje i `/admin`, `/rade`, `/drm`, `/stats` i `/relay` | **da, samo ovaj** |
 | 9001 | spectrumserver | ne |
 | 9010 | administratorska ploča | ne |
 | 9011 | poslužitelj statistike | ne |
 | 9012 | FreeDV RADE dekoder | ne |
 | 9013 | WebSDR diversity relay | ne |
+| 9015 | DRM dekoder | ne |
 
 Port koji je na računalu već zauzet preskače se u korist sljedećeg slobodnog. Za kasnije promjene:
 
@@ -458,7 +459,7 @@ Ništa ne treba ručno pripremati — nema popisa ovisnosti za lijepljenje, nema
 | 10–11 | Instalira ovisnosti frontenda i gradi stranicu za računalo i `/mobile` |
 | 12 | Instalira OpenCL za pronađeni hardver |
 | 13 | Instalira administratorsku ploču — ili, bez nje, samo proxy na javnom portu |
-| 14–16 | Instalira WebSDR relay, FreeDV RADE i poslužitelj statistike, ako ste ih odabrali |
+| 14–16 | Instalira WebSDR relay, FreeDV RADE, DRM i poslužitelj statistike, ako ste ih odabrali |
 | 17 | Ponovno primjenjuje zakrpane websocketpp zaglavlja i provjerava ih |
 | 18 | Instalira emulaciju KiwiSDR klijenta, kako bi se Kiwi klijenti poput AetherSDR-a mogli spojiti |
 | 19 | Ponovno gradi backend iz zakrpanih izvora |
@@ -480,6 +481,7 @@ Svako pitanje ima varijablu okoline koja ga nadjačava, a instalacijski program 
 | `PHANTOM_OPENCL_PROVIDER=1\|2\|3` | Intel · Mesa/Rusticl · POCL (default: from the detected hardware) |
 | `PHANTOM_ADMIN=y\|n` | admin panel (y interactive, n unattended) |
 | `PHANTOM_RADE=y\|n` | RADE / FreeDV (y interactive, n unattended) |
+| `PHANTOM_DRM=y\|n` | DRM decoder (default y) |
 | `PHANTOM_STATS=y\|n` | statistics server (y interactive, n unattended) |
 | `PHANTOM_KIWI=y\|n` | KiwiSDR client emulation (default y) |
 | `PHANTOM_RECOMPILE=y\|n` | final rebuild (default y) |
@@ -506,7 +508,7 @@ Nakon ponovnog pokretanja udev pravila za RX888 i eventualni OpenCL upravljački
 
 Pri postavljanju administratorske ploče instalater nudi i dvije systemd jedinice te **snažno preporučuje** da ih prihvatite: zaštita od pregrijavanja procesora radi unutar ploče, pa bez njih ponovno dizanje sustava ili pad ostavljaju računalo nezaštićenim. Korak se automatski preskače ondje gdje systemd ne radi (kontejneri, WSL1, OpenRC) — vidi [vodič za ploču](ADMIN_PANEL_SETUP.md).
 
-Svaki je dodatak obična skripta koju možete pokrenuti i zasebno, kad god želite — `./setup_admin.sh` ([priručnik](ADMIN_PANEL_SETUP.md)), `./install_rade.sh` ([priručnik](RADE_README.md)), `./install-stats-server.sh` ([priručnik](sdr-stats/README.md)), `./setup-rx888-udev.sh` i skripte prijamnika `./setup-rsp1a.sh`, `./setup-fobos.sh`, `./setup-airspyhf.sh` i `./setup-hackrf.sh` — upravo njih poziva instalacijska skripta.
+Svaki je dodatak obična skripta koju možete pokrenuti i zasebno, kad god želite — `./setup_admin.sh` ([priručnik](ADMIN_PANEL_SETUP.md)), `./install_rade.sh` ([priručnik](RADE_README.md)), `./setup-drm.sh` ([DRM dekoder](DECODERS.md#13-drm)), `./install-stats-server.sh` ([priručnik](sdr-stats/README.md)), `./setup-rx888-udev.sh` i skripte prijamnika `./setup-rsp1a.sh`, `./setup-fobos.sh`, `./setup-airspyhf.sh` i `./setup-hackrf.sh` — upravo njih poziva instalacijska skripta.
 
 ### Ručno građenje (referenca)
 
@@ -715,6 +717,7 @@ nano config-rtl.toml
 port = 9002                      # Web interface port (or everything else)
 html_root = "frontend/dist/"     # Frontend location
 otherusers = 1                   # Show other users (1=yes, 0=no)
+iq = true                        # Offer the IQ mode to listeners (true/false)
 threads = 2                      # Number of server threads
 
 [websdr]
@@ -773,7 +776,7 @@ Uredite sljedeća polja:
   "siteCity": "Your City, Country",
   "siteInformation": "https://github.com/sv1btl/PhantomSDR-Plus",
   "siteHardware": "Computer specifications",
-  "siteSoftware": "PhantomSDR-Plus v5.3.0",
+  "siteSoftware": "PhantomSDR-Plus v5.4.0",
   "siteReceiver": "Your SDR model",
   "siteAntenna": "Antenna description",
   "siteNote": "Additional information",
@@ -1599,7 +1602,7 @@ Sigurnosne kopije od prije 23. rujna 2026. nalaze se u skrivenoj mapi `.update-b
 ./update.sh --apply --yes     # nikada ne pita; svaka vaša izmijenjena datoteka OSTAJE
 ./update.sh --check           # samo izvješće, nikad pitanje — za cron (10 = čeka ažuriranje)
 ./update.sh --from FILE|DIR   # nova verzija iz .zip/.tar.gz ili mape — bez mreže
-./update.sh --ref v5.3.0      # oznaka, grana ili commit umjesto trenutnog stabla
+./update.sh --ref v5.4.0      # oznaka, grana ili commit umjesto trenutnog stabla
 ./update.sh --list-excludes   # ispisuje pravila "ne diraj" kako vrijede ovdje
 ./update.sh --verbose         # nabraja sve datoteke, ne samo prvih 40
 ```

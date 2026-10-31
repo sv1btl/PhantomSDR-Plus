@@ -5,7 +5,7 @@ import { KiwiSource } from './kiwiSource'
 import { UberSource } from './uberSource'
 import { WebSdrSource } from './webSdrSource'
 import { sideServiceBase, sideServiceWhere } from './lib/sideService'
-import { siteRade } from './siteInfo.js'
+import { siteRade, siteDrm } from './siteInfo.js'
 import { ConnectionRefused, isRefusal, isKick, defaultReason } from './refused'
 import { loadRnnoise, RNNOISE_FRAME, RNNOISE_RATE, RNNOISE_DELAY } from './lib/rnnoise'
 // Opus ML decoder — loaded ON DEMAND, not at startup.
@@ -80,14 +80,15 @@ import { FAXWorkerProxy }  from './faxWorkerProxy.js';
 // NAVTEX and FSK/RTTY are one shared engine (fsk.js); each role gets its own
 // decoder instance and its own worker.  See fsk.worker.js.
 import { FSKWorkerProxy }  from './fskWorkerProxy.js';
+import { HFDLWorkerProxy } from './hfdlWorkerProxy.js';
 // fsk.js is in this bundle already (the proxy's in-thread fallback imports it).
 import { FLDIGI_MODEMS } from './fsk.js';
 const FSK_MODEM_VARIANTS = Object.keys(FLDIGI_MODEMS);
 import { ModeIdWorkerProxy } from './modeIdWorkerProxy.js';
 import { VideoRecorder } from './videoRecorder.js';
 // CW runs in its own Worker too; the proxy keeps the CWDecoder surface that
-// _cwReset/_cwFeedPCM below use.  See cw.worker.js for why CW is fed the
-// PROCESSED buffer rather than the raw tap.
+// _cwReset/_cwFeedPCM below use.  It is fed the raw tap like every other
+// decoder (see the CW tap in playAudio).
 import { CWWorkerProxy } from './cwWorkerProxy.js';
 // Link jitter/drift meter and the playout cushion drain — see playoutControl.js.
 import { ArrivalMeter, CushionController, spliceOut, spliceIn, blockRms } from './playoutControl.js';
@@ -105,7 +106,7 @@ const OPUS_ENABLED = true;
 // All gain sources mapped
 // FLAC decoder output  ×175  (line 2440) const flacGain = 175.0                ─┐
 // Opus decoder output  ×175  (line 179) const gain = 175.0;                    ─┤→ playAudio() → DSP chain → playPCM() → audioInputNode
-// RADE decoded speech  ×0.20 (line 2017) this.radeGainNode.gain.value = 0.20   ─┘ 
+// RADE decoded speech  ×0.10 (line 3428) this.radeGainNode.gain.value = 0.10   ─┘ 
 
 import { Js8Reassembler }          from './modules/js8-reassembler.js';
 import { decodeFrame as js8DecodeFrame,
@@ -168,6 +169,7 @@ import { BiquadFilterNode } from 'standardized-audio-context';
 // buffers — ~32× faster on the 2048-pt NR round-trip that runs per audio
 // buffer on the main thread. Verified against fft-js: scratchpad/fft_verify.mjs.
 import { fft, ifft, transformFlat } from './lib/fftRadix2.js';
+import { IQDemodBank } from './lib/iqDemod.js';
 
 /* Opus Encoder */
 class OpusMLAdapter {
@@ -879,14 +881,39 @@ export default class SpectrumAudio {
       }
     });
 
+    // ── HFDL (HF Data Link) decoder state ────────────────────────────────
+    // dumphfdl compiled to WebAssembly, in hfdl.worker.js.  It reads the USB
+    // audio before NR/NB/NS/AN, like every other decoder here, and searches
+    // ±1 % around this rate itself.
+    this.decodeHFDL   = false;
+    this.hfdlCallback = null;
+    this._hfdlDecoder = new HFDLWorkerProxy({
+      sampleRate: () => this.trueAudioSps || this.audioOutputSps || 12000,
+      callback: (event) => {
+        if (typeof this.hfdlCallback === 'function') this.hfdlCallback(event);
+      }
+    });
+
     // ── RADE v1 digital voice decoder state ──────────────────────────────
     this.decodeRADE    = false;
     this._radeSideband = 'USB';
+    this._radeVersion  = 1;      // 1, or 2 for RADE V2 (beta) on the helper's rade_c pipeline
     this._radeSocket   = null;
     this._radeCallback = null;
     this._radeReady    = false;
     this._radeNextTime = 0;    // scheduled end-time of last RADE audio chunk
     this._radeSources  = new Set(); // active/scheduled RADE decoded-audio sources
+
+    // ── DRM decoder state (autorun/drm-helper.js on the server) ──────────
+    this.decodeDRM    = false;
+    // True from the moment DRM is switched on until it is switched off, even
+    // while the helper is unreachable: in DRM the only sound is decoded DRM,
+    // and no decoded signal means silence, never the receiver's AM audio.
+    this.drmSelected  = false;
+    this._drmSocket   = null;
+    this._drmCallback = null;
+    this._drmNextTime = 0;          // scheduled end-time of the last DRM chunk
+    this._drmSources  = new Set();  // active/scheduled DRM decoded-audio sources
 
     // ── Mode identifier ("what am I listening to?") ───────────────────────
     // Not a decoder: it measures the signal and ranks which decoder to use.
@@ -1301,6 +1328,10 @@ _handleSocketTerminal(kind, evt) {
 
   this.audioSocket = null
 
+  // The listener's session is over — kicked, banned, refused, or the server
+  // or network gone — and DRM, which runs on a socket of its own, ends with it.
+  if (this._drmSocket || this.decodeDRM) this.setDRMDecoding(false)
+
   if (refused) {
     console.warn(`[Audio] connection ended by the server: ${this.refusedReason}`)
     this._notifyConnection('refused')
@@ -1347,6 +1378,8 @@ async init() {
     this._syncAgcSpeed()
     // Name/callsign for the users list (see setIdentity).
     if (this._identity) this._safeSend({ cmd: 'identity', ...this._identity })
+    if (this._decoder) this._safeSend({ cmd: 'decoder', name: this._decoder })
+    if (this._diversityReport) this._safeSend({ cmd: 'diversity', ...this._diversityReport })
   }
   this.audioSocket.onerror = (evt) => this._handleSocketTerminal('error', evt)
   this.audioSocket.onclose = (evt) => this._handleSocketTerminal('close', evt)
@@ -1510,6 +1543,17 @@ async init() {
       try { this._navtexDecoder.destroy(); } catch (e) { console.warn('[NAVTEX] destroy error', e); }
     }
     this.navtexCallback = null;
+
+    // Clear DRM state
+    this.setDRMDecoding(false);
+    this._drmCallback = null;
+
+    // Clear HFDL state
+    if (this.decodeHFDL) { this.decodeHFDL = false; this._hfdlDecoder.setEnabled(false); }
+    if (this._hfdlDecoder) {
+      try { this._hfdlDecoder.destroy(); } catch (e) { console.warn('[HFDL] destroy error', e); }
+    }
+    this.hfdlCallback = null;
 
     if (this._sstvDecoder && typeof this._sstvDecoder.destroy === 'function') {
       try { this._sstvDecoder.destroy(); } catch (e) { console.warn('[SSTV] destroy error', e); }
@@ -3379,8 +3423,15 @@ setAGC(newAGCSpeed) {
     // Change ONLY the next line to trim recorded demodulated RADE audio:
     // lower value = quieter recording, higher value = louder recording.
     this.radeGainNode = new GainNode(this.audioCtx)
-    this.radeGainNode.gain.value = 0.20 // <-- TRIM RADE RECORDED AUDIO LEVEL HERE
+    // 0.10 since 2026-10-29: at 0.20, times the volume gain (13.27 by default)
+    // = 2.65x, a normal-level RADE decode clipped 1-3 % of its samples.
+    this.radeGainNode.gain.value = 0.10 // <-- TRIM RADE RECORDED AUDIO LEVEL HERE
     this.radeGainNode.connect(this.gainNode)
+
+    // DRM decoded-audio gain node, into the same volume control.
+    this.drmGainNode = new GainNode(this.audioCtx)
+    this.drmGainNode.gain.value = 0.25 // <-- TRIM DRM AUDIO LEVEL HERE
+    this.drmGainNode.connect(this.gainNode)
 
     this.audioInputNode = this.convolverNode
 
@@ -3924,6 +3975,9 @@ setAGC(newAGCSpeed) {
 
       // Mono SAM (AM) PLL lock state — drives the AM button "SAM" indicator.
       this.samLocked = !!packet.sam_locked;
+      // Carrier offset (Hz) and lock quality (0..1); only sent while SAM runs.
+      this.samOffsetHz = typeof packet.sam_hz === 'number' ? packet.sam_hz : null;
+      this.samQuality  = typeof packet.sam_q  === 'number' ? packet.sam_q  : null;
 
       // Runtime codec switch: the server tags each audio packet with the codec
       // that produced it (see audio.cpp).  When it changes — e.g. FLAC→Opus as
@@ -4048,11 +4102,23 @@ setAGC(newAGCSpeed) {
     // pcmArray is interleaved [L0,R0,L1,R1,...] here.  A genuine C-QUAM
     // transmission carries a 25 Hz pilot in the L−R difference channel; mono AM
     // does not.  Drives the QUAM button's green indicator in the UI.
-    if (this.channels === 2) {
+    if (this.channels === 2 && this.demodulation !== 'IQ') {
       this._updateCquamPilot(pcmArray, this.audioOutputSps || 12000)
     } else if (this.cquamPilotDetected || this._pilot) {
       this.cquamPilotDetected = false
       this._pilot = null   // reset detector state so it re-locks next time
+    }
+
+    // IQ recording: the decoded I/Q exactly as the server sent it, taken here,
+    // ahead of mute, squelch and playback, so a recording is complete whatever
+    // the speaker is doing.
+    if (this._iqRec && this._iqRec.active) this._iqRecPush(pcmArray)
+
+    // IQ demodulators (lib/IqDemodPanel.svelte): while the panel exists the
+    // speaker hears its demodulators instead of the raw I/Q. The recording
+    // above has already taken the I/Q itself.
+    if (this._iqBank && this.demodulation === 'IQ' && this.channels === 2) {
+      pcmArray = this._iqBank.process(pcmArray)
     }
 
     // Save original (pre-boost) PCM specifically for RADE.
@@ -4064,7 +4130,10 @@ setAGC(newAGCSpeed) {
 
     // ✅ FLAC 16-bit gain boost: pipeline is calibrated for 8-bit amplitude (~256).
     // 16-bit FLAC decoder outputs amplitude ~1.0 → 256× too quiet → silence.
-    if (this.settings && this.settings.audio_compression === 'flac') {
+    // Not in IQ: the server delivers I/Q at listening level already (noise
+    // near -45 dBFS, stations up to -20), where the boost would clip it.
+    if (this.settings && this.settings.audio_compression === 'flac' &&
+        this.demodulation !== 'IQ') {
       const flacGain = 175.0
       const boosted = new Float32Array(pcmArray.length)
       for (let i = 0; i < pcmArray.length; i++) boosted[i] = pcmArray[i] * flacGain
@@ -4107,10 +4176,16 @@ setAGC(newAGCSpeed) {
     return !!this.cquamPilotDetected
   }
 
-  // True while mono SAM (AM) has PLL lock.  Read by the UI to show "SAM" in red
-  // on the AM button.
+  // True while mono SAM (AM) has PLL lock.  Read by the UI to draw the AM/SAM
+  // button text in yellow.
   getSamLocked() {
     return !!this.samLocked
+  }
+
+  // SAM carrier offset from the dial (Hz, + = above) and lock quality (0..1),
+  // or nulls when SAM is not running.  Shown under the mode buttons.
+  getSamReadout() {
+    return { hz: this.samOffsetHz ?? null, q: this.samQuality ?? null }
   }
 
   // Detect the 25 Hz C-QUAM stereo pilot in the L−R difference of an interleaved
@@ -4165,20 +4240,33 @@ setAGC(newAGCSpeed) {
   // CW rides on USB and CW-L on LSB with the carrier point (m) moved by the
   // pitch, so a signal on the dial comes out as a pitch-Hz tone. The edges
   // stay where the waterfall draws them, which centres the filter on the
-  // tone: ±250 Hz becomes 500-1000 Hz audio. (The old l-200/r-200 gave
-  // 300-800 Hz, leaving the 750 Hz tone 50 Hz from the top edge.) The pitch
+  // tone: ±250 Hz becomes 350-850 Hz audio at the 600 Hz pitch. (The old
+  // l-200/r-200 left the tone 50 Hz from the top edge.) The pitch
   // is taken from the caller's m - mOffset, so every setAudioRange() site
   // keeps passing its usual offset triplet.
   _cwWindow() {
     const lsb = this.demodulation === 'CWL'
     if (this.demodulation !== 'CW' && !lsb) return null
-    const pitch = this.audioM - this.audioMOffset
+    // The CW decoder window can pick its own pitch (setCwPitch); otherwise
+    // the caller's offset triplet decides, as before.
+    const pitch = this.cwPitchHz && this.totalBandwidth && this.audioMaxSize
+      ? this.cwPitchHz / this.totalBandwidth * this.audioMaxSize
+      : this.audioM - this.audioMOffset
     if (!Number.isFinite(pitch)) return null
     return {
       l: this.audioL,
       m: this.audioM + (lsb ? pitch : -pitch),
       r: this.audioR
     }
+  }
+
+  // Pitch in Hz chosen in the CW decoder window, or null to go back to the
+  // caller's (600 Hz). Re-sends the window at once when CW is on.
+  setCwPitch(hz) {
+    const v = Number(hz) > 0 ? Number(hz) : null
+    if (this.cwPitchHz === v) return
+    this.cwPitchHz = v
+    if (this._cwWindow()) this.updateAudioParams()
   }
 
   updateAudioParams() {
@@ -4243,11 +4331,32 @@ setAGC(newAGCSpeed) {
     // The wire value, so AM-ENV goes out as AM-ENV rather than as the plain AM
     // it is normalised to internally.
     this._lastDemodCmd = backendDemod || demodulation
+    this._sendDemodCmd()
+    this._diversityRetune()
+  }
+
+  // The server ignores a demodulation command that arrives within 100 ms of
+  // the one before (on_demodulation_message debounce in signal.cpp), so a
+  // quick pair -- the band's default and then the mode actually wanted, as a
+  // Users-window Tune does -- left the server on the first while the page
+  // showed the second. Hold anything inside that window and send only the
+  // latest once it has passed.
+  _sendDemodCmd() {
+    const wait = (this._demodSentAt || 0) + 120 - Date.now()
+    if (wait > 0) {
+      if (!this._demodTimer) {
+        this._demodTimer = setTimeout(() => {
+          this._demodTimer = null
+          this._sendDemodCmd()
+        }, wait)
+      }
+      return
+    }
+    this._demodSentAt = Date.now()
     this._safeSend({
       cmd: 'demodulation',
       demodulation: this._lastDemodCmd
     })
-    this._diversityRetune()
   }
 
   setAudioRange(audioL, audioM, audioR, audioLOffset, audioMOffset, audioROffset) {
@@ -4366,7 +4475,23 @@ setAGC(newAGCSpeed) {
     // three — and it also means no source ever starts on the wrong frequency.
     this._diversityRetune()
     this.diversityRemote.connect()
+    this._reportDiversity(type, endpoint)
     return true
+  }
+
+  // Tell the server which receiver we combine with, for the admin panel's
+  // Dashboard (never shown to other listeners). Older servers ignore it.
+  _reportDiversity(type, endpoint) {
+    let host = ''
+    if (endpoint) {
+      try { host = new URL(endpoint).host } catch (_) {
+        host = String(endpoint).replace(/^[a-z]+:\/\//i, '').split('/')[0]
+      }
+    }
+    const report = host ? { type: String(type || 'phantom'), host } : null
+    if (!report && !this._diversityReport) return
+    this._diversityReport = report
+    this._safeSend({ cmd: 'diversity', type: report ? report.type : '', host: report ? report.host : '' })
   }
 
   stopDiversity() {
@@ -4382,6 +4507,7 @@ setAGC(newAGCSpeed) {
     this.diversityState = 'idle'
     this.diversityEndpoint = null
     this.diversityType = null
+    this._reportDiversity(null, null)
     this.diversityCloseCode = null
     this.diversityCloseReason = ''
     this.diversityErrorText = ''
@@ -4986,6 +5112,15 @@ _updateCTCSSGate(rawPcm) {
   setIdentity(name) {
     this._identity = { name: String(name || '') }
     this._safeSend({ cmd: 'identity', ...this._identity })
+  }
+
+  // The decoder running in the page ("" for none), shown in /users. Sent only
+  // when it changes, and again on a new /audio socket. Older servers ignore it.
+  setDecoder(name) {
+    const n = String(name || '')
+    if (this._decoder === n) return
+    this._decoder = n
+    this._safeSend({ cmd: 'decoder', name: n })
   }
 
   setUserID(userID) {
@@ -6020,6 +6155,12 @@ js8Pending() {
       catch(e) { console.error('[NAVTEX] feed error', e); }
     }
 
+    // HFDL tap — raw PCM before any DSP (mono: the decoder wants one channel)
+    if (this.decodeHFDL) {
+      try { this._hfdlDecoder.feedPCM(this._monoForDisplay(rawPcm)); }
+      catch(e) { console.error('[HFDL] feed error', e); }
+    }
+
     // Generic Kiwi-style FSK tap — raw PCM before any DSP
     if (this.decodeFSK) {
       try { this._fskFeedPCM(rawPcm); }
@@ -6094,8 +6235,10 @@ js8Pending() {
     }
 
     // RADE mode: decoded speech arrives from sidecar via _radePlayPCM();
-    // suppress raw SSB output so the two audio paths don't clash.
-    if (this.decodeRADE) return;
+    // suppress raw SSB output so the two audio paths don't clash. DRM the same:
+    // the helper's decoded audio replaces the receiver's own, and with no DRM
+    // signal decoding there is nothing to hear.
+    if (this.decodeRADE || this.drmSelected) return;
 
     // Every digital decoder was already fed from the raw tap above, before
     // mute/squelch. Nothing below this point reaches a decoder — it is the
@@ -6105,7 +6248,11 @@ js8Pending() {
     // Noise blanker: ENABLED - safe for stereo when L/R processed separately
     // Noise gate: DISABLED - causes tremor (envelope follower sees L/R alternation)
     // AGC: DISABLED - fights backend C-QUAM AGC, causes pumping
-    if (this.channels === 2) {
+    if (this.channels === 2 && this.demodulation === 'IQ') {
+      // Raw I/Q, heard as Kiwi plays it: I left, Q right. Blanker, NR and the
+      // level control would each treat the two halves of one complex signal
+      // as unrelated audio, so the stream goes out exactly as it came in.
+    } else if (this.channels === 2) {
       const frames = Math.floor(pcmArray.length / 2)
       const L = new Float32Array(frames)
       const R = new Float32Array(frames)
@@ -6276,7 +6423,7 @@ js8Pending() {
       }
     }
 
-    if (this.isRecording) {
+    if (this.isRecording && !this._iqRec) {
       // ✅ FIXED: Check recording duration to prevent memory exhaustion
       const recordingDuration = (Date.now() - this.recordingStartTime) / 1000;
       
@@ -6575,6 +6722,30 @@ js8Pending() {
   startRecording() {
     if (this.isRecording) return;
 
+    // In IQ the recording is the I/Q itself, as a stereo 16-bit WAV that
+    // SDR#, SDR++, HDSDR and SDRuno open already tuned (see _iqWavBlob). The
+    // MediaRecorder route below would hand it to a lossy codec.
+    if (this.demodulation === 'IQ') {
+      this.isRecording = true;
+      this.recordingStartTime = Date.now();
+      this._iqRec = {
+        active: true,
+        chunks: [],
+        frames: 0,
+        startMs: Date.now(),
+        stopMs: 0,
+        centerHz: Math.round(this._binToHz(this.audioM)),
+        // The decoder's output rate. The stream itself runs at a whole number
+        // of FFT bins (12016 Hz on a 60 Msps RX-888), but FlacLowLatencyDecoder
+        // has already resampled it to audioOutputSps, the same filter on I
+        // and Q, so this is the rate of the samples actually written.
+        sps: Math.round(this.audioOutputSps || 12000),
+      };
+      console.log('[IQ Recording] Started at', this._iqRec.centerHz, 'Hz');
+      return;
+    }
+    this._iqRec = null;   // an IQ take not downloaded is replaced, as audio is
+
     this.isRecording = true;
     this.recordedAudio = [];  // ✅ FIXED: Clear previous recording
     this.recordingStartTime = Date.now();  // ✅ FIXED: Track start time
@@ -6631,10 +6802,98 @@ js8Pending() {
     if (!this.isRecording) return;
 
     this.isRecording = false;
+    if (this._iqRec) {
+      this._iqRec.active = false;
+      this._iqRec.stopMs = Date.now();
+      return;
+    }
     this.mediaRecorder.stop();
   }
 
+  // The IQ demodulator bank, made on first use by the IQ panel and kept for
+  // the session (its settings survive leaving IQ and coming back).
+  getIQDemodBank() {
+    if (!this._iqBank) this._iqBank = new IQDemodBank(Math.round(this.audioOutputSps || 12000));
+    else this._iqBank.setRate(Math.round(this.audioOutputSps || 12000));
+    return this._iqBank;
+  }
+
+  // One decoded IQ block (interleaved I,Q floats at ±1) into the recording.
+  _iqRecPush(pcm) {
+    const rec = this._iqRec;
+    if (this.demodulation !== 'IQ' || this.channels !== 2) return;
+    if ((Date.now() - rec.startMs) / 1000 > this.maxRecordingDuration) {
+      console.warn('[IQ Recording] Maximum duration reached, stopping automatically');
+      this.stopRecording();
+      if (typeof window !== 'undefined' && window.postMessage) {
+        window.postMessage({ type: 'recording_limit_reached',
+                             duration: this.maxRecordingDuration }, '*');
+      }
+      return;
+    }
+    const out = new Int16Array(pcm.length & ~1);
+    for (let i = 0; i < out.length; i++) {
+      const v = Math.round(pcm[i] * 32767);
+      out[i] = v > 32767 ? 32767 : (v < -32768 ? -32768 : v);
+    }
+    rec.chunks.push(out);
+    rec.frames += out.length / 2;
+  }
+
+  // The IQ recording as a WAV file: PCM, 2 channels (I left, Q right), 16 bit,
+  // plus the "auxi" chunk SpectraVue introduced and HDSDR, SDR# and SDRuno
+  // read for the centre frequency, sample rate and start/stop time. SDR++
+  // takes the frequency from the name instead, the first "<digits>Hz" in it.
+  _iqWavBlob(rec) {
+    const dataBytes = rec.frames * 4;
+    const AUXI = 164;   // 2 SYSTEMTIMEs, 9 DWORDs, a 96-byte next-file name
+    const buf = new ArrayBuffer(12 + 24 + 8 + AUXI + 8 + dataBytes);
+    const v = new DataView(buf);
+    let o = 0;
+    const tag = (s) => { for (let i = 0; i < 4; i++) v.setUint8(o++, s.charCodeAt(i)); };
+    const u32 = (x) => { v.setUint32(o, x >>> 0, true); o += 4; };
+    const u16 = (x) => { v.setUint16(o, x, true); o += 2; };
+    const systemtime = (ms) => {
+      const d = new Date(ms);
+      u16(d.getUTCFullYear()); u16(d.getUTCMonth() + 1); u16(d.getUTCDay());
+      u16(d.getUTCDate()); u16(d.getUTCHours()); u16(d.getUTCMinutes());
+      u16(d.getUTCSeconds()); u16(d.getUTCMilliseconds());
+    };
+    tag('RIFF'); u32(buf.byteLength - 8); tag('WAVE');
+    tag('fmt '); u32(16); u16(1); u16(2); u32(rec.sps); u32(rec.sps * 4); u16(4); u16(16);
+    tag('auxi'); u32(AUXI);
+    systemtime(rec.startMs);
+    systemtime(rec.stopMs || Date.now());
+    u32(rec.centerHz);   // CenterFreq
+    u32(rec.sps);        // ADFrequency
+    u32(0);              // IFFrequency
+    u32(rec.sps);        // Bandwidth
+    u32(0);              // IQOffset
+    o += 4 * 4 + 96;     // Unused2..5, nextfilename: left zero
+    tag('data'); u32(dataBytes);
+    const pcm = new Int16Array(buf, o, rec.frames * 2);
+    let p = 0;
+    for (const c of rec.chunks) { pcm.set(c, p); p += c.length; }
+    return new Blob([buf], { type: 'audio/wav' });
+  }
+
   downloadRecording() {
+    if (this._iqRec) {
+      const rec = this._iqRec;
+      this._iqRec = null;
+      if (rec.frames === 0) {
+        console.warn('No IQ recorded to download');
+        return;
+      }
+      // PhantomSDR_20261026_031500Z_6030000Hz_IQ.wav
+      const d = new Date(rec.startMs);
+      const p2 = (n) => String(n).padStart(2, '0');
+      const stamp = d.getUTCFullYear() + p2(d.getUTCMonth() + 1) + p2(d.getUTCDate()) +
+        '_' + p2(d.getUTCHours()) + p2(d.getUTCMinutes()) + p2(d.getUTCSeconds()) + 'Z';
+      this._saveBlob(this._iqWavBlob(rec),
+                     'PhantomSDR_' + stamp + '_' + rec.centerHz + 'Hz_IQ.wav');
+      return;
+    }
     if (this.recordedChunks.length === 0) {
       console.warn('No recorded audio to download');
       return;
@@ -6967,13 +7226,15 @@ js8Pending() {
   // ═══════════════════════════════════════════════════════════════════════════
 
   /**
-   * Enable or disable RADE v1 decoding via the rade_helper.py sidecar.
+   * Enable or disable RADE decoding via the rade_helper.py sidecar.
    * @param {boolean} enabled
    * @param {string}  sideband  'USB' (RADEU) or 'LSB' (RADEL)
    * @param {string}  [uri]     Sidecar WebSocket URI; default siteRade from
    *                            site_information.json, else ws://host:8074
+   * @param {number}  [version] 1 (default) or 2 — RADE V2 (beta) runs on the
+   *                            helper's rade_c pipeline; FreeDV 3.0 sends it on USB
    */
-  setRADEDecoding(enabled, sideband, uri) {
+  setRADEDecoding(enabled, sideband, uri, version) {
     if (!enabled) {
       this.decodeRADE = false;
       this._radeReady = false;
@@ -7000,6 +7261,7 @@ js8Pending() {
     }
 
     this._radeSideband = sideband || 'USB';
+    this._radeVersion  = version === 2 ? 2 : 1;
     var helperUri = uri || sideServiceBase(siteRade, 8074).ws;
 
     try {
@@ -7033,11 +7295,12 @@ js8Pending() {
           type:     'init',
           sps:      radeReportedSps,
           sideband: this._radeSideband,
+          version:  this._radeVersion,
         }));
         this._radeReady = true;
         this.decodeRADE = true;
         this._rebuildOutputChain();
-        console.log('[RADE] \u25ba ENABLED', this._radeSideband,
+        console.log('[RADE] \u25ba ENABLED V' + this._radeVersion, this._radeSideband,
                     '@', radeReportedSps, 'Hz (true) \u2192 helper', helperUri);
         if (this._radeCallback)
           this._radeCallback({ type: 'status', connected: true });
@@ -7129,6 +7392,133 @@ js8Pending() {
       this._radeNextTime += samples.length / SAMPLE_RATE;
     } catch (e) {
       console.error('[RADE] playback error', e);
+    }
+  }
+
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  //  DRM  (Digital Radio Mondiale) — decoded on the server by drm-helper.js
+  //
+  //  The helper runs one ubersdr-drm per listener on zero-IF I/Q it taps from
+  //  spectrumserver itself; the I/Q never reaches the browser. Over its socket
+  //  come decoded audio (binary Int16 LE mono at 12 kHz) and the decoder's
+  //  status (JSON). Found like the RADE sidecar: siteDrm in
+  //  site_information.json ("/drm" behind proxy.py), else port 8075.
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /**
+   * Start or stop DRM decoding.
+   * @param {boolean} enabled
+   * @param {{freqHz:number, rx?:string}} [opts]  DRM centre frequency; receiver id
+   */
+  setDRMDecoding(enabled, opts = {}) {
+    if (!enabled) {
+      const was = this.decodeDRM || this._drmSocket;
+      this.decodeDRM = false;
+      this.drmSelected = false;
+      for (const src of this._drmSources) {
+        try { src.stop(0); } catch (e) {}
+        try { src.disconnect(); } catch (e) {}
+      }
+      this._drmSources.clear();
+      this._drmNextTime = 0;
+      if (this._drmSocket) {
+        const ws = this._drmSocket;
+        this._drmSocket = null;
+        try { ws.send(JSON.stringify({ type: 'stop' })); } catch (e) {}
+        try { ws.close(); } catch (e) {}
+      }
+      if (was) console.log('[DRM] \u25a0 DISABLED');
+      return;
+    }
+
+    if (this._drmSocket) this.setDRMDecoding(false);
+    // Silence the receiver at once: drop what the worklet already holds.
+    this.drmSelected = true;
+    this._resetPlaybackQueues();
+    const uri = sideServiceBase(siteDrm, 8075).ws;
+    let ws;
+    try {
+      ws = new WebSocket(uri);
+    } catch (e) {
+      console.error('[DRM] failed to open helper socket:', e);
+      return;
+    }
+    ws.binaryType = 'arraybuffer';
+    this._drmSocket = ws;
+    this.decodeDRM = true;
+
+    ws.onopen = () => {
+      ws.send(JSON.stringify({ type: 'start', freq: Math.round(opts.freqHz || 0), rx: opts.rx || '' }));
+      console.log('[DRM] \u25ba ENABLED', ((opts.freqHz || 0) / 1e3).toFixed(1), 'kHz \u2192 helper', uri);
+      if (this._drmCallback) this._drmCallback({ type: 'connected' });
+    };
+    ws.onmessage = (event) => {
+      if (event.data instanceof ArrayBuffer) {
+        // Int16 little-endian mono, 12 kHz (half the bytes of Float32).
+        const i16 = new Int16Array(event.data, 0, event.data.byteLength >> 1);
+        const f32 = new Float32Array(i16.length);
+        for (let i = 0; i < i16.length; i++) f32[i] = i16[i] / 32768;
+        this._drmPlayPCM(f32);
+        return;
+      }
+      let msg;
+      try { msg = JSON.parse(event.data); } catch (e) { return; }
+      if (this._drmCallback) this._drmCallback(msg);
+    };
+    ws.onerror = () => {
+      if (this._drmCallback)
+        this._drmCallback({ type: 'error', msg: 'DRM helper unreachable \u2014 is drm-helper.js running ' + sideServiceWhere(siteDrm, 8075) + '?' });
+    };
+    ws.onclose = () => {
+      if (this._drmSocket !== ws) return;   // replaced or stopped on purpose
+      this._drmSocket = null;
+      this.decodeDRM = false;
+      if (this._drmCallback) this._drmCallback({ type: 'closed' });
+    };
+  }
+
+  /** Move the running DRM decoder to a new centre frequency (Hz). */
+  setDRMFrequency(hz) {
+    const ws = this._drmSocket;
+    if (!ws || ws.readyState !== WebSocket.OPEN || !(hz > 0)) return;
+    try { ws.send(JSON.stringify({ type: 'tune', freq: Math.round(hz) })); } catch (e) {}
+  }
+
+  /** Events: {type:'connected'|'closed'}, {type:'ready'}, {type:'status',…}, {type:'error',msg}. */
+  setDRMCallback(fn) {
+    this._drmCallback = fn || null;
+  }
+
+  /** Base URL of the DRM helper's HTTP side (GET /schedule). */
+  drmHelperHttp() {
+    return sideServiceBase(siteDrm, 8075).http;
+  }
+
+  /** Play Float32 mono PCM @ 12000 Hz from the DRM helper, back to back.
+   *  The decoder emits a whole 400 ms audio super frame at a time, so the
+   *  queue keeps a little more look-ahead than RADE's. */
+  _drmPlayPCM(samples) {
+    if (!this.audioCtx || !samples.length || !this.decodeDRM) return;
+    if (this.audioCtx.state !== 'running' || this.mute) return;
+    try {
+      const RATE = 12000, LOOKAHEAD = 0.25;
+      const now = this.audioCtx.currentTime;
+      if (this._drmNextTime < now + 0.01) this._drmNextTime = now + LOOKAHEAD;
+      const buf = this.audioCtx.createBuffer(1, samples.length, RATE);
+      buf.getChannelData(0).set(samples);
+      const src = this.audioCtx.createBufferSource();
+      src.buffer = buf;
+      src.connect(this.drmGainNode || this.audioCtx.destination);
+      this._drmSources.add(src);
+      src.start(this._drmNextTime);
+      src.onended = () => {
+        this._drmSources.delete(src);
+        try { src.disconnect(); } catch (_) {}
+      };
+      this._drmNextTime += samples.length / RATE;
+    } catch (e) {
+      console.error('[DRM] playback error', e);
     }
   }
 
@@ -7391,6 +7781,29 @@ js8Pending() {
   _navtexFeedPCM(pcm) {
     if (!this.decodeNAVTEX) return;
     this._navtexDecoder.feedPCM(pcm);
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  //  HFDL (HF Data Link) — dumphfdl in WebAssembly, see hfdl.worker.js
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  setHFDLDecoding(enabled) {
+    this.decodeHFDL = !!enabled;
+    this._hfdlDecoder.setEnabled(this.decodeHFDL);
+    console.log('[HFDL]', enabled ? '▶ ENABLED' : '■ DISABLED');
+  }
+
+  setHFDLCallback(fn) {
+    this.hfdlCallback = fn || null;
+  }
+
+  /** USB dial frequency in Hz — the label the decoded frames carry. */
+  setHFDLDial(hz) {
+    this._hfdlDecoder.setDial(hz);
+  }
+
+  resetHFDL() {
+    this._hfdlDecoder.reset();
   }
 
   // ═══════════════════════════════════════════════════════════════════════════

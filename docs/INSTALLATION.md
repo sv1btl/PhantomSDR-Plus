@@ -417,7 +417,7 @@ The installation runs in 22 numbered steps. With the station questions answered 
 | 2 | What to receive | Ready choices for each receiver (for example *HF 0–30 MHz* for the RX888, *2 m* for an RTL-SDR), or your own centre frequency and sample rate. |
 | 3 | Your station | Callsign, name, e-mail, QTH locator, city and country, antenna, computer, ITU region (suggested from the locator). |
 | 4 | Internet | Your public address (IP or DNS name), and whether to list the receiver on sdr-list.xyz and on the websdr.org map. Also whether to serve the receiver over https:// as well (needs a DNS name). Type a name or an IP, not a port — the port comes in step 5. |
-| 5 | Ports and extras | Admin panel, FreeDV RADE, statistics, WebSDR relay, start at boot — and the public port. |
+| 5 | Ports and extras | Admin panel, FreeDV RADE, DRM, statistics, WebSDR relay, start at boot — and the public port. |
 
 The answers are saved in **`station.conf`**, and from it the wizard writes everything that has to agree: the receiver's `config-<receiver>.toml` (sample rate, frequency, port, directory listings, websdr.org), `frontend/site_information.json` and the relay's settings. The start scripts read the frequency and sample rate from `station.conf` themselves, so they are never edited. Only the settings the wizard owns are changed, and each file is copied to `<name>.bak-<date>` before it is touched.
 
@@ -425,12 +425,13 @@ The answers are saved in **`station.conf`**, and from it the wizard writes every
 
 | Port | What | Open on the router |
 |---|---|---|
-| 9000 | the receiver page — `proxy.py`, which also carries `/admin`, `/rade`, `/stats` and `/relay` | **yes, only this one** |
+| 9000 | the receiver page — `proxy.py`, which also carries `/admin`, `/rade`, `/drm`, `/stats` and `/relay` | **yes, only this one** |
 | 9001 | spectrumserver | no |
 | 9010 | admin panel | no |
 | 9011 | statistics server | no |
 | 9012 | FreeDV RADE decoder | no |
 | 9013 | WebSDR diversity relay | no |
+| 9015 | DRM decoder | no |
 
 A port that is already in use on the computer is skipped for the next free one. To change anything later:
 
@@ -458,7 +459,7 @@ Nothing has to be prepared by hand first — no dependency list to paste, no Nod
 | 10–11 | Installs the frontend dependencies and builds the desktop and `/mobile` pages |
 | 12 | Installs OpenCL for the hardware it finds |
 | 13 | Installs the admin panel — or, without it, only the proxy on the public port |
-| 14–16 | Installs the WebSDR relay, FreeDV RADE and the statistics server, if you chose them |
+| 14–16 | Installs the WebSDR relay, FreeDV RADE, DRM and the statistics server, if you chose them |
 | 17 | Re-applies the patched websocketpp headers and verifies them |
 | 18 | Installs the KiwiSDR client emulation, so Kiwi clients such as AetherSDR can connect |
 | 19 | Rebuilds the backend from the patched sources |
@@ -480,6 +481,7 @@ Every question has an environment-variable override, and the installer also swit
 | `PHANTOM_OPENCL_PROVIDER=1\|2\|3` | Intel · Mesa/Rusticl · POCL (default: from the detected hardware) |
 | `PHANTOM_ADMIN=y\|n` | admin panel (y interactive, n unattended) |
 | `PHANTOM_RADE=y\|n` | RADE / FreeDV (y interactive, n unattended) |
+| `PHANTOM_DRM=y\|n` | DRM decoder (default y) |
 | `PHANTOM_STATS=y\|n` | statistics server (y interactive, n unattended) |
 | `PHANTOM_KIWI=y\|n` | KiwiSDR client emulation (default y) |
 | `PHANTOM_RECOMPILE=y\|n` | final rebuild (default y) |
@@ -506,7 +508,7 @@ After a reboot the RX888 udev rules and any OpenCL driver are fully in effect; t
 
 When it sets up the admin panel, the installer offers to install the two systemd units as well, and **strongly recommends** accepting: the CPU over-temperature guard runs inside the panel, so without them a reboot or a crash leaves the machine unprotected. The offer is skipped automatically where systemd is not running (containers, WSL1, OpenRC) — see the [Admin Panel guide](ADMIN_PANEL_SETUP.md#step-3--start--stop--restart).
 
-Each extra is a normal script you can also run on its own at any time — `./setup_admin.sh` ([manual](ADMIN_PANEL_SETUP.md)), `./install_rade.sh` ([manual](RADE_README.md)), `./install-stats-server.sh` ([manual](sdr-stats/README.md)), `./setup-rx888-udev.sh` and the receiver scripts `./setup-rsp1a.sh`, `./setup-fobos.sh`, `./setup-airspyhf.sh` and `./setup-hackrf.sh` — they are exactly what the installer calls.
+Each extra is a normal script you can also run on its own at any time — `./setup_admin.sh` ([manual](ADMIN_PANEL_SETUP.md)), `./install_rade.sh` ([manual](RADE_README.md)), `./setup-drm.sh` ([manual](DECODERS.md#13-drm)), `./install-stats-server.sh` ([manual](sdr-stats/README.md)), `./setup-rx888-udev.sh` and the receiver scripts `./setup-rsp1a.sh`, `./setup-fobos.sh`, `./setup-airspyhf.sh` and `./setup-hackrf.sh` — they are exactly what the installer calls.
 
 ### Building by hand (reference)
 
@@ -715,6 +717,7 @@ nano config-rtl.toml
 port = 9002                      # Web interface port (or everything else)
 html_root = "frontend/dist/"     # Frontend location
 otherusers = 1                   # Show other users (1=yes, 0=no)
+iq = true                        # Offer the IQ mode to listeners (true/false)
 threads = 2                      # Number of server threads
 
 [websdr]
@@ -773,7 +776,7 @@ Edit the following fields:
   "siteCity": "Your City, Country",
   "siteInformation": "https://github.com/sv1btl/PhantomSDR-Plus",
   "siteHardware": "Computer specifications",
-  "siteSoftware": "PhantomSDR-Plus v5.3.0",
+  "siteSoftware": "PhantomSDR-Plus v5.4.0",
   "siteReceiver": "Your SDR model",
   "siteAntenna": "Antenna description",
   "siteNote": "Additional information",
@@ -1600,7 +1603,7 @@ Backups made before 23 September 2026 sit in the hidden folder `.update-backups/
 ./update.sh --apply --yes     # never asks; every file you edited is KEPT
 ./update.sh --check           # report only, never ask — for cron (10 = update waiting)
 ./update.sh --from FILE|DIR   # the new version from a .zip/.tar.gz or a folder — no network
-./update.sh --ref v5.3.0      # a tag, branch or commit instead of the current tree
+./update.sh --ref v5.4.0      # a tag, branch or commit instead of the current tree
 ./update.sh --list-excludes   # print the never-touch rules as they resolve here
 ./update.sh --verbose         # list every file, not only the first 40
 ```

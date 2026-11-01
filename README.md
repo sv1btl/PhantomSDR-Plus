@@ -178,6 +178,7 @@ Everything is installed by one script, and every question comes first:
 git clone https://github.com/sv1btl/PhantomSDR-Plus
 cd PhantomSDR-Plus
 bash install.sh
+chmod u+x *sh
 ```
 
 1. **The station questions** (about two minutes): which receiver — the one plugged in is recognised — what to receive, your callsign, locator, city and antenna, your address on the internet and whether to be listed on sdr-list.xyz and the websdr.org map, and which extras you want (admin panel, FreeDV RADE, statistics, WebSDR relay, start at boot).

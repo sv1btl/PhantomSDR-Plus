@@ -2320,8 +2320,9 @@ fi
 if [ -f "$PHANTOM_DIR/install_rade.sh" ]; then
     step "RADE / FreeDV and DRM decoders (optional)" "$(ask_hint "⌨️  YOU WILL BE ASKED — and setup asks its own questions")"
     echo ""
-    echo "RADE (Radio Autoencoder) decodes FreeDV RADE V1 voice in the browser."
-    echo "It builds the radae repository into ~/radae and runs as a small Python"
+    echo "RADE (Radio Autoencoder) decodes FreeDV RADE voice in the browser:"
+    echo "V1 from the radae repository (built into ~/radae) and V2 (beta) from"
+    echo "FreeDV's rade_c (built into ~/rade_c). Both run in one small Python"
     echo "sidecar on port $RADE_PORT, controlled by ./rade.sh."
     echo ""
     yellow "   Installed by default — answer 'n' to skip it."
@@ -2818,6 +2819,11 @@ if [ "$RADE_INSTALLED" = true ]; then
     echo ""
     green "✅ RADE / FreeDV:"
     echo "   • radae built in ~/radae, sidecar started with ./rade.sh"
+    if [ -x "$HOME/rade_c/build/src/radae_rx" ]; then
+        echo "   • RADE V2 (beta): rade_c built in ~/rade_c"
+    else
+        echo "   • RADE V2 (beta) not built — the RADE2 button says so; V1 works as before"
+    fi
     if [ "$USE_STATION" = true ]; then
         echo "   • Reached as /rade on the public port — nothing extra to forward"
     else

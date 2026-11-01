@@ -37,6 +37,21 @@
 PHANTOMDIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SELF="$PHANTOMDIR/$(basename "${BASH_SOURCE[0]}")"
 
+# ── node from nvm ───────────────────────────────────────────────────────────
+# The DRM helper runs on node. install.sh installs Node through nvm when the
+# system copy is too old, and nvm puts node on PATH only in a login shell —
+# started by systemd (phantomsdr-receiver.service, at boot) the launcher would
+# find no node and skip the DRM helper, so every listener gets "The DRM
+# decoder on the server cannot be reached". Use nvm's default node then.
+if ! command -v node >/dev/null 2>&1; then
+    _nvm="${NVM_DIR:-$HOME/.nvm}"
+    _want="$(cat "$_nvm/alias/default" 2>/dev/null)"; _want="${_want#v}"
+    _nb="$(ls -d "$_nvm/versions/node/v${_want}"*/bin 2>/dev/null | sort -V | tail -1)"
+    [ -x "$_nb/node" ] || _nb="$(ls -d "$_nvm"/versions/node/v*/bin 2>/dev/null | sort -V | tail -1)"
+    [ -n "$_nb" ] && [ -x "$_nb/node" ] && export PATH="$_nb:$PATH"
+    unset _nvm _want _nb
+fi
+
 # ── station.conf (written by configure-station.sh) ───────────────────────────
 # A station set up with the wizard keeps its choices there. For the main
 # receiver, and only for the launcher the wizard was run for, STATION_FREQ and

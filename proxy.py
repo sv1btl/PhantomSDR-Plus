@@ -158,7 +158,10 @@ FRONT_PORT  = 0
 _rx_path = Path(__file__).parent / "receivers.toml"
 if _rx_path.exists():
     try:
-        import tomllib
+        try:
+            import tomllib
+        except ImportError:          # Python < 3.11: setup_admin.sh installs tomli
+            import tomli as tomllib
         with open(_rx_path, "rb") as _f:
             _rxcfg = tomllib.load(_f)
     except Exception as _e:

@@ -551,7 +551,6 @@ def get_cpu_frequency():
 def _receivers_toml():
     """receivers.toml next to proxy.py (several receivers on one port), or {}."""
     try:
-        import tomllib
         with open(BASE_DIR / "receivers.toml", "rb") as f:
             return tomllib.load(f)
     except Exception:
@@ -564,8 +563,7 @@ def _main_receiver_port():
     --config (the copies of the receiver templates in the base dir all say 9001,
     so a file on disk cannot tell which one is live), else from the receivers.toml
     entry without an instance."""
-    import tomllib
-    if HAS_PSUTIL:
+    if HAS_PSUTIL and tomllib is not None:
         try:
             for proc in psutil.process_iter(["name", "cmdline"]):
                 cmd = proc.info.get("cmdline") or []

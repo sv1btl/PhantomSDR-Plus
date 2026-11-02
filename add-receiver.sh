@@ -601,7 +601,10 @@ fi
     echo "instance = \"$NAME\""
     echo "url      = \"$RX_PUBLIC_URL\""
 } >> receivers.toml
-python3 -c "import tomllib;tomllib.load(open('receivers.toml','rb'))" 2>/dev/null \
+python3 -c "
+try: import tomllib
+except ImportError: import tomli as tomllib
+tomllib.load(open('receivers.toml','rb'))" 2>/dev/null \
     || die "receivers.toml does not parse after the edit — check it by hand."
 green "✅ receivers.toml: \"$NAME\" on port $PORT"
 

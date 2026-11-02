@@ -895,7 +895,10 @@ site_ip = ((f"https://{host}" if E.get("STATION_HTTPS") == "y" else f"http://{ho
 LOCAL = ("", "127.0.0.1", "localhost", "::1")
 our_hosts = {host.lower(), old_host.lower(), "localhost", "127.0.0.1", ""}
 try:
-    import tomllib
+    try:
+        import tomllib
+    except ImportError:          # Python < 3.11
+        import tomli as tomllib
     for r in tomllib.loads((root / "receivers.toml").read_text()).get("receiver", []):
         if str(r.get("host", "")) in LOCAL and re.match(r"^https?://", str(r.get("url", "")), re.I):
             our_hosts.add(clean_host(r["url"]).lower())
@@ -1039,7 +1042,10 @@ if rt.exists():
             put(s, e, "url", tq(f"{site_ip}/?rx={rid}"))
     text = "\n".join(rl) + "\n"
     try:
-        import tomllib
+        try:
+            import tomllib
+        except ImportError:          # Python < 3.11
+            import tomli as tomllib
         parsed = tomllib.loads(text)
     except Exception as ex:
         parsed = None

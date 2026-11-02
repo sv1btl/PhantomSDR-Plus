@@ -30,7 +30,11 @@ fi
 
 # "launcher instance" per line, read with Python's own TOML parser.
 entries=$(python3 - "$LIST" <<'PY'
-import sys, tomllib
+import sys
+try:
+    import tomllib
+except ImportError:          # Python < 3.11
+    import tomli as tomllib
 with open(sys.argv[1], "rb") as f:
     cfg = tomllib.load(f)
 for r in cfg.get("receiver", []):

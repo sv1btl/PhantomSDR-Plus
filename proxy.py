@@ -156,7 +156,17 @@ RECEIVERS: "dict[str, dict]" = {}
 DEFAULT_RX  = ""
 FRONT_PORT  = 0
 _rx_path = Path(__file__).parent / "receivers.toml"
-if _rx_path.exists():
+_rx_mtime = None           # receivers.toml's mtime when it was last read
+_MAIN_UPSTREAM = SDR_UPSTREAM
+
+
+class _RxError(Exception):
+    pass
+
+
+def _parse_receivers(warn) -> "tuple[dict, str, int]":
+    """(receivers, default id, front port) from receivers.toml; _RxError when
+    it cannot be used. warn(msg) reports a receiver that was left out."""
     try:
         try:
             import tomllib
@@ -165,33 +175,32 @@ if _rx_path.exists():
         with open(_rx_path, "rb") as _f:
             _rxcfg = tomllib.load(_f)
     except Exception as _e:
-        print(f"[ERROR] {_rx_path.name}: {_e}", file=sys.stderr)
-        sys.exit(1)
+        raise _RxError(f"{_rx_path.name}: {_e}")
     # Ports this proxy itself listens on. A receiver on this computer that
     # names one of them would make the proxy forward to itself: every request
     # opens another connection to us until nothing answers (2026-10-11, after
     # the main receiver moved behind the proxy and receivers.toml kept 8900).
-    _own_ports = {LISTEN_PORT, int(_rxcfg.get("front", {}).get("port", 0) or 0)}
+    _front = int(_rxcfg.get("front", {}).get("port", 0) or 0)
+    _own_ports = {LISTEN_PORT, _front}
+    rxs, dflt = {}, ""
     for _r in _rxcfg.get("receiver", []):
         _id = str(_r.get("id", "")).strip()
         if not re.fullmatch(r"[A-Za-z0-9_-]+", _id) or "port" not in _r:
-            print(f"[ERROR] {_rx_path.name}: every [[receiver]] needs an id "
-                  f"(letters, digits, - and _) and a port", file=sys.stderr)
-            sys.exit(1)
+            raise _RxError(f"{_rx_path.name}: every [[receiver]] needs an id "
+                           f"(letters, digits, - and _) and a port")
         _port = int(_r["port"])
         if (str(_r.get("host", _sdr_host)) in ("127.0.0.1", "localhost", "::1")
                 and _port in _own_ports):
             if "instance" not in _r and _sdr_port not in _own_ports:
-                print(f"[WARN]  {_rx_path.name}: receiver '{_id}' names port {_port}, "
-                      f"which is this proxy's — using spectrumserver's {_sdr_port} "
-                      f"(fix it with: bash configure-station.sh --apply)", file=sys.stderr)
+                warn(f"[WARN]  {_rx_path.name}: receiver '{_id}' names port {_port}, "
+                     f"which is this proxy's — using spectrumserver's {_sdr_port} "
+                     f"(fix it with: bash configure-station.sh --apply)")
                 _port = _sdr_port
             else:
-                print(f"[ERROR] {_rx_path.name}: receiver '{_id}' names port {_port}, "
-                      f"which is this proxy's — left out; give it its own port",
-                      file=sys.stderr)
+                warn(f"[ERROR] {_rx_path.name}: receiver '{_id}' names port {_port}, "
+                     f"which is this proxy's — left out; give it its own port")
                 continue
-        RECEIVERS[_id] = {
+        rxs[_id] = {
             "name":      str(_r.get("name", _id)),
             "upstream":  f"http://{_r.get('host', _sdr_host)}:{_port}",
             "host":      str(_r.get("host", _sdr_host)),
@@ -202,21 +211,60 @@ if _rx_path.exists():
             "url":       str(_r.get("url") or ("/?rx=" + _id)),
         }
         if _r.get("default"):
-            if DEFAULT_RX:
-                print(f"[ERROR] {_rx_path.name}: more than one default receiver",
-                      file=sys.stderr)
-                sys.exit(1)
-            DEFAULT_RX = _id
-    if not RECEIVERS:
-        print(f"[ERROR] {_rx_path.name}: no [[receiver]] entries", file=sys.stderr)
+            if dflt:
+                raise _RxError(f"{_rx_path.name}: more than one default receiver")
+            dflt = _id
+    if not rxs:
+        raise _RxError(f"{_rx_path.name}: no [[receiver]] entries")
+    return rxs, dflt or next(iter(rxs)), _front
+
+
+def _apply_receivers(rxs, dflt):
+    global RECEIVERS, DEFAULT_RX, SDR_UPSTREAM
+    RECEIVERS, DEFAULT_RX = rxs, dflt
+    SDR_UPSTREAM = rxs[dflt]["upstream"] if rxs else _MAIN_UPSTREAM
+
+
+if _rx_path.exists():
+    try:
+        _rx_mtime = _rx_path.stat().st_mtime_ns
+        _rxs, _dflt, FRONT_PORT = _parse_receivers(lambda m: print(m, file=sys.stderr))
+    except _RxError as _e:
+        print(f"[ERROR] {_e}", file=sys.stderr)
         sys.exit(1)
-    DEFAULT_RX   = DEFAULT_RX or next(iter(RECEIVERS))
-    SDR_UPSTREAM = RECEIVERS[DEFAULT_RX]["upstream"]
-    FRONT_PORT   = int(_rxcfg.get("front", {}).get("port", 0) or 0)
+    _apply_receivers(_rxs, _dflt)
+
+
+def _reload_receivers():
+    """Pick up an edited receivers.toml (the admin panel's Receivers page
+    renames and removes receivers) without a proxy restart. A file that no
+    longer parses keeps the receivers we have. [front] port is a listening
+    socket and changes only with a restart. A station that started with no
+    receivers.toml stays a one-receiver proxy until it is restarted."""
+    global _rx_mtime, _UP_CACHE_AT
+    if _rx_mtime is None:
+        return
+    try:
+        m = _rx_path.stat().st_mtime_ns
+    except OSError:
+        return
+    if m == _rx_mtime:
+        return
+    _rx_mtime = m
+    try:
+        rxs, dflt, _front = _parse_receivers(lambda msg: print(msg, file=sys.stderr))
+    except _RxError as e:
+        print(f"[ERROR] {e} — keeping the receivers read before", file=sys.stderr)
+        return
+    _apply_receivers(rxs, dflt)
+    _UP_CACHE.clear()
+    _UP_CACHE_AT = 0.0
+    print(f"[INFO]  {_rx_path.name} re-read: " + ", ".join(rxs), file=sys.stderr)
 
 
 def _pick_receiver(request: web.Request) -> "tuple[str, str]":
     """Return (upstream, id to remember in the rx cookie, or "")."""
+    _reload_receivers()
     if not RECEIVERS:
         return SDR_UPSTREAM, ""
     rid = request.query.get("rx", "")
@@ -579,7 +627,7 @@ async def handle(request: web.Request) -> web.StreamResponse:
         return await proxy_request(request, upstream, path=path)
     if request.path.startswith("/admin"):
         upstream, set_rx = ADMIN_UPSTREAM, ""
-    elif request.path == "/receivers.json" and RECEIVERS:
+    elif request.path == "/receivers.json" and (_reload_receivers() or RECEIVERS):
         # The receiver list for the page's picker: ids, names and public URLs,
         # never the internal ports — and only the receivers that are running,
         # so a stopped one's button disappears. Readable cross-origin, because

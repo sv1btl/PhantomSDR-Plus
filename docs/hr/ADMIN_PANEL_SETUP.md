@@ -32,7 +32,7 @@ Obje usluge čitaju konfiguraciju iz `admin_config.json`, koju zapisuje `setup_a
 - **Grafikoni** — frekvencija procesora, opterećenje procesora, temperatura procesora i povezani korisnici, prikazani kroz zadnjih 15 minuta / 1 sat / 4 sata / 12 sati / 24 sata
 - **Toplinska zaštita (Thermal Guard)** — zaustavlja poslužitelj ako se procesor pregrije i ponovno ga pokreće kad se ohladi, s pragovima izvedenima iz vašeg vlastitog procesora; radi s bilo kojim načinom pokretanja/zaustavljanja i isporučuje se u načinu samo zapisivanja, pa ne čini ništa dok ga ne uključite
 - **Postavke** — promjena administratorske lozinke, osnovnog direktorija SDR-a, naziva procesa i porta spectrumservera (port slušatelja prikazan je ispod); pokretanje zadane skripte za pokretanje ili zaustavljanje s ▶ START / ■ STOP; kartica **HTTPS** koja provjerava https ili vas vodi kroz uključivanje
-- **Prijemnici** — svaki prijemnik stanice s opsegom koji pokriva, širinom pojasa i je li u eteru; promjena frekvencije i širine pojasa dodatnog prijemnika na licu mjesta, i priprema novog prijemnika za `add-receiver.sh`
+- **Prijemnici** — svaki prijemnik stanice s opsegom koji pokriva, širinom pojasa, pojačanjem i je li u eteru; promjena postavki i pojačanja prijemnika, zaustavljanje ili pokretanje, preimenovanje ili brisanje jednog prijemnika, i priprema novog prijemnika za `add-receiver.sh`
 - **Stanje sustava** (Dashboard) — svaki prijamnik u eteru ili isključen, s vremenom rada, slobodan prostor na disku i veličina svake mape zapisa, posljednji unos u `crash.log` i nedavna upozorenja
 - **DRM** (Dashboard) — DRM dekoder: radi li njegov pomoćnik, koliko je dekodera zauzeto i tko dekodira koju frekvenciju (stanica, kodek, WMER); uključivanje ili isključivanje DRM-a i najveći broj DRM slušatelja (1–20), primjenjuje se unutar 5 s bez ponovnog pokretanja. Stranica korisnika prikazuje te slušatelje kao DRM
 - **Receive Diversity** (Dashboard) — svaki slušatelj koji vaš prijemnik kombinira s drugim prijemnom raznolikošću: ime i grad, frekvencija i način rada, partner (PhantomSDR+, KiwiSDR, UberSDR ili WebSDR) i njegova adresa. Vidi ga samo administracijska ploča, nikad javni popis korisnika
@@ -838,7 +838,7 @@ Kartica na **Dashboardu**, osvježava se svakih 30 sekundi (ili s **↻ refresh*
 
 ## Statistika posjetitelja
 
-Stranica **Visitors** u bočnom izborniku (na telefonu: gumb **📈 VISITOR STATISTICS** na stranici Users) broji slušatelje stanice iz privatnih zapisa `logs/users_YYYY-MM-DD.jsonl` svakog prijamnika — kopija s IP adresama, koje javne stranice više ne prikazuju. Odaberite **Today**, **7**, **14** ili **31 days**.
+Stranica **Visitors** u bočnom izborniku (na telefonu: **☰ MENU → Visitors**, ili gumb **📈 VISITOR STATISTICS** na stranici Users) broji slušatelje stanice iz privatnih zapisa `logs/users_YYYY-MM-DD.jsonl` svakog prijamnika — kopija s IP adresama, koje javne stranice više ne prikazuju. Odaberite **Today**, **7**, **14** ili **31 days**.
 
 - **Posjetitelji** (različite adrese), **sesije**, **sati slušanja** i **najviše slušatelja istodobno**.
 - **Po danu** — iste četiri brojke za svaki dan.
@@ -880,16 +880,31 @@ Svaki događaj ima svoj kvadratić. Isto upozorenje šalje se najviše jednom u 
 
 ## Prijemnici
 
-**Receivers** u lijevom izborniku prikazuje svaki prijemnik stanice — iz `receivers.toml`, ili samo glavni na stanici s jednim prijemnikom — s njegovim imenom, `?rx=` imenom, hardverom, opsegom koji pokriva i njegovim središtem, širinom pojasa, frekvencijom i načinom rada na kojem počinje novi slušatelj, i je li u eteru.
+**Receivers** u lijevom izborniku (na telefonu: **📡 RX** u donjoj traci) prikazuje svaki prijemnik stanice — iz `receivers.toml`, ili samo glavni na stanici s jednim prijemnikom — s njegovim imenom, imenom `?rx=`, hardverom i njegovim pojačanjem, opsegom koji pokriva i njegovim središtem, širinom pojasa, frekvencijom i načinom rada s kojima počinje novi slušatelj, i je li u eteru. Svaki prijemnik ima svoje gumbe:
 
-**✎ CHANGE FREQUENCY AND BANDWIDTH** pojavljuje se kod svakog dodatnog prijemnika (onog u `instances/<ime>/`) koji se ugađa. Upišite središnju frekvenciju u MHz, odaberite širinu pojasa među brzinama uzorkovanja koje taj hardver podržava, i odredite gdje počinje novi slušatelj, u kojem načinu rada, i ime na njegovu gumbu; obrazac pokazuje novi opseg prije nego ga primijenite. Frekvencija koju hardver ne može ugoditi, brzina koju ne podržava, ili početna frekvencija izvan novog opsega se odbija. **✔ APPLY AND RESTART THIS RECEIVER** zatim:
+| Gumb | Što radi |
+|---|---|
+| **✎ CHANGE SETTINGS** | obrazac opisan niže |
+| **■ STOP** / **▶ START** | zaustavlja samo ovaj prijemnik (prvo pita; ostali rade dalje), ili ga ponovno pokreće. Pokretanje traje oko 20 sekundi; gumb piše *STARTING …* dok prijemnik ne bude u eteru |
+| **🏷 RENAME BUTTON** | samo na prijemniku bez obrasca za promjenu: ime na njegovom gumbu za odabir, spremljeno u `receivers.toml`; ništa se ne pokreće ponovno |
+| **🗑 DELETE** | samo na dodatnom prijemniku koji nije zadani — vidi niže |
 
-- postavlja `-f` i `-s` u `instance.env`, te `frequency`, `sps`, `fft_size` i početnu frekvenciju i način rada u `config.toml` — korekcija kristala (`frequency` nekoliko Hz od `-f`) zadržava se kao ista pogreška u ppm, pa ostaje točna i na novom pojasu, a `fft_size` se skalira da vodopad zadrži razlučivost
-- postavlja `siteSDRBaseFrequency` i `siteSDRBandwidth` u `www/site_information.json` — stranica prijemnika to čita pri otvaranju, pa se ništa ne gradi ponovno
-- postavlja ime gumba u `receivers.toml`; ime u imeniku i ime hardvera prijemnika ostaju kakva jesu
-- čuva stare datoteke u `admin-backups/retune-<ime>-<datum>/` i ponovno pokreće **samo taj prijemnik** — njegovi slušatelji ostaju bez veze nekoliko sekundi, ostali ne primijete ništa
+**✎ CHANGE SETTINGS na dodatnom prijemniku koji se ugađa** (jednom u `instances/<ime>/`): unesite središnju frekvenciju u MHz, odaberite širinu pojasa među brzinama uzorkovanja koje taj hardver može, i odredite gdje počinje novi slušatelj, u kojem načinu rada, njegovo pojačanje i ime na njegovom gumbu; obrazac pokazuje novi opseg prije nego ga primijenite. Frekvencija koju hardver ne može ugoditi, brzina uzorkovanja koju ne može, ili početna frekvencija izvan novog opsega odbijaju se. **✔ APPLY AND RESTART THIS RECEIVER** tada:
 
-Prijemnik s izravnim uzorkovanjem (RX888, Fobos HF) pokriva od 0 Hz do polovice brzine uzorkovanja i nema što ugađati. **Glavni** prijemnik mijenja se s `bash configure-station.sh`: njegova stranica nosi pojas iz builda, pa treba ponovno izgraditi stranicu, a čarobnjak ponovno pokreće servise sa sudo.
+- postavlja `-f`, `-s` i pojačanje u `instance.env`, te `frequency`, `sps`, `fft_size` i početnu frekvenciju i način rada u `config.toml` — korekcija kristala (`frequency` nekoliko Hz od `-f`) zadržava se kao ista pogreška u ppm, pa ostaje točna i na novom pojasu, a `fft_size` se skalira da vodopad zadrži razlučivost
+- postavlja `siteSDRBaseFrequency` i `siteSDRBandwidth` u `www/site_information.json` — stranica prijemnika čita ga kad se otvori, pa se ništa ne gradi ponovno
+- postavlja ime gumba u `receivers.toml`; ime prijemnika u imenicima i ime hardvera ostaju kakvi jesu
+- čuva stare datoteke u `admin-backups/retune-<ime>-<datum>/` i ponovno pokreće **samo taj prijemnik** — njegovi slušatelji prekinuti su nekoliko sekundi, ostali ništa ne primjećuju
+
+**✎ CHANGE SETTINGS na glavnom prijemniku i na prijemniku s izravnim uzorkovanjem** (RX888, Fobos HF — pokriva od 0 Hz do polovice brzine uzorkovanja i nema što ugađati): obrazac ima ime na njegovom gumbu, početnu frekvenciju, način rada i pojačanje. Početna frekvencija i način rada idu u njegov `.toml`, ime u `receivers.toml`, a stare datoteke u `admin-backups/settings-<ime>-<datum>/`. **✔ APPLY** ponovno pokreće taj prijemnik samo kad su se promijenili početna frekvencija, način rada ili pojačanje; s glavnim prijemnikom ponovno se pokreću i RADE i DRM. Sam pojas glavnog prijemnika mijenja se s `bash configure-station.sh`: njegova stranica nosi pojas iz builda, pa treba ponovno izgraditi stranicu, a čarobnjak ponovno pokreće servise sa sudo. Na stanici s jednim prijemnikom bez `receivers.toml` nema gumba za odabir, pa nema ni imena za postaviti.
+
+Na svakom prijemniku promjena samo imena ništa ne pokreće ponovno.
+
+**Pojačanje.** Za RX888 obrazac ima VGA pojačanje (0–127), način pojačanja (low/high), prigušenje (0–63) i **PGA on**; za RTL-SDR RF pojačanje među koracima koje tuner podržava, ili *auto* (vlastiti AGC sticka). Upisuju se u redak argumenata prijemnika — `RX888_ARGS` ili `RX_ARGS` — u `instances/<ime>/instance.env` za dodatni prijemnik, i u `main.env` za glavni. `main.env` je `instance.env` glavnog prijemnika: svaka startna skripta čita ga posljednjeg, nije u gitu i `update.sh` ga nikad ne zamjenjuje. Pojačanje ne može biti u `station.conf`, jer `configure-station.sh` tu datoteku ponovno piše. Bez `main.env` startna skripta zadržava ugrađeno pojačanje (`-g 50 -a 0 -m low --pga` za RX888). Ostali tipovi prijemnika imaju pojačanje u istom retku argumenata; promijenite ga ondje ručno.
+
+**🗑 DELETE** trajno uklanja dodatni prijemnik. Upišite njegovo kratko ime za potvrdu; tada zaustavlja taj prijemnik (najprije watchdog) i ne ide dalje dok još radi neki njegov proces, vadi njegov blok `[[receiver]]` iz `receivers.toml` (stara datoteka ide u `admin-backups/deleted-<ime>-<datum>/`), i premješta onamo i njegovu mapu `instances/<ime>/` — ili briše mapu ako odznačite *keep a copy*. Njegov gumb nestaje sa stranica; upravljački program i njegova log datoteka `logwebsdr-<ime>.txt` ostaju.
+
+Proxy ponovno čita `receivers.toml` kad god se promijeni, pa preimenovanje, brisanje ili dodani prijemnik stižu do slušatelja bez ponovnog pokretanja proxyja. Otvorene stranice ponovno čitaju popis prijemnika svakih 15 sekundi, pa gumb zaustavljenog prijemnika nestaje i vraća se sam.
 
 **➕ ADD NEW RECEIVER** otvara obrazac s pitanjima skripte `add-receiver.sh`: vrsta prijemnika (s *RTL-SDR Blog V4* za RTL stick), središnja frekvencija, širina pojasa, kratko ime (predloženo prema pojasu i provjereno da je slobodno), ime na njegovu gumbu, njegova antena i javna adresa stanice, te treba li instalirati upravljački program, prikazati izbor prijemnika i na glavnoj stranici, postaviti `start-all.sh` kao skriptu za pokretanje ove ploče, pokrenuti prijemnik i ponovno pokrenuti proxy. Iznad toga stranica prikazuje USB prijemnike koje ovo računalo vidi, da znate da je stick priključen. **▶ PREPARE** provjerava odgovore, sprema ih u `instances/.add-rx.env` i daje dva retka za terminal, svaki s **📋 COPY**:
 
@@ -934,6 +949,12 @@ i `BACKUP-INFO.json` s datumom, računalom i popisom datoteka. **Nije** uključe
 
 ---
 
+## Na telefonu ili tabletu
+
+Ispod 768 piksela širine lijevi izbornik postaje ladica. Donja traka ima **DASH**, **RX** (Receivers), **USERS**, **GRAPHS**, **LOGS** i **☰ MENU**, koji uvlači cijeli izbornik sa svim stranicama; zatvara se kad odaberete stranicu ili dodirnete pokraj njega, a **MENU** ostaje istaknut dok ste na stranici koje nema u traci. Na telefonu tablice postaju jedna kartica po retku (popis prijemnika već na tabletu, do 1100 piksela), obrasci prelaze u jedan stupac, a siva bilješka naslova kartice ide ispod naslova. Top Processes, uređivač Markers i mreža pojas/način rada u Spot Reporting ostaju tablice i pomiču se ustranu.
+
+---
+
 ## Teme
 
 Izbornik **THEME** nalazi se u gornjoj traci svake stranice, između **ONLINE** i sata, i ponovno u **Settings → Appearance**; oba uvijek pokazuju isti izbor. Tema se primjenjuje odmah, bez ponovnog učitavanja.
@@ -964,7 +985,10 @@ Sve teme koriste iste fontove i iste veličine; mijenjaju se samo boje i završn
 | `POST /admin/api/https/check` | Pokreće `setup-https.sh --status` |
 | `POST /admin/api/https/precheck` | Provjere prije uključivanja https-a, i naredbe za pokretanje |
 | `GET /admin/api/receivers-info` | Svaki prijemnik s opsegom, širinom pojasa i stanjem |
-| `POST /admin/api/receivers-info/retune` | Mijenja frekvenciju i širinu pojasa dodatnog prijemnika i ponovno ga pokreće |
+| `POST /admin/api/receivers-info/retune` | Mijenja postavke prijemnika (frekvencija, širina pojasa, početna frekvencija, način rada, pojačanje, ime gumba) i ponovno ga pokreće kad treba |
+| `POST /admin/api/receivers-info/rename` | Ime na gumbu prijemnika (`{"id", "name"}`); ništa se ne pokreće ponovno |
+| `POST /admin/api/receivers-info/power` | Zaustavlja ili pokreće jedan prijemnik (`{"id", "action": "stop"}` ili `"start"`) |
+| `POST /admin/api/receivers-info/delete` | Uklanja dodatni prijemnik (`{"id", "confirm": <id>, "keep_copy"}`) |
 | `GET /admin/api/receivers-info/add-defaults` | Početne vrijednosti obrasca za dodavanje, i viđeni USB prijemnici |
 | `POST /admin/api/receivers-info/add-plan` | Provjerava obrazac za dodavanje i piše `instances/.add-rx.env` |
 | `GET /admin/api/station-grid` | Lokator iz Site Info, za temu Auto |

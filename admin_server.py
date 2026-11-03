@@ -20,6 +20,7 @@ import signal
 import re
 import shlex
 import glob
+import shutil
 import logging
 from collections import deque
 from datetime import datetime, timedelta
@@ -1347,6 +1348,8 @@ table.top-procs th{color:var(--text3);font-weight:normal;letter-spacing:.1em;
 table.top-procs td{padding:.3rem .5rem;border-bottom:1px solid var(--row);
   white-space:nowrap;overflow:hidden;max-width:200px;text-overflow:ellipsis;}
 table.top-procs tr:hover td{background:rgba(var(--accent-rgb),0.04);}
+#rx-table tbody tr + tr td{border-top:3px solid var(--amber);}
+#rx-table tbody td{padding-top:.6rem;padding-bottom:.6rem;}
 table.top-procs .cpu-hi{color:var(--stat-bad);}
 table.top-procs .cpu-med{color:var(--stat-warn);}
 table.top-procs .cpu-ok{color:var(--stat-ok);}
@@ -1359,13 +1362,18 @@ table.top-procs .mem-col{color:var(--blue);}
 .sidebar-backdrop.open{display:block;}
 
 @media(max-width:768px){
-  /* Hide desktop sidebar, show bottom nav */
-  .sidebar{display:none !important;}
+  /* The sidebar becomes a drawer: the bottom bar's MENU opens it, so every
+     page stays reachable on a phone (the bar itself has room for six). */
+  .sidebar{position:fixed;top:0;bottom:0;left:0;z-index:200;width:min(270px,82vw);min-width:0;
+    transform:translateX(-102%);transition:transform .2s ease;box-shadow:4px 0 24px rgba(0,0,0,.5);}
+  .sidebar.open{transform:none;}
+  .sidebar{scrollbar-width:thin;scrollbar-color:var(--dim) var(--panel);}
+  .sidebar .nav-item{padding:.75rem 1rem;font-size:.9rem;}
   .hamburger{display:none !important;}
 
   /* Layout: vertical stack, leave room for bottom nav */
   .layout{flex-direction:column;}
-  .main{height:100vh;display:flex;flex-direction:column;}
+  .main{height:100vh;height:100dvh;display:flex;flex-direction:column;}
   .content{flex:1;overflow-y:auto;padding:.6rem;padding-bottom:70px;}
 
   /* Topbar */
@@ -1396,6 +1404,7 @@ table.top-procs .mem-col{color:var(--blue);}
   .bottom-nav a .bi{font-size:1.3rem;line-height:1;}
   .bottom-nav a span{font-size:.48rem;letter-spacing:.02em;white-space:nowrap;}
   .bottom-nav a.active{color:var(--green);border-top-color:var(--green);}
+  .bottom-nav{padding-bottom:env(safe-area-inset-bottom);}
   .bottom-nav a:active{background:rgba(var(--accent-rgb),0.08);}
 
   /* Grids → single column */
@@ -1433,11 +1442,74 @@ table.top-procs .mem-col{color:var(--blue);}
   .section-head{font-size:.75rem;}
 }
 
-@media(max-width:390px){
+@media(max-width:340px){
   .bottom-nav a .bi{font-size:1.1rem;}
-  .bottom-nav a span{display:none;}
+  .bottom-nav a span:not(.bi){display:none;}
   .bottom-nav{height:52px;}
   .content{padding-bottom:60px;}
+}
+
+/* ── Responsive helpers (all widths) ───────────────────────── */
+.layout{height:100dvh;}
+input,select,textarea{max-width:100%;}
+.field-row{display:grid;grid-template-columns:1fr 1fr;gap:.7rem;}
+/* A card title's grey side note moves under the title when both do not fit. */
+.card-header{flex-wrap:wrap;row-gap:.3rem;}
+.card-header>span[style*="margin-left:auto"]{flex:1 1 12rem;text-align:right;}
+/* Receivers table: names and buttons wrap instead of being cut at 200 px. */
+#rx-table td{white-space:normal;max-width:none;overflow:visible;}
+#rx-table td:first-child{min-width:9rem;}
+#rx-table td:last-child{min-width:12rem;}
+@media(max-width:1100px) and (min-width:769px){
+  .sidebar{width:190px;min-width:190px;}
+  .content{padding:1rem;}
+  .grid-4,.grid-5{grid-template-columns:repeat(2,1fr) !important;}
+  .grid-3{grid-template-columns:repeat(2,1fr) !important;}
+}
+@media(max-width:600px){
+  .field-row{grid-template-columns:1fr;}
+  /* Two/three-column forms written inline → one column. */
+  .page [style*="grid-template-columns:1fr 1fr"],
+  .page [style*="grid-template-columns:repeat(4,1fr)"],
+  .page [style*="grid-template-columns:repeat(5,1fr)"]{grid-template-columns:1fr !important;}
+  .topbar-theme{font-size:0;gap:0;}
+  .topbar-title{font-size:.75rem;}
+}
+/* Tablets: the receivers list is wide (buttons), so it turns into cards earlier. */
+@media(max-width:1100px){
+  #rx-table.stack,#rx-table.stack tbody,#rx-table.stack tr,#rx-table.stack td{display:block;width:100%;max-width:none;}
+  #rx-table.stack{min-width:0 !important;}
+  #rx-table.stack thead,#rx-table.stack tr.stack-head{display:none;}
+  #rx-table.stack tr{border:1px solid var(--border);border-radius:3px;margin-bottom:.5rem;padding:.35rem .6rem;}
+  #rx-table.stack td{white-space:normal;overflow:visible;border:none !important;padding:.25rem 0 !important;
+    text-align:right;overflow-wrap:anywhere;}
+  #rx-table.stack td::after{content:"";display:block;clear:both;}
+  #rx-table.stack td::before{content:attr(data-label);float:left;margin-right:.8rem;color:var(--text3);text-align:left;
+    font-size:.62rem;letter-spacing:.1em;text-transform:uppercase;line-height:1.9;}
+  #rx-table.stack td[data-label=""]{text-align:left;}
+  #rx-table.stack td[data-label=""]::before{display:none;}
+  #rx-table.stack td:empty{display:none;}
+  #rx-table.stack{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:.6rem;}
+  #rx-table.stack tbody{display:contents;}
+  #rx-table.stack tbody tr + tr td{border-top:none !important;}
+  #rx-table.stack tr{margin:0;border-top:3px solid var(--amber);}
+  #rx-table.stack td:last-child .btn{width:100%;justify-content:center;}
+}
+@media(max-width:900px){
+  /* Data tables → one card per row; each cell carries its column name
+     (data-label, set by stackTables()). */
+  table.stack,table.stack tbody,table.stack tr,table.stack td{display:block;width:100%;max-width:none;}
+  table.stack{min-width:0 !important;}
+  table.stack thead,table.stack tr.stack-head{display:none;}
+  table.stack tr{border:1px solid var(--border);border-radius:3px;margin-bottom:.5rem;padding:.35rem .6rem;}
+  table.stack td{white-space:normal;overflow:visible;border:none !important;padding:.25rem 0 !important;
+    text-align:right;overflow-wrap:anywhere;}
+  table.stack td::after{content:"";display:block;clear:both;}
+  table.stack td::before{content:attr(data-label);float:left;margin-right:.8rem;color:var(--text3);text-align:left;
+    font-size:.62rem;letter-spacing:.1em;text-transform:uppercase;line-height:1.9;}
+  table.stack td[data-label=""]{text-align:left;}
+  table.stack td[data-label=""]::before{display:none;}
+  table.stack td:empty{display:none;}
 }
 
 .scanlines{pointer-events:none;position:fixed;inset:0;
@@ -1542,7 +1614,7 @@ html[data-theme=light]{color-scheme:light;}
 <div class="scanlines"></div>
 <div class="layout">
   <!-- Sidebar -->
-  <div class="sidebar">
+  <div class="sidebar" id="sidebar">
     <div class="sidebar-logo">
       <div class="icon">📡</div>
       <div class="title">PHANTOM<span style="color:var(--amber)">SDR</span></div>
@@ -1829,7 +1901,7 @@ html[data-theme=light]{color-scheme:light;}
               TOP PROCESSES
               <span style="margin-left:auto;font-size:.6rem;color:var(--text3);cursor:pointer;" onclick="updateStatus()">↻ refresh</span>
             </div>
-            <table class="top-procs">
+            <table class="top-procs" data-nostack>
               <thead>
                 <tr>
                   <th>PID</th><th>NAME</th><th>USER</th><th>CPU%</th><th>MEM%</th>
@@ -1855,8 +1927,8 @@ html[data-theme=light]{color-scheme:light;}
         </div>
 
         <div class="card" id="rx-change-card" style="margin-bottom:1rem;display:none;">
-          <div class="card-header"><div class="dot"></div><span id="rx-change-title">CHANGE FREQUENCY AND BANDWIDTH</span></div>
-          <div class="field-row" style="margin-bottom:.6rem;">
+          <div class="card-header"><div class="dot"></div><span id="rx-change-title">CHANGE SETTINGS</span></div>
+          <div class="field-row" id="rx-c-band-row" style="margin-bottom:.6rem;">
             <div><label style="font-size:.65rem;color:var(--text3);display:block;margin-bottom:.3rem;">CENTRE FREQUENCY (MHz)</label>
               <input type="number" id="rx-c-freq" step="0.001" style="width:100%;" oninput="rxChangePreview()"></div>
             <div><label style="font-size:.65rem;color:var(--text3);display:block;margin-bottom:.3rem;">BANDWIDTH (sample rate)</label>
@@ -1868,7 +1940,23 @@ html[data-theme=light]{color-scheme:light;}
             <div><label style="font-size:.65rem;color:var(--text3);display:block;margin-bottom:.3rem;">IN MODE</label>
               <select id="rx-c-mode" style="width:100%;"></select></div>
           </div>
-          <div style="margin-bottom:.6rem;"><label style="font-size:.65rem;color:var(--text3);display:block;margin-bottom:.3rem;">NAME ON ITS BUTTON</label>
+          <div id="rx-c-gain-wrap" style="display:none;margin-bottom:.6rem;">
+            <div id="rx-c-g-rx888" class="field-row" style="margin-bottom:.6rem;">
+              <div><label style="font-size:.65rem;color:var(--text3);display:block;margin-bottom:.3rem;">GAIN (VGA 0 – 127)</label>
+                <input type="number" id="rx-c-g-gain" min="0" max="127" step="1" style="width:100%;"></div>
+              <div><label style="font-size:.65rem;color:var(--text3);display:block;margin-bottom:.3rem;">GAIN MODE</label>
+                <select id="rx-c-g-mode" style="width:100%;"><option value="low">low</option><option value="high">high</option></select></div>
+            </div>
+            <div id="rx-c-g-rx888b" class="field-row" style="margin-bottom:.6rem;">
+              <div><label style="font-size:.65rem;color:var(--text3);display:block;margin-bottom:.3rem;">ATTENUATION (0 – 63)</label>
+                <input type="number" id="rx-c-g-att" min="0" max="63" step="1" style="width:100%;"></div>
+              <div style="display:flex;align-items:flex-end;"><label style="font-size:.75rem;color:var(--text2);">
+                <input type="checkbox" id="rx-c-g-pga"> PGA on (pre-amplifier)</label></div>
+            </div>
+            <div id="rx-c-g-rtl" style="margin-bottom:.6rem;"><label style="font-size:.65rem;color:var(--text3);display:block;margin-bottom:.3rem;">RF GAIN (dB)</label>
+              <select id="rx-c-g-rtlgain" style="width:100%;"></select></div>
+          </div>
+          <div id="rx-c-name-wrap" style="margin-bottom:.6rem;"><label style="font-size:.65rem;color:var(--text3);display:block;margin-bottom:.3rem;">NAME ON ITS BUTTON</label>
             <input type="text" id="rx-c-name" style="width:100%;"></div>
           <div id="rx-c-preview" style="font-size:.75rem;color:var(--text2);margin-bottom:.6rem;"></div>
           <div style="display:flex;gap:.6rem;flex-wrap:wrap;">
@@ -1876,6 +1964,35 @@ html[data-theme=light]{color-scheme:light;}
             <button class="btn" onclick="document.getElementById('rx-change-card').style.display='none'">CANCEL</button>
           </div>
           <div id="rx-c-out" style="margin-top:.6rem;font-size:.7rem;color:var(--text2);white-space:pre-wrap;max-height:14rem;overflow:auto;"></div>
+        </div>
+
+        <div class="card" id="rx-rename-card" style="margin-bottom:1rem;display:none;">
+          <div class="card-header"><div class="dot"></div><span id="rx-rename-title">RENAME BUTTON</span></div>
+          <p style="color:var(--text2);font-size:.75rem;margin-bottom:.6rem;">
+            The name on the receiver picker button. Nothing restarts and nobody is cut off; the short name (?rx=) stays the same, so links keep working.
+          </p>
+          <div style="margin-bottom:.6rem;"><label style="font-size:.65rem;color:var(--text3);display:block;margin-bottom:.3rem;">NAME ON ITS BUTTON</label>
+            <input type="text" id="rx-r-name" maxlength="60" style="width:100%;" onkeydown="if (event.key === 'Enter') rxApplyRename()"></div>
+          <div style="display:flex;gap:.6rem;flex-wrap:wrap;">
+            <button class="btn btn-amber" onclick="rxApplyRename()">✔ SAVE NAME</button>
+            <button class="btn" onclick="document.getElementById('rx-rename-card').style.display='none'">CANCEL</button>
+          </div>
+          <div id="rx-r-out" style="margin-top:.6rem;font-size:.7rem;color:var(--text2);white-space:pre-wrap;"></div>
+        </div>
+
+        <div class="card" id="rx-delete-card" style="margin-bottom:1rem;display:none;">
+          <div class="card-header"><div class="dot"></div><span id="rx-delete-title">DELETE RECEIVER</span></div>
+          <p id="rx-d-what" style="color:var(--text2);font-size:.75rem;margin-bottom:.6rem;"></p>
+          <div style="font-size:.75rem;color:var(--text2);margin-bottom:.6rem;">
+            <label><input type="checkbox" id="rx-d-keep" checked> keep a copy of its folder in admin-backups/ (untick to delete it for good)</label>
+          </div>
+          <div style="margin-bottom:.6rem;"><label style="font-size:.65rem;color:var(--text3);display:block;margin-bottom:.3rem;">TYPE ITS SHORT NAME TO CONFIRM</label>
+            <input type="text" id="rx-d-confirm" style="width:100%;" autocomplete="off"></div>
+          <div style="display:flex;gap:.6rem;flex-wrap:wrap;">
+            <button class="btn btn-red" id="rx-d-apply" onclick="rxApplyDelete()">🗑 DELETE THIS RECEIVER</button>
+            <button class="btn" onclick="document.getElementById('rx-delete-card').style.display='none'">CANCEL</button>
+          </div>
+          <div id="rx-d-out" style="margin-top:.6rem;font-size:.7rem;color:var(--text2);white-space:pre-wrap;"></div>
         </div>
 
         <div class="card" id="rx-add-card" style="margin-bottom:1rem;display:none;">
@@ -2533,28 +2650,23 @@ html[data-theme=light]{color-scheme:light;}
   <a href="#" onclick="showPage('dashboard',this);return false;" class="active" data-page="dashboard">
     <span class="bi">⬡</span><span>DASH</span>
   </a>
-  <a href="#" onclick="showPage('config',this);return false;" data-page="config">
-    <span class="bi">⚙</span><span>CONFIG</span>
-  </a>
-  <a href="#" onclick="showPage('markers',this);return false;" data-page="markers">
-    <span class="bi">◉</span><span>MARKERS</span>
-  </a>
-  <a href="#" onclick="showPage('logs',this);return false;" data-page="logs">
-    <span class="bi">▤</span><span>LOGS</span>
-  </a>
-  <a href="#" onclick="showPage('graphs',this);return false;" data-page="graphs">
-    <span class="bi">📈</span><span>Graphs</span>
+  <a href="#" onclick="showPage('receivers',this);return false;" data-page="receivers">
+    <span class="bi">📡</span><span>RX</span>
   </a>
   <a href="#" onclick="showPage('users',this);return false;" data-page="users">
     <span class="bi">👥</span><span>USERS</span>
   </a>
-  <a href="#" onclick="showPage('wfmsg',this);return false;" data-page="wfmsg">
-    <span class="bi">📢</span><span>MSG</span>
+  <a href="#" onclick="showPage('graphs',this);return false;" data-page="graphs">
+    <span class="bi">📈</span><span>GRAPHS</span>
   </a>
-  <a href="#" onclick="showPage('settings',this);return false;" data-page="settings">
-    <span class="bi">◧</span><span>MORE</span>
+  <a href="#" onclick="showPage('logs',this);return false;" data-page="logs">
+    <span class="bi">▤</span><span>LOGS</span>
+  </a>
+  <a href="#" onclick="toggleMenu();return false;" id="bottom-menu">
+    <span class="bi">☰</span><span>MENU</span>
   </a>
 </nav>
+<div class="sidebar-backdrop" id="sidebar-backdrop" onclick="toggleMenu(false)"></div>
 
 <div id="toast"></div>
 
@@ -2589,6 +2701,48 @@ const LOG_TAB_PANES = {
 };
 
 // ─── Page navigation ────────────────────────────────────────────────────────
+// Phone: the sidebar is a drawer, opened from the bottom bar's MENU.
+function toggleMenu(open) {
+  const sb = document.getElementById('sidebar'), bd = document.getElementById('sidebar-backdrop');
+  if (!sb) return;
+  const want = open === undefined ? !sb.classList.contains('open') : !!open;
+  sb.classList.toggle('open', want);
+  if (bd) bd.classList.toggle('open', want);
+}
+document.addEventListener('keydown', e => { if (e.key === 'Escape') toggleMenu(false); });
+
+// Narrow screens show each data-table row as a card. Every cell gets its
+// column's name in data-label; the CSS (max-width:600px) does the rest.
+// Editing tables (Markers, the spot matrix) keep their grid.
+function stackTables(root) {
+  (root || document).querySelectorAll('.page table').forEach(t => {
+    if (t.classList.contains('markers') || t.id === 'ar-matrix' || t.hasAttribute('data-nostack')) return;
+    let head = t.tHead && t.tHead.rows[0];
+    if (!head && t.rows.length && [...t.rows[0].cells].every(c => c.tagName === 'TH')) {
+      head = t.rows[0];
+      head.classList.add('stack-head');
+    }
+    if (!head) return;
+    const names = [];
+    [...head.cells].forEach(c => { for (let k = 0; k < (c.colSpan || 1); k++) names.push(c.textContent.trim()); });
+    for (const tr of t.tBodies.length ? [...t.tBodies].flatMap(b => [...b.rows]) : [...t.rows]) {
+      if (tr === head) continue;
+      let col = 0;
+      for (const td of tr.cells) {
+        if (td.tagName === 'TD' && !td.hasAttribute('data-label')) td.setAttribute('data-label', names[col] || '');
+        col += td.colSpan || 1;
+      }
+    }
+    t.classList.add('stack');
+  });
+}
+let _stackQueued = false;
+new MutationObserver(() => {
+  if (_stackQueued) return;
+  _stackQueued = true;
+  requestAnimationFrame(() => { _stackQueued = false; stackTables(); });
+}).observe(document.documentElement, {childList: true, subtree: true});
+
 function showPage(name, el) {
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
@@ -2599,9 +2753,17 @@ function showPage(name, el) {
   document.getElementById('page-title').textContent = (labelEl.textContent || name).toUpperCase();
   currentPage = name;
   // Sync bottom nav active state
-  document.querySelectorAll('.bottom-nav a').forEach(a => {
+  let inBar = false;
+  document.querySelectorAll('.bottom-nav a[data-page]').forEach(a => {
     a.classList.toggle('active', a.dataset.page === name);
+    inBar = inBar || a.dataset.page === name;
   });
+  const bm = document.getElementById('bottom-menu');
+  if (bm) bm.classList.toggle('active', !inBar);
+  document.querySelectorAll('.sidebar .nav-item').forEach(n => {
+    if ((n.getAttribute('onclick') || '').indexOf("'" + name + "'") >= 0) n.classList.add('active');
+  });
+  toggleMenu(false);
   if (name === 'dashboard') { loadDashboard(); }
   if (name === 'config') { loadConfigList(); }
   if (name === 'receivers') { loadReceiversPage(); }
@@ -3971,22 +4133,143 @@ async function loadReceiversPage() {
   let h = '<thead><tr><th>Receiver</th><th>?rx=</th><th>Hardware</th><th>Covers</th><th>Bandwidth</th>' +
           '<th>Starts on</th><th>State</th><th></th></tr></thead><tbody>';
   _rxList.forEach((r, i) => {
-    let act = '';
-    if (r.changeable) act = '<button class="btn btn-amber" onclick="rxShowChange(' + i + ')">✎ CHANGE FREQUENCY AND BANDWIDTH</button>';
-    else if (r.direct) act = '<span style="color:var(--text3);">direct sampling — covers 0–' + _mhz(r.high) + ' MHz, nothing to tune</span>';
-    else if (!r.instance) act = '<span style="color:var(--text3);">main receiver — change it in a terminal: <code>bash configure-station.sh</code></span>';
-    h += '<tr><td>' + _esc(r.name) + '</td><td>' + _esc(r.id) + '</td><td>' + _esc(r.hardware) + '</td>' +
+    let act = '<div style="display:flex;gap:.4rem;flex-wrap:wrap;align-items:center;">';
+    if (r.changeable || r.settable) act += '<button class="btn btn-amber" onclick="rxShowChange(' + i + ')">✎ CHANGE SETTINGS</button>';
+    // A receiver with the change form renames there; RENAME is for the others (HF direct sampling, main).
+    if (r.renamable && !r.changeable && !r.settable) act += '<button class="btn" onclick="rxShowRename(' + i + ')">🏷 RENAME BUTTON</button>';
+    if (r.on_air) act += '<button class="btn btn-amber" id="rx-pw' + i + '" onclick="rxPower(' + i + ', ' + "'stop'" + ')">■ STOP</button>';
+    else if (r.launcher) act += '<button class="btn btn-green" id="rx-pw' + i + '" onclick="rxPower(' + i + ', ' + "'start'" + ')">▶ START</button>';
+    if (r.deletable) act += '<button class="btn btn-red" onclick="rxShowDelete(' + i + ')">🗑 DELETE</button>';
+    act += '</div>';
+    if (!r.changeable && r.direct) act += '<div style="color:var(--text3);">direct sampling — covers 0–' + _mhz(r.high) + ' MHz, no band to change</div>';
+    else if (!r.changeable && !r.instance) act += '<div style="color:var(--text3);">main receiver — change its band in a terminal: <code>bash configure-station.sh</code></div>';
+    h += '<tr><td>' + _esc(r.name) + '</td><td>' + _esc(r.id) + '</td><td>' + _esc(r.hardware) + (r.gain ? '<br><span style="color:var(--text3);">gain ' +
+         (r.gain.kind === 'rx888' ? r.gain.gain + ' ' + r.gain.mode + (r.gain.pga ? ' +PGA' : '') + (r.gain.att ? ', att ' + r.gain.att : '')
+                                  : (r.gain.gain === 'auto' ? 'auto' : r.gain.gain + ' dB')) + '</span>' : '') + '</td>' +
          '<td>' + _mhz(r.low) + ' – ' + _mhz(r.high) + ' MHz' + (r.direct ? '' : '<br><span style="color:var(--text3);">centre ' + _mhz(r.tune || r.frequency) + '</span>') + '</td>' +
          '<td>' + _rate(r.span) + '</td><td>' + (r.default_frequency ? _mhz(r.default_frequency) + ' MHz ' + _esc(r.modulation) : '') + '</td>' +
          '<td style="color:' + (r.on_air ? 'var(--green)' : 'var(--red)') + ';">' + (r.on_air ? '● on air' : '● off') + '</td><td>' + act + '</td></tr>';
   });
   tb.innerHTML = h + '</tbody>';
 }
+function _rxHideCards() {
+  ['rx-change-card', 'rx-add-card', 'rx-rename-card', 'rx-delete-card'].forEach(id => {
+    const c = document.getElementById(id); if (c) c.style.display = 'none'; });
+}
+async function rxPower(i, what) {
+  const r = _rxList[i];
+  if (what === 'stop' && !confirm('Stop ' + r.name + '? Its listeners are cut off and its button disappears from the picker. ' +
+      (r.instance ? 'The other receivers keep running.' : 'This is the main receiver: RADE and DRM stop with it; the other receivers keep running.'))) return;
+  const btn = document.getElementById('rx-pw' + i);
+  if (btn) { btn.disabled = true; btn.textContent = what === 'stop' ? 'STOPPING …' : 'STARTING …'; }
+  try {
+    const d = await fetch('/admin/api/receivers-info/power', {method: 'POST',
+      headers: {'Content-Type': 'application/json'}, body: JSON.stringify({id: r.id, action: what})}).then(x => x.json());
+    toast(d.ok ? (what === 'stop' ? 'Stopped ' : 'Starting ') + r.id + (what === 'start' ? ' — about 20 s' : '') : (d.msg || 'Failed'), d.ok ? 'ok' : 'err');
+    if (!d.ok) { loadReceiversPage(); return; }
+  } catch (e) { toast(String(e), 'err'); loadReceiversPage(); return; }
+  // A receiver needs ~20 s to come up (USB release, SDR, spectrumserver): keep
+  // the row saying so and re-read until it is on air (or off), up to 90 s.
+  const want = what === 'start', t0 = Date.now();
+  const poll = async () => {
+    await loadReceiversPage();
+    const now = _rxList.find(x => x.id === r.id);
+    if (now && now.on_air !== want && Date.now() - t0 < 90000) {
+      const k = _rxList.indexOf(now), b = document.getElementById('rx-pw' + k);
+      if (b) { b.disabled = true; b.textContent = want ? 'STARTING …' : 'STOPPING …'; }
+      setTimeout(poll, 3000);
+    } else if (now && now.on_air !== want) {
+      toast(r.id + (want ? ' did not come on air — see logwebsdr-' + (r.instance || '') + '.txt' : ' is still running'), 'err');
+    }
+  };
+  setTimeout(poll, want ? 3000 : 500);
+}
+function rxShowRename(i) {
+  const r = _rxList[i];
+  _rxEdit = r;
+  _rxHideCards();
+  document.getElementById('rx-rename-title').textContent = 'RENAME BUTTON — ' + r.name + ' (' + r.id + ')';
+  document.getElementById('rx-r-name').value = r.name;
+  document.getElementById('rx-r-out').textContent = '';
+  const card = document.getElementById('rx-rename-card');
+  card.style.display = '';
+  card.scrollIntoView({behavior: 'smooth'});
+  document.getElementById('rx-r-name').focus();
+}
+async function rxApplyRename() {
+  const r = _rxEdit; if (!r) return;
+  const out = document.getElementById('rx-r-out');
+  try {
+    const d = await fetch('/admin/api/receivers-info/rename', {method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({id: r.id, name: document.getElementById('rx-r-name').value.trim()})}).then(x => x.json());
+    out.textContent = d.msg || '';
+    toast(d.ok ? 'Renamed' : (d.msg || 'Failed'), d.ok ? 'ok' : 'err');
+    if (d.ok) loadReceiversPage();
+  } catch (e) { out.textContent = String(e); }
+}
+function rxShowDelete(i) {
+  const r = _rxList[i];
+  _rxEdit = r;
+  _rxHideCards();
+  document.getElementById('rx-delete-title').textContent = 'DELETE RECEIVER — ' + r.name + ' (' + r.id + ')';
+  document.getElementById('rx-d-what').innerHTML =
+    'This stops <b>' + _esc(r.name) + '</b> (its listeners are cut off), takes it out of <code>receivers.toml</code> ' +
+    'so its button disappears from every page, and removes its folder <code>instances/' + _esc(r.instance) + '/</code> ' +
+    '(config.toml, instance.env, its page settings, chat and markers). The other receivers keep running. ' +
+    'The USB driver stays installed and the stick can stay plugged in.';
+  document.getElementById('rx-d-confirm').value = '';
+  document.getElementById('rx-d-confirm').placeholder = r.id;
+  document.getElementById('rx-d-keep').checked = true;
+  document.getElementById('rx-d-out').textContent = '';
+  const card = document.getElementById('rx-delete-card');
+  card.style.display = '';
+  card.scrollIntoView({behavior: 'smooth'});
+}
+async function rxApplyDelete() {
+  const r = _rxEdit; if (!r) return;
+  const typed = document.getElementById('rx-d-confirm').value.trim();
+  const out = document.getElementById('rx-d-out');
+  if (typed !== r.id) { out.textContent = 'Type ' + r.id + ' in the box to confirm.'; return; }
+  const btn = document.getElementById('rx-d-apply');
+  btn.disabled = true; out.textContent = 'Stopping it and removing …';
+  try {
+    const d = await fetch('/admin/api/receivers-info/delete', {method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({id: r.id, confirm: typed, keep_copy: document.getElementById('rx-d-keep').checked})}).then(x => x.json());
+    out.textContent = d.msg || '';
+    toast(d.ok ? 'Receiver removed' : (d.msg || 'Failed'), d.ok ? 'ok' : 'err');
+    if (d.ok) loadReceiversPage();
+  } catch (e) { out.textContent = String(e); }
+  finally { btn.disabled = false; }
+}
 function rxShowChange(i) {
   const r = _rxList[i];
   _rxEdit = r;
-  document.getElementById('rx-add-card').style.display = 'none';
-  document.getElementById('rx-change-title').textContent = 'CHANGE FREQUENCY AND BANDWIDTH — ' + r.name + ' (' + r.id + ')';
+  _rxHideCards();
+  document.getElementById('rx-change-title').textContent = 'CHANGE SETTINGS — ' + r.name + ' (' + r.id + ')';
+  document.getElementById('rx-c-band-row').style.display = r.changeable ? '' : 'none';
+  document.getElementById('rx-c-name-wrap').style.display = r.renamable ? '' : 'none';
+  document.getElementById('rx-c-apply').textContent = r.changeable ? '✔ APPLY AND RESTART THIS RECEIVER' : '✔ APPLY';
+  const g = r.gain;
+  document.getElementById('rx-c-gain-wrap').style.display = g ? '' : 'none';
+  if (g) {
+    const x = g.kind === 'rx888';
+    ['rx-c-g-rx888', 'rx-c-g-rx888b'].forEach(id => { document.getElementById(id).style.display = x ? '' : 'none'; });
+    document.getElementById('rx-c-g-rtl').style.display = x ? 'none' : '';
+    if (x) {
+      document.getElementById('rx-c-g-gain').value = g.gain;
+      document.getElementById('rx-c-g-mode').value = g.mode;
+      document.getElementById('rx-c-g-att').value = g.att;
+      document.getElementById('rx-c-g-pga').checked = g.pga;
+    } else {
+      const steps = g.steps.filter(v => v > 0);
+      if (g.gain !== 'auto' && steps.indexOf(g.gain) < 0) { steps.push(g.gain); steps.sort((a, b) => a - b); }
+      document.getElementById('rx-c-g-rtlgain').innerHTML = '<option value="auto">auto (AGC of the stick)</option>' +
+        steps.map(v => '<option value="' + v + '"' + (v === g.gain ? ' selected' : '') + '>' + v.toFixed(1) + ' dB</option>').join('');
+      if (g.gain === 'auto') document.getElementById('rx-c-g-rtlgain').value = 'auto';
+    }
+  }
   document.getElementById('rx-c-freq').value = _mhz(r.tune || r.frequency);
   const sel = document.getElementById('rx-c-sps');
   const rates = r.rates.slice();
@@ -4007,6 +4290,12 @@ function rxChangePreview() {
   const sps = parseInt(document.getElementById('rx-c-sps').value, 10);
   const dflt = Math.round(parseFloat(document.getElementById('rx-c-dflt').value) * 1e6);
   const pv = document.getElementById('rx-c-preview');
+  if (!r.changeable) {
+    let t = 'It covers ' + _mhz(r.low) + ' – ' + _mhz(r.high) + ' MHz. A new start frequency or mode restarts it (' +
+            (r.instance ? 'the other receivers keep running' : 'RADE and DRM restart with it; the other receivers keep running') + '); a new name alone does not.';
+    if (dflt && (dflt < r.low || dflt > r.high)) t += ' ✖ The start frequency is outside that range.';
+    pv.textContent = t; return;
+  }
   if (!f || !sps) { pv.textContent = ''; return; }
   const lo = f - sps / 2, hi = f + sps / 2;
   let t = 'It will cover ' + _mhz(lo) + ' – ' + _mhz(hi) + ' MHz.';
@@ -4016,18 +4305,46 @@ function rxChangePreview() {
   if (r.note) t += ' ' + r.note;
   pv.textContent = t;
 }
+function _rxGainForm(r) {
+  const g = r.gain; if (!g) return null;
+  if (g.kind === 'rx888') return {gain: parseInt(document.getElementById('rx-c-g-gain').value, 10),
+    mode: document.getElementById('rx-c-g-mode').value, att: parseInt(document.getElementById('rx-c-g-att').value, 10),
+    pga: document.getElementById('rx-c-g-pga').checked};
+  const v = document.getElementById('rx-c-g-rtlgain').value;
+  return {gain: v === 'auto' ? 'auto' : parseFloat(v)};
+}
+function _rxGainSame(r, f) {
+  const g = r.gain; if (!g || !f) return true;
+  if (g.kind === 'rx888') return f.gain === g.gain && f.mode === g.mode && f.att === g.att && f.pga === g.pga;
+  return f.gain === g.gain;
+}
 async function rxApplyChange() {
   const r = _rxEdit; if (!r) return;
   const body = {
     id: r.id,
-    frequency: Math.round(parseFloat(document.getElementById('rx-c-freq').value) * 1e6),
-    sps: parseInt(document.getElementById('rx-c-sps').value, 10),
+    frequency: r.changeable ? Math.round(parseFloat(document.getElementById('rx-c-freq').value) * 1e6) : (r.tune || r.frequency),
+    sps: r.changeable ? parseInt(document.getElementById('rx-c-sps').value, 10) : r.sps,
     default_frequency: Math.round(parseFloat(document.getElementById('rx-c-dflt').value) * 1e6),
     modulation: document.getElementById('rx-c-mode').value,
-    name: document.getElementById('rx-c-name').value.trim()
+    name: document.getElementById('rx-c-name').value.trim(),
+    gain: _rxGainForm(r)
   };
-  if (!confirm('Apply and restart ' + r.name + '? Its listeners are cut off for a few seconds; the other receivers keep running.')) return;
   const btn = document.getElementById('rx-c-apply'), out = document.getElementById('rx-c-out');
+  // Only the name changed: save it without restarting the receiver.
+  if (body.frequency === (r.tune || r.frequency) && body.sps === r.sps &&
+      body.default_frequency === r.default_frequency && body.modulation === r.modulation && _rxGainSame(r, body.gain)) {
+    if (!body.name || body.name === r.name) { out.textContent = 'Nothing changed.'; return; }
+    try {
+      const d = await fetch('/admin/api/receivers-info/rename', {method: 'POST',
+        headers: {'Content-Type': 'application/json'}, body: JSON.stringify({id: r.id, name: body.name})}).then(x => x.json());
+      out.textContent = d.msg || '';
+      toast(d.ok ? 'Renamed' : (d.msg || 'Failed'), d.ok ? 'ok' : 'err');
+      if (d.ok) loadReceiversPage();
+    } catch (e) { out.textContent = String(e); }
+    return;
+  }
+  if (!confirm('Apply and restart ' + r.name + '? Its listeners are cut off for a few seconds; ' +
+      (r.instance ? '' : 'RADE and DRM restart with it; ') + 'the other receivers keep running.')) return;
   btn.disabled = true; out.textContent = 'Writing the files and restarting …';
   try {
     const d = await fetch('/admin/api/receivers-info/retune', {method: 'POST',
@@ -4039,7 +4356,7 @@ async function rxApplyChange() {
   finally { btn.disabled = false; }
 }
 async function rxShowAdd() {
-  document.getElementById('rx-change-card').style.display = 'none';
+  _rxHideCards();
   const card = document.getElementById('rx-add-card');
   card.style.display = '';
   document.getElementById('rx-a-out').innerHTML = '';
@@ -5454,6 +5771,128 @@ def _env_args(path):
     return out
 
 
+# ── Receiver gain (Receivers page → Change settings) ─────────────────────────
+# Kept in the receiver's argument line: instances/<id>/instance.env for an
+# extra receiver, main.env for the main one (the launchers read it last; the
+# station wizard rewrites station.conf, so it cannot live there).
+_RX_GAIN = {"start-rx888mk2.sh": "rx888", "start-rtl.sh": "rtl"}
+_RTL_GAINS = [0.0, 0.9, 1.4, 2.7, 3.7, 7.7, 8.7, 12.5, 14.4, 15.7, 16.6, 19.7, 20.7, 22.9, 25.4,
+              28.0, 29.7, 32.8, 33.8, 36.4, 37.2, 38.6, 40.2, 42.1, 43.4, 43.9, 44.5, 48.0, 49.6]
+
+
+def _gain_env_path(rx):
+    base = get_sdr_dir()
+    return (base / "instances" / rx["instance"] / "instance.env") if rx["instance"] else (base / "main.env")
+
+
+def _gain_var(kind):
+    return "RX888_ARGS" if kind == "rx888" else "RX_ARGS"
+
+
+def _gain_args(rx, lines):
+    """(index of the argument line in lines or None, its value) — the
+    launcher's built-in default when the env file has no such line."""
+    kind = _RX_GAIN.get(rx.get("launcher", ""))
+    var = _gain_var(kind)
+    for i, l in enumerate(lines):
+        m = re.match(r"^\s*" + var + r"=(.*)$", l)
+        if m:
+            v = m.group(1).split(" #", 1)[0].strip()
+            if len(v) >= 2 and v[0] == v[-1] and v[0] in "\"'":
+                v = v[1:-1]
+            return i, v
+    m = re.search(r"^" + var + r'="\$\{' + var + r':-(.*)\}"\s*$',
+                  read_file_safe(get_sdr_dir() / rx["launcher"]), re.M)
+    return None, (m.group(1) if m else "")
+
+
+def _gain_read(rx):
+    kind = _RX_GAIN.get(rx.get("launcher", ""))
+    if not kind:
+        return None
+    p = _gain_env_path(rx)
+    lines = read_file_safe(p).splitlines() if p.exists() else []
+    _, args = _gain_args(rx, lines)
+    if not args:
+        return None
+    flag = lambda f: (re.search(r"(?:^|\s)" + f + r"\s+(\S+)", args) or [None, None])[1]
+    if kind == "rx888":
+        try:
+            return {"kind": kind, "gain": int(flag("-g") or 1), "mode": flag("-m") or "high",
+                    "att": int(flag("-a") or 0), "pga": bool(re.search(r"(?:^|\s)--pga(?:\s|$)", args))}
+        except ValueError:
+            return None
+    g = flag("-g")
+    try:
+        g = "auto" if g is None or float(g) == 0 else float(g)
+    except ValueError:
+        return None
+    return {"kind": kind, "gain": g, "steps": _RTL_GAINS}
+
+
+def _set_flag(args, f, v):
+    """args with flag f set to v (None removes it); a new flag goes before the
+    trailing output argument (' -' or ' -o -')."""
+    pat = r"(^|\s)" + re.escape(f) + r"\s+\S+"
+    if v is None:
+        return re.sub(pat, r"\1", args).replace("  ", " ").strip()
+    if re.search(pat, args):
+        return re.sub(pat, lambda m: m.group(1) + f + " " + str(v), args, count=1)
+    m = re.search(r"\s(-o\s+-|-)\s*$", args)
+    if m:
+        return args[:m.start()] + " " + f + " " + str(v) + args[m.start():]
+    return args + " " + f + " " + str(v)
+
+
+def _gain_apply(rx, lines, g):
+    """(lines, changed, error) with the gain in g written into the argument line."""
+    kind = _RX_GAIN.get(rx.get("launcher", ""))
+    if not kind or not isinstance(g, dict):
+        return lines, False, None
+    idx, args = _gain_args(rx, lines)
+    if not args:
+        return lines, False, "cannot find the receiver's argument line"
+    new = args
+    try:
+        if kind == "rx888":
+            gain, att = int(g.get("gain")), int(g.get("att", 0))
+            mode = str(g.get("mode", "high"))
+            if not 0 <= gain <= 127:
+                return lines, False, "RX888 gain must be 0 – 127"
+            if not 0 <= att <= 63:
+                return lines, False, "RX888 attenuation must be 0 – 63"
+            if mode not in ("low", "high"):
+                return lines, False, "gain mode must be low or high"
+            new = _set_flag(_set_flag(_set_flag(new, "-g", gain), "-a", att), "-m", mode)
+            new = re.sub(r"(^|\s)--pga(?=\s|$)", r"\1", new).replace("  ", " ").strip()
+            if g.get("pga"):
+                new = re.sub(r"(-m\s+\S+)", r"\1 --pga", new, count=1)
+        else:
+            v = g.get("gain")
+            if v in (None, "", "auto"):
+                new = _set_flag(new, "-g", None)
+            else:
+                v = float(v)
+                if not 0 < v <= 50:
+                    return lines, False, "RTL-SDR gain must be auto or 0.9 – 49.6 dB"
+                new = _set_flag(new, "-g", ("%g" % v))
+    except (TypeError, ValueError):
+        return lines, False, "the gain must be a number"
+    if new == args:
+        return lines, False, None
+    line = '%s="%s"' % (_gain_var(kind), new.replace('"', ""))
+    lines = list(lines)
+    if idx is None:
+        if not lines:
+            lines = ["# The main receiver's own settings, read last by its start-*.sh",
+                     "# (like instances/<id>/instance.env). Written by the admin panel's",
+                     "# Receivers page → Change settings."]
+        lines.append(line)
+    else:
+        lines[idx] = line
+    return lines, True, None
+
+
 def _receivers_info():
     """Every receiver: id, name, port, launcher, instance, frequency, span, on air."""
     rt = _receivers_toml().get("receiver", [])
@@ -5462,12 +5901,13 @@ def _receivers_info():
         for r in rt:
             entries.append({"id": str(r.get("id", "")), "name": str(r.get("name") or r.get("id") or ""),
                             "port": int(r.get("port") or 0), "launcher": str(r.get("launcher") or ""),
-                            "instance": str(r.get("instance") or "").strip()})
+                            "instance": str(r.get("instance") or "").strip(),
+                            "default": bool(r.get("default")), "in_toml": True})
     else:
         port, _ = _main_receiver_port()
         cfg = load_admin_config()
         entries.append({"id": "main", "name": "Main receiver", "port": port or int(cfg.get("public_port", PUBLIC_PORT)),
-                        "launcher": "", "instance": ""})
+                        "launcher": "", "instance": "", "default": True, "in_toml": False})
     sc = _station_conf() or {}
     on_air = {r["port"]: r for r in _receiver_list()}
     base = get_sdr_dir()
@@ -5519,6 +5959,11 @@ def _receivers_info():
                         fft_size=int(v.get(("input", "fft_size"), 0) or 0),
                         on_air=bool(st.get("pid")), uptime_s=st.get("uptime_s"),
                         changeable=bool(inst) and not real and launcher in _RX_HW and bool(hw.get("rates")),
+                        renamable=e["in_toml"],
+                        gain=_gain_read({"launcher": launcher, "instance": inst}),
+                        # Direct sampling / main: no band to change, but its name, start frequency and mode.
+                        settable=bool(conf) and Path(conf).exists() and launcher in _RX_HW and bool(sps),
+                        deletable=bool(inst) and not e["default"] and e["in_toml"] and len(entries) > 1,
                         rates=hw.get("rates", []), ranges=hw.get("ranges", []), note=hw.get("note", ""),
                         modes=_RX_MODES))
     return out
@@ -5528,6 +5973,69 @@ def _receivers_info():
 @login_required
 def api_receivers_info():
     return jsonify({"receivers": _receivers_info(), "station_conf": _station_conf() is not None})
+
+
+def _receivers_set_defaults(rx, data):
+    """A receiver with no band to change (direct sampling, the main one): its
+    start frequency and mode in its config, its button name in receivers.toml.
+    Restarts only that receiver, and only when the start frequency or mode moved."""
+    rid = rx["id"]
+    try:
+        dflt = int(data.get("default_frequency") or rx["default_frequency"])
+    except (TypeError, ValueError):
+        return jsonify({"ok": False, "msg": "the start frequency must be a number"})
+    mod = str(data.get("modulation") or rx["modulation"] or "AM").upper()
+    if mod not in _RX_MODES:
+        return jsonify({"ok": False, "msg": "unknown mode " + mod})
+    if not (rx["low"] <= dflt <= rx["high"]):
+        return jsonify({"ok": False, "msg": "the start frequency must lie inside %.6g – %.6g MHz" % (rx["low"] / 1e6, rx["high"] / 1e6)})
+    name = re.sub(r'[\r\n"\\]', "", str(data.get("name") or rx["name"])).strip() or rx["name"]
+    base = get_sdr_dir()
+    conf_p = Path(rx["config"]) if Path(rx["config"]).is_absolute() else base / rx["config"]
+    rt_p = base / "receivers.toml"
+    moved = dflt != rx["default_frequency"] or mod != rx["modulation"]
+    stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+    bdir = base / "admin-backups" / ("settings-%s-%s" % (rid, stamp))
+    env_p = _gain_env_path(rx)
+    el, gchanged, gerr = _gain_apply(rx, read_file_safe(env_p).splitlines() if env_p.exists() else [],
+                                     data.get("gain"))
+    if gerr:
+        return jsonify({"ok": False, "msg": gerr})
+    try:
+        bdir.mkdir(parents=True, exist_ok=True)
+        if gchanged:
+            if env_p.exists():
+                (bdir / env_p.name).write_bytes(env_p.read_bytes())
+            env_p.write_text("\n".join(el) + "\n", encoding="utf-8")
+        if moved:
+            cl = read_file_safe(conf_p).splitlines()
+            _toml_set(cl, "input.defaults", "frequency", dflt, "frequency shown first")
+            _toml_set(cl, "input.defaults", "modulation", '"%s"' % mod)
+            text = "\n".join(cl) + "\n"
+            if tomllib is not None:
+                tomllib.loads(text)
+            (bdir / conf_p.name).write_bytes(conf_p.read_bytes())
+            conf_p.write_text(text, encoding="utf-8")
+        if rx["renamable"] and name != rx["name"]:
+            text = "\n".join(_rt_set_name(read_file_safe(rt_p).splitlines(), rid, name)) + "\n"
+            if tomllib is not None:
+                tomllib.loads(text)
+            (bdir / rt_p.name).write_bytes(rt_p.read_bytes())
+            rt_p.write_text(text, encoding="utf-8")
+    except Exception as e:
+        return jsonify({"ok": False, "msg": "could not write the files: %s" % e})
+    moved = moved or gchanged
+    restarted, out = False, ""
+    if moved and data.get("restart", True):
+        restarted, out = run_script(rx["launcher"], args=["-q"],
+                                    env={"INSTANCE": rx["instance"]} if rx["instance"] else None)
+    with log_lock:
+        log_buffer.append("[" + datetime.now().strftime("%H:%M:%S") + "] SETTINGS " + rid + ": %d Hz %s" % (dflt, mod))
+    again = ("INSTANCE=%s ./%s" % (rx["instance"], rx["launcher"])) if rx["instance"] else ("./" + rx["launcher"])
+    return jsonify({"ok": True, "restarted": restarted,
+                    "msg": "Saved (old files in admin-backups/%s). %s" % (bdir.name,
+                           ("Restarting " + rid + " — its listeners are back in a few seconds." + chr(10) + out) if restarted
+                           else ("Restart it to apply: " + again) if moved else "Nothing to restart.")})
 
 
 @app.route("/admin/api/receivers-info/retune", methods=["POST"])
@@ -5542,6 +6050,8 @@ def api_receivers_retune():
     if not rx:
         return jsonify({"ok": False, "msg": "no receiver " + rid})
     if not rx["changeable"]:
+        if rx.get("settable"):
+            return _receivers_set_defaults(rx, data)
         return jsonify({"ok": False, "msg": "this receiver cannot be changed from here"})
     try:
         f_new = int(data["frequency"])
@@ -5583,6 +6093,9 @@ def api_receivers_retune():
         for i, _, _, _ in _env_args(env_p):
             el[i] = re.sub(r"((?:^|\s|\")-f\s+)\d+", lambda m: m.group(1) + str(f_new), el[i])
             el[i] = re.sub(r"((?:^|\s|\")-s\s+)\d+", lambda m: m.group(1) + str(sps_new), el[i])
+        el, _, gerr = _gain_apply(rx, el, data.get("gain"))
+        if gerr:
+            return jsonify({"ok": False, "msg": gerr})
         # config.toml
         cl = read_file_safe(conf_p).splitlines()
         corr = f_conf - f_new
@@ -5599,16 +6112,7 @@ def api_receivers_retune():
         site.update({"siteSDRBaseFrequency": max(lo, 0), "siteSDRBandwidth": sps_new})
         # receivers.toml: the button name
         rt_p = base / "receivers.toml"
-        rtl = read_file_safe(rt_p).splitlines()
-        cur = None
-        for i, l in enumerate(rtl):
-            if re.match(r"^\s*\[\[receiver\]\]", l):
-                cur = None
-            m = re.match(r'^\s*id\s*=\s*"([^"]*)"', l)
-            if m:
-                cur = m.group(1)
-            if cur == rid and re.match(r"^\s*name\s*=", l):
-                rtl[i] = re.sub(r'=\s*"[^"]*"', '= "%s"' % name.replace("\\", ""), l, count=1)
+        rtl = _rt_set_name(read_file_safe(rt_p).splitlines(), rid, name)
         # Keep the old files beside the new ones, then write.
         bdir = base / "admin-backups" / ("retune-%s-%s" % (rx["instance"], stamp))
         bdir.mkdir(parents=True, exist_ok=True)
@@ -5631,6 +6135,213 @@ def api_receivers_retune():
                     "msg": "Saved (old files in admin-backups/%s). %s" % (bdir.name,
                            ("Restarting " + rid + " — its listeners are back in a few seconds." + chr(10) + out) if restarted
                            else "Restart it to apply: INSTANCE=%s ./%s" % (rx["instance"], rx["launcher"]))})
+
+
+def _rt_blocks(lines):
+    """[(first line, end line, id)] of every [[receiver]] block in receivers.toml.
+    A block runs to the next table header; comment lines just above that header
+    belong to the next block."""
+    heads = [i for i, l in enumerate(lines) if re.match(r"^\s*\[", l)]
+    out = []
+    for n, i in enumerate(heads):
+        if not re.match(r"^\s*\[\[receiver\]\]", lines[i]):
+            continue
+        end = heads[n + 1] if n + 1 < len(heads) else len(lines)
+        while end > i + 1 and (not lines[end - 1].strip() or lines[end - 1].lstrip().startswith("#")) \
+                and end < len(lines):
+            end -= 1
+        rid = None
+        for l in lines[i + 1:end]:
+            m = re.match(r'^\s*id\s*=\s*"([^"]*)"', l)
+            if m:
+                rid = m.group(1)
+                break
+        out.append((i, end, rid))
+    return out
+
+
+def _rt_set_name(lines, rid, name):
+    """receivers.toml lines with the button name of receiver rid set to name
+    (a name line is added when the block has none)."""
+    name = re.sub(r'[\r\n"\\]', "", name)
+    for a, b, r in _rt_blocks(lines):
+        if r != rid:
+            continue
+        for i in range(a + 1, b):
+            if re.match(r"^\s*name\s*=", lines[i]):
+                lines[i] = re.sub(r'=\s*"[^"]*"', lambda m: '= "%s"' % name, lines[i], count=1)
+                break
+        else:
+            for i in range(a + 1, b):
+                if re.match(r"^\s*id\s*=", lines[i]):
+                    lines.insert(i + 1, 'name = "%s"' % name)
+                    break
+        break
+    return lines
+
+
+def _rt_write(rt_p, lines, backup_name):
+    """Write receivers.toml after checking it still parses; the old one goes to
+    admin-backups/<backup_name>/. Returns the backup folder."""
+    text = "\n".join(lines) + "\n"
+    tomllib.loads(text)
+    bdir = get_sdr_dir() / "admin-backups" / backup_name
+    bdir.mkdir(parents=True, exist_ok=True)
+    (bdir / rt_p.name).write_bytes(rt_p.read_bytes())
+    rt_p.write_text(text, encoding="utf-8")
+    return bdir
+
+
+@app.route("/admin/api/receivers-info/rename", methods=["POST"])
+@login_required
+def api_receivers_rename():
+    """The name on a receiver's button (receivers.toml). Nothing restarts: the
+    proxy re-reads receivers.toml and open pages show it on their next look."""
+    data = request.get_json(silent=True) or {}
+    rid = str(data.get("id", ""))
+    name = re.sub(r'[\r\n"\\]', "", str(data.get("name") or "")).strip()
+    rx = next((r for r in _receivers_info() if r["id"] == rid), None)
+    if not rx or not rx["renamable"]:
+        return jsonify({"ok": False, "msg": "no receiver %s in receivers.toml" % rid})
+    if not name:
+        return jsonify({"ok": False, "msg": "give it a name"})
+    if len(name) > 60:
+        return jsonify({"ok": False, "msg": "60 characters at most"})
+    rt_p = get_sdr_dir() / "receivers.toml"
+    try:
+        bdir = _rt_write(rt_p, _rt_set_name(read_file_safe(rt_p).splitlines(), rid, name),
+                         "rename-%s-%s" % (rid, datetime.now().strftime("%Y%m%d-%H%M%S")))
+    except Exception as e:
+        return jsonify({"ok": False, "msg": "could not write receivers.toml: %s" % e})
+    with log_lock:
+        log_buffer.append("[" + datetime.now().strftime("%H:%M:%S") + "] RENAME " + rid + ": " + name)
+    return jsonify({"ok": True, "msg": "Renamed to \"%s\" (old receivers.toml in admin-backups/%s). "
+                    "Listeners see it the next time their page reads the receiver list." % (name, bdir.name)})
+
+
+def _instance_pids(inst):
+    """PIDs of this tree's processes started with INSTANCE=inst."""
+    pids = []
+    if not HAS_PSUTIL:
+        return pids
+    base = str(get_sdr_dir())
+    for proc in psutil.process_iter(["pid"]):
+        try:
+            env = proc.environ()
+        except Exception:
+            continue
+        if env.get("PHANTOMSDR_INSTANCE") == inst and env.get("PHANTOMSDR_TREE", base) == base:
+            pids.append(proc.pid)
+    return pids
+
+
+@app.route("/admin/api/receivers-info/power", methods=["POST"])
+@login_required
+def api_receivers_power():
+    """Stop or start one receiver; the others keep running. A stopped receiver
+    comes back with ./start-all.sh, the panel's Restart or a thermal-guard
+    restart (they start everything in receivers.toml)."""
+    data = request.get_json(silent=True) or {}
+    rid, action = str(data.get("id", "")), str(data.get("action", ""))
+    rx = next((r for r in _receivers_info() if r["id"] == rid), None)
+    if not rx:
+        return jsonify({"ok": False, "msg": "no receiver " + rid})
+    inst = rx["instance"] or "main"
+    if not re.fullmatch(r"[A-Za-z0-9_-]+", inst):
+        return jsonify({"ok": False, "msg": "odd instance name " + inst})
+    base = get_sdr_dir()
+    stamp = "[" + datetime.now().strftime("%H:%M:%S") + "] "
+    if action == "stop":
+        try:
+            subprocess.run(["bash", str(base / "stop-websdr.sh"), inst], cwd=str(base),
+                           capture_output=True, text=True, timeout=60, stdin=subprocess.DEVNULL)
+        except Exception as e:
+            return jsonify({"ok": False, "msg": "could not stop it: %s" % e})
+        with log_lock:
+            log_buffer.append(stamp + "STOP receiver " + rid)
+        return jsonify({"ok": True, "msg": "Stopped " + rid})
+    if action == "start":
+        if not rx["launcher"] or rx["launcher"] not in _RX_HW:
+            return jsonify({"ok": False, "msg": "no known launcher for " + rid})
+        if rx["on_air"]:
+            return jsonify({"ok": False, "msg": rid + " is already on air"})
+        ok, out = run_script(rx["launcher"], args=["-q"], env={"INSTANCE": rx["instance"]} if rx["instance"] else None)
+        with log_lock:
+            log_buffer.append(stamp + "START receiver " + rid)
+        return jsonify({"ok": ok, "msg": out})
+    return jsonify({"ok": False, "msg": "action must be stop or start"})
+
+
+@app.route("/admin/api/receivers-info/delete", methods=["POST"])
+@login_required
+def api_receivers_delete():
+    """Remove an extra receiver for good: stop it (watchdog first), take its
+    block out of receivers.toml and its instances/<id>/ folder away — moved to
+    admin-backups/ unless keep_copy is false. The main receiver and the default
+    one are never removed here."""
+    data = request.get_json(silent=True) or {}
+    rid = str(data.get("id", ""))
+    rx = next((r for r in _receivers_info() if r["id"] == rid), None)
+    if not rx:
+        return jsonify({"ok": False, "msg": "no receiver " + rid})
+    if not rx["deletable"]:
+        return jsonify({"ok": False, "msg": "the main or default receiver cannot be removed from here"})
+    if str(data.get("confirm", "")) != rid:
+        return jsonify({"ok": False, "msg": "type the short name (%s) to confirm" % rid})
+    inst = rx["instance"]
+    if not re.fullmatch(r"[A-Za-z0-9_-]+", inst):
+        return jsonify({"ok": False, "msg": "odd instance name " + inst})
+    base = get_sdr_dir()
+    idir = base / "instances" / inst
+    stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+
+    # 1. stop it, and make sure nothing of it is left running
+    try:
+        r = subprocess.run(["bash", str(base / "stop-websdr.sh"), inst], cwd=str(base),
+                           capture_output=True, text=True, timeout=60, stdin=subprocess.DEVNULL)
+    except Exception as e:
+        return jsonify({"ok": False, "msg": "could not stop it: %s" % e})
+    for _ in range(10):
+        left = _instance_pids(inst)
+        if not left:
+            break
+        time.sleep(0.5)
+    if left:
+        return jsonify({"ok": False, "msg": "it is still running (PID %s) — nothing was removed. "
+                        "Stop it with ./stop-websdr.sh %s and try again." % (", ".join(map(str, left)), inst)})
+
+    # 2. receivers.toml
+    rt_p = base / "receivers.toml"
+    try:
+        lines = read_file_safe(rt_p).splitlines()
+        blk = [(a, b) for a, b, r in _rt_blocks(lines) if r == rid]
+        if not blk:
+            return jsonify({"ok": False, "msg": "receivers.toml has no block for " + rid})
+        a, b = blk[0]
+        del lines[a:b]
+        while a < len(lines) and a > 0 and not lines[a].strip() and not lines[a - 1].strip():
+            del lines[a]
+        bdir = _rt_write(rt_p, lines, "deleted-%s-%s" % (rid, stamp))
+    except Exception as e:
+        return jsonify({"ok": False, "msg": "could not write receivers.toml (it is stopped, nothing removed): %s" % e})
+
+    # 3. its folder
+    kept = ""
+    try:
+        if idir.is_dir():
+            if data.get("keep_copy", True):
+                shutil.move(str(idir), str(bdir / inst))
+                kept = " Its folder is kept in admin-backups/%s/%s." % (bdir.name, inst)
+            else:
+                shutil.rmtree(idir)
+    except Exception as e:
+        return jsonify({"ok": True, "msg": "Removed from receivers.toml, but its folder instances/%s "
+                        "could not be removed: %s" % (inst, e)})
+    with log_lock:
+        log_buffer.append("[" + datetime.now().strftime("%H:%M:%S") + "] DELETE receiver " + rid)
+    return jsonify({"ok": True, "msg": "Receiver %s removed: stopped, out of receivers.toml (old one in "
+                    "admin-backups/%s).%s Its button disappears from the pages; logwebsdr-%s.txt stays."
+                    % (rid, bdir.name, kept, inst)})
 
 
 def _usb_receivers():

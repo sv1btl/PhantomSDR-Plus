@@ -32,7 +32,7 @@ Beide Dienste lesen ihre Konfiguration aus `admin_config.json`, das von `setup_a
 - **Graphen** — CPU-Frequenz, CPU-Last, CPU-Temperatur und verbundene Nutzer, aufgezeichnet über die letzten 15 Minuten / 1 Stunde / 4 Stunden / 12 Stunden / 24 Stunden
 - **Thermischer Schutz (Thermal Guard)** — stoppt den Server, wenn die CPU überhitzt, und startet ihn wieder, sobald sie abgekühlt ist; die Schwellen leiten sich aus Ihrer eigenen CPU ab. Funktioniert mit jeder Start-/Stopp-Methode und läuft ausgeliefert nur im Protokollmodus, tut also nichts, bis Sie ihn aktivieren
 - **Einstellungen** — Admin-Passwort, SDR-Basisverzeichnis, Prozessname und Spectrumserver-Port ändern (der Hörer-Port steht darunter); das Standard-Start- oder -Stopp-Skript mit ▶ START / ■ STOP ausführen; eine **HTTPS**-Karte, die https prüft oder durch das Einschalten führt
-- **Empfänger** — jeder Empfänger der Station mit dem Bereich, den er abdeckt, seiner Bandbreite und ob er sendet; Frequenz und Bandbreite eines zusätzlichen Empfängers direkt ändern, und einen neuen Empfänger für `add-receiver.sh` vorbereiten
+- **Empfänger** — jeder Empfänger der Station mit dem Bereich, den er abdeckt, seiner Bandbreite, seiner Verstärkung und ob er sendet; Einstellungen und Verstärkung eines Empfängers ändern, einen Empfänger stoppen oder starten, umbenennen oder löschen, und einen neuen Empfänger für `add-receiver.sh` vorbereiten
 - **Systemzustand** (Dashboard) — jeder Empfänger auf Sendung oder aus, mit seiner Laufzeit, der freie Plattenplatz und die Größe jedes Log-Ordners, der letzte `crash.log`-Eintrag und die letzten Alarme
 - **DRM** (Dashboard) — der DRM-Decoder: ob sein Helfer läuft, wie viele Decoder belegt sind und wer welche Frequenz decodiert (Sender, Codec, WMER); DRM ein- oder ausschalten und die Höchstzahl der DRM-Hörer (1–20) festlegen, wirksam innerhalb von 5 s ohne Neustart. Die Benutzerseite zeigt diese Hörer als DRM
 - **Receive Diversity** (Dashboard) — jeder Hörer, der Ihren Empfänger per Empfangsdiversität mit einem anderen kombiniert: Name und Ort, Frequenz und Betriebsart, der Partner (PhantomSDR+, KiwiSDR, UberSDR oder WebSDR) und seine Adresse. Nur das Admin-Panel sieht das, nie die öffentliche Benutzerliste
@@ -838,7 +838,7 @@ Eine Karte im **Dashboard**, alle 30 Sekunden aktualisiert (oder mit **↻ refre
 
 ## Besucherstatistik
 
-Die Seite **Visitors** in der Seitenleiste (am Telefon: die Schaltfläche **📈 VISITOR STATISTICS** auf der Seite Users) zählt die Hörer der Station aus den privaten Logs `logs/users_YYYY-MM-DD.jsonl` jedes Empfängers — den Kopien mit den IP-Adressen, die die öffentlichen Seiten nicht mehr zeigen. Wählen Sie **Today**, **7**, **14** oder **31 days**.
+Die Seite **Visitors** in der Seitenleiste (am Telefon: **☰ MENU → Visitors** oder die Schaltfläche **📈 VISITOR STATISTICS** auf der Seite Users) zählt die Hörer der Station aus den privaten Logs `logs/users_YYYY-MM-DD.jsonl` jedes Empfängers — den Kopien mit den IP-Adressen, die die öffentlichen Seiten nicht mehr zeigen. Wählen Sie **Today**, **7**, **14** oder **31 days**.
 
 - **Besucher** (verschiedene Adressen), **Sitzungen**, **Hörstunden** und **die meisten gleichzeitig hörenden**.
 - **Pro Tag** — dieselben vier Zahlen für jeden Tag.
@@ -880,16 +880,31 @@ Jedes Ereignis hat sein eigenes Kästchen. Derselbe Alarm wird höchstens einmal
 
 ## Empfänger
 
-**Receivers** im linken Menü listet jeden Empfänger der Station — aus `receivers.toml`, oder auf einer Station mit einem Empfänger nur den Hauptempfänger — mit seinem Namen, seinem `?rx=`-Namen, der Hardware, dem abgedeckten Bereich und seiner Mitte, der Bandbreite, der Frequenz und Betriebsart, mit der ein neuer Hörer beginnt, und ob er auf Sendung ist.
+**Receivers** im linken Menü (am Telefon: **📡 RX** in der unteren Leiste) listet jeden Empfänger der Station — aus `receivers.toml`, oder auf einer Station mit einem Empfänger nur den Hauptempfänger — mit seinem Namen, seinem `?rx=`-Namen, der Hardware und ihrer Verstärkung, dem abgedeckten Bereich und seiner Mitte, der Bandbreite, der Frequenz und Betriebsart, mit der ein neuer Hörer beginnt, und ob er auf Sendung ist. Jeder Empfänger hat seine eigenen Knöpfe:
 
-**✎ CHANGE FREQUENCY AND BANDWIDTH** erscheint bei jedem zusätzlichen Empfänger (einem in `instances/<name>/`), der abstimmbar ist. Geben Sie die Mittenfrequenz in MHz an, wählen Sie die Bandbreite aus den Abtastraten, die diese Hardware kann, und legen Sie fest, wo ein neuer Hörer beginnt, in welcher Betriebsart, und den Namen auf seinem Knopf; das Formular zeigt den neuen Bereich, bevor Sie ihn anwenden. Eine Frequenz, die die Hardware nicht abstimmt, eine Abtastrate, die sie nicht kann, oder eine Startfrequenz außerhalb des neuen Bereichs wird abgelehnt. **✔ APPLY AND RESTART THIS RECEIVER** dann:
+| Knopf | Was er tut |
+|---|---|
+| **✎ CHANGE SETTINGS** | das unten beschriebene Formular |
+| **■ STOP** / **▶ START** | stoppt nur diesen Empfänger (mit Rückfrage; die anderen laufen weiter) oder startet ihn wieder. Der Start dauert etwa 20 Sekunden; der Knopf zeigt *STARTING …*, bis der Empfänger auf Sendung ist |
+| **🏷 RENAME BUTTON** | nur bei einem Empfänger ohne Änderungsformular: der Name auf seinem Auswahlknopf, gespeichert in `receivers.toml`; nichts startet neu |
+| **🗑 DELETE** | nur bei einem zusätzlichen Empfänger, der nicht der Standardempfänger ist — siehe unten |
 
-- setzt `-f` und `-s` in `instance.env`, und `frequency`, `sps`, `fft_size` sowie Startfrequenz und Betriebsart in `config.toml` — eine Quarzkorrektur (ein `frequency` einige Hz neben `-f`) bleibt als derselbe Fehler in ppm erhalten und stimmt so auch auf dem neuen Band, und `fft_size` wird skaliert, damit der Wasserfall seine Auflösung behält
+**✎ CHANGE SETTINGS bei einem zusätzlichen, abstimmbaren Empfänger** (einem in `instances/<name>/`): Geben Sie die Mittenfrequenz in MHz an, wählen Sie die Bandbreite aus den Abtastraten, die diese Hardware kann, und legen Sie fest, wo ein neuer Hörer beginnt, in welcher Betriebsart, seine Verstärkung und den Namen auf seinem Knopf; das Formular zeigt den neuen Bereich, bevor Sie ihn anwenden. Eine Frequenz, die die Hardware nicht abstimmt, eine Abtastrate, die sie nicht kann, oder eine Startfrequenz außerhalb des neuen Bereichs wird abgelehnt. **✔ APPLY AND RESTART THIS RECEIVER** dann:
+
+- setzt `-f`, `-s` und die Verstärkung in `instance.env`, und `frequency`, `sps`, `fft_size` sowie Startfrequenz und Betriebsart in `config.toml` — eine Quarzkorrektur (ein `frequency` einige Hz neben `-f`) bleibt als derselbe Fehler in ppm erhalten und stimmt so auch auf dem neuen Band, und `fft_size` wird skaliert, damit der Wasserfall seine Auflösung behält
 - setzt `siteSDRBaseFrequency` und `siteSDRBandwidth` in `www/site_information.json` — die Seite des Empfängers liest sie beim Öffnen, also wird nichts neu gebaut
 - setzt den Knopfnamen in `receivers.toml`; der Verzeichnisname und der Hardwarename des Empfängers bleiben, wie sie sind
 - legt die alten Dateien in `admin-backups/retune-<name>-<datum>/` ab und startet **nur diesen Empfänger** neu — seine Hörer werden für einige Sekunden getrennt, die anderen merken nichts
 
-Ein direkt abtastender Empfänger (RX888, Fobos HF) deckt 0 Hz bis zur halben Abtastrate ab und hat nichts abzustimmen. Der **Haupt**empfänger wird mit `bash configure-station.sh` geändert: seine Seite trägt ihr Band aus dem Build, braucht also einen Neubau der Seite, und der Assistent startet die Dienste mit sudo neu.
+**✎ CHANGE SETTINGS beim Hauptempfänger und bei einem direkt abtastenden Empfänger** (RX888, Fobos HF — er deckt 0 Hz bis zur halben Abtastrate ab und hat nichts abzustimmen): Das Formular enthält den Namen auf seinem Knopf, die Startfrequenz, die Betriebsart und die Verstärkung. Startfrequenz und Betriebsart kommen in seine `.toml`, der Name in `receivers.toml`, die alten Dateien in `admin-backups/settings-<name>-<datum>/`. **✔ APPLY** startet diesen Empfänger nur neu, wenn sich Startfrequenz, Betriebsart oder Verstärkung geändert haben; mit dem Hauptempfänger starten auch RADE und DRM neu. Das Band des Hauptempfängers selbst wird mit `bash configure-station.sh` geändert: seine Seite trägt ihr Band aus dem Build, braucht also einen Neubau der Seite, und der Assistent startet die Dienste mit sudo neu. Auf einer Station mit einem Empfänger ohne `receivers.toml` gibt es keinen Auswahlknopf und damit keinen Namen zu setzen.
+
+Bei jedem Empfänger startet eine reine Namensänderung nichts neu.
+
+**Verstärkung.** Für einen RX888 enthält das Formular die VGA-Verstärkung (0–127), den Verstärkungsmodus (low/high), die Dämpfung (0–63) und **PGA on**; für einen RTL-SDR die HF-Verstärkung aus den Stufen, die der Tuner kann, oder *auto* (die AGC des Sticks). Sie werden in die Argumentzeile des Empfängers geschrieben — `RX888_ARGS` oder `RX_ARGS` — bei einem zusätzlichen Empfänger in `instances/<name>/instance.env`, beim Hauptempfänger in `main.env`. `main.env` ist die `instance.env` des Hauptempfängers: jedes Startskript liest sie zuletzt, sie ist nicht in git und `update.sh` ersetzt sie nie. In `station.conf` kann die Verstärkung nicht stehen, weil `configure-station.sh` diese Datei neu schreibt. Ohne `main.env` behält das Startskript seine eingebaute Verstärkung (`-g 50 -a 0 -m low --pga` beim RX888). Andere Empfängertypen haben ihre Verstärkung in derselben Argumentzeile; ändern Sie sie dort von Hand.
+
+**🗑 DELETE** entfernt einen zusätzlichen Empfänger endgültig. Tippen Sie zur Bestätigung seinen Kurznamen ein; dann stoppt es diesen Empfänger (zuerst den Watchdog) und macht nicht weiter, solange noch einer seiner Prozesse läuft, nimmt seinen `[[receiver]]`-Block aus `receivers.toml` (die alte Datei kommt nach `admin-backups/deleted-<name>-<datum>/`) und verschiebt seinen Ordner `instances/<name>/` ebenfalls dorthin — oder löscht den Ordner, wenn Sie *keep a copy* abwählen. Sein Knopf verschwindet von den Seiten; der Treiber und seine Logdatei `logwebsdr-<name>.txt` bleiben.
+
+Der Proxy liest `receivers.toml` neu, sobald sie sich ändert, also erreichen eine Umbenennung, eine Löschung oder ein hinzugefügter Empfänger die Hörer ohne Neustart des Proxys. Offene Seiten lesen die Empfängerliste alle 15 Sekunden neu, also verschwindet der Knopf eines gestoppten Empfängers und kommt von selbst wieder.
 
 **➕ ADD NEW RECEIVER** öffnet ein Formular mit den Fragen von `add-receiver.sh`: der Empfängertyp (mit *RTL-SDR Blog V4* für einen RTL-Stick), Mittenfrequenz, Bandbreite, ein Kurzname (aus dem Band vorgeschlagen und auf Freiheit geprüft), der Name auf seinem Knopf, seine Antenne und die öffentliche Adresse der Station, und ob der Treiber installiert, die Empfängerauswahl auch auf der Hauptseite gezeigt, das Startskript dieses Panels auf `start-all.sh` gesetzt, der Empfänger gestartet und der Proxy neu gestartet werden soll. Darüber listet die Seite die USB-Empfänger, die dieser Computer sieht, damit Sie wissen, dass der Stick eingesteckt ist. **▶ PREPARE** prüft die Antworten, speichert sie in `instances/.add-rx.env` und gibt zwei Zeilen für ein Terminal, jede mit **📋 COPY**:
 
@@ -934,6 +949,12 @@ und eine `BACKUP-INFO.json` mit Datum, Rechner und Dateiliste. **Nicht** enthalt
 
 ---
 
+## Am Telefon oder Tablet
+
+Unter 768 Pixel Breite wird das linke Menü zu einer Schublade. Die untere Leiste hat **DASH**, **RX** (Receivers), **USERS**, **GRAPHS**, **LOGS** und **☰ MENU**, das das ganze Menü mit jeder Seite hereinschiebt; es schließt sich, wenn Sie eine Seite wählen oder daneben tippen, und **MENU** bleibt hervorgehoben, solange Sie auf einer Seite sind, die nicht in der Leiste steht. Am Telefon werden die Tabellen zu einer Karte pro Zeile (die Empfängerliste schon am Tablet, bis 1100 Pixel), Formulare werden einspaltig, und die graue Notiz eines Kartentitels rückt unter den Titel. Top Processes, der Markers-Editor und das Band/Betriebsart-Raster von Spot Reporting bleiben Tabellen und lassen sich seitlich schieben.
+
+---
+
 ## Themes
 
 Die Auswahl **THEME** steht in der oberen Leiste jeder Seite, zwischen **ONLINE** und der Uhr, und noch einmal unter **Settings → Appearance**; beide zeigen immer dieselbe Wahl. Ein Theme gilt sofort, ohne Neuladen.
@@ -964,7 +985,10 @@ Alle Themes verwenden dieselben Schriften und Größen; nur Farben und Finish ä
 | `POST /admin/api/https/check` | `setup-https.sh --status` ausführen |
 | `POST /admin/api/https/precheck` | Die Prüfungen vor dem Einschalten von https, und die auszuführenden Befehle |
 | `GET /admin/api/receivers-info` | Jeder Empfänger mit Bereich, Bandbreite und Zustand |
-| `POST /admin/api/receivers-info/retune` | Frequenz und Bandbreite eines zusätzlichen Empfängers ändern und ihn neu starten |
+| `POST /admin/api/receivers-info/retune` | Einstellungen eines Empfängers ändern (Frequenz, Bandbreite, Startfrequenz, Betriebsart, Verstärkung, Knopfname) und ihn bei Bedarf neu starten |
+| `POST /admin/api/receivers-info/rename` | Der Name auf dem Knopf eines Empfängers (`{"id", "name"}`); nichts startet neu |
+| `POST /admin/api/receivers-info/power` | Einen Empfänger stoppen oder starten (`{"id", "action": "stop"}` oder `"start"`) |
+| `POST /admin/api/receivers-info/delete` | Einen zusätzlichen Empfänger entfernen (`{"id", "confirm": <id>, "keep_copy"}`) |
 | `GET /admin/api/receivers-info/add-defaults` | Startwerte für das Hinzufügen-Formular und die gesehenen USB-Empfänger |
 | `POST /admin/api/receivers-info/add-plan` | Das Hinzufügen-Formular prüfen und `instances/.add-rx.env` schreiben |
 | `GET /admin/api/station-grid` | Der Locator aus Site Info, für das Theme Auto |

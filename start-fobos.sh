@@ -135,6 +135,12 @@ if [ -n "$INSTANCE" ]; then
     fi
     # shellcheck disable=SC1091
     [ -f "$INSTDIR/instance.env" ] && . "$INSTDIR/instance.env"
+else
+    # main.env is the main receiver's instance.env: the admin panel's Receivers
+    # page keeps its gain there (RX_ARGS / RX888_ARGS), since configure-station.sh
+    # rewrites station.conf. Read last, like instance.env.
+    # shellcheck disable=SC1091
+    [ -f "$PHANTOMDIR/main.env" ] && . "$PHANTOMDIR/main.env"
 fi
 
 LOG="$PHANTOMDIR/logwebsdr$SFX.txt"

@@ -32,7 +32,7 @@ Ambos servicios leen su configuración de `admin_config.json`, que escribe `setu
 - **Gráficas** — frecuencia de CPU, carga de CPU, temperatura de CPU y usuarios conectados, representados en los últimos 15 minutos / 1 hora / 4 horas / 12 horas / 24 horas
 - **Protección térmica (Thermal Guard)** — detiene el servidor si la CPU se sobrecalienta y lo reinicia cuando se enfría, con umbrales derivados de su propia CPU; funciona con cualquier método de arranque/parada y se entrega en modo de solo registro, por lo que no hace nada hasta que usted lo active
 - **Ajustes** — cambiar la contraseña de administrador, el directorio base del SDR, el nombre del proceso y el puerto de spectrumserver (con el puerto de los oyentes debajo); ejecutar el script de inicio o de parada por defecto con ▶ START / ■ STOP; una tarjeta **HTTPS** que comprueba https o le guía para activarlo
-- **Receptores** — cada receptor de la estación con el rango que cubre, su ancho de banda y si está en el aire; cambiar la frecuencia y el ancho de banda de un receptor adicional en el sitio, y preparar un receptor nuevo para `add-receiver.sh`
+- **Receptores** — cada receptor de la estación con el rango que cubre, su ancho de banda, su ganancia y si está en el aire; cambiar los ajustes y la ganancia de un receptor, detener o arrancar, renombrar o borrar un receptor, y preparar un receptor nuevo para `add-receiver.sh`
 - **Estado del sistema** (Dashboard) — cada receptor en el aire o fuera, con su tiempo en marcha, el espacio libre en disco y el tamaño de cada carpeta de registros, la última entrada de `crash.log` y las alertas recientes
 - **DRM** (Dashboard) — el decodificador DRM: si su ayudante funciona, cuántos decodificadores están en uso y quién decodifica qué frecuencia (estación, códec, WMER); activar o desactivar DRM y fijar el número máximo de oyentes DRM (1–20), aplicado en 5 s sin reiniciar. La página de usuarios muestra a esos oyentes como DRM
 - **Receive Diversity** (Dashboard) — cada oyente que combina su receptor con otro mediante diversidad de recepción: nombre y ciudad, frecuencia y modo, el socio (PhantomSDR+, KiwiSDR, UberSDR o WebSDR) y su dirección. Solo lo ve el panel de administración, nunca la lista pública de usuarios
@@ -839,7 +839,7 @@ Una tarjeta del **Dashboard**, actualizada cada 30 segundos (o con **↻ refresh
 
 ## Estadísticas de visitantes
 
-La página **Visitors** de la barra lateral (en el teléfono: el botón **📈 VISITOR STATISTICS** de la página Users) cuenta los oyentes de la estación a partir de los registros privados `logs/users_YYYY-MM-DD.jsonl` de cada receptor — las copias con las direcciones IP, que las páginas públicas ya no muestran. Elija **Today**, **7**, **14** o **31 days**.
+La página **Visitors** de la barra lateral (en el teléfono: **☰ MENU → Visitors**, o el botón **📈 VISITOR STATISTICS** de la página Users) cuenta los oyentes de la estación a partir de los registros privados `logs/users_YYYY-MM-DD.jsonl` de cada receptor — las copias con las direcciones IP, que las páginas públicas ya no muestran. Elija **Today**, **7**, **14** o **31 days**.
 
 - **Visitantes** (direcciones distintas), **sesiones**, **horas de escucha** y **el máximo de oyentes a la vez**.
 - **Por día** — las mismas cuatro cifras para cada día.
@@ -881,16 +881,31 @@ Cada evento tiene su propia casilla. La misma alerta se envía como mucho una ve
 
 ## Receptores
 
-**Receivers** en el menú de la izquierda lista cada receptor de la estación — de `receivers.toml`, o solo el principal en una estación con un receptor — con su nombre, su nombre `?rx=`, el hardware, el rango que cubre y su centro, el ancho de banda, la frecuencia y el modo en que empieza un oyente nuevo, y si está en el aire.
+**Receivers** en el menú de la izquierda (en el teléfono: **📡 RX** en la barra inferior) lista cada receptor de la estación — de `receivers.toml`, o solo el principal en una estación de un receptor — con su nombre, su nombre `?rx=`, el hardware y su ganancia, el rango que cubre y su centro, el ancho de banda, la frecuencia y el modo con que empieza un oyente nuevo, y si está en el aire. Cada receptor tiene sus propios botones:
 
-**✎ CHANGE FREQUENCY AND BANDWIDTH** aparece en cada receptor adicional (uno en `instances/<nombre>/`) que sintoniza. Indique la frecuencia central en MHz, elija el ancho de banda entre las tasas de muestreo que ese hardware admite, y fije dónde empieza un oyente nuevo, en qué modo, y el nombre de su botón; el formulario muestra el nuevo rango antes de aplicarlo. Se rechaza una frecuencia que el hardware no sintoniza, una tasa que no admite, o una frecuencia de inicio fuera del nuevo rango. **✔ APPLY AND RESTART THIS RECEIVER** entonces:
+| Botón | Qué hace |
+|---|---|
+| **✎ CHANGE SETTINGS** | el formulario descrito abajo |
+| **■ STOP** / **▶ START** | detiene solo este receptor (pregunta antes; los demás siguen), o lo vuelve a arrancar. Arrancar lleva unos 20 segundos; el botón dice *STARTING …* hasta que el receptor está en el aire |
+| **🏷 RENAME BUTTON** | solo en un receptor sin formulario de cambio: el nombre de su botón del selector, guardado en `receivers.toml`; nada se reinicia |
+| **🗑 DELETE** | solo en un receptor adicional que no es el predeterminado — ver abajo |
 
-- pone `-f` y `-s` en `instance.env`, y `frequency`, `sps`, `fft_size` y la frecuencia y el modo de inicio en `config.toml` — una corrección de cristal (un `frequency` a unos Hz de `-f`) se conserva como el mismo error en ppm, así sigue siendo correcta en la nueva banda, y `fft_size` se escala para que la cascada conserve su resolución
-- pone `siteSDRBaseFrequency` y `siteSDRBandwidth` en `www/site_information.json` — la página del receptor lo lee al abrirse, así que no se recompila nada
-- pone el nombre del botón en `receivers.toml`; el nombre de directorio y el nombre de hardware del receptor quedan como estaban
-- guarda los archivos anteriores en `admin-backups/retune-<nombre>-<fecha>/` y reinicia **solo ese receptor** — sus oyentes se desconectan unos segundos, los demás no notan nada
+**✎ CHANGE SETTINGS en un receptor adicional que sintoniza** (uno en `instances/<nombre>/`): indique la frecuencia central en MHz, elija el ancho de banda entre las tasas de muestreo que ese hardware admite, y fije dónde empieza un oyente nuevo, en qué modo, su ganancia y el nombre de su botón; el formulario muestra el rango nuevo antes de aplicarlo. Se rechaza una frecuencia que el hardware no sintoniza, una tasa que no admite, o una frecuencia inicial fuera del rango nuevo. **✔ APPLY AND RESTART THIS RECEIVER** entonces:
 
-Un receptor de muestreo directo (RX888, Fobos HF) cubre de 0 Hz a la mitad de su tasa de muestreo y no tiene nada que sintonizar. El receptor **principal** se cambia con `bash configure-station.sh`: su página lleva la banda desde la compilación, así que necesita recompilar la página, y el asistente reinicia los servicios con sudo.
+- fija `-f`, `-s` y la ganancia en `instance.env`, y `frequency`, `sps`, `fft_size` y la frecuencia y el modo iniciales en `config.toml` — una corrección del cristal (un `frequency` a unos Hz de `-f`) se conserva como el mismo error en ppm, así sigue siendo correcta en la banda nueva, y `fft_size` se escala para que la cascada conserve su resolución
+- fija `siteSDRBaseFrequency` y `siteSDRBandwidth` en `www/site_information.json` — la página del receptor lo lee al abrirse, así que no se recompila nada
+- fija el nombre del botón en `receivers.toml`; el nombre del receptor en los directorios y el nombre del hardware quedan como están
+- guarda los archivos viejos en `admin-backups/retune-<nombre>-<fecha>/` y reinicia **solo ese receptor** — sus oyentes se cortan unos segundos, los demás no notan nada
+
+**✎ CHANGE SETTINGS en el receptor principal y en uno de muestreo directo** (RX888, Fobos HF — cubre de 0 Hz a la mitad de su tasa de muestreo y no tiene nada que sintonizar): el formulario tiene el nombre de su botón, la frecuencia inicial, el modo y la ganancia. La frecuencia y el modo iniciales van a su `.toml`, el nombre a `receivers.toml`, y los archivos viejos a `admin-backups/settings-<nombre>-<fecha>/`. **✔ APPLY** reinicia ese receptor solo cuando cambió la frecuencia inicial, el modo o la ganancia; con el receptor principal se reinician también RADE y DRM. La banda misma del receptor principal se cambia con `bash configure-station.sh`: su página lleva la banda desde la compilación, así que necesita recompilar la página, y el asistente reinicia los servicios con sudo. En una estación de un receptor sin `receivers.toml` no hay botón en el selector, así que no hay nombre que fijar.
+
+En cualquier receptor, cambiar solo el nombre no reinicia nada.
+
+**Ganancia.** Para un RX888 el formulario tiene la ganancia VGA (0–127), el modo de ganancia (low/high), la atenuación (0–63) y **PGA on**; para un RTL-SDR la ganancia de RF entre los pasos que admite el sintonizador, o *auto* (el AGC del propio stick). Se escriben en la línea de argumentos del receptor — `RX888_ARGS` o `RX_ARGS` — en `instances/<nombre>/instance.env` para un receptor adicional, y en `main.env` para el principal. `main.env` es el `instance.env` del receptor principal: cada script de arranque lo lee el último, no está en git y `update.sh` nunca lo reemplaza. La ganancia no puede ir en `station.conf`, porque `configure-station.sh` reescribe ese archivo. Sin `main.env` el script de arranque conserva su ganancia incorporada (`-g 50 -a 0 -m low --pga` para el RX888). Otros tipos de receptor tienen su ganancia en la misma línea de argumentos; cámbiela allí a mano.
+
+**🗑 DELETE** elimina un receptor adicional para siempre. Escriba su nombre corto para confirmar; entonces detiene ese receptor (primero el watchdog) y no sigue mientras quede alguno de sus procesos en marcha, quita su bloque `[[receiver]]` de `receivers.toml` (el archivo viejo va a `admin-backups/deleted-<nombre>-<fecha>/`), y mueve allí también su carpeta `instances/<nombre>/` — o borra la carpeta si desmarca *keep a copy*. Su botón desaparece de las páginas; el controlador y su archivo de registro `logwebsdr-<nombre>.txt` se quedan.
+
+El proxy vuelve a leer `receivers.toml` cada vez que cambia, así que un cambio de nombre, un borrado o un receptor añadido llegan a los oyentes sin reiniciar el proxy. Las páginas abiertas vuelven a leer la lista de receptores cada 15 segundos, así que el botón de un receptor detenido se va y vuelve solo.
 
 **➕ ADD NEW RECEIVER** abre un formulario con las preguntas de `add-receiver.sh`: el tipo de receptor (con *RTL-SDR Blog V4* para un stick RTL), frecuencia central, ancho de banda, un nombre corto (sugerido según la banda y comprobado que esté libre), el nombre de su botón, su antena y la dirección pública de la estación, y si instalar el controlador, mostrar el selector de receptor también en la página principal, poner `start-all.sh` como script de inicio de este panel, arrancar el receptor y reiniciar el proxy. Encima, la página lista los receptores USB que ve este ordenador, para que sepa que el stick está conectado. **▶ PREPARE** comprueba las respuestas, las guarda en `instances/.add-rx.env` y da dos líneas para un terminal, cada una con **📋 COPY**:
 
@@ -935,6 +950,12 @@ y un `BACKUP-INFO.json` con la fecha, el ordenador y la lista de archivos. **No*
 
 ---
 
+## En un teléfono o tableta
+
+Por debajo de 768 píxeles de ancho el menú de la izquierda se convierte en un cajón. La barra inferior tiene **DASH**, **RX** (Receivers), **USERS**, **GRAPHS**, **LOGS** y **☰ MENU**, que despliega el menú completo con todas las páginas; se cierra al elegir una página o tocar al lado, y **MENU** queda resaltado mientras está en una página que no está en la barra. En el teléfono las tablas pasan a una tarjeta por fila (la lista de receptores ya en la tableta, hasta 1100 píxeles), los formularios quedan en una columna, y la nota gris del título de una tarjeta pasa debajo del título. Top Processes, el editor de Markers y la cuadrícula banda/modo de Spot Reporting siguen siendo tablas y se desplazan de lado.
+
+---
+
 ## Temas
 
 El selector **THEME** está en la barra superior de cada página, entre **ONLINE** y el reloj, y otra vez en **Settings → Appearance**; los dos muestran siempre la misma elección. Un tema se aplica enseguida, sin recargar.
@@ -965,7 +986,10 @@ Todos los temas usan las mismas fuentes y los mismos tamaños; solo cambian los 
 | `POST /admin/api/https/check` | Ejecuta `setup-https.sh --status` |
 | `POST /admin/api/https/precheck` | Las comprobaciones antes de activar https, y los comandos a ejecutar |
 | `GET /admin/api/receivers-info` | Cada receptor con su rango, ancho de banda y estado |
-| `POST /admin/api/receivers-info/retune` | Cambia la frecuencia y el ancho de banda de un receptor adicional y lo reinicia |
+| `POST /admin/api/receivers-info/retune` | Cambia los ajustes de un receptor (frecuencia, ancho de banda, frecuencia inicial, modo, ganancia, nombre del botón) y lo reinicia cuando hace falta |
+| `POST /admin/api/receivers-info/rename` | El nombre del botón de un receptor (`{"id", "name"}`); nada se reinicia |
+| `POST /admin/api/receivers-info/power` | Detiene o arranca un receptor (`{"id", "action": "stop"}` o `"start"`) |
+| `POST /admin/api/receivers-info/delete` | Elimina un receptor adicional (`{"id", "confirm": <id>, "keep_copy"}`) |
 | `GET /admin/api/receivers-info/add-defaults` | Valores iniciales del formulario de alta, y los receptores USB vistos |
 | `POST /admin/api/receivers-info/add-plan` | Comprueba el formulario de alta y escribe `instances/.add-rx.env` |
 | `GET /admin/api/station-grid` | El locator de Site Info, para el tema Auto |

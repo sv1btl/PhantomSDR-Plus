@@ -251,6 +251,8 @@ TIER_A=(
     # The station wizard's answers (configure-station.sh), and the dated copy
     # it keeps of every file before changing it.
     'station.conf' '*.bak-*'
+    # The main receiver's gain, kept by the admin panel's Receivers page.
+    'main.env'
     # The sysop's callsign, locator, city, hardware and antenna — what visitors
     # see. The repository ships the placeholder version of this file, so leaving
     # it out of this list would reset a working site to "your name or callsign".

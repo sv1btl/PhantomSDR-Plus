@@ -600,6 +600,7 @@ PhantomSDR-Plus
 ├── start-rtl.sh
 ├── start-rx888mk2.sh
 ├── station.conf               # les réponses de la station à l'assistant (pas dans git, jamais touché par update.sh)
+├── main.env                   # le gain du récepteur principal, réglé dans le panneau d'administration (pas dans git, jamais touché par update.sh)
 ├── stop-websdr.sh
 ├── subprojects
 │   ├── fftw3.wrap
@@ -860,6 +861,7 @@ PhantomSDR-Plus
 | `config-rx888mk2.toml` | Configuration RX888 MK2 | Utilisation d'un RX888 |
 | `config.example.hackrf.toml` | Exemple HackRF One | Utilisation d'un HackRF |
 | `station.conf` | Les réponses à l'assistant de station — récepteur, bande, station, ports, compléments. Écrit par `configure-station.sh` ; lu par les scripts de démarrage et `proxy.py`. Jamais dans git, jamais touché par `update.sh` | Via `bash configure-station.sh` |
+| `main.env` | Le `instance.env` propre au récepteur principal : sa ligne d'arguments (`RX888_ARGS` / `RX_ARGS`) avec le gain réglé dans Admin → Receivers → ✎ CHANGE SETTINGS. Lu en dernier par chaque script de démarrage ; absent tant qu'aucun gain n'est enregistré. Jamais dans git, jamais touché par `update.sh` | Admin → Receivers, ou à la main |
 
 ### Scripts de démarrage/arrêt et de maintenance
 

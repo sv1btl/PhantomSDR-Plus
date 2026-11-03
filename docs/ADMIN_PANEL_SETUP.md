@@ -32,7 +32,7 @@ Both services read their configuration from `admin_config.json`, which is writte
 - **Graphs** — CPU frequency, CPU load, CPU temperature and connected users plotted over the last 15 minutes / 1 hour / 4 hours / 12 hours / 24 hours
 - **Thermal Guard** — stops the server if the CPU overheats and restarts it once cool, with thresholds derived from your own CPU; works with any start/stop method, and ships in log-only mode so it does nothing until you enable it
 - **Settings** — change admin password, SDR base directory, process name and the spectrumserver port (with the listener port shown under it); run the default start or stop script with ▶ START / ■ STOP; an **HTTPS** card that checks https, or guides you through turning it on
-- **Receivers** — every receiver of the station with the range it covers, its bandwidth and whether it is on air; change the frequency and bandwidth of an extra receiver in place, and prepare a new receiver for `add-receiver.sh`
+- **Receivers** — every receiver of the station with the range it covers, its bandwidth, its gain and whether it is on air; change a receiver's settings and gain, stop or start, rename or delete one receiver, and prepare a new receiver for `add-receiver.sh`
 - **System Health** (Dashboard) — every receiver on air or off with its uptime, free disk space and the size of each log folder, the last `crash.log` entry and the recent alerts
 - **DRM** (Dashboard) — the DRM decoder: whether its helper runs, how many decoders are in use, and who is decoding which frequency (station, codec, WMER); switch DRM on or off and set the maximum number of DRM listeners (1–20), applied within 5 s without a restart. The Users page shows those listeners as DRM
 - **Receive Diversity** (Dashboard) — every listener combining your receiver with another one by receive diversity: name and city, frequency and mode, the partner (PhantomSDR+, KiwiSDR, UberSDR or WebSDR) and its address. Only the admin panel sees it, never the public Users list
@@ -834,7 +834,7 @@ A card on the **Dashboard**, refreshed every 30 seconds (or with **↻ refresh**
 
 ## Visitor statistics
 
-The **Visitors** page in the sidebar (on a phone: the **📈 VISITOR STATISTICS** button on the Users page) counts the station's listeners from the private logs `logs/users_YYYY-MM-DD.jsonl` of every receiver — the copies with the IP addresses, which the public pages no longer show. Choose **Today**, **7**, **14** or **31 days**.
+The **Visitors** page in the sidebar (on a phone: **☰ MENU → Visitors**, or the **📈 VISITOR STATISTICS** button on the Users page) counts the station's listeners from the private logs `logs/users_YYYY-MM-DD.jsonl` of every receiver — the copies with the IP addresses, which the public pages no longer show. Choose **Today**, **7**, **14** or **31 days**.
 
 - **Visitors** (distinct addresses), **sessions**, **listening hours** and the **most listening at the same time**.
 - **Per day** — the same four figures for each day.
@@ -876,16 +876,31 @@ Each event has its own tick box. The same alert is sent at most once per 5 minut
 
 ## Receivers
 
-**Receivers** in the left menu lists every receiver of the station — from `receivers.toml`, or only the main one on a single-receiver station — with its name, its `?rx=` name, the hardware, the range it covers and its centre, the bandwidth, the frequency and mode a new listener starts on, and whether it is on the air.
+**Receivers** in the left menu (on a phone: **📡 RX** in the bottom bar) lists every receiver of the station — from `receivers.toml`, or only the main one on a single-receiver station — with its name, its `?rx=` name, the hardware and its gain, the range it covers and its centre, the bandwidth, the frequency and mode a new listener starts on, and whether it is on the air. Each receiver has its own buttons:
 
-**✎ CHANGE FREQUENCY AND BANDWIDTH** appears on every extra receiver (one in `instances/<name>/`) that tunes. Give the centre frequency in MHz, pick the bandwidth from the sample rates that hardware can do, and set where a new listener starts, in which mode, and the name on its button; the form shows the new range before you apply it. A frequency the hardware cannot tune, a sample rate it cannot do, or a start frequency outside the new range is refused. **✔ APPLY AND RESTART THIS RECEIVER** then:
+| Button | What it does |
+|---|---|
+| **✎ CHANGE SETTINGS** | the form described below |
+| **■ STOP** / **▶ START** | stops only this receiver (it asks first; the others keep running), or starts it again. Starting takes about 20 seconds; the button says *STARTING …* until the receiver is on the air |
+| **🏷 RENAME BUTTON** | only on a receiver without the change form: the name on its picker button, saved in `receivers.toml`; nothing restarts |
+| **🗑 DELETE** | only on an extra receiver that is not the default one — see below |
 
-- sets `-f` and `-s` in `instance.env`, and `frequency`, `sps`, `fft_size` and the start frequency and mode in `config.toml` — a crystal correction (a `frequency` a few Hz away from `-f`) is kept as the same error in ppm, so it stays right on the new band, and `fft_size` is scaled so the waterfall keeps its resolution
+**✎ CHANGE SETTINGS on an extra receiver that tunes** (one in `instances/<name>/`): give the centre frequency in MHz, pick the bandwidth from the sample rates that hardware can do, and set where a new listener starts, in which mode, its gain and the name on its button; the form shows the new range before you apply it. A frequency the hardware cannot tune, a sample rate it cannot do, or a start frequency outside the new range is refused. **✔ APPLY AND RESTART THIS RECEIVER** then:
+
+- sets `-f`, `-s` and the gain in `instance.env`, and `frequency`, `sps`, `fft_size` and the start frequency and mode in `config.toml` — a crystal correction (a `frequency` a few Hz away from `-f`) is kept as the same error in ppm, so it stays right on the new band, and `fft_size` is scaled so the waterfall keeps its resolution
 - sets `siteSDRBaseFrequency` and `siteSDRBandwidth` in `www/site_information.json` — the receiver's page reads it when it opens, so nothing is rebuilt
 - sets the button name in `receivers.toml`; the receiver's directory-listing name and hardware name stay as they are
 - keeps the old files in `admin-backups/retune-<name>-<date>/` and restarts **only that receiver** — its listeners are cut off for a few seconds, the others notice nothing
 
-A direct-sampling receiver (RX888, Fobos HF) covers 0 Hz to half its sample rate and has nothing to tune. The **main** receiver is changed with `bash configure-station.sh`: its page carries its band from the build, so it needs a page rebuild, and the wizard restarts the services with sudo.
+**✎ CHANGE SETTINGS on the main receiver and on a direct-sampling one** (RX888, Fobos HF — it covers 0 Hz to half its sample rate and has nothing to tune): the form has the name on its button, the start frequency, the mode and the gain. The start frequency and mode go into its `.toml`, the name into `receivers.toml`, and the old files into `admin-backups/settings-<name>-<date>/`. **✔ APPLY** restarts that receiver only when the start frequency, the mode or the gain changed; restarting the main receiver restarts RADE and DRM with it. The main receiver's band itself is changed with `bash configure-station.sh`: its page carries its band from the build, so it needs a page rebuild, and the wizard restarts the services with sudo. On a single-receiver station without `receivers.toml` there is no picker button, so there is no name to set.
+
+On every receiver, changing only the name restarts nothing.
+
+**Gain.** For an RX888 the form has the VGA gain (0–127), the gain mode (low/high), the attenuation (0–63) and **PGA on**; for an RTL-SDR the RF gain from the steps the tuner supports, or *auto* (the stick's own AGC). They are written into the receiver's argument line — `RX888_ARGS` or `RX_ARGS` — in `instances/<name>/instance.env` for an extra receiver, and in `main.env` for the main one. `main.env` is the main receiver's `instance.env`: every start script reads it last, it is not in git and `update.sh` never replaces it. The gain cannot live in `station.conf`, because `configure-station.sh` rewrites that file. Without `main.env` the start script keeps its built-in gain (`-g 50 -a 0 -m low --pga` for the RX888). Other receiver types keep their gain in the same argument line; change it there by hand.
+
+**🗑 DELETE** removes an extra receiver for good. Type its short name to confirm; it then stops that receiver (watchdog first) and goes no further while any of its processes is still running, takes its `[[receiver]]` block out of `receivers.toml` (the old file goes to `admin-backups/deleted-<name>-<date>/`), and moves its folder `instances/<name>/` there too — or deletes the folder if you untick *keep a copy*. Its button disappears from the pages; the driver and its log file `logwebsdr-<name>.txt` stay.
+
+The proxy re-reads `receivers.toml` whenever it changes, so a rename, a deletion or an added receiver reaches the listeners without restarting the proxy. Open pages re-read the receiver list every 15 seconds, so a stopped receiver's button goes away and comes back on its own.
 
 **➕ ADD NEW RECEIVER** opens a form with the questions of `add-receiver.sh`: the receiver type (with *RTL-SDR Blog V4* for an RTL stick), centre frequency, bandwidth, a short name (suggested from the band, and checked to be free), the name on its button, its antenna and the station's public address, and whether to install the driver, show the receiver picker on the main page, set this panel's start script to `start-all.sh`, start the receiver and restart the proxy. Above it, the page lists the USB receivers this computer sees, so you know the stick is plugged in. **▶ PREPARE** checks the answers, saves them in `instances/.add-rx.env`, and gives two lines to run in a terminal, each with **📋 COPY**:
 
@@ -930,6 +945,12 @@ and a `BACKUP-INFO.json` with the date, the computer and the file list. **Not** 
 
 ---
 
+## On a phone or tablet
+
+Below 768 pixels wide the left menu becomes a drawer. The bottom bar has **DASH**, **RX** (Receivers), **USERS**, **GRAPHS**, **LOGS** and **☰ MENU**, which slides in the full menu with every page; it closes when you pick a page or tap beside it, and **MENU** stays lit while you are on a page that is not in the bar. On a phone the tables turn into one card per row (the Receivers list already on a tablet, up to 1100 pixels), forms drop to one column, and a card title's grey note moves under the title. Top Processes, the Markers editor and the Spot Reporting band/mode grid stay tables and scroll sideways.
+
+---
+
 ## Themes
 
 The **THEME** selector sits in the top bar of every page, between **ONLINE** and the clock, and again in **Settings → Appearance**; the two always show the same choice. A theme applies at once, no reload.
@@ -960,7 +981,10 @@ All themes use the same fonts and sizes; only colours and finish change. *On air
 | `POST /admin/api/https/check` | Run `setup-https.sh --status` |
 | `POST /admin/api/https/precheck` | The checks before turning https on, and the commands to run |
 | `GET /admin/api/receivers-info` | Every receiver with its range, bandwidth and state |
-| `POST /admin/api/receivers-info/retune` | Change an extra receiver's frequency and bandwidth, and restart it |
+| `POST /admin/api/receivers-info/retune` | Change a receiver's settings (frequency, bandwidth, start frequency, mode, gain, button name) and restart it when needed |
+| `POST /admin/api/receivers-info/rename` | The name on a receiver's button (`{"id", "name"}`); nothing restarts |
+| `POST /admin/api/receivers-info/power` | Stop or start one receiver (`{"id", "action": "stop"}` or `"start"`) |
+| `POST /admin/api/receivers-info/delete` | Remove an extra receiver (`{"id", "confirm": <id>, "keep_copy"}`) |
 | `GET /admin/api/receivers-info/add-defaults` | Starting values for the Add form, and the USB receivers seen |
 | `POST /admin/api/receivers-info/add-plan` | Check the Add form and write `instances/.add-rx.env` |
 | `GET /admin/api/station-grid` | The Site Info locator, for the Auto theme |

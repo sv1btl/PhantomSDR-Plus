@@ -600,6 +600,7 @@ PhantomSDR-Plus
 ├── start-rtl.sh
 ├── start-rx888mk2.sh
 ├── station.conf               # οι απαντήσεις του σταθμού στον οδηγό (όχι στο git, δεν το αγγίζει το update.sh)
+├── main.env                   # η ενίσχυση του κύριου δέκτη, από το admin panel (όχι στο git, δεν το αγγίζει το update.sh)
 ├── stop-websdr.sh
 ├── subprojects
 │   ├── fftw3.wrap
@@ -860,6 +861,7 @@ PhantomSDR-Plus
 | `config-rx888mk2.toml` | Ρυθμίσεις RX888 MK2 | Χρήση συσκευής RX888 |
 | `config.example.hackrf.toml` | Παράδειγμα HackRF One | Χρήση συσκευής HackRF |
 | `station.conf` | Οι απαντήσεις του οδηγού του σταθμού — δέκτης, μπάντα, σταθμός, θύρες, πρόσθετα. Γράφεται από το `configure-station.sh`· το διαβάζουν τα start scripts και το `proxy.py`. Ποτέ στο git, ποτέ δεν το αγγίζει το `update.sh` | Με `bash configure-station.sh` |
+| `main.env` | Το δικό του `instance.env` του κύριου δέκτη: η γραμμή ορισμάτων του (`RX888_ARGS` / `RX_ARGS`) με την ενίσχυση από Admin → Receivers → ✎ CHANGE SETTINGS. Το διαβάζει τελευταίο κάθε script εκκίνησης· δεν υπάρχει μέχρι να αποθηκευτεί μια ενίσχυση. Ποτέ στο git, δεν το αγγίζει το `update.sh` | Admin → Receivers, ή με το χέρι |
 
 ### Σενάρια εκκίνησης/διακοπής και συντήρησης
 

@@ -600,6 +600,7 @@ PhantomSDR-Plus
 ├── start-rtl.sh
 ├── start-rx888mk2.sh
 ├── station.conf               # odgovori stanice čarobnjaku (nije u gitu, update.sh ga nikad ne dira)
+├── main.env                   # pojačanje glavnog prijemnika, postavljeno u administratorskoj ploči (nije u gitu, update.sh ga nikad ne dira)
 ├── stop-websdr.sh
 ├── subprojects
 │   ├── fftw3.wrap
@@ -860,6 +861,7 @@ PhantomSDR-Plus
 | `config-rx888mk2.toml` | Konfiguracija za RX888 MK2 | Pri korištenju RX888 |
 | `config.example.hackrf.toml` | Primjer za HackRF One | Pri korištenju HackRF-a |
 | `station.conf` | Odgovori čarobnjaku stanice — prijemnik, pojas, stanica, portovi, dodaci. Zapisuje ga `configure-station.sh`; čitaju ga skripte za pokretanje i `proxy.py`. Nikad u gitu, `update.sh` ga nikad ne dira | Kroz `bash configure-station.sh` |
+| `main.env` | Vlastiti `instance.env` glavnog prijemnika: njegov redak argumenata (`RX888_ARGS` / `RX_ARGS`) s pojačanjem iz Admin → Receivers → ✎ CHANGE SETTINGS. Svaka startna skripta čita ga posljednjeg; ne postoji dok se ne spremi pojačanje. Nikad u gitu, `update.sh` ga nikad ne dira | Admin → Receivers, ili ručno |
 
 ### Skripte za pokretanje/zaustavljanje i održavanje
 

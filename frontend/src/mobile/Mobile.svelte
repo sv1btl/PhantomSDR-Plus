@@ -348,8 +348,8 @@
   // shown) on a one-receiver station. See lib/receivers.js.
   let receiverPicker = null
   loadReceivers().then((p) => { receiverPicker = p })
-  // Re-read once a minute: a stopped receiver drops out of the proxy's list.
-  setInterval(() => loadReceivers().then((p) => { receiverPicker = p }), 60000)
+  // Re-read every 15 s: a stopped receiver drops out of the proxy's list.
+  setInterval(() => loadReceivers().then((p) => { receiverPicker = p }), 15000)
 
   onMount(async () => {
     username = lsGet('chatusername')

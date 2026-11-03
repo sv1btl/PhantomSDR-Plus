@@ -600,6 +600,7 @@ PhantomSDR-Plus
 ├── start-rtl.sh
 ├── start-rx888mk2.sh
 ├── station.conf               # las respuestas de la estación al asistente (no está en git, update.sh nunca lo toca)
+├── main.env                   # la ganancia del receptor principal, fijada en el panel de administración (no está en git, update.sh nunca lo toca)
 ├── stop-websdr.sh
 ├── subprojects
 │   ├── fftw3.wrap
@@ -860,6 +861,7 @@ PhantomSDR-Plus
 | `config-rx888mk2.toml` | Configuración de RX888 MK2 | Al usar un RX888 |
 | `config.example.hackrf.toml` | Ejemplo para HackRF One | Al usar un HackRF |
 | `station.conf` | Las respuestas al asistente de la estación — receptor, banda, estación, puertos, extras. Lo escribe `configure-station.sh`; lo leen los scripts de arranque y `proxy.py`. Nunca en git, `update.sh` nunca lo toca | Con `bash configure-station.sh` |
+| `main.env` | El propio `instance.env` del receptor principal: su línea de argumentos (`RX888_ARGS` / `RX_ARGS`) con la ganancia fijada en Admin → Receivers → ✎ CHANGE SETTINGS. Cada script de arranque lo lee el último; no existe hasta que se guarda una ganancia. Nunca en git, `update.sh` nunca lo toca | Admin → Receivers, o a mano |
 
 ### Scripts de arranque, parada y mantenimiento
 

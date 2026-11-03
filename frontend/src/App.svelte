@@ -2030,9 +2030,9 @@
     }
   }
   const receiverPickerReady = loadReceivers().then(setReceiverPicker);
-  // Re-read once a minute: the proxy lists only the receivers that are
+  // Re-read every 15 s: the proxy lists only the receivers that are
   // running, so a stopped one's button goes away (and comes back) on its own.
-  setInterval(() => loadReceivers().then(setReceiverPicker), 60000);
+  setInterval(() => loadReceivers().then(setReceiverPicker), 15000);
 
   // A frequency this receiver does not cover but another of the station's
   // does (typed, keypad, link, bookmark, spot, chat, label ...): open that

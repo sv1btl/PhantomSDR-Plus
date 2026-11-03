@@ -600,6 +600,7 @@ PhantomSDR-Plus
 ├── start-rtl.sh
 ├── start-rx888mk2.sh
 ├── station.conf               # ответы станции мастеру (не в git, update.sh его никогда не трогает)
+├── main.env                   # усиление основного приёмника, заданное в панели администратора (не в git, update.sh его никогда не трогает)
 ├── stop-websdr.sh
 ├── subprojects
 │   ├── fftw3.wrap
@@ -860,6 +861,7 @@ PhantomSDR-Plus
 | `config-rx888mk2.toml` | Конфигурация RX888 MK2 | При использовании RX888 |
 | `config.example.hackrf.toml` | Пример для HackRF One | При использовании HackRF |
 | `station.conf` | Ответы мастеру станции — приёмник, диапазон, станция, порты, дополнения. Пишется `configure-station.sh`; его читают скрипты запуска и `proxy.py`. Никогда не в git, `update.sh` его никогда не трогает | Через `bash configure-station.sh` |
+| `main.env` | Собственный `instance.env` основного приёмника: его строка аргументов (`RX888_ARGS` / `RX_ARGS`) с усилением из Admin → Receivers → ✎ CHANGE SETTINGS. Каждый скрипт запуска читает его последним; файла нет, пока не сохранено усиление. Никогда не в git, `update.sh` его никогда не трогает | Admin → Receivers или вручную |
 
 ### Скрипты запуска, остановки и обслуживания
 

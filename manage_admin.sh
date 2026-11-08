@@ -66,6 +66,23 @@ _find_pid() {
 }
 
 cmd_start() {
+    # ── systemd owns them ─────────────────────────────────────────────────────
+    # With the units enabled, a hand-started copy takes the port first and the
+    # unit then loops on "address already in use" (activating / auto-restart)
+    # until the hand-started copy is killed — and after a reboot only the unit
+    # is there. Hand the start to systemd instead of starting a rival copy.
+    if [ -d /run/systemd/system ]; then
+        local u units=()
+        for u in phantomsdr-admin phantomsdr-proxy; do
+            systemctl is-enabled --quiet "$u" 2>/dev/null && units+=("$u")
+        done
+        if [ ${#units[@]} -gt 0 ]; then
+            echo "[!] The systemd units are installed — starting them instead:"
+            echo "    sudo systemctl start ${units[*]}"
+            sudo systemctl start "${units[@]}"
+            return
+        fi
+    fi
     # ── Admin panel ───────────────────────────────────────────────────────────
     local PID
     if PID=$(_find_pid "$PID_FILE" "$ADMIN_PAT"); then

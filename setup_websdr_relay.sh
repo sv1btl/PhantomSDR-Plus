@@ -319,6 +319,28 @@ if [ "$BEHIND_PROXY" != y ] && command -v ufw >/dev/null 2>&1 \
     fi
     echo ""
 fi
+# firewalld: on by default on Fedora and openSUSE, and its default zone drops
+# the relay port. Runtime + permanent, no --reload (that would discard runtime
+# rules someone else added).
+if [ "$BEHIND_PROXY" != y ] && command -v firewall-cmd >/dev/null 2>&1 \
+   && sudo firewall-cmd --state >/dev/null 2>&1; then
+    echo "----------------------------------------------------------"
+    echo " Firewall"
+    echo "----------------------------------------------------------"
+    echo ""
+    ask_yn " firewalld is active. Allow incoming TCP $PORT?" y OPEN_FW
+    if [ "$OPEN_FW" = "y" ]; then
+        if sudo firewall-cmd --permanent --add-port="$PORT"/tcp >/dev/null \
+           && sudo firewall-cmd --add-port="$PORT"/tcp >/dev/null; then
+            echo "[OK] firewalld now allows $PORT/tcp (survives reboot)."
+        else
+            echo "[!]  firewalld refused — run: sudo firewall-cmd --permanent --add-port=$PORT/tcp"
+        fi
+    else
+        echo "[!]  Left closed. Listeners outside this machine will not connect."
+    fi
+    echo ""
+fi
 
 fi   # end of the questions skipped by --service
 

@@ -64,6 +64,113 @@ WantedBy=multi-user.target
 UNIT
 }
 
+# ── SELinux label for the two log files ──────────────────────────────────────
+# Fedora (and openSUSE since 2025) run SELinux enforcing. StandardOutput=append:
+# makes PID 1 itself (init_t) open admin.log / proxy.log before it drops to
+# User=, and the policy forbids init_t to open user_home_t files — the unit then
+# dies with status=209/STDOUT at every boot. Seen on a Fedora 44 station:
+#   avc: denied { open } ... path=".../proxy.log" scontext=...init_t
+#        tcontext=...user_home_t
+# Labelling the two files var_log_t lets systemd open them while the panel,
+# running as the user, can still write and truncate them. A semanage rule makes
+# the label permanent (survives relabels and a log re-created by tmpfiles.d);
+# chcon is the fallback when semanage cannot be had. No SELinux: nothing to do.
+selinux_label_logs() {
+    command -v selinuxenabled >/dev/null 2>&1 && selinuxenabled || return 0
+    local log f
+    for log in admin.log proxy.log; do
+        [ -e "$SCRIPT_DIR/$log" ] || sudo touch "$SCRIPT_DIR/$log"
+    done
+    if ! command -v semanage >/dev/null 2>&1; then
+        if command -v dnf >/dev/null 2>&1; then
+            sudo dnf install -y policycoreutils-python-utils >/dev/null 2>&1 || true
+        elif command -v zypper >/dev/null 2>&1; then
+            sudo zypper -n install policycoreutils-python-utils >/dev/null 2>&1 || true
+        fi
+    fi
+    for log in admin.log proxy.log; do
+        f="$SCRIPT_DIR/$log"
+        if command -v semanage >/dev/null 2>&1; then
+            # -a fails when the rule exists already; -m then updates it.
+            sudo semanage fcontext -a -t var_log_t "$f" 2>/dev/null \
+                || sudo semanage fcontext -m -t var_log_t "$f" 2>/dev/null || true
+            sudo restorecon "$f" 2>/dev/null || true
+        fi
+        if ! ls -Z "$f" 2>/dev/null | grep -q var_log_t; then
+            sudo chcon -t var_log_t "$f" 2>/dev/null || true
+        fi
+    done
+    if ls -Z "$SCRIPT_DIR/admin.log" "$SCRIPT_DIR/proxy.log" 2>/dev/null \
+            | grep -c var_log_t | grep -qx 2; then
+        echo "[OK] SELinux: admin.log and proxy.log labelled var_log_t"
+    else
+        echo "[!]  SELinux: could not label admin.log / proxy.log — the units"
+        echo "     may fail at boot (status=209/STDOUT). Fix by hand:"
+        echo "       sudo chcon -t var_log_t admin.log proxy.log"
+    fi
+}
+
+# ── Firewall: open the public port ───────────────────────────────────────────
+# Fedora and openSUSE ship firewalld enabled, and its default zone drops every
+# port nobody asked for: the units start at boot, but no listener outside this
+# machine can reach the proxy — which looks exactly like "it did not start".
+# Only the public proxy port is opened; the admin port and spectrumserver stay
+# internal (the proxy carries both). Added runtime + permanent, never with
+# --reload, which would throw away runtime rules someone else added by hand.
+# ufw, when the sysop has switched it on (Ubuntu ships it off), gets the same.
+open_public_port() {   # $1 = TCP port
+    local p="$1"
+    [ -n "$p" ] || return 0
+    if command -v firewall-cmd >/dev/null 2>&1 \
+       && sudo firewall-cmd --state >/dev/null 2>&1; then
+        if sudo firewall-cmd --permanent --add-port="$p/tcp" >/dev/null 2>&1 \
+           && sudo firewall-cmd --add-port="$p/tcp" >/dev/null 2>&1; then
+            echo "[OK] firewalld: port $p/tcp open (default zone, survives reboot)"
+        else
+            echo "[!]  firewalld: could not open $p/tcp — listeners outside this"
+            echo "     machine cannot connect. Open it by hand:"
+            echo "       sudo firewall-cmd --permanent --add-port=$p/tcp"
+            echo "       sudo firewall-cmd --add-port=$p/tcp"
+        fi
+    elif command -v ufw >/dev/null 2>&1 \
+         && sudo ufw status 2>/dev/null | grep -q "Status: active"; then
+        sudo ufw allow "$p/tcp" >/dev/null 2>&1 \
+            && echo "[OK] ufw: port $p/tcp open" \
+            || echo "[!]  ufw: could not open $p/tcp — run: sudo ufw allow $p/tcp"
+    fi
+}
+
+# ── --selinux ────────────────────────────────────────────────────────────────
+# Repairs an existing install on an SELinux machine without re-running the
+# whole setup (which would ask every question and restart both units).
+if [ "${1:-}" = "--selinux" ]; then
+    if command -v selinuxenabled >/dev/null 2>&1 && selinuxenabled; then
+        sudo true || { echo "[ERROR] sudo is needed."; exit 1; }
+        selinux_label_logs
+        echo "     Now: sudo systemctl restart phantomsdr-admin phantomsdr-proxy"
+    else
+        echo "[–] SELinux is not enabled here — nothing to do."
+    fi
+    exit 0
+fi
+
+# ── --firewall ───────────────────────────────────────────────────────────────
+# Opens the public proxy port on an existing install: admin_config.json's
+# proxy_port (what proxy.py really listens on), else station.conf's PORT_PUBLIC.
+if [ "${1:-}" = "--firewall" ]; then
+    FW_PORT="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1])).get("proxy_port",""))' \
+        "$SCRIPT_DIR/admin_config.json" 2>/dev/null || true)"
+    [ -n "$FW_PORT" ] || FW_PORT="${PORT_PUBLIC:-}"
+    [ -n "$FW_PORT" ] || { echo "[ERROR] No proxy port found (admin_config.json / station.conf)."; exit 1; }
+    sudo true || { echo "[ERROR] sudo is needed."; exit 1; }
+    echo "[*] Public proxy port: $FW_PORT"
+    open_public_port "$FW_PORT"
+    if ! command -v firewall-cmd >/dev/null 2>&1 && ! command -v ufw >/dev/null 2>&1; then
+        echo "[–] Neither firewalld nor ufw is installed — nothing to open."
+    fi
+    exit 0
+fi
+
 # ── --proxy-only ─────────────────────────────────────────────────────────────
 # A station from configure-station.sh that declined the admin panel still has
 # one public port, and proxy.py is what listens on it (carrying /rade, /stats
@@ -103,10 +210,15 @@ proxy_only() {
         write_proxy_unit
         sudo touch "$SCRIPT_DIR/proxy.log"
         sudo chown "$(id -un):$(id -gn)" "$SCRIPT_DIR/proxy.log"
+        selinux_label_logs
+        # Same port fight as the full install: a hand-started proxy keeps the
+        # public port and the unit loops on "address already in use".
+        bash "$SCRIPT_DIR/manage_admin.sh" stop >/dev/null 2>&1 || true
         sudo systemctl daemon-reload
         sudo systemctl enable phantomsdr-proxy
         sudo systemctl restart phantomsdr-proxy
         echo "[OK] phantomsdr-proxy installed and started (starts at boot)"
+        open_public_port "$PORT_PUBLIC"
     else
         echo "[–] No systemd here — starting the proxy in the background instead."
         pkill -f "python3 -u $SCRIPT_DIR/proxy.py" 2>/dev/null || true
@@ -679,6 +791,7 @@ TMPF
         sudo systemd-tmpfiles --create /etc/tmpfiles.d/99-phantomsdr-logs.conf \
             2>/dev/null || true
         echo "[OK] admin.log and proxy.log owned by $(id -un) (Clear Logs works)"
+        selinux_label_logs
 
         # Free the ports in case a hand-started pair is still up, or the units
         # and manage_admin.sh will fight over them.
@@ -688,6 +801,7 @@ TMPF
         sudo systemctl enable --now phantomsdr-admin
         sudo systemctl enable --now phantomsdr-proxy
         echo "[OK] Services installed and started (admin panel + proxy)"
+        open_public_port "$PROXY_PORT"
         echo "[!]  From now on use systemctl, not manage_admin.sh, to stop or"
         echo "     restart: sudo systemctl restart phantomsdr-admin"
         SERVICE_INSTALLED=true

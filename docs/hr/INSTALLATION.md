@@ -1420,7 +1420,13 @@ sudo ufw allow 9000/tcp
 
 # Or disable firewall temporarily for testing
 sudo ufw disable
+
+# Fedora / openSUSE (firewalld)
+sudo firewall-cmd --permanent --add-port=9000/tcp
+sudo firewall-cmd --add-port=9000/tcp
 ```
+
+Na Fedori i openSUSE-u vatrozid je firewalld, a ne ufw, i uključen je prema zadanim postavkama. `setup_admin.sh` ondje sam otvara javni port proxyja (i u ufw-u, ako ste ga uključili); na stanici instaliranoj ranije jednom pokrenite `./setup_admin.sh --firewall` ili upotrijebite gornje retke `firewall-cmd`. Ako se administratorska ploča ili proxy na tim sustavima ne vrate nakon ponovnog pokretanja, uobičajeni je uzrok SELinux: pokrenite `./setup_admin.sh --selinux` (vidi tablicu za rješavanje problema u ADMIN_PANEL_SETUP.md).
 
 #### Velika latencija
 
@@ -1692,6 +1698,10 @@ tar -xzf phantomsdr-backup-YYYYMMDD.tar.gz
 # Allow only necessary ports
 sudo ufw allow 9000/tcp
 sudo ufw enable
+
+# Fedora / openSUSE (firewalld)
+sudo firewall-cmd --permanent --add-port=9000/tcp
+sudo firewall-cmd --add-port=9000/tcp
 ```
 
 ### Obratni proxy (neobavezno)

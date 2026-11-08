@@ -1422,7 +1422,13 @@ sudo ufw allow 9000/tcp
 
 # Or disable firewall temporarily for testing
 sudo ufw disable
+
+# Fedora / openSUSE (firewalld)
+sudo firewall-cmd --permanent --add-port=9000/tcp
+sudo firewall-cmd --add-port=9000/tcp
 ```
+
+Στο Fedora και στο openSUSE το τείχος προστασίας είναι το firewalld, όχι το ufw, και είναι ενεργό εξ ορισμού. Το `setup_admin.sh` ανοίγει εκεί μόνο του τη δημόσια θύρα του διαμεσολαβητή (και στο ufw, αν το έχετε ενεργοποιήσει)· σε σταθμό που εγκαταστάθηκε νωρίτερα, εκτελέστε μία φορά `./setup_admin.sh --firewall` ή χρησιμοποιήστε τις γραμμές `firewall-cmd` παραπάνω. Αν ο πίνακας διαχείρισης ή ο διαμεσολαβητής δεν επανέρχεται μετά από επανεκκίνηση σε αυτά τα συστήματα, η συνήθης αιτία είναι το SELinux: εκτελέστε `./setup_admin.sh --selinux` (δείτε τον πίνακα αντιμετώπισης προβλημάτων στο ADMIN_PANEL_SETUP.md).
 
 #### Υψηλή καθυστέρηση
 
@@ -1694,6 +1700,10 @@ tar -xzf phantomsdr-backup-YYYYMMDD.tar.gz
 # Allow only necessary ports
 sudo ufw allow 9000/tcp
 sudo ufw enable
+
+# Fedora / openSUSE (firewalld)
+sudo firewall-cmd --permanent --add-port=9000/tcp
+sudo firewall-cmd --add-port=9000/tcp
 ```
 
 ### Αντίστροφος διαμεσολαβητής (προαιρετικά)

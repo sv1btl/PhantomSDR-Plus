@@ -1422,7 +1422,13 @@ sudo ufw allow 9000/tcp
 
 # Or disable firewall temporarily for testing
 sudo ufw disable
+
+# Fedora / openSUSE (firewalld)
+sudo firewall-cmd --permanent --add-port=9000/tcp
+sudo firewall-cmd --add-port=9000/tcp
 ```
+
+On Fedora and openSUSE the firewall is firewalld, not ufw, and it is on by default. `setup_admin.sh` opens the public proxy port there by itself (and in ufw, if you switched it on); on a station installed before, run `./setup_admin.sh --firewall` once, or use the `firewall-cmd` lines above. If the admin panel or the proxy does not come back after a reboot on these systems, SELinux is the usual cause: run `./setup_admin.sh --selinux` (see the troubleshooting table in ADMIN_PANEL_SETUP.md).
 
 #### High Latency
 
@@ -1693,6 +1699,10 @@ tar -xzf phantomsdr-backup-YYYYMMDD.tar.gz
 # Allow only necessary ports
 sudo ufw allow 9000/tcp
 sudo ufw enable
+
+# Fedora / openSUSE (firewalld)
+sudo firewall-cmd --permanent --add-port=9000/tcp
+sudo firewall-cmd --add-port=9000/tcp
 ```
 
 ### Reverse Proxy (Optional)

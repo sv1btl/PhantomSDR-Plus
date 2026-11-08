@@ -786,9 +786,14 @@ if [ "$setup_service" = "y" ]; then
     # next `nvm install` and the service then fails at boot with status=203.
     # A plain symlink would have the same problem, so point ExecStart at a small
     # launcher that resolves node at run time instead.
-    NODE_LAUNCHER="$HOME/.local/bin/sdr-stats-node"
-    mkdir -p "$(dirname "$NODE_LAUNCHER")"
-    cat > "$NODE_LAUNCHER" <<'LAUNCHER'
+    #
+    # It lives in /usr/local/bin, not ~/.local/bin: on SELinux machines (Fedora,
+    # openSUSE) systemd may not execute a program labelled as a home file, and
+    # the unit then fails at every boot with status=203/EXEC. /usr/local/bin is
+    # labelled bin_t and works the same everywhere else.
+    NODE_LAUNCHER="/usr/local/bin/sdr-stats-node"
+    sudo mkdir -p "$(dirname "$NODE_LAUNCHER")"
+    sudo tee "$NODE_LAUNCHER" >/dev/null <<'LAUNCHER'
 #!/bin/bash
 # Resolve node at run time: nvm's default version if present, else system node.
 # systemd sets HOME for User= units, but fall back to the passwd entry in case
@@ -799,7 +804,8 @@ export NVM_DIR="${NVM_DIR:-$HOME/.nvm}"
 [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
 exec node "$@"
 LAUNCHER
-    chmod +x "$NODE_LAUNCHER"
+    sudo chmod 755 "$NODE_LAUNCHER"
+    command -v restorecon >/dev/null 2>&1 && sudo restorecon "$NODE_LAUNCHER" 2>/dev/null || true
     print_success "Node launcher created: $NODE_LAUNCHER (now → $(command -v node))"
 
     sudo tee $SERVICE_FILE > /dev/null <<EOF

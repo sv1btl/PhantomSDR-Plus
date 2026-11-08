@@ -233,6 +233,20 @@ if [ -d /run/systemd/system ]; then
     if caddy_active; then $SUDO systemctl reload caddy; else $SUDO systemctl start caddy; fi
     caddy_active || die "Caddy did not start — see: sudo journalctl -u caddy -n 30"
     ok "Caddy serves this station on port 443"
+    # firewalld (Fedora, openSUSE) drops 443 and 80 in its default zone, so
+    # Caddy would be up yet unreachable — and with 80 closed the certificate
+    # never arrives. 80 is only for the certificate, so --lan leaves it shut.
+    if command -v firewall-cmd >/dev/null 2>&1 && $SUDO firewall-cmd --state >/dev/null 2>&1; then
+        FW_PORTS="443"; [ "$MODE" = "lan" ] || FW_PORTS="443 80"
+        for p in $FW_PORTS; do
+            if $SUDO firewall-cmd --permanent --add-port="$p/tcp" >/dev/null 2>&1 \
+               && $SUDO firewall-cmd --add-port="$p/tcp" >/dev/null 2>&1; then
+                ok "firewalld: port $p/tcp open"
+            else
+                warn "firewalld: could not open $p/tcp — run: sudo firewall-cmd --permanent --add-port=$p/tcp"
+            fi
+        done
+    fi
 else
     warn "no systemd here — start Caddy yourself: sudo caddy run --config $CADDYFILE"
 fi

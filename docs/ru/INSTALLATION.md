@@ -1419,7 +1419,13 @@ sudo ufw allow 9000/tcp
 
 # Or disable firewall temporarily for testing
 sudo ufw disable
+
+# Fedora / openSUSE (firewalld)
+sudo firewall-cmd --permanent --add-port=9000/tcp
+sudo firewall-cmd --add-port=9000/tcp
 ```
+
+В Fedora и openSUSE межсетевой экран — firewalld, а не ufw, и он включён по умолчанию. `setup_admin.sh` сам открывает там публичный порт прокси (и в ufw, если вы его включили); на станции, установленной ранее, один раз выполните `./setup_admin.sh --firewall` или используйте строки `firewall-cmd` выше. Если панель администратора или прокси не поднимаются после перезагрузки в этих системах, обычная причина — SELinux: выполните `./setup_admin.sh --selinux` (см. таблицу устранения неполадок в ADMIN_PANEL_SETUP.md).
 
 #### Высокая задержка
 
@@ -1691,6 +1697,10 @@ tar -xzf phantomsdr-backup-YYYYMMDD.tar.gz
 # Allow only necessary ports
 sudo ufw allow 9000/tcp
 sudo ufw enable
+
+# Fedora / openSUSE (firewalld)
+sudo firewall-cmd --permanent --add-port=9000/tcp
+sudo firewall-cmd --add-port=9000/tcp
 ```
 
 ### Обратный прокси (необязательно)

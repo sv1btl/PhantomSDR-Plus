@@ -2162,17 +2162,82 @@ else
     fi
 fi
 
+# clFFT from source, for releases that do not package it (Fedora 44 has no
+# clfft-devel, Arch has clfft only in the AUR, openSUSE Leap 15.6 has none).
+# Returns non-zero instead of dying: without clFFT the server simply falls
+# back to FFTW, so this must never abort the whole install.
+#   -fpermissive                    GCC 15 rejects "taking address of rvalue"
+#                                   in generator.transpose.cpp (v2.12.2)
+#   -w, CL_TARGET_OPENCL_VERSION    mute screens of deprecation warnings and
+#                                   the cl_version.h pragma (clFFT is OpenCL 1.2)
+#   CMAKE_POLICY_VERSION_MINIMUM    CMake 4 refuses the old
+#                                   cmake_minimum_required in src/CMakeLists.txt
+#   /etc/ld.so.conf.d/clfft.conf    Fedora's and Arch's loaders do not search
+#                                   /usr/local/lib64
+#   clFFT.pc symlink                Arch's pkg-config does not search /usr/local
+#                                   either; linked only when it cannot find it
+CLFFT_TAG="v2.12.2"
+build_clfft_from_source() {
+    echo "   No clFFT package for this release — building clFFT ${CLFFT_TAG#v} from source..."
+    getent hosts github.com >/dev/null 2>&1 \
+        || { yellow "   Cannot reach github.com — skipping the clFFT source build."; return 1; }
+    $SUDO dnf install -y git cmake gcc-c++ make pkgconf-pkg-config || return 1
+
+    local src rc=1 libdir pcfile pcdir
+    src="$(mktemp -d "${TMPDIR:-/tmp}/phantom-clfft-XXXXXX")" || return 1
+    if GIT_TERMINAL_PROMPT=0 git -c advice.detachedHead=false clone -q --depth 1 \
+            --branch "$CLFFT_TAG" https://github.com/clMathLibraries/clFFT.git "$src/clFFT" \
+       && cmake -Wno-dev -S "$src/clFFT/src" -B "$src/build" \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_INSTALL_PREFIX=/usr/local \
+            -DCMAKE_CXX_FLAGS="-fpermissive -w -DCL_TARGET_OPENCL_VERSION=120" \
+            -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
+            -DBUILD_CLIENT=OFF -DBUILD_TEST=OFF \
+            -DBUILD_EXAMPLES=OFF -DBUILD_CALLBACK_CLIENT=OFF >/dev/null \
+       && cmake --build "$src/build" -j"$(nproc)" >/dev/null \
+       && $SUDO cmake --install "$src/build" >/dev/null; then
+        libdir="$(grep -m1 '/libclFFT\.so$' "$src/build/install_manifest.txt")"
+        libdir="${libdir%/*}"
+        pcfile="$(grep -m1 '/clFFT\.pc$' "$src/build/install_manifest.txt")"
+        if [ -n "$libdir" ]; then
+            echo "$libdir" | $SUDO tee /etc/ld.so.conf.d/clfft.conf >/dev/null
+            $SUDO ldconfig
+        fi
+        if ! pkg-config --exists clFFT 2>/dev/null && [ -n "$pcfile" ]; then
+            pcdir="$(pkg-config --variable pc_path pkg-config 2>/dev/null)"
+            pcdir="${pcdir%%:*}"
+            [ -n "$pcdir" ] && $SUDO ln -sf "$pcfile" "$pcdir/clFFT.pc"
+        fi
+        pkg-config --exists clFFT 2>/dev/null && rc=0
+    fi
+    rm -rf "$src"
+    return $rc
+}
+
 if [[ $install_opencl =~ ^[Yy]$ ]]; then
     echo ""
     echo "Installing OpenCL base packages..."
-    run $SUDO dnf install -y ocl-icd ocl-icd-devel opencl-headers clinfo
+    # Fedora ships two OpenCL ICD loaders that conflict with each other:
+    # ocl-icd and the Khronos OpenCL-ICD-Loader (installed by default on
+    # recent Fedora, e.g. 44). Both provide libOpenCL.so.1, so keep whichever
+    # one is already there instead of asking dnf to swap it out.
+    if rpm -q OpenCL-ICD-Loader >/dev/null 2>&1; then
+        ocl_loader="OpenCL-ICD-Loader OpenCL-ICD-Loader-devel"
+    else
+        ocl_loader="ocl-icd ocl-icd-devel"
+    fi
+    run $SUDO dnf install -y $ocl_loader opencl-headers clinfo
 
     # clFFT is the other half: meson enables OpenCL only when it finds BOTH
     # OpenCL and clFFT. Without it the server is built without OpenCL and
     # accelerator="opencl" makes it die with "OpenCL support is not compiled in".
     echo "Installing clFFT (OpenCL FFT library)..."
-    if $SUDO dnf install -y clfft-devel; then
+    if pkg-config --exists clFFT 2>/dev/null; then
+        green "✅ clFFT already installed ($(pkg-config --modversion clFFT))"
+    elif $SUDO dnf install -y clfft-devel 2>/dev/null; then
         green "✅ clFFT installed"
+    elif build_clfft_from_source; then
+        green "✅ clFFT ${CLFFT_TAG#v} built from source (/usr/local)"
     else
         yellow "⚠️  clFFT could not be installed — the server will use FFTW (CPU) instead."
     fi

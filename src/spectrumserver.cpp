@@ -5,6 +5,7 @@
 #include "crash_handler.h"
 #include "listing/software_info.h"
 
+#include <algorithm>
 #include <arpa/inet.h>
 #include <boost/algorithm/string.hpp>
 #include <cerrno>
@@ -231,6 +232,10 @@ broadcast_server::broadcast_server(
         config["input"]["defaults"]["frequency"].value<int64_t>().value_or(-1LL);
     default_mode_str = boost::algorithm::to_upper_copy<std::string>(
         config["input"]["defaults"]["modulation"].value_or("USB"));
+    {
+        auto v = config["input"]["defaults"]["volume"].value<int64_t>();
+        default_volume = v ? (int)std::clamp<int64_t>(*v, 0, 100) : -1;
+    }
 
     waterfall_compression_str =
         config["input"]["waterfall_compression"].value_or("zstd");
@@ -278,6 +283,16 @@ broadcast_server::broadcast_server(
     limit_idle_total     = config["limits"]["idle_total"].value_or(512);
     min_client_version   = config["server"]["min_client_version"].value_or(0);
     g_public_iq_enabled  = config["server"]["iq"].value_or(true);
+    {
+        // Wide IQ: the widest width offered, as 12 / 24 / 48 kHz -> 1 / 2 / 4.
+        const int wide_khz = config["server"]["iq_wide"].value_or(12);
+        g_iq_wide_max_scale = wide_khz >= 48 ? 4 : wide_khz >= 24 ? 2 : 1;
+        g_iq_wide_limit = std::max<int64_t>(0, config["server"]["iq_wide_listeners"].value_or(4));
+        if (g_iq_wide_max_scale > 1)
+            std::cout << "Wide IQ for listeners: up to " << 12 * g_iq_wide_max_scale
+                      << " kHz, " << (g_iq_wide_limit > 0 ? std::to_string(g_iq_wide_limit.load()) : std::string("any number of"))
+                      << " at once" << std::endl;
+    }
     if (min_client_version > 0)
         std::cout << "Minimum client build on /audio: v"
                   << min_client_version
@@ -437,7 +452,9 @@ broadcast_server::broadcast_server(
         fft = std::make_unique<FFTW>(
             fft_size, fft_threads, downsample_levels, brightness_offset);
     }
-    fft->set_output_additional_size(audio_max_fft_size);
+    // Room for the widest IQ slice (IQ_MAX_SCALE x the 12 kHz one) past the
+    // end of the spectrum, where a wrapped IQ-input slice reads.
+    fft->set_output_additional_size(audio_max_fft_size * IQ_MAX_SCALE);
 
     // ── WebSocket server ──────────────────────────────────────────────────
     m_server.init_asio();

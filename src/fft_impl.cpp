@@ -319,8 +319,10 @@ int clFFT::plan_c2c(direction d, int) {
     cl_quantizedbuf =
         cl::Buffer(context, CL_MEM_READ_WRITE | CL_MEM_ALLOC_HOST_PTR,
                    sizeof(int8_t) * size * 2);
+    // Mapped with the extra room past the end too: the IQ wrap copy in fft.cpp
+    // writes there for slices that cross the zero frequency.
     outbuf = (float *)queue.enqueueMapBuffer(cl_outbuf, CL_TRUE, CL_MAP_READ, 0,
-                                             sizeof(float) * size * 2);
+                                             sizeof(float) * (size + additional_size) * 2);
     quantizedbuf = (int8_t *)queue.enqueueMapBuffer(
         cl_quantizedbuf, CL_TRUE, CL_MAP_READ, 0, sizeof(int8_t) * size * 2);
     outbuf_len = size;

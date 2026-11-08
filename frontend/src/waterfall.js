@@ -128,7 +128,11 @@ export default class SpectrumWaterfall {
   initCanvas(settings) {
     this.canvasElem = settings.canvasElem
     this.ctx = this.canvasElem.getContext('2d')
-    this.ctx.imagesmoothingEnabled = false
+    // Image smoothing is deliberately left at the browser default (on): when
+    // a zoom, pan or window resize stretches the history already drawn, it
+    // stays soft instead of turning blocky. (Earlier lines here and in the
+    // resize handler misspelled imageSmoothingEnabled, so they never did
+    // anything; removed 2026-11-05 so the code matches what is on screen.)
     //this.ctx.imageSmoothingQuality = "high"
     this.canvasWidth = this.canvasElem.width
     this.canvasHeight = this.canvasElem.height
@@ -171,13 +175,11 @@ export default class SpectrumWaterfall {
       resizeCanvas.width = this.canvasElem.width
       resizeCanvas.height = this.canvasElem.height
       let resizeCtx = resizeCanvas.getContext('2d')
-      resizeCtx.imagesmoothingEnabled = false;
       resizeCtx.drawImage(this.canvasElem, 0, 0)
 
 
       this.curLine = Math.ceil(this.curLine * this.canvasElem.height / resizeCanvas.height)
-      // Copy resizeCanvas to new canvas with scaling
-      this.ctx.imagesmoothingEnabled = false;
+      // Copy resizeCanvas to new canvas with scaling (smoothed, see initCanvas)
       this.ctx.drawImage(resizeCanvas, 0, 0, resizeCanvas.width, resizeCanvas.height, 0, 0, this.canvasElem.width, this.canvasElem.height)
       this.updateGraduation()
       this.updateBandPlan()

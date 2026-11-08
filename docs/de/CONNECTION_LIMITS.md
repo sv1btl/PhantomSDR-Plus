@@ -198,6 +198,8 @@ Es gibt das, weil der Server JavaScript, das bereits im Browser eines Nutzers l�
 
 Geprüft wird nur `/audio`, denn dort lebt eine Sitzung, und Loopback sowie die Kiwi-Pfade sind ausgenommen, damit der Autorun-Tap und Kiwi-Clients unberührt bleiben. `0` schaltet es ab und ist die Vorgabe. Es eingeschaltet zu lassen, nachdem die alten Seiten abgeflossen sind, ist unbedenklich: Ein aktueller Diversity-Client, der auf einem blanken `/audio` abgewiesen wird, versucht es erneut mit der Kennung. Abgewiesen werden also nur noch Diversity-Clients mit einem älteren PhantomSDR-Plus-Stand und Fremdwerkzeuge, die `/audio` ohne `?v=` öffnen. Setzen Sie es zurück auf `0`, wenn eine andere Station meldet, dass sie Sie nicht mehr als Diversity-Partner nutzen kann.
 
+Die mit PhantomSDR-Plus ausgelieferten Konfigurationen setzen `min_client_version=2`, den aktuellen Stand (`CLIENT_VERSION` in `frontend/src/clientVersion.js`), mit einem erklärenden Kommentar; ohne die Zeile gilt `0`. Hebt ein künftiges Update `CLIENT_VERSION` an, heben Sie diesen Wert ebenso an.
+
 ---
 
 ## 7. Was ein abgewiesener Hörer sieht

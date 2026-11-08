@@ -748,6 +748,7 @@ format = "u8"                    # Sample format for RTL-SDR
 [input.defaults]
 frequency = 145500000            # Default tuning frequency
 modulation = "FM"                # Default modulation mode
+volume = 50                      # Start volume of a first-time listener, 0-100 (optional)
 ```
 
 #### Οδηγίες για τον ρυθμό δειγματοληψίας
@@ -776,7 +777,7 @@ nano frontend/site_information.json
   "siteCity": "Your City, Country",
   "siteInformation": "https://github.com/sv1btl/PhantomSDR-Plus",
   "siteHardware": "Computer specifications",
-  "siteSoftware": "PhantomSDR-Plus v5.4.0",
+  "siteSoftware": "PhantomSDR-Plus v5.5.0",
   "siteReceiver": "Your SDR model",
   "siteAntenna": "Antenna description",
   "siteNote": "Additional information",
@@ -1604,7 +1605,7 @@ update-backups/phantomsdr-backup-20260923-164530.zip
 ./update.sh --apply --yes     # δεν ρωτά ποτέ· ό,τι έχετε αλλάξει ΔΙΑΤΗΡΕΙΤΑΙ
 ./update.sh --check           # μόνο αναφορά, ποτέ ερώτηση — για cron (10 = υπάρχει ενημέρωση)
 ./update.sh --from FILE|DIR   # η νέα έκδοση από .zip/.tar.gz ή φάκελο — χωρίς δίκτυο
-./update.sh --ref v5.4.0      # ετικέτα, κλάδος ή commit αντί για το τρέχον δέντρο
+./update.sh --ref v5.5.0      # ετικέτα, κλάδος ή commit αντί για το τρέχον δέντρο
 ./update.sh --list-excludes   # τυπώνει τους κανόνες "μην αγγίζεις" όπως ισχύουν εδώ
 ./update.sh --verbose         # εμφανίζει όλα τα αρχεία, όχι μόνο τα πρώτα 40
 ```

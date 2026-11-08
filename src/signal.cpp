@@ -17,6 +17,9 @@
 #include <nlohmann/json.hpp>
 
 std::atomic<bool> g_public_iq_enabled{true};
+std::atomic<int> g_iq_wide_max_scale{1};
+std::atomic<int> g_iq_wide_limit{4};
+std::atomic<int> g_iq_wide_active{0};
 
 // ---- Synchronous AM (SAM) product detector with simple PI-PLL ----
 namespace {
@@ -643,7 +646,7 @@ void AudioClient::set_audio_demodulation(demodulation_mode demodulation) {
 }
 
 std::unique_ptr<AudioEncoder>
-AudioClient::make_audio_encoder(audio_compressor codec, int channels) {
+AudioClient::make_audio_encoder(audio_compressor codec, int channels, int scale) {
     if (codec == AUDIO_PCM) {
         // Raw PCM needs no configuration — no sample rate, blocksize or channel
         // setup. The autorun loopback client is mono; PcmEncoder ships int16 LE.
@@ -662,7 +665,7 @@ AudioClient::make_audio_encoder(audio_compressor codec, int channels) {
     auto flac_encoder = std::make_unique<FlacEncoder>(hdl, sender);
     flac_encoder->set_channels(channels);
     flac_encoder->set_verify(false);
-    flac_encoder->set_sample_rate(audio_rate);
+    flac_encoder->set_sample_rate(audio_rate * scale);
     flac_encoder->set_bits_per_sample(16);
     flac_encoder->configure_flac(FlacMode::Balanced); // good params + streamable_subset(true)
     flac_encoder->set_streamable_subset(false);        // CRITICAL: override AFTER configure_flac!
@@ -670,7 +673,10 @@ AudioClient::make_audio_encoder(audio_compressor codec, int channels) {
                                                        // specific power-of-2 blocksizes (256,512,1024...). Our frame size
                                                        // (audio_fft_size/2 ≈ 394) is not valid → libFLAC silently ignores
                                                        // set_blocksize() and falls back to 1024 → buffering → tremor!
-    flac_encoder->set_blocksize(audio_fft_size / 2);  // exact match to process() call size → no buffering
+    flac_encoder->set_blocksize(audio_fft_size * scale / 2);  // exact match to process() call size → no buffering
+    // Before init(): init() sends the stream header, and the page has to know
+    // the rate from that very first packet to build the right decoder for it.
+    if (scale > 1) flac_encoder->set_iq_meta(scale, false);
     flac_encoder->init();
     return flac_encoder;
 }
@@ -755,6 +761,199 @@ void AudioClient::set_am_stereo(bool enable) {
 
 const std::string &AudioClient::get_unique_id() { return unique_id; }
 
+void AudioClient::iq_level_pack(std::complex<float> *bb, int n,
+                                std::complex<float> *buf, int len,
+                                int32_t *out16) {
+    // Zero-IF I/Q for DRM and listeners: no impulse blanker, noise gate, AGC
+    // or DC removal -- each of them breaks OFDM. Only a slow gain (~3 s) holds
+    // the RMS near -20 dBFS, cut at once on clipping; a listener's gain may
+    // also not lift the band noise above -45 dBFS (see send_audio).
+    const bool listener =
+        !(is_internal_tap.load(std::memory_order_relaxed) &&
+          codec_pinned_pcm.load(std::memory_order_relaxed));
+    float pow_sum = 0.0f, peak = 0.0f;
+    for (int i = 0; i < n; i++) {
+        const float p2 = std::norm(bb[i]);
+        pow_sum += p2;
+        peak = std::max(peak, p2);
+    }
+    const float rms = std::sqrt(pow_sum / n);
+    peak = std::sqrt(peak);
+    if (iq_rms <= 0.0f) iq_rms = rms;
+    iq_rms += (rms - iq_rms) * 0.012f;   // ~3 s at 28.6 frames/s
+    if (listener && len > 8 && rms > 0.0f) {
+        // Noise floor from the spectrum, not the waveform: the
+        // quietest 10 % of the passband bins. Noise bin power is
+        // exponentially distributed, so its 10th percentile is
+        // 0.105 x the mean; a station would have to fill over 90 %
+        // of the 12 kHz to move it. Scaled onto the time-domain
+        // RMS by Parseval: rms^2 is proportional to the bin sum.
+        iq_bin_pow.resize(len);
+        double bin_sum = 0.0;
+        for (int i = 0; i < len; i++) {
+            iq_bin_pow[i] = std::norm(buf[i]);
+            bin_sum += iq_bin_pow[i];
+        }
+        auto p10 = iq_bin_pow.begin() + len / 10;
+        std::nth_element(iq_bin_pow.begin(), p10, iq_bin_pow.end());
+        if (bin_sum > 0.0) {
+            const double noise_share =
+                std::min(1.0, (*p10 / 0.1054) * len / bin_sum);
+            const float nr = rms * static_cast<float>(std::sqrt(noise_share));
+            if (iq_noise <= 0.0f) iq_noise = nr;
+            iq_noise += (nr - iq_noise) * 0.03f;   // ~1 s
+        }
+    }
+    if (iq_rms > 1e-12f) {
+        float want = 0.1f / iq_rms;
+        if (listener && iq_noise > 1e-12f)
+            want = std::min(want, 0.0056f / iq_noise);   // -45 dBFS
+        iq_gain = (iq_gain <= 0.0f) ? want : iq_gain + (want - iq_gain) * 0.012f;
+    }
+    if (peak * iq_gain > 0.9f && peak > 0.0f) iq_gain = 0.9f / peak;
+    for (int i = 0; i < n; i++) {
+        out16[i * 2] = std::clamp(static_cast<int32_t>(
+            bb[i].real() * iq_gain * 32767.0f), -32768, 32767);
+        out16[i * 2 + 1] = std::clamp(static_cast<int32_t>(
+            bb[i].imag() * iq_gain * 32767.0f), -32768, 32767);
+    }
+}
+
+// ── Wide IQ ──────────────────────────────────────────────────────────────
+// Scratch and IFFT plan for one scale, made outside encoder_mtx_ (planning
+// takes a moment) and kept for the client's lifetime.
+void AudioClient::prepare_wide(int scale) {
+    if (scale < 2 || scale > IQ_MAX_SCALE || wide_[scale].plan) return;
+    WideIq w;
+    w.n = audio_fft_size * scale;
+    w.input   = fftwf_malloc_unique_ptr<std::complex<float>>(w.n);
+    w.bb      = fftwf_malloc_unique_ptr<std::complex<float>>(w.n);
+    w.bb_prev = fftwf_malloc_unique_ptr<std::complex<float>>(w.n);
+    std::fill(w.bb.get(), w.bb.get() + w.n, std::complex<float>(0.0f, 0.0f));
+    std::fill(w.bb_prev.get(), w.bb_prev.get() + w.n, std::complex<float>(0.0f, 0.0f));
+    w.out16.resize(w.n);                    // n/2 frames of I,Q
+    {
+        std::scoped_lock lg(fftwf_planner_mutex);
+        fftwf_plan_with_nthreads(1);
+        w.plan = fftwf_plan_dft_1d(w.n, (fftwf_complex *)w.input.get(),
+                                   (fftwf_complex *)w.bb.get(), FFTW_BACKWARD,
+                                   FFTW_ESTIMATE);
+    }
+    std::scoped_lock lk(encoder_mtx_);
+    if (!wide_[scale].plan) wide_[scale] = std::move(w);
+    else { std::scoped_lock lg(fftwf_planner_mutex); fftwf_destroy_plan(w.plan); }
+}
+
+// Take the scale the listener asked for, as far as the limit allows, and give
+// the stream an encoder at that rate. Caller holds encoder_mtx_ and has called
+// prepare_wide(want).
+void AudioClient::apply_iq_scale_locked(int want) {
+    want = std::clamp(want, 1, g_iq_wide_max_scale.load());
+    if (want > 1 && !wide_[want].plan) want = 1;
+    iq_busy = false;
+    if (want > 1 && !holds_wide_slot) {
+        const int limit = g_iq_wide_limit.load();
+        int cur = g_iq_wide_active.load();
+        for (;;) {
+            if (limit > 0 && cur >= limit) { iq_busy = true; want = 1; break; }
+            if (g_iq_wide_active.compare_exchange_weak(cur, cur + 1)) { holds_wide_slot = true; break; }
+        }
+    }
+    if (want == 1 && holds_wide_slot) {
+        g_iq_wide_active.fetch_sub(1);
+        holds_wide_slot = false;
+    }
+    if (want == iq_scale.load() && encoder) {
+        encoder->set_iq_meta(want, iq_busy);   // the busy note may have changed
+        return;
+    }
+    if (want > 1) {
+        WideIq &w = wide_[want];
+        std::fill(w.bb.get(), w.bb.get() + w.n, std::complex<float>(0.0f, 0.0f));
+        std::fill(w.bb_prev.get(), w.bb_prev.get() + w.n, std::complex<float>(0.0f, 0.0f));
+    }
+    if (encoder) encoder->finish_encoder();
+    encoder = make_audio_encoder(AUDIO_FLAC, 2, want);
+    if (iq_busy) encoder->set_iq_meta(1, true);
+    iq_gain = 0.0f;   // the level control starts afresh at the new width
+    iq_rms = 0.0f;
+    iq_noise = 0.0f;
+    iq_scale = want;
+}
+
+void AudioClient::release_wide_locked() {
+    if (holds_wide_slot) {
+        g_iq_wide_active.fetch_sub(1);
+        holds_wide_slot = false;
+    }
+    iq_busy = false;
+    iq_scale = 1;
+}
+
+void AudioClient::on_iq_width_message(int khz) {
+    int want = khz >= 48 ? 4 : khz >= 24 ? 2 : 1;
+    want = std::min(want, g_iq_wide_max_scale.load());
+    iq_wanted = want;
+    if (demodulation.load() != IQ) return;              // used when IQ is picked
+    if (is_internal_tap.load(std::memory_order_acquire)) return;   // taps stay 12 kHz
+    if (codec_pinned_pcm.load()) return;
+    if (want > 1) prepare_wide(want);
+    std::scoped_lock lk(encoder_mtx_);
+    apply_iq_scale_locked(want);
+}
+
+int AudioClient::max_window_bins() const {
+    return audio_fft_size * std::max(1, g_iq_wide_max_scale.load());
+}
+
+// One frame of wide IQ: the same zero-IF extraction as the 12 kHz IQ, with an
+// IFFT `scale` times larger, so the stream runs at scale x the audio rate and
+// covers scale x the bandwidth. Runs under encoder_mtx_, so the scale and the
+// encoder cannot change halfway through a frame.
+void AudioClient::send_wide_iq(std::complex<float> *buf, size_t frame_num, int scale) {
+    std::scoped_lock lk(encoder_mtx_);
+    if (iq_scale.load() != scale || !encoder) return;   // changed just now: skip it
+    WideIq &w = wide_[scale];
+    if (!w.plan) return;
+    const int N = w.n;
+    const int audio_l = 0;
+    const int audio_r = r - l;
+    const int audio_m = floor(audio_mid) - l;
+    const int audio_m_idx = floor(audio_mid);
+    const int len = audio_r - audio_l;
+    const float average_power = std::accumulate(
+        buf, buf + len, 0.0f,
+        [](float a, std::complex<float> &b) { return a + std::norm(b); });
+
+    std::fill(w.input.get(), w.input.get() + N, std::complex<float>(0.0f, 0.0f));
+    const int pos_copy_l = std::max(audio_l, audio_m);
+    const int pos_copy_r = std::min(audio_r, audio_m + N / 2);
+    if (pos_copy_r >= pos_copy_l)
+        std::copy(buf + pos_copy_l - audio_l, buf + pos_copy_r - audio_l,
+                  w.input.get() + pos_copy_l - audio_m);
+    const int neg_copy_l = std::max(audio_l, audio_m - N / 2 + 1);
+    const int neg_copy_r = std::min(audio_r, audio_m);
+    if (neg_copy_r >= neg_copy_l)
+        std::copy(buf + neg_copy_l - audio_l, buf + neg_copy_r - audio_l,
+                  w.input.get() + N - (audio_m - neg_copy_l));
+
+    std::copy(w.bb.get() + N / 2, w.bb.get() + N, w.bb_prev.get());
+    fftwf_execute(w.plan);
+    // Same 50 %-overlap sign rule as the 12 kHz path: it depends on the
+    // centre bin and the frame, not on the IFFT size.
+    if (frame_num % 2 == 1 && ((audio_m_idx % 2 == 0 && !is_real) ||
+                               (audio_m_idx % 2 == 1 && is_real)))
+        dsp_negate_complex(w.bb.get(), N);
+    dsp_add_complex(w.bb.get(), w.bb_prev.get(), N / 2);
+
+    iq_level_pack(w.bb.get(), N / 2, buf, len, w.out16.data());
+    encoder->set_data(frame_num, l, audio_mid, r, average_power, 2, false);
+    encoder->process(w.out16.data(), N / 2);
+    ensure_audio_monitor_thread_runs();
+    total_audio_bits_sent.fetch_add(static_cast<size_t>(N / 2) * 2 * 16,
+                                    std::memory_order_relaxed);
+}
+
 // Does the demodulation and sends the audio to the client.
 // buf is given offset by l.
 void AudioClient::send_audio(std::complex<float> *buf, size_t frame_num) {
@@ -773,6 +972,11 @@ void AudioClient::send_audio(std::complex<float> *buf, size_t frame_num) {
         sam_locked.store(false, std::memory_order_relaxed);
         sam_offset_hz.store(NAN, std::memory_order_relaxed);
         sam_quality.store(NAN, std::memory_order_relaxed);
+
+        if (demod == IQ) {
+            const int scale = iq_scale.load(std::memory_order_acquire);
+            if (scale > 1) { send_wide_iq(buf, frame_num, scale); return; }
+        }
 
         // buf is pre-offset by l, so all local indices are relative to l.
         const int audio_l = 0;          // start of buf in relative coords (= l - l)
@@ -922,56 +1126,9 @@ void AudioClient::send_audio(std::complex<float> *buf, size_t frame_num) {
                 // the same -20 dBFS as a broadcast station -- 12 kHz of hiss at
                 // full level. The DRM tap keeps the plain rule: its decoder
                 // wants the level, not the quiet.
-                const bool listener =
-                    !(is_internal_tap.load(std::memory_order_relaxed) &&
-                      codec_pinned_pcm.load(std::memory_order_relaxed));
                 const int n = audio_fft_size / 2;
-                float pow_sum = 0.0f, peak = 0.0f;
-                for (int i = 0; i < n; i++) {
-                    const float p2 = std::norm(audio_complex_baseband[i]);
-                    pow_sum += p2;
-                    peak = std::max(peak, p2);
-                }
-                const float rms = std::sqrt(pow_sum / n);
-                peak = std::sqrt(peak);
-                if (iq_rms <= 0.0f) iq_rms = rms;
-                iq_rms += (rms - iq_rms) * 0.012f;   // ~3 s at 28.6 frames/s
-                if (listener && len > 8 && rms > 0.0f) {
-                    // Noise floor from the spectrum, not the waveform: the
-                    // quietest 10 % of the passband bins. Noise bin power is
-                    // exponentially distributed, so its 10th percentile is
-                    // 0.105 x the mean; a station would have to fill over 90 %
-                    // of the 12 kHz to move it. Scaled onto the time-domain
-                    // RMS by Parseval: rms^2 is proportional to the bin sum.
-                    iq_bin_pow.resize(len);
-                    double bin_sum = 0.0;
-                    for (int i = 0; i < len; i++) {
-                        iq_bin_pow[i] = std::norm(buf[i]);
-                        bin_sum += iq_bin_pow[i];
-                    }
-                    auto p10 = iq_bin_pow.begin() + len / 10;
-                    std::nth_element(iq_bin_pow.begin(), p10, iq_bin_pow.end());
-                    if (bin_sum > 0.0) {
-                        const double noise_share =
-                            std::min(1.0, (*p10 / 0.1054) * len / bin_sum);
-                        const float nr = rms * static_cast<float>(std::sqrt(noise_share));
-                        if (iq_noise <= 0.0f) iq_noise = nr;
-                        iq_noise += (nr - iq_noise) * 0.03f;   // ~1 s
-                    }
-                }
-                if (iq_rms > 1e-12f) {
-                    float want = 0.1f / iq_rms;
-                    if (listener && iq_noise > 1e-12f)
-                        want = std::min(want, 0.0056f / iq_noise);   // -45 dBFS
-                    iq_gain = (iq_gain <= 0.0f) ? want : iq_gain + (want - iq_gain) * 0.012f;
-                }
-                if (peak * iq_gain > 0.9f && peak > 0.0f) iq_gain = 0.9f / peak;
-                for (int i = 0; i < n; i++) {
-                    audio_real_int16[i * 2] = std::clamp(static_cast<int32_t>(
-                        audio_complex_baseband[i].real() * iq_gain * 32767.0f), -32768, 32767);
-                    audio_real_int16[i * 2 + 1] = std::clamp(static_cast<int32_t>(
-                        audio_complex_baseband[i].imag() * iq_gain * 32767.0f), -32768, 32767);
-                }
+                iq_level_pack(audio_complex_baseband.get(), n, buf, len,
+                              audio_real_int16.data());
                 {
                     std::scoped_lock lk(encoder_mtx_);
                     encoder->set_data(frame_num, audio_l, audio_mid, audio_r,
@@ -1198,7 +1355,7 @@ void AudioClient::on_window_message(int new_l, std::optional<double> &m,
         new_r >= fft_result_size || new_l > new_r) {
         return;
     }
-    if (new_r - new_l > audio_fft_size) {
+    if (new_r - new_l > max_window_bins()) {   // wider only while wide IQ is offered
         return;
     }
     double new_m = m.value();
@@ -1219,6 +1376,13 @@ void AudioClient::on_demodulation_message(std::string &demodulation) {
             return;
         }
         debounce_last_change = now;
+    }
+
+    // Leaving IQ ends a wide IQ first, so its slot is free again before the
+    // branch below swaps the encoder back to 12 kHz.
+    if (demodulation != "IQ" && iq_scale.load() > 1) {
+        std::scoped_lock lk(encoder_mtx_);
+        release_wide_locked();
     }
 
     // Update the demodulation type, including AM-S (C-QUAM)
@@ -1258,10 +1422,14 @@ void AudioClient::on_demodulation_message(std::string &demodulation) {
             // Stereo encoder first, mode second: for the frame in between, the
             // mono branch reads half of what the stereo encoder expects, which
             // audio_real_int16 (sized 2 x audio_fft_size) covers.
+            if (iq_wanted > 1) prepare_wide(iq_wanted);
             std::scoped_lock lk(encoder_mtx_);
             if (encoder) {
                 encoder->finish_encoder();
                 encoder = make_audio_encoder(AUDIO_FLAC, 2);
+                iq_scale = 1;
+                // The width this listener asked for (24 / 48 kHz), if any.
+                if (iq_wanted > 1) apply_iq_scale_locked(iq_wanted);
             }
         }
         iq_gain = 0.0f;
@@ -1392,6 +1560,10 @@ void AudioClient::on_close() {
     // Guard: close and fail handlers can both fire (e.g. websocketpp sends
     // close then fail on an unclean disconnect).  Only the first call does work.
     if (closed.exchange(true)) return;
+    {
+        std::scoped_lock lk(encoder_mtx_);
+        release_wide_locked();
+    }
 
     // FIX: Log BEFORE erasing from signal_slices.
     // append_user_log looks up the client in signal_slices to fetch ip / geo /
@@ -1413,6 +1585,12 @@ void AudioClient::on_close() {
 }
 
 AudioClient::~AudioClient() {
+    {
+        std::scoped_lock lk(encoder_mtx_);
+        release_wide_locked();      // in case on_close() never ran
+    }
+    for (auto &w : wide_)
+        if (w.plan) { std::scoped_lock lg(fftwf_planner_mutex); fftwf_destroy_plan(w.plan); }
     fftwf_destroy_plan(p_real);
     fftwf_destroy_plan(p_complex_carrier);
     fftwf_destroy_plan(p_complex);

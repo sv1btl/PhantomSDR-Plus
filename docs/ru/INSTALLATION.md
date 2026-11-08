@@ -747,6 +747,7 @@ format = "u8"                    # Sample format for RTL-SDR
 [input.defaults]
 frequency = 145500000            # Default tuning frequency
 modulation = "FM"                # Default modulation mode
+volume = 50                      # Start volume of a first-time listener, 0-100 (optional)
 ```
 
 #### Ориентиры по частоте дискретизации
@@ -775,7 +776,7 @@ nano frontend/site_information.json
   "siteCity": "Your City, Country",
   "siteInformation": "https://github.com/sv1btl/PhantomSDR-Plus",
   "siteHardware": "Computer specifications",
-  "siteSoftware": "PhantomSDR-Plus v5.4.0",
+  "siteSoftware": "PhantomSDR-Plus v5.5.0",
   "siteReceiver": "Your SDR model",
   "siteAntenna": "Antenna description",
   "siteNote": "Additional information",
@@ -1600,7 +1601,7 @@ update-backups/phantomsdr-backup-20260923-164530.zip
 ./update.sh --apply --yes     # никогда не спрашивает; всё изменённое вами СОХРАНЯЕТСЯ
 ./update.sh --check           # только отчёт, без вопросов — для cron (10 = есть обновление)
 ./update.sh --from FILE|DIR   # новая версия из .zip/.tar.gz или папки — без сети
-./update.sh --ref v5.4.0      # метка, ветка или коммит вместо текущего дерева
+./update.sh --ref v5.5.0      # метка, ветка или коммит вместо текущего дерева
 ./update.sh --list-excludes   # печатает правила «не трогать» так, как они действуют здесь
 ./update.sh --verbose         # перечисляет все файлы, а не только первые 40
 ```

@@ -162,9 +162,10 @@ void broadcast_server::fft_task() {
 
             // If the user requested a range near the 0 frequency,
             // the data will wrap around, copy the front to the back to make
-            // it contiguous
+            // it contiguous -- as far as the widest slice reaches, a wide IQ
+            // (IQ_MAX_SCALE x the 12 kHz one; the buffer has that much room).
             memmove(&fft_buffer[fft_result_size], &fft_buffer[0],
-                   sizeof(fftwf_complex) * audio_max_fft_size);
+                   sizeof(fftwf_complex) * audio_max_fft_size * IQ_MAX_SCALE);
         }
 
         // Enqueue tasks once the fft is ready

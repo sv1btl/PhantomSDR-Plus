@@ -22,6 +22,7 @@
  *   { t: 'sampleRate', sampleRate }
  *   { t: 'reset',      sampleRate }
  *   { t: 'pcm',        pcm: Float32Array, sampleRate }
+ *   { t: 'browse',     on: bool }      every signal at once (cwBrowser.js)
  *   { t: 'destroy' }
  *
  * Worker → main: the decoder's own events, forwarded verbatim
@@ -29,9 +30,13 @@
  */
 
 import CWDecoder from './cwDecoder.js';
+import { CwBrowser } from './cwBrowser.js';
 
 let sampleRate = 12000;
 let decoder    = null;
+// CW Browser: every CW signal in the passband at once (cwBrowser.js). While
+// it runs, the single decoder is not fed.
+let browser    = null;
 
 function ensure() {
   if (decoder) return decoder;
@@ -75,11 +80,26 @@ self.onmessage = ({ data }) => {
           sampleRate = d.sampleRate;
           ensure().setSampleRate(sampleRate);
         }
-        if (d.pcm && d.pcm.length) ensure().feed(d.pcm);
+        if (!d.pcm || !d.pcm.length) break;
+        if (browser) browser.feed(d.pcm);
+        else ensure().feed(d.pcm);
+        break;
+      case 'browse':
+        if (d.on && !browser) {
+          browser = new CwBrowser({
+            sampleRate: () => sampleRate,
+            onUpdate: (channels) => self.postMessage({ type: 'browser', channels }),
+            onStatus: (text) => self.postMessage({ type: 'browserStatus', text }),
+          });
+        } else if (!d.on && browser) {
+          browser = null;
+          if (decoder) decoder.reset();
+        }
         break;
 
       case 'destroy':
         decoder = null;
+        browser = null;
         self.close();
         break;
 

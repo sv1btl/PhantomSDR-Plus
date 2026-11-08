@@ -203,6 +203,9 @@ class broadcast_server : public PacketSender {
     int default_r;
     std::string default_mode_str;
     demodulation_mode default_mode;
+    // [input.defaults] volume, 0-100: the slider position a first-time
+    // listener starts at. -1 = not set, the page then uses its own 50.
+    int default_volume;
 
     // [limits] audio/waterfall/events are NOT held here. audio is read straight
     // from the config where it is used, as max_users on the /users endpoint;

@@ -302,6 +302,7 @@
             ? 'bg-green-400 animate-pulse'
             : 'bg-sky-400 animate-pulse'}"
       ></span>
+      <slot name="service" />
       HFDL Receiver
       {#if status === "loading"}
         <span class="text-xs text-gray-500 font-normal italic">loading decoder…</span>

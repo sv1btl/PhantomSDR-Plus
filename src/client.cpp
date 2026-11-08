@@ -95,6 +95,21 @@ struct glz::meta<decoder_cmd>
     );
 };
 
+// IQ width the listener asks for, in kHz (12, 24 or 48). Kept for the
+// session: it takes effect whenever the listener is in IQ.
+struct iq_width_cmd {
+    int khz;
+};
+
+template <>
+struct glz::meta<iq_width_cmd>
+{
+    using T = iq_width_cmd;
+    static constexpr auto value = object(
+        "khz", &T::khz
+    );
+};
+
 // The receive-diversity partner the listener's page is combining with
 // (type phantom/kiwi/uber/websdr and host[:port]; both empty when off), for
 // the admin panel. Sent on /audio; an older server refuses it, harmlessly.
@@ -233,7 +248,7 @@ struct glz::meta<set_codec_cmd>
 using msg_variant = std::variant<window_cmd, demodulation_cmd, userid_cmd, mute_cmd, chat_cmd,
                                   noise_gate_enable_cmd, noise_gate_preset_cmd, agc_enable_cmd,
                                   codec_caps_cmd, set_codec_cmd, agc_speed_cmd, identity_cmd,
-                                  decoder_cmd, diversity_cmd>;
+                                  decoder_cmd, diversity_cmd, iq_width_cmd>;
 
 template <>
 struct glz::meta<msg_variant>
@@ -253,7 +268,8 @@ struct glz::meta<msg_variant>
         "agc_speed",
         "identity",
         "decoder",
-        "diversity"
+        "diversity",
+        "iq_width"
     };
 };
 
@@ -311,6 +327,9 @@ void Client::on_message(std::string &msg) {
             },
             [&](diversity_cmd &cmd) {
                 on_diversity_message(cmd.type, cmd.host);
+            },
+            [&](iq_width_cmd &cmd) {
+                on_iq_width_message(cmd.khz);
             }
         },
         msg_parsed);
@@ -329,6 +348,7 @@ void Client::on_userid_message(std::string &userid) {
 void Client::on_identity_message(std::string &) {}
 void Client::on_decoder_message(std::string &) {}
 void Client::on_diversity_message(std::string &, std::string &) {}
+void Client::on_iq_width_message(int) {}
 void Client::on_mute(bool mute) { this->mute = mute; }
 
 // Default empty implementations for noise gate and AGC (AudioClient will override)

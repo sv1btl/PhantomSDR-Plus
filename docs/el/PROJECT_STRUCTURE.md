@@ -266,6 +266,7 @@ PhantomSDR-Plus
 │   │   │   ├── SSTV.png
 │   │   │   ├── SSTV.svg
 │   │   │   └── svelte.png
+│   │   ├── ale.js                         # ALE 2G (FLDIGI) — gr-ale / LinuxALE
 │   │   ├── audio.js
 │   │   ├── audio-stream-worklet.js
 │   │   ├── ax25.js
@@ -273,11 +274,13 @@ PhantomSDR-Plus
 │   │   ├── broadcastSchedules.js
 │   │   ├── clientVersion.js
 │   │   ├── cwDecoder.js
+│   │   ├── cwBrowser.js                   # CW Browser (CW, all signals)
 │   │   ├── cw.worker.js
 │   │   ├── cwWorkerProxy.js
 │   │   ├── decoder.worker.js
 │   │   ├── diversity.js
 │   │   ├── diversityList.js
+│   │   ├── dsc.js                         # DSC + HF Selcall (SERVICES)
 │   │   ├── eventBus.js
 │   │   ├── events.js
 │   │   ├── fax.js
@@ -289,12 +292,15 @@ PhantomSDR-Plus
 │   │   ├── fsk.js
 │   │   ├── fsk.worker.js
 │   │   ├── fskWorkerProxy.js
+│   │   ├── fst4w.js                       # FST4W (FLDIGI) — WSJT-X
 │   │   ├── hell.js
 │   │   ├── hfdl.worker.js
 │   │   ├── hfdlWorkerProxy.js
 │   │   ├── ifk.js                    # DominoEX και THOR
 │   │   ├── kiwiSource.js
 │   │   ├── lib
+│   │   │   ├── AlePanel.svelte            # ALE 2G (FLDIGI)
+│   │   │   ├── aleNets.js                 # ALE: KiwiSDR ALE_nets + HFLINK
 │   │   │   ├── aprsMap.js
 │   │   │   ├── backend.js
 │   │   │   ├── BandSelector.svelte
@@ -305,8 +311,11 @@ PhantomSDR-Plus
 │   │   │   ├── Counter.svelte
 │   │   │   ├── DiversityPanel.svelte
 │   │   │   ├── DrmPanel.svelte # πίνακας DRM: λυχνίες, μετρήσεις, σταθμός, επιλογέας προγράμματος
+│   │   │   ├── DscPanel.svelte            # DSC (SERVICES)
 │   │   │   ├── drmSchedule.js # αντίγραφο προγράμματος DRM + «στον αέρα τώρα» ανά ημέρα
 │   │   │   ├── fftRadix2.js
+│   │   │   ├── fftMixed.js                # FFT, any N (FST4W)
+│   │   │   ├── fst4wTables.js             # LDPC (240,74) — WSJT-X
 │   │   │   ├── freedv-reporter.js
 │   │   │   ├── FreeDVReporter.svelte
 │   │   │   ├── FreqKeypad.svelte      # αριθμητικό πληκτρολόγιο για εισαγωγή συχνότητας
@@ -322,7 +331,9 @@ PhantomSDR-Plus
 │   │   │   ├── MagicEyeIndicator.svelte
 │   │   │   ├── ModeIdChip.svelte
 │   │   │   ├── ModesSelector.svelte
+│   │   │   ├── msk144Tables.js            # LDPC (128,90) — WSJT-X
 │   │   │   ├── opusMlDecoder.js
+│   │   │   ├── pack77.js                  # WSJT-X 77-bit messages (FST4W, MSK144)
 │   │   │   ├── PassbandTuner.svelte
 │   │   │   ├── Popover.svelte
 │   │   │   ├── QrssPanel.svelte
@@ -330,6 +341,8 @@ PhantomSDR-Plus
 │   │   │   ├── rnnoise.js     # φορτώνει το RNNoise για τη μείωση θορύβου AI
 │   │   │   ├── rx.js                  # σε ποιον δέκτη ανήκει μια σελίδα (?rx=)
 │   │   │   ├── RxStrip.svelte         # «Show All»: ζωντανή λωρίδα άλλου δέκτη
+│   │   │   ├── SelcallPanel.svelte        # HF Selcall (SERVICES)
+│   │   │   ├── ServiceSelect.svelte       # SERVICES: Service
 │   │   │   ├── sideService.js         # πού βρίσκει η σελίδα το RADE και το relay (siteRade / siteRelay)
 │   │   │   ├── SMeterAnalog.svelte
 │   │   │   ├── SMeterDigital.svelte
@@ -337,12 +350,15 @@ PhantomSDR-Plus
 │   │   │   ├── SsbReport.svelte       # αναφορά ήχου SSB κάτω από τον αναλυτή
 │   │   │   ├── AmFmReport.svelte      # αναφορά AM/FM κάτω από τον αναλυτή
 │   │   │   ├── StatusIndicators.svelte
+│   │   │   ├── TimeSignalPanel.svelte     # Time Signals (SERVICES)
 │   │   │   ├── storage.js
 │   │   │   ├── sUnits.js              # κλίμακα μονάδων S ανά συχνότητα (S9 = −93 dBm πάνω από 30 MHz)
 │   │   │   ├── Tooltip.svelte
+│   │   │   ├── tzLookup.js                # tz-lookup 6.1.25 (CC0)
 │   │   │   ├── version.js             # VERSION + ORIGIN_URL για τη σελίδα του δέκτη και το /mobile
 │   │   │   ├── VersionSelector.svelte
 │   │   │   ├── VideoAreaSelector.svelte
+│   │   │   ├── volume.js              # καμπύλη του ρυθμιστή έντασης, ένταση εκκίνησης, αποθηκευμένη ρύθμιση
 │   │   │   ├── Waterfall3D.svelte     # φάσμα 3D (WebGL2)
 │   │   │   ├── wfAutoLevel.js         # Auto Adj.: φωτεινότητα και αντίθεση του καταρράκτη
 │   │   │   └── wrappers.js
@@ -379,17 +395,23 @@ PhantomSDR-Plus
 │   │   │   ├── phantomsdrdsp_router.js
 │   │   │   └── wspr.js
 │   │   ├── mfsk.js
+│   │   ├── msk144.js                      # MSK144 (FLDIGI) — WSJT-X
 │   │   ├── mt63.js
 │   │   ├── olivia.js
+│   │   ├── oliviaBrowser.js               # Olivia Browser (Olivia / Contestia)
 │   │   ├── playoutControl.js         # μετρά τη σύνδεση, κρατά μικρό το buffer αναπαραγωγής
 │   │   ├── psk31.js
+│   │   ├── pskBrowser.js                  # PSK Browser (BPSK31)
 │   │   ├── refused.js
 │   │   ├── remoteSource.js
 │   │   ├── scanner.js
+│   │   ├── services.worker.js             # SERVICES: DSC, Time Signals, HF Selcall
+│   │   ├── servicesWorkerProxy.js         # SERVICES worker proxy
 │   │   ├── siteInfo.js               # site_information.json, με επικάλυψη από το αντίγραφο του δέκτη
 │   │   ├── sstv.js
 │   │   ├── sstv.worker.js
 │   │   ├── sstvWorkerProxy.js
+│   │   ├── timesig.js                     # Time Signals: DCF77, MSF, RWM, WWV/WWVH
 │   │   ├── throb.js
 │   │   ├── uberSource.js
 │   │   ├── unused
@@ -985,7 +1007,7 @@ PhantomSDR-Plus
 - Δομή διάταξης
 - Ενορχήστρωση στοιχείων
 - **Σειρά κουμπιών αποκωδικοποιητών** — ένα κουμπί ανά αποκωδικοποιητή στον κύριο πίνακα, ακριβώς κάτω από τον επιλογέα τρόπων· ένα πάτημα ξεκινά τον αποκωδικοποιητή και ανοίγει το παράθυρό του, δεύτερο πάτημα τον σταματά. Αντικατέστησε την παλιά σειρά Bandwidth. Τα RADE-v2U/RADE-v1L/RADE-v1U βρίσκονται στο `lib/ModesSelector.svelte`, δίπλα στον επιλογέα τρόπων και μέσα στα αναδυόμενα παράθυρα **Modes** και **Bands**.
-- **Γραμμή έκδοσης** — «PhantomSDR+ | v5.4.0 original from github.com/sv1btl/PhantomSDR-Plus», με τη διεύθυνση ως σύνδεσμο· η ίδια γραμμή υπάρχει και στη σελίδα /mobile. Ο αριθμός έκδοσης και η διεύθυνση βρίσκονται στο `lib/version.js`· η γραμμή είναι αναφορά δημιουργού που καλύπτεται από το `ADDITIONAL_TERMS.md`.
+- **Γραμμή έκδοσης** — «PhantomSDR+ | v5.5.0 original from github.com/sv1btl/PhantomSDR-Plus», με τη διεύθυνση ως σύνδεσμο· η ίδια γραμμή υπάρχει και στη σελίδα /mobile. Ο αριθμός έκδοσης και η διεύθυνση βρίσκονται στο `lib/version.js`· η γραμμή είναι αναφορά δημιουργού που καλύπτεται από το `ADDITIONAL_TERMS.md`.
 
 #### 2. Οθόνη καταρράκτη (`waterfall.js` + `lib/`)
 - Σχεδίαση φάσματος και καταρράκτη σε canvas και χρωματικοί χάρτες στο `waterfall.js` (καθαρή JS, όχι στοιχείο)· η αναπροσαρμογή φωτεινότητας/αντίθεσης του **Auto Adj.** είναι το `lib/wfAutoLevel.js`
@@ -1024,8 +1046,9 @@ PhantomSDR-Plus
 |------------------|--------|--------|------------------------|
 | SSTV | `sstv.js` | `sstv.worker.js` | `sstvWorkerProxy.js` |
 | HF FAX | `fax.js` | `fax.worker.js` | `faxWorkerProxy.js` |
-| NAVTEX + FLDIGI (FSK/RTTY, PSK31, Olivia, MFSK, DominoEX, THOR, THROB, Hellschreiber, MT63, Packet/APRS) | `fsk.js`, `psk31.js`, `olivia.js`, `mfsk.js`, `ifk.js`, `throb.js`, `hell.js`, `mt63.js`, `fldigiFec.js`, `ax25.js` | `fsk.worker.js` | `fskWorkerProxy.js` |
-| CW | `cwDecoder.js` | `cw.worker.js` | `cwWorkerProxy.js` |
+| NAVTEX + FLDIGI (ALE 2G, FSK/RTTY, PSK31/63/125, QPSK, Olivia, Contestia, PSK Browser, Olivia Browser, FST4W, MFSK, MSK144, DominoEX, THOR, THROB, Hellschreiber, MT63, Packet/APRS) | `fsk.js`, `psk31.js`, `olivia.js`, `mfsk.js`, `ifk.js`, `throb.js`, `hell.js`, `mt63.js`, `fldigiFec.js`, `ax25.js`, `ale.js`, `fst4w.js`, `msk144.js`, `pskBrowser.js`, `oliviaBrowser.js` | `fsk.worker.js` | `fskWorkerProxy.js` |
+| SERVICES (DSC, Time Signals, HF Selcall) | `dsc.js`, `timesig.js` | `services.worker.js` | `servicesWorkerProxy.js` |
+| CW, CW Browser | `cwDecoder.js`, `cwBrowser.js` | `cw.worker.js` | `cwWorkerProxy.js` |
 
 - Η **μηχανή** είναι καθαρός κώδικας DSP που αγνοεί την ύπαρξη workers, οπότε μπορεί να εκτελεστεί και απευθείας (δοκιμές μονάδας ή εφεδρική εκτέλεση στο ίδιο νήμα).
 - Ο **worker** κρατά ένα στιγμιότυπο της μηχανής και προωθεί αυτούσια τα συμβάντά της.
@@ -1037,8 +1060,8 @@ PhantomSDR-Plus
 
 Ο ρόλος `fsk` φιλοξενεί επιπλέον αποκωδικοποιητές που δεν χρησιμοποιούν καθόλου την αλυσίδα FSK του. Επιλέγοντας την παραλλαγή `psk31`, `olivia`, `packet` ή `aprs`, ή ένα από τα modem της οικογένειας fldigi (`mfsk`, `dominoex`, `thor`, `throb`, `hell`, `mt63`, που απαριθμούνται στο `FLDIGI_MODEMS`), το `fsk.js` παραδίδει τον ήχο στο `psk31.js`, `olivia.js`, `ax25.js`, `mfsk.js`, `ifk.js`, `throb.js`, `hell.js` ή `mt63.js` αντί για τη δική του αλυσίδα διευκρινιστή, δανειζόμενο ωστόσο τη διαμόρφωση, τον worker και τη διαχείριση συμβάντων του — έτσι τα `fsk.worker.js` και `fskWorkerProxy.js` δεν χρειάζεται να γνωρίζουν τίποτε για αυτούς τους τρόπους, και το περιβάλλον χρήστη καταναλώνει παντού τα ίδια συμβάντα `char`/`status`/`metrics`, και επιπλέον ένα συμβάν `line` που μεταφέρει ένα ολόκληρο αποκωδικοποιημένο πακέτο. Υπάρχει και ένα συμβάν `hell` που μεταφέρει μία ζωγραφισμένη στήλη Hellschreiber. Τα modem δέχονται όλα την ίδια διαμόρφωση — έναν υποτρόπο (`modemMode`), ένα squelch (`modemSquelch`) και ένα κέντρο — και μια αλλαγή μόνο του squelch ρυθμίζει τον αποκωδικοποιητή που τρέχει αντί να τον ξαναφτιάχνει.
 
-- `psk31.js` — BPSK31: μιγαδική βασική ζώνη, προσαρμοσμένο φίλτρο, διαφορική ανίχνευση και varicode, με φασματική χονδρική απόκτηση και λεπτό AFC εύρους περίπου ±25 Hz.
-- `olivia.js` — Olivia MFSK: μεταφορά του δέκτη MFSK του Pawel Jalocha από το fldigi (`pj_mfsk.h`, GPL-3, όπως και αυτό το έργο), μαζί με τη διόρθωση σφαλμάτων Walsh/Hadamard και την τυφλή αναζήτηση συγχρονισμού σε φάση μπλοκ και μετατόπιση συχνότητας.
+- `psk31.js` — BPSK31/63/125, QPSK31/63/125 (K=5 Viterbi): μιγαδική βασική ζώνη, προσαρμοσμένο φίλτρο, διαφορική ανίχνευση και varicode, με φασματική χονδρική απόκτηση και λεπτό AFC εύρους περίπου ±25 Hz.
+- `olivia.js` — Olivia/Contestia MFSK: μεταφορά του δέκτη MFSK του Pawel Jalocha από το fldigi (`pj_mfsk.h`, GPL-3, όπως και αυτό το έργο), μαζί με τη διόρθωση σφαλμάτων Walsh/Hadamard και την τυφλή αναζήτηση συγχρονισμού σε φάση μπλοκ και μετατόπιση συχνότητας.
 - `mfsk.js` — MFSK16/32/64: μεταφορά του δέκτη IZ8BLY MFSK του fldigi (`mfsk.cxx`, GPL-3) — ολισθαίνων DFT, διαπλοκή βάθους 10, αποκωδικοποιητής Viterbi με K=7, varicode IZ8BLY, βρόχοι συγχρονισμού συμβόλων και AFC. Το fldigi ονομάζει τις δύο συναρτήσεις κώδικα Gray ανάποδα από τα εγχειρίδια· το `mfsk.js` ακολουθεί το fldigi, γιατί αυτό εκπέμπεται στον αέρα.
 - `ifk.js` — DominoEX και THOR: μεταφορά του δέκτη IFK+ του fldigi (`dominoex.cxx`, `thor.cxx`, GPL-3) — τρεις ολισθαίνοντες DFT σε απόσταση ενός τρίτου της θέσης, χρονισμός συμβόλων από την κορυφή του προηγούμενου τόνου, το varicode ανά τετράδα bit του DominoEX και για το THOR μαλακές αποφάσεις, ανίχνευση preamble, ο interleaver και αποκωδικοποιητής Viterbi με K=7 ή K=15. Το squelch του μετρά τον τόνο απέναντι στις υπόλοιπες θέσεις αντί για τον δείκτη του fldigi, που δείχνει χαμηλά σε κάποια καθαρά σήματα.
 - `throb.js` — THROB και THROBX: το `throb.cxx` του fldigi — αναφορές τόνων με σχήμα παλμού συσχετισμένες με το υποδειγματοληπτημένο σήμα, αναζήτηση του ισχυρότερου ζεύγους τόνων, χρονισμός από την κορυφή της περιβάλλουσας και AFC.
@@ -1046,6 +1069,9 @@ PhantomSDR-Plus
 - `mt63.js` — MT63-500/1000/2000, σύντομο και μακρύ interleaving: ο δέκτης MT63 του Pawel Jalocha όπως υπάρχει στο fldigi (`mt63base.cxx`, `dsp.cxx`) — φίλτρο διαχωρισμού I/Q, FFT 512 σημείων τέσσερις φορές ανά σύμβολο, ο συγχρονιστής συσχέτισης για χρόνο και συχνότητα, διαφορική αποδιαμόρφωση και η FEC Walsh με τη σάρωση ±8 φερόντων.
 - `fldigiFec.js` — ό,τι μοιράζονται: αποκωδικοποιητής Viterbi μαλακών αποφάσεων για κάθε μήκος περιορισμού (μετρικές Int32, ώστε το K=15 να χωρά σε 24 MB), κινητοί μέσοι όροι και ο επαναδειγματολήπτης.
 - `ax25.js` — Packet radio και APRS: αποδιαμορφωτής AFSK για 1200 Bd (Bell 202, λήψη σε FM) και για packet 300 Bd στα HF (λήψη σε USB), με πέντε κατωφλιωτές σε διαφορετική ισορροπία τόνων και έναν βρόχο ανάκτησης χρονισμού ο καθένας, και στη συνέχεια αποπλαισίωση NRZI/HDLC, έλεγχο frame με CRC-16, ανάλυση των πεδίων διεύθυνσης και ελέγχου του AX.25 και αναλυτή APRS (θέσεις, μαζί με συμπιεσμένες και Mic-E, καιρός, μηνύματα, αντικείμενα, items, κατάσταση, τηλεμετρία). Αναφέρονται μόνο frames που περνούν το άθροισμα ελέγχου και έχουν έγκυρη διεύθυνση. Το `packet` τυπώνει κάθε frame όπως ένας monitor TNC· το `aprs` τυπώνει τα frames APRS αποκωδικοποιημένα σε απλό κείμενο.
+- `ale.js` — ALE 2G (MIL-STD-188-141): μεταφορά του gr-ale (Milen Rangelov, GPL-3) όπως περιέχεται στην επέκταση ALE 2G του KiwiSDR, που βασίζεται στο LinuxALE — ολισθαίνων DFT 64 σημείων στα 8 kHz, 17 αποκωδικοποιητές σε μετατοπίσεις 125 Hz, τριπλή ψηφοφορία πλειοψηφίας και Golay (24,12). Ο πίνακάς του είναι το `lib/AlePanel.svelte`, τα δίκτυα στο `lib/aleNets.js`.
+- `fst4w.js` και `msk144.js` — FST4W και MSK144, μεταφορές από το WSJT-X (GPL-3): LDPC (240,74) με OSD και CRC-24, και LDPC (128,90) με CRC-13. Το FST4W ηχογραφεί μια ολόκληρη περίοδο UTC σε στενή μιγαδική βασική ζώνη και τη μετασχηματίζει με το `lib/fftMixed.js`· και τα δύο αποσυμπιέζουν τα μηνύματά τους με το `lib/pack77.js`.
+- `pskBrowser.js` — PSK Browser: εντοπίζει κάθε δευτερόλεπτο όλα τα σήματα BPSK31 μεταξύ 300 και 2700 Hz και τρέχει έναν αποδιαμορφωτή `psk31.js` ανά σήμα.
 - `lib/aprsMap.js` — ο χάρτης APRS: κρατά κάθε σταθμό με αποκωδικοποιημένη θέση (objects και items με το δικό τους όνομα, όσα διαγράφονται αφαιρούνται, διαδρομή για όσους κινούνται) και τους σχεδιάζει με το Leaflet σε πλακίδια OpenStreetMap· η θέση του ίδιου του δέκτη προέρχεται από το `siteGridSquare`. Το Leaflet φορτώνεται μόνο όταν ο χάρτης εμφανιστεί για πρώτη φορά, οπότε δεν κοστίζει τίποτε σε ακροατές που δεν ανοίγουν ποτέ το APRS. Κείμενο που λαμβάνεται από τον αέρα φτάνει στη σελίδα μόνο μέσω `textContent` ή διαφυγής (escaping). Το `App.svelte` τοποθετεί τον χάρτη κάτω από το παράθυρο κειμένου του APRS και τον ανοίγει και κλείνει μαζί του.
 - `broadcastSchedules.js` — τα ωράρια UTC που προσφέρουν ως προεπιλογές οι αποκωδικοποιητές FAX, NAVTEX και RTTY, από τα προγράμματα ναυτιλιακού fax της NOAA/NWS και τους δημοσιευμένους καταλόγους σταθμών NAVTEX
 
@@ -1137,7 +1163,7 @@ frequencylist/
 ]
 ```
 
-Το `mode` είναι τρόπος λειτουργίας του δέκτη (`USB`, `LSB`, `AM`, `FM`, `CW`, …) ή το όνομα ενός ψηφιακού τρόπου — `FT8`, `FT4`, `FT2`, `JS8`, `WSPR`, `SSTV`, `NAVTEX`, `FAX`, `RTTY`, `RTTY-WX`, `SITOR`, `PSK31`, `OLIVIA`, `MFSK`, `MFSK16`, `MFSK32`, `MFSK64`, `DOMINOEX`, `THOR`, `THROB`, `HELL`, `FELDHELL`, `MT63`, `PACKET`, `APRS`, `RADEU`, `RADEL`, `RADE` ή `FREEDV` — οπότε το πάτημα του δείκτη ξεκινά εκείνον τον αποκωδικοποιητή ([λεπτομέρειες](DECODERS.md#εκκίνηση-αποκωδικοποιητή-από-δείκτη-συχνότητας)).
+Το `mode` είναι τρόπος λειτουργίας του δέκτη (`USB`, `LSB`, `AM`, `FM`, `CW`, …) ή το όνομα ενός ψηφιακού τρόπου — `FT8`, `FT4`, `FT2`, `JS8`, `WSPR`, `SSTV`, `NAVTEX`, `FAX`, `RTTY`, `RTTY-WX`, `SITOR`, `PSK31`, `PSK63`, `PSK125`, `BPSK31`/`63`/`125`, `QPSK31`/`63`/`125`, `OLIVIA`, `CONTESTIA`, `MFSK`, `MFSK16`, `MFSK32`, `MFSK64`, `DOMINOEX`, `THOR`, `THROB`, `HELL`, `FELDHELL`, `MT63`, `PACKET`, `APRS`, `RADEU`, `RADEL`, `RADE` ή `FREEDV` — οπότε το πάτημα του δείκτη ξεκινά εκείνον τον αποκωδικοποιητή ([λεπτομέρειες](DECODERS.md#εκκίνηση-αποκωδικοποιητή-από-δείκτη-συχνότητας)).
 
 ---
 

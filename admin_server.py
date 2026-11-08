@@ -1618,7 +1618,7 @@ html[data-theme=light]{color-scheme:light;}
     <div class="sidebar-logo">
       <div class="icon">📡</div>
       <div class="title">PHANTOM<span style="color:var(--amber)">SDR</span></div>
-      <div class="sub">ADMIN v5.4.0</div>
+      <div class="sub">ADMIN v5.5.0</div>
     </div>
     <div class="nav-section">
       <div class="nav-label">MAIN</div>
@@ -1939,6 +1939,27 @@ html[data-theme=light]{color-scheme:light;}
               <input type="number" id="rx-c-dflt" step="0.0001" style="width:100%;" oninput="rxChangePreview()"></div>
             <div><label style="font-size:.65rem;color:var(--text3);display:block;margin-bottom:.3rem;">IN MODE</label>
               <select id="rx-c-mode" style="width:100%;"></select></div>
+          </div>
+          <div class="field-row" style="margin-bottom:.6rem;">
+            <div><label style="font-size:.65rem;color:var(--text3);display:block;margin-bottom:.3rem;">AT VOLUME (0 – 100 %)</label>
+              <input type="number" id="rx-c-vol" min="0" max="100" step="1" placeholder="50" style="width:100%;"></div>
+            <div style="font-size:.7rem;color:var(--text3);align-self:end;padding-bottom:.4rem;">Empty = 50 %. Only a first-time listener starts here; a returning listener keeps the volume they set last.</div>
+          </div>
+          <div class="field-row" style="margin-bottom:.6rem;">
+            <div><label style="font-size:.65rem;color:var(--text3);display:block;margin-bottom:.3rem;">IQ FOR LISTENERS</label>
+              <select id="rx-c-iq" style="width:100%;" onchange="rxIqFields()">
+                <option value="1">on — listeners can choose the IQ mode</option>
+                <option value="0">off — the IQ button is hidden</option></select></div>
+            <div><label style="font-size:.65rem;color:var(--text3);display:block;margin-bottom:.3rem;">WIDE IQ</label>
+              <select id="rx-c-iqw" style="width:100%;" onchange="rxIqFields()">
+                <option value="12">12 kHz only (wide IQ off)</option>
+                <option value="24">up to 24 kHz</option>
+                <option value="48">up to 48 kHz</option></select></div>
+          </div>
+          <div class="field-row" style="margin-bottom:.6rem;">
+            <div><label style="font-size:.65rem;color:var(--text3);display:block;margin-bottom:.3rem;">WIDE IQ LISTENERS AT ONCE</label>
+              <input type="number" id="rx-c-iqn" min="0" max="100" step="1" style="width:100%;"></div>
+            <div style="font-size:.7rem;color:var(--text3);align-self:end;padding-bottom:.4rem;">0 = no limit. The normal 12 kHz IQ is open to everyone; each wide listener costs about 1.4 Mbit/s upload at 48 kHz, half that at 24 kHz. Others asking past the limit get 12 kHz.</div>
           </div>
           <div id="rx-c-gain-wrap" style="display:none;margin-bottom:.6rem;">
             <div id="rx-c-g-rx888" class="field-row" style="margin-bottom:.6rem;">
@@ -4147,7 +4168,7 @@ async function loadReceiversPage() {
          (r.gain.kind === 'rx888' ? r.gain.gain + ' ' + r.gain.mode + (r.gain.pga ? ' +PGA' : '') + (r.gain.att ? ', att ' + r.gain.att : '')
                                   : (r.gain.gain === 'auto' ? 'auto' : r.gain.gain + ' dB')) + '</span>' : '') + '</td>' +
          '<td>' + _mhz(r.low) + ' – ' + _mhz(r.high) + ' MHz' + (r.direct ? '' : '<br><span style="color:var(--text3);">centre ' + _mhz(r.tune || r.frequency) + '</span>') + '</td>' +
-         '<td>' + _rate(r.span) + '</td><td>' + (r.default_frequency ? _mhz(r.default_frequency) + ' MHz ' + _esc(r.modulation) : '') + '</td>' +
+         '<td>' + _rate(r.span) + '</td><td>' + (r.default_frequency ? _mhz(r.default_frequency) + ' MHz ' + _esc(r.modulation) + (r.default_volume !== null && r.default_volume !== undefined ? ' · ' + r.default_volume + ' %' : '') : '') + '</td>' +
          '<td style="color:' + (r.on_air ? 'var(--green)' : 'var(--red)') + ';">' + (r.on_air ? '● on air' : '● off') + '</td><td>' + act + '</td></tr>';
   });
   tb.innerHTML = h + '</tbody>';
@@ -4278,7 +4299,13 @@ function rxShowChange(i) {
   sel.innerHTML = rates.map(x => '<option value="' + x + '"' + (x === r.sps ? ' selected' : '') + '>' + _rate(x) + '</option>').join('');
   document.getElementById('rx-c-dflt').value = _mhz(r.default_frequency);
   document.getElementById('rx-c-mode').innerHTML = r.modes.map(m => '<option' + (m === r.modulation ? ' selected' : '') + '>' + m + '</option>').join('');
+  document.getElementById('rx-c-vol').value = (r.default_volume === null || r.default_volume === undefined) ? '' : r.default_volume;
   document.getElementById('rx-c-name').value = r.name;
+  const iq = r.iq || {enabled: true, wide: 12, listeners: 4};
+  document.getElementById('rx-c-iq').value = iq.enabled ? '1' : '0';
+  document.getElementById('rx-c-iqw').value = String(iq.wide);
+  document.getElementById('rx-c-iqn').value = iq.listeners;
+  rxIqFields();
   document.getElementById('rx-c-out').textContent = '';
   document.getElementById('rx-change-card').style.display = '';
   rxChangePreview();
@@ -4291,7 +4318,7 @@ function rxChangePreview() {
   const dflt = Math.round(parseFloat(document.getElementById('rx-c-dflt').value) * 1e6);
   const pv = document.getElementById('rx-c-preview');
   if (!r.changeable) {
-    let t = 'It covers ' + _mhz(r.low) + ' – ' + _mhz(r.high) + ' MHz. A new start frequency or mode restarts it (' +
+    let t = 'It covers ' + _mhz(r.low) + ' – ' + _mhz(r.high) + ' MHz. Any change except the name restarts it (' +
             (r.instance ? 'the other receivers keep running' : 'RADE and DRM restart with it; the other receivers keep running') + '); a new name alone does not.';
     if (dflt && (dflt < r.low || dflt > r.high)) t += ' ✖ The start frequency is outside that range.';
     pv.textContent = t; return;
@@ -4313,6 +4340,30 @@ function _rxGainForm(r) {
   const v = document.getElementById('rx-c-g-rtlgain').value;
   return {gain: v === 'auto' ? 'auto' : parseFloat(v)};
 }
+function rxIqFields() {
+  // Wide IQ means nothing with IQ off, and the limit nothing without wide IQ.
+  const on = document.getElementById('rx-c-iq').value === '1';
+  const w = document.getElementById('rx-c-iqw');
+  w.disabled = !on;
+  document.getElementById('rx-c-iqn').disabled = !on || w.value === '12';
+}
+function _rxIqForm(r) {
+  const cur = r.iq || {enabled: true, wide: 12, listeners: 4};
+  const n = parseInt(document.getElementById('rx-c-iqn').value, 10);
+  return {enabled: document.getElementById('rx-c-iq').value === '1',
+          wide: parseInt(document.getElementById('rx-c-iqw').value, 10),
+          listeners: isFinite(n) ? Math.min(100, Math.max(0, n)) : cur.listeners};
+}
+function _rxIqSame(r, f) {
+  const c = r.iq || {enabled: true, wide: 12, listeners: 4};
+  return f.enabled === c.enabled && f.wide === c.wide && f.listeners === c.listeners;
+}
+function _rxVolForm() {
+  const t = document.getElementById('rx-c-vol').value.trim();
+  if (t === '') return null;
+  const n = Math.round(parseFloat(t));
+  return isFinite(n) ? Math.min(100, Math.max(0, n)) : null;
+}
 function _rxGainSame(r, f) {
   const g = r.gain; if (!g || !f) return true;
   if (g.kind === 'rx888') return f.gain === g.gain && f.mode === g.mode && f.att === g.att && f.pga === g.pga;
@@ -4326,13 +4377,16 @@ async function rxApplyChange() {
     sps: r.changeable ? parseInt(document.getElementById('rx-c-sps').value, 10) : r.sps,
     default_frequency: Math.round(parseFloat(document.getElementById('rx-c-dflt').value) * 1e6),
     modulation: document.getElementById('rx-c-mode').value,
+    default_volume: _rxVolForm(),
     name: document.getElementById('rx-c-name').value.trim(),
-    gain: _rxGainForm(r)
+    gain: _rxGainForm(r),
+    iq: _rxIqForm(r)
   };
   const btn = document.getElementById('rx-c-apply'), out = document.getElementById('rx-c-out');
   // Only the name changed: save it without restarting the receiver.
   if (body.frequency === (r.tune || r.frequency) && body.sps === r.sps &&
-      body.default_frequency === r.default_frequency && body.modulation === r.modulation && _rxGainSame(r, body.gain)) {
+      body.default_frequency === r.default_frequency && body.modulation === r.modulation && _rxGainSame(r, body.gain) &&
+      body.default_volume === (r.default_volume ?? null) && _rxIqSame(r, body.iq)) {
     if (!body.name || body.name === r.name) { out.textContent = 'Nothing changed.'; return; }
     try {
       const d = await fetch('/admin/api/receivers-info/rename', {method: 'POST',
@@ -5755,6 +5809,127 @@ def _toml_set(lines, sect, key, value, comment=None):
     return True
 
 
+def _toml_del(lines, sect, key):
+    """Remove key from [sect] of a list of lines; True when a line was removed."""
+    start = end = None
+    for i, l in enumerate(lines):
+        m = re.match(r"^\s*\[([^\]]+)\]\s*(#.*)?$", l)
+        if m:
+            if start is not None:
+                end = i
+                break
+            if m.group(1) == sect:
+                start = i
+    if start is None:
+        return False
+    end = end if end is not None else len(lines)
+    for i in range(start + 1, end):
+        if re.match(r"^\s*" + re.escape(key) + r"\s*=", lines[i]):
+            del lines[i]
+            return True
+    return False
+
+
+def _rx_volume_arg(data, rx):
+    """(volume or None, error). Absent from the request = keep what the config has."""
+    if "default_volume" not in data:
+        return rx.get("default_volume"), None
+    v = data.get("default_volume")
+    if v in (None, ""):
+        return None, None
+    try:
+        v = int(round(float(v)))
+    except (TypeError, ValueError):
+        return None, "the volume must be a number from 0 to 100"
+    if not 0 <= v <= 100:
+        return None, "the volume must be a number from 0 to 100"
+    return v, None
+
+
+def _toml_put_volume(cl, vol):
+    """[input.defaults] volume: set it, or remove it so the page falls back to 50."""
+    if vol is None:
+        _toml_del(cl, "input.defaults", "volume")
+    else:
+        _toml_set(cl, "input.defaults", "volume", vol, "slider position (0-100) a first-time listener starts at")
+
+
+# [server] iq / iq_wide / iq_wide_listeners — spectrumserver reads them only at
+# start, so a change here always restarts that receiver. Defaults match
+# spectrumserver.cpp: iq on, iq_wide 12 kHz (= no wide IQ), 4 wide listeners.
+_IQ_COMMENTS = {
+    "iq": "IQ for listeners: false hides the IQ mode",
+    "iq_wide": "Wide IQ for listeners: 12 (off), 24 or 48 kHz — see the User Guide",
+    "iq_wide_listeners": "listeners with a wide IQ at once (0 = no limit); ~1.4 Mbit/s each at 48 kHz",
+}
+
+
+def _rx_iq_read(v):
+    """{enabled, wide, listeners} from _toml_values() of a receiver's config."""
+    enabled = str(v.get(("server", "iq"), "true")).strip().lower() != "false"
+    try:
+        w = int(v.get(("server", "iq_wide"), 12))
+    except ValueError:
+        w = 12
+    try:
+        n = max(0, int(v.get(("server", "iq_wide_listeners"), 4)))
+    except ValueError:
+        n = 4
+    return {"enabled": enabled, "wide": 48 if w >= 48 else 24 if w >= 24 else 12, "listeners": n}
+
+
+def _rx_iq_arg(data, rx):
+    """(iq dict, error). Absent from the request = keep what the config has."""
+    cur = rx.get("iq") or {"enabled": True, "wide": 12, "listeners": 4}
+    d = data.get("iq")
+    if not isinstance(d, dict):
+        return cur, None
+    try:
+        w = int(d.get("wide", cur["wide"]))
+        n = int(d.get("listeners", cur["listeners"]))
+    except (TypeError, ValueError):
+        return cur, "the wide IQ width and listener count must be numbers"
+    if w not in (12, 24, 48):
+        return cur, "wide IQ must be 12, 24 or 48 kHz"
+    if not 0 <= n <= 100:
+        return cur, "wide IQ listeners must be 0 (no limit) to 100"
+    return {"enabled": bool(d.get("enabled", cur["enabled"])), "wide": w, "listeners": n}, None
+
+
+def _toml_set_live(lines, sect, key, value, comment=None):
+    """_toml_set, but an example line '# key=…' in [sect] becomes the real line
+    instead of a second key being added at the top of the section."""
+    start = end = None
+    for i, l in enumerate(lines):
+        m = re.match(r"^\s*\[([^\]]+)\]\s*(#.*)?$", l)
+        if m:
+            if start is not None:
+                end = i
+                break
+            if m.group(1) == sect:
+                start = i
+    if start is None:
+        return False
+    end = end if end is not None else len(lines)
+    rng = range(start + 1, end)
+    if not any(re.match(r"^\s*" + re.escape(key) + r"\s*=", lines[i]) for i in rng):
+        for i in rng:
+            if re.match(r"^\s*#\s*" + re.escape(key) + r"\s*=", lines[i]):
+                lines[i] = key + "=" + str(value) + ((" # " + comment) if comment else "")
+                return True
+    return _toml_set(lines, sect, key, value, comment)
+
+
+def _toml_put_iq(cl, iq, old):
+    """Write only the IQ keys that changed, so an untouched config stays as it was."""
+    if iq["enabled"] != old["enabled"]:
+        _toml_set_live(cl, "server", "iq", "true" if iq["enabled"] else "false", _IQ_COMMENTS["iq"])
+    if iq["wide"] != old["wide"]:
+        _toml_set_live(cl, "server", "iq_wide", iq["wide"], _IQ_COMMENTS["iq_wide"])
+    if iq["listeners"] != old["listeners"]:
+        _toml_set_live(cl, "server", "iq_wide_listeners", iq["listeners"], _IQ_COMMENTS["iq_wide_listeners"])
+
+
 def _env_args(path):
     """[(line index, var, -f value or None, -s value or None)] from an instance.env."""
     out = []
@@ -5942,6 +6117,11 @@ def _receivers_info():
             dflt = int(v.get(("input.defaults", "frequency"), 0))
         except ValueError:
             sps = freq = dflt = 0
+        try:
+            vol = v.get(("input.defaults", "volume"))
+            vol = None if vol in (None, "") else min(100, max(0, int(vol)))
+        except ValueError:
+            vol = None
         real = v.get(("input", "signal"), "iq") == "real" or (sps and freq == 0)
         tune = None
         if inst:
@@ -5955,6 +6135,7 @@ def _receivers_info():
         out.append(dict(e, launcher=launcher, config=str(conf.relative_to(base)) if conf and base in conf.parents else str(conf or ""),
                         hardware=hw.get("label", launcher or "?"), sps=sps, frequency=freq, tune=tune,
                         default_frequency=dflt, modulation=v.get(("input.defaults", "modulation"), ""),
+                        default_volume=vol, iq=_rx_iq_read(v),
                         direct=bool(real), low=max(lo, 0), high=hi, span=hi - max(lo, 0),
                         fft_size=int(v.get(("input", "fft_size"), 0) or 0),
                         on_air=bool(st.get("pid")), uptime_s=st.get("uptime_s"),
@@ -5993,7 +6174,14 @@ def _receivers_set_defaults(rx, data):
     base = get_sdr_dir()
     conf_p = Path(rx["config"]) if Path(rx["config"]).is_absolute() else base / rx["config"]
     rt_p = base / "receivers.toml"
-    moved = dflt != rx["default_frequency"] or mod != rx["modulation"]
+    vol, verr = _rx_volume_arg(data, rx)
+    if verr:
+        return jsonify({"ok": False, "msg": verr})
+    iq, ierr = _rx_iq_arg(data, rx)
+    if ierr:
+        return jsonify({"ok": False, "msg": ierr})
+    moved = (dflt != rx["default_frequency"] or mod != rx["modulation"] or vol != rx.get("default_volume")
+             or iq != rx["iq"])
     stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
     bdir = base / "admin-backups" / ("settings-%s-%s" % (rid, stamp))
     env_p = _gain_env_path(rx)
@@ -6011,6 +6199,8 @@ def _receivers_set_defaults(rx, data):
             cl = read_file_safe(conf_p).splitlines()
             _toml_set(cl, "input.defaults", "frequency", dflt, "frequency shown first")
             _toml_set(cl, "input.defaults", "modulation", '"%s"' % mod)
+            _toml_put_volume(cl, vol)
+            _toml_put_iq(cl, iq, rx["iq"])
             text = "\n".join(cl) + "\n"
             if tomllib is not None:
                 tomllib.loads(text)
@@ -6030,7 +6220,8 @@ def _receivers_set_defaults(rx, data):
         restarted, out = run_script(rx["launcher"], args=["-q"],
                                     env={"INSTANCE": rx["instance"]} if rx["instance"] else None)
     with log_lock:
-        log_buffer.append("[" + datetime.now().strftime("%H:%M:%S") + "] SETTINGS " + rid + ": %d Hz %s" % (dflt, mod))
+        log_buffer.append("[" + datetime.now().strftime("%H:%M:%S") + "] SETTINGS " + rid + ": %d Hz %s, IQ %s wide %d kHz x%d"
+                          % (dflt, mod, "on" if iq["enabled"] else "off", iq["wide"], iq["listeners"]))
     again = ("INSTANCE=%s ./%s" % (rx["instance"], rx["launcher"])) if rx["instance"] else ("./" + rx["launcher"])
     return jsonify({"ok": True, "restarted": restarted,
                     "msg": "Saved (old files in admin-backups/%s). %s" % (bdir.name,
@@ -6063,6 +6254,12 @@ def api_receivers_retune():
     mod = str(data.get("modulation") or rx["modulation"] or "AM").upper()
     if mod not in _RX_MODES:
         return jsonify({"ok": False, "msg": "unknown mode " + mod})
+    vol, verr = _rx_volume_arg(data, rx)
+    if verr:
+        return jsonify({"ok": False, "msg": verr})
+    iq, ierr = _rx_iq_arg(data, rx)
+    if ierr:
+        return jsonify({"ok": False, "msg": ierr})
     if sps_new not in rx["rates"] and sps_new != rx["sps"]:
         return jsonify({"ok": False, "msg": "%s cannot do %d samples per second" % (rx["hardware"], sps_new)})
     lo, hi = f_new - sps_new // 2, f_new + sps_new // 2
@@ -6107,6 +6304,8 @@ def api_receivers_retune():
             _toml_set(cl, "input", "fft_size", fft)
         _toml_set(cl, "input.defaults", "frequency", dflt, "frequency shown first")
         _toml_set(cl, "input.defaults", "modulation", '"%s"' % mod)
+        _toml_put_volume(cl, vol)
+        _toml_put_iq(cl, iq, rx["iq"])
         # www/site_information.json — read by the page when it opens, no rebuild
         site = json.loads(read_file_safe(site_p)) if site_p.exists() else {}
         site.update({"siteSDRBaseFrequency": max(lo, 0), "siteSDRBandwidth": sps_new})

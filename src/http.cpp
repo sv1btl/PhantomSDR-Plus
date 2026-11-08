@@ -564,6 +564,17 @@ namespace {
     int                 dxspot_cached_limit  = 0;
     std::string         dxspot_cached_body   = "[]";
     std::chrono::steady_clock::time_point dxspot_cached_at{};
+
+    // /propagation.json — KC2G's live ionosonde list (prop.kc2g.com, GIRO
+    // data: foF2, MUF(3000), hmF2 per station), for propagation.html. Fetched
+    // here because that API sends no CORS header, so a browser page cannot
+    // read it itself. At most one fetch per PROP_TTL_S; when KC2G is down the
+    // last good copy is served (the page reads each station's own time).
+    constexpr int       PROP_TTL_S = 600;
+    std::mutex          prop_cache_mtx;
+    std::string         prop_cached_body;
+    std::chrono::steady_clock::time_point prop_cached_at{};
+    std::atomic<bool>   prop_fetching{false};
 } // namespace
 
 void broadcast_server::on_http(connection_hdl hdl) {
@@ -1018,6 +1029,67 @@ void broadcast_server::on_http(connection_hdl hdl) {
             }
         }).detach();
 
+        return;
+    }
+
+    if (resource == "/propagation.json" || resource.rfind("/propagation.json?", 0) == 0) {
+        auto reply = [](server::connection_ptr c, const std::string &body, bool ok) {
+            c->append_header("Content-Type", "application/json");
+            c->append_header("Cache-Control", "no-store");
+            c->append_header("Access-Control-Allow-Origin", "*");
+            c->set_body(body);
+            c->set_status(ok ? websocketpp::http::status_code::ok
+                             : websocketpp::http::status_code::bad_gateway);
+        };
+        std::string cached;
+        bool fresh = false;
+        {
+            std::scoped_lock lk(prop_cache_mtx);
+            cached = prop_cached_body;
+            fresh = !cached.empty() &&
+                    std::chrono::duration_cast<std::chrono::seconds>(
+                        std::chrono::steady_clock::now() - prop_cached_at).count() < PROP_TTL_S;
+        }
+        // Fresh, or a fetch already running and an older copy to give: answer now.
+        if (fresh || (!cached.empty() && prop_fetching.load())) {
+            reply(con, cached, true);
+            return;
+        }
+        prop_fetching.store(true);
+        con->defer_http_response();
+        std::thread([con, cached, reply]() {
+            std::string body;
+            long http_code = 0;
+            if (CURL *curl = curl_easy_init()) {
+                curl_easy_setopt(curl, CURLOPT_URL, "https://prop.kc2g.com/api/stations.json");
+                curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, dxspots_write_cb);
+                curl_easy_setopt(curl, CURLOPT_WRITEDATA, &body);
+                curl_easy_setopt(curl, CURLOPT_TIMEOUT, 15L);
+                curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT, 5L);
+                curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
+                curl_easy_setopt(curl, CURLOPT_ACCEPT_ENCODING, "");
+                curl_easy_setopt(curl, CURLOPT_USERAGENT, "PhantomSDR-Plus (propagation page)");
+                curl_easy_setopt(curl, CURLOPT_NOSIGNAL, 1L);
+                if (curl_easy_perform(curl) == CURLE_OK)
+                    curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &http_code);
+                curl_easy_cleanup(curl);
+            }
+            const std::string trimmed = trim_copy(body);
+            const bool good = http_code == 200 && !trimmed.empty() && trimmed.front() == '[';
+            if (good) {
+                std::scoped_lock lk(prop_cache_mtx);
+                prop_cached_body = body;
+                prop_cached_at = std::chrono::steady_clock::now();
+            }
+            prop_fetching.store(false);
+            // Detached thread, client may be gone: never let a throw escape.
+            try {
+                if (good)                reply(con, body, true);
+                else if (!cached.empty()) reply(con, cached, true);
+                else                     reply(con, "{\"error\":\"ionosonde data unavailable\"}", false);
+                con->send_http_response();
+            } catch (...) {}
+        }).detach();
         return;
     }
 

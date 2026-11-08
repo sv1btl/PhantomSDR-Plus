@@ -266,6 +266,7 @@ PhantomSDR-Plus
 │   │   │   ├── SSTV.png
 │   │   │   ├── SSTV.svg
 │   │   │   └── svelte.png
+│   │   ├── ale.js                         # ALE 2G (FLDIGI) — gr-ale / LinuxALE
 │   │   ├── audio.js
 │   │   ├── audio-stream-worklet.js
 │   │   ├── ax25.js
@@ -273,11 +274,13 @@ PhantomSDR-Plus
 │   │   ├── broadcastSchedules.js
 │   │   ├── clientVersion.js
 │   │   ├── cwDecoder.js
+│   │   ├── cwBrowser.js                   # CW Browser (CW, all signals)
 │   │   ├── cw.worker.js
 │   │   ├── cwWorkerProxy.js
 │   │   ├── decoder.worker.js
 │   │   ├── diversity.js
 │   │   ├── diversityList.js
+│   │   ├── dsc.js                         # DSC + HF Selcall (SERVICES)
 │   │   ├── eventBus.js
 │   │   ├── events.js
 │   │   ├── fax.js
@@ -289,12 +292,15 @@ PhantomSDR-Plus
 │   │   ├── fsk.js
 │   │   ├── fsk.worker.js
 │   │   ├── fskWorkerProxy.js
+│   │   ├── fst4w.js                       # FST4W (FLDIGI) — WSJT-X
 │   │   ├── hell.js
 │   │   ├── hfdl.worker.js
 │   │   ├── hfdlWorkerProxy.js
 │   │   ├── ifk.js                    # DominoEX und THOR
 │   │   ├── kiwiSource.js
 │   │   ├── lib
+│   │   │   ├── AlePanel.svelte            # ALE 2G (FLDIGI)
+│   │   │   ├── aleNets.js                 # ALE: KiwiSDR ALE_nets + HFLINK
 │   │   │   ├── aprsMap.js
 │   │   │   ├── backend.js
 │   │   │   ├── BandSelector.svelte
@@ -305,8 +311,11 @@ PhantomSDR-Plus
 │   │   │   ├── Counter.svelte
 │   │   │   ├── DiversityPanel.svelte
 │   │   │   ├── DrmPanel.svelte # DRM-Panel: Lampen, Messwerte, Sender, Sendeplan-Auswahl
+│   │   │   ├── DscPanel.svelte            # DSC (SERVICES)
 │   │   │   ├── drmSchedule.js # DRM-Sendeplan-Kopie + wochentagsgenaues „jetzt auf Sendung“
 │   │   │   ├── fftRadix2.js
+│   │   │   ├── fftMixed.js                # FFT, any N (FST4W)
+│   │   │   ├── fst4wTables.js             # LDPC (240,74) — WSJT-X
 │   │   │   ├── freedv-reporter.js
 │   │   │   ├── FreeDVReporter.svelte
 │   │   │   ├── FreqKeypad.svelte      # Ziffernblock zur Frequenzeingabe
@@ -322,7 +331,9 @@ PhantomSDR-Plus
 │   │   │   ├── MagicEyeIndicator.svelte
 │   │   │   ├── ModeIdChip.svelte
 │   │   │   ├── ModesSelector.svelte
+│   │   │   ├── msk144Tables.js            # LDPC (128,90) — WSJT-X
 │   │   │   ├── opusMlDecoder.js
+│   │   │   ├── pack77.js                  # WSJT-X 77-bit messages (FST4W, MSK144)
 │   │   │   ├── PassbandTuner.svelte
 │   │   │   ├── Popover.svelte
 │   │   │   ├── QrssPanel.svelte
@@ -330,6 +341,8 @@ PhantomSDR-Plus
 │   │   │   ├── rnnoise.js     # lädt RNNoise für die KI-Rauschunterdrückung
 │   │   │   ├── rx.js                  # zu welchem Empfänger eine Seite gehört (?rx=)
 │   │   │   ├── RxStrip.svelte         # „Show All“: Live-Streifen eines anderen Empfängers
+│   │   │   ├── SelcallPanel.svelte        # HF Selcall (SERVICES)
+│   │   │   ├── ServiceSelect.svelte       # SERVICES: Service
 │   │   │   ├── sideService.js         # wo die Seite RADE und das Relay findet (siteRade / siteRelay)
 │   │   │   ├── SMeterAnalog.svelte
 │   │   │   ├── SMeterDigital.svelte
@@ -337,12 +350,15 @@ PhantomSDR-Plus
 │   │   │   ├── SsbReport.svelte       # SSB-Audiobericht unter dem Analysator
 │   │   │   ├── AmFmReport.svelte      # AM/FM-Bericht unter dem Analysator
 │   │   │   ├── StatusIndicators.svelte
+│   │   │   ├── TimeSignalPanel.svelte     # Time Signals (SERVICES)
 │   │   │   ├── storage.js
 │   │   │   ├── sUnits.js              # S-Stufen-Skala je Frequenz (S9 = −93 dBm oberhalb 30 MHz)
 │   │   │   ├── Tooltip.svelte
+│   │   │   ├── tzLookup.js                # tz-lookup 6.1.25 (CC0)
 │   │   │   ├── version.js             # VERSION + ORIGIN_URL für die Empfängerseite und /mobile
 │   │   │   ├── VersionSelector.svelte
 │   │   │   ├── VideoAreaSelector.svelte
+│   │   │   ├── volume.js              # Kurve des Lautstärkereglers, Startlautstärke, gemerkte Einstellung
 │   │   │   ├── Waterfall3D.svelte     # 3D-Spektrum (WebGL2)
 │   │   │   ├── wfAutoLevel.js         # Auto Adj.: Helligkeit und Kontrast des Wasserfalls
 │   │   │   └── wrappers.js
@@ -379,17 +395,23 @@ PhantomSDR-Plus
 │   │   │   ├── phantomsdrdsp_router.js
 │   │   │   └── wspr.js
 │   │   ├── mfsk.js
+│   │   ├── msk144.js                      # MSK144 (FLDIGI) — WSJT-X
 │   │   ├── mt63.js
 │   │   ├── olivia.js
+│   │   ├── oliviaBrowser.js               # Olivia Browser (Olivia / Contestia)
 │   │   ├── playoutControl.js         # misst die Verbindung, hält den Wiedergabepuffer klein
 │   │   ├── psk31.js
+│   │   ├── pskBrowser.js                  # PSK Browser (BPSK31)
 │   │   ├── refused.js
 │   │   ├── remoteSource.js
 │   │   ├── scanner.js
+│   │   ├── services.worker.js             # SERVICES: DSC, Time Signals, HF Selcall
+│   │   ├── servicesWorkerProxy.js         # SERVICES worker proxy
 │   │   ├── siteInfo.js               # site_information.json, überlagert mit der eigenen Kopie des Empfängers
 │   │   ├── sstv.js
 │   │   ├── sstv.worker.js
 │   │   ├── sstvWorkerProxy.js
+│   │   ├── timesig.js                     # Time Signals: DCF77, MSF, RWM, WWV/WWVH
 │   │   ├── throb.js
 │   │   ├── uberSource.js
 │   │   ├── unused
@@ -985,7 +1007,7 @@ Die mit Svelte und Vite erstellte webbasierte Benutzeroberfläche.
 - Layoutstruktur
 - Orchestrierung der Komponenten
 - **Decoder-Tastenreihe** — eine Taste je Decoder im Hauptpanel, direkt unter der Modus-Auswahl; ein Druck startet den Decoder und öffnet sein Fenster, ein erneuter Druck stoppt ihn. Sie hat die frühere Bandbreiten-Reihe ersetzt. RADE-v2U/RADE-v1L/RADE-v1U liegen stattdessen in `lib/ModesSelector.svelte`, neben der Modus-Auswahl und in den Pop-ups **Modes** und **Bands**.
-- **Versionszeile** — „PhantomSDR+ | v5.4.0 original from github.com/sv1btl/PhantomSDR-Plus“, die Adresse als Link; dieselbe Zeile steht auf der Seite /mobile. Versionsnummer und Adresse stehen in `lib/version.js`; die Zeile ist eine Urhebernennung nach `ADDITIONAL_TERMS.md`.
+- **Versionszeile** — „PhantomSDR+ | v5.5.0 original from github.com/sv1btl/PhantomSDR-Plus“, die Adresse als Link; dieselbe Zeile steht auf der Seite /mobile. Versionsnummer und Adresse stehen in `lib/version.js`; die Zeile ist eine Urhebernennung nach `ADDITIONAL_TERMS.md`.
 
 #### 2. Wasserfallanzeige (`waterfall.js` + `lib/`)
 - Canvas-basierte Darstellung von Spektrum und Wasserfall sowie Farbpaletten in `waterfall.js` (reines JS, keine Komponente); die Helligkeits-/Kontrast-Umrechnung von **Auto Adj.** ist `lib/wfAutoLevel.js`
@@ -1024,8 +1046,9 @@ Jeder der rechenintensiven Betriebsartendecoder läuft in einem eigenen Web Work
 |---------|--------|--------|------------------------|
 | SSTV | `sstv.js` | `sstv.worker.js` | `sstvWorkerProxy.js` |
 | HF-FAX | `fax.js` | `fax.worker.js` | `faxWorkerProxy.js` |
-| NAVTEX + FLDIGI (FSK/RTTY, PSK31, Olivia, MFSK, DominoEX, THOR, THROB, Hellschreiber, MT63, Packet/APRS) | `fsk.js`, `psk31.js`, `olivia.js`, `mfsk.js`, `ifk.js`, `throb.js`, `hell.js`, `mt63.js`, `fldigiFec.js`, `ax25.js` | `fsk.worker.js` | `fskWorkerProxy.js` |
-| CW | `cwDecoder.js` | `cw.worker.js` | `cwWorkerProxy.js` |
+| NAVTEX + FLDIGI (ALE 2G, FSK/RTTY, PSK31/63/125, QPSK, Olivia, Contestia, PSK Browser, Olivia Browser, FST4W, MFSK, MSK144, DominoEX, THOR, THROB, Hellschreiber, MT63, Packet/APRS) | `fsk.js`, `psk31.js`, `olivia.js`, `mfsk.js`, `ifk.js`, `throb.js`, `hell.js`, `mt63.js`, `fldigiFec.js`, `ax25.js`, `ale.js`, `fst4w.js`, `msk144.js`, `pskBrowser.js`, `oliviaBrowser.js` | `fsk.worker.js` | `fskWorkerProxy.js` |
+| SERVICES (DSC, Time Signals, HF Selcall) | `dsc.js`, `timesig.js` | `services.worker.js` | `servicesWorkerProxy.js` |
+| CW, CW Browser | `cwDecoder.js`, `cwBrowser.js` | `cw.worker.js` | `cwWorkerProxy.js` |
 
 - Die **Engine** ist reiner DSP-Code ohne Kenntnis von Workern und lässt sich daher auch direkt ausführen (Unit-Tests oder der Rückfall in den Haupt-Thread).
 - Der **Worker** hält eine Engine-Instanz und leitet deren Ereignisse unverändert weiter.
@@ -1037,8 +1060,8 @@ Zwei Details sind tragend: Das PCM wird in einen frischen Puffer **kopiert**, be
 
 Die Rolle `fsk` beherbergt zusätzlich Decoder, die ihre FSK-Kette überhaupt nicht benutzen. Wird die Variante `psk31`, `olivia`, `packet` oder `aprs` oder eines der Modems der fldigi-Familie (`mfsk`, `dominoex`, `thor`, `throb`, `hell`, `mt63`, aufgeführt in `FLDIGI_MODEMS`) gewählt, übergibt `fsk.js` das Audio an `psk31.js`, `olivia.js`, `ax25.js`, `mfsk.js`, `ifk.js`, `throb.js`, `hell.js` bzw. `mt63.js` statt an die eigene Diskriminatorkette, nutzt aber weiterhin dessen Konfiguration, Worker und Ereignis-Infrastruktur — `fsk.worker.js` und `fskWorkerProxy.js` müssen von diesen Betriebsarten nichts wissen, und die Oberfläche verarbeitet durchgehend dieselben `char`/`status`/`metrics`-Ereignisse, dazu ein Ereignis `line`, das ein ganzes dekodiertes Paket trägt. Dazu kommt ein Ereignis `hell`, das eine gemalte Hellschreiber-Spalte trägt. Die Modems nehmen alle dieselbe Konfiguration — eine Unterbetriebsart (`modemMode`), einen Squelch (`modemSquelch`) und eine Mitte —, und eine reine Squelch-Änderung stellt den laufenden Decoder nach, statt ihn neu aufzubauen.
 
-- `psk31.js` — BPSK31: komplexes Basisband, angepasstes Filter, Differenzdemodulation und Varicode, mit spektraler Grobsuche und einer Feinregelung über etwa ±25 Hz.
-- `olivia.js` — Olivia MFSK: eine Portierung des MFSK-Empfängers von Pawel Jalocha aus fldigi (`pj_mfsk.h`, GPL-3, wie auch dieses Projekt), einschließlich der Walsh/Hadamard-Fehlerkorrektur und der blinden Synchronisationssuche über Blockphase und Frequenzversatz.
+- `psk31.js` — BPSK31/63/125, QPSK31/63/125 (K=5 Viterbi): komplexes Basisband, angepasstes Filter, Differenzdemodulation und Varicode, mit spektraler Grobsuche und einer Feinregelung über etwa ±25 Hz.
+- `olivia.js` — Olivia/Contestia MFSK: eine Portierung des MFSK-Empfängers von Pawel Jalocha aus fldigi (`pj_mfsk.h`, GPL-3, wie auch dieses Projekt), einschließlich der Walsh/Hadamard-Fehlerkorrektur und der blinden Synchronisationssuche über Blockphase und Frequenzversatz.
 - `mfsk.js` — MFSK16/32/64: eine Portierung des IZ8BLY-MFSK-Empfängers aus fldigi (`mfsk.cxx`, GPL-3) — gleitende DFT, Interleaver der Tiefe 10, Viterbi-Decoder mit K=7, IZ8BLY-Varicode, Symboltakt- und AFC-Regelschleifen. fldigi benennt seine beiden Gray-Code-Funktionen umgekehrt zum Lehrbuch; `mfsk.js` folgt fldigi, denn das ist es, was gesendet wird.
 - `ifk.js` — DominoEX und THOR: eine Portierung des IFK+-Empfängers aus fldigi (`dominoex.cxx`, `thor.cxx`, GPL-3) — drei gleitende DFTs im Abstand eines Drittel-Bins, Symboltakt aus der Spitze des vorigen Tons, der Nibble-Varicode von DominoEX und bei THOR weiche Entscheidungen, Präambelerkennung, der Interleaver und ein Viterbi-Decoder mit K=7 oder K=15. Sein Squelch misst den Ton gegen die übrigen Bins statt fldigis Zahl, die bei manchen sauberen Signalen zu niedrig ausfällt.
 - `throb.js` — THROB und THROBX: fldigis `throb.cxx` — impulsgeformte Tonreferenzen, korreliert mit dem dezimierten Signal, das stärkste Tonpaar nachgeschlagen, Symboltakt aus der Hüllkurvenspitze und AFC.
@@ -1046,6 +1069,9 @@ Die Rolle `fsk` beherbergt zusätzlich Decoder, die ihre FSK-Kette überhaupt ni
 - `mt63.js` — MT63-500/1000/2000, kurzes und langes Interleaving: Pawel Jalochas MT63-Empfänger, wie er in fldigi steckt (`mt63base.cxx`, `dsp.cxx`) — I/Q-Splitfilter, eine 512-Punkte-FFT, viermal pro Symbol abgetastet, der Korrelations-Synchronisierer für Zeit und Frequenz, differenzielle Demodulation und die Walsh-FEC mit ihrer Suche über ±8 Träger.
 - `fldigiFec.js` — was diese gemeinsam nutzen: ein Soft-Decision-Viterbi-Decoder für jede Einflusslänge (Int32-Metriken, sodass K=15 in 24 MB passt), gleitende Mittelwerte und der Resampler.
 - `ax25.js` — Packet Radio und APRS: ein AFSK-Demodulator für 1200 Bd (Bell 202, in FM empfangen) und 300-Bd-KW-Packet (in USB empfangen), mit fünf Entscheidern bei unterschiedlicher Tonbalance und je einer Taktrückgewinnung, danach NRZI/HDLC-Entrahmung, die CRC-16-Rahmenprüfung, die Auswertung von AX.25-Adress- und Steuerfeld sowie ein APRS-Parser (Positionen einschließlich komprimierter und Mic-E, Wetter, Nachrichten, Objekte, Items, Status, Telemetrie). Gemeldet werden nur Frames, die die Prüfsumme bestehen und eine gültige Adresse tragen. `packet` gibt jeden Frame wie ein TNC-Monitor aus; `aprs` gibt APRS-Frames als dekodierten Klartext aus.
+- `ale.js` — ALE 2G (MIL-STD-188-141): eine Portierung von gr-ale (Milen Rangelov, GPL-3) in der Form der ALE-2G-Erweiterung des KiwiSDR, die ihrerseits auf LinuxALE aufbaut — eine gleitende 64-Punkt-DFT bei 8 kHz, 17 Decoder auf 125-Hz-Versätzen, dreifache Mehrheitsentscheidung und Golay (24,12). Das Panel ist `lib/AlePanel.svelte`, die Netze stehen in `lib/aleNets.js`.
+- `fst4w.js` und `msk144.js` — FST4W und MSK144, Portierungen aus WSJT-X (GPL-3): LDPC (240,74) mit OSD und CRC-24 bzw. LDPC (128,90) mit CRC-13. FST4W zeichnet eine ganze UTC-Periode auf einem schmalen komplexen Basisband auf und transformiert sie mit `lib/fftMixed.js`; beide entpacken ihre Meldungen mit `lib/pack77.js`.
+- `pskBrowser.js` — PSK Browser: findet einmal pro Sekunde alle BPSK31-Signale zwischen 300 und 2700 Hz und betreibt je Signal einen `psk31.js`-Demodulator.
 - `lib/aprsMap.js` — die APRS-Karte: hält jede Station mit dekodierter Position fest (Objekte und Items unter ihrem eigenen Namen, gelöschte werden entfernt, eine Spur für bewegte) und zeichnet sie mit Leaflet auf OpenStreetMap-Kacheln; die eigene Position des Empfängers stammt aus `siteGridSquare`. Leaflet wird erst geladen, wenn die Karte zum ersten Mal erscheint, und kostet Hörern, die APRS nie öffnen, nichts. Über Funk empfangener Text gelangt nur über `textContent` oder Escaping auf die Seite. `App.svelte` setzt die Karte unter das APRS-Textfenster und öffnet und schließt sie mit ihm.
 - `broadcastSchedules.js` — die UTC-Sendepläne, die FAX-, NAVTEX- und RTTY-Decoder als Voreinstellungen anbieten, aus den NOAA/NWS-Marine-Faxplänen und den veröffentlichten NAVTEX-Stationslisten
 
@@ -1137,7 +1163,7 @@ frequencylist/
 ]
 ```
 
-`mode` ist eine Empfänger-Betriebsart (`USB`, `LSB`, `AM`, `FM`, `CW`, …) oder der Name einer digitalen Betriebsart — `FT8`, `FT4`, `FT2`, `JS8`, `WSPR`, `SSTV`, `NAVTEX`, `FAX`, `RTTY`, `RTTY-WX`, `SITOR`, `PSK31`, `OLIVIA`, `MFSK`, `MFSK16`, `MFSK32`, `MFSK64`, `DOMINOEX`, `THOR`, `THROB`, `HELL`, `FELDHELL`, `MT63`, `PACKET`, `APRS`, `RADEU`, `RADEL`, `RADE` oder `FREEDV` —; dann startet ein Klick auf die Markierung diesen Decoder ([Einzelheiten](DECODERS.md#einen-decoder-über-eine-frequenzmarkierung-starten)).
+`mode` ist eine Empfänger-Betriebsart (`USB`, `LSB`, `AM`, `FM`, `CW`, …) oder der Name einer digitalen Betriebsart — `FT8`, `FT4`, `FT2`, `JS8`, `WSPR`, `SSTV`, `NAVTEX`, `FAX`, `RTTY`, `RTTY-WX`, `SITOR`, `PSK31`, `PSK63`, `PSK125`, `BPSK31`/`63`/`125`, `QPSK31`/`63`/`125`, `OLIVIA`, `CONTESTIA`, `MFSK`, `MFSK16`, `MFSK32`, `MFSK64`, `DOMINOEX`, `THOR`, `THROB`, `HELL`, `FELDHELL`, `MT63`, `PACKET`, `APRS`, `RADEU`, `RADEL`, `RADE` oder `FREEDV` —; dann startet ein Klick auf die Markierung diesen Decoder ([Einzelheiten](DECODERS.md#einen-decoder-über-eine-frequenzmarkierung-starten)).
 
 ---
 

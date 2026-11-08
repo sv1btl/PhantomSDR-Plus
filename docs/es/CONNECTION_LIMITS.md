@@ -197,6 +197,8 @@ Existe porque el servidor no puede alcanzar el JavaScript que ya se está ejecut
 
 Solo se comprueba `/audio`, porque es donde vive una sesión, y el loopback y las rutas Kiwi quedan exentos para que el tap de autorun y los clientes Kiwi no se vean afectados. `0` lo desactiva y es el valor por defecto. Dejarlo activo una vez agotadas las páginas antiguas no supone problema: un cliente de diversidad actual al que se rechaza en un `/audio` sin más vuelve a intentarlo con el marcador, de modo que solo se sigue rechazando a clientes de diversidad con una versión anterior de PhantomSDR-Plus y a herramientas de terceros que abren `/audio` sin `?v=`. Vuelva a ponerlo en `0` si otra estación le informa de que ya no puede usarle como pareja de diversidad.
 
+Las configuraciones que trae PhantomSDR-Plus fijan `min_client_version=2`, la versión actual (`CLIENT_VERSION` en `frontend/src/clientVersion.js`), con un comentario que lo explica; sin la línea vale `0`. Si una actualización futura sube `CLIENT_VERSION`, suba también este valor.
+
 ---
 
 ## 7. Qué ve un oyente rechazado

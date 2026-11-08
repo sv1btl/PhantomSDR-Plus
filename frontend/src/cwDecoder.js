@@ -109,9 +109,17 @@ const SOFT_GAP_MIN = 0.7;    // shortest gap inside a letter, in dots
 const SOFT_MK_MIN  = 0.6;    // shortest mark, as a share of its nominal length
 
 export default class CWDecoder {
-  constructor({ sampleRate = 12000, callback = null } = {}) {
+  constructor({ sampleRate = 12000, callback = null, fixedToneHz = 0, estPeriodMs = 700 } = {}) {
     this.sr = sampleRate || 12000;
     this.callback = callback || null;
+    // CW Browser (cwBrowser.js): each copy of the decoder sits on ONE signal
+    // that the browser has already mixed to this fixed tone, so the tone hunt
+    // (which would chase the strongest signal in the band) is skipped.
+    this.fixedToneHz = Number(fixedToneHz) || 0;
+    // How often the speed is re-estimated once locked (the costliest step).
+    // The browser runs dozens of decoders, each on one station, and passes
+    // a longer period; the single decoder keeps 0.7 s.
+    this.estPeriodMs = Number(estPeriodMs) || 700;
     this.reset();
   }
 
@@ -126,7 +134,7 @@ export default class CWDecoder {
     this._configure();
 
     // Tone acquisition
-    this.toneHz = 700; this.toneValid = false; this.jumpHz = -1;
+    this.toneHz = this.fixedToneHz || 700; this.toneValid = !!this.fixedToneHz; this.jumpHz = -1;
     this.specAvg = null; this.specFrames = 0;
     this.fftBuf = new Float32Array(this.FFT_N); this.fftFill = 0;
     // Raw audio from just before the tone lock, replayed once it locks.
@@ -190,7 +198,7 @@ export default class CWDecoder {
     this.BUF        = Math.round(12000 / this.frameMs);  // 12 s ring
     this.EST_WIN    = Math.round(6000  / this.frameMs);  // 6 s estimation window
     this.EST_MIN    = Math.round(1400  / this.frameMs);  // min before 1st estimate
-    this.EST_PERIOD = Math.round(700   / this.frameMs);  // re-estimate cadence
+    this.EST_PERIOD = Math.round((this.estPeriodMs || 700) / this.frameMs);  // re-estimate cadence
     this.TD_MIN     = Math.max(6, Math.round(18  / this.frameMs)); // ~67 wpm
     this.TD_MAX     = Math.round(260 / this.frameMs);              // ~4.6 wpm
     this.silenceFrames = Math.round(2000 / this.frameMs);
@@ -213,9 +221,11 @@ export default class CWDecoder {
       this.prePos = (this.prePos + 1) % this.PRE_N;
       if (this.preFill < this.PRE_N) this.preFill++;
 
-      // (1) Tone acquisition buffer.
-      this.fftBuf[this.fftFill++] = x;
-      if (this.fftFill >= this.FFT_N) { this._detectTone(); this.fftFill = 0; }
+      // (1) Tone acquisition buffer (not with a fixed tone).
+      if (!this.fixedToneHz) {
+        this.fftBuf[this.fftFill++] = x;
+        if (this.fftFill >= this.FFT_N) { this._detectTone(); this.fftFill = 0; }
+      }
       if (Math.abs(this.toneHz - this.oscFreq) > 1.5) this._setToneCoeffs(this.toneHz);
 
       // The tone has just locked: everything before it was mixed with the

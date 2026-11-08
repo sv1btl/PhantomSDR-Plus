@@ -266,7 +266,7 @@ Choose the appropriate mode for the signal:
 
 ### Adjusting Volume
 
-- **On-screen slider**: Drag the volume slider
+- **On-screen slider**: Drag the volume slider. 0 % is silence; below 50 % the level falls smoothly with fine steps, and from 50 % up each step is 0.4 dB. The page remembers where you left the slider, on the desktop page and on /mobile; on a first visit it starts where the sysop set it (50 % unless set otherwise).
 - **Browser volume**: Use browser's media controls
 - **System volume**: Adjust your computer's volume
 - **Keyboard**: Use + and - keys (if supported)
@@ -285,6 +285,12 @@ The S-meter shows signal strength:
 **Changing the meter face**: on the analog (needle) meter, click the meter itself — or focus it and press Enter or Space — to cycle through three backgrounds: dark brushed metal, a light pale-grey face, and a warm vintage amber face. Your browser remembers the choice, so it is still there after a refresh or a restart. It is per browser and per address, so opening the receiver by hostname and by IP gives two separate settings, and a private window always starts from the site default.
 
 **Above 30 MHz** the meter follows the VHF standard of IARU Region 1: S9 is −93 dBm there instead of −73 dBm on HF, still six dB per S-unit. The needle and the bar switch by themselves with the tuned frequency; the dBm and dBµV figures are always the measured level. Some stations also set their VHF/UHF receivers to rest at **0 on an empty channel**, like a VHF/UHF transceiver's meter: above 60 MHz the needle and the bar then come up only when a signal stands out of the noise. The dBm, dBµV, SNR and NF figures always show the real values.
+
+### Signal strength plot
+
+**Video** under **Recording Options** records the spectrum and the waterfall together with the audio (**Area** chooses a part of them to record). A bar at the bottom of the picture shows the frequency, mode and time, and the tuned frequency is marked with the same yellow lines as the tuner on screen: dotted yellow lines at the frequency and at the passband edges, and the bracket across the top of the waterfall.
+
+Under **Recording Options**, the **Plotter** button next to Audio, Video and Area draws the S-meter's reading as a running graph — handy for watching fading, comparing two antennas or stations, or seeing when a band opens. Each click goes **Off → Fast → Medium → Slow**: the plot shows the last 10, 30 or 60 seconds, the newest reading at the right, and your browser remembers the choice. It plots the same dBm figure as the digital S-meter, 20 times a second; the left scale is in S-units (the VHF scale above 30 MHz) and the right one in dBm, and the range follows the signal by itself. The top line shows the reading now and the peak (**pk**) of the shown span, also drawn as a dashed red line; a yellow line with the new frequency marks every retune. In the top right corner **❚❚** pauses the plot (**▶** carries on) and **PNG** saves it as a picture, `PhantomSDR_signal_<UTC>_<kHz>kHz.png`. Off, it costs nothing.
 
 ### Choosing a receiver
 
@@ -406,6 +412,10 @@ As on a WebSDR, no listener's IP address is shown to the others — neither in t
 
 The Users window also shows which decoder each listener is running — FT8, CW, DRM, HFDL and so on — as a small green tag after the mode, and the User Statistics have a **Decoder Popularity** panel: how many sessions ran each decoder. In the Users window opened from the receiver page, **Tune** beside a listener puts you on what they hear: the same frequency and mode, their filter bandwidth and their decoder — started for you, or yours stopped when they run none. The band is then framed as **To Band** does: the waterfall shows the whole band they are in, with that band's brightness, contrast and tuning step.
 
+### Band propagation
+
+Under **Open Additional Info**, next to *Current band propagation and statistics:*, the **🌐 Propagation** button opens a page with the band conditions for this receiver's own location. It grades every band from 160 m to 6 m as Good, Fair, Poor or Closed for five distances (up to 300 km, 300–1000 km, 1000–2000 km, 2000–3000 km and DX beyond 3000 km). The grades come from the live measurements of the nearest ionosondes (foF2 and MUF), the position of the sun, and the solar and geomagnetic data (solar flux, Kp, X-rays, solar wind). The map is a globe centred on the station: drag to spin it, right-drag (or Ctrl + drag) to tilt it, and **2D / 3D** switches to a flat map. Its **band reach** rings show, for every open band, a dashed ring where its skip zone ends and a solid ring at its farthest reach; the legend under the map lists each band's span, and clicking a band shows its own open area, shaded by Good / Fair / Poor. The globe also shows the MUF and foF2 contours, day and night with the greyline, and every ionosonde reporting now, worldwide — bright for the ones used here. The layer switches in its corner turn each of these on or off. The rings follow the ionosphere direction by direction — where the path reflects, the sun there, the auroral oval — so a band usually reaches further one way than another; the table above is the view straight overhead. The globe needs a browser with WebGL2. The page refreshes itself every 10 minutes. It is an estimate for paths from this receiver, not a record of what is being heard.
+
 ### Chat
 
 When the operator has enabled the chat, it has its own panel on the desktop page and a **Chat** tab on /mobile. Type your message and send it: it goes out under the name in your name box (see above), or as *anonymous* plus a number.
@@ -418,14 +428,11 @@ A frequency in a message is a link: click it to tune there, in the mode given wi
 
 Magnifies the waterfall display:
 
-- **1x**: Normal view (wide coverage)
-- **2x**: 2× magnification
-- **4x**: 4× magnification
-- **8x**: 8× magnification
+The **Zoom** slider has 20 steps, shown as ×1 to ×20 (the step, not a magnification). ×1 shows the whole receiver; each step narrows the view around the dial by the same factor, so the zoom grows evenly, down to a few kHz at ×20. The button next to the slider goes one step further each click and returns to ×1 after ×20.
 
 **Use when**: You need to see signals more clearly or tune precisely.
 
-**To Band** shows the whole band of the frequency you are on, with 10 kHz to spare at each edge.
+**To Band** shows the whole band of the frequency you are on, with 5 kHz to spare at each edge.
 
 ### Auto Adj. (waterfall)
 
@@ -628,14 +635,25 @@ Links written for KiwiSDR or UberSDR work too: `modulation=CWU` (or `CW-U`) open
 - The station decides: the button appears only where `[server] iq` is on (the default)
 
 **Best Practices:**
-- Put the station you want in the middle — the recording covers ±6 kHz around the dial
+- Put the station you want in the middle — the recording covers ±6 kHz around the dial (±12 or ±24 kHz in a wider IQ, below)
 - To hear one station, a normal mode is simpler; IQ is for recording, for other software and for hearing several stations at once (below)
+
+#### Wider IQ: 24 and 48 kHz
+
+Where the station offers it, the IQ Demodulators panel has **Width: 12 kHz · 24 kHz · 48 kHz**. 24 kHz takes in DRM's wide modes or a station with both its neighbours, 48 kHz a whole group of broadcast stations or a CW/digital sub-band. The waterfall passband and the panel's picture follow the width, a recording is made at it (a WAV at 24 or 48 kHz), and your browser remembers the choice. A wider IQ costs the station more upload — about 0.7 Mbit/s per listener at 24 kHz and 1.4 Mbit/s at 48 kHz, against 0.35 at 12 kHz — so the station decides how many listeners may have it at once; when every place is taken you stay at 12 kHz (the panel says so) and the page asks again every 30 seconds. For Dream or another program on a virtual cable at 48 kHz, set the cable to 48 kHz as well. KiwiSDR clients always get 12 kHz.
+
+**For the sysop:** two lines under `[server]` in the receiver's config turn it on, for any receiver; restart that receiver afterwards. The same settings are in the admin panel under **Receivers → ✎ CHANGE SETTINGS**, which also restarts the receiver.
+
+```
+iq_wide=48            # 12 (off, the default), 24 or 48 kHz
+iq_wide_listeners=4   # listeners with a wide IQ at once, 0 = no limit
+```
 
 #### IQ demodulators
 
 While the receiver is in IQ, an **IQ Demodulators** panel opens under the decoders. It runs up to six receivers on the I/Q in your browser — the receiver is not retuned and the station's computer does no extra work:
 
-- The picture shows the 12 kHz around the dial with the real frequencies; each demodulator is a coloured band, its own dial a line inside it. Click the picture to move the selected demodulator there; the mouse wheel over it moves it by 10 Hz (Shift 100 Hz)
+- The picture shows the whole IQ width (12, 24 or 48 kHz) around the dial with the real frequencies; each demodulator is a coloured band, its own dial a line inside it. Click the picture to move the selected demodulator there; the mouse wheel over it moves it by 10 Hz (Shift 100 Hz)
 - Each row has the mode (USB, LSB, CW, AM, DSB, FM), the frequency with « ‹ › » buttons (100 and 10 Hz), a level bar, **M** to mute and **✕** to remove. The selected row also has **Width**, **Volume** and **Pan**
 - **DSB** follows the carrier by itself (a carrier-tracking loop): put it within a few tens of Hz of the carrier and the audio stays clean and steady, for suppressed-carrier DSB as well as for AM, where it works as synchronous AM
 - **+ Add** adds a demodulator at the dial, up to six. **Demodulators** / **Raw I/Q** chooses whether you hear them or the plain I/Q
@@ -754,9 +772,11 @@ NAVTEX is the international maritime broadcast system for coastal safety informa
 
 ---
 
-### FLDIGI — RTTY, PSK31, Olivia, MFSK, DominoEX, THOR, THROB, Hellschreiber, MT63, Packet and APRS
+### FLDIGI — ALE 2G, RTTY, PSK31, Olivia, FST4W, MFSK, MSK144, DominoEX, THOR, THROB, Hellschreiber, MT63, Packet and APRS
 
-One window for the narrow-band keyboard modes fldigi made popular, with thirteen variants: Maritime FSK (SITOR), Weather RTTY, Amateur RTTY, **PSK31** (phase-shift keying, 31.25 baud), **Olivia** and **MFSK16/32/64** (multi-tone with forward error correction), **DominoEX** and **THOR** (incremental frequency keying, THOR with error correction), **THROB**, **Hellschreiber** (painted as a picture), **MT63** (64 carriers), **Packet (AX.25)** and **APRS**. It opens from the **FLDIGI** button, or from **FLDIGI** in the decoder dropdown; fldigi itself is not needed. The panel adapts to the variant — the shift, baud and framing controls disappear for everything but the three FSK variants, and the other modes add a Mode selector and, except Hellschreiber, a squelch slider.
+One window for the narrow-band keyboard modes fldigi made popular, with sixteen variants: Maritime FSK (SITOR), Weather RTTY, Amateur RTTY, **PSK31/63/125** (phase-shift keying, BPSK/QPSK, 31.25–125 baud), **Olivia**, **Contestia** and **MFSK16/32/64** (multi-tone with forward error correction), **DominoEX** and **THOR** (incremental frequency keying, THOR with error correction), **THROB**, **Hellschreiber** (painted as a picture), **MT63** (64 carriers), **Packet (AX.25)** and **APRS**. It opens from the **FLDIGI** button, or from **FLDIGI** in the decoder dropdown; fldigi itself is not needed. The panel adapts to the variant — the shift, baud and framing controls disappear for everything but the three FSK variants, and the other modes add a Mode selector and, except Hellschreiber, a squelch slider. Three variants list what they decode one line at a time instead of text: **ALE 2G**, just before Packet in the list (HF link establishment, MIL-STD-188-141, with the HFLINK amateur channels and other public network lists), and **FST4W** and **MSK144**, the WSJT-X modes for LF/MF beacons and for meteor scatter. **PSK Browser**, the **Browser — all signals** knob under the PSK31 **Mode** list, decodes every BPSK31 signal in the passband at once, one line per signal; click a line to follow that one. See the [Decoder manual](DECODERS.md). **Browser — all signals** under the Olivia **Mode** list does the same for Olivia and Contestia, for the configuration chosen there.
+
+**CW Browser:** switch on the **Browser — all signals** knob in the CW window to decode every CW signal in 200–3000 Hz at once, one line each, with the station's callsign and CQ calls marked; the receiver goes to USB 200–3000 Hz while it runs.
 
 Amateur RTTY and Weather RTTY have a **Squelch (SNR)** slider that stops noise from printing as random letters, and every variant except Olivia shows a real SNR on the same 3 kHz scale. Two things to know: PSK31 corrects its own tuning error over about ±25 Hz, so you only need to get close; Olivia needs its **Mode** (tones / bandwidth) set to exactly match the transmission, sends no preamble, and therefore takes a few seconds to synchronise before any text appears. The panel opens on Olivia **8 / 250**. For the other fldigi modes, put the signal on the centre frequency or press **⟳ Auto-tune Center** and pick the matching **Mode**: THROB needs tuning within ±3 Hz, DominoEX, THOR and MT63 forgive much more, and MFSK, THOR and MT63 print a few seconds behind the signal. Hellschreiber shows a picture, not text.
 
@@ -1172,7 +1192,7 @@ A: Band plan overlay showing frequency allocations.
 
 **FFT**: Fast Fourier Transform - converts time to frequency domain
 
-**FLDIGI**: the decoder window for RTTY, PSK31, Olivia, MFSK, DominoEX, THOR, THROB, Hellschreiber, MT63, Packet and APRS, named after the fldigi program that made these modes popular
+**FLDIGI**: the decoder window for ALE 2G, RTTY, PSK31, Olivia, FST4W, MFSK, MSK144, DominoEX, THOR, THROB, Hellschreiber, MT63, Packet and APRS, named after the fldigi program that made these modes popular
 
 **FM**: Frequency Modulation - voice mode for VHF/UHF
 

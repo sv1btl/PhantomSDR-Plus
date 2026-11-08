@@ -1,10 +1,10 @@
 <script>
-  // IQ demodulators: several receivers inside the 12 kHz IQ stream, each with
+  // IQ demodulators: several receivers inside the IQ stream (12, 24 or 48 kHz), each with
   // its own offset, mode, filter, level and pan (the engine is lib/iqDemod.js,
   // fed by audio.js). Shown while the receiver is in IQ. The picture is the
-  // 12 kHz around the dial; click it to move the selected demodulator, turn
+  // whole IQ width around the dial; click it to move the selected demodulator, turn
   // the wheel over it to nudge it (Shift = 100 Hz steps).
-  import { onMount, onDestroy } from "svelte";
+  import { onMount, onDestroy, createEventDispatcher } from "svelte";
   import { MAX_DEMODS, DEMOD_MODES, DEMOD_COLORS, BW_RANGE } from "./iqDemod.js";
 
   export let audio;
@@ -13,7 +13,18 @@
 
   const STORE_KEY = "phantom.iqdemod.v1";
   const HEIGHT = 120;
-  const SPAN = 12000;          // Hz shown, centred on the dial
+  const dispatch = createEventDispatcher();
+  // Hz shown, centred on the dial: the stream's whole width (12, 24 or 48 kHz).
+  let SPAN = 12000;
+  // Wide IQ: the widths the server offers, the one asked for, the one running.
+  let widths = [12];
+  let wantKhz = 12;
+  let runKhz = 12;
+  let busy = false;
+  function pickWidth(khz) {
+    wantKhz = khz;
+    dispatch("width", khz);
+  }
 
   let bank = null;
   let demods = [];             // configs, as the bank reports them
@@ -87,7 +98,7 @@
 
   function canvasClick(e) {
     const r = canvas.getBoundingClientRect();
-    const hz = Math.max(-6000, Math.min(6000, xToHz(e.clientX - r.left, r.width)));
+    const hz = Math.max(-SPAN / 2, Math.min(SPAN / 2, xToHz(e.clientX - r.left, r.width)));
     if (selected == null) add(hz);
     else set(selected, { offset: hz });
   }
@@ -104,6 +115,10 @@
     raf = requestAnimationFrame(draw);
     if (!canvas || !bank || t - lastDraw < 66) return;     // ~15 frames/s
     lastDraw = t;
+    SPAN = bank.fs || 12000;
+    runKhz = 12 * (audio.iqScale || 1);
+    wantKhz = 12 * (audio.iqWanted || 1);
+    busy = !!audio.iqWideBusy;
     levels = bank.levels();
     const sp = bank.spectrum();
     const dpr = window.devicePixelRatio || 1;
@@ -116,14 +131,15 @@
     ctx.fillRect(0, 0, w, h);
     const xOf = (hz) => ((hz + SPAN / 2) / SPAN) * w;
 
-    // grid: every 2 kHz, labelled with the real frequency
+    // grid: six steps across (2 kHz at 12 kHz wide), labelled with the real frequency
     ctx.font = `${10 * dpr}px monospace`;
     ctx.textAlign = "center";
-    for (let hz = -6000; hz <= 6000; hz += 2000) {
+    const half = SPAN / 2, step = SPAN / 6;
+    for (let hz = -half; hz <= half; hz += step) {
       const x = xOf(hz);
       ctx.strokeStyle = hz === 0 ? "rgba(255,255,255,0.35)" : "rgba(255,255,255,0.1)";
       ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h - 12 * dpr); ctx.stroke();
-      if (hz > -6000 && hz < 6000) {
+      if (hz > -half && hz < half) {
         ctx.fillStyle = "rgba(200,220,255,0.6)";
         ctx.fillText(khz(hz), x, h - 2 * dpr);
       }
@@ -168,6 +184,7 @@
   };
 
   onMount(() => {
+    widths = typeof audio.iqWidths === "function" ? audio.iqWidths() : [12];
     bank = audio.getIQDemodBank();
     if (bank.demods.length) {
       listening = bank.listening;          // back in IQ: as it was left
@@ -188,7 +205,21 @@
       IQ Demodulators
       <span class="text-xs text-gray-400 font-normal">{demods.length} of {MAX_DEMODS}</span>
     </h4>
-    <div class="flex items-center gap-1">
+    <div class="flex items-center gap-1 flex-wrap">
+      {#if widths.length > 1}
+        <span class="text-xs text-gray-400 mr-1">Width</span>
+        {#each widths as w}
+          <button
+            title={w === 12 ? "12 kHz of I/Q (the standard width)" : `${w} kHz of I/Q — ${w / 12} times the data of 12 kHz`}
+            class="text-xs px-2 py-0.5 rounded border transition-colors {runKhz === w
+              ? 'bg-cyan-700 border-cyan-500 text-white'
+              : wantKhz === w ? 'bg-gray-700 border-cyan-700 text-cyan-200'
+              : 'bg-gray-800 border-gray-600 text-gray-300 hover:bg-gray-700'}"
+            on:click={() => pickWidth(w)}>{w} kHz</button
+          >
+        {/each}
+        <span class="w-2"></span>
+      {/if}
       <button
         title="Hear the demodulators below"
         class="text-xs px-2 py-0.5 rounded border transition-colors {listening
@@ -211,6 +242,12 @@
       >
     </div>
   </div>
+
+  {#if busy && wantKhz > 12}
+    <div class="text-xs text-amber-300 mb-2">
+      Every {wantKhz} kHz place on this receiver is taken — you get 12 kHz until one is free.
+    </div>
+  {/if}
 
   <!-- svelte-ignore a11y-click-events-have-key-events a11y-no-static-element-interactions -->
   <canvas
@@ -284,6 +321,6 @@
   </div>
 
   <div class="text-[11px] text-gray-500 mt-2">
-    Each demodulator listens somewhere in the 12 kHz around the dial, in its own mode, without retuning the receiver; they move with the dial. Recording in IQ records the I/Q itself, not these.
+    Each demodulator listens somewhere in the {runKhz} kHz around the dial, in its own mode, without retuning the receiver; they move with the dial. Recording in IQ records the I/Q itself, not these.
   </div>
 </div>

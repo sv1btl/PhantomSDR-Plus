@@ -197,6 +197,8 @@ Postoji zato što poslužitelj ne može doprijeti do JavaScripta koji već radi 
 
 Provjerava se samo `/audio`, jer ondje sesija živi, dok su povratna petlja i Kiwi putanje izuzete kako autorun tap i Kiwi klijenti ostanu netaknuti. `0` ga isključuje i zadana je vrijednost. Ostaviti ga uključenim nakon što se stare stranice isprazne nije problem: trenutni klijent diversityja koji bude odbijen na golom `/audio` pokušava ponovno s oznakom, pa se i dalje odbijaju samo klijenti diversityja sa starijom verzijom PhantomSDR-Plusa i alati trećih strana koji otvaraju `/audio` bez `?v=`. Vratite ga na `0` ako vam druga stanica javi da vas više ne može koristiti kao partnera za diversity.
 
+Konfiguracije koje dolaze s PhantomSDR-Plus postavljaju `min_client_version=2`, trenutačnu inačicu (`CLIENT_VERSION` u `frontend/src/clientVersion.js`), uz komentar koji to objašnjava; bez tog retka vrijedi `0`. Ako buduće ažuriranje povisi `CLIENT_VERSION`, povisite i ovu vrijednost.
+
 ---
 
 ## 7. Što vidi odbijeni slušatelj

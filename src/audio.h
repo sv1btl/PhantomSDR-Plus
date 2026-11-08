@@ -34,6 +34,13 @@ class AudioEncoder {
                   float sam_offset_hz = NAN, float sam_quality = NAN);
     virtual int process(int32_t *data, size_t size) = 0;
     virtual int finish_encoder() = 0;
+    // Wide IQ: "iqx" = this stream's rate as a multiple of the 12 kHz one
+    // (absent when 1), "iqx_busy" = a wider width was asked for but every
+    // wide slot is taken. The page rebuilds its decoder when iqx changes.
+    void set_iq_meta(int scale, bool busy) {
+        if (scale > 1) packet["iqx"] = scale; else packet.erase("iqx");
+        if (busy) packet["iqx_busy"] = true; else packet.erase("iqx_busy");
+    }
     virtual ~AudioEncoder();
 
   protected:

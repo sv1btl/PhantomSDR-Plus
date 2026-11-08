@@ -15,9 +15,9 @@ This guide covers every built-in decoder available in PhantomSDR-Plus. All decod
 7. [WSPR](#7-wspr)
 8. [HF FAX / WEFAX](#8-hf-fax--wefax)
 9. [NAVTEX](#9-navtex)
-10. [FLDIGI — RTTY, PSK31, Olivia, MFSK, DominoEX, THOR, THROB, Hellschreiber, MT63, Packet and APRS](#10-fldigi--rtty-psk31-olivia-mfsk-dominoex-thor-throb-hellschreiber-mt63-packet-and-aprs)
+10. [FLDIGI — ALE 2G, RTTY, PSK31, Olivia, FST4W, MFSK, MSK144, DominoEX, THOR, THROB, Hellschreiber, MT63, Packet and APRS](#10-fldigi--ale-2g-rtty-psk31-olivia-fst4w-mfsk-msk144-dominoex-thor-throb-hellschreiber-mt63-packet-and-aprs)
 11. [SSTV](#11-sstv)
-12. [HFDL](#12-hfdl)
+12. [SERVICES](#12-services)
 13. [DRM](#13-drm)
 14. [General Tips](#14-general-tips)
 
@@ -41,10 +41,10 @@ The dropdown is not the only way in. The main panel carries a **Decoders** butto
 | Button | Decoder | Button | Decoder |
 |---|---|---|---|
 | **FT8** | FT8 | **SSTV** | SSTV |
-| **FT4** | FT4 | **FLDIGI** | RTTY, SITOR, PSK31, Olivia, MFSK, DominoEX, THOR, THROB, Hellschreiber, MT63, Packet, APRS |
+| **FT4** | FT4 | **FLDIGI** | ALE 2G, RTTY, SITOR, PSK31·63·125, QPSK, Olivia, Contestia, FST4W, MFSK, MSK144, DominoEX, THOR, THROB, Hellschreiber, MT63, Packet, APRS |
 | **FT2** | FT2 | **NAVTEX** | NAVTEX |
 | **CW** | CW | **FAX** | HF FAX / WEFAX |
-| **JS8** | JS8 | **HFDL** | HFDL — aircraft messages |
+| **JS8** | JS8 | **SERVICES** | HFDL (aircraft), DSC (ships), Time Signals, HF Selcall |
 | **WSPR** | WSPR | **DRM** | DRM — digital broadcasting |
 
 Pressing a button does the whole sequence in one go: it selects the decoder, switches the decoder ON, and scrolls its panel into view. The button turns blue while its decoder is running. **Press the same button again to switch the decoder off** — its window closes with it.
@@ -53,7 +53,7 @@ Pressing a button does the whole sequence in one go: it selects the decoder, swi
 
 The buttons, the dropdown and the ON/OFF button all drive the same state, so whichever you use, the others follow.
 
-Where a decoder has its own list of frequencies — the QRSS **Band** list, the HF FAX and NAVTEX stations, the FLDIGI **Known frequency** list, and the HFDL and DRM station lists — its Tune button also frames the band as **To Band** does: the waterfall shows the whole band the station is in, with that band's brightness, contrast and tuning step. The band is chosen by the station's listed frequency, not by the dial, so 10100.800 kHz (DWD weather RTTY) opens on 30 m even though the dial sits a little below 10100 kHz.
+Where a decoder has its own list of frequencies — the QRSS **Band** list, the HF FAX and NAVTEX stations, the FLDIGI **Known frequency** list, and the SERVICES and DRM station lists — its Tune button also frames the band as **To Band** does: the waterfall shows the whole band the station is in, with that band's brightness, contrast and tuning step. The band is chosen by the station's listed frequency, not by the dial, so 10100.800 kHz (DWD weather RTTY) opens on 30 m even though the dial sits a little below 10100 kHz.
 
 ### Starting a decoder from a frequency marker
 
@@ -65,12 +65,16 @@ A frequency marker (the yellow labels above the waterfall, from `markers.json`) 
 | `NAVTEX` | NAVTEX | the signal frequency (the dial goes 500 Hz below) |
 | `FAX`, `WEFAX` | HF FAX | the published centre (the dial goes 1900 Hz below) |
 | `RTTY`, `RTTY-WX`, `SITOR` | FLDIGI as Amateur, Weather or Maritime | the signal frequency (the dial goes the panel's audio centre below) |
-| `PSK31`, `OLIVIA`, `MFSK`, `DOMINOEX`, `THOR`, `THROB`, `HELL`, `MT63` | FLDIGI in that variant | as above |
+| `PSK31`, `OLIVIA`, `FST4W`, `MFSK`, `MSK144`, `DOMINOEX`, `THOR`, `THROB`, `HELL`, `MT63` | FLDIGI in that variant | as above |
 | `MFSK16`, `MFSK32`, `MFSK64`, `FELDHELL` | FLDIGI in that variant and sub-mode | as above |
+| `PSK63`, `PSK125`, `BPSK31`/`63`/`125`, `QPSK31`/`63`/`125`, `CONTESTIA` | FLDIGI in that variant and sub-mode | as above |
 | `PACKET`, `APRS` | FLDIGI in that variant | the channel; 300 Bd (USB) below 30 MHz, 1200 Bd (FM) above |
 | `RADEU`, `RADE`, `FREEDV` / `RADEL` | FreeDV RADE V1 on upper / lower sideband (`RADE` and `FREEDV` mean upper) | the dial frequency |
 | `RADE2` | FreeDV RADE V2 (beta), always upper sideband | the dial frequency |
-| `HFDL` | HFDL | the dial frequency (USB; the HFDL signal sits 1440 Hz above it) |
+| `HFDL` | SERVICES · HFDL | the dial frequency (USB; the HFDL signal sits 1440 Hz above it) |
+| `DSC`, `SELCALL` | SERVICES on DSC or HF Selcall | the DSC frequency or the Selcall channel (the dial goes 1.7 kHz below) |
+| `TIME`, `DCF77`, `MSF`, `RWM`, `WWV`, `WWVH` | SERVICES on Time Signals, with that station | the carrier (the dial goes 1 kHz below) |
+| `ALE` | FLDIGI on ALE 2G | the dial frequency (LSB for the networks that use it) |
 | `DRM` | DRM | the centre of the DRM channel |
 | `MORSE` | the CW decoder, with CW and a ±250 Hz filter | the signal frequency |
 
@@ -80,11 +84,11 @@ A decoder that is already running stays on. `CW` remains an ordinary receiver mo
 >
 > The **QRSS grabber** is not part of this dropdown — it has its own **QRSS** section and can run at the same time as a decoder.
 
-**Decoding runs in the background.** SSTV, HF FAX, NAVTEX, HFDL, FLDIGI and CW each run in a separate Web Worker thread, so the decoding work never competes with audio playback or the waterfall. Starting or stopping a decoder does not interrupt the audio, and the interface stays responsive while a picture or a page is being received. All decoders are fed raw audio taken *before* noise reduction and mute — so muting the receiver, or changing those settings to suit your ears, does not affect decoding. The AGC is different: the receiver applies it before the audio reaches your browser, so the decoders share it with you. While any decoder is open it is therefore held on **Slow**, whichever AGC button is selected, and a small *Slow (decoder)* note next to the AGC heading says so; your own choice returns when the last decoder closes. DRM is the exception: it is decoded on the station's server (chapter 13).
+**Decoding runs in the background.** SSTV, HF FAX, NAVTEX, SERVICES, FLDIGI and CW each run in a separate Web Worker thread, so the decoding work never competes with audio playback or the waterfall. Starting or stopping a decoder does not interrupt the audio, and the interface stays responsive while a picture or a page is being received. All decoders are fed raw audio taken *before* noise reduction and mute — so muting the receiver, or changing those settings to suit your ears, does not affect decoding. The AGC is different: the receiver applies it before the audio reaches your browser, so the decoders share it with you. While any decoder is open it is therefore held on **Slow**, whichever AGC button is selected, and a small *Slow (decoder)* note next to the AGC heading says so; your own choice returns when the last decoder closes. DRM is the exception: it is decoded on the station's server (chapter 13).
 
 **A running decoder owns the mode and the passband.** Normally the mode follows the band plan in `bands-config.js`: move the dial into a segment marked LSB or AM and the receiver switches to it. While a decoder is running that no longer happens. The decoder holds the mode it needs (USB for most, its own for RADE) and the passband it needs — PSK31 about ±100 Hz, Olivia, MFSK, DominoEX, THOR, THROB, Hellschreiber and MT63 their full bandwidth, RTTY its shift — and both survive retuning, including a jump to another band. Without this, tuning FT8 on 40 m would flip the receiver to LSB the moment the dial moved, and the narrow decoder passbands would widen back to the full SSB filter.
 
-The band's own mode returns the moment you switch the decoder off. You can still override the mode by hand at any time: the mode buttons are a deliberate choice and always win. The CW decoder is the exception to all of this — it decodes in whatever mode you are listening in and never takes the receiver over.
+The band's own mode returns the moment you switch the decoder off. You can still override the mode by hand at any time: the mode buttons are a deliberate choice and always win. The CW decoder holds **CW** in the same way (CW-L stays CW-L), and the link works both ways: starting the CW decoder puts the receiver in CW, and clicking **CW** in the Mode selector starts the CW decoder. Only the CW Browser uses USB, 200–3000 Hz.
 
 
 ### Decoder ID — recognising the mode automatically
@@ -109,7 +113,7 @@ It never switches your decoder by itself. It only ever suggests. And once you st
 
 **The slow modes take longer.** WSPR sits on a two-minute grid and SSTV pictures run for a minute or two, so those two are named later than the rest — give them three or four minutes on frequency. HF FAX and SSTV are also recognised only when they are tuned the usual way — the picture band sitting between about 1500 and 2300 Hz in the audio, which is where their decoders expect it too. Retuning starts the measurement again from scratch, because everything gathered so far describes the frequency you have just left.
 
-**What it recognises:** FT8, FT4, JS8, WSPR, CW, NAVTEX/SITOR-B, RTTY at 45.45 Bd, Weather RTTY (DWD), PSK31, Olivia, HF FAX, SSTV and DSC. There is no DSC decoder in this build, so DSC is named and marked *no decoder*.
+**What it recognises:** FT8, FT4, JS8, WSPR, CW, NAVTEX/SITOR-B, RTTY at 45.45 Bd, Weather RTTY (DWD), PSK31, Olivia, HF FAX, SSTV and DSC. **Use DSC** starts SERVICES on DSC (chapter 12).
 
 **Recentre & retry.** Where the signal sits in the audio passband makes no difference between about 400 Hz and 2700 Hz. Outside that range the measurement degrades, and an amber **Recentre & retry** button appears. Pressing it moves the dial so that the signal lands in the middle of the passband, and starts a fresh measurement. It is a single calculated move, not a search.
 
@@ -147,7 +151,7 @@ It never switches your decoder by itself. It only ever suggests. And once you st
 
 ### Reading the output
 
-The message list shows decoded transmissions as they arrive. Each 15-second cycle produces a new batch of messages. The **Farthest** field (top-right of the panel) shows the greatest distance decoded in the current session in kilometres.
+The message list shows decoded transmissions as they arrive. Each 15-second cycle produces a new batch of messages. The **Farthest** field (top-right of the panel) shows the greatest distance decoded in the current session in kilometres. A long message ends in “…”: click its row to read the whole message, wrapped, and click again to close it. While a row is open the list stays where it is; otherwise it follows the newest messages. FT4 and FT2 use the same list.
 
 Typical message format: `CQ DX AA1BB FN31` — a CQ call from callsign AA1BB located in grid square FN31.
 
@@ -294,7 +298,7 @@ CW is active across amateur bands, typically at the lower portion of each band. 
 
 ### Setup
 
-1. Tune to a CW signal using **CW** or **CW-L** demodulation mode as appropriate.
+1. Tune to a CW signal. Starting the decoder switches the receiver to **CW** (CW-L stays CW-L); clicking **CW** in the Mode selector starts the decoder as well.
 2. Enable the decoder and select **CW** from the dropdown. Or simply press the **CW** button.
 3. The **CW Decoder** panel appears below.
 
@@ -305,7 +309,7 @@ CW is active across amateur bands, typically at the lower portion of each band. 
 - On an empty channel nothing prints, and the speed and tone are not shown. The decoder only starts printing when there is a clear difference between key-down and key-up, which plain noise does not produce, while a signal still readable at about −10 dB has plenty.
 - Decoded text scrolls in amber monospaced text. The blinking cursor (▋) marks where text is currently being written.
 - The **Pitch** slider before **Clear** sets the audio tone of the CW signal while the decoder runs: 500 to 800 Hz in 50 Hz steps, 600 Hz until you change it. Your browser remembers the choice. Plain CW listening is at 600 Hz too.
-- Click **Clear** to erase the output buffer.
+- **Save** writes the decoded text to a file; **Clear** erases it.
 
 > **Tips:**
 > - Centre your passband on the CW tone. The decoder works best when the CW signal sits between roughly 400–900 Hz in the audio spectrum.
@@ -313,6 +317,17 @@ CW is active across amateur bands, typically at the lower portion of each band. 
 > - The decoder performs best on a single clean signal. Strong QRM from nearby signals on the same band may confuse it.
 > - Fading (QSB) is followed: a signal that fades and comes back keeps being read, and the first word of a transmission is read too — also at the start of a reply after a pause in the QSO.
 > - Each letter is decided on the signal itself rather than on the dots and dashes counted first, which roughly halves the wrong letters on weak and hand-keyed signals.
+
+### CW Browser — every signal at once
+
+Switch on the **Browser — all signals** knob in the CW window to decode every CW signal between 200 and 3000 Hz at once, one line each, like the PSK and Olivia browsers. While it runs the receiver is held on **USB** with a 200–3000 Hz filter; your own mode and filter come back when you switch it off.
+
+- Each line shows the signal's frequency (the carrier, in kHz), its speed, the station's callsign — green with **CQ** when it calls CQ — and its text. Click a line to switch to **CW** on that station with the normal decoder.
+- A signal gets its own decoder once it has been on for about two seconds; the last few seconds are decoded too, so its first words are not lost. When a station stops, its line stays for a minute, then goes.
+- Stations 40 Hz apart are kept apart, and signals down to about −6 dB (in 3 kHz) read well. Lines that do not look like Morse text (a data signal, noise) are not shown, and neither are the keying sidebands of a strong station, which can stand out of the noise up to about 160 Hz either side of it.
+- The callsign is the one sent twice or more, otherwise the one after **DE** or **CQ**; letters that came out spaced apart ("Y O 8 B N C") are joined back up.
+- Each line keeps its last 4000 characters in a box about six lines tall: once it holds more than six lines it gets its own scroll bar (the mouse wheel works too), and the box holds still while you read. **Save** writes every line — with time, frequency, speed and callsign — including the lines already dropped.
+- About two dozen stations at once cost roughly 10 % of one processor core in the listener's browser; the receiver is not loaded at all.
 
 ---
 
@@ -560,9 +575,11 @@ Click **Clear** to erase the message buffer.
 
 ---
 
-## 10. FLDIGI — RTTY, PSK31, Olivia, MFSK, DominoEX, THOR, THROB, Hellschreiber, MT63, Packet and APRS
+## 10. FLDIGI — ALE 2G, RTTY, PSK31, Olivia, FST4W, MFSK, MSK144, DominoEX, THOR, THROB, Hellschreiber, MT63, Packet and APRS
 
-**What it is:** One window for the narrow-band keyboard modes that the program fldigi made popular, with thirteen variants selected from one dropdown. Three are true FSK (Frequency-Shift Keying): Maritime FSK (SITOR), Weather RTTY and Amateur RTTY. The others share the same window: **PSK31**, which is phase-shift keying; **Olivia** and **MFSK16/32/64**, multi-tone modes with forward error correction; **DominoEX** and **THOR**, incremental frequency keying (THOR with error correction); **THROB**, two tones at once, one character per pulse; **Hellschreiber**, which paints text as a picture instead of decoding it; **MT63**, 64 carriers at once; and **Packet (AX.25)** and **APRS**, which decode AFSK packet radio — the 1200 baud packet of VHF/UHF and the 300 baud packet of HF. Each variant comes with a preset tuned to its standard parameters. The button and the dropdown entry are both called **FLDIGI**; the decoding is done here, in the browser, and fldigi itself is not needed.
+**What it is:** One window for the narrow-band keyboard modes that the program fldigi made popular, with sixteen variants selected from one dropdown. Three are true FSK (Frequency-Shift Keying): Maritime FSK (SITOR), Weather RTTY and Amateur RTTY. The others share the same window: **PSK31** (also **PSK63** and **PSK125**, each in BPSK or QPSK), which is phase-shift keying; **Olivia** (with its sibling **Contestia**) and **MFSK16/32/64**, multi-tone modes with forward error correction; **DominoEX** and **THOR**, incremental frequency keying (THOR with error correction); **THROB**, two tones at once, one character per pulse; **Hellschreiber**, which paints text as a picture instead of decoding it; **MT63**, 64 carriers at once; and **Packet (AX.25)** and **APRS**, which decode AFSK packet radio — the 1200 baud packet of VHF/UHF and the 300 baud packet of HF. Each variant comes with a preset tuned to its standard parameters. The button and the dropdown entry are both called **FLDIGI**; the decoding is done here, in the browser, and fldigi itself is not needed.
+
+Three of the variants come from outside fldigi. **ALE 2G** is the automatic link establishment of HF government, military and amateur networks (MIL-STD-188-141), and lists their calls and soundings. **FST4W**, the very slow beacon mode of the 2200 m, 630 m and 160 m bands, and **MSK144**, for meteor scatter on 6 m and 2 m, come from WSJT-X. None of the three prints running text: each lists what it decodes one line at a time, with the time.
 
 ### Variants and presets
 
@@ -571,25 +588,28 @@ Click **Clear** to erase the message buffer.
 | Maritime FSK / SITOR | 500 Hz | 170 Hz | 100 | 7N1 | CCIR-476 |
 | Weather RTTY | 1000 Hz | 450 Hz | 50 | 5N1.5 | ITA2 |
 | Amateur RTTY | 1000 Hz | 170 Hz | 45.45 | 5N1.5 | ITA2 |
-| PSK31 (BPSK) | 1000 Hz | — | 31.25 | — | Varicode |
-| Olivia | 1000 Hz | — | see mode | — | 7-bit + FEC |
+| PSK31·63·125 (BPSK/QPSK) | 1000 Hz | — | 31.25 / 62.5 / 125 | — | Varicode |
+| Olivia / Contestia | 1000 Hz | — | see mode | — | 7-bit + FEC |
+| FST4W | 1500 Hz | — | 1.46 / 0.56 / 0.18 / 0.09 | T/R 120–1800 s | LDPC + CRC-24 |
 | MFSK16·32·64 | 1500 Hz | — | see mode | — | Varicode + FEC |
+| MSK144 | 1500 Hz | — | 2000 bit/s | T/R 15 / 30 s | LDPC + CRC-13 |
 | DominoEX | 1500 Hz | — | see mode | — | nibble Varicode |
 | THOR | 1500 Hz | — | see mode | — | Varicode + FEC |
 | THROB / THROBX | 1500 Hz | — | 1, 2 or 4 | — | tone pairs |
 | Hellschreiber | 1500 Hz | — | see mode | — | picture |
 | MT63 | 1000 Hz (lowest carrier at 500 Hz) | — | 5, 10 or 20 | — | Walsh + interleave |
+| ALE 2G | 1625 Hz (tones 750–2500 Hz) | — | 125 | 24-bit words, ×3 | Golay (24,12) |
 | Packet (AX.25) | 1200 / 2200 Hz tones, or 1700 Hz at 300 Bd | 1000 Hz, or 200 Hz at 300 Bd | 1200 or 300 | HDLC | AX.25 |
 | APRS | as Packet | as Packet | 1200 or 300 | HDLC | AX.25 + APRS |
 
-The panel adapts to the variant you choose. **Shift**, **Baud**, **Framing**, **Encoding**, **Invert mark / space** and **Auto shift detect** are hidden for every variant except the three FSK ones, because none of the other modes has a mark/space tone pair or UART-style framing. In their place, **Center audio** becomes a free-entry number field (the signal can sit anywhere in the passband), and Olivia, MFSK, DominoEX, THOR, THROB, Hellschreiber and MT63 each gain a **Mode** selector and — all except Hellschreiber — a **Squelch** slider with its own scale. Packet and APRS hide the same FSK controls and show a **Speed** selector instead; APRS also has a **Show raw packet** checkbox. The **Known frequency** list appears only for the variants that have one.
+The panel adapts to the variant you choose. **Shift**, **Baud**, **Framing**, **Encoding**, **Invert mark / space** and **Auto shift detect** are hidden for every variant except the three FSK ones, because none of the other modes has a mark/space tone pair or UART-style framing. In their place, **Center audio** becomes a free-entry number field (the signal can sit anywhere in the passband), and Olivia, MFSK, DominoEX, THOR, THROB, Hellschreiber and MT63 each gain a **Mode** selector and — all except Hellschreiber — a **Squelch** slider with its own scale. Packet and APRS hide the same FSK controls and show a **Speed** selector instead; APRS also has a **Show raw packet** checkbox. The **Known frequency** list appears only for the variants that have one. ALE 2G replaces all of these with its own **network** and **channel** lists (see its notes). FST4W and MSK144 have no **Mode** or **Squelch**; they show **T/R period** and **F Tol** instead (MSK144 also **Decode**), and **⟳ Auto-tune Center** is hidden for both, because they search the whole **F Tol** range themselves.
 
 ### Setup
 
 1. Enable the decoder and select **FLDIGI** from the dropdown. Or simply press the **FLDIGI** button.
-2. The decoder panel appears. Its title follows the variant — *FSK / RTTY Decoder*, *PSK31 Decoder*, *Olivia Decoder*, *MFSK Decoder*, *DominoEX Decoder*, *THOR Decoder*, *THROB Decoder*, *Hellschreiber Decoder*, *MT63 Decoder*, *Packet (AX.25) Decoder* or *APRS Decoder*.
+2. The decoder panel appears. Its title follows the variant — *FSK / RTTY Decoder*, *BPSK31 Decoder* (or whichever PSK mode is chosen), *Olivia Decoder*, *Contestia Decoder*, *MFSK Decoder*, *DominoEX Decoder*, *THOR Decoder*, *THROB Decoder*, *Hellschreiber Decoder*, *MT63 Decoder*, *Packet (AX.25) Decoder* or *APRS Decoder*. ALE 2G shows *ALE 2G Decoder*; FST4W names its period, e.g. *FST4W-120 Decoder*; MSK144 shows *MSK144 Decoder*.
 3. Select the **Variant**. The parameters update automatically.
-4. For Olivia, MFSK, DominoEX, THOR, THROB, Hellschreiber and MT63, set **Mode** to match the transmission — see each mode's notes below. For Packet and APRS, set **Speed** — see the Packet and APRS notes below.
+4. For PSK31, Olivia, MFSK, DominoEX, THOR, THROB, Hellschreiber and MT63, set **Mode** to match the transmission — see each mode's notes below. For Packet and APRS, set **Speed** — see the Packet and APRS notes below. For ALE 2G, pick a network and a channel; for FST4W and MSK144, set **T/R period** and **F Tol** — see their notes below.
 5. Where the variant has one, use the **Known frequency** dropdown to select a common frequency, then click **Tune** to jump to it. The other modes have no fixed calling frequencies: find the signal on the waterfall and use **⟳ Auto-tune Center**.
 6. Fine-tune frequency until decoded text becomes stable and readable.
 
@@ -610,7 +630,13 @@ The panel adapts to the variant you choose. **Shift**, **Baud**, **Framing**, **
 - 3580.15 kHz (80m), 7040.15 kHz (40m), 10142.15 kHz (30m), 14070.15 kHz (20m), 18100.15 kHz (17m), 21080.15 kHz (15m), 24920.15 kHz (12m), 28120.15 kHz (10m)
 
 **Olivia**
-- 3577.75 kHz (80m), 7073.75 kHz (40m), 10142.25 kHz (30m), 14075.5 kHz (20m), 18103.75 kHz (17m), 21075.75 kHz (15m), 24921.75 kHz (12m), 28123.75 kHz (10m)
+- 3583 kHz (80m), 7040 kHz (40m), 7072.5 kHz (40m), 10143 kHz (30m), 14072.5 kHz (20m), 14108.5 kHz (20m, 32/1000), 18099 kHz (17m), 21072.5 kHz (15m), 24922.5 kHz (12m), 28122.5 kHz (10m)
+
+**FST4W** (the signal's centre; the USB dial goes 1.5 kHz below it)
+- 137.5 kHz (2200 m, dial 136.000), 475.7 kHz (630 m, dial 474.200), 1838.1 kHz (160 m, WSPR sub-band, dial 1836.600)
+
+**MSK144** (the same: the dial goes 1.5 kHz below)
+- dial 144.360 MHz (2 m, IARU Region 1), 144.150 MHz (2 m, North America), 50.260 and 50.280 MHz (6 m), 70.230 MHz (4 m), 28.145 MHz (10 m)
 
 **MFSK, DominoEX, THOR, THROB, Hellschreiber, MT63**
 - No fixed calling frequencies; the list is not shown. Find the signal on the waterfall.
@@ -635,10 +661,15 @@ The panel adapts to the variant you choose. **Shift**, **Baud**, **Framing**, **
 | Encoding | FSK only | Character set (CCIR-476, ITA2/Baudot, or ASCII) |
 | Invert mark / space | FSK only | Swaps mark and space tones |
 | Auto shift detect | FSK only | Attempts automatic shift measurement from the incoming signal |
-| Mode (tones / Hz) | Olivia only | Number of tones and bandwidth — must match the transmission exactly |
-| Squelch (FEC S/N) | Olivia only | How strong the error-correction match must be before text is printed |
+| Mode | PSK31 only | BPSK31/63/125, QPSK31/63/125 — must match the transmission |
+| Mode (tones / Hz) | Olivia, Contestia only | Number of tones and bandwidth — must match the transmission exactly |
+| Squelch (FEC S/N) | Olivia, Contestia only | How strong the error-correction match must be before text is printed |
+| Browser — all signals | PSK31, Olivia, Contestia | A knob: decodes every signal of the chosen **Mode** (PSK31: every BPSK31 signal) between 300 and 2700 Hz at once, one line each — see the PSK Browser and Olivia notes |
 | Mode | MFSK, DominoEX, THOR, THROB, Hellschreiber, MT63 | The sub-mode (speed, bandwidth, interleave) — must match the transmission |
 | Squelch (FEC metric) | MFSK | The 0–100 decoding quality the signal must reach before text is printed; default 22 |
+| T/R period | FST4W, MSK144 | FST4W: 120, 300, 900 or 1800 s — must match the transmission. MSK144: 15 or 30 s; a message repeated within one period is listed once |
+| F Tol | FST4W, MSK144 | How far either side of **Center audio** the decoder searches: ±50, 100 or 150 Hz for FST4W, ±50 to ±300 Hz for MSK144 |
+| Decode | MSK144 | **Fast**, **Normal** or **Deep** — how thoroughly each block is searched; Deep finds the most and uses the most CPU |
 | Squelch (tone / noise) | DominoEX, THOR | 0–100: the current tone against the floor of the other tone bins; default 25 |
 | Squelch (S/N) | THROB | In dB; default 4 |
 | Squelch (FEC S/N) | MT63 | The Walsh-code match quality; default 4 |
@@ -656,7 +687,11 @@ The status bar shows live measurements, and the fields change with the variant:
 | FSK variants | **Mark / Space** (measured tone frequencies), **SNR**, **Lock**, **Timing** |
 | PSK31 | **Carrier** (Hz, after automatic frequency correction), **IMD** (dB), **SNR**, **Lock**, **Timing** |
 | Olivia | **Centre** (Hz), **Mode**, **S/N**, **FEC** (%), **Sync** |
+| PSK Browser, Olivia Browser | **Signals** (how many lines are on screen) |
 | MFSK16 / 32 / 64 | **Centre** (Hz, after automatic frequency correction), **Mode**, **S/N**, **FEC** (%), **Sync** |
+| ALE 2G | **Dial** (warns when it is not a listed channel), **In sync**, **Events** |
+| FST4W | **Period** (how much of the current period has been recorded), **Search** (Hz), **Decodes** |
+| MSK144 | **Search** (Hz), **Decodes**, **CPU** (the share of real time the decoder needs; above 100 % it falls behind) |
 | DominoEX, THOR, THROB, MT63 | **Centre** (Hz; THROB and MT63 after automatic frequency correction), **Mode**, **S/N**, **Quality** (%), **Sync** |
 | Hellschreiber | **Centre**, **Mode**, **Audio** (input level, dBFS) |
 | Packet and APRS | **Tones** (Hz), **DCD** (lit while a packet is on the air), **Frames** (packets decoded), **Stations** (different callsigns heard), **Audio** (input level, dBFS) |
@@ -669,25 +704,52 @@ Amateur RTTY (45.45 baud, 170 Hz) copies without errors down to about 0 dB, with
 
 ### Additional controls
 
-- **⇒ Set IF Band-Pass** — narrows the receiver passband to tightly bracket the signal. The width follows the variant: 300 Hz for Amateur RTTY (narrow enough to remove a stronger station 250 Hz away, while still copying a signal tuned 40 Hz off), 594 Hz for Weather RTTY, mark/space plus margin for Maritime FSK, about ±100 Hz for PSK31, the full tone-block width plus margin for Olivia, about ±400 Hz for 300 Bd packet, and the ordinary FM channel for 1200 Bd packet. The passband follows the decoder when **Auto-tune** or **Auto shift detect** moves the tones, and when you change the **Baud** setting. MFSK, DominoEX, THOR, THROB, Hellschreiber and MT63 get their full width plus a margin (at least 60 Hz either side, 15 % of the width for the wide modes).
-- **⟳ Auto-tune Center** — automatic search for the signal. For the FSK variants it looks for a balanced pair of tones; for PSK31 it finds the carrier; for Olivia it finds the strongest block of the selected bandwidth; for 300 Bd packet it finds the strongest pair of tones 200 Hz apart. The button is hidden for 1200 Bd packet, where the tones are fixed. **Auto shift detect** only changes the shift when a real two-tone signal is present, so it no longer jumps on noise. MFSK, DominoEX, THOR, THROB, Hellschreiber and MT63 are searched the same way as Olivia, over their own width.
+- **⇒ Set IF Band-Pass** — narrows the receiver passband to tightly bracket the signal. The width follows the variant: 300 Hz for Amateur RTTY (narrow enough to remove a stronger station 250 Hz away, while still copying a signal tuned 40 Hz off), 594 Hz for Weather RTTY, mark/space plus margin for Maritime FSK, about ±100 Hz for PSK31 (±200 Hz PSK63, ±400 Hz PSK125), the full tone-block width plus margin for Olivia, about ±400 Hz for 300 Bd packet, and the ordinary FM channel for 1200 Bd packet. The passband follows the decoder when **Auto-tune** or **Auto shift detect** moves the tones, and when you change the **Baud** setting. MFSK, DominoEX, THOR, THROB, Hellschreiber and MT63 get their full width plus a margin (at least 60 Hz either side, 15 % of the width for the wide modes). ALE 2G gets 500–2750 Hz (mirrored below the dial on an LSB network), FST4W its **F Tol** range plus 150 Hz either side, MSK144 ±1.1 kHz plus **F Tol**.
+- **⟳ Auto-tune Center** — automatic search for the signal. For the FSK variants it looks for a balanced pair of tones; for PSK31 it finds the carrier; for Olivia it finds the strongest block of the selected bandwidth; for 300 Bd packet it finds the strongest pair of tones 200 Hz apart. The button is hidden for 1200 Bd packet, where the tones are fixed. **Auto shift detect** only changes the shift when a real two-tone signal is present, so it no longer jumps on noise. MFSK, DominoEX, THOR, THROB, Hellschreiber and MT63 are searched the same way as Olivia, over their own width. The button is hidden for ALE 2G, FST4W and MSK144.
+
+### ALE 2G notes
+
+ALE (MIL-STD-188-141, second generation) is how government, military, aid-agency and amateur HF networks find a working frequency: the stations scan a set of channels, send short *soundings* to say they are there, and call each other with a few seconds of an 8-tone signal (125 Bd, 750–2500 Hz).
+
+1. Choose **ALE 2G**, the entry just before Packet in **Variant**. In place of the usual settings the panel shows a **network** list and a **channel** list.
+2. Pick a network and one of its channels, then click **⇒ Tune & Set IF**. The listed frequency is the dial; the receiver goes to USB, or LSB for the few networks marked so, with a 500–2750 Hz filter.
+3. Wait. Soundings come every half hour or hour, and calls only when a link is needed, so a channel can stay quiet for a long time.
+
+- **Ham (HFLINK)** lists all 31 amateur ALE channels of the HFLINK channel plan, from 475.5 kHz to 144.1625 MHz; 14109 and 7102 kHz are among the main HFLINK sounding and texting channels. The other 51 networks (Govt, Milcom, Utility, and MARS under Amateur) come from KiwiSDR's ALE list. They are public lists and may be out of date.
+- Each event shows the time, the frequency, its kind (sounding, call, call acknowledged, link established, message), the **from** and **to** addresses, and any commands or text (AMD and DTM messages). Identical repeats are merged into one line with ×N, and **💾 Save** writes the events to a text file.
+- **In sync** counts how many of the 17 decoders, each on its own frequency offset, are reading ALE words at that moment. A signal up to about ±1 kHz off is still found.
 
 ### PSK31 notes
 
 PSK31 is the most common keyboard-to-keyboard mode on HF. It is only 62 Hz wide, so several QSOs sit side by side within a few hundred hertz of the watering-hole frequency, and tuning is a matter of picking one trace out of the group on the waterfall.
 
-- The decoder corrects its own tuning error automatically over roughly **±25 Hz**, so you only need to get close. **Carrier** in the metrics row shows where it actually settled.
+- The decoder corrects its own tuning error automatically over roughly **±25 Hz** (±50 Hz PSK63, ±100 Hz PSK125), so you only need to get close. **Carrier** in the metrics row shows where it actually settled.
 - **IMD** measures transmitter quality, not reception: a clean signal reads about −20 dB or better. A poor reading means the other station is overdriving, not that you are mistuned.
 - Text appears character by character with no error correction, so a weak signal degrades into occasional wrong letters rather than stopping.
+- **PSK63 and PSK125** are the same mode two and four times faster, and as many times wider; **QPSK31/63/125** add error correction (a Viterbi decoder), which repairs short bursts of noise at about the same signal level. Pick the sub-mode in **Mode** — the wrong one prints nothing. Most PSK activity is still BPSK31; PSK63 is common in contests.
+- **PSK Browser (BPSK31).** The **Browser — all signals** knob under **Mode** decodes every BPSK31 signal between 300 and 2700 Hz at once, as fldigi's signal browser does: one line per signal (up to 16), with its frequency, its lock quality and the latest text. Signals are found by themselves within a few seconds, and one that stays silent for 30 s is dropped. Click a line to decode only that signal, as ordinary BPSK31 on its carrier. While it runs, **Mode** shows BPSK31 and is locked; switched off, the window goes back to the Mode you had. The passband opens to 200–2800 Hz while browsing. Each line keeps its last 4000 characters in a box about six lines tall, with its own scroll bar once it holds more than six lines (the mouse wheel works too); the box holds still while you read. **Save Text** writes every line, also the ones already dropped. While a browser runs, the settings of the single decoder (Center audio, ⟳ Auto-tune Center and its readouts) are hidden.
 
 ### Olivia notes
 
 Olivia trades speed for robustness. It is far slower than PSK31 but decodes signals that are inaudible by ear, which makes it popular for weak-signal and long-distance contacts.
 
 - **The Mode setting must match the transmission exactly.** A wrong tones/bandwidth combination decodes nothing at all — not garbled text, but silence. The panel opens on **8 / 250**, the narrow configuration left running on the calling frequencies; **16 / 500** and **32 / 1000** are the other two in common use, and **16 / 1000** is also offered.
+- **Contestia** is Olivia with a smaller error-correction block: about twice as fast, upper case only, and a little less robust. Its configurations are in the same **Mode** list, under *Contestia* (8 / 250 is the usual one, 4 / 125 and 4 / 250 for weak paths); the panel title changes to *Contestia Decoder*. An Olivia setting never decodes Contestia, nor the other way round.
+- **Olivia Browser.** Switch on the **Browser — all signals** knob under **Mode** to decode every Olivia (or Contestia) signal of that configuration between 300 and 2700 Hz at once, one line each, in the same way as PSK Browser; click a line to decode only that signal. It works one configuration at a time: on **8 / 250** it does not see 16 / 500 stations. Because Olivia is used below the noise, it does not look for signals by their strength: the passband is covered by about a dozen decoders side by side (about 5 % of one processor core), so a station appears once its first characters are decoded, a few seconds after it starts. Within one bandwidth only the strongest copy is shown, and a line appears only once it holds a few characters of real text.
 - Olivia sends no preamble, so the decoder has to search for synchronisation. **Allow a few seconds** after tuning before text appears. The **Sync** field shows `SEARCH` until it locks.
 - The error correction works on blocks, so text arrives in **bursts rather than a steady stream**, and there is a delay of several blocks between transmission and display.
 - **Squelch (FEC S/N)** sets how confident the error correction must be before printing. The default of 4.0 keeps noise out; 3.0 is the floor, below which random noise starts printing occasional characters. A good signal reads 8–9 on the **FEC** meter, so there is plenty of room to raise the squelch on a busy band.
+- When a transmission ends, the text simply stops. Each block is also checked on its own, so the few blocks the squelch still lets through while it settles no longer print a burst of random characters.
+
+### FST4W notes
+
+FST4W is the WSJT-X beacon mode for the low bands, where it follows WSPR: four tones carrying a callsign, a locator and a power, sent once per T/R period of 2, 5, 15 or 30 minutes. The longer the period, the weaker the signal it decodes: about −31 dB SNR (in 2.5 kHz) for FST4W-120, and real 30-minute signals near −44 dB.
+
+- **It decodes once per period, after the period ends.** Periods start on the UTC clock — FST4W-120 at every even minute, FST4W-1800 on the hour and the half hour — and the **Period** bar shows how much of the current one has been recorded. A period joined part-way through is skipped, because half a message cannot be decoded; the next one is recorded whole. Decoding a 30-minute period takes a few seconds.
+- **Pick the right T/R period.** The decoder looks only at the one you choose. Most LF/MF beacons use FST4W-120; FST4W-300, -900 and -1800 are for the weakest paths.
+- **F Tol** sets how far either side of **Center audio** (1500 Hz) it searches. WSJT-X's default of ±100 Hz covers the beacon sub-bands; ±150 Hz is the most the passband allows.
+- Each line shows UTC, SNR (dB), DT (the time offset, s), the frequency (MHz) and the message, as in WSJT-X, and **Save Text** writes them in the same style.
+- The computer's clock must be right to about a second, as for WSPR.
 
 ### MFSK16 / MFSK32 / MFSK64 notes
 
@@ -698,6 +760,15 @@ MFSK16, MFSK32 and MFSK64 are the IZ8BLY modes as sent by fldigi: 16 tones, one 
 - Text lags the signal by a couple of seconds, the time the interleaver and the error correction need. One or two stray characters at the very start of a transmission are normal; fldigi shows them too.
 - **Squelch (FEC metric)** holds printing back until the decoding quality reaches the setting. The default of 22 keeps noise out (noise alone reaches about 20); a good signal reads 90 % or more on the **FEC** meter, and 0 turns the squelch off. When a transmission ends with fldigi's end-of-transmission mark, printing stops at once instead of letting a few seconds of noise through.
 - MFSK picture transfers are not decoded.
+
+### MSK144 notes
+
+MSK144 is the WSJT-X mode for meteor scatter: signals reflected for a fraction of a second by the ionised trails of meteors, mostly on 6 m and 2 m. Each station repeats its message without a break all through its 15- or 30-second period, 72 ms per message, so a ping of a tenth of a second can carry it.
+
+- **Expect long gaps.** On a quiet band nothing appears for minutes. During the big showers (Quadrantids, Perseids, Geminids) and in the early morning there are many more pings.
+- Each line shows UTC (to the second), SNR (dB), T (when the ping came in its period, s), the frequency (MHz) and the message. A message heard again in the same T/R period is listed once, unless the new copy is stronger. Weak copies of the same message are averaged, as in WSJT-X.
+- **F Tol** sets how far either side of 1500 Hz the decoder searches; stations are seldom exactly on frequency, so ±100 Hz is a good start. **Decode** sets how hard each block is searched, and **Deep** finds the most. **CPU** in the metrics row shows the load: above 100 % the decoder falls behind, so choose **Normal** or **Fast** on a slow computer.
+- The 40-bit short messages (Sh) are not decoded: they need both stations' callsigns, which a listener does not know.
 
 ### DominoEX and THOR notes
 
@@ -830,25 +901,60 @@ Because Force skips every safety check, it will happily paint noise if you press
 
 ---
 
-## 12. HFDL
+## 12. SERVICES
+
+**SERVICES** (the button used to be called **HFDL**) is one window for the utility services. The **Service** list at the top left of the window chooses what it decodes: **HFDL** (aircraft), **DSC** (ships), **Time Signals** and **HF Selcall**. Your browser remembers the choice. One service runs at a time; each sets the mode and filter it needs, has its own frequency list with **⇒ Tune & Set IF**, and decodes in your browser, so it costs the receiver nothing. Every service has **💾 Save** (a text file) and **Clear**, and the Users window shows which service a listener is running. ALE 2G, which also links HF stations, is in the FLDIGI window (chapter 10).
+
+### HFDL — aircraft messages
 
 HFDL (HF Data Link) carries the messages that aircraft over oceans and remote areas exchange with ground stations on shortwave: position reports, ACARS text, logons and frequency data. The decoder is dumphfdl (Tomasz Lemiech, GPL-3) compiled to WebAssembly. It runs in your browser on the USB audio, so it costs the receiver nothing.
 
-### Setup
+#### Setup
 
-1. Press **HFDL** (or pick it in the dropdown). The receiver switches to USB with a 150–2750 Hz filter.
+1. Press **SERVICES** and choose **HFDL** in the **Service** list. The receiver switches to USB with a 150–2750 Hz filter.
 2. Pick a **ground station** and one of its frequencies, then click **⇒ Tune & Set IF**. The listed frequency is the USB dial; the HFDL signal sits 1440 Hz above it.
 3. Wait. Ground stations send a squitter every 32 s, and aircraft answer when they have traffic. The decoder finds the exact audio rate (±1 %) and a frequency offset (±240 Hz) by itself and locks on the first frame it decodes.
 
-### Frequencies
+#### Frequencies
 
 The station list covers every HFDL ground station. Heard well from Europe in daytime: 17967 kHz (Al Muharraq, Bahrain) and 21955 kHz (Canarias); in the evening and at night the lower frequencies of Shannon, Reykjavik and Canarias take over. HFDL frequency markers start the decoder when you click them.
 
-### Reading the output
+#### Reading the output
 
 Each line shows the time (UTC), the frequency, the direction (▼ ground→air or ▲ air→ground), the ground station, the aircraft — registration, flight and 24-bit ICAO address, each a link to FlightAware — the message type, its SNR and bit rate, and 📍 a position when the message carries one. ACARS text appears underneath. Hover over a line to see the whole frame. Tick **Squitters** to see the ground stations' announcements as well.
 
 **🗺 Map** shows the aircraft that reported a position, inside the panel; **⤢ Large map** opens the same map in a window you can move and resize. Each aircraft points along its track and leaves a red trail. **💾 Save** writes the messages to a text file, **Clear** empties the list.
+
+### DSC — Digital Selective Calling
+
+DSC is the digital calling system of the GMDSS: ships and coast stations call each other, test their equipment and send distress, urgency and safety alerts on fixed MF/HF channels. A call lasts a few seconds (100 Bd, two tones 170 Hz apart).
+
+1. Choose **DSC** in the **Service** list and pick a frequency. The **distress & safety** channels (2187.5, 4207.5, 6312, 8414.5, 12577 and 16804.5 kHz) are watched by every coast station and are the busiest; the coast→ship and ship→coast calling channels follow in the list.
+2. Click **⇒ Tune & Set IF**. The dial goes 1.7 kHz below the DSC frequency, in USB, with a 1400–2000 Hz filter.
+3. Wait. Coast stations answer and test many times an hour; by day 8414.5 and 12577 kHz are usually the busiest, at night 2187.5, 4207.5 and 6312 kHz.
+
+Each call shows the time, the frequency, its category in colour (**DISTRESS** red, **URGENCY** orange, **SAFETY** yellow, **ROUTINE** blue), the format and its fields: who calls whom (an MMSI with its country, or a coast station), the commands, the working frequency, and for a distress alert its nature, position (📍, a link to a map) and time. ✓ means the error-check character agrees; *✓ (1 rebuilt)* means one character was lost in both copies and rebuilt from it. **Offset** shows the tuning error and **S/N** the signal-to-noise ratio.
+
+### Time Signals
+
+Decodes the date and time sent by the long-wave and shortwave time stations, and shows how late the minute mark reached your page.
+
+1. Choose **Time Signals** in the **Service** list, pick the station and its frequency, and click **⇒ Tune & Set IF**. The dial goes 1 kHz below the carrier, in USB, with a 700–1300 Hz filter.
+2. Wait. A whole minute has to come in clean before the time can be shown: one to two minutes on a good signal. The seconds fill a row of 60 cells as they arrive.
+
+- **DCF77** (Germany, 77.5 kHz) and **MSF** (England, 60 kHz) are read from the carrier's on/off keying: date, time and summer time.
+- **WWV / WWVH** (USA, 2.5 to 25 MHz) are read from the 100 Hz subcarrier: date, time and DUT1.
+- **RWM** (Russia, 4996, 9996 and 14996 kHz) sends no date: only the minute mark and DUT1, so it gives timing only.
+- CHU (Canada) closed on 22 June 2026 and is not offered.
+
+The panel shows UTC and the date; the time as the transmitter sends it (*sent as*, its own civil time); the **Station time**, which is UTC in the receiver's own time zone, worked out from the station's QTH locator, with summer time applied by your browser; DUT1 and any warnings; and **Arrived**, how late the minute mark reached the page against your computer's clock. That figure includes the WebSDR's own delay (a few tenths of a second) and your clock's error. When fading spoils every single minute, the decoder combines several minutes and accepts a time only when it fits them clearly better than any other.
+
+### HF Selcall
+
+Selcall (CCIR 493-4) is the selective calling of HF land-mobile and maritime networks — Codan, Barrett and others: a burst of a second or two that rings one radio, or a group, by its number. It uses the same signal and characters as DSC.
+
+1. Choose **HF Selcall** in the **Service** list, pick a channel (the 7 and 8 MHz channels of KiwiSDR's list) and click **⇒ Tune & Set IF**. The channel is the FSK centre; the dial goes 1.7 kHz below it, in USB.
+2. Each call shows the calling and the called station's numbers (4 or 6 digits), the type of call, and any commands and data; a Codan GPS position is shown as its raw digits. Stations differ in which tone they send as mark, so both polarities are read.
 
 ---
 

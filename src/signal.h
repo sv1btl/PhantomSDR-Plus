@@ -220,7 +220,33 @@ class AudioClient : public Client,
     // constructor and set_am_stereo() stay in sync.  Falls back to FLAC if Opus
     // is requested but not compiled in.
     std::unique_ptr<AudioEncoder> make_audio_encoder(audio_compressor codec,
-                                                     int channels);
+                                                     int channels,
+                                                     int scale = 1);
+
+    // ── Wide IQ (24 / 48 kHz) ────────────────────────────────────────────
+    // A listener in IQ may ask for 2x or 4x the 12 kHz stream. Its scratch
+    // and IFFT plan are made on first use for that scale and kept until the
+    // client goes, so the FFT worker never sees them freed under it.
+    struct WideIq {
+        int n = 0;   // IFFT size: audio_fft_size x scale
+        std::unique_ptr<std::complex<float>[], ComplexDeleter> input, bb, bb_prev;
+        std::vector<int32_t, AlignedAllocator<int32_t>> out16;
+        fftwf_plan plan = nullptr;
+    };
+    WideIq wide_[IQ_MAX_SCALE + 1];
+    // Scale in effect (1 = 12 kHz) and the one the listener asked for. Both
+    // change under encoder_mtx_, which the wide path holds while it runs.
+    std::atomic<int> iq_scale{1};
+    int iq_wanted = 1;
+    bool iq_busy = false;
+    bool holds_wide_slot = false;
+    void prepare_wide(int scale);
+    void apply_iq_scale_locked(int want);   // caller holds encoder_mtx_
+    void release_wide_locked();             // back to 12 kHz, slot freed
+    void send_wide_iq(std::complex<float> *buf, size_t frame_num, int scale);
+    // The listener IQ level control and int16 packing, shared by 12 kHz and wide.
+    void iq_level_pack(std::complex<float> *bb, int n, std::complex<float> *buf,
+                       int len, int32_t *out16);
 
   public:
 
@@ -301,6 +327,9 @@ class AudioClient : public Client,
     // admin panel's loopback /~~users only.
     void on_diversity_message(std::string &type, std::string &host) override;
     std::string get_diversity();
+    void on_iq_width_message(int khz) override;
+    // Widest window (in bins) this client may set: wider while wide IQ is on offer.
+    int max_window_bins() const;
 
   protected:
     // User requested demodulation mode.

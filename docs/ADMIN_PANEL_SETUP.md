@@ -894,6 +894,10 @@ Each event has its own tick box. The same alert is sent at most once per 5 minut
 
 **✎ CHANGE SETTINGS on the main receiver and on a direct-sampling one** (RX888, Fobos HF — it covers 0 Hz to half its sample rate and has nothing to tune): the form has the name on its button, the start frequency, the mode and the gain. The start frequency and mode go into its `.toml`, the name into `receivers.toml`, and the old files into `admin-backups/settings-<name>-<date>/`. **✔ APPLY** restarts that receiver only when the start frequency, the mode or the gain changed; restarting the main receiver restarts RADE and DRM with it. The main receiver's band itself is changed with `bash configure-station.sh`: its page carries its band from the build, so it needs a page rebuild, and the wizard restarts the services with sudo. On a single-receiver station without `receivers.toml` there is no picker button, so there is no name to set.
 
+**AT VOLUME (0 – 100 %)**, in both forms, is the volume slider position a first-time listener starts at; it goes into the receiver's `.toml` as `volume` under `[input.defaults]`. Left empty, the line is removed and the page starts at 50 %. A listener who has moved the slider once keeps their own setting on later visits. A changed volume restarts that receiver, like a changed start frequency.
+
+**IQ FOR LISTENERS**, **WIDE IQ** and **WIDE IQ LISTENERS AT ONCE**, in both forms, are the receiver's IQ settings: `iq`, `iq_wide` and `iq_wide_listeners` under `[server]` in its `.toml` (see the wider IQ section of the User Guide). *off* hides the IQ button from listeners. Wide IQ offers 24 or 48 kHz besides the 12 kHz everyone gets, to as many listeners at once as the last field says (`0` = no limit). Only a setting you change is written, and an example line such as `# iq_wide=48` becomes the real line. The server reads these settings only when it starts, so a changed IQ setting restarts that receiver.
+
 On every receiver, changing only the name restarts nothing.
 
 **Gain.** For an RX888 the form has the VGA gain (0–127), the gain mode (low/high), the attenuation (0–63) and **PGA on**; for an RTL-SDR the RF gain from the steps the tuner supports, or *auto* (the stick's own AGC). They are written into the receiver's argument line — `RX888_ARGS` or `RX_ARGS` — in `instances/<name>/instance.env` for an extra receiver, and in `main.env` for the main one. `main.env` is the main receiver's `instance.env`: every start script reads it last, it is not in git and `update.sh` never replaces it. The gain cannot live in `station.conf`, because `configure-station.sh` rewrites that file. Without `main.env` the start script keeps its built-in gain (`-g 50 -a 0 -m low --pga` for the RX888). Other receiver types keep their gain in the same argument line; change it there by hand.
@@ -981,7 +985,7 @@ All themes use the same fonts and sizes; only colours and finish change. *On air
 | `POST /admin/api/https/check` | Run `setup-https.sh --status` |
 | `POST /admin/api/https/precheck` | The checks before turning https on, and the commands to run |
 | `GET /admin/api/receivers-info` | Every receiver with its range, bandwidth and state |
-| `POST /admin/api/receivers-info/retune` | Change a receiver's settings (frequency, bandwidth, start frequency, mode, gain, button name) and restart it when needed |
+| `POST /admin/api/receivers-info/retune` | Change a receiver's settings (frequency, bandwidth, start frequency, mode, start volume, gain, button name) and restart it when needed |
 | `POST /admin/api/receivers-info/rename` | The name on a receiver's button (`{"id", "name"}`); nothing restarts |
 | `POST /admin/api/receivers-info/power` | Stop or start one receiver (`{"id", "action": "stop"}` or `"start"`) |
 | `POST /admin/api/receivers-info/delete` | Remove an extra receiver (`{"id", "confirm": <id>, "keep_copy"}`) |

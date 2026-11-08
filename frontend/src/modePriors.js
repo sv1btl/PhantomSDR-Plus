@@ -96,7 +96,7 @@ const PLAN = {
   },
   // ITU DSC calling channels. Same modulation as NAVTEX, different channels —
   // which is the whole reason this entry exists.
-  dsc: {
+  'services:dsc': {
     strict: true,
     ranges: [
       [2186.5, 2188.5], [4206.5, 4208.5], [6311, 6313], [8413.5, 8415.5],
@@ -115,10 +115,7 @@ const ON_PLAN_BOOST = 0.35;   // multiplicative, on top of the measured score
 const OFF_PLAN_CUT = 0.70;    // only for `strict` modes, never to zero
 
 function planKey(c) {
-  if (!c.key) {
-    // Candidates with no decoder are identified by label instead.
-    return c.label && c.label.startsWith('DSC') ? 'dsc' : '';
-  }
+  if (!c.key) return '';
   return c.variant ? `${c.key}:${c.variant}` : c.key;
 }
 

@@ -747,6 +747,7 @@ format = "u8"                    # Sample format for RTL-SDR
 [input.defaults]
 frequency = 145500000            # Default tuning frequency
 modulation = "FM"                # Default modulation mode
+volume = 50                      # Start volume of a first-time listener, 0-100 (optional)
 ```
 
 #### Repères pour le taux d'échantillonnage
@@ -775,7 +776,7 @@ Modifiez les champs suivants :
   "siteCity": "Your City, Country",
   "siteInformation": "https://github.com/sv1btl/PhantomSDR-Plus",
   "siteHardware": "Computer specifications",
-  "siteSoftware": "PhantomSDR-Plus v5.4.0",
+  "siteSoftware": "PhantomSDR-Plus v5.5.0",
   "siteReceiver": "Your SDR model",
   "siteAntenna": "Antenna description",
   "siteNote": "Additional information",
@@ -1604,7 +1605,7 @@ Les sauvegardes antérieures au 23 septembre 2026 se trouvent dans le dossier ca
 ./update.sh --apply --yes     # ne demande jamais rien ; tout fichier modifié est CONSERVÉ
 ./update.sh --check           # rapport seul, jamais de question — pour cron (10 = mise à jour en attente)
 ./update.sh --from FILE|DIR   # la nouvelle version depuis un .zip/.tar.gz ou un dossier — sans réseau
-./update.sh --ref v5.4.0      # une étiquette, une branche ou un commit précis
+./update.sh --ref v5.5.0      # une étiquette, une branche ou un commit précis
 ./update.sh --list-excludes   # affiche les règles « ne pas toucher » telles qu'appliquées ici
 ./update.sh --verbose         # liste tous les fichiers, pas seulement les 40 premiers
 ```

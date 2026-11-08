@@ -267,7 +267,7 @@ Wählen Sie die zum Signal passende Betriebsart:
 
 ### Lautstärke einstellen
 
-- **Regler auf dem Bildschirm**: Lautstärkeregler ziehen
+- **Regler auf dem Bildschirm**: Lautstärkeregler ziehen. 0 % ist Stille; unter 50 % sinkt der Pegel gleichmäßig in feinen Schritten, ab 50 % ist jeder Schritt 0,4 dB. Die Seite merkt sich, wo Sie den Regler gelassen haben, auf der Desktop-Seite und auf /mobile; beim ersten Besuch beginnt er dort, wo der Sysop ihn eingestellt hat (50 %, sofern nicht anders eingestellt).
 - **Browser-Lautstärke**: Mediensteuerung des Browsers verwenden
 - **Systemlautstärke**: Lautstärke des Computers anpassen
 - **Tastatur**: Tasten + und - verwenden (sofern unterstützt)
@@ -286,6 +286,12 @@ Das S-Meter zeigt die Signalstärke:
 **Das Skalenbild wechseln**: Klicken Sie beim analogen Instrument (Zeiger) auf das Instrument selbst — oder wählen Sie es an und drücken Sie Enter oder die Leertaste —, um drei Hintergründe durchzuschalten: dunkles gebürstetes Metall, ein helles blassgraues Zifferblatt und ein warmes Bernstein-Zifferblatt im Vintage-Stil. Ihr Browser merkt sich die Wahl, sie ist also nach einem Neuladen oder Neustart noch da. Sie gilt pro Browser und pro Adresse: Der Aufruf des Empfängers über den Hostnamen und über die IP ergibt zwei getrennte Einstellungen, und ein privates Fenster startet immer mit der Standardeinstellung der Seite.
 
 **Oberhalb von 30 MHz** folgt das S-Meter dem VHF-Standard der IARU Region 1: S9 liegt dort bei −93 dBm statt −73 dBm auf Kurzwelle, weiterhin sechs dB je S-Stufe. Zeiger und Balken stellen sich mit der eingestellten Frequenz von selbst um; die Werte in dBm und dBµV zeigen immer den gemessenen Pegel. Manche Stationen stellen ihre VHF/UHF-Empfänger außerdem so ein, dass die Instrumente **auf einem leeren Kanal auf 0 ruhen**, wie bei einem VHF/UHF-Funkgerät: Oberhalb von 60 MHz schlagen Zeiger und Balken dann erst aus, wenn ein Signal aus dem Rauschen heraustritt. Die Werte in dBm, dBµV, SNR und NF zeigen immer die echten Werte.
+
+### Feldstärke-Verlauf
+
+**Video** unter **Recording Options** zeichnet Spektrum und Wasserfall zusammen mit dem Ton auf (**Area** wählt einen Ausschnitt davon). Ein Balken unten im Bild zeigt Frequenz, Betriebsart und Uhrzeit, und die eingestellte Frequenz ist mit denselben gelben Linien markiert wie der Abstimmbalken auf dem Bildschirm: gepunktete gelbe Linien auf der Frequenz und an den Rändern des Durchlassbereichs sowie die Klammer oben über dem Wasserfall.
+
+Unter **Recording Options** zeichnet die Schaltfläche **Plotter** neben Audio, Video und Area die Anzeige des S-Meters als laufende Kurve — praktisch, um Fading zu beobachten, zwei Antennen oder Sender zu vergleichen oder zu sehen, wann ein Band aufgeht. Jeder Klick schaltet **Off → Fast → Medium → Slow**: die Kurve zeigt die letzten 10, 30 oder 60 Sekunden, der neueste Wert rechts, und Ihr Browser merkt sich die Wahl. Sie zeigt denselben dBm-Wert wie das digitale S-Meter, 20-mal pro Sekunde; die linke Skala in S-Stufen (über 30 MHz die VHF-Skala), die rechte in dBm, und der Bereich folgt dem Signal von selbst. Die obere Zeile zeigt den aktuellen Wert und das Maximum (**pk**) des gezeigten Zeitraums, das auch als rote gestrichelte Linie erscheint; eine gelbe Linie mit der neuen Frequenz markiert jedes Umstimmen. Oben rechts hält **❚❚** die Kurve an (**▶** setzt fort), und **PNG** speichert sie als Bild, `PhantomSDR_signal_<UTC>_<kHz>kHz.png`. Ausgeschaltet kostet sie nichts.
 
 ### Einen Empfänger wählen
 
@@ -407,6 +413,10 @@ Wie bei einem WebSDR wird keinem Hörer die IP-Adresse eines anderen gezeigt —
 
 Das Fenster Users zeigt außerdem, welchen Decoder jeder Hörer gerade nutzt — FT8, CW, DRM, HFDL usw. — als kleine grüne Marke hinter der Betriebsart, und die Nutzerstatistik hat ein Feld **Decoder Popularity**: wie viele Sitzungen welchen Decoder benutzt haben. Im Users-Fenster, das von der Empfängerseite aus geöffnet wurde, stellt **Tune** neben einem Hörer Sie auf das ein, was er hört: dieselbe Frequenz und Betriebsart, seine Filterbandbreite und seinen Decoder — für Sie gestartet, oder Ihrer gestoppt, wenn er keinen verwendet. Danach wird das Band gerahmt wie mit **To Band**: Der Wasserfall zeigt das ganze Band, in dem er sich befindet, mit Helligkeit, Kontrast und Abstimmschritt dieses Bandes.
 
+### Ausbreitung auf den Bändern
+
+Unter **Open Additional Info**, neben *Current band propagation and statistics:*, öffnet die Schaltfläche **🌐 Propagation** eine Seite mit den Bandbedingungen für den Standort dieses Empfängers. Sie bewertet jedes Band von 160 m bis 6 m als Good, Fair, Poor oder Closed, für fünf Entfernungen (bis 300 km, 300–1000 km, 1000–2000 km, 2000–3000 km und DX über 3000 km). Die Bewertung stützt sich auf die aktuellen Messungen der nächstgelegenen Ionosonden (foF2 und MUF), den Sonnenstand und die Sonnen- und Erdmagnetfelddaten (Solarflux, Kp, Röntgenstrahlung, Sonnenwind). Die Karte ist ein Globus mit der Station in der Mitte: Ziehen dreht ihn, Ziehen mit der rechten Maustaste (oder Strg + Ziehen) neigt ihn, und **2D / 3D** wechselt zu einer flachen Karte. Seine **Band-Reichweite**-Ringe zeigen für jedes offene Band einen gestrichelten Ring, wo seine tote Zone endet, und einen durchgezogenen Ring bei seiner größten Reichweite; die Legende unter der Karte nennt die Spanne jedes Bandes, und ein Klick auf ein Band zeigt nur dessen offenen Bereich, abgestuft nach Good / Fair / Poor. Der Globus zeigt außerdem die MUF- und foF2-Linien, Tag und Nacht mit der Greyline und jede gerade meldende Ionosonde weltweit — hell die hier verwendeten. Die Ebenenschalter in seiner Ecke schalten jedes davon ein und aus. Die Ringe folgen der Ionosphäre Richtung für Richtung — wo der Weg reflektiert wird, die Sonne dort, das Polarlichtoval —, daher reicht ein Band meist in eine Richtung weiter als in eine andere; die Tabelle oben ist der Blick senkrecht nach oben. Der Globus braucht einen Browser mit WebGL2. Die Seite aktualisiert sich alle 10 Minuten. Sie ist eine Schätzung für Verbindungen von diesem Empfänger aus, keine Aufzeichnung dessen, was gerade gehört wird.
+
 ### Chat
 
 Hat der Betreiber den Chat aktiviert, hat er auf der Desktop-Seite einen eigenen Bereich und auf /mobile einen Reiter **Chat**. Schreiben Sie Ihre Nachricht und senden Sie sie: Sie geht unter dem Namen aus Ihrem Namensfeld hinaus (siehe oben) oder als *anonymous* mit einer Zahl.
@@ -419,14 +429,11 @@ Eine Frequenz in einer Nachricht ist ein Link: Ein Klick stimmt dorthin ab, in d
 
 Vergrößert die Wasserfallanzeige:
 
-- **1x**: Normalansicht (breite Abdeckung)
-- **2x**: 2-fache Vergrößerung
-- **4x**: 4-fache Vergrößerung
-- **8x**: 8-fache Vergrößerung
+Der **Zoom**-Regler hat 20 Stufen, angezeigt als ×1 bis ×20 (die Stufe, keine Vergrößerung). ×1 zeigt den ganzen Empfänger; jede Stufe verengt die Ansicht um die Abstimmung um denselben Faktor, sodass der Zoom gleichmäßig wächst, bis auf wenige kHz bei ×20. Die Schaltfläche neben dem Regler geht mit jedem Klick eine Stufe weiter und nach ×20 zurück auf ×1.
 
 **Verwenden, wenn**: Sie Signale deutlicher sehen oder genauer abstimmen möchten.
 
-**To Band** zeigt das ganze Band der eingestellten Frequenz, mit 10 kHz Rand an jeder Seite.
+**To Band** zeigt das ganze Band der eingestellten Frequenz, mit 5 kHz Rand an jeder Seite.
 
 ### Auto Adj. (Wasserfall)
 
@@ -629,14 +636,25 @@ Auch für KiwiSDR oder UberSDR geschriebene Links funktionieren: `modulation=CWU
 - die Station entscheidet: Die Taste erscheint nur, wo `[server] iq` eingeschaltet ist (die Voreinstellung)
 
 **Bewährte Praxis:**
-- den gewünschten Sender in die Mitte legen — die Aufnahme umfasst ±6 kHz um die Abstimmung
+- den gewünschten Sender in die Mitte legen — die Aufnahme umfasst ±6 kHz um die Abstimmung (±12 oder ±24 kHz bei breiterem IQ, siehe unten)
 - um einen Sender zu hören, ist eine normale Betriebsart einfacher; IQ ist für Aufnahmen, für andere Software und um mehrere Sender zugleich zu hören (unten)
+
+#### Breiteres IQ: 24 und 48 kHz
+
+Wo die Station es anbietet, hat das Feld IQ Demodulators die Auswahl **Width: 12 kHz · 24 kHz · 48 kHz**. 24 kHz erfasst die breiten DRM-Modi oder einen Sender mit seinen beiden Nachbarn, 48 kHz eine ganze Gruppe von Rundfunksendern oder einen CW-/Digital-Bereich. Der Durchlassbereich im Wasserfall und das Bild im Feld folgen der Breite, eine Aufnahme wird in dieser Breite gemacht (eine WAV mit 24 oder 48 kHz), und Ihr Browser merkt sich die Wahl. Ein breiteres IQ kostet die Station mehr Upload — etwa 0,7 Mbit/s pro Hörer bei 24 kHz und 1,4 Mbit/s bei 48 kHz, gegenüber 0,35 bei 12 kHz —, deshalb legt die Station fest, wie viele Hörer es gleichzeitig nutzen dürfen; sind alle Plätze belegt, bleiben Sie bei 12 kHz (das Feld sagt es), und die Seite fragt alle 30 Sekunden erneut. Für Dream oder ein anderes Programm an einem virtuellen Kabel mit 48 kHz stellen Sie auch das Kabel auf 48 kHz. KiwiSDR-Clients bekommen immer 12 kHz.
+
+**Für den Sysop:** zwei Zeilen unter `[server]` in der Konfiguration des Empfängers schalten es ein, für jeden Empfänger; danach diesen Empfänger neu starten. Dieselben Einstellungen gibt es im Admin-Panel unter **Receivers → ✎ CHANGE SETTINGS**, das den Empfänger auch neu startet.
+
+```
+iq_wide=48            # 12 (aus, Voreinstellung), 24 oder 48 kHz
+iq_wide_listeners=4   # Hörer mit breitem IQ gleichzeitig, 0 = keine Grenze
+```
 
 #### IQ-Demodulatoren
 
 Solange der Empfänger in IQ ist, öffnet sich unter den Decodern ein Feld **IQ Demodulators**. Es betreibt bis zu sechs Empfänger auf dem I/Q in Ihrem Browser — der Empfänger wird nicht umgestimmt, und der Rechner der Station hat keine zusätzliche Arbeit:
 
-- Das Bild zeigt die 12 kHz um die Abstimmung mit den echten Frequenzen; jeder Demodulator ist ein farbiges Band, seine eigene Abstimmung eine Linie darin. Ein Klick ins Bild setzt den ausgewählten Demodulator dorthin; das Mausrad darüber verschiebt ihn um 10 Hz (Umschalt 100 Hz)
+- Das Bild zeigt die ganze IQ-Breite (12, 24 oder 48 kHz) um die Abstimmung mit den echten Frequenzen; jeder Demodulator ist ein farbiges Band, seine eigene Abstimmung eine Linie darin. Ein Klick ins Bild setzt den ausgewählten Demodulator dorthin; das Mausrad darüber verschiebt ihn um 10 Hz (Umschalt 100 Hz)
 - Jede Zeile hat die Betriebsart (USB, LSB, CW, AM, DSB, FM), die Frequenz mit den Tasten « ‹ › » (100 und 10 Hz), eine Pegelanzeige, **M** zum Stummschalten und **✕** zum Entfernen. Die ausgewählte Zeile hat zusätzlich **Width**, **Volume** und **Pan**
 - **DSB** folgt dem Träger selbst (eine Trägerregelschleife): Auf wenige zehn Hz an den Träger gesetzt, bleibt der Ton sauber und stabil — bei DSB mit unterdrücktem Träger ebenso wie bei AM, wo sie als Synchron-AM arbeitet
 - **+ Add** fügt einen Demodulator auf der Abstimmung hinzu, bis zu sechs. **Demodulators** / **Raw I/Q** wählt, ob Sie diese oder das reine I/Q hören
@@ -755,9 +773,11 @@ NAVTEX ist das internationale seefunkgestützte Aussendungssystem für küstenna
 
 ---
 
-### FLDIGI — RTTY, PSK31, Olivia, MFSK, DominoEX, THOR, THROB, Hellschreiber, MT63, Packet und APRS
+### FLDIGI — ALE 2G, RTTY, PSK31, Olivia, FST4W, MFSK, MSK144, DominoEX, THOR, THROB, Hellschreiber, MT63, Packet und APRS
 
-Ein Fenster für die schmalbandigen Tastatur-Betriebsarten, die fldigi bekannt gemacht hat, mit dreizehn Varianten: maritimes FSK (SITOR), Wetter-RTTY, Amateur-RTTY, **PSK31** (Phasenumtastung, 31,25 Baud), **Olivia** und **MFSK16/32/64** (Mehrtonverfahren mit Vorwärtsfehlerkorrektur), **DominoEX** und **THOR** (inkrementelle Frequenzumtastung, THOR mit Fehlerkorrektur), **THROB**, **Hellschreiber** (als Bild gemalt), **MT63** (64 Träger), **Packet (AX.25)** und **APRS**. Es öffnet sich über die Schaltfläche **FLDIGI** oder über **FLDIGI** im Decoder-Menü; fldigi selbst wird nicht benötigt. Das Bedienfeld passt sich der Variante an — die Regler für Shift, Baud und Rahmung verschwinden bei allen außer den drei FSK-Varianten, und die übrigen Betriebsarten ergänzen einen Mode-Wähler und, außer Hellschreiber, einen Squelch-Regler.
+Ein Fenster für die schmalbandigen Tastatur-Betriebsarten, die fldigi bekannt gemacht hat, mit sechzehn Varianten: maritimes FSK (SITOR), Wetter-RTTY, Amateur-RTTY, **PSK31/63/125** (Phasenumtastung, BPSK/QPSK, 31,25–125 Baud), **Olivia**, **Contestia** und **MFSK16/32/64** (Mehrtonverfahren mit Vorwärtsfehlerkorrektur), **DominoEX** und **THOR** (inkrementelle Frequenzumtastung, THOR mit Fehlerkorrektur), **THROB**, **Hellschreiber** (als Bild gemalt), **MT63** (64 Träger), **Packet (AX.25)** und **APRS**. Es öffnet sich über die Schaltfläche **FLDIGI** oder über **FLDIGI** im Decoder-Menü; fldigi selbst wird nicht benötigt. Das Bedienfeld passt sich der Variante an — die Regler für Shift, Baud und Rahmung verschwinden bei allen außer den drei FSK-Varianten, und die übrigen Betriebsarten ergänzen einen Mode-Wähler und, außer Hellschreiber, einen Squelch-Regler. Drei Varianten listen ihre Dekodierungen Zeile für Zeile statt als Text: **ALE 2G**, direkt vor Packet in der Liste (KW-Verbindungsaufbau nach MIL-STD-188-141, mit den HFLINK-Amateurkanälen und weiteren öffentlichen Netzlisten), sowie **FST4W** und **MSK144**, die WSJT-X-Betriebsarten für LF/MF-Baken und für Meteorscatter. **PSK Browser**, der Schalter **Browser — all signals** unter der PSK31-Liste **Mode**, dekodiert alle BPSK31-Signale im Durchlassbereich gleichzeitig, eine Zeile pro Signal; ein Klick auf eine Zeile folgt diesem Signal. Siehe das [Decoder-Handbuch](DECODERS.md). **Browser — all signals** unter der Olivia-Liste **Mode** tut dasselbe für Olivia und Contestia, für die dort gewählte Konfiguration.
+
+**CW Browser:** Schalten Sie im CW-Fenster den Schalter **Browser — all signals** ein, um alle CW-Signale in 200–3000 Hz gleichzeitig zu dekodieren, eine Zeile pro Signal, mit dem Rufzeichen der Station und markierten CQ-Rufen; der Empfänger geht währenddessen auf USB 200–3000 Hz.
 
 Amateur-RTTY und Wetter-RTTY haben einen Regler **Squelch (SNR)**, der verhindert, dass Rauschen als zufällige Buchstaben ausgegeben wird, und alle Varianten außer Olivia zeigen eine echte SNR auf derselben 3-kHz-Skala. Zwei Dinge sind wichtig: PSK31 korrigiert seinen Abstimmfehler über etwa ±25 Hz selbst, Sie müssen also nur in die Nähe kommen; Olivia braucht einen **Mode** (Töne / Bandbreite), der exakt zur Aussendung passt, sendet keine Präambel und benötigt daher einige Sekunden zur Synchronisierung, bevor Text erscheint. Das Bedienfeld startet mit Olivia **8 / 250**. Für die übrigen fldigi-Betriebsarten legen Sie das Signal auf die Mittenfrequenz oder drücken **⟳ Auto-tune Center** und wählen den passenden **Mode**: THROB muss auf ±3 Hz genau abgestimmt sein, DominoEX, THOR und MT63 verzeihen viel mehr, und MFSK, THOR und MT63 geben den Text einige Sekunden nach dem Signal aus. Hellschreiber zeigt ein Bild, keinen Text.
 
@@ -1173,7 +1193,7 @@ A: Das Bandplan-Overlay mit den Frequenzzuweisungen.
 
 **FFT**: schnelle Fourier-Transformation – wandelt den Zeit- in den Frequenzbereich
 
-**FLDIGI**: das Decoder-Fenster für RTTY, PSK31, Olivia, MFSK, DominoEX, THOR, THROB, Hellschreiber, MT63, Packet und APRS, benannt nach dem Programm fldigi, das diese Betriebsarten bekannt gemacht hat
+**FLDIGI**: das Decoder-Fenster für ALE 2G, RTTY, PSK31, Olivia, FST4W, MFSK, MSK144, DominoEX, THOR, THROB, Hellschreiber, MT63, Packet und APRS, benannt nach dem Programm fldigi, das diese Betriebsarten bekannt gemacht hat
 
 **FM**: Frequenzmodulation – Sprechfunkart für VHF/UHF
 

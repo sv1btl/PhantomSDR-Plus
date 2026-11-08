@@ -9,6 +9,7 @@
  */
 
 import CWDecoder from './cwDecoder.js';
+import { CwBrowser } from './cwBrowser.js';
 
 export class CWWorkerProxy {
 
@@ -45,6 +46,7 @@ export class CWWorkerProxy {
     };
 
     this._post({ t: 'init', sampleRate: this._sampleRate });
+    if (this._browse) this._post({ t: 'browse', on: true });
   }
 
   _startLocal() {
@@ -53,6 +55,7 @@ export class CWWorkerProxy {
       sampleRate: this._sampleRate,
       callback:   (event) => { if (this._callback) this._callback(event); },
     });
+    this._localBrowse();
   }
 
   _post(msg, transfer) {
@@ -66,6 +69,27 @@ export class CWWorkerProxy {
   setEnabled(enabled) {
     this._enabled = !!enabled;
     if (this._enabled) this._ensureWorker();
+  }
+
+  /** CW Browser on/off: every CW signal in the passband, one line each. */
+  setBrowse(on) {
+    this._browse = !!on;
+    if (this._local) { this._localBrowse(); return; }
+    this._ensureWorker();
+    if (this._local) { this._localBrowse(); return; }
+    this._post({ t: 'browse', on: this._browse });
+  }
+
+  _localBrowse() {
+    if (this._browse && !this._localBrowser) {
+      this._localBrowser = new CwBrowser({
+        sampleRate: () => this._sampleRate,
+        onUpdate: (channels) => { if (this._callback) this._callback({ type: 'browser', channels }); },
+        onStatus: (text) => { if (this._callback) this._callback({ type: 'browserStatus', text }); },
+      });
+    } else if (!this._browse) {
+      this._localBrowser = null;
+    }
   }
 
   setCallback(cb) {
@@ -92,9 +116,9 @@ export class CWWorkerProxy {
    */
   feed(pcm) {
     if (!pcm || pcm.length === 0) return;
-    if (this._local) { this._local.feed(pcm); return; }
+    if (this._local) { (this._localBrowser || this._local).feed(pcm); return; }
     this._ensureWorker();
-    if (this._local) { this._local.feed(pcm); return; }
+    if (this._local) { (this._localBrowser || this._local).feed(pcm); return; }
     const copy = new Float32Array(pcm);
     this._post({ t: 'pcm', pcm: copy, sampleRate: this._sampleRate }, [copy.buffer]);
   }

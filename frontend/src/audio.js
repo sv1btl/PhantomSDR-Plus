@@ -81,6 +81,7 @@ import { FAXWorkerProxy }  from './faxWorkerProxy.js';
 // decoder instance and its own worker.  See fsk.worker.js.
 import { FSKWorkerProxy }  from './fskWorkerProxy.js';
 import { HFDLWorkerProxy } from './hfdlWorkerProxy.js';
+import { ServicesWorkerProxy } from './servicesWorkerProxy.js';
 // fsk.js is in this bundle already (the proxy's in-thread fallback imports it).
 import { FLDIGI_MODEMS } from './fsk.js';
 const FSK_MODEM_VARIANTS = Object.keys(FLDIGI_MODEMS);
@@ -170,6 +171,54 @@ import { BiquadFilterNode } from 'standardized-audio-context';
 // buffer on the main thread. Verified against fft-js: scratchpad/fft_verify.mjs.
 import { fft, ifft, transformFlat } from './lib/fftRadix2.js';
 import { IQDemodBank } from './lib/iqDemod.js';
+
+// ── Wide IQ output (24 / 48 kHz) ──────────────────────────────────────────
+// The main graph runs at the 12 kHz stream rate and cannot carry a wider I/Q,
+// so a wide IQ plays through its own small AudioContext at the stream's rate:
+// buffers scheduled back to back, nothing else in the path (no filters, no
+// splices: what reaches the sound card is the I/Q as it came in, for Dream or
+// another program on a virtual cable).
+//
+// The main graph's IQ chain runs through a normalised FIR convolver measured
+// at -24.7 dB at 12 kHz; WIDE_IQ_LEVEL gives the wide output the same level
+// at the same volume, so switching widths does not jump in loudness.
+const WIDE_IQ_LEVEL = Math.pow(10, -24.7 / 20);
+
+class WideIqOutput {
+  constructor(rate) {
+    this.rate = rate;
+    this.ctx = new AudioContext({ sampleRate: rate });
+    this.gain = new GainNode(this.ctx, { gain: 0 });
+    this.gain.connect(this.ctx.destination);
+    this.t = 0;
+    this.lead = 0.12;          // s scheduled ahead at a (re)start
+    this.maxAhead = 0.6;       // s; beyond this a block is dropped
+    try { this.ctx.resume(); } catch (_) {}
+  }
+  setGain(g) {
+    try { this.gain.gain.setTargetAtTime(Math.max(0, g), this.ctx.currentTime, 0.01); }
+    catch (_) { this.gain.gain.value = Math.max(0, g); }
+  }
+  /** One block of interleaved I,Q at this.rate. */
+  play(iq) {
+    const frames = iq.length >> 1;
+    if (!frames || this.ctx.state === 'closed') return;
+    if (this.ctx.state === 'suspended') { try { this.ctx.resume(); } catch (_) {} }
+    const now = this.ctx.currentTime;
+    if (this.t < now) this.t = now + this.lead;              // underrun: clean restart
+    else if (this.t - now > this.maxAhead) return;           // too far ahead: shed this block
+    const b = this.ctx.createBuffer(2, frames, this.rate);
+    const I = b.getChannelData(0), Q = b.getChannelData(1);
+    for (let i = 0; i < frames; i++) { I[i] = iq[2 * i]; Q[i] = iq[2 * i + 1]; }
+    const src = this.ctx.createBufferSource();
+    src.buffer = b;
+    src.connect(this.gain);
+    src.onended = () => { try { src.disconnect(); } catch (_) {} };
+    src.start(this.t);
+    this.t += frames / this.rate;
+  }
+  close() { try { this.ctx.close(); } catch (_) {} }
+}
 
 /* Opus Encoder */
 class OpusMLAdapter {
@@ -566,6 +615,12 @@ export default class SpectrumAudio {
 
   constructor(endpoint) {
 
+    // Wide IQ: the stream's rate as a multiple of the 12 kHz one (1, 2, 4),
+    // the width the listener asked for, and whether the server said "busy".
+    this.iqScale = 1;
+    this.iqWanted = 1;
+    this.iqWideBusy = false;
+    this._wideOut = null;
 
     // For Recording
     this.isRecording = false;
@@ -894,6 +949,18 @@ export default class SpectrumAudio {
       }
     });
 
+    // ── SERVICES decoders (DSC; later time signals, ALE 2G, HF Selcall) ───
+    // services.worker.js, one engine at a time. Like HFDL they read the USB
+    // audio before NR/NB/NS/AN.
+    this.decodeServices   = false;
+    this.servicesCallback = null;
+    this._servicesDecoder = new ServicesWorkerProxy({
+      sampleRate: () => this.trueAudioSps || this.audioOutputSps || 12000,
+      callback: (event) => {
+        if (typeof this.servicesCallback === 'function') this.servicesCallback(event);
+      }
+    });
+
     // ── RADE v1 digital voice decoder state ──────────────────────────────
     this.decodeRADE    = false;
     this._radeSideband = 'USB';
@@ -1216,7 +1283,7 @@ export default class SpectrumAudio {
 
 
     if (this.audioCtx && this.audioCtx.state == 'running') {
-      startaudio = document.getElementById('startaudio')
+      const startaudio = document.getElementById('startaudio')
       if (startaudio) {
         startaudio.remove()
       }
@@ -1380,6 +1447,10 @@ async init() {
     if (this._identity) this._safeSend({ cmd: 'identity', ...this._identity })
     if (this._decoder) this._safeSend({ cmd: 'decoder', name: this._decoder })
     if (this._diversityReport) this._safeSend({ cmd: 'diversity', ...this._diversityReport })
+    // A wide IQ width the listener chose; the server applies it whenever IQ is on.
+    if (this.iqWanted > 1) this._safeSend({ cmd: 'iq_width', khz: 12 * this.iqWanted })
+    // The new stream starts at 12 kHz until the server says otherwise.
+    if (this.iqScale !== 1) this._setStreamScale(1)
   }
   this.audioSocket.onerror = (evt) => this._handleSocketTerminal('error', evt)
   this.audioSocket.onclose = (evt) => this._handleSocketTerminal('close', evt)
@@ -1554,6 +1625,12 @@ async init() {
       try { this._hfdlDecoder.destroy(); } catch (e) { console.warn('[HFDL] destroy error', e); }
     }
     this.hfdlCallback = null;
+    // Clear SERVICES state
+    if (this.decodeServices) { this.decodeServices = false; this._servicesDecoder.setEnabled(false); }
+    if (this._servicesDecoder) {
+      try { this._servicesDecoder.destroy(); } catch (e) { console.warn('[SERVICES] destroy error', e); }
+    }
+    this.servicesCallback = null;
 
     if (this._sstvDecoder && typeof this._sstvDecoder.destroy === 'function') {
       try { this._sstvDecoder.destroy(); } catch (e) { console.warn('[SSTV] destroy error', e); }
@@ -1587,6 +1664,7 @@ async init() {
   _applyOutputGain() {
     const finalGain = Math.max(0, (this.userGain ?? 1.0) * (this.audioLevelEnabled ? (this.audioLevelGain ?? 1.0) : 1.0));
     this.gain = finalGain;
+    if (this._wideOut) this._wideOut.setGain(finalGain * WIDE_IQ_LEVEL);
     // A chain rebuild has the output ramped to zero; it calls this again on
     // completion.  Writing the gain now would un-mute mid-surgery (audible click).
     if (this._chainDipActive) return;
@@ -3076,11 +3154,13 @@ setAGC(newAGCSpeed) {
       // current channel count (2 for C-QUAM) up front so we don't create a mono
       // decoder and immediately rebuild it stereo via setChannels().
       this.decoder = new OpusMLAdapter(this.audioMaxSps || this.trueAudioSps || this.audioOutputSps || 48000, this.channels || 1);
-    } else if (codec === 'flac' && !this._wantsWasmFlac()) {
+    } else if (codec === 'flac' && (!this._wantsWasmFlac() || this.iqScale > 1)) {
       // Decodes each packet as it arrives; see flacLowLatency.js for the
       // measurement that retired the WASM path. Same output as before —
-      // 12 kHz Float32, same scale — so nothing downstream changes.
-      this.decoder = new FlacLowLatencyDecoder(this.trueAudioSps || this.audioOutputSps || 12000, this.audioOutputSps || 12000, 1);
+      // 12 kHz Float32, same scale — so nothing downstream changes. A wide IQ
+      // (iqScale 2 or 4) runs both rates that many times higher.
+      const k = this.iqScale || 1;
+      this.decoder = new FlacLowLatencyDecoder(k * (this.trueAudioSps || this.audioOutputSps || 12000), k * (this.audioOutputSps || 12000), 1);
     } else {
       // Use existing wrapper-based decoder (FLAC with ?flac=wasm, etc.)
       this.decoder = createDecoder(codec, this.audioMaxSps, this.trueAudioSps, this.audioOutputSps);
@@ -3444,6 +3524,32 @@ setAGC(newAGCSpeed) {
   }
 
   updateFilters() {
+    // IQ: every filter flat. The voice shaping below works on I and Q alike,
+    // so IQ used to keep the previous mode's — AM's 4.5 kHz low-pass cut the
+    // outer half of a 10 kHz DRM signal and its +20 dB shelf lifted the middle.
+    // Peaking/low-shelf at 0 dB are exact identities; highpass, allpass and
+    // notch are not, so those three change type while in IQ.
+    const iq = this.demodulation === 'IQ'
+    if (this.highPass) this.highPass.type = iq ? 'peaking' : 'highpass'
+    if (this.humNotch50) this.humNotch50.type = iq ? 'peaking' : (this.humNotch50Enabled ? 'notch' : 'allpass')
+    if (this.humNotch60) this.humNotch60.type = iq ? 'peaking' : (this.humNotch60Enabled ? 'notch' : 'allpass')
+    if (iq) {
+      this.bassBoost.gain.value = 0
+      this.bandpass.gain.value = 0
+      this.presenceBoost.gain.value = 0
+      this.highPass.gain.value = 0
+      this.humNotch50.gain.value = 0
+      this.humNotch60.gain.value = 0
+      // A FIR still, not the 1-tap bypass: the convolver normalises its
+      // impulse response, and the bypass comes out ~22 dB quieter than the
+      // mode FIRs (measured: -46.8 dB vs -25.0 dB for AM's at 12 kHz). 5.5 kHz
+      // with a 300 Hz transition passes all of a 10 kHz DRM signal (±5 kHz) at
+      // the usual level; cutoff + transition must stay under Nyquist (6 kHz at
+      // a 12 kHz context), or the wasm FIR design panics and the mode change
+      // never reaches the server.
+      this.setLowpass(5500, 300)
+      return
+    }
     switch (this.demodulation) {
       case 'USB':
       case 'LSB':
@@ -3614,7 +3720,10 @@ setAGC(newAGCSpeed) {
       minStartSeconds: Math.min(Math.max(0.03, threshold), limit * 0.5),
       // The worklet's cushion drain follows the same ?drain=0 switch as the
       // fallback path's CushionController.
-      drain: !(this._cushionCtl && this._cushionCtl.enabled === false),
+      // Off in IQ: the drain plays ~4 cents fast, a sample-rate step that an
+      // external OFDM decoder (Dream) has to chase every time it starts.
+      drain: !(this._cushionCtl && this._cushionCtl.enabled === false) &&
+        this.demodulation !== 'IQ',
     };
   }
 
@@ -3996,6 +4105,23 @@ setAGC(newAGCSpeed) {
         this.switchCodec(wantCodec);
       }
 
+      // Wide IQ: the packet says the stream's rate (iqx = 2 or 4 times the
+      // 12 kHz one; absent = 1). The server tags the new stream's very first
+      // packet, its FLAC header, so the decoder is rebuilt in step with it.
+      const iqx = (packet.iqx === 2 || packet.iqx === 4) ? packet.iqx : 1;
+      if (iqx !== this.iqScale) this._setStreamScale(iqx);
+      this.iqWideBusy = !!packet.iqx_busy;
+      // Every wide place was taken: ask again in a while, as long as the
+      // listener still wants it and is still in IQ.
+      if (this.iqWideBusy && this.iqWanted > 1 && !this._iqRetry) {
+        this._iqRetry = setTimeout(() => {
+          this._iqRetry = null;
+          if (this.iqWanted > 1 && this.demodulation === 'IQ') {
+            this._safeSend({ cmd: 'iq_width', khz: 12 * this.iqWanted });
+          }
+        }, 30000);
+      }
+
       if (this.decoder && this.decoder.setChannels) {
         this.decoder.setChannels(this.channels);
       }
@@ -4328,6 +4454,8 @@ setAGC(newAGCSpeed) {
       demodulation = "LSB"
     }
     this.updateFilters()
+    this._rebuildOutputChain()        // EQ / compressor in or out (IQ bypasses both)
+    this._pushWorkletBufferConfig()   // the cushion drain is off in IQ
     // The wire value, so AM-ENV goes out as AM-ENV rather than as the plain AM
     // it is normalised to internally.
     this._lastDemodCmd = backendDemod || demodulation
@@ -4828,7 +4956,8 @@ _updateCTCSSGate(rawPcm) {
   // True when any digital decoder is active — compressor and EQ must never
   // colour the audio for digital modes.
   _isDigitalActive() {
-    return !!(this.decodeFT4 || this.decodeCW || this.decodeSSTV || this.decodeRADE);
+    return !!(this.decodeFT4 || this.decodeCW || this.decodeSSTV || this.decodeRADE ||
+      this.demodulation === 'IQ');
   }
 
   // (Re)build the output chain from humNotch60 -> gainNode, inserting the EQ
@@ -5062,12 +5191,12 @@ _updateCTCSSGate(rawPcm) {
     // Toggle between 'notch' (active) and 'allpass' (transparent bypass).
     if (freq === 50 || freq === 'both') {
       this.humNotch50Enabled = !!enabled;
-      if (this.humNotch50) this.humNotch50.type = enabled ? 'notch' : 'allpass';
+      if (this.humNotch50 && this.demodulation !== 'IQ') this.humNotch50.type = enabled ? 'notch' : 'allpass';
       console.log('[HumNotch] 50 Hz notch: ' + (enabled ? 'ON' : 'OFF'));
     }
     if (freq === 60 || freq === 'both') {
       this.humNotch60Enabled = !!enabled;
-      if (this.humNotch60) this.humNotch60.type = enabled ? 'notch' : 'allpass';
+      if (this.humNotch60 && this.demodulation !== 'IQ') this.humNotch60.type = enabled ? 'notch' : 'allpass';
       console.log('[HumNotch] 60 Hz notch: ' + (enabled ? 'ON' : 'OFF'));
     }
 
@@ -5219,7 +5348,22 @@ _updateCTCSSGate(rawPcm) {
       ? message.dt - this._ftxDtTarget(mode) : NaN;
     cell(['ftx-num', 'text-xs', Math.abs(dtRel) > 0.5 ? 'text-orange-400' : 'text-gray-400'],
          Number.isFinite(dtRel) ? `${dtRel > 0 ? '+' : ''}${dtRel.toFixed(1)}` : '');
-    cell(['ftx-msg'], message.text);
+    const msgCell = cell(['ftx-msg'], message.text);
+
+    // A long message (free text, compound calls, contest exchanges) ends in
+    // "…". Clicking the row opens it to the full text, wrapped; clicking again
+    // closes it. Rows whose text fits ignore the click; the locator link keeps
+    // its own click. Measured on use, because the width depends on the window.
+    const cut = () => msgCell.scrollWidth > msgCell.clientWidth + 1;
+    row.addEventListener('pointerenter', () => {
+      row.classList.toggle('ftx-cut', row.classList.contains('ftx-open') || cut());
+    });
+    row.addEventListener('click', (e) => {
+      if (e.target.closest('a')) return;
+      if (!row.classList.contains('ftx-open') && !cut()) return;
+      row.classList.toggle('ftx-open');
+      row.classList.add('ftx-cut');
+    });
 
     const locCell  = cell(['text-xs']);
     const distCell = cell(['ftx-num', 'text-xs']);
@@ -5267,7 +5411,13 @@ _updateCTCSSGate(rawPcm) {
     for (const message of decodedMessages) {
       list.appendChild(this._ftxRenderSpot(mode, message, baseLocation));
     }
-    setTimeout(() => { list.scrollTop = list.scrollHeight; }, 500);
+    // Follow the newest slot, unless a row is open: the message being read
+    // must not slide away. The scrolling box is the list's parent.
+    setTimeout(() => {
+      if (list.querySelector('.ftx-open')) return;
+      const box = list.parentElement || list;
+      box.scrollTop = box.scrollHeight;
+    }, 500);
 
     // Marks let the Hz column be read straight off the spectrum.
     this._ftxSpec.marks = decodedMessages
@@ -6161,6 +6311,12 @@ js8Pending() {
       catch(e) { console.error('[HFDL] feed error', e); }
     }
 
+    // SERVICES tap (DSC, ...) — raw mono PCM before any DSP
+    if (this.decodeServices) {
+      try { this._servicesDecoder.feedPCM(this._monoForDisplay(rawPcm)); }
+      catch(e) { console.error('[SERVICES] feed error', e); }
+    }
+
     // Generic Kiwi-style FSK tap — raw PCM before any DSP
     if (this.decodeFSK) {
       try { this._fskFeedPCM(rawPcm); }
@@ -6227,7 +6383,7 @@ js8Pending() {
     }
 
     // Speaker-audio gate starts here. Decoder feeds above must still run.
-    if (this.mute || (this.squelchMute && this.squelch) || this.ctcssMute) {
+    if (this.mute || (this.squelchMute && this.squelch && this.demodulation !== 'IQ') || this.ctcssMute) {
       return
     }
     if (this.audioCtx.state !== 'running') {
@@ -6317,6 +6473,13 @@ js8Pending() {
     // Feed PCM data to the spectrogram (after all audio processing — unlike the
     // QRSS grabber, this display is meant to show what you are hearing, filters
     // included).
+    // Wide IQ goes to its own output at the stream's rate (see WideIqOutput);
+    // the 12 kHz graph, the spectrogram and the scheduler below are for 12 kHz.
+    if (this.iqScale > 1) {
+      if (this._wideOut) this._wideOut.play(pcmArray);
+      return;
+    }
+
     if (this.spectrogramEnabled && this.spectrogramCallback) {
       try {
         this.spectrogramCallback(this._monoForDisplay(pcmArray));
@@ -6394,7 +6557,10 @@ js8Pending() {
         // before any of this.
         let speakerPcm = pcmArray;
         const sps = this.audioOutputSps || 12000;
-        const adjust = ctl.planAdjust(nowSec, prebuffer, blockRms(pcmArray), sps);
+        // Never in IQ: a splice is inaudible in speech but a jump in time for
+        // an OFDM signal, and Dream loses sync at every one of them.
+        const adjust = this.demodulation === 'IQ' ? 0
+          : ctl.planAdjust(nowSec, prebuffer, blockRms(pcmArray), sps);
         if (adjust > 0) {
           const r = spliceOut(pcmArray, this.channels, adjust);
           speakerPcm = r.pcm;
@@ -6739,7 +6905,7 @@ js8Pending() {
         // of FFT bins (12016 Hz on a 60 Msps RX-888), but FlacLowLatencyDecoder
         // has already resampled it to audioOutputSps, the same filter on I
         // and Q, so this is the rate of the samples actually written.
-        sps: Math.round(this.audioOutputSps || 12000),
+        sps: this._streamRate(),
       };
       console.log('[IQ Recording] Started at', this._iqRec.centerHz, 'Hz');
       return;
@@ -6810,11 +6976,53 @@ js8Pending() {
     this.mediaRecorder.stop();
   }
 
+  // ── Wide IQ ────────────────────────────────────────────────────────────
+  /** The IQ widths this server offers, in kHz (basic_info "iq_widths"). */
+  iqWidths() {
+    const w = this.settings && Array.isArray(this.settings.iq_widths) ? this.settings.iq_widths : [12];
+    return w.filter((k) => k === 12 || k === 24 || k === 48);
+  }
+
+  /** Ask for an IQ width (12, 24 or 48 kHz); kept for the session. */
+  setIqWidth(khz) {
+    const k = khz >= 48 ? 4 : khz >= 24 ? 2 : 1;
+    this.iqWanted = k;
+    this._safeSend({ cmd: 'iq_width', khz: 12 * k });
+  }
+
+  /** The rate of the decoded stream: 12 kHz, or 24 / 48 kHz in a wide IQ. */
+  _streamRate() {
+    return Math.round((this.audioOutputSps || 12000) * (this.iqScale || 1));
+  }
+
+  // The stream changed rate (the server's iqx): rebuild the decoder for it,
+  // move the speaker to the matching output, and retune what depends on it.
+  _setStreamScale(k) {
+    if (k === this.iqScale) return;
+    console.log('[IQ] Stream width', 12 * this.iqScale, '→', 12 * k, 'kHz');
+    this.iqScale = k;
+    // An IQ recording holds one rate; it ends here, ready to download.
+    if (this._iqRec && this._iqRec.active) this.stopRecording();
+    if (this.settings) this._buildDecoder(this.settings.audio_compression || 'flac');
+    if (this._wideOut) { this._wideOut.close(); this._wideOut = null; }
+    if (k > 1) {
+      try {
+        this._wideOut = new WideIqOutput(this._streamRate());
+        this._wideOut.setGain((this.gain ?? 1) * WIDE_IQ_LEVEL);
+      } catch (e) {
+        console.warn('[IQ] Wide output unavailable:', e);
+        this._wideOut = null;
+      }
+    }
+    if (this._iqBank) this._iqBank.setRate(this._streamRate());
+    if (this._arrivalMeter && this._arrivalMeter.reset) this._arrivalMeter.reset();
+  }
+
   // The IQ demodulator bank, made on first use by the IQ panel and kept for
   // the session (its settings survive leaving IQ and coming back).
   getIQDemodBank() {
-    if (!this._iqBank) this._iqBank = new IQDemodBank(Math.round(this.audioOutputSps || 12000));
-    else this._iqBank.setRate(Math.round(this.audioOutputSps || 12000));
+    if (!this._iqBank) this._iqBank = new IQDemodBank(this._streamRate());
+    else this._iqBank.setRate(this._streamRate());
     return this._iqBank;
   }
 
@@ -7353,7 +7561,10 @@ js8Pending() {
    *  A small look-ahead (0.05 s) prevents underruns from scheduler jitter. */
   _radePlayPCM(samples) {
     if (!this.audioCtx || samples.length === 0) return;
-    if (this.audioCtx.state !== 'running') return;
+    // Mute silences decoded RADE speech too, as it does DRM. The receiver's
+    // audio keeps flowing INTO the decoder (see the RADE taps), so frame sync
+    // holds; unmuting restarts the playout queue, which treats the pause as a gap.
+    if (this.audioCtx.state !== 'running' || this.mute) return;
     try {
       var SAMPLE_RATE  = 16000;
       var LOOKAHEAD    = 0.05;   // seconds ahead of now to schedule if queue is empty
@@ -7683,6 +7894,12 @@ js8Pending() {
     this.cwCallback = cb;
   }
 
+  /** CW Browser: every CW signal in the passband at once (cwBrowser.js, in the CW worker). */
+  setCWBrowse(on) {
+    if (!this.cw) this._cwReset();
+    this.cw.setBrowse(!!on);
+  }
+
   _cwFeedPCM(pcmArray) {
     if (!this.cw) this._cwReset();
     this.cw.setSampleRate(this.audioOutputSps || 12000);
@@ -7802,6 +8019,30 @@ js8Pending() {
     this._hfdlDecoder.setDial(hz);
   }
 
+  /**
+   * SERVICES decoders: start the named engine ('dsc', ...) or stop with ''.
+   * opts go to the engine (e.g. { centerHz: 1700 }).
+   */
+  setServicesDecoding(name, opts = {}) {
+    const n = String(name || '');
+    if (n) this._servicesDecoder.setService(n, opts);
+    this.decodeServices = !!n;
+    this._servicesDecoder.setEnabled(this.decodeServices);
+    console.log('[SERVICES]', n ? `▶ ${n}` : '■ off');
+  }
+
+  setServicesCallback(fn) {
+    this.servicesCallback = fn || null;
+  }
+
+  setServicesOptions(opts) {
+    this._servicesDecoder.setOptions(opts || {});
+  }
+
+  resetServices() {
+    this._servicesDecoder.reset();
+  }
+
   resetHFDL() {
     this._hfdlDecoder.reset();
   }
@@ -7834,7 +8075,7 @@ js8Pending() {
   setFSKVariant(variant = 'maritime') {
     const v = String(variant || 'maritime').toLowerCase();
     if (v !== 'weather' && v !== 'maritime' && v !== 'ham' &&
-        v !== 'psk31' && v !== 'olivia' && v !== 'packet' && v !== 'aprs' &&
+        v !== 'psk31' && v !== 'olivia' && v !== 'fst4w' && v !== 'msk144' && v !== 'ale' && v !== 'packet' && v !== 'aprs' &&
         !FSK_MODEM_VARIANTS.includes(v)) {
       console.warn('[FSK] unknown variant:', variant, '— using maritime');
       this.fskVariant = 'maritime';

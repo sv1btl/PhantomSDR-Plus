@@ -76,10 +76,17 @@
   import { withRx, rx } from "./lib/rx";
   import { AprsMap } from "./lib/aprsMap.js";
   import HfdlPanel from "./lib/HfdlPanel.svelte";
+  import DscPanel from "./lib/DscPanel.svelte";
+  import TimeSignalPanel from "./lib/TimeSignalPanel.svelte";
+  import AlePanel from "./lib/AlePanel.svelte";
+  import { ALE_NETS } from "./lib/aleNets.js";
+  import SelcallPanel from "./lib/SelcallPanel.svelte";
+  import ServiceSelect from "./lib/ServiceSelect.svelte";
   import DrmPanel from "./lib/DrmPanel.svelte";
   // Sub-mode lists and squelch defaults of the fldigi-family modems (MFSK,
   // DominoEX, THOR, THROB, Hell, MT63). fsk.js is in this bundle already.
   import { FLDIGI_MODEMS } from "./fsk.js";
+  import { PSK_MODES, pskModeCfg } from "./psk31.js";
   import { meterGated } from "./lib/sUnits.js";
   import {
     loadReceivers,
@@ -102,6 +109,7 @@
   import BandSelector from "./lib/BandSelector.svelte";
   import ModesSelector from "./lib/ModesSelector.svelte";
   import IqDemodPanel from "./lib/IqDemodPanel.svelte";
+  import SignalPlotter from "./lib/SignalPlotter.svelte";
   import { writable } from "svelte/store";
 
   import PassbandTuner from "./lib/PassbandTuner.svelte";
@@ -171,6 +179,7 @@
     parseLink,
     storeInLocalStorage,
   } from "./lib/storage.js";
+  import { volumeToGain, initialVolume, saveVolume } from "./lib/volume.js";
 
   // Added to create the Site Information area //
   import {
@@ -193,6 +202,7 @@
     siteRegion,
     siteChatEnabled,
     siteRade,
+    siteCallsign,
   } from "./siteInfo.js";
   import { sideServiceWhere } from "./lib/sideService.js";
   // End of Information Area import //
@@ -1398,6 +1408,49 @@
 
   // Waterfall panel stack, top to bottom. Passed to the recorder each time we
   // start so it picks up whichever canvases are actually laid out right now.
+  /**
+   * The yellow tuning marks of the passband tuner, drawn into a video frame.
+   * On screen they are HTML (PassbandTuner.svelte) between the scale and the
+   * waterfall, which the recorder cannot see; this draws the same things onto
+   * a layer's slot: the tuned frequency as a solid yellow line, the passband
+   * edges dashed, a faint fill between them, and (on the waterfall) the
+   * tuner's bracket with its hooks across the top. Same mapping as the tuner
+   * (frequencyToWaterfallOffset), so the marks sit where the screen shows them.
+   */
+  function _videoTuningMarks(ctx, x, y, w, h, bracket) {
+    const [l, m, r] = audio.getAudioRange().map(FFTOffsetToFrequency).map(frequencyToWaterfallOffset);
+    if (![l, m, r].every(Number.isFinite)) return;
+    const X = (o) => Math.round(x + o * w) + 0.5;
+    const xl = X(Math.min(l, r)), xr = X(Math.max(l, r)), xm = X(m);
+    const yellow = "rgb(255,235,0)";   // bright yellow (the tuner's yellow-500 reads as amber in a video)
+    ctx.save();
+    ctx.beginPath(); ctx.rect(x, y, w, h); ctx.clip();
+    ctx.fillStyle = "rgba(255,235,0,0.08)";
+    ctx.fillRect(xl, y, xr - xl, h);
+    // a dark outline first, so the yellow shows over yellow signals too
+    const line = (x0, width, dash, alpha) => {
+      ctx.setLineDash(dash);
+      ctx.globalAlpha = alpha * 0.6; ctx.strokeStyle = "#000"; ctx.lineWidth = width + 1;
+      ctx.beginPath(); ctx.moveTo(x0, y); ctx.lineTo(x0, y + h); ctx.stroke();
+      ctx.globalAlpha = alpha; ctx.strokeStyle = yellow; ctx.lineWidth = width;
+      ctx.beginPath(); ctx.moveTo(x0, y); ctx.lineTo(x0, y + h); ctx.stroke();
+    };
+    // the tuned frequency and the passband edges: one style, dotted
+    const dots = [2, 3];
+    if (xr - xl > 3) { line(xl, 1, dots, 1); line(xr, 1, dots, 1); }
+    line(xm, 1, dots, 1);
+    ctx.globalAlpha = 1; ctx.setLineDash([]); ctx.strokeStyle = yellow;
+    if (bracket) {
+      // the tuner's bracket: a bar across the passband with a hook at each end
+      const yb = y + 4;
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(xl - 6, yb + 10); ctx.lineTo(xl, yb); ctx.lineTo(xr, yb); ctx.lineTo(xr + 6, yb + 10);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
   function videoRecordingLayers() {
     return [
       // The 3D view sits over the spectrum: record whichever is showing, read
@@ -1412,10 +1465,13 @@
         overlay: (ctx, x, y, w, h) => {
           if (view3D && view3DComponent)
             view3DComponent.drawOverlay(ctx, x, y, w, h);
+          else _videoTuningMarks(ctx, x, y, w, h, false);
         },
       },
       { canvas: topGraduationCanvas },
-      { canvas: waterfallCanvas, flipY: () => waterfallReverse },
+      // The tuned frequency and passband, as the yellow tuner marks show them.
+      { canvas: waterfallCanvas, flipY: () => waterfallReverse,
+        overlay: (ctx, x, y, w, h) => _videoTuningMarks(ctx, x, y, w, h, true) },
     ];
   }
 
@@ -1788,8 +1844,13 @@
       //     run none. Before the mode step, so a decoder that is now running
       //     sets its own mode and passband there.
       if (typeof decoder === "string") {
-        const key = _decoderKeyFromLabel(decoder, mode);
-        if (key && key !== activeDecoder) {
+        let key = _decoderKeyFromLabel(decoder, mode);
+        let svc = null;
+        if (key && key.startsWith("services:")) { svc = key.slice(9); key = "services"; }
+        if (svc && key === activeDecoder && svc !== serviceMode) {
+          changeService(svc);
+        } else if (key && key !== activeDecoder) {
+          if (svc) serviceMode = svc;
           selectedDecoder = key;
           decoderOn = true;
           activateSelectedDecoder();
@@ -3657,6 +3718,126 @@
     _modeIdApplyReceiverDefaults("hfdl");
   }
 
+  // ── SERVICES ──────────────────────────────────────────────────────────────
+  // One decoder button and window (ex-HFDL) for the utility services. The
+  // Service list in the window header picks one; HFDL keeps its own worker,
+  // the others run in services.worker.js. `report` is what /users shows.
+  const SERVICES = [
+    { key: "hfdl", label: "HFDL", report: "HFDL", title: "HF Data Link: aircraft ACARS messages" },
+    { key: "dsc", label: "DSC", report: "DSC", title: "Digital Selective Calling: MF/HF maritime calls (GMDSS)" },
+    { key: "time", label: "Time Signals", report: "TIME", title: "DCF77, MSF, RWM, WWV/WWVH: decoded date and time" },
+    { key: "selcall", label: "HF Selcall", report: "SELCALL", title: "CCIR 493-4 Selcall (Codan, Barrett …): who calls whom" },
+  ];
+  // Time Signals: the station chosen in its panel (remembered per browser).
+  let timeStation = (() => {
+    try { return localStorage.getItem("servicesTimeStation") || "dcf77"; } catch (_) { return "dcf77"; }
+  })();
+  const _serviceOf = (k) => SERVICES.find((x) => x.key === k) || SERVICES[0];
+  let serviceMode = (() => {
+    try { return _serviceOf(localStorage.getItem("servicesMode") || "hfdl").key; } catch (_) { return "hfdl"; }
+  })();
+  // The engine running in services.worker.js ("" when none, or HFDL).
+  let svcRunning = "";
+
+  function _servicesActivate() {
+    if (serviceMode === "hfdl") {
+      hfdlEnabled = true;
+      _hfdlActivate();
+    } else {
+      _svcActivate(serviceMode);
+    }
+  }
+
+  function _servicesDeactivate() {
+    if (hfdlEnabled) _hfdlDeactivate();
+    if (svcRunning) _svcDeactivate();
+  }
+
+  function _svcActivate(name) {
+    svcRunning = name;
+    tick().then(async () => {
+      if (demodulation !== "USB") {
+        demodulation = "USB";
+        handleDemodulationChange(null, true);
+        await tick();
+        await new Promise((resolve) => setTimeout(resolve, 60));
+      }
+      _hfdlGateOff(true);   // the server noise gate would chop the FSK bursts
+      audio.setServicesDecoding(name, name === "time" ? { station: timeStation } : { centerHz: 1700 });
+      _modeIdApplyReceiverDefaults(name);
+    });
+  }
+
+  function _svcDeactivate() {
+    if (!svcRunning) return;
+    svcRunning = "";
+    audio.setServicesDecoding("");
+    _hfdlGateOff(false);
+    demodulation = _bandDefaultMode();
+    handleDemodulationChange(null, true);
+    if (audio && typeof audio.updateFilters === "function") audio.updateFilters();
+  }
+
+  /** The Service list: switch the running service in place. */
+  function changeService(key) {
+    const next = _serviceOf(key).key;
+    const running = decoderOn && selectedDecoder === "services";
+    if (running && next !== serviceMode) _servicesDeactivate();
+    serviceMode = next;
+    try { localStorage.setItem("servicesMode", next); } catch (_) {}
+    if (running) _servicesActivate();
+  }
+
+  /** Time Signals: change station (the engine follows without a restart). */
+  function timeStationChanged(key) {
+    timeStation = key;
+    try { localStorage.setItem("servicesTimeStation", key); } catch (_) {}
+    if (audio && audio.setServicesOptions) audio.setServicesOptions({ station: key });
+  }
+
+  /** Tune to a time-signal carrier (kHz): the dial goes 1 kHz below it, USB. */
+  function timeTune(khz, station) {
+    if (station && station !== timeStation) timeStationChanged(station);
+    const hz = Math.round((Number(khz) - 1.0) * 1000);
+    if (!(hz > 0)) return;
+    try {
+      tuneToUserFrequency(hz, "USB");
+    } catch (e) {
+      console.warn("[TIME] tune error", e);
+    }
+    if (audio && audio.resetServices) audio.resetServices();
+    applyBandSettingsForFrequency(hz);
+    _modeIdApplyReceiverDefaults("time");
+  }
+
+  /** Tune to a Selcall channel (kHz, FSK centre): the dial goes 1.7 kHz below. */
+  function selcallTune(khz) {
+    const hz = Math.round((Number(khz) - 1.7) * 1000);
+    if (!(hz > 0)) return;
+    try {
+      tuneToUserFrequency(hz, "USB");
+    } catch (e) {
+      console.warn("[SELCALL] tune error", e);
+    }
+    if (audio && audio.resetServices) audio.resetServices();
+    applyBandSettingsForFrequency(hz);
+    _modeIdApplyReceiverDefaults("selcall");
+  }
+
+  /** Tune to a DSC frequency (kHz): the carrier is 1.7 kHz above the USB dial. */
+  function dscTune(khz) {
+    const hz = Math.round((Number(khz) - 1.7) * 1000);
+    if (!(hz > 0)) return;
+    try {
+      tuneToUserFrequency(hz, "USB");
+    } catch (e) {
+      console.warn("[DSC] tune error", e);
+    }
+    if (audio && audio.resetServices) audio.resetServices();
+    applyBandSettingsForFrequency(hz);
+    _modeIdApplyReceiverDefaults("dsc");
+  }
+
   // ── DRM (Digital Radio Mondiale) ──────────────────────────────────────────
   // Decoded on the server by autorun/drm-helper.js (one ubersdr-drm per
   // listener, on zero-IF I/Q it taps itself). Here we only drive the receiver:
@@ -3778,6 +3959,12 @@
       encoding: "olivia",
       invert: false,
     },
+    // WSJT-X FST4W: Rx frequency 1500 Hz as in WSJT-X; a period, not a baud.
+    fst4w: { center: 1500, shift: 0, baud: 0, framing: "—", encoding: "fst4w", invert: false },
+    // WSJT-X MSK144: 1500 Hz centre, tones 1000 / 2000 Hz.
+    msk144: { center: 1500, shift: 0, baud: 0, framing: "—", encoding: "msk144", invert: false },
+    // ALE 2G: 8 tones 750-2500 Hz; the decoder searches ±1 kHz itself.
+    ale: { center: 1625, shift: 0, baud: 0, framing: "—", encoding: "ale", invert: false },
     // The fldigi-family modems: a sub-mode and a squelch (FLDIGI_MODEMS);
     // centre is where fldigi puts them by default. MT63 sends its lowest
     // carrier at 500 Hz, so its centre follows the bandwidth.
@@ -3818,15 +4005,31 @@
   // APRS view: also print the raw TNC2 line above the decoded one.
   let packetShowRaw = true;
 
-  // The four configurations that cover essentially all on-air Olivia traffic.
-  // The first entry is the default the panel opens with.
+  // The four configurations that cover essentially all on-air Olivia traffic,
+  // then Contestia (the same modem with a smaller FEC block, olivia.js
+  // CONTESTIA_MODES). The first entry is the default the panel opens with;
+  // "c8/250" is the Contestia default (CONTESTIA marker).
   const OLIVIA_MODE_OPTIONS = [
     { key: "8/250", label: "8 / 250", tones: 8, bw: 250 },
     { key: "16/500", label: "16 / 500", tones: 16, bw: 500 },
     { key: "32/1000", label: "32 / 1000", tones: 32, bw: 1000 },
     { key: "16/1000", label: "16 / 1000", tones: 16, bw: 1000 },
+    ...[
+      [8, 250], [4, 125], [4, 250], [4, 500], [8, 500],
+      [8, 1000], [16, 500], [16, 1000], [32, 1000], [64, 1000],
+    ].map(([tones, bw]) => ({
+      key: `c${tones}/${bw}`,
+      label: `Contestia ${tones} / ${bw}`,
+      tones,
+      bw,
+      contestia: true,
+    })),
   ];
-  let oliviaMode = "8/250";
+  const OLIVIA_MODE_DEFAULT = "8/250";
+  const CONTESTIA_MODE_DEFAULT = "c8/250";
+  let oliviaMode = OLIVIA_MODE_DEFAULT;
+  // PSK31 panel sub-mode: BPSK/QPSK at 31/63/125 baud (psk31.js PSK_MODES).
+  let pskMode = PSK_MODES[0].key;
   // Squelch = the FEC signal-to-noise a block must reach to be printed.
   // 3.0 is the floor below which pure noise starts leaking through.
   let oliviaSquelch = 4.0;
@@ -3983,6 +4186,23 @@
       { label: "24922.50 kHz — 12m Olivia 8/250", khz: 24922.5 },
       { label: "28122.50 kHz — 10m Olivia 8/250", khz: 28122.5 },
     ],
+    // FST4W: the WSJT-X USB dials plus the 1500 Hz Rx frequency (signals
+    // spread over 1400-1600 Hz above the dial, as in WSPR). LF/MF is where
+    // FST4W lives; on 160 m it shares the WSPR sub-band.
+    fst4w: [
+      { label: "136.000 kHz dial — 2200 m FST4W", khz: 137.5 },
+      { label: "474.200 kHz dial — 630 m FST4W", khz: 475.7 },
+      { label: "1836.600 kHz dial — 160 m (WSPR sub-band)", khz: 1838.1 },
+    ],
+    // MSK144 meteor scatter: WSJT-X dials + the 1500 Hz centre.
+    msk144: [
+      { label: "144.360 MHz dial — 2 m (IARU Region 1)", khz: 144361.5 },
+      { label: "144.150 MHz dial — 2 m (North America)", khz: 144151.5 },
+      { label: "50.260 MHz dial — 6 m", khz: 50261.5 },
+      { label: "50.280 MHz dial — 6 m (alt)", khz: 50281.5 },
+      { label: "70.230 MHz dial — 4 m", khz: 70231.5 },
+      { label: "28.145 MHz dial — 10 m", khz: 28146.5 },
+    ],
     // Channel frequencies, not offsets: FM is tuned on the channel, and the
     // HF entry is the USB dial with the tones at 1600 / 1800 Hz.
     aprs: _packetKnownFrequencies(),
@@ -4006,6 +4226,135 @@
   let fskKnownFrequency = "";
   let fskTextLines = [];
   let fskCurrentLine = "";
+  // PSK Browser: one row per signal (pskBrowser.js), newest state.
+  let pskBrowserChannels = [];
+  // FST4W: T/R period (s) and search width (± Hz, WSJT-X's F Tol); one row
+  // per decode, newest last; progress of the period being recorded.
+  const FST4W_PERIOD_OPTIONS = [120, 300, 900, 1800];
+  const FST4W_TOL_OPTIONS = [50, 100, 150];
+  let fst4wPeriod = 120;
+  let fst4wTol = 100;
+  let fst4wDecodes = [];
+  let fst4wProgress = null;
+  let _fst4wNextId = 1;
+  // MSK144: F Tol, T/R period (repeats within one are shown once), depth;
+  // one row per decode, newest last.
+  const MSK144_TOL_OPTIONS = [50, 100, 200, 300];
+  let msk144Tol = 100;
+  let msk144Period = 15;
+  let msk144Depth = 3;
+  let msk144Decodes = [];
+  let _msk144NextId = 1;
+  $: pskBrowsing = fskVariant === "psk31" && pskMode === "browser";
+  // Olivia Browser: every Olivia / Contestia signal of the chosen
+  // configuration in the passband (oliviaBrowser.js), shown like PSK Browser.
+  let oliviaBrowse = false;
+  $: oliviaBrowsing = fskVariant === "olivia" && oliviaBrowse;
+  $: fskBrowsing = pskBrowsing || oliviaBrowsing;
+  // ALE 2G in the FLDIGI window: the panel (AlePanel, embedded) shows the
+  // events; a few networks are LSB, which the receiver then follows.
+  let aleLsb = false;
+  let alePanelRef;
+
+  /** Tune to an ALE channel (kHz): the dial is the channel; LSB for a few nets. */
+  function aleTune(khz, lsb) {
+    const hz = Math.round(Number(khz) * 1000);
+    if (!(hz > 0)) return;
+    aleLsb = !!lsb;
+    try {
+      if (frequencyInputComponent && frequencyInputComponent.setFrequency)
+        frequencyInputComponent.setFrequency(hz);
+      handleFrequencyChange({ detail: hz });
+      frequency = (hz / 1e3).toFixed(3);
+      _fskTakeReceiverControl();
+    } catch (e) {
+      console.warn("[ALE] tune error", e);
+    }
+    applyBandSettingsForFrequency(hz);
+  }
+
+  /**
+   * Svelte action for a browser line's text box (PSK / Olivia / CW Browser):
+   * it follows the newest text unless the listener has scrolled up to read,
+   * and holds still until they scroll back to the bottom.
+   */
+  function stickBottom(node) {
+    let atBottom = true;
+    const onScroll = () => { atBottom = node.scrollTop + node.clientHeight >= node.scrollHeight - 4; };
+    node.addEventListener("scroll", onScroll);
+    const mo = new MutationObserver(() => { if (atBottom) node.scrollTop = node.scrollHeight; });
+    mo.observe(node, { childList: true, characterData: true, subtree: true });
+    node.scrollTop = node.scrollHeight;
+    return { destroy() { mo.disconnect(); node.removeEventListener("scroll", onScroll); } };
+  }
+
+  /**
+   * A browser line's own scrollbar (it shows once the text is over six
+   * lines): a click or drag on it scrolls, it does not pick the line.
+   */
+  function noScrollbarPick(node) {
+    let onBar = false;
+    const down = (e) => { onBar = e.offsetX >= node.clientWidth; if (onBar) e.stopPropagation(); };
+    const click = (e) => { if (onBar) { e.stopPropagation(); onBar = false; } };
+    node.addEventListener("mousedown", down);
+    node.addEventListener("click", click);
+    return { destroy() { node.removeEventListener("mousedown", down); node.removeEventListener("click", click); } };
+  }
+
+  // Lines a browser has dropped (their station went quiet) are kept here so
+  // Save still writes them; Clear empties them.
+  let browserArchive = [];      // PSK / Olivia Browser
+  // Leaving PSK / Olivia Browser (unticked, another Mode, a line clicked):
+  // what was on screen is kept for Save.
+  $: if (!fskBrowsing && pskBrowserChannels.length) {
+    browserArchive = [...browserArchive, ..._browserDropped(pskBrowserChannels, [])].slice(-500);
+    pskBrowserChannels = [];
+  }
+  let cwBrowserArchive = [];    // CW Browser
+
+  /** Entries for the lines that were in `prev` and are gone from `next`. */
+  function _browserDropped(prev, next) {
+    const keep = new Set((next || []).map((c) => c.id));
+    const dialKhz = Number(frequency) || 0;
+    const at = new Date().toISOString().slice(11, 19);
+    return (prev || []).filter((c) => !keep.has(c.id) && c.text && c.text.trim())
+      .map((c) => ({ at, khz: dialKhz + c.hz / 1000, wpm: c.wpm, call: c.call, cq: c.cq, text: c.text.trim() }));
+  }
+
+  /** Text file lines for a browser: what it dropped, then what is on screen now. */
+  function _browserSaveLines(archive, current) {
+    const dialKhz = Number(frequency) || 0;
+    const at = new Date().toISOString().slice(11, 19);
+    const now = (current || []).filter((c) => c.text && c.text.trim())
+      .map((c) => ({ at, khz: dialKhz + c.hz / 1000, wpm: c.wpm, call: c.call, cq: c.cq, text: c.text.trim() }));
+    return [...archive, ...now].map((e) =>
+      `${e.at} UTC  ${e.khz.toFixed(3)} kHz` +
+      (e.wpm ? `  ${e.wpm} wpm` : "") +
+      (e.call ? `  ${e.cq ? "CQ " : ""}${e.call}` : "") +
+      `  ${e.text}`);
+  }
+
+  /** The PSK Browser knob: on = every BPSK31 signal at once; off = back to the Mode used before. */
+  let _pskModeBeforeBrowse = "bpsk31";
+  function pskSetBrowse(on) {
+    if (on === (pskMode === "browser")) return;
+    if (on) { _pskModeBeforeBrowse = pskMode; pskMode = "browser"; }
+    else pskMode = _pskModeBeforeBrowse && _pskModeBeforeBrowse !== "browser" ? _pskModeBeforeBrowse : "bpsk31";
+    fskApplySettings(true);
+  }
+
+  /** A browser row clicked: decode just that signal (BPSK31, or Olivia on its own). */
+  function pskBrowserPick(hz) {
+    if (fskVariant === "olivia") {
+      oliviaBrowse = false;
+      fskCenter = Math.round(hz);
+      fskApplySettings(true);
+      return;
+    }
+    pskMode = "bpsk31";
+    fskCenter = Math.round(hz);
+    fskApplySettings(true);
+  }
   let fskScrollEl;
   let fskStatusText = "";
   let fskShift = 170;
@@ -4036,7 +4385,10 @@
     if (p.squelch != null) fskSquelch = p.squelch;
     if (v === "maritime") fskKnownFrequency = "518";
     if (v === "psk31") fskKnownFrequency = "14070.15";
-    if (v === "olivia") fskKnownFrequency = "14075.5";
+    if (v === "olivia") fskKnownFrequency = "14072.5";
+    if (v === "fst4w") fskKnownFrequency = "137.5";
+    if (v === "msk144") fskKnownFrequency = "144361.5";
+    if (v === "ale") fskKnownFrequency = "";
     if (MODEM_UI[v]) {
       fskKnownFrequency = "";
       if (v === "mt63") fskCenter = 500 + _modemModeCfg(v).bw / 2;
@@ -4055,6 +4407,9 @@
 
   $: isPsk = fskVariant === "psk31";
   $: isOlivia = fskVariant === "olivia";
+  $: isFst4w = fskVariant === "fst4w";
+  $: isMsk144 = fskVariant === "msk144";
+  $: isAle = fskVariant === "ale";
   // MFSK, DominoEX, THOR, THROB, Hell, MT63: a Mode list and a squelch each.
   $: isModem = !!MODEM_UI[fskVariant];
   $: isHell = fskVariant === "hell";
@@ -4062,7 +4417,7 @@
   $: modemCfg = isModem ? _modemModeCfg(fskVariant, modemModes[fskVariant]) : null;
   // None of these has a tone pair or UART framing, so they share the same
   // "hide the FSK-only controls" branch throughout the panel.
-  $: isMfskLike = isPsk || isOlivia || isModem;
+  $: isMfskLike = isPsk || isOlivia || isModem || isFst4w || isMsk144 || isAle;
   $: isPacket = fskVariant === "packet";
   $: isAprs = fskVariant === "aprs";
   $: isPacketLike = isPacket || isAprs;
@@ -4079,7 +4434,9 @@
       };
     }
     if (fskVariant === "psk31") {
-      return { center: Number(fskCenter) || 1000, encoding: "varicode" };
+      // The browser listens to the whole voice passband around 1500 Hz.
+      if (pskMode === "browser") return { center: 1500, encoding: "varicode", pskMode };
+      return { center: Number(fskCenter) || 1000, encoding: "varicode", pskMode };
     }
     // Read straight from the per-variant maps, not modemCfg: see _fskIsPacket().
     if (MODEM_UI[fskVariant]) {
@@ -4094,12 +4451,33 @@
         reverse: v === "hell" ? !!hellReverse : false,
       };
     }
+    if (fskVariant === "ale") return { center: 1625, encoding: "ale" };
+    if (fskVariant === "msk144") {
+      return {
+        center: Number(fskCenter) || 1500,
+        encoding: "msk144",
+        tol: Number(msk144Tol) || 100,
+        period: Number(msk144Period) === 30 ? 30 : 15,
+        depth: Number(msk144Depth) || 3,
+      };
+    }
+    if (fskVariant === "fst4w") {
+      return {
+        center: Number(fskCenter) || 1500,
+        encoding: "fst4w",
+        period: Number(fst4wPeriod) || 120,
+        tol: Number(fst4wTol) || 100,
+      };
+    }
     if (fskVariant === "olivia") {
       return {
-        center: Number(fskCenter) || 1000,
+        // The browser listens to the whole voice passband around 1500 Hz.
+        center: oliviaBrowse ? 1500 : Number(fskCenter) || 1000,
+        browse: !!oliviaBrowse,
         encoding: "olivia",
         tones: oliviaCfg.tones,
         bandwidth: oliviaCfg.bw,
+        contestia: !!oliviaCfg.contestia,
         syncThreshold: Number(oliviaSquelch) || 4.0,
       };
     }
@@ -4196,8 +4574,16 @@
       if (typeof updateLink === "function") updateLink();
       return;
     }
+    // ALE 2G: 500-2750 Hz, as SERVICES had it; mirrored below the dial on LSB.
+    if (fskVariant === "ale") {
+      if (aleLsb) applyIFEdges(hz - 2750, hz, hz - 500);
+      else applyIFEdges(hz + 500, hz, hz + 2750);
+      if (typeof updateLink === "function") updateLink();
+      return;
+    }
     // PSK31 occupies ~62 Hz; a narrow window keeps neighbouring signals on the
-    // same watering hole out of the decoder. Olivia needs its full bandwidth
+    // same watering hole out of the decoder. PSK63/125 scale with the baud
+    // rate (3.2 x baud either side, the decoder's own anti-alias corner). Olivia needs its full bandwidth
     // plus room for the sync search either side.
     //
     // Async RTTY: shift/2 + 1.43·baud, i.e. ±150 Hz for 45.45 Bd / 170 Hz and
@@ -4213,11 +4599,15 @@
     const halfWidth = _fskIsPacket()
       ? 100 + 300
       : fskVariant === "psk31"
-        ? 100
+        ? pskMode === "browser" ? 1300 : Math.round(3.2 * pskModeCfg(pskMode).baud)
         : MODEM_UI[fskVariant]
           ? (cfg.bandwidth || 500) / 2 + Math.max(60, 0.15 * (cfg.bandwidth || 500))
+        : fskVariant === "msk144"
+          ? 1100 + (cfg.tol || 100)   // tones ±500 Hz and the MSK sidelobes the decoder's filter keeps
+        : fskVariant === "fst4w"
+          ? (cfg.tol || 100) + 150   // search ± F Tol, plus 100 Hz of noise floor either side
         : fskVariant === "olivia"
-          ? (cfg.bandwidth || 1000) / 2 + 150
+          ? oliviaBrowse ? 1300 : (cfg.bandwidth || 1000) / 2 + 150
           : cfg.encoding === "ccir476"
             ? (cfg.shift || 0) / 2 + 120
             : (cfg.shift || 0) / 2 + 1.43 * (Number(cfg.baud) || 45.45);
@@ -4236,7 +4626,8 @@
   function _fskTakeReceiverControl() {
     _fskRememberReceiverControl();
     // Everything here is USB except 1200 Bd packet, which is FM.
-    const mode = _fskIsPacket() && Number(packetBaud) !== 300 ? "FM" : "USB";
+    const mode = _fskIsPacket() && Number(packetBaud) !== 300 ? "FM"
+      : fskVariant === "ale" && aleLsb ? "LSB" : "USB";
     demodulation = mode;
     // Do NOT call handleDemodulationChange — it runs BFO compensation that
     // shifts the center frequency and moves the cursor.  Just switch the
@@ -4350,6 +4741,28 @@
           _fskPushLine(fskCurrentLine);
           fskCurrentLine = "";
         }
+      } else if (event.type === "browser") {
+        const next = event.channels || [];
+        const gone = _browserDropped(pskBrowserChannels, next);
+        if (gone.length) browserArchive = [...browserArchive, ...gone].slice(-500);
+        pskBrowserChannels = next;
+        return;
+      } else if (event.type === "ale") {
+        if (alePanelRef) alePanelRef.onEvent({ type: "message", msg: event.msg });
+        return;
+      } else if (event.type === "alemetrics") {
+        if (alePanelRef) alePanelRef.onEvent({ ...event, type: "metrics" });
+        return;
+      } else if (event.type === "msk144") {
+        const d = event.decode || {};
+        const dialKhz = Number(frequency) || 0;
+        msk144Decodes = [...msk144Decodes, { ...d, id: _msk144NextId++, mhz: (dialKhz * 1000 + (d.freq || 0)) / 1e6 }].slice(-500);
+        return;
+      } else if (event.type === "fst4w") {
+        const d = event.decode || {};
+        const dialKhz = Number(frequency) || 0;
+        fst4wDecodes = [...fst4wDecodes, { ...d, id: _fst4wNextId++, mhz: (dialKhz * 1000 + (d.audioHz || 0)) / 1e6 }].slice(-500);
+        return;
       } else if (event.type === "hell") {
         // One painted Hellschreiber column (a picture, not text).
         hellPaint(event.column);
@@ -4362,6 +4775,7 @@
         if (event.pos) _aprsNotePosition(event.text, event.pos);
       } else if (event.type === "status") {
         fskStatusText = event.text || "";
+        if (event.variant === "fst4w") fst4wProgress = event.progress || fst4wProgress;
       } else if (event.type === "metrics") {
         fskMetrics = event;
         // Auto-shift / auto-tune moved the tones: the receiver passband is
@@ -4460,6 +4874,10 @@
   }
 
   function fskClear() {
+    browserArchive = [];
+    if (alePanelRef) alePanelRef.clear();
+    fst4wDecodes = [];
+    msk144Decodes = [];
     fskTextLines = [];
     fskCurrentLine = "";
     hellClear();
@@ -4584,15 +5002,38 @@
   }
 
   function saveFskText() {
+    if (fskBrowsing || browserArchive.length) {
+      // One line per signal: its frequency and all the text heard on it,
+      // including the lines the browser has already dropped.
+      const rows = _browserSaveLines(browserArchive, fskBrowsing ? pskBrowserChannels : []);
+      _saveDecoderTextFile(oliviaBrowsing ? (oliviaCfg.contestia ? "contestia-browser" : "olivia-browser") : "psk-browser", rows, "");
+      return;
+    }
+    if (fskVariant === "msk144") {
+      // As WSJT-X lists them: UTC, dB, T, audio Hz, message.
+      const rows = msk144Decodes.map((d) =>
+        `${d.utc.replaceAll(":", "")} ${String(d.snr).padStart(3)} ${d.t.toFixed(1).padStart(5)} ${String(d.freq).padStart(5)} &  ${d.msg}`);
+      _saveDecoderTextFile("msk144", rows, "");
+      return;
+    }
+    if (fskVariant === "fst4w") {
+      // The decodes as WSJT-X prints them: UTC, dB, DT, MHz, message.
+      const rows = fst4wDecodes.map((d) =>
+        `${d.utc.replace(":", "")}  ${String(d.snr).padStart(4)} ${d.dt.toFixed(1).padStart(5)} ${d.mhz.toFixed(6)}  ${d.msg}   FST4W-${d.period}`);
+      _saveDecoderTextFile("fst4w", rows, "");
+      return;
+    }
     const mode =
       fskVariant === "weather"
         ? "weather-rtty"
         : fskVariant === "ham"
           ? "amateur-rtty"
           : fskVariant === "psk31"
-            ? "psk31"
+            ? pskMode
             : fskVariant === "olivia"
-              ? "olivia"
+              ? oliviaCfg.contestia
+                ? "contestia"
+                : "olivia"
               : MODEM_UI[fskVariant]
                 ? modemModes[fskVariant]
               : fskVariant === "packet"
@@ -4684,6 +5125,71 @@
   let cwDetectedHz = 0;
   let cwDetectedWpm = 0;
   let cwScrollEl;
+
+  // ── CW Browser: every CW signal in the passband at once (cwBrowser.js) ──
+  // While it runs the receiver is held on USB 200-3000 Hz (the single CW
+  // decoder never touches the receiver); the listener's mode and filter come
+  // back when the browser or the decoder is switched off.
+  let cwBrowsing = false;
+  let cwBrowserChannels = [];
+  let _cwBrowseSaved = null;    // { mode, lo, hi } offsets from the BFO point
+
+  function _cwBrowseTakeReceiver() {
+    if (demodulation !== "USB") {
+      demodulation = "USB";
+      handleDemodulationChange(null, true);
+    }
+    const m = FFTOffsetToFrequency(audio.getAudioRange()[1]);
+    applyIFEdges(m + 200, m, m + 3000);
+    if (typeof updateLink === "function") updateLink();
+  }
+
+  function setCwBrowse(on) {
+    on = !!on;
+    if (on === cwBrowsing) return;
+    if (on) {
+      const [l, m, r] = audio.getAudioRange().map(FFTOffsetToFrequency);
+      _cwBrowseSaved = { mode: demodulation, lo: l - m, hi: r - m };
+      cwBrowserChannels = [];
+      cwBrowsing = true;
+      audio.setCWBrowse(true);
+      _cwBrowseTakeReceiver();
+    } else {
+      cwBrowsing = false;
+      audio.setCWBrowse(false);
+      // what was on screen is kept for Save
+      const gone = _browserDropped(cwBrowserChannels, []);
+      if (gone.length) cwBrowserArchive = [...cwBrowserArchive, ...gone].slice(-500);
+      cwBrowserChannels = [];
+      const sv = _cwBrowseSaved;
+      _cwBrowseSaved = null;
+      if (sv) {
+        if (demodulation !== sv.mode) {
+          demodulation = sv.mode;
+          handleDemodulationChange(null, true);
+        }
+        const m = FFTOffsetToFrequency(audio.getAudioRange()[1]);
+        applyIFEdges(m + sv.lo, m, m + sv.hi);
+        if (typeof updateLink === "function") updateLink();
+      }
+    }
+  }
+
+  /** Save the CW window: the decoded text, or every CW Browser line (also the dropped ones). */
+  function saveCwText() {
+    if (cwBrowsing || cwBrowserArchive.length) {
+      _saveDecoderTextFile("cw-browser", _browserSaveLines(cwBrowserArchive, cwBrowsing ? cwBrowserChannels : []), "");
+      return;
+    }
+    _saveDecoderTextFile("cw", cwMessages, cwCurrentLine);
+  }
+
+  /** A CW Browser line clicked: that station alone, in CW, with the normal decoder. */
+  function cwBrowserPick(c) {
+    const carrierHz = Math.round(Number(frequency) * 1000 + c.hz);
+    setCwBrowse(false);
+    tuneToUserFrequency(carrierHz, "CW");
+  }
 
   // ── Digital mode decoder state ───────────────────────────────────────────
 
@@ -5163,8 +5669,28 @@
     RADEU: { type: "USB", offsets: [-700, 2200] }, // RADE v1 Upper sideband — 700 Hz to 2200 Hz from carrier
     RADE2: { type: "USB", offsets: [-1040, 1930] }, // RADE V2 (beta), USB on every band — 1040 Hz to 1930 Hz: its 1076–1896 Hz signal plus room for the ±30 Hz it tolerates. Narrower than the 1000–2000 Hz it had: a strong neighbour reaching 30–70 Hz into those edges cut V2 to 20–50 % of the speech (bench 2026-10-30)
     DRM: { type: "AM", offsets: [5000, 5000] }, // DRM decoder: AM to the server, the whole 10 kHz channel
-    IQ: { type: "IQ", offsets: [6000, 6000] }, // raw zero-IF I/Q, the full ±6 kHz the audio rate carries
+    IQ: { type: "IQ", offsets: [6000, 6000] }, // raw zero-IF I/Q, the full ±6 kHz the audio rate carries (±12 / ±24 kHz in a wide IQ, see setIqWidth)
   };
+
+  // ── Wide IQ (24 / 48 kHz) ─────────────────────────────────────────────────
+  // The width the listener chose in the IQ panel, remembered in the browser.
+  // It sets the IQ passband (±width/2 around the dial) and tells the server,
+  // which applies it whenever the receiver is in IQ ([server] iq_wide).
+  const IQ_WIDTH_KEY = "phantom.iqwidth";
+  let iqWidthKhz = 12;
+  try {
+    const v = Number(localStorage.getItem(IQ_WIDTH_KEY));
+    if (v === 24 || v === 48) iqWidthKhz = v;
+  } catch (e) { /* private window: 12 kHz */ }
+  function setIqWidth(khz, apply = true) {
+    const offered = audio && audio.iqWidths ? audio.iqWidths() : [12];
+    if (!offered.includes(khz)) khz = 12;
+    iqWidthKhz = khz;
+    try { localStorage.setItem(IQ_WIDTH_KEY, String(khz)); } catch (e) {}
+    demodulationDefaults.IQ.offsets = [khz * 500, khz * 500];
+    if (audio && audio.setIqWidth) audio.setIqWidth(khz);
+    if (apply && demodulation === "IQ") handleDemodulationChange(null, false);
+  }
   // The server offers IQ to listeners ([server] iq, in basic_info).
   let iqAvailable = false;
   const MODE_BUTTONS = ["USB", "LSB", "CW", "AM", "QUAM", "FM"];
@@ -5284,6 +5810,28 @@
 
     handleDemodulationChange(null, true);
     updateLink();
+    if (userClick) _cwDecoderFollowMode(mode);
+  }
+
+  /**
+   * CW chosen by hand in the Mode selector (or the Modes pop-up) starts the
+   * CW decoder, as its button would, so the decoder button lights up too.
+   * Only a deliberate click: the band plan switching to CW in a CW segment
+   * does not start it. No scrolling, unlike the decoder button.
+   */
+  function _cwDecoderFollowMode(mode) {
+    if (mode !== "CW" && mode !== "CW-L") return;
+    if (decoderOn && selectedDecoder === "cw") return;
+    selectedDecoder = "cw";
+    decoderOn = true;
+    activateSelectedDecoder();
+    // starting it may have restored another decoder's band default: the
+    // mode the listener just picked wins
+    if (demodulation !== mode) {
+      demodulation = mode;
+      handleDemodulationChange(null, true);
+      updateLink();
+    }
   }
 
   function setModePopup(mode) {
@@ -5301,6 +5849,7 @@
 
     handleDemodulationChange(null, true);
     updateLink();
+    _cwDecoderFollowMode(mode);
     setTimeout(function () {
       toggleModePopup();
     }, 300);
@@ -5386,14 +5935,16 @@
    * the rest of that synchronous block — long enough for the restore path to
    * be undone by _decoderReassertReceiver() below.
    *
-   * The CW decoder is not in the list: it works in whatever mode the operator
-   * is listening in and never took the receiver over. The QRSS grabber is,
+   * The CW decoder is in the list since 2026-11-06: it puts the receiver in
+   * CW and keeps it there (CW-L stays CW-L), and CW clicked in the Mode
+   * selector starts it. The QRSS grabber is,
    * but only once a window has been tuned from its list — merely showing the
    * panel leaves the receiver alone.
    */
   function _decoderOwnsReceiver() {
     return (
       qrssHoldsReceiver ||
+      cwEnabled ||
       ft8Enabled ||
       ft4Enabled ||
       ft2Enabled ||
@@ -5403,6 +5954,7 @@
       sstvEnabled ||
       navtexEnabled ||
       hfdlEnabled ||
+      !!svcRunning ||
       drmEnabled ||
       fskEnabled ||
       radeEnabled
@@ -5440,6 +5992,19 @@
     // trace stays on the centre line while hunting along a band.
     if (qrssHoldsReceiver) {
       _qrssTakeReceiverControl();
+      return;
+    }
+    // The CW Browser: USB with the whole 200-3000 Hz.
+    if (cwEnabled && cwBrowsing) {
+      _cwBrowseTakeReceiver();
+      return;
+    }
+    // The CW decoder keeps CW (or CW-L) across a retune, as FT8 keeps USB.
+    if (cwEnabled) {
+      if (demodulation !== "CW" && demodulation !== "CW-L") {
+        demodulation = "CW";
+        handleDemodulationChange(null, true);
+      }
       return;
     }
     // RADE carries its own demodulation (RADEL/RADEU), set by its own path.
@@ -5492,6 +6057,7 @@
     }
     // CW
     if (cwEnabled) {
+      if (cwBrowsing) setCwBrowse(false);
       cwEnabled = false;
       audio.setCWDecoding(false);
       audio.setCWCallback(null);
@@ -5518,9 +6084,9 @@
     if (navtexEnabled) {
       _navtexDeactivate();
     }
-    // HFDL
-    if (hfdlEnabled) {
-      _hfdlDeactivate();
+    // SERVICES (HFDL, DSC, ...)
+    if (hfdlEnabled || svcRunning) {
+      _servicesDeactivate();
     }
     // DRM
     if (drmEnabled) {
@@ -5666,6 +6232,13 @@
       _js8TickStart();
     } else if (d === "cw") {
       cwEnabled = true;
+      // The CW decoder puts the receiver in CW (CW-L stays CW-L), so the
+      // Mode selector's CW button lights up with the decoder button.
+      if (!cwBrowsing && demodulation !== "CW" && demodulation !== "CW-L") {
+        demodulation = "CW";
+        handleDemodulationChange(null, true);
+        updateLink();
+      }
       audio.setCwPitch(cwPitchHz);
       cwMessages = [];
       cwCurrentLine = "";
@@ -5674,6 +6247,14 @@
       // Callback first, then enable: CW now decodes in a worker and delivers
       // events asynchronously, so the sink must exist before it starts.
       audio.setCWCallback((event) => {
+        if (event.type === "browser") {
+          const next = event.channels || [];
+          const gone = _browserDropped(cwBrowserChannels, next);
+          if (gone.length) cwBrowserArchive = [...cwBrowserArchive, ...gone].slice(-500);
+          cwBrowserChannels = next;
+          return;
+        }
+        if (event.type === "browserStatus") return;
         if (event.type === "char") {
           cwCurrentLine += event.char;
           if (cwCurrentLine.length >= 60) {
@@ -5722,9 +6303,8 @@
     } else if (d === "navtex") {
       navtexEnabled = true;
       _navtexActivate();
-    } else if (d === "hfdl") {
-      hfdlEnabled = true;
-      _hfdlActivate();
+    } else if (d === "services") {
+      _servicesActivate();
     } else if (d === "drm") {
       drmEnabled = true;
       _drmActivate();
@@ -5862,6 +6442,11 @@
     wspr: { mode: "USB", passband: [1350, 1650] },
     navtex: { mode: "USB", passband: [250, 750] },
     hfdl: { mode: "USB", passband: [150, 2750] },
+    dsc: { mode: "USB", passband: [1400, 2000] },
+    selcall: { mode: "USB", passband: [1400, 2000] },
+    time: { mode: "USB", passband: [700, 1300] },
+    // mode null: keep USB or LSB (a few ALE nets are LSB); the passband mirrors.
+    ale: { mode: null, passband: [500, 2750] },
     drm: { mode: "DRM", passband: [-5000, 5000] },
     hffax: { mode: "USB", passband: [800, 2700] },
     sstv: { mode: null, passband: [900, 2600] },
@@ -5947,6 +6532,15 @@
     if (candidate.key === "fsk" && candidate.variant) {
       fskVariant = candidate.variant;
       _applyFskVariantDefaults(fskVariant);
+    }
+    if (candidate.key === "services" && candidate.variant) {
+      // DSC: put the signal's carrier on the decoder's 1700 Hz, then start.
+      const f = modeIdResult && modeIdResult.features;
+      const sigKhz = f ? signalKhz(Number(frequency), f.centerHz, demodulation) : 0;
+      if (decoderOn && selectedDecoder === "services") changeService(candidate.variant);
+      else { serviceMode = candidate.variant; launchDecoder("services"); }
+      if (candidate.variant === "dsc" && sigKhz > 0) dscTune(sigKhz);
+      return;
     }
     const wasRunning = decoderOn && selectedDecoder === candidate.key;
     launchDecoder(candidate.key);
@@ -6044,6 +6638,7 @@
   // Tell the server which decoder runs, for the Users list (users.html).
   const DECODER_LABELS = { fsk: "FLDIGI", hffax: "FAX", radel: "RADE", radeu: "RADE", rade2: "RADE V2" };
   $: sendDecoder(activeDecoder === "none" ? ""
+    : activeDecoder === "services" ? _serviceOf(serviceMode).report
     : DECODER_LABELS[activeDecoder] || activeDecoder.toUpperCase());
 
   // The inverse, for Tune in the Users list: a reported label back to the
@@ -6052,6 +6647,9 @@
   function _decoderKeyFromLabel(label, serverMode) {
     const up = String(label || "").toUpperCase();
     if (!up) return null;
+    // A SERVICES report names the service: "services:<key>".
+    const svc = SERVICES.find((x) => x.report === up);
+    if (svc) return "services:" + svc.key;
     if (up === "RADE")
       return String(serverMode || "").toLowerCase() === "lsb" ? "radel" : "radeu";
     for (const [key, l] of Object.entries(DECODER_LABELS))
@@ -6079,14 +6677,14 @@
       key: "fsk",
       label: "FLDIGI",
       title:
-        "fldigi modes: RTTY / SITOR / PSK31 / Olivia / MFSK / DominoEX / THOR / THROB / Hellschreiber / MT63 / Packet / APRS",
+        "fldigi modes: RTTY / SITOR / PSK31·63·125 (BPSK/QPSK) / Olivia / Contestia / MFSK / DominoEX / THOR / THROB / Hellschreiber / MT63 / Packet / APRS",
     },
     { key: "navtex", label: "NAVTEX", title: "NAVTEX" },
     { key: "hffax", label: "FAX", title: "HF FAX / WEFAX" },
     {
-      key: "hfdl",
-      label: "HFDL",
-      title: "HFDL — HF Data Link: aircraft ACARS messages on shortwave",
+      key: "services",
+      label: "SERVICES",
+      title: "SERVICES — HFDL (aircraft), DSC (maritime calls), Time Signals, HF Selcall",
     },
     {
       key: "drm",
@@ -6360,11 +6958,11 @@
   // and dividing a plain RF frequency by the bin width ignores that offset --
   // which puts the view megahertz away on every receiver whose baseband is
   // not 0 Hz (RTL, RSP1A).
-  // 10 kHz of margin either side, so the band edges are not flush with the
+  // 5 kHz of margin either side, so the band edges are not flush with the
   // waterfall edges; clamped to what the receiver actually covers.
   function _bandViewRange(band) {
-    const l = Math.max(0, Math.floor(frequencyToFFTOffset(band.startFreq - 10000)));
-    const r = Math.min(waterfall.waterfallMaxSize, Math.ceil(frequencyToFFTOffset(band.endFreq + 10000)));
+    const l = Math.max(0, Math.floor(frequencyToFFTOffset(band.startFreq - 5000)));
+    const r = Math.min(waterfall.waterfallMaxSize, Math.ceil(frequencyToFFTOffset(band.endFreq + 5000)));
     return [l, r];
   }
 
@@ -6799,7 +7397,13 @@
   function handleVolumeChange() {
     // During TX the slider still moves; its level is applied on receive.
     if (catTxMuted) return;
-    audio.setGain(Math.pow(10, (volume - 50) / 50 + 2.6));
+    audio.setGain(volumeToGain(volume));
+  }
+
+  // The slider itself: remembered for this listener's next visit.
+  function handleVolumeInput() {
+    saveVolume(volume);
+    handleVolumeChange();
   }
 
   function handleSquelchChange() {
@@ -6893,7 +7497,7 @@
     backendNoiseGateEnabled = !backendNoiseGateEnabled;
     // While HFDL decodes the server gate stays open (it acts before the
     // decoder); the new choice is applied when HFDL is switched off.
-    if (hfdlEnabled) return;
+    if (hfdlEnabled || svcRunning) return;
 
     if (
       audio &&
@@ -7125,6 +7729,25 @@
 
   let eyeDbm = -130;
 
+  // Signal strength plotter (lib/SignalPlotter.svelte), under Recording
+  // Options: Off / Fast (10 s) / Medium (30 s) / Slow (60 s), remembered in
+  // the browser. It plots the figure in the digital S-meter's dBm window.
+  const PLOTTER_MODES = ["off", "fast", "medium", "slow"];
+  const PLOTTER_KEY = "phantom.plotter";
+  let plotterMode = "off";
+  try {
+    const v = localStorage.getItem(PLOTTER_KEY);
+    if (PLOTTER_MODES.includes(v)) plotterMode = v;
+  } catch (e) { /* private window: off */ }
+  function cyclePlotter() {
+    plotterMode = PLOTTER_MODES[(PLOTTER_MODES.indexOf(plotterMode) + 1) % PLOTTER_MODES.length];
+    try { localStorage.setItem(PLOTTER_KEY, plotterMode); } catch (e) {}
+  }
+  // Same number as SMeterDigital's dBm window (window._lastPowerDb + its 5 dB
+  // display offset), so the plot and the meter always agree.
+  const plotterDbm = () =>
+    (typeof window._lastPowerDb === "number" ? window._lastPowerDb : -130) + 5;
+
   function _smeterTick() {
     let powerDb = audio.getPowerDb();
     const analogSmeterOffset = Number.isFinite(
@@ -7255,8 +7878,20 @@
     RTTY: { key: "fsk", variant: "ham" },
     "RTTY-WX": { key: "fsk", variant: "weather" },
     SITOR: { key: "fsk", variant: "maritime" },
-    PSK31: { key: "fsk", variant: "psk31" },
-    OLIVIA: { key: "fsk", variant: "olivia" },
+    PSK31: { key: "fsk", variant: "psk31", pskMode: "bpsk31" },
+    BPSK31: { key: "fsk", variant: "psk31", pskMode: "bpsk31" },
+    PSK63: { key: "fsk", variant: "psk31", pskMode: "bpsk63" },
+    BPSK63: { key: "fsk", variant: "psk31", pskMode: "bpsk63" },
+    PSK125: { key: "fsk", variant: "psk31", pskMode: "bpsk125" },
+    BPSK125: { key: "fsk", variant: "psk31", pskMode: "bpsk125" },
+    QPSK31: { key: "fsk", variant: "psk31", pskMode: "qpsk31" },
+    QPSK63: { key: "fsk", variant: "psk31", pskMode: "qpsk63" },
+    QPSK125: { key: "fsk", variant: "psk31", pskMode: "qpsk125" },
+    OLIVIA: { key: "fsk", variant: "olivia", oliviaFamily: "olivia" },
+    FST4W: { key: "fsk", variant: "fst4w" },
+    MSK144: { key: "fsk", variant: "msk144" },
+    ALE: { key: "fsk", variant: "ale" },
+    CONTESTIA: { key: "fsk", variant: "olivia", oliviaFamily: "contestia" },
     MFSK: { key: "fsk", variant: "mfsk" },
     MFSK16: { key: "fsk", variant: "mfsk", modemMode: "mfsk16" },
     MFSK32: { key: "fsk", variant: "mfsk", modemMode: "mfsk32" },
@@ -7278,7 +7913,18 @@
     FREEDV: { key: "radeu" },
     // HFDL lists the USB dial (the subcarrier sits 1440 Hz above it); DRM
     // lists the channel centre, which is where its dial goes.
-    HFDL: { key: "hfdl" },
+    HFDL: { key: "services", service: "hfdl" },
+    // DSC markers list the DSC frequency; the USB dial goes 1.7 kHz below.
+    DSC: { key: "services", service: "dsc", offset: 1700 },
+    // Time-signal markers list the carrier; the USB dial goes 1 kHz below.
+    TIME: { key: "services", service: "time", offset: 1000 },
+    // Selcall markers list the FSK centre; the USB dial goes 1.7 kHz below.
+    SELCALL: { key: "services", service: "selcall", offset: 1700 },
+    DCF77: { key: "services", service: "time", station: "dcf77", offset: 1000 },
+    MSF: { key: "services", service: "time", station: "msf", offset: 1000 },
+    RWM: { key: "services", service: "time", station: "rwm", offset: 1000 },
+    WWV: { key: "services", service: "time", station: "wwv", offset: 1000 },
+    WWVH: { key: "services", service: "time", station: "wwv", offset: 1000 },
     DRM: { key: "drm" },
     // "CW" stays a receiver mode (beacons, time signals); "MORSE" asks for
     // the CW decoder on the signal's frequency.
@@ -7296,7 +7942,8 @@
     if (spec.variant === "mt63") {
       return { ...spec, offset: 500 + _modemModeCfg("mt63", spec.modemMode).bw / 2 };
     }
-    return { ...spec, offset: packet ? 0 : p.center };
+    // ALE channels are the dial frequency, like packet.
+    return { ...spec, offset: packet || spec.variant === "ale" ? 0 : p.center };
   }
 
   /**
@@ -7306,6 +7953,15 @@
    */
   function _startDecoderFromMarker(spec, markerHz) {
     const running = decoderOn && selectedDecoder === spec.key;
+    if (spec.service) {
+      if (spec.station) timeStationChanged(spec.station);
+      if (running) {
+        if (spec.service !== serviceMode) changeService(spec.service);
+        else _decoderReassertReceiver();
+        return;
+      }
+      serviceMode = spec.service;
+    }
     if (spec.key === "fsk") {
       fskVariant = spec.variant;
       _applyFskVariantDefaults(spec.variant);
@@ -7317,6 +7973,19 @@
       if (spec.modemMode) {
         modemModes[spec.variant] = spec.modemMode;
         if (spec.variant === "mt63") fskCenter = 500 + _modemModeCfg("mt63").bw / 2;
+      }
+      if (spec.pskMode) pskMode = spec.pskMode;
+      if (spec.variant === "ale") {
+        const k = markerHz / 1e3;
+        aleLsb = ALE_NETS.some((n) => n.lsb && n.khz.some((f) => Math.abs(f - k) < 0.05));
+      }
+      // OLIVIA / CONTESTIA keep the operator's last tones/bandwidth when it is
+      // of the marker's family, and switch to that family's default if not.
+      if (spec.oliviaFamily) {
+        const wantC = spec.oliviaFamily === "contestia";
+        if (!!_oliviaModeCfg(oliviaMode).contestia !== wantC) {
+          oliviaMode = wantC ? CONTESTIA_MODE_DEFAULT : OLIVIA_MODE_DEFAULT;
+        }
       }
       const khz = markerHz / 1e3;
       const known = (FSK_KNOWN_FREQUENCIES[spec.variant] || []).find((e) => e.khz === khz);
@@ -8056,6 +8725,12 @@
     if (iqAvailable) {
       demodulators.push("IQ");
       demodulators = demodulators;
+      // The listener's IQ width, if this server still offers it (else 12 kHz).
+      const keep = iqWidthKhz;
+      setIqWidth(keep, false);
+      if (iqWidthKhz === 12 && keep !== 12) {
+        try { localStorage.setItem(IQ_WIDTH_KEY, String(keep)); } catch (e) {}   // kept for a server that offers it
+      }
     }
 
     // Enable WBFM option if bandwidth is wide enough
@@ -8131,6 +8806,8 @@
     // Height (50%) and reverse-waterfall follow from setSpectrum + this flag.
     waterfall.setSpectrum(spectrumDisplay, Device.isMobile);
     waterfallReverse = spectrumDisplay;
+    // Listener's own last volume, else the receiver's [input.defaults] volume.
+    volume = initialVolume(audio.settings.defaults?.volume);
     handleVolumeChange();
     // Push the buffer setting into the engine too. Without this the control
     // showed a value that had never been applied, and on a handset the x2
@@ -8579,7 +9256,7 @@
     );
 
     // Framed exactly as "To Band" (handleZoomToBand) does: the same view
-    // (_bandViewRange: the band's edges plus 10 kHz either side), and
+    // (_bandViewRange: the band's edges plus 5 kHz either side), and
     // brightness (Min) and contrast (Max) from the band. Auto Adjust is left
     // alone, as on a band change: it never writes minWaterfall/maxWaterfall.
     const [l, r] = _bandViewRange(band);
@@ -8817,54 +9494,30 @@
   // Added by sv2amk to allow the user to adjust the zoom //
   // with a button and a slider but in mobile version only //
 
+  // Zoom slider: ZOOM_STEPS positions on one geometric scale, from the whole
+  // receiver (×1) down to ZOOM_MIN_HALF bins either side of the dial (×20),
+  // so every step zooms by the same factor (about 1.5× on a 30 MHz RX888,
+  // less on a narrower receiver). Was 8 steps, the first of them a 64× jump.
+  const ZOOM_STEPS = 20;
+  const ZOOM_MIN_HALF = 256;
+  function _zoomHalfSpan(step) {
+    const full = waterfall.waterfallMaxSize / 2;
+    if (!(full > ZOOM_MIN_HALF)) return ZOOM_MIN_HALF;
+    const t = (step - 1) / (ZOOM_STEPS - 1);
+    return Math.max(ZOOM_MIN_HALF, Math.round(full * Math.pow(ZOOM_MIN_HALF / full, t)));
+  }
+
   function handleZoomStepMove(e, newZoomStep) {
-    if (newZoomStep > 8) {
+    if (newZoomStep > ZOOM_STEPS) {
       newZoomStep = 1;
     }
     zoomStep = newZoomStep;
+    zoomStepEnabled = zoomStep !== 1;
     if (zoomStep === 1) {
-      zoomStepEnabled = false;
+      handleWaterfallMagnify(e, "min");
     } else {
-      zoomStepEnabled = true;
-    }
-    switch (zoomStep) {
-      case 1:
-        handleWaterfallMagnify(e, "min");
-        break;
-      case 2:
-        zwaterfallSpan = 16384;
-        handleZoomStepMagnify();
-        break;
-      case 3:
-        zwaterfallSpan = 8192;
-        handleZoomStepMagnify();
-        break;
-      case 4:
-        zwaterfallSpan = 4096;
-        handleZoomStepMagnify();
-        break;
-      case 5:
-        zwaterfallSpan = 2048;
-        handleZoomStepMagnify();
-        break;
-      case 6:
-        zwaterfallSpan = 1024;
-        handleZoomStepMagnify();
-        break;
-      case 7:
-        zwaterfallSpan = 512;
-        handleZoomStepMagnify();
-        break;
-      case 8:
-        zwaterfallSpan = 256;
-        handleZoomStepMagnify();
-        break;
-      case 9:
-        handleWaterfallMagnify(e, "min");
-        for (var i = 0; i <= 5 * zoomStep; i++) {
-          handleWaterfallMagnify(e, "+");
-        }
-        break;
+      zwaterfallSpan = _zoomHalfSpan(zoomStep);
+      handleZoomStepMagnify();
     }
   }
 
@@ -9796,7 +10449,7 @@
                   class="text-xl sm:text-2xl font-semibold text-gray-100 mb-2 sm:mb-4"
                 >
                   WebSDR <a
-                    href="https://www.qrz.com/db/{siteSysop}"
+                    href="https://www.qrz.com/db/{encodeURIComponent(siteCallsign)}"
                     target="new"
                     style="color:rgba(0, 225, 255, 0.993)">{siteSysop}</a
                   >, located in
@@ -9880,8 +10533,8 @@
                   <button
                     class="glass-button text-white py-1 px-3 mb-2 lg:mb-0 rounded-lg text-xs sm:text-sm"
                     style="color:rgba(0, 225, 255, 0.993)"
-                    title="websdr.org"
-                    onClick="window.open('http://websdr.org/');"
+                    title="map-sdr.p00lack.cc"
+                    onClick="window.open('https://map-sdr.p00lack.cc/');"
                   >
                     <span class="icon">3</span>
                   </button>
@@ -10237,7 +10890,7 @@
                     <ul style="font-size: 0.91rem; text-align: left;">
                     <b>Setup &amp; Configuration:</b>
                       <img
-                        src="https://img.shields.io/badge/version-5.4.0-cyan?logo=github"
+                        src="https://img.shields.io/badge/version-5.5.0-cyan?logo=github"
                         alt="Version"
                         class="inline-block align-middle ml-2"
                       />
@@ -10386,7 +11039,7 @@
                      <span style="/*text-decoration: line-through*/"><button
                        type="button"
                        class="glass-button text-white py-1 px-2 mr-1 rounded text-xs"
-                       on:click={() => window.open(`https://pskreporter.info/pskmap.html#preset&callsign=${siteSysop}&txrx=rx&mode=FT8&timerange=3600&mapCenter=22.6243,10.9375,2.59`, 'FT8map', 'width=1100,height=750,menubar=no,toolbar=no,location=no,status=no,resizable=yes,scrollbars=yes')}
+                       on:click={() => window.open(`https://pskreporter.info/pskmap.html#preset&callsign=${encodeURIComponent(siteCallsign)}&txrx=rx&mode=FT8&timerange=3600&mapCenter=22.6243,10.9375,2.59`, 'FT8map', 'width=1100,height=750,menubar=no,toolbar=no,location=no,status=no,resizable=yes,scrollbars=yes')}
                        style="color:rgba(0, 225, 255, 0.993); font-size: 0.75rem;"
                      >
                        📡 FT8 map
@@ -10394,7 +11047,7 @@
                      <button
                        type="button"
                        class="glass-button text-white py-1 px-2 mr-1 rounded text-xs"
-                       on:click={() => window.open(`https://pskreporter.info/pskmap.html#preset&callsign=${siteSysop}&txrx=rx&mode=FT4&timerange=3600&mapCenter=22.6243,10.9375,2.59`, 'FT4map', 'width=1100,height=750,menubar=no,toolbar=no,location=no,status=no,resizable=yes,scrollbars=yes')}
+                       on:click={() => window.open(`https://pskreporter.info/pskmap.html#preset&callsign=${encodeURIComponent(siteCallsign)}&txrx=rx&mode=FT4&timerange=3600&mapCenter=22.6243,10.9375,2.59`, 'FT4map', 'width=1100,height=750,menubar=no,toolbar=no,location=no,status=no,resizable=yes,scrollbars=yes')}
                        style="color:rgba(0, 225, 255, 0.993); font-size: 0.75rem;"
                      >
                        📡 FT4 map
@@ -10402,7 +11055,7 @@
                      <button
                        type="button"
                        class="glass-button text-white py-1 px-2 mr-1 rounded text-xs"
-                       on:click={() => window.open(`https://pskreporter.info/pskmap.html#preset&callsign=${siteSysop}&txrx=rx&mode=JS8&timerange=3600&mapCenter=22.6243,10.9375,2.59`, 'JS8map', 'width=1100,height=750,menubar=no,toolbar=no,location=no,status=no,resizable=yes,scrollbars=yes')}
+                       on:click={() => window.open(`https://pskreporter.info/pskmap.html#preset&callsign=${encodeURIComponent(siteCallsign)}&txrx=rx&mode=JS8&timerange=3600&mapCenter=22.6243,10.9375,2.59`, 'JS8map', 'width=1100,height=750,menubar=no,toolbar=no,location=no,status=no,resizable=yes,scrollbars=yes')}
                        style="color:rgba(0, 225, 255, 0.993); font-size: 0.75rem;"
                      >
                        📡 JS8 map
@@ -10410,7 +11063,7 @@
                      <button
                        type="button"
                        class="glass-button text-white py-1 px-2 mr-1 rounded text-xs"
-                       on:click={() => window.open(`https://www.wsprnet.org/olddb?mode=html&band=all&limit=100&findcall=&findreporter=${siteSysop}&sort=date`, 'WSPRlog', 'width=1100,height=750,menubar=no,toolbar=no,location=no,status=no,resizable=yes,scrollbars=yes')}
+                       on:click={() => window.open(`https://www.wsprnet.org/olddb?mode=html&band=all&limit=100&findcall=&findreporter=${encodeURIComponent(siteCallsign)}&sort=date`, 'WSPRlog', 'width=1100,height=750,menubar=no,toolbar=no,location=no,status=no,resizable=yes,scrollbars=yes')}
                        style="color:rgba(0, 225, 255, 0.993); font-size: 0.75rem;"
                      >
                        📋 WSPR log
@@ -10444,7 +11097,17 @@
                      
                      <br><br>
                              
-                  <div style="font-weight: bold;">Current band propagation for Europe and statistics:</div>
+                  <div style="font-weight: bold; display: flex; align-items: center; flex-wrap: wrap; gap: 8px;">Current band propagation and statistics:
+                    <button
+                      type="button"
+                      class="glass-button text-white py-1 px-2 rounded text-xs"
+                      title="Band conditions for this receiver's location, from live ionosonde data, with MUF and day/night maps"
+                      on:click={() => window.open(withRx(`/propagation.html?grid=${encodeURIComponent(siteGridSquare || "")}`), "Propagation", "width=1280,height=900,menubar=no,toolbar=no,location=no,status=no,resizable=yes,scrollbars=yes")}
+                      style="color:rgba(0, 225, 255, 0.993); font-size: 0.75rem; font-weight: normal;"
+                    >
+                      🌐 Propagation
+                    </button>
+                  </div>
                   <div style="display: flex; align-items: center; margin-top: 10px;">
                      <img src="https://images.lightningmaps.org/blitzortung/europe/index.php?map=5&amp;t=5092072" alt="Lightning Map" style="margin-right: 10px;" />
                      <a href="https://www.hamqsl.com/solar.html" title="Click for more information">
@@ -11087,7 +11750,7 @@ Shift + Ctrl + Wheel = snap to .00 KHz"
                       <input
                         type="range"
                         bind:value={volume}
-                        on:input={handleVolumeChange}
+                        on:input={handleVolumeInput}
                         title="Audio slider"
                         class="glass-slider"
                         disabled={mute}
@@ -12173,10 +12836,9 @@ Slider: share of denoised audio, the rest is the original"
                         <div class="grid grid-cols-5 sm:grid-cols-5 gap-2">
                           <button
                             id="vfo-ab-button"
-                            class="glass-button h-7 text-white text-sm font-bold py-2 px-1 rounded-lg flex items-center w-full justify-center whitespace-nowrap {toggleVFO ===
-                            vfo
-                              ? 'bg-green-600 pressed scale-95'
-                              : 'bg-blue-700 hover:bg-gray-600'}"
+                            class="glass-button h-7 text-white text-sm font-bold py-2 px-1 rounded-lg flex items-center w-full justify-center whitespace-nowrap {vfo === 'VFO B'
+                              ? '!bg-green-600 pressed scale-95'
+                              : ''}"
                             on:click={() => toggleVFO(vfo)}
                             title="VFO Toggle"
                           >
@@ -12940,7 +13602,7 @@ Slider: share of denoised audio, the rest is the original"
                           <option value="fsk">FLDIGI</option>
                           <option value="navtex">NAVTEX</option>
                           <option value="hffax">HF FAX / WEFAX</option>
-                          <option value="hfdl">HFDL</option>
+                          <option value="services">SERVICES</option>
                           <option value="drm">DRM</option>
                           <option value="rade2">RADE v2 — RADE2 (USB)</option>
                           <option value="radel">RADE v1 — RADEL (LSB)</option>
@@ -13187,16 +13849,20 @@ Slider: share of denoised audio, the rest is the original"
                       class="w-full rounded-lg p-4 mt-6 text-left decoder-window decoder-panel"
                     >
                       <div
-                        class="w-full flex justify-between items-center mb-3 text-xs"
+                        class="w-full flex justify-between items-center gap-2 mb-3 text-xs"
                       >
                         <h4
-                          class="text-white font-semibold flex items-center gap-2"
+                          class="text-white font-semibold flex items-center gap-2 whitespace-nowrap"
                         >
                           <span
                             class="inline-block w-2 h-2 rounded-full bg-amber-400 animate-pulse"
                           ></span>
-                          CW Decoder
-                          {#if cwDetectedHz > 0}
+                          {cwBrowsing ? "CW Browser" : "CW Decoder"}
+                          {#if cwBrowsing}
+                            <span class="text-gray-400 font-mono font-normal"
+                              >· {cwBrowserChannels.length} signal{cwBrowserChannels.length === 1 ? "" : "s"}</span
+                            >
+                          {:else if cwDetectedHz > 0}
                             <span class="text-amber-400 font-mono font-normal"
                               >≈ {cwDetectedHz} Hz</span
                             >
@@ -13212,7 +13878,8 @@ Slider: share of denoised audio, the rest is the original"
                             >
                           {/if}
                         </h4>
-                        <div class="flex items-center gap-2 ml-auto mr-3">
+                        {#if !cwBrowsing}
+                        <div class="flex items-center gap-2 ml-auto">
                           <span
                             class="whitespace-nowrap text-gray-300"
                             title="Audio pitch of the CW tone (frequency offset from the dial)"
@@ -13225,20 +13892,57 @@ Slider: share of denoised audio, the rest is the original"
                             step="50"
                             value={cwPitchHz}
                             on:input={(e) => setCwPitchHz(e.currentTarget.value)}
-                            class="w-24 accent-amber-400"
+                            class="w-16 accent-amber-400"
                           />
-                          <span class="font-mono w-12 text-right text-amber-300"
+                          <span class="font-mono w-14 text-right text-amber-300 whitespace-nowrap"
                             >{cwPitchHz} Hz</span
                           >
                         </div>
+                        {/if}
+                        <button
+                          class="{cwBrowsing ? 'ml-auto ' : ''}text-green-100 bg-green-900 hover:bg-green-800 hover:text-white text-xs px-2 py-0.5 rounded border border-green-700 hover:border-green-500 transition-colors"
+                          on:click={saveCwText}>Save</button
+                        >
                         <button
                           class="text-green-100 bg-green-900 hover:bg-green-800 hover:text-white text-xs px-2 py-0.5 rounded border border-green-700 hover:border-green-500 transition-colors"
                           on:click={() => {
                             cwMessages = [];
                             cwCurrentLine = "";
+                            if (cwBrowsing) { setCwBrowse(false); setCwBrowse(true); }
+                            cwBrowserArchive = [];
                           }}>Clear</button
                         >
                       </div>
+                      <!-- Second line: the CW Browser switch. -->
+                      <div class="flex items-center mb-2 text-xs">
+                        <label class="flex items-center gap-2 text-gray-300 cursor-pointer min-w-0"
+                          title="Decode every CW signal between 200 and 3000 Hz at once, one line each (the receiver goes to USB 200-3000 Hz while it runs)">
+                          <span class="toggle-switch shrink-0"><input type="checkbox" checked={cwBrowsing}
+                            on:change={(e) => setCwBrowse(e.currentTarget.checked)} /><span class="toggle-slider"></span></span>
+                          Browser — all signals
+                        </label>
+                      </div>
+                      {#if cwBrowsing}
+                        <!-- CW Browser: one line per signal, callsign picked out, CQ marked. -->
+                        <div class="w-full font-mono text-xs bg-gray-900 rounded p-1 overflow-y-auto max-h-72 custom-scrollbar text-left recess-window">
+                          {#if cwBrowserChannels.length === 0}
+                            <div class="p-2 text-gray-500 italic font-sans">Looking for CW signals between 200 and 3000 Hz… A station appears once its first letters are decoded, a few seconds after it starts.</div>
+                          {/if}
+                          {#each cwBrowserChannels as c (c.id)}
+                            <div class="flex items-start gap-2 px-1 py-0.5 border-b border-gray-800 cursor-pointer hover:bg-gray-800"
+                              role="button" tabindex="0"
+                              title="Click to decode only this signal (CW on {(Number(frequency) + c.hz / 1000).toFixed(3)} kHz)"
+                              on:click={() => cwBrowserPick(c)}
+                              on:keydown={(e) => e.key === "Enter" && cwBrowserPick(c)}>
+                              <span class="text-sky-300 w-20 shrink-0">{(Number(frequency) + c.hz / 1000).toFixed(3)}</span>
+                              <span class="w-11 shrink-0 text-gray-400 text-right">{c.wpm ? `${c.wpm} wpm` : ""}</span>
+                              <span class="w-24 shrink-0 font-semibold {c.cq ? 'text-green-400' : 'text-yellow-300'}">{c.cq && c.call ? "CQ " : ""}{c.call}</span>
+                              <div class="text-amber-300 min-w-0 overflow-y-auto custom-scrollbar" use:stickBottom use:noScrollbarPick
+                                style="flex: 1 1 0; max-height: 6rem; white-space: pre-wrap; overflow-wrap: anywhere; word-break: break-word;">{c.text.trimStart()}</div>
+                            </div>
+                          {/each}
+                        </div>
+                      {:else}
                       <div
                         bind:this={cwScrollEl}
                         class="w-full font-mono text-sm text-amber-300 bg-gray-900 rounded p-3 overflow-y-auto max-h-64 custom-scrollbar text-left recess-window"
@@ -13259,6 +13963,7 @@ Slider: share of denoised audio, the rest is the original"
                           </div>
                         {/if}
                       </div>
+                      {/if}
                     </div>
                   {/if}
 
@@ -13964,8 +14669,22 @@ Slider: share of denoised audio, the rest is the original"
                   <!-- END NAVTEX Panel -->
 
                   <!-- ── HFDL Decoder Panel ───────────────────────────────── -->
-                  {#if decoderOn && hfdlEnabled}
-                    <HfdlPanel {audio} dialKhz={hfdlDialKhz} onTune={hfdlTune} homeLocator={siteGridSquare} />
+                  {#if decoderOn && selectedDecoder === "services" && serviceMode === "hfdl"}
+                    <HfdlPanel {audio} dialKhz={hfdlDialKhz} onTune={hfdlTune} homeLocator={siteGridSquare}>
+                      <ServiceSelect slot="service" services={SERVICES} value={serviceMode} on:change={(e) => changeService(e.detail)} />
+                    </HfdlPanel>
+                  {:else if decoderOn && selectedDecoder === "services" && serviceMode === "dsc"}
+                    <DscPanel {audio} dialKhz={hfdlDialKhz} onTune={dscTune}>
+                      <ServiceSelect slot="service" services={SERVICES} value={serviceMode} on:change={(e) => changeService(e.detail)} />
+                    </DscPanel>
+                  {:else if decoderOn && selectedDecoder === "services" && serviceMode === "time"}
+                    <TimeSignalPanel {audio} dialKhz={hfdlDialKhz} station={timeStation} onTune={timeTune} onStation={timeStationChanged} homeLocator={siteGridSquare}>
+                      <ServiceSelect slot="service" services={SERVICES} value={serviceMode} on:change={(e) => changeService(e.detail)} />
+                    </TimeSignalPanel>
+                  {:else if decoderOn && selectedDecoder === "services" && serviceMode === "selcall"}
+                    <SelcallPanel {audio} dialKhz={hfdlDialKhz} onTune={selcallTune}>
+                      <ServiceSelect slot="service" services={SERVICES} value={serviceMode} on:change={(e) => changeService(e.detail)} />
+                    </SelcallPanel>
                   {/if}
 
                   <!-- ── DRM Panel ─────────────────────────────────────────── -->
@@ -13975,7 +14694,7 @@ Slider: share of denoised audio, the rest is the original"
 
                   <!-- ── IQ Demodulators (only in IQ) ─────────────────────── -->
                   {#if demodulation === "IQ"}
-                    <IqDemodPanel {audio} dialKhz={frequency} />
+                    <IqDemodPanel {audio} dialKhz={frequency} on:width={(e) => setIqWidth(e.detail)} />
                   {/if}
 
                   <!-- ── RADE Digital Voice Panel (V1 / V2 beta) ──────────────────────── -->
@@ -14150,10 +14869,16 @@ Slider: share of denoised audio, the rest is the original"
                           <span
                             class="inline-block w-2 h-2 rounded-full bg-green-400 animate-pulse"
                           ></span>
-                          {isPsk
-                            ? "PSK31 Decoder"
+                          {isAle
+                            ? "ALE 2G Decoder"
+                          : isPsk
+                            ? `${pskModeCfg(pskMode).label} Decoder`
                             : isOlivia
-                              ? "Olivia Decoder"
+                              ? `${oliviaCfg.contestia ? "Contestia" : "Olivia"} ${oliviaBrowse ? `Browser (${oliviaCfg.label})` : "Decoder"}`
+                              : isFst4w
+                                ? `FST4W-${fst4wPeriod} Decoder`
+                              : isMsk144
+                                ? "MSK144 Decoder"
                               : isModem
                                 ? `${modemUi.name} Decoder`
                               : isPacket
@@ -14194,14 +14919,17 @@ Slider: share of denoised audio, the rest is the original"
                             >
                             <option value="weather">Weather RTTY</option>
                             <option value="ham">Amateur RTTY</option>
-                            <option value="psk31">PSK31 (BPSK)</option>
-                            <option value="olivia">Olivia</option>
+                            <option value="psk31">PSK31·63·125 (BPSK/QPSK)</option>
+                            <option value="olivia">Olivia / Contestia</option>
+                            <option value="fst4w">FST4W (WSJT-X)</option>
                             <option value="mfsk">MFSK16·32·64</option>
+                            <option value="msk144">MSK144 (WSJT-X)</option>
                             <option value="dominoex">DominoEX</option>
                             <option value="thor">THOR</option>
                             <option value="throb">THROB / THROBX</option>
                             <option value="hell">Hellschreiber</option>
                             <option value="mt63">MT63</option>
+                            <option value="ale">ALE 2G (MIL-STD-188-141)</option>
                             <option value="packet">Packet (AX.25)</option>
                             <option value="aprs">APRS</option>
                           </select>
@@ -14232,6 +14960,10 @@ Slider: share of denoised audio, the rest is the original"
                         {/if}
                       </div>
 
+                      {#if isAle}
+                        <!-- ALE 2G: network/channel picker, events, Save. -->
+                        <AlePanel embedded bind:this={alePanelRef} dialKhz={Number(frequency) || 0} onTune={aleTune} />
+                      {:else}
                       <!-- Broadcast schedule countdown -->
                       {#if fskScheduleRows.length > 0}
                         <div
@@ -14312,6 +15044,7 @@ Slider: share of denoised audio, the rest is the original"
                       {/if}
 
                       <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
+                        {#if !fskBrowsing}
                         <div>
                           <label class="text-xs text-gray-300 block mb-1"
                             >Center audio (Hz)</label
@@ -14350,6 +15083,7 @@ Slider: share of denoised audio, the rest is the original"
                             </select>
                           {/if}
                         </div>
+                        {/if}
                         {#if isPacketLike}
                           <div class="col-span-1 md:col-span-2">
                             <label class="text-xs text-gray-300 block mb-1"
@@ -14378,6 +15112,108 @@ Slider: share of denoised audio, the rest is the original"
                             </label>
                           {/if}
                         {/if}
+                        {#if isPsk}
+                          <div>
+                            <label class="text-xs text-gray-300 block mb-1"
+                              >Mode</label
+                            >
+                            <select
+                              value={pskBrowsing ? "bpsk31" : pskMode}
+                              disabled={pskBrowsing}
+                              title={pskBrowsing ? "The PSK Browser decodes BPSK31; switch it off to choose another Mode" : ""}
+                              class="glass-select text-white text-xs px-2 py-1 rounded-md w-full disabled:opacity-60"
+                              on:change={(e) => { pskMode = e.currentTarget.value; fskApplySettings(true); }}
+                            >
+                              {#each PSK_MODES.filter((q) => !q.browser) as m}
+                                <option value={m.key}>{m.label}</option>
+                              {/each}
+                            </select>
+                            <label class="flex items-center gap-2 text-xs text-gray-300 mt-1.5 cursor-pointer"
+                              title="Decode every BPSK31 signal between 300 and 2700 Hz at once, one line each">
+                              <span class="toggle-switch shrink-0"><input type="checkbox" checked={pskBrowsing}
+                                on:change={(e) => pskSetBrowse(e.currentTarget.checked)} /><span class="toggle-slider"></span></span>
+                              Browser — all signals
+                            </label>
+                          </div>
+                        {/if}
+                        {#if isMsk144}
+                          <div>
+                            <label class="text-xs text-gray-300 block mb-1"
+                              >F Tol</label
+                            >
+                            <select
+                              bind:value={msk144Tol}
+                              title="How far either side of the centre the decoder searches (WSJT-X's F Tol)"
+                              class="glass-select text-white text-xs px-2 py-1 rounded-md w-full"
+                              on:change={() => { audio.setFSKConfig(_fskEffectiveConfig()); fskApplyBandpass(); }}
+                            >
+                              {#each MSK144_TOL_OPTIONS as t}
+                                <option value={t}>± {t} Hz</option>
+                              {/each}
+                            </select>
+                          </div>
+                          <div>
+                            <label class="text-xs text-gray-300 block mb-1"
+                              >T/R period</label
+                            >
+                            <select
+                              bind:value={msk144Period}
+                              title="A message repeated within one period is listed once (again only if it comes back stronger)"
+                              class="glass-select text-white text-xs px-2 py-1 rounded-md w-full"
+                              on:change={() => audio.setFSKConfig(_fskEffectiveConfig())}
+                            >
+                              <option value={15}>15 s</option>
+                              <option value={30}>30 s</option>
+                            </select>
+                          </div>
+                          <div>
+                            <label class="text-xs text-gray-300 block mb-1"
+                              >Decode</label
+                            >
+                            <select
+                              bind:value={msk144Depth}
+                              title="Deep also averages up to 7 frames of a long ping; Fast only reads single pings"
+                              class="glass-select text-white text-xs px-2 py-1 rounded-md w-full"
+                              on:change={() => audio.setFSKConfig(_fskEffectiveConfig())}
+                            >
+                              <option value={1}>Fast</option>
+                              <option value={2}>Normal</option>
+                              <option value={3}>Deep</option>
+                            </select>
+                          </div>
+                        {/if}
+                        {#if isFst4w}
+                          <div>
+                            <label class="text-xs text-gray-300 block mb-1"
+                              >T/R period</label
+                            >
+                            <select
+                              bind:value={fst4wPeriod}
+                              title="FST4W-120 is the common one; 300, 900 and 1800 s reach further on LF/MF. Changing it starts a new recording."
+                              class="glass-select text-white text-xs px-2 py-1 rounded-md w-full"
+                              on:change={() => fskApplySettings(true)}
+                            >
+                              {#each FST4W_PERIOD_OPTIONS as t}
+                                <option value={t}>FST4W-{t} ({t / 60} min)</option>
+                              {/each}
+                            </select>
+                          </div>
+                          <div>
+                            <label class="text-xs text-gray-300 block mb-1"
+                              >F Tol</label
+                            >
+                            <select
+                              bind:value={fst4wTol}
+                              title="How far either side of the centre the decoder searches (WSJT-X's F Tol)"
+                              class="glass-select text-white text-xs px-2 py-1 rounded-md w-full"
+                              on:change={() => { audio.setFSKConfig(_fskEffectiveConfig()); fskApplyBandpass(); }}
+                            >
+                              {#each FST4W_TOL_OPTIONS as t}
+                                <option value={t}>± {t} Hz</option>
+                              {/each}
+                            </select>
+                          </div>
+                        {/if}
                         {#if isOlivia}
                           <div>
                             <label class="text-xs text-gray-300 block mb-1"
@@ -14388,10 +15224,23 @@ Slider: share of denoised audio, the rest is the original"
                               class="glass-select text-white text-xs px-2 py-1 rounded-md w-full"
                               on:change={() => fskApplySettings(true)}
                             >
-                              {#each OLIVIA_MODE_OPTIONS as m}
-                                <option value={m.key}>{m.label}</option>
-                              {/each}
+                              <optgroup label="Olivia">
+                                {#each OLIVIA_MODE_OPTIONS.filter((m) => !m.contestia) as m}
+                                  <option value={m.key}>{m.label}</option>
+                                {/each}
+                              </optgroup>
+                              <optgroup label="Contestia">
+                                {#each OLIVIA_MODE_OPTIONS.filter((m) => m.contestia) as m}
+                                  <option value={m.key}>{m.label}</option>
+                                {/each}
+                              </optgroup>
                             </select>
+                            <label class="flex items-center gap-2 text-xs text-gray-300 mt-1.5 cursor-pointer"
+                              title="Decode every signal of this Mode between 300 and 2700 Hz at once, one line each">
+                              <span class="toggle-switch shrink-0"><input type="checkbox" bind:checked={oliviaBrowse}
+                                on:change={() => fskApplySettings(true)} /><span class="toggle-slider"></span></span>
+                              Browser — all signals
+                            </label>
                           </div>
                           <div class="col-span-2">
                             <label
@@ -14601,7 +15450,7 @@ Slider: share of denoised audio, the rest is the original"
                           class="text-xs px-3 py-1 rounded bg-green-700 hover:bg-green-600 text-white transition-colors whitespace-nowrap"
                           on:click={fskApplyBandpass}>⇒ Set IF Band-Pass</button
                         >
-                        {#if !(isPacketLike && Number(packetBaud) !== 300)}
+                        {#if !(isPacketLike && Number(packetBaud) !== 300) && !isFst4w && !isMsk144 && !fskBrowsing}
                           <button
                             class="text-xs px-3 py-1 rounded bg-blue-700 hover:bg-blue-600 text-white transition-colors whitespace-nowrap"
                             on:click={() => {
@@ -14640,6 +15489,45 @@ Slider: share of denoised audio, the rest is the original"
                             >Audio: <span class="text-green-300 font-mono"
                               >{Number(fskMetrics.levelDb ?? -120).toFixed(0)} dBFS</span
                             ></span
+                          >
+                        {:else if isMsk144}
+                          <span class="text-gray-300"
+                            >Search: <span class="text-green-300 font-mono"
+                              >{Math.round(Number(fskCenter) - msk144Tol)}–{Math.round(Number(fskCenter) + msk144Tol)} Hz</span
+                            ></span
+                          >
+                          <span class="text-gray-300"
+                            >Decodes: <span class="text-green-300 font-mono">{msk144Decodes.length}</span></span
+                          >
+                          {#if fskMetrics && fskMetrics.load != null}
+                            <span class="text-gray-300" title="Share of real time the decoder spends working (above 100 % it falls behind)"
+                              >CPU: <span class="{fskMetrics.load > 0.8 ? 'text-amber-300' : 'text-green-300'} font-mono">{Math.round(100 * fskMetrics.load)} %</span></span
+                            >
+                          {/if}
+                        {:else if isFst4w}
+                          {#if fst4wProgress && fst4wProgress.period}
+                            <span class="text-gray-300 flex items-center gap-2"
+                              title="FST4W decodes once per period, after it ends">
+                              Period:
+                              <span class="inline-block w-28 h-2 rounded bg-gray-700 overflow-hidden"
+                                ><span class="block h-full bg-green-500"
+                                  style="width: {Math.min(100, (100 * (fst4wProgress.recorded || 0)) / fst4wProgress.period)}%"
+                                ></span></span>
+                              <span class="text-green-300 font-mono"
+                                >{Math.floor((fst4wProgress.recorded || 0) / 60)}:{String(Math.floor((fst4wProgress.recorded || 0) % 60)).padStart(2, "0")} / {fst4wProgress.period / 60}:00</span>
+                            </span>
+                          {/if}
+                          <span class="text-gray-300"
+                            >Search: <span class="text-green-300 font-mono"
+                              >{Math.round(Number(fskCenter) - fst4wTol)}–{Math.round(Number(fskCenter) + fst4wTol)} Hz</span
+                            ></span
+                          >
+                          <span class="text-gray-300"
+                            >Decodes: <span class="text-green-300 font-mono">{fst4wDecodes.length}</span></span
+                          >
+                        {:else if fskBrowsing}
+                          <span class="text-gray-300"
+                            >Signals: <span class="text-green-300 font-mono">{pskBrowserChannels.length}</span></span
                           >
                         {:else if isPsk}
                           <span class="text-gray-300"
@@ -14682,7 +15570,7 @@ Slider: share of denoised audio, the rest is the original"
                             ></span
                           >
                         {/if}
-                        {#if !isPacketLike && !isHell}
+                        {#if !isPacketLike && !isHell && !isFst4w && !isMsk144 && !fskBrowsing}
                         <span class="text-gray-300"
                           >{isOlivia || isModem ? "S/N" : "SNR"}: <span
                             class="{fskMetrics.squelchOpen === false
@@ -14736,6 +15624,79 @@ Slider: share of denoised audio, the rest is the original"
                               slants the text, and one copy is always whole.
                             </div>
                           {/if}
+                        </div>
+                      {:else if isMsk144}
+                        <!-- MSK144: one row per decode, as WSJT-X lists them. -->
+                        <div class="w-full font-mono text-xs bg-gray-900 rounded p-1 overflow-y-auto max-h-72 custom-scrollbar text-left recess-window">
+                          {#if msk144Decodes.length === 0}
+                            <div class="p-2 text-gray-500 italic font-sans">
+                              Listening for meteor pings. MSK144 stations repeat their message all through each {msk144Period} s period; a ping of a tenth of a second can carry it. On a quiet band nothing appears for minutes — that is normal for meteor scatter.
+                            </div>
+                          {:else}
+                            <div class="flex gap-2 px-1 py-0.5 text-gray-500 border-b border-gray-700">
+                              <span class="w-16 shrink-0">UTC</span>
+                              <span class="w-8 shrink-0 text-right">dB</span>
+                              <span class="w-9 shrink-0 text-right">T</span>
+                              <span class="w-24 shrink-0">MHz</span>
+                              <span class="flex-1">Message</span>
+                            </div>
+                          {/if}
+                          {#each [...msk144Decodes].reverse() as d (d.id)}
+                            <div class="flex gap-2 px-1 py-0.5 border-b border-gray-800"
+                              title="Audio {d.freq} Hz · {d.navg > 1 ? `average of ${d.navg} frames` : 'single frame'}">
+                              <span class="w-16 shrink-0 text-gray-400">{d.utc}</span>
+                              <span class="w-8 shrink-0 text-right text-amber-300">{d.snr}</span>
+                              <span class="w-9 shrink-0 text-right text-gray-400">{d.t.toFixed(1)}</span>
+                              <span class="w-24 shrink-0 text-sky-300">{d.mhz.toFixed(6)}</span>
+                              <span class="flex-1 text-green-300">{d.msg}</span>
+                            </div>
+                          {/each}
+                        </div>
+                      {:else if isFst4w}
+                        <!-- FST4W: one row per decode, as WSJT-X lists them. -->
+                        <div class="w-full font-mono text-xs bg-gray-900 rounded p-1 overflow-y-auto max-h-72 custom-scrollbar text-left recess-window">
+                          {#if fst4wDecodes.length === 0}
+                            <div class="p-2 text-gray-500 italic font-sans">
+                              FST4W decodes once per T/R period, after the period ends (FST4W-{fst4wPeriod}: every {fst4wPeriod / 60} min, on the UTC clock). A period joined part-way through is skipped; the next one is recorded whole. Signals sit 1400–1600 Hz above the USB dial.
+                            </div>
+                          {:else}
+                            <div class="flex gap-2 px-1 py-0.5 text-gray-500 border-b border-gray-700">
+                              <span class="w-12 shrink-0">UTC</span>
+                              <span class="w-9 shrink-0 text-right">dB</span>
+                              <span class="w-9 shrink-0 text-right">DT</span>
+                              <span class="w-24 shrink-0">MHz</span>
+                              <span class="flex-1">Message</span>
+                            </div>
+                          {/if}
+                          {#each [...fst4wDecodes].reverse() as d (d.id)}
+                            <div class="flex gap-2 px-1 py-0.5 border-b border-gray-800"
+                              title="FST4W-{d.period}, audio {d.audioHz} Hz">
+                              <span class="w-12 shrink-0 text-gray-400">{d.utc.replace(":", "")}</span>
+                              <span class="w-9 shrink-0 text-right text-amber-300">{d.snr}</span>
+                              <span class="w-9 shrink-0 text-right text-gray-400">{d.dt.toFixed(1)}</span>
+                              <span class="w-24 shrink-0 text-sky-300">{d.mhz.toFixed(6)}</span>
+                              <span class="flex-1 text-green-300">{d.msg}</span>
+                            </div>
+                          {/each}
+                        </div>
+                      {:else if fskBrowsing}
+                        <!-- PSK Browser: one line per signal in the passband. -->
+                        <div class="w-full font-mono text-xs bg-gray-900 rounded p-1 overflow-y-auto max-h-72 custom-scrollbar text-left recess-window">
+                          {#if pskBrowserChannels.length === 0}
+                            <div class="p-2 text-gray-500 italic font-sans">{oliviaBrowsing ? `Listening for ${oliviaCfg.contestia ? "Contestia" : "Olivia"} ${oliviaCfg.label} signals between 300 and 2700 Hz… A station appears once its first characters are decoded, which takes a few seconds after it starts.` : "Looking for PSK31 signals between 300 and 2700 Hz… (a few seconds)"}</div>
+                          {/if}
+                          {#each pskBrowserChannels as c (c.id)}
+                            <div class="flex items-start gap-2 px-1 py-0.5 border-b border-gray-800 cursor-pointer hover:bg-gray-800"
+                              role="button" tabindex="0"
+                              title="Click to decode only this signal ({oliviaBrowsing ? oliviaCfg.label : 'BPSK31'} at {c.hz} Hz)"
+                              on:click={() => pskBrowserPick(c.hz)}
+                              on:keydown={(e) => e.key === "Enter" && pskBrowserPick(c.hz)}>
+                              <span class="text-sky-300 w-24 shrink-0">{(Number(frequency) + c.hz / 1000).toFixed(3)}</span>
+                              <span class="w-10 shrink-0 {c.lock >= 45 ? 'text-green-400' : 'text-gray-500'}" title="Lock quality">{c.lock}%</span>
+                              <div class="text-green-300 min-w-0 overflow-y-auto custom-scrollbar" use:stickBottom use:noScrollbarPick
+                                style="flex: 1 1 0; max-height: 6rem; white-space: pre-wrap; overflow-wrap: anywhere; word-break: break-word;">{c.text.trimStart()}</div>
+                            </div>
+                          {/each}
                         </div>
                       {:else}
                       <div
@@ -14893,7 +15854,12 @@ Slider: share of denoised audio, the rest is the original"
 
                       <!-- Hint -->
                       <p class="text-gray-500 text-xs mt-3 leading-relaxed">
-                        {#if isPsk}
+                        {#if fskBrowsing}
+                          <strong class="text-gray-300"
+                            >Mode: USB. Every {oliviaBrowsing ? `${oliviaCfg.contestia ? "Contestia" : "Olivia"} ${oliviaCfg.label}` : "BPSK31"} signal between 300 and 2700 Hz gets its own line,
+                            <br /> and a click on a line decodes only that signal{oliviaBrowsing ? " — other tones / bandwidths need their own Mode" : ""}</strong
+                          >.
+                        {:else if isPsk}
                           <strong class="text-gray-300"
                             >Mode: USB. Tune so the carrier sits on the Center
                             audio value,
@@ -14937,6 +15903,22 @@ Slider: share of denoised audio, the rest is the original"
                               synchroniser needs to settle.
                             {/if}</strong
                           >
+                        {:else if isMsk144}
+                          <strong class="text-gray-300"
+                            >Mode: USB. Meteor scatter: the dial sits 1.5 kHz
+                            below the signal, F Tol widens the search for
+                            stations off frequency,
+                            <br /> and the 40-bit short messages (Sh) are not
+                            decoded — they need both stations' calls</strong
+                          >.
+                        {:else if isFst4w}
+                          <strong class="text-gray-300"
+                            >Mode: USB. Pick the T/R period the stations use
+                            (FST4W-120 on most LF/MF beacons) — the decoder
+                            looks only at that one,
+                            <br /> and it needs the page's clock right to a
+                            second or so: periods start on the UTC clock</strong
+                          >.
                         {:else if isOlivia}
                           <strong class="text-gray-300"
                             >Mode: USB. Pick the right tones / bandwidth — a
@@ -14959,6 +15941,7 @@ Slider: share of denoised audio, the rest is the original"
                           >{isHell ? "Save Picture" : "Save Text"}</button
                         >
                       </div>
+                      {/if}
                     </div>
                   {/if}
                   <!-- END FSK Panel -->
@@ -15096,7 +16079,7 @@ Slider: share of denoised audio, the rest is the original"
                           type="range"
                           bind:value={zoomStep}
                           min="1"
-                          max="8"
+                          max={ZOOM_STEPS}
                           step="1"
                           class="glass-slider w-full"
                           on:input={(e) => handleZoomStepMove(e, zoomStep)}
@@ -15319,7 +16302,7 @@ Slider: share of denoised audio, the rest is the original"
                       Recording Options
                     </h3>
                     <!-- Primary controls. Icons dropped and text shrunk so
-                         Audio / Video / Area always fit on a single line. -->
+                         Audio / Video / Area / Plotter always fit on a single line. -->
                     <div class="flex flex-nowrap justify-center gap-2">
                       <button
                         class="bg-gray-700 hover:bg-red-600 text-white text-sm font-medium py-2 px-3 rounded-lg whitespace-nowrap transition-colors {isRecording
@@ -15356,6 +16339,20 @@ Slider: share of denoised audio, the rest is the original"
                           : videoCrop
                             ? "Area \u2713"
                             : "Area"}
+                      </button>
+
+                      <!-- Signal strength plotter: Off / Fast / Medium / Slow; the
+                           mode in small type under the name keeps the row on one line -->
+                      <button
+                        class="bg-gray-700 hover:bg-cyan-700 text-white text-sm font-medium px-3 rounded-lg whitespace-nowrap transition-colors {plotterMode !== 'off'
+                          ? 'ring-2 ring-cyan-400 py-1 leading-tight'
+                          : 'py-2'}"
+                        on:click={cyclePlotter}
+                        title="Signal strength plot of the S-meter reading. Click for Off → Fast (10 s) → Medium (30 s) → Slow (60 s)"
+                      >
+                        <!-- Off: one line, the height of Audio / Video / Area, so the
+                             three columns keep their height; on: the mode underneath -->
+                        {#if plotterMode === "off"}Plotter{:else}Plotter<br /><span class="text-[10px] font-normal opacity-80">{plotterMode === "fast" ? "Fast 10 s" : plotterMode === "medium" ? "Medium 30 s" : "Slow 60 s"}</span>{/if}
                       </button>
                     </div>
 
@@ -15399,6 +16396,11 @@ Slider: share of denoised audio, the rest is the original"
                           Reset
                         </button>
                       </div>
+                    {/if}
+
+                    <!-- Signal strength plot (the Plotter button in the row above) -->
+                    {#if plotterMode !== "off"}
+                      <SignalPlotter getDbm={plotterDbm} frequencyHz={smeterFrequencyHz} speed={plotterMode} />
                     {/if}
                   </div>
                 </div>
@@ -15885,7 +16887,7 @@ Slider: share of denoised audio, the rest is the original"
                   class="text-xs sm:text-sm font-semibold text-gray-100 mb-2 sm:mb-4"
                 >
                   <a
-                    href="https://www.qrz.com/db/{siteSysop}"
+                    href="https://www.qrz.com/db/{encodeURIComponent(siteCallsign)}"
                     target="new"
                     style="color:rgba(0, 225, 255, 0.993)">{siteSysop}</a
                   >
@@ -16285,7 +17287,7 @@ Slider: share of denoised audio, the rest is the original"
                       <input
                         type="range"
                         bind:value={volume}
-                        on:input={handleVolumeChange}
+                        on:input={handleVolumeInput}
                         class="glass-slider"
                         disabled={mute}
                         min="0"
@@ -16402,7 +17404,7 @@ Slider: share of denoised audio, the rest is the original"
                         on:input={(e) => handleZoomStepMove(e, zoomStep)}
                         class="glass-slider"
                         min="1"
-                        max="8"
+                        max={ZOOM_STEPS}
                         step="1"
                       />
                     </div>
@@ -16646,10 +17648,9 @@ Slider: share of denoised audio, the rest is the original"
                         <div class="grid grid-cols-5 sm:grid-cols-5 gap-2">
                           <button
                             id="vfo-ab-button"
-                            class="glass-button h-8 text-white text-sm font-bold py-2 px-1 rounded-lg flex items-center w-full justify-center whitespace-nowrap {toggleVFO ===
-                            vfo
-                              ? 'bg-green-600 pressed scale-95'
-                              : 'bg-blue-700 hover:bg-gray-600'}"
+                            class="glass-button h-8 text-white text-sm font-bold py-2 px-1 rounded-lg flex items-center w-full justify-center whitespace-nowrap {vfo === 'VFO B'
+                              ? '!bg-green-600 pressed scale-95'
+                              : ''}"
                             on:click={() => toggleVFO(vfo)}
                             title="VFO Toggle"
                           >
@@ -17870,7 +18871,7 @@ Slider: share of denoised audio, the rest is the original"
                         <option value="fsk">FLDIGI</option>
                         <option value="navtex">NAVTEX</option>
                         <option value="hffax">HF FAX / WEFAX</option>
-                        <option value="hfdl">HFDL</option>
+                        <option value="services">SERVICES</option>
                         <option value="drm">DRM</option>
                         <option value="rade2">RADE v2 · RADE2</option>
                         <option value="radel">RADE v1 — RADEL (LSB)</option>
@@ -18116,16 +19117,20 @@ Slider: share of denoised audio, the rest is the original"
                       class="w-full rounded-lg p-4 mt-6 text-left decoder-window decoder-panel"
                     >
                       <div
-                        class="w-full flex justify-between items-center mb-3 text-xs"
+                        class="w-full flex justify-between items-center gap-2 mb-3 text-xs"
                       >
                         <h4
-                          class="text-white font-semibold flex items-center gap-2"
+                          class="text-white font-semibold flex items-center gap-2 whitespace-nowrap"
                         >
                           <span
                             class="inline-block w-2 h-2 rounded-full bg-amber-400 animate-pulse"
                           ></span>
-                          CW Decoder
-                          {#if cwDetectedHz > 0}
+                          {cwBrowsing ? "CW Browser" : "CW Decoder"}
+                          {#if cwBrowsing}
+                            <span class="text-gray-400 font-mono font-normal"
+                              >· {cwBrowserChannels.length} signal{cwBrowserChannels.length === 1 ? "" : "s"}</span
+                            >
+                          {:else if cwDetectedHz > 0}
                             <span class="text-amber-400 font-mono font-normal"
                               >≈ {cwDetectedHz} Hz</span
                             >
@@ -18141,7 +19146,8 @@ Slider: share of denoised audio, the rest is the original"
                             >
                           {/if}
                         </h4>
-                        <div class="flex items-center gap-2 ml-auto mr-3">
+                        {#if !cwBrowsing}
+                        <div class="flex items-center gap-2 ml-auto">
                           <span
                             class="whitespace-nowrap text-gray-300"
                             title="Audio pitch of the CW tone (frequency offset from the dial)"
@@ -18154,20 +19160,57 @@ Slider: share of denoised audio, the rest is the original"
                             step="50"
                             value={cwPitchHz}
                             on:input={(e) => setCwPitchHz(e.currentTarget.value)}
-                            class="w-24 accent-amber-400"
+                            class="w-16 accent-amber-400"
                           />
-                          <span class="font-mono w-12 text-right text-amber-300"
+                          <span class="font-mono w-14 text-right text-amber-300 whitespace-nowrap"
                             >{cwPitchHz} Hz</span
                           >
                         </div>
+                        {/if}
+                        <button
+                          class="{cwBrowsing ? 'ml-auto ' : ''}text-green-100 bg-green-900 hover:bg-green-800 hover:text-white text-xs px-2 py-0.5 rounded border border-green-700 hover:border-green-500 transition-colors"
+                          on:click={saveCwText}>Save</button
+                        >
                         <button
                           class="text-green-100 bg-green-900 hover:bg-green-800 hover:text-white text-xs px-2 py-0.5 rounded border border-green-700 hover:border-green-500 transition-colors"
                           on:click={() => {
                             cwMessages = [];
                             cwCurrentLine = "";
+                            if (cwBrowsing) { setCwBrowse(false); setCwBrowse(true); }
+                            cwBrowserArchive = [];
                           }}>Clear</button
                         >
                       </div>
+                      <!-- Second line: the CW Browser switch. -->
+                      <div class="flex items-center mb-2 text-xs">
+                        <label class="flex items-center gap-2 text-gray-300 cursor-pointer min-w-0"
+                          title="Decode every CW signal between 200 and 3000 Hz at once, one line each (the receiver goes to USB 200-3000 Hz while it runs)">
+                          <span class="toggle-switch shrink-0"><input type="checkbox" checked={cwBrowsing}
+                            on:change={(e) => setCwBrowse(e.currentTarget.checked)} /><span class="toggle-slider"></span></span>
+                          Browser — all signals
+                        </label>
+                      </div>
+                      {#if cwBrowsing}
+                        <!-- CW Browser: one line per signal, callsign picked out, CQ marked. -->
+                        <div class="w-full font-mono text-xs bg-gray-900 rounded p-1 overflow-y-auto max-h-72 custom-scrollbar text-left recess-window">
+                          {#if cwBrowserChannels.length === 0}
+                            <div class="p-2 text-gray-500 italic font-sans">Looking for CW signals between 200 and 3000 Hz… A station appears once its first letters are decoded, a few seconds after it starts.</div>
+                          {/if}
+                          {#each cwBrowserChannels as c (c.id)}
+                            <div class="flex items-start gap-2 px-1 py-0.5 border-b border-gray-800 cursor-pointer hover:bg-gray-800"
+                              role="button" tabindex="0"
+                              title="Click to decode only this signal (CW on {(Number(frequency) + c.hz / 1000).toFixed(3)} kHz)"
+                              on:click={() => cwBrowserPick(c)}
+                              on:keydown={(e) => e.key === "Enter" && cwBrowserPick(c)}>
+                              <span class="text-sky-300 w-20 shrink-0">{(Number(frequency) + c.hz / 1000).toFixed(3)}</span>
+                              <span class="w-11 shrink-0 text-gray-400 text-right">{c.wpm ? `${c.wpm} wpm` : ""}</span>
+                              <span class="w-24 shrink-0 font-semibold {c.cq ? 'text-green-400' : 'text-yellow-300'}">{c.cq && c.call ? "CQ " : ""}{c.call}</span>
+                              <div class="text-amber-300 min-w-0 overflow-y-auto custom-scrollbar" use:stickBottom use:noScrollbarPick
+                                style="flex: 1 1 0; max-height: 6rem; white-space: pre-wrap; overflow-wrap: anywhere; word-break: break-word;">{c.text.trimStart()}</div>
+                            </div>
+                          {/each}
+                        </div>
+                      {:else}
                       <div
                         bind:this={cwScrollEl}
                         class="w-full font-mono text-sm text-amber-300 bg-gray-900 rounded p-3 overflow-y-auto max-h-64 custom-scrollbar text-left recess-window"
@@ -18188,6 +19231,7 @@ Slider: share of denoised audio, the rest is the original"
                           </div>
                         {/if}
                       </div>
+                      {/if}
                     </div>
                   {/if}
 
@@ -18893,8 +19937,22 @@ Slider: share of denoised audio, the rest is the original"
                   <!-- END NAVTEX Panel -->
 
                   <!-- ── HFDL Decoder Panel ───────────────────────────────── -->
-                  {#if decoderOn && hfdlEnabled}
-                    <HfdlPanel {audio} dialKhz={hfdlDialKhz} onTune={hfdlTune} homeLocator={siteGridSquare} />
+                  {#if decoderOn && selectedDecoder === "services" && serviceMode === "hfdl"}
+                    <HfdlPanel {audio} dialKhz={hfdlDialKhz} onTune={hfdlTune} homeLocator={siteGridSquare}>
+                      <ServiceSelect slot="service" services={SERVICES} value={serviceMode} on:change={(e) => changeService(e.detail)} />
+                    </HfdlPanel>
+                  {:else if decoderOn && selectedDecoder === "services" && serviceMode === "dsc"}
+                    <DscPanel {audio} dialKhz={hfdlDialKhz} onTune={dscTune}>
+                      <ServiceSelect slot="service" services={SERVICES} value={serviceMode} on:change={(e) => changeService(e.detail)} />
+                    </DscPanel>
+                  {:else if decoderOn && selectedDecoder === "services" && serviceMode === "time"}
+                    <TimeSignalPanel {audio} dialKhz={hfdlDialKhz} station={timeStation} onTune={timeTune} onStation={timeStationChanged} homeLocator={siteGridSquare}>
+                      <ServiceSelect slot="service" services={SERVICES} value={serviceMode} on:change={(e) => changeService(e.detail)} />
+                    </TimeSignalPanel>
+                  {:else if decoderOn && selectedDecoder === "services" && serviceMode === "selcall"}
+                    <SelcallPanel {audio} dialKhz={hfdlDialKhz} onTune={selcallTune}>
+                      <ServiceSelect slot="service" services={SERVICES} value={serviceMode} on:change={(e) => changeService(e.detail)} />
+                    </SelcallPanel>
                   {/if}
 
                   <!-- ── DRM Panel ─────────────────────────────────────────── -->
@@ -18904,7 +19962,7 @@ Slider: share of denoised audio, the rest is the original"
 
                   <!-- ── IQ Demodulators (only in IQ) ─────────────────────── -->
                   {#if demodulation === "IQ"}
-                    <IqDemodPanel {audio} dialKhz={frequency} />
+                    <IqDemodPanel {audio} dialKhz={frequency} on:width={(e) => setIqWidth(e.detail)} />
                   {/if}
 
                   <!-- ── RADE Digital Voice Panel (V1 / V2 beta) ──────────────────────── -->
@@ -19079,10 +20137,16 @@ Slider: share of denoised audio, the rest is the original"
                           <span
                             class="inline-block w-2 h-2 rounded-full bg-green-400 animate-pulse"
                           ></span>
-                          {isPsk
-                            ? "PSK31 Decoder"
+                          {isAle
+                            ? "ALE 2G Decoder"
+                          : isPsk
+                            ? `${pskModeCfg(pskMode).label} Decoder`
                             : isOlivia
-                              ? "Olivia Decoder"
+                              ? `${oliviaCfg.contestia ? "Contestia" : "Olivia"} ${oliviaBrowse ? `Browser (${oliviaCfg.label})` : "Decoder"}`
+                              : isFst4w
+                                ? `FST4W-${fst4wPeriod} Decoder`
+                              : isMsk144
+                                ? "MSK144 Decoder"
                               : isModem
                                 ? `${modemUi.name} Decoder`
                               : isPacket
@@ -19123,14 +20187,17 @@ Slider: share of denoised audio, the rest is the original"
                             >
                             <option value="weather">Weather RTTY</option>
                             <option value="ham">Amateur RTTY</option>
-                            <option value="psk31">PSK31 (BPSK)</option>
-                            <option value="olivia">Olivia</option>
+                            <option value="psk31">PSK31·63·125 (BPSK/QPSK)</option>
+                            <option value="olivia">Olivia / Contestia</option>
+                            <option value="fst4w">FST4W (WSJT-X)</option>
                             <option value="mfsk">MFSK16·32·64</option>
+                            <option value="msk144">MSK144 (WSJT-X)</option>
                             <option value="dominoex">DominoEX</option>
                             <option value="thor">THOR</option>
                             <option value="throb">THROB / THROBX</option>
                             <option value="hell">Hellschreiber</option>
                             <option value="mt63">MT63</option>
+                            <option value="ale">ALE 2G (MIL-STD-188-141)</option>
                             <option value="packet">Packet (AX.25)</option>
                             <option value="aprs">APRS</option>
                           </select>
@@ -19161,6 +20228,10 @@ Slider: share of denoised audio, the rest is the original"
                         {/if}
                       </div>
 
+                      {#if isAle}
+                        <!-- ALE 2G: network/channel picker, events, Save. -->
+                        <AlePanel embedded bind:this={alePanelRef} dialKhz={Number(frequency) || 0} onTune={aleTune} />
+                      {:else}
                       <!-- Broadcast schedule countdown -->
                       {#if fskScheduleRows.length > 0}
                         <div
@@ -19241,6 +20312,7 @@ Slider: share of denoised audio, the rest is the original"
                       {/if}
 
                       <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
+                        {#if !fskBrowsing}
                         <div>
                           <label class="text-xs text-gray-300 block mb-1"
                             >Center audio (Hz)</label
@@ -19279,6 +20351,7 @@ Slider: share of denoised audio, the rest is the original"
                             </select>
                           {/if}
                         </div>
+                        {/if}
                         {#if isPacketLike}
                           <div class="col-span-1 md:col-span-2">
                             <label class="text-xs text-gray-300 block mb-1"
@@ -19307,6 +20380,108 @@ Slider: share of denoised audio, the rest is the original"
                             </label>
                           {/if}
                         {/if}
+                        {#if isPsk}
+                          <div>
+                            <label class="text-xs text-gray-300 block mb-1"
+                              >Mode</label
+                            >
+                            <select
+                              value={pskBrowsing ? "bpsk31" : pskMode}
+                              disabled={pskBrowsing}
+                              title={pskBrowsing ? "The PSK Browser decodes BPSK31; switch it off to choose another Mode" : ""}
+                              class="glass-select text-white text-xs px-2 py-1 rounded-md w-full disabled:opacity-60"
+                              on:change={(e) => { pskMode = e.currentTarget.value; fskApplySettings(true); }}
+                            >
+                              {#each PSK_MODES.filter((q) => !q.browser) as m}
+                                <option value={m.key}>{m.label}</option>
+                              {/each}
+                            </select>
+                            <label class="flex items-center gap-2 text-xs text-gray-300 mt-1.5 cursor-pointer"
+                              title="Decode every BPSK31 signal between 300 and 2700 Hz at once, one line each">
+                              <span class="toggle-switch shrink-0"><input type="checkbox" checked={pskBrowsing}
+                                on:change={(e) => pskSetBrowse(e.currentTarget.checked)} /><span class="toggle-slider"></span></span>
+                              Browser — all signals
+                            </label>
+                          </div>
+                        {/if}
+                        {#if isMsk144}
+                          <div>
+                            <label class="text-xs text-gray-300 block mb-1"
+                              >F Tol</label
+                            >
+                            <select
+                              bind:value={msk144Tol}
+                              title="How far either side of the centre the decoder searches (WSJT-X's F Tol)"
+                              class="glass-select text-white text-xs px-2 py-1 rounded-md w-full"
+                              on:change={() => { audio.setFSKConfig(_fskEffectiveConfig()); fskApplyBandpass(); }}
+                            >
+                              {#each MSK144_TOL_OPTIONS as t}
+                                <option value={t}>± {t} Hz</option>
+                              {/each}
+                            </select>
+                          </div>
+                          <div>
+                            <label class="text-xs text-gray-300 block mb-1"
+                              >T/R period</label
+                            >
+                            <select
+                              bind:value={msk144Period}
+                              title="A message repeated within one period is listed once (again only if it comes back stronger)"
+                              class="glass-select text-white text-xs px-2 py-1 rounded-md w-full"
+                              on:change={() => audio.setFSKConfig(_fskEffectiveConfig())}
+                            >
+                              <option value={15}>15 s</option>
+                              <option value={30}>30 s</option>
+                            </select>
+                          </div>
+                          <div>
+                            <label class="text-xs text-gray-300 block mb-1"
+                              >Decode</label
+                            >
+                            <select
+                              bind:value={msk144Depth}
+                              title="Deep also averages up to 7 frames of a long ping; Fast only reads single pings"
+                              class="glass-select text-white text-xs px-2 py-1 rounded-md w-full"
+                              on:change={() => audio.setFSKConfig(_fskEffectiveConfig())}
+                            >
+                              <option value={1}>Fast</option>
+                              <option value={2}>Normal</option>
+                              <option value={3}>Deep</option>
+                            </select>
+                          </div>
+                        {/if}
+                        {#if isFst4w}
+                          <div>
+                            <label class="text-xs text-gray-300 block mb-1"
+                              >T/R period</label
+                            >
+                            <select
+                              bind:value={fst4wPeriod}
+                              title="FST4W-120 is the common one; 300, 900 and 1800 s reach further on LF/MF. Changing it starts a new recording."
+                              class="glass-select text-white text-xs px-2 py-1 rounded-md w-full"
+                              on:change={() => fskApplySettings(true)}
+                            >
+                              {#each FST4W_PERIOD_OPTIONS as t}
+                                <option value={t}>FST4W-{t} ({t / 60} min)</option>
+                              {/each}
+                            </select>
+                          </div>
+                          <div>
+                            <label class="text-xs text-gray-300 block mb-1"
+                              >F Tol</label
+                            >
+                            <select
+                              bind:value={fst4wTol}
+                              title="How far either side of the centre the decoder searches (WSJT-X's F Tol)"
+                              class="glass-select text-white text-xs px-2 py-1 rounded-md w-full"
+                              on:change={() => { audio.setFSKConfig(_fskEffectiveConfig()); fskApplyBandpass(); }}
+                            >
+                              {#each FST4W_TOL_OPTIONS as t}
+                                <option value={t}>± {t} Hz</option>
+                              {/each}
+                            </select>
+                          </div>
+                        {/if}
                         {#if isOlivia}
                           <div>
                             <label class="text-xs text-gray-300 block mb-1"
@@ -19317,10 +20492,23 @@ Slider: share of denoised audio, the rest is the original"
                               class="glass-select text-white text-xs px-2 py-1 rounded-md w-full"
                               on:change={() => fskApplySettings(true)}
                             >
-                              {#each OLIVIA_MODE_OPTIONS as m}
-                                <option value={m.key}>{m.label}</option>
-                              {/each}
+                              <optgroup label="Olivia">
+                                {#each OLIVIA_MODE_OPTIONS.filter((m) => !m.contestia) as m}
+                                  <option value={m.key}>{m.label}</option>
+                                {/each}
+                              </optgroup>
+                              <optgroup label="Contestia">
+                                {#each OLIVIA_MODE_OPTIONS.filter((m) => m.contestia) as m}
+                                  <option value={m.key}>{m.label}</option>
+                                {/each}
+                              </optgroup>
                             </select>
+                            <label class="flex items-center gap-2 text-xs text-gray-300 mt-1.5 cursor-pointer"
+                              title="Decode every signal of this Mode between 300 and 2700 Hz at once, one line each">
+                              <span class="toggle-switch shrink-0"><input type="checkbox" bind:checked={oliviaBrowse}
+                                on:change={() => fskApplySettings(true)} /><span class="toggle-slider"></span></span>
+                              Browser — all signals
+                            </label>
                           </div>
                           <div class="col-span-2">
                             <label
@@ -19530,7 +20718,7 @@ Slider: share of denoised audio, the rest is the original"
                           class="text-xs px-3 py-1 rounded bg-green-700 hover:bg-green-600 text-white transition-colors whitespace-nowrap"
                           on:click={fskApplyBandpass}>⇒ Set IF Band-Pass</button
                         >
-                        {#if !(isPacketLike && Number(packetBaud) !== 300)}
+                        {#if !(isPacketLike && Number(packetBaud) !== 300) && !isFst4w && !isMsk144 && !fskBrowsing}
                           <button
                             class="text-xs px-3 py-1 rounded bg-blue-700 hover:bg-blue-600 text-white transition-colors whitespace-nowrap"
                             on:click={() => {
@@ -19569,6 +20757,45 @@ Slider: share of denoised audio, the rest is the original"
                             >Audio: <span class="text-green-300 font-mono"
                               >{Number(fskMetrics.levelDb ?? -120).toFixed(0)} dBFS</span
                             ></span
+                          >
+                        {:else if isMsk144}
+                          <span class="text-gray-300"
+                            >Search: <span class="text-green-300 font-mono"
+                              >{Math.round(Number(fskCenter) - msk144Tol)}–{Math.round(Number(fskCenter) + msk144Tol)} Hz</span
+                            ></span
+                          >
+                          <span class="text-gray-300"
+                            >Decodes: <span class="text-green-300 font-mono">{msk144Decodes.length}</span></span
+                          >
+                          {#if fskMetrics && fskMetrics.load != null}
+                            <span class="text-gray-300" title="Share of real time the decoder spends working (above 100 % it falls behind)"
+                              >CPU: <span class="{fskMetrics.load > 0.8 ? 'text-amber-300' : 'text-green-300'} font-mono">{Math.round(100 * fskMetrics.load)} %</span></span
+                            >
+                          {/if}
+                        {:else if isFst4w}
+                          {#if fst4wProgress && fst4wProgress.period}
+                            <span class="text-gray-300 flex items-center gap-2"
+                              title="FST4W decodes once per period, after it ends">
+                              Period:
+                              <span class="inline-block w-28 h-2 rounded bg-gray-700 overflow-hidden"
+                                ><span class="block h-full bg-green-500"
+                                  style="width: {Math.min(100, (100 * (fst4wProgress.recorded || 0)) / fst4wProgress.period)}%"
+                                ></span></span>
+                              <span class="text-green-300 font-mono"
+                                >{Math.floor((fst4wProgress.recorded || 0) / 60)}:{String(Math.floor((fst4wProgress.recorded || 0) % 60)).padStart(2, "0")} / {fst4wProgress.period / 60}:00</span>
+                            </span>
+                          {/if}
+                          <span class="text-gray-300"
+                            >Search: <span class="text-green-300 font-mono"
+                              >{Math.round(Number(fskCenter) - fst4wTol)}–{Math.round(Number(fskCenter) + fst4wTol)} Hz</span
+                            ></span
+                          >
+                          <span class="text-gray-300"
+                            >Decodes: <span class="text-green-300 font-mono">{fst4wDecodes.length}</span></span
+                          >
+                        {:else if fskBrowsing}
+                          <span class="text-gray-300"
+                            >Signals: <span class="text-green-300 font-mono">{pskBrowserChannels.length}</span></span
                           >
                         {:else if isPsk}
                           <span class="text-gray-300"
@@ -19611,7 +20838,7 @@ Slider: share of denoised audio, the rest is the original"
                             ></span
                           >
                         {/if}
-                        {#if !isPacketLike && !isHell}
+                        {#if !isPacketLike && !isHell && !isFst4w && !isMsk144 && !fskBrowsing}
                         <span class="text-gray-300"
                           >{isOlivia || isModem ? "S/N" : "SNR"}: <span
                             class="{fskMetrics.squelchOpen === false
@@ -19665,6 +20892,79 @@ Slider: share of denoised audio, the rest is the original"
                               slants the text, and one copy is always whole.
                             </div>
                           {/if}
+                        </div>
+                      {:else if isMsk144}
+                        <!-- MSK144: one row per decode, as WSJT-X lists them. -->
+                        <div class="w-full font-mono text-xs bg-gray-900 rounded p-1 overflow-y-auto max-h-72 custom-scrollbar text-left recess-window">
+                          {#if msk144Decodes.length === 0}
+                            <div class="p-2 text-gray-500 italic font-sans">
+                              Listening for meteor pings. MSK144 stations repeat their message all through each {msk144Period} s period; a ping of a tenth of a second can carry it. On a quiet band nothing appears for minutes — that is normal for meteor scatter.
+                            </div>
+                          {:else}
+                            <div class="flex gap-2 px-1 py-0.5 text-gray-500 border-b border-gray-700">
+                              <span class="w-16 shrink-0">UTC</span>
+                              <span class="w-8 shrink-0 text-right">dB</span>
+                              <span class="w-9 shrink-0 text-right">T</span>
+                              <span class="w-24 shrink-0">MHz</span>
+                              <span class="flex-1">Message</span>
+                            </div>
+                          {/if}
+                          {#each [...msk144Decodes].reverse() as d (d.id)}
+                            <div class="flex gap-2 px-1 py-0.5 border-b border-gray-800"
+                              title="Audio {d.freq} Hz · {d.navg > 1 ? `average of ${d.navg} frames` : 'single frame'}">
+                              <span class="w-16 shrink-0 text-gray-400">{d.utc}</span>
+                              <span class="w-8 shrink-0 text-right text-amber-300">{d.snr}</span>
+                              <span class="w-9 shrink-0 text-right text-gray-400">{d.t.toFixed(1)}</span>
+                              <span class="w-24 shrink-0 text-sky-300">{d.mhz.toFixed(6)}</span>
+                              <span class="flex-1 text-green-300">{d.msg}</span>
+                            </div>
+                          {/each}
+                        </div>
+                      {:else if isFst4w}
+                        <!-- FST4W: one row per decode, as WSJT-X lists them. -->
+                        <div class="w-full font-mono text-xs bg-gray-900 rounded p-1 overflow-y-auto max-h-72 custom-scrollbar text-left recess-window">
+                          {#if fst4wDecodes.length === 0}
+                            <div class="p-2 text-gray-500 italic font-sans">
+                              FST4W decodes once per T/R period, after the period ends (FST4W-{fst4wPeriod}: every {fst4wPeriod / 60} min, on the UTC clock). A period joined part-way through is skipped; the next one is recorded whole. Signals sit 1400–1600 Hz above the USB dial.
+                            </div>
+                          {:else}
+                            <div class="flex gap-2 px-1 py-0.5 text-gray-500 border-b border-gray-700">
+                              <span class="w-12 shrink-0">UTC</span>
+                              <span class="w-9 shrink-0 text-right">dB</span>
+                              <span class="w-9 shrink-0 text-right">DT</span>
+                              <span class="w-24 shrink-0">MHz</span>
+                              <span class="flex-1">Message</span>
+                            </div>
+                          {/if}
+                          {#each [...fst4wDecodes].reverse() as d (d.id)}
+                            <div class="flex gap-2 px-1 py-0.5 border-b border-gray-800"
+                              title="FST4W-{d.period}, audio {d.audioHz} Hz">
+                              <span class="w-12 shrink-0 text-gray-400">{d.utc.replace(":", "")}</span>
+                              <span class="w-9 shrink-0 text-right text-amber-300">{d.snr}</span>
+                              <span class="w-9 shrink-0 text-right text-gray-400">{d.dt.toFixed(1)}</span>
+                              <span class="w-24 shrink-0 text-sky-300">{d.mhz.toFixed(6)}</span>
+                              <span class="flex-1 text-green-300">{d.msg}</span>
+                            </div>
+                          {/each}
+                        </div>
+                      {:else if fskBrowsing}
+                        <!-- PSK Browser: one line per signal in the passband. -->
+                        <div class="w-full font-mono text-xs bg-gray-900 rounded p-1 overflow-y-auto max-h-72 custom-scrollbar text-left recess-window">
+                          {#if pskBrowserChannels.length === 0}
+                            <div class="p-2 text-gray-500 italic font-sans">{oliviaBrowsing ? `Listening for ${oliviaCfg.contestia ? "Contestia" : "Olivia"} ${oliviaCfg.label} signals between 300 and 2700 Hz… A station appears once its first characters are decoded, which takes a few seconds after it starts.` : "Looking for PSK31 signals between 300 and 2700 Hz… (a few seconds)"}</div>
+                          {/if}
+                          {#each pskBrowserChannels as c (c.id)}
+                            <div class="flex items-start gap-2 px-1 py-0.5 border-b border-gray-800 cursor-pointer hover:bg-gray-800"
+                              role="button" tabindex="0"
+                              title="Click to decode only this signal ({oliviaBrowsing ? oliviaCfg.label : 'BPSK31'} at {c.hz} Hz)"
+                              on:click={() => pskBrowserPick(c.hz)}
+                              on:keydown={(e) => e.key === "Enter" && pskBrowserPick(c.hz)}>
+                              <span class="text-sky-300 w-24 shrink-0">{(Number(frequency) + c.hz / 1000).toFixed(3)}</span>
+                              <span class="w-10 shrink-0 {c.lock >= 45 ? 'text-green-400' : 'text-gray-500'}" title="Lock quality">{c.lock}%</span>
+                              <div class="text-green-300 min-w-0 overflow-y-auto custom-scrollbar" use:stickBottom use:noScrollbarPick
+                                style="flex: 1 1 0; max-height: 6rem; white-space: pre-wrap; overflow-wrap: anywhere; word-break: break-word;">{c.text.trimStart()}</div>
+                            </div>
+                          {/each}
                         </div>
                       {:else}
                       <div
@@ -19822,7 +21122,12 @@ Slider: share of denoised audio, the rest is the original"
 
                       <!-- Hint -->
                       <p class="text-gray-500 text-xs mt-3 leading-relaxed">
-                        {#if isPsk}
+                        {#if fskBrowsing}
+                          <strong class="text-gray-300"
+                            >Mode: USB. Every {oliviaBrowsing ? `${oliviaCfg.contestia ? "Contestia" : "Olivia"} ${oliviaCfg.label}` : "BPSK31"} signal between 300 and 2700 Hz gets its own line,
+                            <br /> and a click on a line decodes only that signal{oliviaBrowsing ? " — other tones / bandwidths need their own Mode" : ""}</strong
+                          >.
+                        {:else if isPsk}
                           <strong class="text-gray-300"
                             >Mode: USB. Tune so the carrier sits on the Center
                             audio value,
@@ -19866,6 +21171,22 @@ Slider: share of denoised audio, the rest is the original"
                               synchroniser needs to settle.
                             {/if}</strong
                           >
+                        {:else if isMsk144}
+                          <strong class="text-gray-300"
+                            >Mode: USB. Meteor scatter: the dial sits 1.5 kHz
+                            below the signal, F Tol widens the search for
+                            stations off frequency,
+                            <br /> and the 40-bit short messages (Sh) are not
+                            decoded — they need both stations' calls</strong
+                          >.
+                        {:else if isFst4w}
+                          <strong class="text-gray-300"
+                            >Mode: USB. Pick the T/R period the stations use
+                            (FST4W-120 on most LF/MF beacons) — the decoder
+                            looks only at that one,
+                            <br /> and it needs the page's clock right to a
+                            second or so: periods start on the UTC clock</strong
+                          >.
                         {:else if isOlivia}
                           <strong class="text-gray-300"
                             >Mode: USB. Pick the right tones / bandwidth — a
@@ -19888,6 +21209,7 @@ Slider: share of denoised audio, the rest is the original"
                           >{isHell ? "Save Picture" : "Save Text"}</button
                         >
                       </div>
+                      {/if}
                     </div>
                   {/if}
                   <!-- END FSK Panel -->
@@ -20973,6 +22295,21 @@ Slider: share of denoised audio, the rest is the original"
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+  }
+
+  /* A row clicked open (audio.js _ftxRenderSpot): the whole message, wrapped. */
+  .ftx-grid.ftx-cut {
+    cursor: pointer;
+  }
+  .ftx-grid.ftx-open {
+    align-items: start;
+    background: rgba(34, 211, 238, 0.1);
+    border-color: rgba(34, 211, 238, 0.45);
+  }
+  .ftx-grid.ftx-open .ftx-msg {
+    white-space: normal;
+    overflow: visible;
+    overflow-wrap: anywhere;
   }
 
   .glass-message {

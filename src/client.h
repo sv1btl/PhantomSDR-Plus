@@ -64,6 +64,15 @@ enum waterfall_compressor { WATERFALL_ZSTD, WATERFALL_AV1, WATERFALL_KIWI };
 // zero-IF I/Q as lossless stereo FLAC. Set once at start-up, read per mode
 // change. The DRM helper's internal tap has IQ whatever this says.
 extern std::atomic<bool> g_public_iq_enabled;
+// [server] iq_wide (kHz, default 12 = off): the widest IQ a listener may ask
+// for -- 24 or 48 kHz, as a multiple of the 12 kHz stream (1, 2 or 4).
+// [server] iq_wide_listeners (default 4, 0 = no limit): how many listeners
+// may hold a wide IQ at once; the rest stay at 12 kHz.
+extern std::atomic<int> g_iq_wide_max_scale;
+extern std::atomic<int> g_iq_wide_limit;
+extern std::atomic<int> g_iq_wide_active;
+// The scales a page may ask for: 1 (12 kHz), 2 (24 kHz) and 4 (48 kHz).
+constexpr int IQ_MAX_SCALE = 4;
 
 enum audio_compressor { AUDIO_FLAC, AUDIO_OPUS, AUDIO_PCM, AUDIO_KIWI_PCM };
 
@@ -121,6 +130,7 @@ class Client {
     // Name/callsign for /users (AudioClient overrides).
     virtual void on_identity_message(std::string &name);
     virtual void on_decoder_message(std::string &name);
+    virtual void on_iq_width_message(int khz);
     virtual void on_diversity_message(std::string &type, std::string &host);
     
     // Noise gate and AGC control (AudioClient will override these)

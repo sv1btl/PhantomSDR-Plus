@@ -32,6 +32,7 @@
     qrDataUrl as divQrDataUrl,
     browseUrl as divBrowseUrl
   } from '../diversityList.js'
+  import { volumeToGain, initialVolume, saveVolume } from '../lib/volume.js'
 
   // ── Header ───────────────────────────────────────────────────────────────
   // Plain text, no links — same source the desktop App.svelte imports.
@@ -43,7 +44,7 @@
   // Directory links, same three the desktop app offers.
   const SDR_LIST_XYZ_URL = 'https://sdr-list.xyz/'
   const SHBRG_URL        = 'https://sdr.shbrg.nl/sdr/'
-  const WEBSDR_ORG_URL   = 'http://websdr.org/'
+  const SDR_MAP_URL      = 'https://map-sdr.p00lack.cc/'
 
   // ── Connection ───────────────────────────────────────────────────────────
   let status = 'connecting'    // connecting | needs-gesture | running | error
@@ -382,6 +383,8 @@
     // page off the band.
     frequency = settings.defaults?.frequency ?? coverage(settings)[0]
     mode = normaliseServerMode(settings.defaults?.modulation) || 'USB'
+    // Listener's own last volume, else the receiver's [input.defaults] volume.
+    volume = initialVolume(settings.defaults?.volume)
     const urlTuning = parseUrlTuning()
     if (urlTuning.frequency !== undefined) {
       frequency = urlTuning.frequency
@@ -814,8 +817,14 @@
   // Audio controls
   // ═══════════════════════════════════════════════════════════════════════
   function applyVolume () {
-    // Identical curve to App.svelte's handleVolumeChange.
-    audio.setGain(Math.pow(10, (volume - 50) / 50 + 2.6))
+    // Same curve as App.svelte's handleVolumeChange (lib/volume.js).
+    audio.setGain(volumeToGain(volume))
+  }
+
+  // The slider itself: remembered for this listener's next visit.
+  function onVolumeInput () {
+    saveVolume(volume)
+    applyVolume()
   }
 
   /**
@@ -1313,8 +1322,8 @@
          title="sdr-list.xyz">SDR-list</a>
       <a class="site-link-btn" href={SHBRG_URL} target="_blank" rel="noopener noreferrer"
          title="sdr.shbrg.nl/sdr">SHsdr</a>
-      <a class="site-link-btn" href={WEBSDR_ORG_URL} target="_blank" rel="noopener noreferrer"
-         title="websdr.org">WebSDR</a>
+      <a class="site-link-btn" href={SDR_MAP_URL} target="_blank" rel="noopener noreferrer"
+         title="map-sdr.p00lack.cc">SDR Map</a>
     </div>
     {#if receiverPicker}
       <!-- Other receivers of this station (lib/receivers.js); each opens its
@@ -1419,7 +1428,7 @@
               aria-pressed={muted}
               title={muted ? 'Unmute' : 'Mute'}
               on:click={toggleMute}>{muted ? '🔇' : '🔊'}</button>
-            <input type="range" min="0" max="100" bind:value={volume} on:input={applyVolume} />
+            <input type="range" min="0" max="100" bind:value={volume} on:input={onVolumeInput} />
           </div>
         </div>
       </section>

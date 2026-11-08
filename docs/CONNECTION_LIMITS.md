@@ -196,6 +196,8 @@ It exists because the server cannot reach JavaScript that is already running in 
 
 Only `/audio` is checked, because that is the socket a session lives on, and loopback and the Kiwi paths are exempt so the autorun tap and Kiwi clients are untouched. `0` disables it and is the default. Leaving it on once the old pages have drained is fine: a current diversity client that is refused on a bare `/audio` retries with the marker, so what is still turned away is a diversity client on an older PhantomSDR-Plus build and any third-party tool that opens `/audio` without `?v=`. Set it back to `0` if another station reports that it can no longer use you as a diversity partner.
 
+The configs that ship with PhantomSDR-Plus set `min_client_version=2`, the current build (`CLIENT_VERSION` in `frontend/src/clientVersion.js`), with a comment that explains it; without the line it is `0`. If a future update raises `CLIENT_VERSION`, raise this value to match.
+
 ---
 
 ## 7. What a refused listener sees

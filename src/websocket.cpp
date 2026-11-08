@@ -164,7 +164,9 @@ void broadcast_server::send_basic_info(connection_hdl hdl,
           {"modulation", default_mode_str},
           {"l", default_l},
           {"m", default_m},
-          {"r", default_r}}},
+          {"r", default_r},
+          // -1 when the config has no volume: the page then keeps 50.
+          {"volume", default_volume}}},
         {"waterfall_compression", waterfall_compression_str},
         {"audio_compression", audio_compression_str},
         {"iq", g_public_iq_enabled.load()},
@@ -176,6 +178,13 @@ void broadcast_server::send_basic_info(connection_hdl hdl,
             return markers.dump();
         }()}
     };
+    // IQ widths this server offers, in kHz ([server] iq_wide).
+    {
+        glz::json_t::array_t widths{12.0};
+        if (g_public_iq_enabled.load() && g_iq_wide_max_scale.load() >= 2) widths.emplace_back(24.0);
+        if (g_public_iq_enabled.load() && g_iq_wide_max_scale.load() >= 4) widths.emplace_back(48.0);
+        json["iq_widths"] = widths;
+    }
 
     // The client's own signal-protocol UUID.  This is the SAME id used as the
     // key in /users and in the events-socket signal_changes map, so the browser

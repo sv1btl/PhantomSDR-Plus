@@ -197,6 +197,8 @@ Cela existe parce que le serveur ne peut pas atteindre du JavaScript qui tourne 
 
 Seul `/audio` est vérifié, car c'est là que vit une session, et la boucle locale ainsi que les chemins Kiwi sont exemptés afin que le tap autorun et les clients Kiwi ne soient pas touchés. `0` le désactive et c'est la valeur par défaut. Le laisser actif une fois les anciennes pages écoulées ne pose pas de problème : un client de diversité actuel refusé sur un `/audio` nu réessaie avec le marqueur, si bien que seuls restent éconduits les clients de diversité d'une version plus ancienne de PhantomSDR-Plus et les outils tiers qui ouvrent `/audio` sans `?v=`. Remettez-le à `0` si une autre station signale qu'elle ne peut plus vous utiliser comme partenaire de diversité.
 
+Les configurations livrées avec PhantomSDR-Plus fixent `min_client_version=2`, la version actuelle (`CLIENT_VERSION` dans `frontend/src/clientVersion.js`), avec un commentaire qui l'explique ; sans la ligne, la valeur est `0`. Si une future mise à jour augmente `CLIENT_VERSION`, augmentez cette valeur d'autant.
+
 ---
 
 ## 7. Ce que voit un auditeur refusé

@@ -266,7 +266,7 @@ Odaberite način prikladan signalu:
 
 ### Podešavanje glasnoće
 
-- **Klizač na zaslonu**: povucite klizač glasnoće
+- **Klizač na zaslonu**: povucite klizač glasnoće. 0 % je tišina; ispod 50 % razina pada glatko u finim koracima, a od 50 % naviše svaki je korak 0,4 dB. Stranica pamti gdje ste ostavili klizač, na stranici za računalo i na /mobile; pri prvom posjetu počinje ondje gdje ga je postavio sysop (50 %, ako nije drukčije postavljeno).
 - **Glasnoća preglednika**: koristite medijske kontrole preglednika
 - **Glasnoća sustava**: podesite glasnoću računala
 - **Tipkovnica**: koristite tipke + i - (ako su podržane)
@@ -285,6 +285,12 @@ S-metar prikazuje jakost signala:
 **Promjena izgleda instrumenta**: na analognom (kazaljčnom) S-metru kliknite na sam instrument — ili ga fokusirajte i pritisnite Enter ili Razmaknicu — da biste prošli kroz tri pozadine: tamni brušeni metal, svijetlu blijedosivu skalu i toplu jantarnu skalu u vintage stilu. Vaš preglednik pamti izbor, pa ostaje i nakon osvježavanja ili ponovnog pokretanja. Vrijedi po pregledniku i po adresi: otvaranje prijamnika preko imena računala i preko IP-a daje dvije odvojene postavke, a privatni prozor uvijek kreće od zadane vrijednosti stranice.
 
 **Iznad 30 MHz** S-metar slijedi VHF standard IARU Regije 1: ondje je S9 na −93 dBm umjesto −73 dBm na kratkom valu, i dalje sa šest dB po S-jedinici. Kazaljka i traka same se prebacuju prema ugođenoj frekvenciji; vrijednosti u dBm i dBµV uvijek pokazuju izmjerenu razinu. Neke stanice svoje VHF/UHF prijemnike podese i tako da instrumenti **miruju na 0 dok je kanal prazan**, kao na VHF/UHF primopredajniku: iznad 60 MHz kazaljka i traka tada se dižu tek kad signal izađe iz šuma. Vrijednosti dBm, dBµV, SNR i NF uvijek pokazuju stvarne vrijednosti.
+
+### Graf jačine signala
+
+**Video** pod **Recording Options** snima spektar i slap zajedno sa zvukom (**Area** bira njihov dio). Traka na dnu slike prikazuje frekvenciju, način rada i vrijeme, a ugođena frekvencija označena je istim žutim crtama kao ugađač na zaslonu: žute točkaste crte na frekvenciji i na rubovima propusnog pojasa te zagrada iznad slapa.
+
+Pod **Recording Options** gumb **Plotter** pokraj Audio, Video i Area crta očitanje S-metra kao pokretni graf — korisno za praćenje fadinga, usporedbu dviju antena ili stanica ili da vidite kad se opseg otvara. Svaki klik ide **Off → Fast → Medium → Slow**: graf prikazuje posljednjih 10, 30 ili 60 sekundi, s najnovijim očitanjem desno, a preglednik pamti izbor. Prikazuje istu vrijednost u dBm kao digitalni S-metar, 20 puta u sekundi; lijeva ljestvica je u S-jedinicama (VHF ljestvica iznad 30 MHz), desna u dBm, a raspon sam prati signal. Gornji redak prikazuje trenutno očitanje i vršnu vrijednost (**pk**) prikazanog razdoblja, nacrtanu i kao crvenu isprekidanu liniju; žuta linija s novom frekvencijom označava svako preugađanje. Gore desno **❚❚** zaustavlja graf (**▶** nastavlja), a **PNG** ga sprema kao sliku, `PhantomSDR_signal_<UTC>_<kHz>kHz.png`. Isključen ne troši ništa.
 
 ### Odabir prijemnika
 
@@ -406,6 +412,10 @@ Kao na WebSDR-u, IP adresa nijednog slušatelja ne prikazuje se drugima — ni u
 
 Prozor Users prikazuje i koji dekoder pojedini slušatelj koristi — FT8, CW, DRM, HFDL itd. — kao malu zelenu oznaku iza načina rada, a Statistika korisnika ima ploču **Decoder Popularity**: koliko je sesija koristilo koji dekoder. U prozoru Users otvorenom sa stranice prijemnika, **Tune** pokraj slušatelja postavlja vas na ono što on sluša: istu frekvenciju i način rada, širinu njegova filtra i njegov dekoder — pokrenut za vas, ili se vaš zaustavlja kad on ne koristi nijedan. Zatim se pojas uokviruje kao s **To Band**: slap prikazuje cijeli pojas u kojem je, sa svjetlinom, kontrastom i korakom ugađanja tog pojasa.
 
+### Propagacija na opsezima
+
+Ispod **Open Additional Info**, pokraj *Current band propagation and statistics:*, gumb **🌐 Propagation** otvara stranicu s uvjetima na opsezima za lokaciju ovog prijemnika. Svaki opseg od 160 m do 6 m ocjenjuje kao Good, Fair, Poor ili Closed, za pet udaljenosti (do 300 km, 300–1000 km, 1000–2000 km, 2000–3000 km i DX iznad 3000 km). Ocjene se temelje na trenutnim mjerenjima najbližih ionosondi (foF2 i MUF), položaju sunca te sunčevim i geomagnetskim podacima (sunčev tok, Kp, X-zrake, sunčev vjetar). Karta je globus sa stanicom u središtu: povucite da ga zavrtite, povucite desnom tipkom (ili Ctrl + povlačenje) da ga nagnete, a **2D / 3D** prebacuje na ravnu kartu. Njegovi prstenovi **dometa opsega** za svaki otvoreni opseg pokazuju isprekidani prsten gdje završava njegova mrtva zona i puni prsten na najvećem dometu; legenda ispod karte daje raspon svakog opsega, a klik na opseg prikazuje samo njegovo otvoreno područje, zasjenjeno prema Good / Fair / Poor. Globus prikazuje i krivulje MUF i foF2, dan i noć sa sivom linijom te svaku ionosondu koja sada javlja, u cijelom svijetu — svijetle one korištene ovdje. Prekidači slojeva u njegovu kutu uključuju ili isključuju svaki od njih. Prstenovi prate ionosferu smjer po smjer — gdje se put reflektira, sunce ondje, auroralni oval — pa opseg obično seže dalje u jednom smjeru nego u drugom; tablica iznad je pogled ravno iznad postaje. Globus treba preglednik s WebGL2. Stranica se sama osvježava svakih 10 minuta. To je procjena za veze s ovog prijemnika, a ne zapis onoga što se čuje.
+
 ### Chat
 
 Kad je operater uključio chat, on ima vlastitu ploču na desktop stranici i karticu **Chat** na /mobile. Upišite poruku i pošaljite je: odlazi pod imenom iz vašeg polja za ime (vidi gore) ili kao *anonymous* i broj.
@@ -418,14 +428,11 @@ Frekvencija u poruci je poveznica: klik ugađa onamo, u načinu rada navedenom u
 
 Uvećava prikaz slapa:
 
-- **1x**: uobičajen prikaz (široka pokrivenost)
-- **2x**: uvećanje ×2
-- **4x**: uvećanje ×4
-- **8x**: uvećanje ×8
+Klizač **Zoom** ima 20 koraka, prikazanih kao ×1 do ×20 (korak, a ne uvećanje). ×1 prikazuje cijeli prijemnik; svaki korak sužava prikaz oko ugođene frekvencije za isti faktor, pa uvećanje raste ravnomjerno, sve do nekoliko kHz na ×20. Gumb uz klizač svakim klikom ide korak dalje i nakon ×20 vraća se na ×1.
 
 **Koristite kada**: trebate jasnije vidjeti signale ili se precizno ugoditi.
 
-**To Band** prikazuje cijeli pojas frekvencije na kojoj ste, s 10 kHz rezerve na svakom rubu.
+**To Band** prikazuje cijeli pojas frekvencije na kojoj ste, s 5 kHz rezerve na svakom rubu.
 
 ### Auto Adj. (slap)
 
@@ -628,14 +635,25 @@ Rade i poveznice pisane za KiwiSDR ili UberSDR: `modulation=CWU` (ili `CW-U`) ot
 - odlučuje stanica: gumb se pojavljuje samo gdje je `[server] iq` uključen (zadano)
 
 **Dobre prakse:**
-- stanicu koju želite stavite u sredinu — snimka obuhvaća ±6 kHz oko ugođene frekvencije
+- stanicu koju želite stavite u sredinu — snimka obuhvaća ±6 kHz oko ugođene frekvencije (±12 ili ±24 kHz kod šireg IQ-a, niže)
 - za slušanje jedne stanice jednostavniji je normalan način rada; IQ je za snimanje, za druge programe i za slušanje više stanica odjednom (niže)
+
+#### Širi IQ: 24 i 48 kHz
+
+Gdje ga postaja nudi, ploča IQ Demodulators ima **Width: 12 kHz · 24 kHz · 48 kHz**. 24 kHz obuhvaća široke DRM načine ili stanicu s oba susjeda, 48 kHz cijelu skupinu radiodifuznih stanica ili CW/digitalni dio opsega. Propusni pojas na vodopadu i slika na ploči prate širinu, snimka se radi u njoj (WAV na 24 ili 48 kHz), a preglednik pamti izbor. Širi IQ postaju stoji više uploada — oko 0,7 Mbit/s po slušatelju na 24 kHz i 1,4 Mbit/s na 48 kHz, prema 0,35 na 12 kHz — pa postaja određuje koliko ga slušatelja smije imati istodobno; kad su sva mjesta zauzeta, ostajete na 12 kHz (ploča to kaže), a stranica ponovno pita svakih 30 sekundi. Za Dream ili drugi program na virtualnom kabelu na 48 kHz postavite i kabel na 48 kHz. KiwiSDR klijenti uvijek dobivaju 12 kHz.
+
+**Za sysopa:** dva retka pod `[server]` u konfiguraciji prijemnika uključuju ga, za bilo koji prijemnik; zatim ponovno pokrenite taj prijemnik. Iste postavke nalaze se u administratorskoj ploči pod **Receivers → ✎ CHANGE SETTINGS**, koja ujedno ponovno pokreće prijemnik.
+
+```
+iq_wide=48            # 12 (isključeno, zadano), 24 ili 48 kHz
+iq_wide_listeners=4   # slušatelji sa širokim IQ-om istodobno, 0 = bez ograničenja
+```
 
 #### IQ demodulatori
 
 Dok je prijemnik u IQ-u, ispod dekodera otvara se ploča **IQ Demodulators**. Pokreće do šest prijemnika na I/Q-u u vašem pregledniku — prijemnik se ne preugađa, a računalo stanice nema dodatnog posla:
 
-- Slika prikazuje 12 kHz oko ugođene frekvencije sa stvarnim frekvencijama; svaki demodulator je obojena traka, a njegova vlastita frekvencija crta u njoj. Klik na sliku premješta onamo odabrani demodulator; kotačić miša iznad nje pomiče ga za 10 Hz (Shift 100 Hz)
+- Slika prikazuje cijelu širinu IQ-a (12, 24 ili 48 kHz) oko ugođene frekvencije sa stvarnim frekvencijama; svaki demodulator je obojena traka, a njegova vlastita frekvencija crta u njoj. Klik na sliku premješta onamo odabrani demodulator; kotačić miša iznad nje pomiče ga za 10 Hz (Shift 100 Hz)
 - Svaki redak ima način rada (USB, LSB, CW, AM, DSB, FM), frekvenciju s gumbima « ‹ › » (100 i 10 Hz), pokazivač razine, **M** za utišavanje i **✕** za uklanjanje. Odabrani redak ima još **Width**, **Volume** i **Pan**
 - **DSB** sama prati nosilac (petlja za praćenje nosioca): postavljena unutar nekoliko desetaka Hz od nosioca, zvuk ostaje čist i stabilan, kod DSB-a s potisnutim nosiocem kao i kod AM-a, gdje radi kao sinkroni AM
 - **+ Add** dodaje demodulator na ugođenoj frekvenciji, do šest. **Demodulators** / **Raw I/Q** bira slušate li njih ili čisti I/Q
@@ -754,9 +772,11 @@ NAVTEX je međunarodni pomorski sustav emitiranja obavijesti o sigurnosti u prio
 
 ---
 
-### FLDIGI — RTTY, PSK31, Olivia, MFSK, DominoEX, THOR, THROB, Hellschreiber, MT63, Packet i APRS
+### FLDIGI — ALE 2G, RTTY, PSK31, Olivia, FST4W, MFSK, MSK144, DominoEX, THOR, THROB, Hellschreiber, MT63, Packet i APRS
 
-Jedan prozor za uskopojasne tipkovničke načine rada koje je proslavio fldigi, s trinaest inačica: pomorski FSK (SITOR), meteorološki RTTY, amaterski RTTY, **PSK31** (fazno ključanje, 31,25 bauda), **Olivia** i **MFSK16/32/64** (višetonski s korekcijom pogrešaka), **DominoEX** i **THOR** (inkrementalno frekvencijsko ključanje, THOR s korekcijom pogrešaka), **THROB**, **Hellschreiber** (iscrtan kao slika), **MT63** (64 nosioca), **Packet (AX.25)** i **APRS**. Otvara se gumbom **FLDIGI** ili stavkom **FLDIGI** u izborniku dekodera; sam fldigi nije potreban. Ploča se prilagođava inačici — kontrole za shift, baud i okvir nestaju za sve osim tri FSK inačice, a ostali načini dodaju birač Mode i, osim Hellschreibera, klizač squelcha.
+Jedan prozor za uskopojasne tipkovničke načine rada koje je proslavio fldigi, s šesnaest inačica: pomorski FSK (SITOR), meteorološki RTTY, amaterski RTTY, **PSK31/63/125** (fazno ključanje, BPSK/QPSK, 31,25–125 bauda), **Olivia**, **Contestia** i **MFSK16/32/64** (višetonski s korekcijom pogrešaka), **DominoEX** i **THOR** (inkrementalno frekvencijsko ključanje, THOR s korekcijom pogrešaka), **THROB**, **Hellschreiber** (iscrtan kao slika), **MT63** (64 nosioca), **Packet (AX.25)** i **APRS**. Otvara se gumbom **FLDIGI** ili stavkom **FLDIGI** u izborniku dekodera; sam fldigi nije potreban. Ploča se prilagođava inačici — kontrole za shift, baud i okvir nestaju za sve osim tri FSK inačice, a ostali načini dodaju birač Mode i, osim Hellschreibera, klizač squelcha. Tri inačice ispisuju ono što dekodiraju redak po redak umjesto teksta: **ALE 2G**, neposredno prije Packet na popisu (uspostava KV veze, MIL-STD-188-141, s HFLINK amaterskim kanalima i drugim javnim popisima mreža), te **FST4W** i **MSK144**, WSJT-X načini rada za LF/MF svjetionike i za meteor scatter. **PSK Browser**, prekidač **Browser — all signals** ispod popisa **Mode** za PSK31, istodobno dekodira sve BPSK31 signale u propusnom pojasu, jedan redak po signalu; klik na redak prati taj signal. Vidi [priručnik za dekodere](DECODERS.md). **Browser — all signals** ispod popisa **Mode** za Oliviju čini isto za Oliviju i Contestiju, za ondje odabranu konfiguraciju.
+
+**CW Browser:** uključite prekidač **Browser — all signals** u CW prozoru da se istodobno dekodiraju svi CW signali u 200–3000 Hz, jedan redak po signalu, s pozivnim znakom postaje i označenim CQ pozivima; prijemnik dok radi prelazi na USB 200–3000 Hz.
 
 Amaterski i meteorološki RTTY imaju klizač **Squelch (SNR)** koji sprječava da se šum ispisuje kao nasumična slova, a sve varijante osim Olivije prikazuju pravi SNR na istoj ljestvici od 3 kHz. Dvije stvari treba znati: PSK31 sam ispravlja pogrešku ugađanja u rasponu od otprilike ±25 Hz, pa se dovoljno samo približiti; Olivia traži da **Mode** (tonovi / širina pojasa) točno odgovara emisiji, ne šalje preambulu i stoga joj treba nekoliko sekundi za sinkronizaciju prije nego što se pojavi tekst. Ploča se otvara na Olivia **8 / 250**. Za ostale fldigi načine postavite signal na središnju frekvenciju ili pritisnite **⟳ Auto-tune Center** i odaberite odgovarajući **Mode**: THROB traži ugađanje unutar ±3 Hz, DominoEX, THOR i MT63 opraštaju mnogo više, a MFSK, THOR i MT63 ispisuju tekst nekoliko sekundi iza signala. Hellschreiber prikazuje sliku, a ne tekst.
 
@@ -1172,7 +1192,7 @@ O: Preklop plana pojaseva koji prikazuje dodjelu frekvencija.
 
 **FFT**: brza Fourierova transformacija – pretvara vremensku domenu u frekvencijsku
 
-**FLDIGI**: prozor dekodera za RTTY, PSK31, Oliviju, MFSK, DominoEX, THOR, THROB, Hellschreiber, MT63, Packet i APRS, nazvan po programu fldigi koji je proslavio te načine rada
+**FLDIGI**: prozor dekodera za ALE 2G, RTTY, PSK31, Oliviju, FST4W, MFSK, MSK144, DominoEX, THOR, THROB, Hellschreiber, MT63, Packet i APRS, nazvan po programu fldigi koji je proslavio te načine rada
 
 **FM**: frekvencijska modulacija – govorni način rada za VHF/UHF
 

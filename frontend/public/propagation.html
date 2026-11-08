@@ -1,0 +1,1085 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PhantomSDR-Plus | Band Propagation</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Barlow+Condensed:wght@200;400;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/maplibre-gl/5.6.0/maplibre-gl.css">
+<style>
+:root {
+  --bg:      #050a07;
+  --bg2:     #080f0a;
+  --bg3:     #0c1610;
+  --bg4:     #101e14;
+  --green:   #00ff6a;
+  --gdim:    #00c84e;
+  --amber:   #ffb700;
+  --blue:    #00aeff;
+  --red:     #ff3b3b;
+  --text:    #c8e8d0;
+  --muted:   #7b9784;
+  --border:  #0c1e10;
+  --good:    #00c84e;
+  --fair:    #c9b400;
+  --poor:    #d9731a;
+  --closed:  #3a1a1a;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { font-size: 125%; }   /* every size below is in rem, so this one line scales the whole page */
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Share Tech Mono', monospace;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+header {
+  display: flex; align-items: center; justify-content: space-between;
+  flex-wrap: wrap; gap: 14px;
+  padding: 16px 28px 14px;
+  background: var(--bg2);
+  border-bottom: 1px solid var(--border);
+  position: sticky; top: 0; z-index: 1000;
+}
+.logo { display: flex; flex-direction: column; gap: 2px; }
+.logo-main { font-family: 'Barlow Condensed', sans-serif; font-weight: 700; font-size: 1.7rem; color: var(--blue); letter-spacing: .1em; }
+.logo-sub  { font-family: 'Barlow Condensed', sans-serif; font-weight: 200; font-size: .8rem; color: var(--muted); letter-spacing: .3em; text-transform: uppercase; }
+.station { text-align: right; font-size: .85rem; line-height: 1.5; }
+.station b { color: var(--green); }
+.btn {
+  background: transparent; border: 1px solid var(--muted); color: var(--muted);
+  font-family: 'Barlow Condensed', sans-serif; font-weight: 600; font-size: .8rem;
+  letter-spacing: .1em; padding: 5px 12px; border-radius: 2px; cursor: pointer;
+}
+.btn:hover { border-color: var(--green); color: var(--green); }
+main { padding: 20px 28px 10px; display: grid; gap: 18px; grid-template-columns: minmax(0, 1fr); max-width: 1400px; margin: 0 auto; }
+.card { background: var(--bg2); border: 1px solid var(--border); border-radius: 3px; padding: 14px 16px; }
+.card h2 {
+  font-family: 'Barlow Condensed', sans-serif; font-weight: 600; font-size: 1.05rem;
+  color: var(--blue); letter-spacing: .12em; text-transform: uppercase; margin-bottom: 10px;
+}
+.card h2 small { color: var(--muted); font-weight: 400; letter-spacing: .05em; text-transform: none; font-size: .8rem; margin-left: 8px; }
+.note { color: var(--muted); font-size: .75rem; line-height: 1.5; margin-top: 8px; }
+.err { color: var(--red); font-size: .85rem; }
+.two { display: grid; gap: 18px; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); }
+@media (max-width: 1000px) { .two { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 600px) { header, main { padding-left: 12px; padding-right: 12px; } .station { text-align: left; } }
+
+/* band table */
+.tbl-wrap { overflow-x: auto; scrollbar-color: var(--gdim) var(--bg3); scrollbar-width: thin; }
+.tbl-wrap::-webkit-scrollbar { height: 8px; }
+.tbl-wrap::-webkit-scrollbar-track { background: var(--bg3); }
+.tbl-wrap::-webkit-scrollbar-thumb { background: var(--gdim); border-radius: 4px; }
+table.bands { width: 100%; border-collapse: separate; border-spacing: 3px; font-size: .68rem; }   /* kept near its old size under the 125 % page base */
+table.bands th { color: var(--muted); font-weight: 400; font-size: .6rem; padding: 3px 6px; text-align: center; white-space: nowrap; }
+table.bands th.band, table.bands td.band { text-align: left; color: var(--text); white-space: nowrap; }
+table.bands td { padding: 4px 6px; text-align: center; border-radius: 2px; white-space: nowrap; }
+table.bands tr.mufrow td { color: var(--amber); font-size: .62rem; padding: 2px 6px; }
+td.g3 { background: rgba(0, 200, 78, .28); color: #b8ffd2; }
+td.g2 { background: rgba(201, 180, 0, .25); color: #fff2a8; }
+td.g1 { background: rgba(217, 115, 26, .25); color: #ffd2a8; }
+td.g0 { background: rgba(255, 59, 59, .07); color: #6d4a4a; }
+.legend { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 10px; font-size: .75rem; color: var(--muted); }
+.legend span::before { content: ''; display: inline-block; width: 12px; height: 12px; margin-right: 5px; vertical-align: -2px; border-radius: 2px; }
+.legend .l3::before { background: rgba(0, 200, 78, .55); }
+.legend .l2::before { background: rgba(201, 180, 0, .5); }
+.legend .l1::before { background: rgba(217, 115, 26, .5); }
+.legend .l0::before { background: rgba(255, 59, 59, .15); }
+
+/* indices */
+.idx { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 8px; }
+.idx div { background: var(--bg3); border: 1px solid var(--border); border-radius: 2px; padding: 8px 10px; }
+.idx .k { color: var(--muted); font-size: .7rem; letter-spacing: .08em; text-transform: uppercase; }
+.idx .v { color: var(--green); font-size: 1.25rem; margin-top: 2px; }
+.idx .s { color: var(--muted); font-size: .7rem; margin-top: 2px; }
+.v.warn { color: var(--amber) !important; }
+.v.bad  { color: var(--red) !important; }
+table.fc { width: 100%; border-collapse: collapse; font-size: .8rem; margin-top: 12px; }
+table.fc th, table.fc td { padding: 4px 6px; border-bottom: 1px solid var(--border); text-align: center; }
+table.fc th { color: var(--muted); font-weight: 400; }
+table.fc td:first-child, table.fc th:first-child { text-align: left; }
+ul.iono { list-style: none; font-size: .8rem; line-height: 1.7; }
+/* The two side panels, ~20 % smaller than the rest of the page (headings kept) */
+.card.side .idx .k, .card.side .idx .s { font-size: .56rem; }
+.card.side .idx .v { font-size: 1rem; }
+.card.side table.fc { font-size: .64rem; }
+.card.side ul.iono { font-size: .64rem; }
+.card.side ul.iono b { font-size: .76rem; }   /* the city names, a step above the details */
+.card.side .note { font-size: .6rem; }
+ul.iono b { color: var(--green); }
+
+/* map */
+#map { height: 520px; border: 1px solid var(--border); border-radius: 2px; }
+.reach-legend { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 8px; font-size: .62rem; }
+.reach-legend button { font: inherit; color: var(--text); background: var(--bg3); border: 1px solid var(--border); border-radius: 3px; padding: 2px 6px; cursor: pointer; }
+.reach-legend button b { display: inline-block; width: 10px; height: 3px; vertical-align: 3px; margin-right: 4px; }
+.reach-legend button.off { opacity: .4; }
+.reach-legend button.sel { border-color: var(--text); background: var(--bg2); }
+.reach-tag { color: #fff; font-size: 11px; font-weight: 600; text-shadow: 0 0 3px #000, 0 0 3px #000; white-space: nowrap; }
+@media (max-width: 600px) { #map { height: 380px; } }
+.maplibregl-map { background: #02050a; font-family: 'Share Tech Mono', monospace; }
+.maplibregl-popup.muf-tip .maplibregl-popup-content { background: var(--bg2); border: 1px solid var(--border); color: var(--text); font-family: 'Share Tech Mono', monospace; font-size: .75rem; padding: 3px 7px; border-radius: 2px; }
+.maplibregl-popup.muf-tip .maplibregl-popup-tip { display: none; }
+.maplibregl-ctrl-attrib { background: rgba(5,10,7,.75) !important; color: var(--muted) !important; font-size: .55rem; }
+.maplibregl-ctrl-attrib a { color: var(--muted) !important; }
+.maplibregl-ctrl-group button.view-btn { width: 29px; font: 700 11px 'Share Tech Mono', monospace; color: #111; }
+.note.map-note { font-size: .62rem; line-height: 1.45; }
+.layer-panel { background: var(--bg2); border: 1px solid var(--border); border-radius: 3px; padding: 5px 8px; font-size: .6rem; color: var(--text); line-height: 1.7; }
+.layer-panel label { display: block; cursor: pointer; white-space: nowrap; }
+.layer-panel input { vertical-align: -1px; margin-right: 4px; accent-color: #00e5ff; }
+footer { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px; padding: 12px 28px 18px; color: var(--muted); font-size: .6rem; max-width: 1400px; margin: 0 auto; }
+footer a { color: var(--muted); }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <span class="logo-main">PhantomSDR-Plus</span>
+    <span class="logo-sub">Band Propagation</span>
+  </div>
+  <div class="station" id="station">Loading…</div>
+  <button class="btn" id="btn-refresh" title="Fetch the latest data now">&#8635; Refresh</button>
+</header>
+
+<main>
+  <section class="card">
+    <h2>Band conditions now <small id="bands-sub"></small></h2>
+    <div id="bands"><div class="note">Loading ionosonde data…</div></div>
+    <div class="legend">
+      <span class="l3">Good</span><span class="l2">Fair</span><span class="l1">Poor</span><span class="l0">Closed</span>
+    </div>
+    <div class="note" id="bands-note"></div>
+  </section>
+
+  <div class="two">
+    <section class="card">
+      <h2>Map <small>band reach from this receiver, MUF(3000) and foF2 contours, day / night, ionosondes</small></h2>
+      <div id="map"></div>
+      <div class="reach-legend" id="reach-legend"></div>
+      <div class="legend" id="contour-legend"></div>
+      <div class="note map-note">Contours: KC2G (prop.kc2g.com) from GIRO ionosondes. Dark = night; the amber band along its edge is the greyline (sun 0–6° below the horizon), the dashed line the terminator. ★ = this receiver. Ionosondes: every one reporting now, worldwide — bright = used for this receiver. The map is a globe (3D): drag to spin it, right-drag (or Ctrl + drag) to tilt and turn it, wheel to zoom; the compass button puts north back up, and the 2D / 3D button switches between the globe and a flat map. Band reach: for every open band, a solid outline at its farthest reach and a dashed one where its skip zone ends, worked out direction by direction where the path meets the ionosphere — the ionosphere at its reflection points from the nearest reporting ionosondes (shaped by the sun, about 1½ hours late, the equatorial bulge and the night-time trough; KC2G's MUF map far from any ionosonde), D-layer absorption where the ray crosses that layer, E-layer screening of the low bands by day, and an auroral oval that moves with Kp — so a band reaches further one way than another; click a band for its own map, shaded by Good / Fair / Poor. The table above is the view straight overhead.</div>
+    </section>
+    <div style="display:grid; gap:18px; align-content:start;">
+      <section class="card side">
+        <h2>Sun and geomagnetic field <small id="idx-sub"></small></h2>
+        <div class="idx" id="idx"><div class="note">Loading…</div></div>
+        <div id="fc"></div>
+      </section>
+      <section class="card side">
+        <h2>Ionosondes used</h2>
+        <div id="iono"><div class="note">Loading…</div></div>
+      </section>
+    </div>
+  </div>
+</main>
+
+<footer>
+  <span>An estimate for this receiver's location from live ionosonde measurements (KC2G / GIRO) and NOAA SWPC space-weather data. Sporadic-E, aurora and tropospheric propagation are not predicted.</span>
+  <span id="updated"></span>
+</footer>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/maplibre-gl/5.6.0/maplibre-gl.js"></script>
+<script>
+'use strict';
+// ═══════════════════════════════════════════════════════════════
+// Where we are. ?grid= from the receiver page, else its site_information.json.
+// ?rx= keeps every request on this receiver behind a shared public port.
+// ═══════════════════════════════════════════════════════════════
+const Q = new URLSearchParams(location.search);
+const RX = Q.get('rx') || '';
+function withRx(url) {
+  if (!RX) return url;
+  return url + (url.includes('?') ? '&' : '?') + 'rx=' + encodeURIComponent(RX);
+}
+const RE = 6371;                                  // km
+const D2R = Math.PI / 180, R2D = 180 / Math.PI;
+const REFRESH_MS = 10 * 60 * 1000;
+
+const BANDS = [
+  ['160 m', 1.9], ['80 m', 3.65], ['60 m', 5.36], ['40 m', 7.1], ['30 m', 10.12],
+  ['20 m', 14.15], ['17 m', 18.1], ['15 m', 21.2], ['12 m', 24.94], ['10 m', 28.5], ['6 m', 50.2],
+];
+// Distance rings: label, hop length used for the geometry (km), hops.
+const RINGS = [
+  ['0–300 km', 150, 1], ['300–1000 km', 650, 1], ['1000–2000 km', 1500, 1],
+  ['2000–3000 km', 2500, 1], ['DX 3000+ km', 3000, 2],
+];
+
+/** Maidenhead locator (2 to 10 characters) → centre of its square. */
+function locatorToLatLon(loc) {
+  const s = String(loc || '').trim().toUpperCase();
+  if (!/^[A-R]{2}([0-9]{2}([A-X]{2}([0-9]{2}([A-X]{2})?)?)?)?$/.test(s)) return null;
+  let lon = -180, lat = -90, w = 20, h = 10;
+  lon += (s.charCodeAt(0) - 65) * w; lat += (s.charCodeAt(1) - 65) * h;
+  if (s.length >= 4) { w /= 10; h /= 10; lon += +s[2] * w; lat += +s[3] * h; }
+  if (s.length >= 6) { w /= 24; h /= 24; lon += (s.charCodeAt(4) - 65) * w; lat += (s.charCodeAt(5) - 65) * h; }
+  if (s.length >= 8) { w /= 10; h /= 10; lon += +s[6] * w; lat += +s[7] * h; }
+  if (s.length >= 10) { w /= 24; h /= 24; lon += (s.charCodeAt(8) - 65) * w; lat += (s.charCodeAt(9) - 65) * h; }
+  return { lat: lat + h / 2, lon: lon + w / 2, loc: s };
+}
+
+function distKm(a, b) {
+  const p1 = a.lat * D2R, p2 = b.lat * D2R, dp = p2 - p1, dl = (b.lon - a.lon) * D2R;
+  const x = Math.sin(dp / 2) ** 2 + Math.cos(p1) * Math.cos(p2) * Math.sin(dl / 2) ** 2;
+  return 2 * RE * Math.asin(Math.min(1, Math.sqrt(x)));
+}
+
+// ═══════════════════════════════════════════════════════════════
+// The sun: subsolar point, solar zenith angle, day/night polygons.
+// ═══════════════════════════════════════════════════════════════
+function subsolar(date) {
+  const d = date.getTime() / 86400000 + 2440587.5 - 2451545.0;
+  const g = (357.529 + 0.98560028 * d) * D2R;
+  const q = 280.459 + 0.98564736 * d;
+  const L = (q + 1.915 * Math.sin(g) + 0.020 * Math.sin(2 * g)) * D2R;
+  const e = (23.439 - 0.00000036 * d) * D2R;
+  const ra = Math.atan2(Math.cos(e) * Math.sin(L), Math.cos(L)) * R2D;
+  const dec = Math.asin(Math.sin(e) * Math.sin(L)) * R2D;
+  const gmst = (18.697374558 + 24.06570982441908 * d) % 24;
+  let lon = ra - gmst * 15;
+  lon = ((lon + 540) % 360) - 180;
+  return { lat: dec, lon };
+}
+function zenithDeg(p, sun) {
+  const c = Math.sin(p.lat * D2R) * Math.sin(sun.lat * D2R) +
+            Math.cos(p.lat * D2R) * Math.cos(sun.lat * D2R) * Math.cos((p.lon - sun.lon) * D2R);
+  return Math.acos(Math.max(-1, Math.min(1, c))) * R2D;
+}
+/** Polygon of everything where the sun's zenith angle exceeds zDeg. */
+function darkPolygon(sun, zDeg) {
+  const c = Math.cos(zDeg * D2R), dec = sun.lat * D2R;
+  const pole = sun.lat >= 0 ? -90 : 90;            // the pole in polar night
+  const pts = [];
+  for (let lon = -180; lon <= 180; lon += 2) {
+    const H = (lon - sun.lon) * D2R;
+    const A = Math.sin(dec), B = Math.cos(dec) * Math.cos(H);
+    const Rr = Math.hypot(A, B), phi0 = Math.atan2(B, A);
+    let lat;
+    if (Math.abs(c / Rr) >= 1) {
+      // No crossing on this meridian: all of it is dark (go to the far pole) or none of it.
+      lat = zenithDeg({ lat: -pole * 0.999, lon }, sun) > zDeg ? -pole : pole;
+    }
+    else {
+      const a = Math.asin(c / Rr);
+      const cands = [a - phi0, Math.PI - a - phi0].map(x => {
+        let y = x; while (y > Math.PI) y -= 2 * Math.PI; while (y < -Math.PI) y += 2 * Math.PI; return y;
+      }).filter(y => Math.abs(y) <= Math.PI / 2 + 1e-9);
+      lat = (cands.length ? cands[0] : 0) * R2D;
+    }
+    pts.push([lat, lon]);
+  }
+  return [[pole, -180], ...pts, [pole, 180]];
+}
+
+// ═══════════════════════════════════════════════════════════════
+// The model. One-hop F2 geometry on a curved earth, calibrated to the
+// ionosonde's own MUF(3000); D-layer absorption after the ITU-R P.533
+// form, driven by the solar zenith angle and the 10.7 cm flux.
+// ═══════════════════════════════════════════════════════════════
+function incidence(dKm, hKm) {
+  const th = Math.min(dKm, 4000) / (2 * RE);
+  const Lp = Math.sqrt(RE * RE + (RE + hKm) ** 2 - 2 * RE * (RE + hKm) * Math.cos(th));
+  return Math.asin(Math.min(1, RE * Math.sin(th) / Lp));      // radians, from the vertical
+}
+function mufFor(dKm, iono) {
+  const geo = (d) => iono.fof2 / Math.cos(incidence(d, iono.hmf2));
+  let k = 1;
+  if (iono.mufd > 0) k = Math.min(1.4, Math.max(0.8, iono.mufd / geo(3000)));
+  const kd = 1 + (k - 1) * Math.min(dKm, 3000) / 3000;
+  return geo(dKm) * kd;
+}
+function absorptionDb(fMHz, hopKm, chiDeg, sfi) {
+  const R = Math.max(0, (sfi - 63.7) / 0.727);                 // sunspot number from the flux
+  const day = chiDeg < 102 ? Math.max(0, Math.cos(0.881 * chiDeg * D2R)) ** 1.3 : 0;
+  const I = (1 + 0.0037 * R) * Math.max(day, 0.1);
+  const sec = Math.min(5, 1 / Math.cos(incidence(hopKm, 100)));
+  return 677.2 * sec * I / ((fMHz + 1.0) ** 1.98 + 10.2);
+}
+function grade(fMHz, ring, iono, chiDeg, sw) {
+  const [, hop, hops] = ring;
+  const muf = mufFor(hop, iono);
+  if (fMHz > muf) return { g: 0, muf, why: 'above MUF' };
+  let g = fMHz / muf > 0.9 ? 2 : 3;
+  const L = absorptionDb(fMHz, hop, chiDeg, sw.sfi) * hops;
+  const ga = L < 35 ? 3 : L < 60 ? 2 : L < 90 ? 1 : 0;
+  let why = ga < g ? `absorption ${Math.round(L)} dB` : (g === 2 ? 'near MUF' : '');
+  g = Math.min(g, ga);
+  if (sw.kp >= 7) { g -= 2; why = 'geomagnetic storm'; }
+  else if (sw.kp >= 5) { g -= 1; why = 'geomagnetic storm'; }
+  if (chiDeg < 90 && sw.xray >= 1e-4) { g -= 2; why = 'X flare'; }
+  else if (chiDeg < 90 && sw.xray >= 5e-5) { g -= 1; why = 'flare'; }
+  return { g: Math.max(0, g), muf, why };
+}
+
+// ═══════════════════════════════════════════════════════════════
+// Data
+// ═══════════════════════════════════════════════════════════════
+async function getJson(url, ms = 15000) {
+  const ctl = new AbortController();
+  const t = setTimeout(() => ctl.abort(), ms);
+  try {
+    const r = await fetch(url, { cache: 'no-store', signal: ctl.signal });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    return await r.json();
+  } finally { clearTimeout(t); }
+}
+const NOAA = 'https://services.swpc.noaa.gov/';
+async function spaceWeather() {
+  const [flux, ssn, kp, xr, wind, mag, scales] = await Promise.allSettled([
+    getJson(NOAA + 'json/f107_cm_flux.json'),
+    getJson(NOAA + 'json/solar-cycle/swpc_observed_ssn.json'),
+    getJson(NOAA + 'products/noaa-planetary-k-index.json'),
+    getJson(NOAA + 'json/goes/primary/xrays-6-hour.json'),
+    getJson(NOAA + 'json/rtsw/rtsw_wind_1m.json'),
+    getJson(NOAA + 'json/rtsw/rtsw_mag_1m.json'),
+    getJson(NOAA + 'products/noaa-scales.json'),
+  ]);
+  const v = (p) => p.status === 'fulfilled' ? p.value : null;
+  const out = { sfi: 100, sfiKnown: false, ssn: null, kp: 0, kpKnown: false, kpTime: '', xray: 0, wind: null, bz: null, scales: v(scales) };
+  const f = v(flux);
+  if (Array.isArray(f) && f.length) { out.sfi = Number(f[0].flux) || 100; out.sfiKnown = true; out.sfiTime = f[0].time_tag; }
+  const s = v(ssn);
+  if (Array.isArray(s) && s.length) out.ssn = s[s.length - 1].swpc_ssn;
+  const k = v(kp);
+  if (Array.isArray(k) && k.length) {
+    const last = k[k.length - 1];
+    if (Array.isArray(last)) { out.kp = Number(last[1]); out.kpTime = last[0]; }      // older table form
+    else { out.kp = Number(last.Kp); out.kpTime = last.time_tag; }
+    out.kpKnown = Number.isFinite(out.kp);
+    if (!out.kpKnown) out.kp = 0;
+  }
+  const x = v(xr);
+  if (Array.isArray(x)) {
+    const long = x.filter(e => e.energy === '0.1-0.8nm');
+    if (long.length) out.xray = Number(long[long.length - 1].flux) || 0;
+  }
+  const w = v(wind);
+  if (Array.isArray(w) && w.length) out.wind = Number((w.find(e => e.active) || w[0]).proton_speed);
+  const m = v(mag);
+  if (Array.isArray(m) && m.length) out.bz = Number((m.find(e => e.active) || m[0]).bz_gsm);
+  return out;
+}
+function xrayClass(f) {
+  if (!(f > 0)) return '—';
+  const cls = [['X', 1e-4], ['M', 1e-5], ['C', 1e-6], ['B', 1e-7], ['A', 1e-8]];
+  for (const [c, b] of cls) if (f >= b) return c + (f / b).toFixed(1);
+  return 'A0';
+}
+
+/** Up to four fresh ionosondes within 2500 km, weighted by distance and age:
+ *  foF2 changes fast around sunrise and sunset, so a reading from two hours
+ *  ago counts much less than a fresh one a few hundred km further away. */
+function pickIonosondes(list, qth) {
+  const now = Date.now();
+  const rows = [];
+  for (const e of Array.isArray(list) ? list : []) {
+    if (!e || !e.station || !(e.fof2 > 0)) continue;
+    const t = Date.parse(String(e.time) + (String(e.time).endsWith('Z') ? '' : 'Z'));
+    const ageMin = (now - t) / 60000;
+    if (!(ageMin >= -30 && ageMin <= 120)) continue;
+    if (!(e.cs === -1 || e.cs >= 25)) continue;
+    let lon = Number(e.station.longitude); if (lon > 180) lon -= 360;
+    const p = { lat: Number(e.station.latitude), lon };
+    const d = distKm(qth, p);
+    if (d > 2500) continue;
+    rows.push({ name: e.station.name, code: e.station.code, ...p, d, ageMin,
+                fof2: Number(e.fof2), mufd: Number(e.mufd) || 0, hmf2: Number(e.hmf2) || 300, cs: e.cs });
+  }
+  rows.sort((a, b) => a.d - b.d);
+  // One ionosonde per site: a site that sends two instruments (Rome RM041 and
+  // RO041) would otherwise take two of the four places and count twice. Of
+  // instruments within 5 km of each other the freshest report is kept.
+  const sites = [];
+  for (const r of rows) {
+    const k = sites.findIndex((x) => distKm(x, r) < 5);
+    if (k < 0) sites.push(r);
+    else if (r.ageMin < sites[k].ageMin) sites[k] = r;
+  }
+  sites.sort((a, b) => a.d - b.d);
+  const use = sites.slice(0, 4);
+  if (!use.length) return null;
+  let W = 0; const m = { fof2: 0, mufd: 0, hmf2: 0 };
+  for (const r of use) {
+    const w = 1 / (r.d + 150) ** 2 / (1 + (Math.max(0, r.ageMin) / 30) ** 2); W += w; r.w = w;
+    m.fof2 += w * r.fof2; m.hmf2 += w * r.hmf2; m.mufd += w * (r.mufd || r.fof2 * 3.3);
+  }
+  for (const k in m) m[k] /= W;
+  use.forEach(r => r.share = r.w / W);
+  return { ...m, stations: use, all: rows };
+}
+
+// ═══════════════════════════════════════════════════════════════
+// Rendering
+// ═══════════════════════════════════════════════════════════════
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const GRADE = ['Closed', 'Poor', 'Fair', 'Good'];
+
+function renderStation(qth, sun) {
+  const chi = zenithDeg(qth, sun);
+  const elev = 90 - chi;
+  const phase = elev > 0 ? 'day' : elev > -6 ? 'greyline (twilight)' : 'night';
+  const utc = new Date().toISOString().slice(11, 16);
+  $('station').innerHTML = `<b>${esc(qth.loc)}</b> · ${qth.lat.toFixed(2)}°, ${qth.lon.toFixed(2)}°<br>` +
+    `${utc} UTC · sun ${elev.toFixed(0)}° · <b>${phase}</b>`;
+  return chi;
+}
+
+function renderBands(qth, iono, sw, chi) {
+  if (!iono) {
+    $('bands').innerHTML = '<div class="err">No ionosonde within 2500 km of this receiver has reported in the last two hours, so the band conditions cannot be worked out right now. The map and the space-weather data below still apply.</div>';
+    $('bands-sub').textContent = '';
+    return;
+  }
+  let h = '<div class="tbl-wrap"><table class="bands"><tr><th class="band">Band</th>';
+  for (const r of RINGS) h += `<th>${r[0]}</th>`;
+  h += '</tr><tr class="mufrow"><td class="band">MUF</td>';
+  for (const r of RINGS) h += `<td>${mufFor(r[1], iono).toFixed(1)} MHz</td>`;
+  h += '</tr>';
+  for (const [name, f] of BANDS) {
+    h += `<tr><td class="band">${name}</td>`;
+    for (const r of RINGS) {
+      const x = grade(f, r, iono, chi, sw);
+      const tip = `${GRADE[x.g]}${x.why ? ', ' + x.why : ''} · MUF ${x.muf.toFixed(1)} MHz`;
+      h += `<td class="g${x.g}" title="${esc(tip)}">${GRADE[x.g]}</td>`;
+    }
+    h += '</tr>';
+  }
+  h += '</table></div>';
+  $('bands').innerHTML = h;
+  $('bands-sub').textContent = `foF2 ${iono.fof2.toFixed(1)} MHz · MUF(3000) ${iono.mufd.toFixed(1)} MHz · hmF2 ${Math.round(iono.hmf2)} km`;
+  const notes = [];
+  notes.push('Each cell is the one-hop F2 path of that length (DX: two hops), from the ionosondes nearest to this receiver; a band above the MUF of that distance is in the skip zone. By day the low bands lose signal to D-layer absorption, which grows with the sun\'s height and the solar flux.');
+  if (sw.kp >= 5) notes.push(`<span style="color:var(--amber)">Geomagnetic storm (Kp ${sw.kp.toFixed(1)}): conditions are taken one or two steps lower, more so on polar paths.</span>`);
+  if (chi < 90 && sw.xray >= 5e-5) notes.push(`<span style="color:var(--amber)">Solar flare ${xrayClass(sw.xray)}: daylight HF fades out on the lower bands first.</span>`);
+  notes.push('6 m opens here only through the F2 layer; sporadic-E openings, which carry most 6 m contacts in summer, are not predicted.');
+  $('bands-note').innerHTML = notes.join('<br>');
+}
+
+function renderIndices(sw) {
+  const kpCls = sw.kp >= 5 ? 'bad' : sw.kp >= 4 ? 'warn' : '';
+  const xc = xrayClass(sw.xray);
+  const xCls = sw.xray >= 1e-5 ? (sw.xray >= 1e-4 ? 'bad' : 'warn') : '';
+  const bzCls = sw.bz !== null && sw.bz <= -10 ? 'bad' : sw.bz !== null && sw.bz <= -5 ? 'warn' : '';
+  const wCls = sw.wind >= 600 ? 'warn' : '';
+  const tile = (k, v, s, c = '') => `<div><div class="k">${k}</div><div class="v ${c}">${v}</div><div class="s">${s}</div></div>`;
+  $('idx').innerHTML =
+    tile('Solar flux', sw.sfiKnown ? Math.round(sw.sfi) : '—', '10.7 cm, sfu') +
+    tile('Sunspots', sw.ssn ?? '—', 'today (SWPC)') +
+    tile('Kp', sw.kpKnown ? sw.kp.toFixed(1) : '—', sw.kp >= 5 ? 'storm' : sw.kp >= 4 ? 'active' : 'quiet', kpCls) +
+    tile('X-ray', xc, xc[0] === 'M' || xc[0] === 'X' ? 'flare' : 'background', xCls) +
+    tile('Solar wind', Number.isFinite(sw.wind) ? Math.round(sw.wind) : '—', 'km/s', wCls) +
+    tile('Bz', Number.isFinite(sw.bz) ? sw.bz.toFixed(1) : '—', 'nT (south < 0)', bzCls);
+  $('idx-sub').textContent = 'NOAA SWPC';
+  const sc = sw.scales;
+  if (sc && sc['0']) {
+    let h = '<table class="fc"><tr><th>NOAA scales</th>';
+    const days = ['0', '1', '2', '3'].filter(k => sc[k]);
+    for (const d of days) h += `<th>${d === '0' ? 'Now' : esc(sc[d].DateStamp.slice(5))}</th>`;
+    h += '</tr><tr><td title="Radio blackouts (flares)">R blackout</td>';
+    for (const d of days) {
+      const R = sc[d].R || {};
+      h += `<td>${R.Scale !== null && R.Scale !== undefined ? 'R' + esc(R.Scale) : (R.MinorProb ? esc(R.MinorProb) + '% / ' + esc(R.MajorProb) + '%' : '—')}</td>`;
+    }
+    h += '</tr><tr><td title="Geomagnetic storms">G storm</td>';
+    for (const d of days) { const G = sc[d].G || {}; h += `<td>G${esc(G.Scale ?? '—')}</td>`; }
+    h += '</tr></table><div class="note">Now: the level reached at this moment. The dated columns: NOAA\'s forecast for that UTC day — R as the chance of a minor / major radio blackout, G the storm level expected.</div>';
+    $('fc').innerHTML = h;
+  }
+}
+
+function renderIono(iono) {
+  if (!iono) { $('iono').innerHTML = '<div class="note">None within 2500 km with data from the last two hours.</div>'; return; }
+  $('iono').innerHTML = '<ul class="iono">' + iono.stations.map(s =>
+    `<li><b>${esc(s.name)}</b> (${esc(s.code)}) · ${Math.round(s.d)} km · ${Math.round(s.ageMin)} min ago<br>` +
+    `&nbsp;&nbsp;foF2 ${s.fof2.toFixed(1)} · MUF(3000) ${s.mufd ? s.mufd.toFixed(1) : '—'} MHz · weight ${Math.round(s.share * 100)} %</li>`).join('') + '</ul>';
+}
+
+// ═══════════════════════════════════════════════════════════════
+// Map
+// ═══════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════
+// The map: a MapLibre GL globe. Drag to spin it, right-drag (or
+// Ctrl + drag) to tilt and turn it, wheel to zoom down to a flat map.
+// Every layer is a GeoJSON source; the draw functions below keep their
+// data, so a refresh that lands before the globe has loaded is drawn
+// as soon as it has.
+// ═══════════════════════════════════════════════════════════════
+let lastContours = null, lastIono = null;
+let map = null, mapReady = false;
+const vis = { reach: true, muf: true, fof2: false, night: true, iono: true };
+const ESRI = 'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}';
+const EMPTY = { type: 'FeatureCollection', features: [] };
+const LAYERS_OF = {
+  reach: ['reach-fill', 'reach-dist', 'reach-skip', 'reach-outer'], muf: ['muf-line'], fof2: ['fof2-line'],
+  night: ['night-grey', 'night-dark', 'terminator'], iono: ['iono'],
+};
+
+/** A [lat, lon] path as GeoJSON line parts, split where it crosses the date line. */
+function lineParts(pts) {
+  const parts = [[]];
+  for (const p of pts) {
+    const lon = ((p[1] + 540) % 360) - 180;
+    const cur = parts[parts.length - 1];
+    if (cur.length && Math.abs(lon - cur[cur.length - 1][0]) > 180) parts.push([]);
+    parts[parts.length - 1].push([lon, p[0]]);
+  }
+  return parts.filter((p) => p.length > 1);
+}
+const lineFeature = (pts, props = {}) => ({ type: 'Feature', properties: props, geometry: { type: 'MultiLineString', coordinates: lineParts(pts) } });
+const fc = (features) => ({ type: 'FeatureCollection', features });
+function setData(id, data) { const s = mapReady && map.getSource(id); if (s) s.setData(data); }
+function setVis(key, on) {
+  vis[key] = on;
+  if (mapReady) for (const id of LAYERS_OF[key]) map.setLayoutProperty(id, 'visibility', on ? 'visible' : 'none');
+  const box = document.querySelector(`#layer-panel input[data-k="${key}"]`);
+  if (box) box.checked = on;
+  for (const [field, unit] of [['muf', 'MUF(3000)'], ['fof2', 'foF2']]) if (key === field && lastContours) drawContours(lastContours[field], unit);
+  for (const el of reachMarkers) el.getElement().style.display = vis.reach ? '' : 'none';
+}
+
+/** A small HTML marker (labels: no glyph server needed). */
+function htmlMarker(lonlat, html, cls = 'reach-tag', anchor = 'center') {
+  const el = document.createElement('div');
+  el.className = cls; el.innerHTML = html;
+  return new maplibregl.Marker({ element: el, anchor }).setLngLat(lonlat).addTo(map);
+}
+
+function initMap(qth) {
+  // The globe needs WebGL2; without it, say so and leave the rest of the page working.
+  let gl = null;
+  try { gl = document.createElement('canvas').getContext('webgl2'); } catch (e) { gl = null; }
+  if (!gl || typeof maplibregl === 'undefined') {
+    $('map').innerHTML = '<div class="note" style="padding:16px">The map needs a browser with WebGL2 (any current Chrome, Edge, Firefox or Safari). The band table above and the data on the right do not.</div>';
+    return;
+  }
+  map = new maplibregl.Map({
+    container: 'map',
+    style: {
+      version: 8,
+      sources: { esri: { type: 'raster', tiles: [ESRI], tileSize: 256, maxzoom: 16,
+        attribution: 'Map © Esri · Contours © <a href="https://prop.kc2g.com/" target="_blank">KC2G</a> / GIRO · <a href="https://maplibre.org/" target="_blank">MapLibre</a>' } },
+      layers: [{ id: 'bg', type: 'background', paint: { 'background-color': '#02050a' } },
+               { id: 'esri', type: 'raster', source: 'esri' }],
+    },
+    center: [qth.lon, qth.lat], zoom: 1.6, maxZoom: 9, maxPitch: 70,
+    attributionControl: { compact: false },
+  });
+  map.addControl(new maplibregl.NavigationControl({ visualizePitch: true }), 'top-left');
+  // 2D / 3D: the flat map (levelled, north up) or the globe; remembered in the browser.
+  let view3d = true, styleReady = false;
+  try { view3d = localStorage.getItem('phantom.propview') !== '2d'; } catch (e) {}
+  const viewBtn = document.createElement('button');
+  viewBtn.type = 'button';
+  viewBtn.className = 'view-btn';
+  const applyView = () => {
+    viewBtn.textContent = view3d ? '2D' : '3D';
+    viewBtn.title = view3d ? 'Flat map' : 'Globe: drag to spin, right-drag to tilt';
+    if (!styleReady) return;
+    map.setProjection({ type: view3d ? 'globe' : 'mercator' });
+    if (!view3d) map.easeTo({ pitch: 0, bearing: 0, zoom: Math.max(map.getZoom(), 2.2), duration: 600 });
+  };
+  viewBtn.addEventListener('click', () => {
+    view3d = !view3d;
+    try { localStorage.setItem('phantom.propview', view3d ? '3d' : '2d'); } catch (e) {}
+    applyView();
+  });
+  const viewCtl = document.createElement('div');
+  viewCtl.className = 'maplibregl-ctrl maplibregl-ctrl-group';
+  viewCtl.appendChild(viewBtn);
+  map.addControl({ onAdd: () => viewCtl, onRemove: () => viewCtl.remove() }, 'top-left');
+  // (isStyleLoaded() is still false inside this event, hence the own flag)
+  map.on('style.load', () => { styleReady = true; applyView(); });
+  map.on('load', () => {
+    const src = (id) => map.addSource(id, { type: 'geojson', data: EMPTY });
+    ['night-grey', 'night-dark', 'terminator', 'reach-fill', 'reach-dist', 'reach-skip', 'reach-outer', 'muf', 'fof2', 'iono'].forEach(src);
+    const add = (l) => map.addLayer(l);
+    // greyline (sun 0-6° below the horizon) amber, night on top of it
+    add({ id: 'night-grey', type: 'fill', source: 'night-grey', paint: { 'fill-color': '#ffb700', 'fill-opacity': 0.13, 'fill-antialias': false } });
+    add({ id: 'night-dark', type: 'fill', source: 'night-dark', paint: { 'fill-color': '#000010', 'fill-opacity': 0.5, 'fill-antialias': false } });
+    add({ id: 'reach-fill', type: 'fill', source: 'reach-fill', paint: { 'fill-color': ['get', 'col'], 'fill-opacity': ['get', 'op'], 'fill-antialias': false } });
+    add({ id: 'fof2-line', type: 'line', source: 'fof2', paint: { 'line-color': ['get', 'col'], 'line-width': 1.6, 'line-opacity': 0.9 } });
+    add({ id: 'muf-line', type: 'line', source: 'muf', paint: { 'line-color': ['get', 'col'], 'line-width': 1.8, 'line-opacity': 0.55 } });
+    add({ id: 'terminator', type: 'line', source: 'terminator', paint: { 'line-color': '#ffb700', 'line-width': 1, 'line-opacity': 0.6, 'line-dasharray': [4, 4] } });
+    add({ id: 'reach-dist', type: 'line', source: 'reach-dist', paint: { 'line-color': '#9aa', 'line-width': 1, 'line-opacity': 0.45, 'line-dasharray': [1, 4] } });
+    add({ id: 'reach-skip', type: 'line', source: 'reach-skip', paint: { 'line-color': ['get', 'col'], 'line-width': 1.5, 'line-opacity': 0.85, 'line-dasharray': [4, 3] } });
+    add({ id: 'reach-outer', type: 'line', source: 'reach-outer', paint: { 'line-color': ['get', 'col'], 'line-width': 2, 'line-opacity': 0.9 } });
+    add({ id: 'iono', type: 'circle', source: 'iono', paint: { 'circle-radius': ['get', 'r'], 'circle-color': ['get', 'col'], 'circle-opacity': ['get', 'op'], 'circle-stroke-color': ['get', 'col'], 'circle-stroke-width': 1 } });
+    mapReady = true;
+    for (const k of Object.keys(vis)) setVis(k, vis[k]);
+    drawNight();
+    if (lastContours) { drawContours(lastContours.muf, 'MUF(3000)'); drawContours(lastContours.fof2, 'foF2'); }
+    drawIono(lastIono);
+    if (lastReach) drawReach(lastReach.qth, null);
+  });
+
+  // the station
+  const star = document.createElement('div');
+  star.innerHTML = '★'; star.title = 'This receiver · ' + qth.loc;
+  star.style.cssText = 'color:#ffb700;font-size:28px;line-height:28px;text-shadow:0 0 6px #000;cursor:default';
+  new maplibregl.Marker({ element: star }).setLngLat([qth.lon, qth.lat]).addTo(map);
+
+  // layer switches, top right
+  const panel = document.createElement('div');
+  panel.id = 'layer-panel';
+  panel.className = 'maplibregl-ctrl layer-panel';
+  panel.innerHTML = [['reach', 'Band reach'], ['muf', 'MUF(3000) contours'], ['fof2', 'foF2 contours'], ['night', 'Day / night'], ['iono', 'Ionosondes']]
+    .map(([k, t]) => `<label><input type="checkbox" data-k="${k}" ${vis[k] ? 'checked' : ''}> ${t}</label>`).join('');
+  panel.addEventListener('change', (e) => { const k = e.target.dataset.k; if (k) setVis(k, e.target.checked); });
+  map.addControl({ onAdd: () => panel, onRemove: () => panel.remove() }, 'top-right');
+
+  // short hover labels: contour lines, the day / night line, ionosondes
+  const popup = new maplibregl.Popup({ closeButton: false, closeOnClick: false, className: 'muf-tip', offset: 10 });
+  map.on('mousemove', (e) => {
+    if (!mapReady) return;
+    const layers = ['iono', 'muf-line', 'fof2-line', 'terminator'].filter((id) => map.getLayoutProperty(id, 'visibility') !== 'none');
+    const f = map.queryRenderedFeatures([[e.point.x - 6, e.point.y - 6], [e.point.x + 6, e.point.y + 6]], { layers })[0];
+    if (f && f.properties.label) {
+      popup.setLngLat(e.lngLat).setHTML(esc(f.properties.label)).addTo(map);
+      map.getCanvas().style.cursor = 'pointer';
+    } else {
+      popup.remove();
+      map.getCanvas().style.cursor = '';
+    }
+  });
+}
+
+function drawNight() {
+  if (!mapReady) return;
+  const sun = subsolar(new Date());
+  const poly = (z) => { const r = darkPolygon(sun, z).map(([la, lo]) => [lo, la]); r.push(r[0]);
+    return fc([{ type: 'Feature', properties: {}, geometry: { type: 'Polygon', coordinates: [r] } }]); };
+  setData('night-grey', poly(90));
+  setData('night-dark', poly(96));
+  setData('terminator', fc([lineFeature(darkPolygon(sun, 90).slice(1, -1), { label: 'Day / night' })]));
+}
+
+const LEGEND = {};
+function drawLegend() {
+  const parts = [];
+  for (const [unit, lv] of Object.entries(LEGEND)) {
+    if (!lv.length) continue;
+    parts.push(`<span style="color:var(--muted)">${unit}:</span>` + lv.map(([v, c]) =>
+      `<span style="color:${c}"><b style="display:inline-block;width:14px;height:3px;background:${c};vertical-align:3px;margin-right:4px"></b>${v}</span>`).join(''));
+  }
+  $('contour-legend').innerHTML = parts.join('<span style="width:12px"></span>') + (parts.length ? '<span style="color:var(--muted)">MHz</span>' : '');
+}
+// MUF lines in strong, well-separated colours, one per band (KC2G draws them
+// in muted tones that disappear on the dark map). Levels that are not a band
+// edge take the next colour of the same ladder by rank. foF2 keeps KC2G's own.
+const MUF_COLOURS = [[1.8, '#b04dff'], [3.5, '#7a5cff'], [5.3, '#ff4fd8'], [7, '#ff2a6d'],
+  [10.1, '#ff3b30'], [14, '#ff9500'], [18, '#ffe600'], [21, '#34ff4a'], [24.8, '#00e5ff'], [28, '#ff40ff'], [50, '#ffffff']];
+function contourColour(unit, v, rank, kc2g) {
+  if (unit !== 'MUF(3000)') return kc2g || '#00aeff';
+  const hit = MUF_COLOURS.find(([f]) => Math.abs(f - v) < 0.05);
+  return hit ? hit[1] : MUF_COLOURS[(4 + rank) % MUF_COLOURS.length][1];
+}
+function drawContours(gj, unit) {
+  const key = unit === 'MUF(3000)' ? 'muf' : 'fof2';
+  LEGEND[unit] = [];
+  if (!gj || !Array.isArray(gj.features)) { setData(key, EMPTY); drawLegend(); return; }
+  const seen = new Map();
+  for (const f of gj.features) {
+    const v = Number(f.properties['level-value']);
+    if (Number.isFinite(v) && !seen.has(v)) seen.set(v, f.properties.stroke);
+  }
+  [...seen.keys()].sort((a, b) => a - b).forEach((v, i) => seen.set(v, contourColour(unit, v, i, seen.get(v))));
+  if (vis[key]) LEGEND[unit] = [...seen.entries()].sort((a, b) => a[0] - b[0]).map(([v, c]) => [v.toFixed(v % 1 ? 1 : 0), c]);
+  drawLegend();
+  const name = unit === 'MUF(3000)' ? 'MUF' : unit;
+  setData(key, fc(gj.features.filter((f) => f.geometry).map((f) => {
+    const v = Number(f.properties['level-value']);
+    return { type: 'Feature', geometry: f.geometry,
+      properties: { col: seen.get(v) || f.properties.stroke || '#00aeff', label: `${name} ${v.toFixed(v % 1 ? 1 : 0)} MHz` } };
+  })));
+}
+/** Every ionosonde in the feed, for the globe: reporting now (as pickIonosondes
+ *  takes them, at any distance) or silent, with how long ago it last reported. */
+function worldIonosondes(list) {
+  const now = Date.now(), out = [];
+  for (const e of Array.isArray(list) ? list : []) {
+    if (!e || !e.station) continue;
+    let lon = Number(e.station.longitude); if (lon > 180) lon -= 360;
+    const lat = Number(e.station.latitude);
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) continue;
+    const t = Date.parse(String(e.time) + (String(e.time).endsWith('Z') ? '' : 'Z'));
+    const ageMin = (now - t) / 60000;
+    const fresh = e.fof2 > 0 && ageMin >= -30 && ageMin <= 120 && (e.cs === -1 || e.cs >= 25);
+    out.push({ name: e.station.name || e.station.code, code: e.station.code, lat, lon, fresh, ageMin, mufd: Number(e.mufd) || 0, fof2: Number(e.fof2) || 0, hmf2: Number(e.hmf2) || 300 });
+  }
+  return out;
+}
+function agoTxt(min) {
+  if (!Number.isFinite(min)) return 'no data';
+  return min < 120 ? `${Math.round(min)} min` : min < 48 * 60 ? `${Math.round(min / 60)} h` : `${Math.round(min / 1440)} days`;
+}
+let lastWorld = [];
+function drawIono(iono, world) {
+  lastIono = iono;
+  if (world) lastWorld = world;
+  if (!mapReady) return;
+  // used for this receiver: bright; reporting now anywhere: green; silent: small and grey
+  const used = new Set(iono ? iono.stations.map((s) => s.code) : []);
+  // only the ones reporting now: a silent ionosonde says nothing about today
+  const feats = lastWorld.filter((s) => s.fresh).map((s) => {
+    const u = used.has(s.code);
+    const label = s.fresh ? `${s.name} · MUF ${s.mufd ? s.mufd.toFixed(1) : '—'} MHz${u ? ' · used here' : ''}` : `${s.name} · silent ${agoTxt(s.ageMin)}`;
+    return { type: 'Feature', geometry: { type: 'Point', coordinates: [s.lon, s.lat] },
+      properties: { op: u ? 0.95 : s.fresh ? 0.55 : 0.45, col: s.fresh ? '#00ff6a' : '#7d8a86', r: u ? 6 : s.fresh ? 5 : 3, label } };
+  });
+  // used ones last, so they are drawn on top
+  feats.sort((a, b) => a.properties.r - b.properties.r);
+  setData('iono', fc(feats));
+}
+
+// ── Band reach rings ───────────────────────────────────────────────────────
+// Each band graded every REACH_STEP km out to REACH_MAX with the same model
+// as the table: one F2 hop up to 3000 km, beyond that 3000 km hops.
+const REACH_STEP = 100, REACH_MAX = 6000;
+const BAND_COLOURS = ['#b04dff', '#7a5cff', '#ff4fd8', '#ff2a6d', '#ff3b30', '#ff9500',
+  '#ffe600', '#34ff4a', '#00e5ff', '#4da3ff', '#e8e8e8'];
+let reachBand = null;           // null = all bands, else the band index shown alone
+let contoursBefore = null;      // which contour layers were on before a single band was picked
+let lastReach = null;
+let reachMarkers = [];
+
+/** Points of a circle of radius dKm around p, on the real globe, as [lat, lon]. */
+function geoCircle(p, dKm, n = 120) {
+  const pts = [];
+  for (let i = 0; i <= n; i++) pts.push(geoPoint(p, dKm, (i / n) * 360));
+  return pts;
+}
+function geoPoint(p, dKm, bearingDeg) {
+  const d = dKm / RE, la = p.lat * D2R, lo = p.lon * D2R, b = bearingDeg * D2R;
+  const la2 = Math.asin(Math.sin(la) * Math.cos(d) + Math.cos(la) * Math.sin(d) * Math.cos(b));
+  const lo2 = lo + Math.atan2(Math.sin(b) * Math.sin(d) * Math.cos(la), Math.cos(d) - Math.sin(la) * Math.sin(la2));
+  return [la2 * R2D, ((lo2 * R2D + 540) % 360) - 180];
+}
+// ── Direction-aware reach ──────────────────────────────────────────────────
+// Every band is graded along every bearing (REACH_BRG°) and distance
+// (REACH_STEP km), judged where the path meets the ionosphere:
+//  · F2 reflection: the middle up to 3000 km, beyond that 1500 km from each end
+//    (two control points, the usual long-path rule);
+//  · D-layer absorption: the middle up to 2000 km, beyond that 1000 km from each
+//    end (ITU-R P.533), by the sun's height there;
+//  · the ionosphere at a reflection point: the four nearest reporting ionosondes
+//    (the table's own choice and weights), each scaled by the foF2 pattern —
+//    the sun ~1.5 h late (foF2 peaks in the afternoon, decays into the night),
+//    the equatorial bulge and dip, the high-latitude night trough — between
+//    there and the ionosonde; far from every ionosonde KC2G's MUF map, where
+//    its contours give a value, takes over gradually;
+//  · the auroral oval, its edge at about 67° − 2·Kp geomagnetic latitude: a
+//    path through it loses a grade (two in a storm);
+//  · E-layer screening by day: a low band on a hop over 2000 km that the E
+//    layer turns back first loses a grade.
+const REACH_BRG = 5;
+const FOF2_LAG_MIN = 90;
+function geomagLat(p) {                 // dipole pole at 80.7° N, 72.7° W
+  const pl = 80.7 * D2R, po = -72.7 * D2R, la = p.lat * D2R, lo = p.lon * D2R;
+  return Math.asin(Math.sin(la) * Math.sin(pl) + Math.cos(la) * Math.cos(pl) * Math.cos(lo - po)) * R2D;
+}
+/** foF2 pattern at p, relative units: only ratios between two places are used. */
+function foF2Factor(p, ctx) {
+  const day = Math.sqrt(Math.max(0, Math.cos(zenithDeg(p, ctx.sunLag) * D2R)));
+  const a = Math.abs(geomagLat(p));
+  const strong = Math.min(1, day * 2);
+  let f = 0.42 + 0.58 * day;
+  f *= 1 + 0.2 * strong * Math.exp(-(((a - 15) / 7) ** 2)) - 0.12 * strong * Math.exp(-((a / 5) ** 2));
+  if (day === 0 && a > 55 && a < 70) f *= 0.85;   // night-time main trough
+  return f;
+}
+/** KC2G MUF(3000) contours, bucketed by 5° tiles for quick nearest-line lookups. */
+function contourIndex(gj) {
+  if (!gj || !Array.isArray(gj.features)) return null;
+  const tiles = new Map(), levels = new Set();
+  for (const f of gj.features) {
+    const v = Number(f.properties && f.properties['level-value']);
+    if (!Number.isFinite(v) || !f.geometry) continue;
+    const lines = f.geometry.type === 'LineString' ? [f.geometry.coordinates] : f.geometry.type === 'MultiLineString' ? f.geometry.coordinates : [];
+    levels.add(v);
+    for (const line of lines) for (const [lo, la] of line) {
+      const k = `${Math.floor(la / 5)},${Math.floor(((lo + 540) % 360 - 180) / 5)}`;
+      if (!tiles.has(k)) tiles.set(k, []);
+      tiles.get(k).push(la, (lo + 540) % 360 - 180, v);
+    }
+  }
+  return levels.size ? { tiles, levels: [...levels].sort((x, y) => x - y) } : null;
+}
+/** MUF(3000) at p between the two nearest contour levels, or null. */
+function contourMuf(p, ci) {
+  if (!ci) return null;
+  const best = new Map();                 // level -> nearest km
+  const ty = Math.floor(p.lat / 5), tx = Math.floor(p.lon / 5), cl = Math.cos(p.lat * D2R);
+  for (let dy = -3; dy <= 3; dy++) for (let dx = -4; dx <= 4; dx++) {
+    const arr = ci.tiles.get(`${ty + dy},${((tx + dx + 36) % 72 + 72) % 72 - 36}`);
+    if (!arr) continue;
+    for (let i = 0; i < arr.length; i += 3) {
+      let dl = Math.abs(arr[i + 1] - p.lon); if (dl > 180) dl = 360 - dl;
+      const d = 111.2 * Math.hypot(arr[i] - p.lat, dl * cl);
+      const v = arr[i + 2];
+      if (!(best.get(v) <= d)) best.set(v, d);
+    }
+  }
+  if (!best.size) return null;
+  const [v1, d1] = [...best.entries()].sort((x, y) => x[1] - y[1])[0];
+  if (d1 > 1500) return null;
+  if (d1 < 30) return v1;
+  const i = ci.levels.indexOf(v1);
+  const nb = [ci.levels[i - 1], ci.levels[i + 1]].filter((v) => v !== undefined && best.has(v) && best.get(v) < 1500);
+  if (!nb.length) return null;
+  const v2 = nb.sort((x, y) => best.get(x) - best.get(y))[0], d2 = best.get(v2);
+  return v1 + (v2 - v1) * d1 / (d1 + d2);
+}
+function reachContext(qth, iono, sw) {
+  const now = Date.now();
+  const ctx = { qth, sw, local: iono, cache: new Map(),
+    sun: subsolar(new Date(now)), sunLag: subsolar(new Date(now - FOF2_LAG_MIN * 60000)),
+    contours: contourIndex(lastContours && lastContours.muf) };
+  ctx.sondes = (lastWorld || []).filter((s) => s.fresh && s.fof2 > 0).map((s) => ({ ...s, ff: foF2Factor(s, ctx) }));
+  return ctx;
+}
+function ionoAt(p, ctx) {
+  const key = `${Math.round(p.lat * 2)},${Math.round(p.lon * 2)}`;
+  const hit = ctx.cache.get(key);
+  if (hit) return hit;
+  let r = ctx.local;
+  if (ctx.sondes.length) {
+    const fP = foF2Factor(p, ctx);
+    // the same choice and weights as the table (pickIonosondes): the four
+    // nearest sites, one instrument per site, so both agree overhead
+    const near = [];
+    for (const x of ctx.sondes.map((s) => ({ s, d: distKm(p, s) })).sort((a, b) => a.d - b.d)) {
+      if (near.some((y) => distKm(y.s, x.s) < 5)) continue;
+      near.push(x);
+      if (near.length === 4) break;
+    }
+    let W = 0, fo = 0, mu = 0, hm = 0;
+    for (const { s, d } of near) {
+      const k = fP / s.ff;
+      const w = 1 / (d + 150) ** 2 / (1 + (Math.max(0, s.ageMin) / 30) ** 2);
+      W += w; fo += w * s.fof2 * k; mu += w * (s.mufd || s.fof2 * 3.3) * k; hm += w * (s.hmf2 || 300);
+    }
+    if (W) {
+      r = { fof2: fo / W, mufd: mu / W, hmf2: hm / W };
+      // far from every ionosonde, lean on KC2G's map where it gives a value
+      const wc = Math.min(1, Math.max(0, (near[0].d - 300) / 1200));
+      const cm = wc > 0 ? contourMuf(p, ctx.contours) : null;
+      if (cm) {
+        const m = r.mufd * (1 - wc) + cm * wc;
+        r = { fof2: r.fof2 * m / r.mufd, mufd: m, hmf2: r.hmf2 };
+      }
+    }
+  }
+  ctx.cache.set(key, r);
+  return r;
+}
+/** Daytime E-layer critical frequency (MHz) for solar zenith chi and the flux-derived sunspot number. */
+function foE(chiDeg, sfi) {
+  const R = Math.max(0, (sfi - 63.7) / 0.727), c = Math.cos(chiDeg * D2R);
+  return c > 0 ? 0.9 * ((180 + 1.44 * R) * c) ** 0.25 : 0;
+}
+function pathGrade(f, d, brg, ctx) {
+  const hops = Math.max(1, d / 3000), hop = Math.max(100, Math.min(d, 3000));
+  const pt = (c) => { const [la, lo] = geoPoint(ctx.qth, c, brg); return { lat: la, lon: lo }; };
+  // F2: reflection control points
+  const fcp = (d <= 3000 ? [d / 2] : [1500, d - 1500]).map(pt);
+  let muf = Infinity;
+  for (const p of fcp) muf = Math.min(muf, mufFor(hop, ionoAt(p, ctx)));
+  if (f > muf) return 0;
+  // D layer: where the ray crosses it
+  const acp = (d <= 2000 ? [d / 2] : [1000, d - 1000]).map(pt);
+  let L = 0, day = false, eScreen = false;
+  for (const p of acp) {
+    const chi = zenithDeg(p, ctx.sun);
+    L += absorptionDb(f, hop, chi, ctx.sw.sfi) * hops / acp.length;
+    if (chi < 90) day = true;
+    // E layer turns a low band back before it reaches the F2 layer (E-MUF over a 2000 km hop ≈ 4.5 · foE)
+    if (hop > 2000 && f < 4.5 * foE(chi, ctx.sw.sfi)) eScreen = true;
+  }
+  let g = f / muf > 0.9 ? 2 : 3;
+  g = Math.min(g, L < 35 ? 3 : L < 60 ? 2 : L < 90 ? 1 : 0);
+  if (eScreen) g -= 1;
+  // auroral oval: its edge moves equatorwards with Kp
+  const edge = 67 - 2 * Math.max(0, ctx.sw.kp || 0);
+  if ([...fcp, ...acp].some((p) => Math.abs(geomagLat(p)) > edge)) g -= ctx.sw.kp >= 5 ? 2 : 1;
+  if (ctx.sw.kp >= 7) g -= 2; else if (ctx.sw.kp >= 5) g -= 1;
+  if (day && ctx.sw.xray >= 1e-4) g -= 2; else if (day && ctx.sw.xray >= 5e-5) g -= 1;
+  return Math.max(0, g);
+}
+/** Grades of one band: grid[bearing index][distance index], 0 = closed. */
+function bandGrid(f, ctx) {
+  const nB = 360 / REACH_BRG, nD = REACH_MAX / REACH_STEP, grid = [];
+  for (let bi = 0; bi < nB; bi++) {
+    const row = new Uint8Array(nD);
+    for (let k = 0; k < nD; k++) row[k] = pathGrade(f, (k + 0.5) * REACH_STEP, bi * REACH_BRG, ctx);
+    grid.push(row);
+  }
+  // per bearing: where the band opens and how far it reaches (km), or null
+  const lo = grid.map((r) => { const k = r.findIndex((g) => g > 0); return k < 0 ? null : k * REACH_STEP; });
+  const hi = grid.map((r) => { for (let k = r.length - 1; k >= 0; k--) if (r[k]) return (k + 1) * REACH_STEP; return null; });
+  return { grid, lo, hi, open: lo.some((x) => x !== null) };
+}
+/** One cell (bearing step × distance step) as a polygon, or null across the date line / a pole. */
+function cellPoly(qth, bi, k, props) {
+  const b0 = bi * REACH_BRG, b1 = b0 + REACH_BRG, r0 = k * REACH_STEP, r1 = r0 + REACH_STEP;
+  const ring = [geoPoint(qth, r0, b0), geoPoint(qth, r0, b1), geoPoint(qth, r1, b1), geoPoint(qth, r1, b0)].map(([la, lo]) => [lo, la]);
+  const lons = ring.map((c) => c[0]);
+  if (Math.max(...lons) - Math.min(...lons) > 180) return null;
+  ring.push(ring[0]);
+  return { type: 'Feature', properties: props, geometry: { type: 'Polygon', coordinates: [ring] } };
+}
+/** An outline through the per-bearing distances, broken where a bearing has none (null). */
+function outlineFeatures(qth, dists, props) {
+  const n = dists.length, feats = [];
+  const start = dists.findIndex((d) => d === null);
+  const order = start < 0 ? [...Array(n + 1).keys()].map((i) => i % n) : [...Array(n).keys()].map((i) => (start + 1 + i) % n);
+  let run = [], prev = null;
+  const flush = () => { if (run.length > 1) feats.push(lineFeature(run, props)); run = []; prev = null; };
+  for (const bi of order) {
+    if (dists[bi] === null) { flush(); continue; }
+    // a jump of more than 600 km between neighbouring bearings is a gap in
+    // the band, not an edge: start a new piece rather than draw across it
+    if (prev !== null && Math.abs(dists[bi] - prev) > 600) flush();
+    run.push(geoPoint(qth, dists[bi], bi * REACH_BRG));
+    prev = dists[bi];
+  }
+  flush();
+  return feats;
+}
+const kmTxt = (k) => (k >= REACH_MAX ? `${REACH_MAX}+` : `${k}`);
+function drawReach(qth, iono, sw, chi) {
+  if (iono) {
+    const ctx = reachContext(qth, iono, sw);
+    lastReach = { qth, bands: BANDS.map(([name, f], i) => ({ name, f, i, ...bandGrid(f, ctx) })) };
+  }
+  const R = lastReach;
+  if (!R) { $('reach-legend').innerHTML = ''; return; }
+  const span = (b) => {
+    const los = b.lo.filter((x) => x !== null), his = b.hi.filter((x) => x !== null);
+    return [Math.min(...los), Math.max(...his)];
+  };
+  if (mapReady) {
+    for (const m of reachMarkers) m.remove();
+    reachMarkers = [];
+    const dist = [], skip = [], outer = [], fill = [];
+    for (const km of [500, 1000, 2000, 3000]) {
+      dist.push(lineFeature(geoCircle(qth, km)));
+      const [la, lo] = geoPoint(qth, km, 180);
+      reachMarkers.push(htmlMarker([lo, la], `<span style="color:#bcc;font-weight:400">${km} km</span>`, 'reach-tag', 'top'));
+    }
+    for (const b of R.bands.filter((x) => x.open && (reachBand === null || reachBand === x.i))) {
+      const col = BAND_COLOURS[b.i % BAND_COLOURS.length];
+      if (reachBand !== null) {
+        b.grid.forEach((row, bi) => row.forEach((g, k) => {
+          if (!g) return;
+          const c = cellPoly(qth, bi, k, { col, op: [0, 0.12, 0.24, 0.4][g] });
+          if (c) fill.push(c);
+        }));
+      }
+      // outer outline only where the reach ends inside REACH_MAX (beyond it
+      // every band would share the same edge); skip outline where it is > 0
+      outer.push(...outlineFeatures(qth, b.hi.map((x) => (x !== null && x < REACH_MAX ? x : null)), { col }));
+      skip.push(...outlineFeatures(qth, b.lo.map((x) => (x ? x : null)), { col }));
+      // the band's name at its own bearing, on its skip edge or reach there
+      let bi = Math.round((reachBand !== null ? 30 : 15 + b.i * 32) / REACH_BRG) % b.lo.length;
+      for (let t = 0; t < b.lo.length && b.lo[bi] === null; t++) bi = (bi + 1) % b.lo.length;
+      const at = b.lo[bi] > 0 ? b.lo[bi] : Math.min(b.hi[bi], REACH_MAX - 200);
+      const [la, lon] = geoPoint(qth, at, bi * REACH_BRG);
+      reachMarkers.push(htmlMarker([lon, la], `<span style="color:${col}">${b.name}</span>`));
+    }
+    setData('reach-dist', fc(dist)); setData('reach-skip', fc(skip));
+    setData('reach-outer', fc(outer)); setData('reach-fill', fc(fill));
+    for (const m of reachMarkers) m.getElement().style.display = vis.reach ? '' : 'none';
+  }
+  // legend: All + one button per band, with its span over all directions; a closed band is greyed
+  const btn = (i, label, col, on, title, sel) =>
+    `<button data-b="${i}" class="${on ? '' : 'off'} ${sel ? 'sel' : ''}" title="${esc(title)}">${col ? `<b style="background:${col}"></b>` : ''}${esc(label)}</button>`;
+  let h = btn('all', 'All bands', '', true, 'Every open band: how far it reaches and where its skip zone ends, direction by direction', reachBand === null);
+  for (const b of R.bands) {
+    const col = BAND_COLOURS[b.i % BAND_COLOURS.length];
+    if (!b.open) { h += btn(b.i, `${b.name} closed`, col, false, `${b.name}: closed from here`, false); continue; }
+    const [lo, hi] = span(b);
+    h += btn(b.i, `${b.name} ${lo}–${kmTxt(hi)} km`, col, true, `${b.name}: open from ${lo} to ${kmTxt(hi)} km in its best direction — click for its own map`, reachBand === b.i);
+  }
+  $('reach-legend').innerHTML = h;
+  for (const el of $('reach-legend').querySelectorAll('button')) {
+    el.onclick = () => {
+      const v = el.dataset.b;
+      reachBand = v === 'all' ? null : (reachBand === Number(v) ? null : Number(v));
+      // One band alone: nothing else in colour on the map, so the MUF / foF2
+      // contours go while it is shown and come back as they were for All.
+      if (reachBand !== null && contoursBefore === null) {
+        contoursBefore = { muf: vis.muf, fof2: vis.fof2 };
+        setVis('muf', false); setVis('fof2', false);
+      } else if (reachBand === null && contoursBefore) {
+        setVis('muf', contoursBefore.muf); setVis('fof2', contoursBefore.fof2);
+        contoursBefore = null;
+      }
+      drawReach(R.qth, null);
+    };
+  }
+}
+
+let QTH = null;
+async function findQth() {
+  let q = locatorToLatLon(Q.get('grid'));
+  if (q) return q;
+  try {
+    const si = await getJson(withRx('/site_information.json'));
+    q = locatorToLatLon(si.siteGridSquare);
+  } catch (_) {}
+  return q;
+}
+async function refresh() {
+  const sun = subsolar(new Date());
+  const chi = renderStation(QTH, sun);
+  const [ionoRes, sw, muf, fof2] = await Promise.all([
+    getJson(withRx('/propagation.json')).catch(() => null),
+    spaceWeather().catch(() => ({ sfi: 100, kp: 0, xray: 0 })),
+    getJson('https://prop.kc2g.com/renders/current/mufd-normal-now.geojson').catch(() => null),
+    getJson('https://prop.kc2g.com/renders/current/fof2-normal-now.geojson').catch(() => null),
+  ]);
+  const iono = Array.isArray(ionoRes) ? pickIonosondes(ionoRes, QTH) : null;
+  if (!Array.isArray(ionoRes)) {
+    $('bands').innerHTML = '<div class="err">The receiver could not fetch the ionosonde data (prop.kc2g.com) — try again in a few minutes.</div>';
+  } else {
+    // The table's overhead values from the same model as the map: each nearby
+    // ionosonde corrected for the foF2 pattern between it and this receiver.
+    let here = iono;
+    if (iono) {
+      lastWorld = worldIonosondes(ionoRes);
+      const h = ionoAt(QTH, reachContext(QTH, iono, sw));
+      here = { ...iono, fof2: h.fof2, mufd: h.mufd, hmf2: h.hmf2 };
+    }
+    renderBands(QTH, here, sw, chi);
+  }
+  renderIndices(sw);
+  renderIono(Array.isArray(ionoRes) ? iono : null);
+  lastContours = { muf, fof2 };
+  drawContours(muf, 'MUF(3000)');
+  drawContours(fof2, 'foF2');
+  drawIono(iono, Array.isArray(ionoRes) ? worldIonosondes(ionoRes) : null);
+  drawReach(QTH, iono, sw, chi);   // the raw ionosonde set; ionoAt applies the corrections
+  drawNight();
+  $('updated').textContent = 'Updated ' + new Date().toISOString().slice(11, 16) + ' UTC · refreshes every 10 min';
+}
+
+(async () => {
+  QTH = await findQth();
+  if (!QTH) {
+    $('station').textContent = 'No QTH locator';
+    $('bands').innerHTML = '<div class="err">This receiver has no valid QTH locator (siteGridSquare in site_information.json), so there is no location to work out the propagation for.</div>';
+    return;
+  }
+  initMap(QTH);
+  await refresh();
+  setInterval(refresh, REFRESH_MS);
+  setInterval(() => { drawNight(); renderStation(QTH, subsolar(new Date())); }, 60000);
+  $('btn-refresh').addEventListener('click', refresh);
+})();
+</script>
+</body>
+</html>

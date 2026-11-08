@@ -1179,9 +1179,8 @@ const MODES = [
     // Same 170 Hz / 100 Bd as NAVTEX, so the signal alone cannot separate them.
     // What does: DSC calls are sub-second bursts, NAVTEX broadcasts run for
     // minutes — and they sit on different channels, which modePriors.js knows.
-    // There is no DSC decoder here, so this names it and stops; the UI offers no
-    // Use button for a candidate with a null key.
-    key: null, variant: null,
+    // Use starts SERVICES on DSC and puts the carrier on its 1700 Hz.
+    key: 'services', variant: 'dsc',
     label: 'DSC (marine selective calling)',
     why: '170 Hz shift at 100 Bd in short bursts, on a DSC calling channel',
     score: (f) => {

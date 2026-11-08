@@ -41,10 +41,10 @@ Padajući izbornik nije jedini put. Glavna ploča ima red gumba **Decoders** —
 | Gumb | Dekoder | Gumb | Dekoder |
 |---|---|---|---|
 | **FT8** | FT8 | **SSTV** | SSTV |
-| **FT4** | FT4 | **FLDIGI** | ALE 2G, RTTY, SITOR, PSK31·63·125, QPSK, Olivia, Contestia, FST4W, MFSK, MSK144, DominoEX, THOR, THROB, Hellschreiber, MT63, Packet, APRS |
+| **FT4** | FT4 | **FLDIGI** | ALE 2G HAM, RTTY, PSK31·63·125, QPSK, Olivia, Contestia, FST4W, MFSK, MSK144, DominoEX, THOR, THROB, Hellschreiber, MT63, Packet, APRS |
 | **FT2** | FT2 | **NAVTEX** | NAVTEX |
 | **CW** | CW | **FAX** | HF FAX / WEFAX |
-| **JS8** | JS8 | **SERVICES** | HFDL (zrakoplovi), DSC (brodovi), Time Signals (vremenski signali), HF Selcall |
+| **JS8** | JS8 | **SERVICES** | HFDL (zrakoplovi), Pomorski FSK / SITOR, Meteorološki RTTY, DSC (brodovi), Time Signals (vremenski signali), HF Selcall, ALE 2G |
 | **WSPR** | WSPR | **DRM** | DRM — digitalno emitiranje |
 
 Pritisak na gumb odrađuje cijeli slijed odjednom: odabire dekoder, uključuje dekoder (ON) i dovodi njegov prozor na zaslon. Gumb je plav dok njegov dekoder radi. **Ponovni pritisak na isti gumb isključuje dekoder** — njegov se prozor zatvara s njim.
@@ -64,7 +64,7 @@ Oznaka frekvencije (žute oznake iznad vodopada, iz `markers.json`) inače ugađ
 | `FT8`, `FT4`, `FT2`, `JS8`, `WSPR`, `SSTV` | taj dekoder | frekvencija na skali |
 | `NAVTEX` | NAVTEX | frekvencija signala (skala ide 500 Hz niže) |
 | `FAX`, `WEFAX` | HF FAX | objavljeno središte (skala ide 1900 Hz niže) |
-| `RTTY`, `RTTY-WX`, `SITOR` | FLDIGI kao amaterski, meteorološki ili pomorski | frekvencija signala (skala ide niže za audio središte ploče) |
+| `RTTY`, `RTTY-WX`, `SITOR` | FLDIGI kao amaterski RTTY (`RTTY`); SERVICES na meteorološkom RTTY-u ili pomorskom FSK / SITOR | frekvencija signala (skala ide niže za audio središte ploče) |
 | `PSK31`, `OLIVIA`, `FST4W`, `MFSK`, `MSK144`, `DOMINOEX`, `THOR`, `THROB`, `HELL`, `MT63` | FLDIGI u toj inačici | kao gore |
 | `MFSK16`, `MFSK32`, `MFSK64`, `FELDHELL` | FLDIGI u toj inačici i tom podnačinu | kao gore |
 | `PSK63`, `PSK125`, `BPSK31`/`63`/`125`, `QPSK31`/`63`/`125`, `CONTESTIA` | FLDIGI u toj inačici i tom podnačinu | kao gore |
@@ -74,7 +74,7 @@ Oznaka frekvencije (žute oznake iznad vodopada, iz `markers.json`) inače ugađ
 | `HFDL` | SERVICES · HFDL | frekvencija skale (USB; HFDL signal je 1440 Hz iznad nje) |
 | `DSC`, `SELCALL` | SERVICES na DSC ili HF Selcall | DSC frekvencija ili Selcall kanal (skala ide 1,7 kHz niže) |
 | `TIME`, `DCF77`, `MSF`, `RWM`, `WWV`, `WWVH` | SERVICES na Time Signals, s tom postajom | nosilac (skala ide 1 kHz niže) |
-| `ALE` | FLDIGI na ALE 2G | frekvencija skale (LSB za mreže koje ga koriste) |
+| `ALE` | FLDIGI na ALE 2G HAM na HFLINK kanalu, inače SERVICES na ALE 2G | frekvencija skale (LSB za mreže koje ga koriste) |
 | `DRM` | DRM | sredina DRM kanala |
 | `MORSE` | CW dekoder, s CW-om i filtrom od ±250 Hz | frekvencija signala |
 
@@ -103,7 +103,7 @@ Decoder ID [On]   NAVTEX / SITOR-B  99% 📻   170 Hz shift · 100.00 Bd · 43 d
 
 * **Način rada** i vrijednost **pouzdanosti**. Zeleno iznad 75 %, žuto iznad 50 %, narančasto ispod — narančasti odgovor shvatite kao naznaku, ne kao presudu.
 * **Što je zapravo izmjereno**: zauzeta širina pojasa, razmak tonova, brzina simbola, trajanje rafala, UTC mreža kojoj odgovara, odnos signal/šum. To je dokaz iza presude, kako biste mogli i sami prosuditi.
-* **Use <način>** pokreće ispravan dekoder, točno kao da ste pritisnuli njegov gumb — i namješta prijamnik za rad tim načinom. Za načine koji žive u FSK ploči dodatno odabire ispravnu varijantu — RTTY, Weather RTTY, PSK31 ili Olivia.
+* **Use <način>** pokreće ispravan dekoder, točno kao da ste pritisnuli njegov gumb — i namješta prijamnik za rad tim načinom. Za načine koji žive u FSK ploči dodatno odabire ispravnu varijantu — RTTY, PSK31 ili Olivia u FLDIGI, Weather RTTY u SERVICES.
 * Sljedeći kandidati navedeni su iza **or**. Klikom isprobajte njega, pa vas pogrešan prvi odgovor ništa ne stoji.
 * **📻** znači da je frekvencija na koju ste ugođeni poznata pozivna frekvencija za taj način rada i da je to utjecalo na poredak.
 
@@ -113,7 +113,7 @@ Nikada sam ne mijenja vaš dekoder. Uvijek samo predlaže. A čim pokrenete deko
 
 **Spori načini trebaju više vremena.** WSPR leži na dvominutnoj mreži, a SSTV slike traju minutu ili dvije, pa se ta dva imenuju kasnije od ostalih — dajte im tri do četiri minute na frekvenciji. HF FAX i SSTV usto se prepoznaju samo ako su ugođeni na uobičajen način — slikovni pojas leži na otprilike 1500 do 2300 Hz u audiju, ondje gdje ga očekuju i njihovi dekoderi. Promjena frekvencije pokreće mjerenje ispočetka, jer sve prikupljeno do tada opisuje frekvenciju koju ste upravo napustili.
 
-**Što prepoznaje:** FT8, FT4, JS8, WSPR, CW, NAVTEX/SITOR-B, RTTY na 45,45 Bd, Weather RTTY (DWD), PSK31, Olivia, HF FAX, SSTV i DSC. **Use DSC** pokreće SERVICES na DSC (poglavlje 12).
+**Što prepoznaje:** FT8, FT4, JS8, WSPR, CW, NAVTEX/SITOR-B, RTTY na 45,45 Bd, Weather RTTY (DWD), PSK31, Olivia, HF FAX, SSTV i DSC. **Use DSC** i prijedlog Weather RTTY pokreću SERVICES na toj usluzi (poglavlje 12).
 
 **Recentre & retry.** Gdje se signal nalazi unutar audio propusnog pojasa nije važno između otprilike 400 Hz i 2700 Hz. Izvan tog raspona mjerenje se pogoršava i pojavljuje se žuti gumb **Recentre & retry**. Pritiskom se ugađanje pomiče tako da signal padne u sredinu propusnog pojasa i započinje novo mjerenje. To je jedan izračunati pomak, a ne pretraživanje.
 
@@ -577,16 +577,14 @@ Kliknite **Clear** da izbrišete međuspremnik poruka.
 
 ## 10. FLDIGI — ALE 2G, RTTY, PSK31, Olivia, FST4W, MFSK, MSK144, DominoEX, THOR, THROB, Hellschreiber, MT63, Packet i APRS
 
-**Što je to:** jedan prozor za uskopojasne tipkovničke načine rada koje je proslavio program fldigi, s šesnaest inačica koje se biraju iz jednog izbornika. Tri su pravi FSK (frekvencijsko pomično ključanje): pomorski FSK (SITOR), meteorološki RTTY i amaterski RTTY. Ostale dijele isti prozor: **PSK31** (te **PSK63** i **PSK125**, u BPSK ili QPSK), fazno ključanje; **Olivia** (uz srodni način **Contestia**) i **MFSK16/32/64**, višetonski načini s korekcijom pogrešaka; **DominoEX** i **THOR**, inkrementalno frekvencijsko ključanje (THOR s korekcijom pogrešaka); **THROB**, dva tona istodobno, jedan znak po impulsu; **Hellschreiber**, koji tekst slika kao sliku umjesto da ga dekodira; **MT63**, 64 nosioca istodobno; te **Packet (AX.25)** i **APRS**, koji dekodiraju AFSK packet radio — packet od 1200 bauda na VHF/UHF i packet od 300 bauda na KV. Svaka inačica dolazi s postavkom prilagođenom svojim standardnim parametrima. Gumb i stavka izbornika oba se zovu **FLDIGI**; dekodira se ovdje, u pregledniku, a sam fldigi nije potreban.
+**Što je to:** jedan prozor za uskopojasne tipkovničke načine rada koje je proslavio program fldigi, s četrnaest inačica koje se biraju iz jednog izbornika. Jedna je pravi FSK (frekvencijsko pomično ključanje): amaterski RTTY; njegovi srodnici iz službi, pomorski FSK (SITOR) i meteorološki RTTY, koriste isti dekoder u SERVICES (poglavlje 12). Ostale dijele isti prozor: **PSK31** (te **PSK63** i **PSK125**, u BPSK ili QPSK), fazno ključanje; **Olivia** (uz srodni način **Contestia**) i **MFSK16/32/64**, višetonski načini s korekcijom pogrešaka; **DominoEX** i **THOR**, inkrementalno frekvencijsko ključanje (THOR s korekcijom pogrešaka); **THROB**, dva tona istodobno, jedan znak po impulsu; **Hellschreiber**, koji tekst slika kao sliku umjesto da ga dekodira; **MT63**, 64 nosioca istodobno; te **Packet (AX.25)** i **APRS**, koji dekodiraju AFSK packet radio — packet od 1200 bauda na VHF/UHF i packet od 300 bauda na KV. Svaka inačica dolazi s postavkom prilagođenom svojim standardnim parametrima. Gumb i stavka izbornika oba se zovu **FLDIGI**; dekodira se ovdje, u pregledniku, a sam fldigi nije potreban.
 
-Tri inačice ne potječu iz fldigija. **ALE 2G** je automatsko uspostavljanje veze KV mreža državnih službi, vojske i radioamatera (MIL-STD-188-141) i ispisuje njihove pozive i soundinge. **FST4W**, vrlo spori način rada svjetionika na pojasevima 2200 m, 630 m i 160 m, i **MSK144**, za meteor scatter na 6 m i 2 m, potječu iz WSJT-X-a. Nijedna od njih ne ispisuje tekući tekst: svaka ispisuje ono što dekodira redak po redak, s vremenom.
+Tri inačice ne potječu iz fldigija. **ALE 2G HAM** je automatsko uspostavljanje veze (MIL-STD-188-141) amaterske mreže HFLINK i ispisuje njezine pozive i soundinge; mreže državnih službi, vojske i službi nalaze se u SERVICES → ALE 2G (poglavlje 12). **FST4W**, vrlo spori način rada svjetionika na pojasevima 2200 m, 630 m i 160 m, i **MSK144**, za meteor scatter na 6 m i 2 m, potječu iz WSJT-X-a. Nijedna od njih ne ispisuje tekući tekst: svaka ispisuje ono što dekodira redak po redak, s vremenom.
 
 ### Inačice i postavke
 
 | Inačica | Središte | Shift | Baud | Okvir | Kodiranje |
 |---------|----------|-------|------|-------|-----------|
-| Pomorski FSK / SITOR | 500 Hz | 170 Hz | 100 | 7N1 | CCIR-476 |
-| Meteorološki RTTY | 1000 Hz | 450 Hz | 50 | 5N1.5 | ITA2 |
 | Amaterski RTTY | 1000 Hz | 170 Hz | 45.45 | 5N1.5 | ITA2 |
 | PSK31·63·125 (BPSK/QPSK) | 1000 Hz | — | 31.25 / 62.5 / 125 | — | Varicode |
 | Olivia / Contestia | 1000 Hz | — | vidi Mode | — | 7 bita + FEC |
@@ -602,26 +600,18 @@ Tri inačice ne potječu iz fldigija. **ALE 2G** je automatsko uspostavljanje ve
 | Packet (AX.25) | tonovi 1200 / 2200 Hz, ili 1700 Hz pri 300 Bd | 1000 Hz, ili 200 Hz pri 300 Bd | 1200 ili 300 | HDLC | AX.25 |
 | APRS | kao Packet | kao Packet | 1200 ili 300 | HDLC | AX.25 + APRS |
 
-Ploča se prilagođava odabranoj inačici. **Shift**, **Baud**, **Framing**, **Encoding**, **Invert mark / space** i **Auto shift detect** skriveni su za sve inačice osim tri FSK inačice, jer nijedan od ostalih načina nema par tonova mark/space niti okvir tipa UART. Umjesto toga **Center audio** postaje polje za slobodan unos broja (signal može biti bilo gdje u propusnom pojasu), a Olivia, MFSK, DominoEX, THOR, THROB, Hellschreiber i MT63 dobivaju svaki birač **Mode** i — svi osim Hellschreibera — klizač **Squelch** s vlastitom ljestvicom. Packet i APRS skrivaju iste FSK kontrole i umjesto njih prikazuju birač **Speed**; APRS uz to ima okvir **Show raw packet**. Popis **Known frequency** pojavljuje se samo kod inačica koje ga imaju. ALE 2G sve to zamjenjuje vlastitim popisima **mreža** i **kanala** (vidi njegove napomene). FST4W i MSK144 nemaju ni **Mode** ni **Squelch**; umjesto toga prikazuju **T/R period** i **F Tol** (MSK144 i **Decode**), a **⟳ Auto-tune Center** skriven je kod oba, jer sami pretražuju cijeli raspon **F Tol**.
+Ploča se prilagođava odabranoj inačici. **Shift**, **Baud**, **Framing**, **Encoding**, **Invert mark / space** i **Auto shift detect** skriveni su za sve inačice osim FSK inačica (amaterski RTTY te pomorski FSK i meteorološki RTTY u SERVICES), jer nijedan od ostalih načina nema par tonova mark/space niti okvir tipa UART. Umjesto toga **Center audio** postaje polje za slobodan unos broja (signal može biti bilo gdje u propusnom pojasu), a Olivia, MFSK, DominoEX, THOR, THROB, Hellschreiber i MT63 dobivaju svaki birač **Mode** i — svi osim Hellschreibera — klizač **Squelch** s vlastitom ljestvicom. Packet i APRS skrivaju iste FSK kontrole i umjesto njih prikazuju birač **Speed**; APRS uz to ima okvir **Show raw packet**. Popis **Known frequency** pojavljuje se samo kod inačica koje ga imaju. ALE 2G HAM sve to zamjenjuje vlastitim popisima **mreža** i **kanala** (vidi njegove napomene). FST4W i MSK144 nemaju ni **Mode** ni **Squelch**; umjesto toga prikazuju **T/R period** i **F Tol** (MSK144 i **Decode**), a **⟳ Auto-tune Center** skriven je kod oba, jer sami pretražuju cijeli raspon **F Tol**.
 
 ### Postavljanje
 
 1. Uključite dekoder i odaberite **FLDIGI** iz izbornika. Ili jednostavno pritisnite gumb **FLDIGI**.
-2. Pojavljuje se ploča dekodera. Naslov prati inačicu — *FSK / RTTY Decoder*, *BPSK31 Decoder* (ili odabrani PSK način), *Olivia Decoder*, *Contestia Decoder*, *MFSK Decoder*, *DominoEX Decoder*, *THOR Decoder*, *THROB Decoder*, *Hellschreiber Decoder*, *MT63 Decoder*, *Packet (AX.25) Decoder* ili *APRS Decoder*. ALE 2G prikazuje *ALE 2G Decoder*; FST4W navodi svoje razdoblje, npr. *FST4W-120 Decoder*; MSK144 prikazuje *MSK144 Decoder*.
+2. Pojavljuje se ploča dekodera. Naslov prati inačicu — *FSK / RTTY Decoder*, *BPSK31 Decoder* (ili odabrani PSK način), *Olivia Decoder*, *Contestia Decoder*, *MFSK Decoder*, *DominoEX Decoder*, *THOR Decoder*, *THROB Decoder*, *Hellschreiber Decoder*, *MT63 Decoder*, *Packet (AX.25) Decoder* ili *APRS Decoder*. ALE 2G HAM prikazuje *ALE 2G HAM Decoder*; FST4W navodi svoje razdoblje, npr. *FST4W-120 Decoder*; MSK144 prikazuje *MSK144 Decoder*.
 3. Odaberite **Variant**. Parametri se ažuriraju automatski.
 4. Za PSK31, Oliviju, MFSK, DominoEX, THOR, THROB, Hellschreiber i MT63 postavite **Mode** tako da odgovara emisiji — vidi napomene za svaki način niže. Za Packet i APRS postavite **Speed** — vidi napomene o Packetu i APRS-u niže. Za ALE 2G odaberite mrežu i kanal; za FST4W i MSK144 postavite **T/R period** i **F Tol** — vidi njihove napomene niže.
 5. Gdje inačica ima popis, iz izbornika **Known frequency** odaberite uobičajenu frekvenciju i kliknite **Tune** da skočite na nju. Ostali načini nemaju stalnih pozivnih frekvencija: potražite signal na vodopadu i koristite **⟳ Auto-tune Center**.
 6. Fino ugađajte dok dekodirani tekst ne postane stabilan i čitljiv.
 
 ### Poznate frekvencije po inačici
-
-**Pomorski FSK / SITOR**
-- 518,0 kHz — međunarodni NAVTEX
-- 490,0 kHz — nacionalni NAVTEX
-- 4209,5 / 6314,0 / 8416,5 / 12579,0 / 16806,5 / 22376,0 kHz — HF SITOR
-
-**Meteorološki RTTY**
-- 4583,0 / 7646,0 / 10100,8 / 11039,0 / 14467,3 kHz — DWD (njemačka meteorološka služba)
 
 **Amaterski RTTY**
 - 3590 kHz (80 m), 7043 kHz (40 m), 10143 kHz (30 m), 14083 kHz (20 m), 21083 kHz (15 m), 28083 kHz (10 m)
@@ -711,11 +701,11 @@ Amaterski RTTY (45,45 bauda, 170 Hz) čita se bez pogrešaka do oko 0 dB, s oko 
 
 ALE (MIL-STD-188-141, druga generacija) način je na koji KV mreže državnih službi, vojske, humanitarnih organizacija i radioamatera pronalaze radnu frekvenciju: postaje pretražuju niz kanala, šalju kratke *soundinge* da najave svoju prisutnost i pozivaju jedna drugu s nekoliko sekundi signala od 8 tonova (125 Bd, 750–2500 Hz).
 
-1. Odaberite **ALE 2G**, stavku neposredno prije Packet u **Variant**. Umjesto uobičajenih postavki ploča prikazuje popis **mreža** i popis **kanala**.
+1. Odaberite **ALE 2G HAM**, stavku neposredno prije Packet u **Variant**. Umjesto uobičajenih postavki ploča prikazuje popis **mreža** i popis **kanala**.
 2. Odaberite mrežu i jedan od njezinih kanala pa kliknite **⇒ Tune & Set IF**. Frekvencija s popisa je skala; prijemnik prelazi na USB, ili na LSB za nekoliko tako označenih mreža, s filtrom od 500–2750 Hz.
 3. Pričekajte. Soundingi dolaze svakih pola sata ili sat, a pozivi samo kad je potrebna veza, pa kanal može dugo šutjeti.
 
-- **Ham (HFLINK)** sadrži svih 31 amaterskih ALE kanala HFLINK plana kanala, od 475,5 kHz do 144,1625 MHz; 14109 i 7102 kHz među glavnim su HFLINK kanalima za sounding i poruke. Preostale 51 mreže (Govt, Milcom, Utility te MARS pod Amateur) potječu s ALE popisa KiwiSDR-a. To su javni popisi i mogu biti zastarjeli.
+- **Ham (HFLINK)** sadrži svih 31 amaterskih ALE kanala HFLINK plana kanala, od 475,5 kHz do 144,1625 MHz; 14109 i 7102 kHz među glavnim su HFLINK kanalima za sounding i poruke. To je jedina mreža u FLDIGI. Preostale 51 mreže (Government, Military — među njima MARS — i Utility) potječu s ALE popisa KiwiSDR-a i nalaze se u SERVICES → ALE 2G (MIL-STD-188-141) (poglavlje 12), koji radi na isti način. To su javni popisi i mogu biti zastarjeli.
 - Svaki događaj prikazuje vrijeme, frekvenciju, vrstu (sounding, poziv, potvrđen poziv, uspostavljena veza, poruka), adrese **from** i **to** te eventualne naredbe ili tekst (poruke AMD i DTM). Jednaka ponavljanja spajaju se u jedan redak s ×N, a **💾 Save** sprema događaje u tekstnu datoteku.
 - **In sync** broji koliko od 17 dekodera, svaki na vlastitom frekvencijskom pomaku, upravo čita ALE riječi. Signal razdešen do otprilike ±1 kHz i dalje se pronalazi.
 
@@ -903,7 +893,7 @@ Budući da Force preskače svaku sigurnosnu provjeru, rado će nacrtati šum ako
 
 ## 12. SERVICES
 
-**SERVICES** (gumb se prije zvao **HFDL**) jedan je prozor za uslužne službe. Popis **Service** gore lijevo u prozoru bira što se dekodira: **HFDL** (zrakoplovi), **DSC** (brodovi), **Time Signals** (vremenski signali) i **HF Selcall**. Vaš preglednik pamti izbor. Radi jedna služba u isto vrijeme; svaka postavlja način rada i filtar koji joj treba, ima vlastiti popis frekvencija s **⇒ Tune & Set IF** i dekodira u vašem pregledniku, pa prijemnik ništa ne košta. Svaka služba ima **💾 Save** (tekstna datoteka) i **Clear**, a prozor Users pokazuje koju službu slušatelj koristi. ALE 2G, koji također povezuje KV postaje, nalazi se u prozoru FLDIGI (poglavlje 10).
+**SERVICES** (gumb se prije zvao **HFDL**) jedan je prozor za uslužne službe. Popis **Service** gore lijevo u prozoru bira što se dekodira: **HFDL** (zrakoplovi), **Maritime FSK / SITOR**, **Weather RTTY**, **DSC** (brodovi), **Time Signals** (vremenski signali), **HF Selcall** i **ALE 2G (MIL-STD-188-141)**. Vaš preglednik pamti izbor. Radi jedna služba u isto vrijeme; svaka postavlja način rada i filtar koji joj treba, ima vlastiti popis frekvencija s **⇒ Tune & Set IF** i dekodira u vašem pregledniku, pa prijemnik ništa ne košta. Svaka služba ima **💾 Save** (tekstna datoteka) i **Clear**, a prozor Users pokazuje koju službu slušatelj koristi. Amaterski ALE kanali nalaze se u prozoru FLDIGI, kao ALE 2G HAM (poglavlje 10).
 
 ### HFDL — poruke zrakoplova
 
@@ -924,6 +914,23 @@ Popis sadrži sve HFDL zemaljske stanice. Danju se iz Europe dobro čuju 17967 k
 Svaki redak prikazuje vrijeme (UTC), frekvenciju, smjer (▼ zemlja→zrak ili ▲ zrak→zemlja), zemaljsku stanicu, zrakoplov — registraciju, let i 24-bitnu ICAO adresu, svaku kao poveznicu na FlightAware —, vrstu poruke, njezin SNR i brzinu prijenosa te 📍 položaj kad ga poruka sadrži. ACARS tekst pojavljuje se ispod. Prijeđite mišem preko retka da vidite cijeli okvir. Označite **Squitters** da vidite i najave zemaljskih stanica.
 
 **🗺 Map** u ploči prikazuje zrakoplove koji su javili položaj; **⤢ Large map** otvara istu kartu u prozoru koji se može pomicati i mijenjati mu se veličina. Svaki zrakoplov pokazuje smjer svoje putanje i ostavlja crveni trag. **💾 Save** sprema poruke u tekstnu datoteku, **Clear** prazni popis.
+
+### Pomorski FSK / SITOR i meteorološki RTTY
+
+Ove dvije emisije službi koriste FSK dekoder i ploču prozora FLDIGI (poglavlje 10), s popisom **Service** ondje gdje FLDIGI ima popis **Variant**. **Shift**, **Baud**, **Framing**, **Encoding**, **Invert mark / space**, **Auto shift detect**, **⇒ Set IF Band-Pass** i **⟳ Auto-tune Center** rade kako je ondje opisano.
+
+| Usluga | Središte | Shift | Baud | Okvir | Kodiranje |
+|---------|----------|-------|------|-------|-----------|
+| Pomorski FSK / SITOR | 500 Hz | 170 Hz | 100 | 7N1 | CCIR-476 |
+| Meteorološki RTTY | 1000 Hz | 450 Hz | 50 | 5N1.5 | ITA2 |
+
+1. Odaberite **Maritime FSK / SITOR** ili **Weather RTTY** u popisu **Service**.
+2. Odaberite **Known frequency** i kliknite **Tune**. Frekvencija s popisa je frekvencija signala; USB skala ide niže za središte ploče.
+3. Fino ugađajte dok tekst ne postane stabilan. Meteorološki RTTY treba označeno **Invert mark / space** (predložak to radi sam) i ima klizač **Squelch (SNR)** koji počinje na −7 dB; pomorski FSK ostavlja ga neoznačenim.
+
+**Pomorski FSK / SITOR:** 2174,5 kHz (MF NBDP, radni kanal), 518 i 490 kHz (NAVTEX), 4209,5 kHz (KV NAVTEX) te KV SITOR kanali za pomorske sigurnosne informacije 4210, 6314, 8416,5, 12579, 16806,5, 19680,5, 22376 i 26100,5 kHz. NAVTEX ima i vlastiti gumb, s rasporedima postaja (poglavlje 9).
+
+**Meteorološki RTTY:** odašiljači DWD-a (Njemačka meteorološka služba) 4583, 7646 i 10100,8 kHz (program 1, na engleskom) te 11039, 14467,3 i 147,3 kHz (program 2, na njemačkom; 147,3 kHz koristi pomak od 85 Hz, koji postavlja njegova stavka popisa). Dok je odabrana frekvencija DWD-a, **NEXT BROADCASTS** prikazuje sljedeće emisije.
 
 ### DSC — Digital Selective Calling
 
@@ -955,6 +962,15 @@ Selcall (CCIR 493-4) je selektivno pozivanje KV kopnenih pokretnih i pomorskih m
 
 1. Odaberite **HF Selcall** u popisu **Service**, kanal (kanali od 7 i 8 MHz s popisa KiwiSDR-a) i kliknite **⇒ Tune & Set IF**. Kanal je središte FSK-a; skala ide 1,7 kHz niže, u USB-u.
 2. Svaki poziv prikazuje brojeve pozivajuće i pozvane postaje (4 ili 6 znamenki), vrstu poziva te eventualne naredbe i podatke; Codanov GPS položaj prikazuje se kao sirove znamenke. Postaje se razlikuju po tome koji ton šalju kao mark, pa se čitaju oba polariteta.
+
+### ALE 2G (MIL-STD-188-141)
+
+Soundingi, pozivi i poruke KV mreža državnih službi, vojske i službi: 51 mreža s ALE popisa KiwiSDR-a, u skupinama **Government**, **Military** (među njima MARS) i **Utility**. To je isti dekoder i ista ploča kao ALE 2G HAM u prozoru FLDIGI, koji ima samo amaterske HFLINK kanale — vidi napomene o ALE 2G u poglavlju 10.
+
+1. Odaberite **ALE 2G (MIL-STD-188-141)** u popisu **Service**, mrežu i jedan od njezinih kanala, i kliknite **⇒ Tune & Set IF**. Frekvencija s popisa je frekvencija skale; prijamnik prelazi na USB, ili LSB za tako označene mreže, s filtrom od 500–2750 Hz.
+2. Pričekajte. Soundingi dolaze svakih pola sata ili sat, pozivi samo kad je potrebna veza.
+
+To su javni popisi i mogu biti zastarjeli. Prozor Users prikazuje *ALE* za slušatelja koji ga koristi.
 
 ---
 

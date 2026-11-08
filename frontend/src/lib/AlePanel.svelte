@@ -1,15 +1,20 @@
 <script>
-  // ALE 2G inside the FLDIGI window (the first variant). The decoding is
-  // ale.js in the FSK worker (fsk.js); App passes its events to onEvent().
-  // The FLDIGI header carries the title, status and Clear.
+  // ALE 2G inside the FSK panel: FLDIGI "ALE 2G HAM" (scope "ham", the
+  // amateur nets) and SERVICES "ALE 2G" (scope "util", every other net). The
+  // decoding is ale.js in the FSK worker (fsk.js); App passes its events to
+  // onEvent(). The panel header carries the title, status and Clear.
   import { tick } from "svelte";
-  import { ALE_NETS } from "./aleNets.js";
+  import { ALE_NETS as ALL_NETS } from "./aleNets.js";
 
+  /** "ham" (FLDIGI) or "util" (SERVICES); App remounts the panel on a change. */
+  export let scope = "ham";
+  const ALE_NETS = ALL_NETS.filter((n) => (n.cat === "Amateur") === (scope === "ham"));
   export let dialKhz = 0;
   /** Called with (kHz, lsb) when Tune is clicked. The dial is the channel. */
   export let onTune = () => {};
 
   const MAX_ROWS = 300;
+  const CAT_LABELS = { Govt: "Government", Milcom: "Military" };
   const CATS = [...new Set(ALE_NETS.map((n) => n.cat))];
 
   let netIdx = String(_netForDial(dialKhz) ?? 0);
@@ -83,7 +88,7 @@
     <select bind:value={netIdx} title="ALE network (frequencies from public lists; may be out of date)"
       class="glass-select text-white text-xs px-2 py-1 rounded-md flex-1 min-w-0">
       {#each CATS as c}
-        <optgroup label={c}>
+        <optgroup label={CAT_LABELS[c] || c}>
           {#each ALE_NETS as n, i}
             {#if n.cat === c}<option value={String(i)}>{n.net}{n.lsb ? " (LSB)" : ""}</option>{/if}
           {/each}
@@ -135,6 +140,6 @@
     {/each}
   </div>
   <p class="text-[11px] text-gray-500 mt-2 font-sans">
-    MIL-STD-188-141 2G ALE: 8 tones 750–2500 Hz, 125 Bd, Golay FEC with triple redundancy; decoder ported from gr-ale / LinuxALE as in KiwiSDR's ALE 2G extension. Network list from KiwiSDR's ALE_nets; amateur channels from HFLINK.
+    MIL-STD-188-141 2G ALE: 8 tones 750–2500 Hz, 125 Bd, Golay FEC with triple redundancy; decoder ported from gr-ale / LinuxALE as in KiwiSDR's ALE 2G extension. {scope === "ham" ? "Amateur channels from HFLINK; government, military and utility networks are in SERVICES → ALE 2G." : "Network list from KiwiSDR's ALE_nets; the amateur (HFLINK) channels are in FLDIGI → ALE 2G HAM."}
   </p>
 </div>

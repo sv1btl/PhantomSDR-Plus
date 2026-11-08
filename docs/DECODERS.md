@@ -41,10 +41,10 @@ The dropdown is not the only way in. The main panel carries a **Decoders** butto
 | Button | Decoder | Button | Decoder |
 |---|---|---|---|
 | **FT8** | FT8 | **SSTV** | SSTV |
-| **FT4** | FT4 | **FLDIGI** | ALE 2G, RTTY, SITOR, PSK31·63·125, QPSK, Olivia, Contestia, FST4W, MFSK, MSK144, DominoEX, THOR, THROB, Hellschreiber, MT63, Packet, APRS |
+| **FT4** | FT4 | **FLDIGI** | ALE 2G HAM, RTTY, PSK31·63·125, QPSK, Olivia, Contestia, FST4W, MFSK, MSK144, DominoEX, THOR, THROB, Hellschreiber, MT63, Packet, APRS |
 | **FT2** | FT2 | **NAVTEX** | NAVTEX |
 | **CW** | CW | **FAX** | HF FAX / WEFAX |
-| **JS8** | JS8 | **SERVICES** | HFDL (aircraft), DSC (ships), Time Signals, HF Selcall |
+| **JS8** | JS8 | **SERVICES** | HFDL (aircraft), Maritime FSK / SITOR, Weather RTTY, DSC (ships), Time Signals, HF Selcall, ALE 2G |
 | **WSPR** | WSPR | **DRM** | DRM — digital broadcasting |
 
 Pressing a button does the whole sequence in one go: it selects the decoder, switches the decoder ON, and scrolls its panel into view. The button turns blue while its decoder is running. **Press the same button again to switch the decoder off** — its window closes with it.
@@ -64,7 +64,7 @@ A frequency marker (the yellow labels above the waterfall, from `markers.json`) 
 | `FT8`, `FT4`, `FT2`, `JS8`, `WSPR`, `SSTV` | that decoder | the dial frequency |
 | `NAVTEX` | NAVTEX | the signal frequency (the dial goes 500 Hz below) |
 | `FAX`, `WEFAX` | HF FAX | the published centre (the dial goes 1900 Hz below) |
-| `RTTY`, `RTTY-WX`, `SITOR` | FLDIGI as Amateur, Weather or Maritime | the signal frequency (the dial goes the panel's audio centre below) |
+| `RTTY`, `RTTY-WX`, `SITOR` | FLDIGI as Amateur RTTY (`RTTY`); SERVICES on Weather RTTY or Maritime FSK / SITOR | the signal frequency (the dial goes the panel's audio centre below) |
 | `PSK31`, `OLIVIA`, `FST4W`, `MFSK`, `MSK144`, `DOMINOEX`, `THOR`, `THROB`, `HELL`, `MT63` | FLDIGI in that variant | as above |
 | `MFSK16`, `MFSK32`, `MFSK64`, `FELDHELL` | FLDIGI in that variant and sub-mode | as above |
 | `PSK63`, `PSK125`, `BPSK31`/`63`/`125`, `QPSK31`/`63`/`125`, `CONTESTIA` | FLDIGI in that variant and sub-mode | as above |
@@ -74,7 +74,7 @@ A frequency marker (the yellow labels above the waterfall, from `markers.json`) 
 | `HFDL` | SERVICES · HFDL | the dial frequency (USB; the HFDL signal sits 1440 Hz above it) |
 | `DSC`, `SELCALL` | SERVICES on DSC or HF Selcall | the DSC frequency or the Selcall channel (the dial goes 1.7 kHz below) |
 | `TIME`, `DCF77`, `MSF`, `RWM`, `WWV`, `WWVH` | SERVICES on Time Signals, with that station | the carrier (the dial goes 1 kHz below) |
-| `ALE` | FLDIGI on ALE 2G | the dial frequency (LSB for the networks that use it) |
+| `ALE` | FLDIGI on ALE 2G HAM on an HFLINK channel, otherwise SERVICES on ALE 2G | the dial frequency (LSB for the networks that use it) |
 | `DRM` | DRM | the centre of the DRM channel |
 | `MORSE` | the CW decoder, with CW and a ±250 Hz filter | the signal frequency |
 
@@ -103,7 +103,7 @@ Decoder ID [On]   NAVTEX / SITOR-B  99% 📻   170 Hz shift · 100.00 Bd · 43 d
 
 * The **mode** and a **confidence** figure. Green above 75%, amber above 50%, orange below — treat an orange answer as a hint, not a verdict.
 * **What was actually measured**: occupied bandwidth, tone spacing, symbol rate, burst length, the UTC grid it fits, signal-to-noise. This is the evidence behind the verdict, so you can judge it for yourself.
-* **Use <mode>** starts the right decoder, exactly as if you had pressed its button — and sets the receiver up to work that mode. For the modes that live in the FSK panel it also selects the correct variant — RTTY, Weather RTTY, PSK31 or Olivia.
+* **Use <mode>** starts the right decoder, exactly as if you had pressed its button — and sets the receiver up to work that mode. For the modes that live in the FSK panel it also selects the correct variant — RTTY, PSK31 or Olivia in FLDIGI, Weather RTTY in SERVICES.
 * Runners-up are listed after **or**. Click one to try it instead, so a wrong first answer costs you nothing.
 * **📻** means the frequency you are tuned to is a known calling frequency for that mode, and that this counted towards the ranking.
 
@@ -113,7 +113,7 @@ It never switches your decoder by itself. It only ever suggests. And once you st
 
 **The slow modes take longer.** WSPR sits on a two-minute grid and SSTV pictures run for a minute or two, so those two are named later than the rest — give them three or four minutes on frequency. HF FAX and SSTV are also recognised only when they are tuned the usual way — the picture band sitting between about 1500 and 2300 Hz in the audio, which is where their decoders expect it too. Retuning starts the measurement again from scratch, because everything gathered so far describes the frequency you have just left.
 
-**What it recognises:** FT8, FT4, JS8, WSPR, CW, NAVTEX/SITOR-B, RTTY at 45.45 Bd, Weather RTTY (DWD), PSK31, Olivia, HF FAX, SSTV and DSC. **Use DSC** starts SERVICES on DSC (chapter 12).
+**What it recognises:** FT8, FT4, JS8, WSPR, CW, NAVTEX/SITOR-B, RTTY at 45.45 Bd, Weather RTTY (DWD), PSK31, Olivia, HF FAX, SSTV and DSC. **Use DSC** and the Weather RTTY suggestion start SERVICES on that service (chapter 12).
 
 **Recentre & retry.** Where the signal sits in the audio passband makes no difference between about 400 Hz and 2700 Hz. Outside that range the measurement degrades, and an amber **Recentre & retry** button appears. Pressing it moves the dial so that the signal lands in the middle of the passband, and starts a fresh measurement. It is a single calculated move, not a search.
 
@@ -577,16 +577,14 @@ Click **Clear** to erase the message buffer.
 
 ## 10. FLDIGI — ALE 2G, RTTY, PSK31, Olivia, FST4W, MFSK, MSK144, DominoEX, THOR, THROB, Hellschreiber, MT63, Packet and APRS
 
-**What it is:** One window for the narrow-band keyboard modes that the program fldigi made popular, with sixteen variants selected from one dropdown. Three are true FSK (Frequency-Shift Keying): Maritime FSK (SITOR), Weather RTTY and Amateur RTTY. The others share the same window: **PSK31** (also **PSK63** and **PSK125**, each in BPSK or QPSK), which is phase-shift keying; **Olivia** (with its sibling **Contestia**) and **MFSK16/32/64**, multi-tone modes with forward error correction; **DominoEX** and **THOR**, incremental frequency keying (THOR with error correction); **THROB**, two tones at once, one character per pulse; **Hellschreiber**, which paints text as a picture instead of decoding it; **MT63**, 64 carriers at once; and **Packet (AX.25)** and **APRS**, which decode AFSK packet radio — the 1200 baud packet of VHF/UHF and the 300 baud packet of HF. Each variant comes with a preset tuned to its standard parameters. The button and the dropdown entry are both called **FLDIGI**; the decoding is done here, in the browser, and fldigi itself is not needed.
+**What it is:** One window for the narrow-band keyboard modes that the program fldigi made popular, with fourteen variants selected from one dropdown. One is true FSK (Frequency-Shift Keying): Amateur RTTY; its utility relatives, Maritime FSK (SITOR) and Weather RTTY, use the same decoder in SERVICES (chapter 12). The others share the same window: **PSK31** (also **PSK63** and **PSK125**, each in BPSK or QPSK), which is phase-shift keying; **Olivia** (with its sibling **Contestia**) and **MFSK16/32/64**, multi-tone modes with forward error correction; **DominoEX** and **THOR**, incremental frequency keying (THOR with error correction); **THROB**, two tones at once, one character per pulse; **Hellschreiber**, which paints text as a picture instead of decoding it; **MT63**, 64 carriers at once; and **Packet (AX.25)** and **APRS**, which decode AFSK packet radio — the 1200 baud packet of VHF/UHF and the 300 baud packet of HF. Each variant comes with a preset tuned to its standard parameters. The button and the dropdown entry are both called **FLDIGI**; the decoding is done here, in the browser, and fldigi itself is not needed.
 
-Three of the variants come from outside fldigi. **ALE 2G** is the automatic link establishment of HF government, military and amateur networks (MIL-STD-188-141), and lists their calls and soundings. **FST4W**, the very slow beacon mode of the 2200 m, 630 m and 160 m bands, and **MSK144**, for meteor scatter on 6 m and 2 m, come from WSJT-X. None of the three prints running text: each lists what it decodes one line at a time, with the time.
+Three of the variants come from outside fldigi. **ALE 2G HAM** is the automatic link establishment (MIL-STD-188-141) of the amateur HFLINK network, and lists its calls and soundings; the government, military and utility networks are in SERVICES → ALE 2G (chapter 12). **FST4W**, the very slow beacon mode of the 2200 m, 630 m and 160 m bands, and **MSK144**, for meteor scatter on 6 m and 2 m, come from WSJT-X. None of the three prints running text: each lists what it decodes one line at a time, with the time.
 
 ### Variants and presets
 
 | Variant | Center | Shift | Baud | Framing | Encoding |
 |---------|--------|-------|------|---------|----------|
-| Maritime FSK / SITOR | 500 Hz | 170 Hz | 100 | 7N1 | CCIR-476 |
-| Weather RTTY | 1000 Hz | 450 Hz | 50 | 5N1.5 | ITA2 |
 | Amateur RTTY | 1000 Hz | 170 Hz | 45.45 | 5N1.5 | ITA2 |
 | PSK31·63·125 (BPSK/QPSK) | 1000 Hz | — | 31.25 / 62.5 / 125 | — | Varicode |
 | Olivia / Contestia | 1000 Hz | — | see mode | — | 7-bit + FEC |
@@ -602,26 +600,18 @@ Three of the variants come from outside fldigi. **ALE 2G** is the automatic link
 | Packet (AX.25) | 1200 / 2200 Hz tones, or 1700 Hz at 300 Bd | 1000 Hz, or 200 Hz at 300 Bd | 1200 or 300 | HDLC | AX.25 |
 | APRS | as Packet | as Packet | 1200 or 300 | HDLC | AX.25 + APRS |
 
-The panel adapts to the variant you choose. **Shift**, **Baud**, **Framing**, **Encoding**, **Invert mark / space** and **Auto shift detect** are hidden for every variant except the three FSK ones, because none of the other modes has a mark/space tone pair or UART-style framing. In their place, **Center audio** becomes a free-entry number field (the signal can sit anywhere in the passband), and Olivia, MFSK, DominoEX, THOR, THROB, Hellschreiber and MT63 each gain a **Mode** selector and — all except Hellschreiber — a **Squelch** slider with its own scale. Packet and APRS hide the same FSK controls and show a **Speed** selector instead; APRS also has a **Show raw packet** checkbox. The **Known frequency** list appears only for the variants that have one. ALE 2G replaces all of these with its own **network** and **channel** lists (see its notes). FST4W and MSK144 have no **Mode** or **Squelch**; they show **T/R period** and **F Tol** instead (MSK144 also **Decode**), and **⟳ Auto-tune Center** is hidden for both, because they search the whole **F Tol** range themselves.
+The panel adapts to the variant you choose. **Shift**, **Baud**, **Framing**, **Encoding**, **Invert mark / space** and **Auto shift detect** are hidden for every variant except the FSK ones (Amateur RTTY, and Maritime FSK and Weather RTTY in SERVICES), because none of the other modes has a mark/space tone pair or UART-style framing. In their place, **Center audio** becomes a free-entry number field (the signal can sit anywhere in the passband), and Olivia, MFSK, DominoEX, THOR, THROB, Hellschreiber and MT63 each gain a **Mode** selector and — all except Hellschreiber — a **Squelch** slider with its own scale. Packet and APRS hide the same FSK controls and show a **Speed** selector instead; APRS also has a **Show raw packet** checkbox. The **Known frequency** list appears only for the variants that have one. ALE 2G HAM replaces all of these with its own **network** and **channel** lists (see its notes). FST4W and MSK144 have no **Mode** or **Squelch**; they show **T/R period** and **F Tol** instead (MSK144 also **Decode**), and **⟳ Auto-tune Center** is hidden for both, because they search the whole **F Tol** range themselves.
 
 ### Setup
 
 1. Enable the decoder and select **FLDIGI** from the dropdown. Or simply press the **FLDIGI** button.
-2. The decoder panel appears. Its title follows the variant — *FSK / RTTY Decoder*, *BPSK31 Decoder* (or whichever PSK mode is chosen), *Olivia Decoder*, *Contestia Decoder*, *MFSK Decoder*, *DominoEX Decoder*, *THOR Decoder*, *THROB Decoder*, *Hellschreiber Decoder*, *MT63 Decoder*, *Packet (AX.25) Decoder* or *APRS Decoder*. ALE 2G shows *ALE 2G Decoder*; FST4W names its period, e.g. *FST4W-120 Decoder*; MSK144 shows *MSK144 Decoder*.
+2. The decoder panel appears. Its title follows the variant — *FSK / RTTY Decoder*, *BPSK31 Decoder* (or whichever PSK mode is chosen), *Olivia Decoder*, *Contestia Decoder*, *MFSK Decoder*, *DominoEX Decoder*, *THOR Decoder*, *THROB Decoder*, *Hellschreiber Decoder*, *MT63 Decoder*, *Packet (AX.25) Decoder* or *APRS Decoder*. ALE 2G HAM shows *ALE 2G HAM Decoder*; FST4W names its period, e.g. *FST4W-120 Decoder*; MSK144 shows *MSK144 Decoder*.
 3. Select the **Variant**. The parameters update automatically.
 4. For PSK31, Olivia, MFSK, DominoEX, THOR, THROB, Hellschreiber and MT63, set **Mode** to match the transmission — see each mode's notes below. For Packet and APRS, set **Speed** — see the Packet and APRS notes below. For ALE 2G, pick a network and a channel; for FST4W and MSK144, set **T/R period** and **F Tol** — see their notes below.
 5. Where the variant has one, use the **Known frequency** dropdown to select a common frequency, then click **Tune** to jump to it. The other modes have no fixed calling frequencies: find the signal on the waterfall and use **⟳ Auto-tune Center**.
 6. Fine-tune frequency until decoded text becomes stable and readable.
 
 ### Known frequencies by variant
-
-**Maritime FSK / SITOR**
-- 518.0 kHz — International NAVTEX
-- 490.0 kHz — National NAVTEX
-- 4209.5 / 6314.0 / 8416.5 / 12579.0 / 16806.5 / 22376.0 kHz — HF SITOR
-
-**Weather RTTY**
-- 4583.0 / 7646.0 / 10100.8 / 11039.0 / 14467.3 kHz — DWD (German Weather Service)
 
 **Amateur RTTY**
 - 3590 kHz (80m), 7043 kHz (40m), 10143 kHz (30m), 14083 kHz (20m), 21083 kHz (15m), 28083 kHz (10m)
@@ -711,11 +701,11 @@ Amateur RTTY (45.45 baud, 170 Hz) copies without errors down to about 0 dB, with
 
 ALE (MIL-STD-188-141, second generation) is how government, military, aid-agency and amateur HF networks find a working frequency: the stations scan a set of channels, send short *soundings* to say they are there, and call each other with a few seconds of an 8-tone signal (125 Bd, 750–2500 Hz).
 
-1. Choose **ALE 2G**, the entry just before Packet in **Variant**. In place of the usual settings the panel shows a **network** list and a **channel** list.
+1. Choose **ALE 2G HAM**, the entry just before Packet in **Variant**. In place of the usual settings the panel shows a **network** list and a **channel** list.
 2. Pick a network and one of its channels, then click **⇒ Tune & Set IF**. The listed frequency is the dial; the receiver goes to USB, or LSB for the few networks marked so, with a 500–2750 Hz filter.
 3. Wait. Soundings come every half hour or hour, and calls only when a link is needed, so a channel can stay quiet for a long time.
 
-- **Ham (HFLINK)** lists all 31 amateur ALE channels of the HFLINK channel plan, from 475.5 kHz to 144.1625 MHz; 14109 and 7102 kHz are among the main HFLINK sounding and texting channels. The other 51 networks (Govt, Milcom, Utility, and MARS under Amateur) come from KiwiSDR's ALE list. They are public lists and may be out of date.
+- **Ham (HFLINK)** lists all 31 amateur ALE channels of the HFLINK channel plan, from 475.5 kHz to 144.1625 MHz; 14109 and 7102 kHz are among the main HFLINK sounding and texting channels. It is the only network in FLDIGI. The other 51 networks (Government, Military — MARS among them — and Utility) come from KiwiSDR's ALE list and are in SERVICES → ALE 2G (MIL-STD-188-141) (chapter 12), which works the same way. They are public lists and may be out of date.
 - Each event shows the time, the frequency, its kind (sounding, call, call acknowledged, link established, message), the **from** and **to** addresses, and any commands or text (AMD and DTM messages). Identical repeats are merged into one line with ×N, and **💾 Save** writes the events to a text file.
 - **In sync** counts how many of the 17 decoders, each on its own frequency offset, are reading ALE words at that moment. A signal up to about ±1 kHz off is still found.
 
@@ -903,7 +893,7 @@ Because Force skips every safety check, it will happily paint noise if you press
 
 ## 12. SERVICES
 
-**SERVICES** (the button used to be called **HFDL**) is one window for the utility services. The **Service** list at the top left of the window chooses what it decodes: **HFDL** (aircraft), **DSC** (ships), **Time Signals** and **HF Selcall**. Your browser remembers the choice. One service runs at a time; each sets the mode and filter it needs, has its own frequency list with **⇒ Tune & Set IF**, and decodes in your browser, so it costs the receiver nothing. Every service has **💾 Save** (a text file) and **Clear**, and the Users window shows which service a listener is running. ALE 2G, which also links HF stations, is in the FLDIGI window (chapter 10).
+**SERVICES** (the button used to be called **HFDL**) is one window for the utility services. The **Service** list at the top left of the window chooses what it decodes: **HFDL** (aircraft), **Maritime FSK / SITOR**, **Weather RTTY**, **DSC** (ships), **Time Signals**, **HF Selcall** and **ALE 2G (MIL-STD-188-141)**. Your browser remembers the choice. One service runs at a time; each sets the mode and filter it needs, has its own frequency list with **⇒ Tune & Set IF**, and decodes in your browser, so it costs the receiver nothing. Every service has **💾 Save** (a text file) and **Clear**, and the Users window shows which service a listener is running. The amateur ALE channels are in the FLDIGI window, as ALE 2G HAM (chapter 10).
 
 ### HFDL — aircraft messages
 
@@ -924,6 +914,23 @@ The station list covers every HFDL ground station. Heard well from Europe in day
 Each line shows the time (UTC), the frequency, the direction (▼ ground→air or ▲ air→ground), the ground station, the aircraft — registration, flight and 24-bit ICAO address, each a link to FlightAware — the message type, its SNR and bit rate, and 📍 a position when the message carries one. ACARS text appears underneath. Hover over a line to see the whole frame. Tick **Squitters** to see the ground stations' announcements as well.
 
 **🗺 Map** shows the aircraft that reported a position, inside the panel; **⤢ Large map** opens the same map in a window you can move and resize. Each aircraft points along its track and leaves a red trail. **💾 Save** writes the messages to a text file, **Clear** empties the list.
+
+### Maritime FSK / SITOR and Weather RTTY
+
+These two utility broadcasts use the FSK decoder and panel of the FLDIGI window (chapter 10), with the **Service** list where FLDIGI has its **Variant** list. **Shift**, **Baud**, **Framing**, **Encoding**, **Invert mark / space**, **Auto shift detect**, **⇒ Set IF Band-Pass** and **⟳ Auto-tune Center** work as described there.
+
+| Service | Center | Shift | Baud | Framing | Encoding |
+|---------|--------|-------|------|---------|----------|
+| Maritime FSK / SITOR | 500 Hz | 170 Hz | 100 | 7N1 | CCIR-476 |
+| Weather RTTY | 1000 Hz | 450 Hz | 50 | 5N1.5 | ITA2 |
+
+1. Choose **Maritime FSK / SITOR** or **Weather RTTY** in the **Service** list.
+2. Pick a **Known frequency** and click **Tune**. The listed frequency is the signal; the USB dial goes the panel's centre below it.
+3. Fine-tune until the text is stable. Weather RTTY needs **Invert mark / space** checked (the preset does it) and has a **Squelch (SNR)** slider, starting at −7 dB; Maritime FSK leaves it unchecked.
+
+**Maritime FSK / SITOR:** 2174.5 kHz (MF NBDP working channel), 518 and 490 kHz (NAVTEX), 4209.5 kHz (HF NAVTEX), and the HF SITOR maritime safety channels 4210, 6314, 8416.5, 12579, 16806.5, 19680.5, 22376 and 26100.5 kHz. NAVTEX also has its own button, with the station schedules (chapter 9).
+
+**Weather RTTY:** the DWD (German Weather Service) outlets 4583, 7646 and 10100.8 kHz (Programme 1, English) and 11039, 14467.3 and 147.3 kHz (Programme 2, German; 147.3 kHz uses an 85 Hz shift, which its list entry sets). While a DWD frequency is chosen, **NEXT BROADCASTS** shows the coming programme.
 
 ### DSC — Digital Selective Calling
 
@@ -955,6 +962,15 @@ Selcall (CCIR 493-4) is the selective calling of HF land-mobile and maritime net
 
 1. Choose **HF Selcall** in the **Service** list, pick a channel (the 7 and 8 MHz channels of KiwiSDR's list) and click **⇒ Tune & Set IF**. The channel is the FSK centre; the dial goes 1.7 kHz below it, in USB.
 2. Each call shows the calling and the called station's numbers (4 or 6 digits), the type of call, and any commands and data; a Codan GPS position is shown as its raw digits. Stations differ in which tone they send as mark, so both polarities are read.
+
+### ALE 2G (MIL-STD-188-141)
+
+The soundings, calls and messages of government, military and utility HF networks: 51 networks from KiwiSDR's ALE list, grouped as **Government**, **Military** (MARS among them) and **Utility**. It is the same decoder and panel as ALE 2G HAM in the FLDIGI window, which lists only the amateur HFLINK channels — see the ALE 2G notes in chapter 10.
+
+1. Choose **ALE 2G (MIL-STD-188-141)** in the **Service** list, pick a network and one of its channels, and click **⇒ Tune & Set IF**. The listed frequency is the dial; the receiver goes to USB, or LSB for the networks marked so, with a 500–2750 Hz filter.
+2. Wait. Soundings come every half hour or hour, calls only when a link is needed.
+
+These are public lists and may be out of date. The Users window shows *ALE* for a listener running it.
 
 ---
 

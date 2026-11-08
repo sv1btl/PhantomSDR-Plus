@@ -2927,7 +2927,9 @@
   }
 
   function _faxActivate() {
+    const gen = _decoderGen;
     tick().then(async () => {
+      if (gen !== _decoderGen) return;
       _faxInitCanvas();
       faxLineCount = 0;
       faxPhasing = false;
@@ -2942,6 +2944,7 @@
         handleDemodulationChange(null, true);
         await tick();
         await new Promise((resolve) => setTimeout(resolve, 60));
+        if (gen !== _decoderGen) return;
       }
 
       audio.setFAXParams(faxLPM, faxIOC, faxShift);
@@ -3262,7 +3265,9 @@
   }
 
   function _sstvStart() {
+    const gen = _decoderGen;
     tick().then(async () => {
+      if (gen !== _decoderGen) return;
       _sstvInitCanvas();
       sstvRunning = true;
       sstvStarting = true;
@@ -3285,6 +3290,10 @@
         // so the mode change is not decoded as image data.
         await tick();
         await new Promise((resolve) => setTimeout(resolve, 60));
+        if (gen !== _decoderGen) {
+          sstvStarting = false;
+          return;
+        }
       }
 
       audio.setSSTVCallback(null);
@@ -3590,7 +3599,9 @@
       navtexMessages = navtexMessages;
       navtexCurrentLine = navtexCurrentLine;
     });
+    const gen = _decoderGen;
     tick().then(async () => {
+      if (gen !== _decoderGen) return;
       // NAVTEX is always received USB.  Switch FIRST, like FAX and SSTV:
       // handleDemodulationChange() retunes the server-side stream, and feeding
       // that transition into a running demodulator is wasted audio.  This also
@@ -3602,6 +3613,7 @@
         handleDemodulationChange(null, true);
         await tick();
         await new Promise((resolve) => setTimeout(resolve, 60));
+        if (gen !== _decoderGen) return;
       }
       _navtexNarrowFilter(frequencyInputComponent.getFrequency());
       audio.setNAVTEXDecoding(true);
@@ -3661,13 +3673,16 @@
     audio.setHFDLDial(Math.round(hfdlDialKhz * 1000));
 
   function _hfdlActivate() {
+    const gen = _decoderGen;
     tick().then(async () => {
+      if (gen !== _decoderGen) return;
       // USB first, like NAVTEX: changing mode resyncs the stream.
       if (demodulation !== "USB") {
         demodulation = "USB";
         handleDemodulationChange(null, true);
         await tick();
         await new Promise((resolve) => setTimeout(resolve, 60));
+        if (gen !== _decoderGen) return;
       }
       audio.setHFDLDial(Math.round((Number(frequency) || 0) * 1000));
       _hfdlGateOff(true);
@@ -3724,9 +3739,14 @@
   // the others run in services.worker.js. `report` is what /users shows.
   const SERVICES = [
     { key: "hfdl", label: "HFDL", report: "HFDL", title: "HF Data Link: aircraft ACARS messages" },
+    // These two run the FSK engine (fsk.js) of the FLDIGI window, not
+    // services.worker.js: utility broadcasts, not amateur modes.
+    { key: "maritime", label: "Maritime FSK / SITOR", report: "SITOR", title: "SITOR-B / NBDP maritime safety broadcasts (100 Bd, 170 Hz)" },
+    { key: "weather", label: "Weather RTTY", report: "RTTY-WX", title: "Weather RTTY: DWD Pinneberg and similar (50 Bd, 450 Hz)" },
     { key: "dsc", label: "DSC", report: "DSC", title: "Digital Selective Calling: MF/HF maritime calls (GMDSS)" },
     { key: "time", label: "Time Signals", report: "TIME", title: "DCF77, MSF, RWM, WWV/WWVH: decoded date and time" },
     { key: "selcall", label: "HF Selcall", report: "SELCALL", title: "CCIR 493-4 Selcall (Codan, Barrett …): who calls whom" },
+    { key: "ale", label: "ALE 2G (MIL-STD-188-141)", report: "ALE", title: "ALE 2G (MIL-STD-188-141): government, military, MARS and utility networks" },
   ];
   // Time Signals: the station chosen in its panel (remembered per browser).
   let timeStation = (() => {
@@ -3738,29 +3758,55 @@
   })();
   // The engine running in services.worker.js ("" when none, or HFDL).
   let svcRunning = "";
+  // Services that run the FLDIGI window's FSK engine and panel (the service
+  // key is the fsk.js variant). Maritime and Weather left FLDIGI; ALE 2G is in
+  // both: FLDIGI "ALE 2G HAM" lists only the amateur (HFLINK) net, SERVICES
+  // "ALE 2G" all the others (AlePanel `scope`).
+  const FSK_SERVICE_VARIANTS = ["maritime", "weather", "ale"];
+  const _isFskService = (k) => FSK_SERVICE_VARIANTS.includes(k);
+  // The variants only SERVICES offers.
+  const _isServiceOnlyVariant = (v) => v === "maritime" || v === "weather";
+  // True while the FSK engine/panel belongs to SERVICES. Cleared when FLDIGI
+  // starts, and by every path that picks an FLDIGI variant (markers, Signal
+  // ID), so FLDIGI then keeps that variant.
+  let fskInServices = false;
+  $: fskAsService = fskEnabled && fskInServices;
 
   function _servicesActivate() {
     if (serviceMode === "hfdl") {
       hfdlEnabled = true;
       _hfdlActivate();
+    } else if (_isFskService(serviceMode)) {
+      if (!fskInServices && !_isServiceOnlyVariant(fskVariant)) _fldigiVariant = fskVariant;
+      fskInServices = true;
+      fskVariant = serviceMode;
+      _applyFskVariantDefaults(fskVariant);
+      _fskActivate();
     } else {
       _svcActivate(serviceMode);
     }
   }
 
   function _servicesDeactivate() {
+    // changeService() swaps services without _deactivateAll(); the old one's
+    // pending start must not land on the new one either.
+    _decoderGen++;
     if (hfdlEnabled) _hfdlDeactivate();
     if (svcRunning) _svcDeactivate();
+    if (fskEnabled && fskInServices) _fskDeactivate();
   }
 
   function _svcActivate(name) {
     svcRunning = name;
+    const gen = _decoderGen;
     tick().then(async () => {
+      if (gen !== _decoderGen) return;
       if (demodulation !== "USB") {
         demodulation = "USB";
         handleDemodulationChange(null, true);
         await tick();
         await new Promise((resolve) => setTimeout(resolve, 60));
+        if (gen !== _decoderGen) return;
       }
       _hfdlGateOff(true);   // the server noise gate would chop the FSK bursts
       audio.setServicesDecoding(name, name === "time" ? { station: timeStation } : { centerHz: 1700 });
@@ -3858,12 +3904,15 @@
     // Silent from the press on: the switch to AM below would otherwise let a
     // moment of the receiver's own audio through before the helper is asked.
     audio.drmSelected = true;
+    const gen = _decoderGen;
     tick().then(async () => {
+      if (gen !== _decoderGen) return;
       if (demodulation !== "DRM") {
         demodulation = "DRM";
         handleDemodulationChange(null, true);
         await tick();
         await new Promise((resolve) => setTimeout(resolve, 60));
+        if (gen !== _decoderGen) return;
       }
       audio.setDRMDecoding(true, {
         freqHz: Math.round((Number(frequency) || 0) * 1000),
@@ -4222,7 +4271,10 @@
   }
 
   let fskEnabled = false;
-  let fskVariant = "maritime";
+  // Maritime FSK / SITOR and Weather RTTY are SERVICES now; FLDIGI starts on
+  // Amateur RTTY and then on whatever it ran last (_fldigiVariant).
+  let fskVariant = "ham";
+  let _fldigiVariant = "ham";
   let fskKnownFrequency = "";
   let fskTextLines = [];
   let fskCurrentLine = "";
@@ -4383,6 +4435,9 @@
     fskEncoding = p.encoding;
     fskInvert = !!p.invert;
     if (p.squelch != null) fskSquelch = p.squelch;
+    // An entry of the previous variant's list would leave the select blank.
+    if (!(FSK_KNOWN_FREQUENCIES[v] || []).some((e) => String(e.khz) === String(fskKnownFrequency)))
+      fskKnownFrequency = "";
     if (v === "maritime") fskKnownFrequency = "518";
     if (v === "psk31") fskKnownFrequency = "14070.15";
     if (v === "olivia") fskKnownFrequency = "14072.5";
@@ -4702,6 +4757,14 @@
       fskCountdownTimer = null;
     }
     fskScheduleRows = [];
+  }
+
+  function _fskDeactivate() {
+    fskEnabled = false;
+    audio.setFSKDecoding(false);
+    audio.setFSKCallback(null);
+    _fskCountdownStop();
+    _fskRestoreReceiverControl();
   }
 
   function _fskActivate() {
@@ -6027,8 +6090,19 @@
     }
   }
 
+  /**
+   * Bumped whenever the running decoder changes (any stop, and so every
+   * launch, which stops first). Activation steps that wait -- tick() plus the
+   * 60 ms settle after a mode switch, and the 150 ms of
+   * _modeIdApplyReceiverDefaults() -- capture it and give up if it moved, so
+   * a step left over from the decoder just replaced cannot land on the new
+   * one and put back the old mode and passband (or restart a stopped decoder).
+   */
+  let _decoderGen = 0;
+
   /** Stop every decoder and reset all flags */
   function _deactivateAll() {
+    _decoderGen++;
     // Capture whether a USB digital decoder (FT8/FT4/FT2/WSPR) was running,
     // so we can restore the band's default mode (bands-config.js) below.
     const _ftxWasActive =
@@ -6092,13 +6166,9 @@
     if (drmEnabled) {
       _drmDeactivate();
     }
-    // FSK / RTTY
+    // FSK / RTTY (FLDIGI, or SERVICES Maritime / Weather)
     if (fskEnabled) {
-      fskEnabled = false;
-      audio.setFSKDecoding(false);
-      audio.setFSKCallback(null);
-      _fskCountdownStop();
-      _fskRestoreReceiverControl();
+      _fskDeactivate();
     }
     // RADE v1
     if (radeEnabled) {
@@ -6309,6 +6379,11 @@
       drmEnabled = true;
       _drmActivate();
     } else if (d === "fsk") {
+      if (fskInServices || _isServiceOnlyVariant(fskVariant)) {
+        fskInServices = false;
+        fskVariant = _isServiceOnlyVariant(_fldigiVariant) ? "ham" : _fldigiVariant;
+        _applyFskVariantDefaults(fskVariant);
+      }
       _fskActivate();
     } else if (d === "radel" || d === "radeu" || d === "rade2") {
       radeEnabled = true;
@@ -6469,13 +6544,18 @@
   async function _modeIdApplyReceiverDefaults(key) {
     const def = MODE_ID_RECEIVER_DEFAULTS[key];
     if (!def) return;
+    // Another decoder launched (or this one stopped) during the wait: the
+    // receiver is no longer ours to set.
+    const gen = _decoderGen;
     await tick();
     await new Promise((resolve) => setTimeout(resolve, 150));
+    if (gen !== _decoderGen) return;
     try {
       if (def.mode && demodulation !== def.mode) {
         demodulation = def.mode;
         handleDemodulationChange(null, true);
         await tick();
+        if (gen !== _decoderGen) return;
       }
       const type = (demodulationDefaults[demodulation] || {}).type;
       const [lo, hi] = def.passband;
@@ -6530,6 +6610,7 @@
   function modeIdTune(candidate) {
     if (!candidate || !candidate.key) return;
     if (candidate.key === "fsk" && candidate.variant) {
+      fskInServices = false;
       fskVariant = candidate.variant;
       _applyFskVariantDefaults(fskVariant);
     }
@@ -6540,6 +6621,7 @@
       if (decoderOn && selectedDecoder === "services") changeService(candidate.variant);
       else { serviceMode = candidate.variant; launchDecoder("services"); }
       if (candidate.variant === "dsc" && sigKhz > 0) dscTune(sigKhz);
+      if (_isFskService(candidate.variant)) _modeIdZoomIn();
       return;
     }
     const wasRunning = decoderOn && selectedDecoder === candidate.key;
@@ -6677,14 +6759,14 @@
       key: "fsk",
       label: "FLDIGI",
       title:
-        "fldigi modes: RTTY / SITOR / PSK31·63·125 (BPSK/QPSK) / Olivia / Contestia / MFSK / DominoEX / THOR / THROB / Hellschreiber / MT63 / Packet / APRS",
+        "fldigi modes: RTTY / PSK31·63·125 (BPSK/QPSK) / Olivia / Contestia / MFSK / DominoEX / THOR / THROB / Hellschreiber / MT63 / ALE 2G HAM / Packet / APRS",
     },
     { key: "navtex", label: "NAVTEX", title: "NAVTEX" },
     { key: "hffax", label: "FAX", title: "HF FAX / WEFAX" },
     {
       key: "services",
       label: "SERVICES",
-      title: "SERVICES — HFDL (aircraft), DSC (maritime calls), Time Signals, HF Selcall",
+      title: "SERVICES — HFDL (aircraft), Maritime FSK / SITOR, Weather RTTY, DSC (maritime calls), Time Signals, HF Selcall, ALE 2G",
     },
     {
       key: "drm",
@@ -7876,8 +7958,10 @@
     WEFAX: { key: "hffax", offset: 1900 },
     NAVTEX: { key: "navtex", offset: 500 },
     RTTY: { key: "fsk", variant: "ham" },
-    "RTTY-WX": { key: "fsk", variant: "weather" },
-    SITOR: { key: "fsk", variant: "maritime" },
+    // SERVICES since 2026-11-08; the dial sits below by the FSK centre
+    // (FSK_VARIANT_PRESETS: weather 1000 Hz, maritime 500 Hz).
+    "RTTY-WX": { key: "services", service: "weather", offset: 1000 },
+    SITOR: { key: "services", service: "maritime", offset: 500 },
     PSK31: { key: "fsk", variant: "psk31", pskMode: "bpsk31" },
     BPSK31: { key: "fsk", variant: "psk31", pskMode: "bpsk31" },
     PSK63: { key: "fsk", variant: "psk31", pskMode: "bpsk63" },
@@ -7952,17 +8036,38 @@
    * and the RTTY panel is switched to the marker's variant in place.
    */
   function _startDecoderFromMarker(spec, markerHz) {
+    // ALE: an amateur (HFLINK) channel is FLDIGI's ALE 2G HAM, any other
+    // channel SERVICES' ALE 2G. LSB nets put the receiver in LSB either way.
+    if (spec.key === "fsk" && spec.variant === "ale") {
+      const k = markerHz / 1e3;
+      const on = (n) => n.khz.some((f) => Math.abs(f - k) < 0.05);
+      aleLsb = ALE_NETS.some((n) => n.lsb && on(n));
+      if (!ALE_NETS.some((n) => n.cat === "Amateur" && on(n)))
+        spec = { key: "services", service: "ale", offset: 0 };
+    }
     const running = decoderOn && selectedDecoder === spec.key;
     if (spec.service) {
       if (spec.station) timeStationChanged(spec.station);
+      // Maritime / Weather: the Known frequency list shows the marker's entry.
+      const fskKnown = () => {
+        if (!_isFskService(spec.service)) return;
+        const khz = markerHz / 1e3;
+        const known = (FSK_KNOWN_FREQUENCIES[spec.service] || []).find((e) => e.khz === khz);
+        fskKnownFrequency = known ? String(known.khz) : "";
+      };
       if (running) {
         if (spec.service !== serviceMode) changeService(spec.service);
         else _decoderReassertReceiver();
+        fskKnown();
         return;
       }
       serviceMode = spec.service;
+      launchDecoder(spec.key);
+      fskKnown();
+      return;
     }
     if (spec.key === "fsk") {
+      fskInServices = false;
       fskVariant = spec.variant;
       _applyFskVariantDefaults(spec.variant);
       if (spec.variant === "packet" || spec.variant === "aprs") {
@@ -14869,8 +14974,11 @@ Slider: share of denoised audio, the rest is the original"
                           <span
                             class="inline-block w-2 h-2 rounded-full bg-green-400 animate-pulse"
                           ></span>
+                          {#if fskAsService}
+                            <ServiceSelect services={SERVICES} value={serviceMode} on:change={(e) => changeService(e.detail)} />
+                          {/if}
                           {isAle
-                            ? "ALE 2G Decoder"
+                            ? (fskInServices ? "ALE 2G Decoder" : "ALE 2G HAM Decoder")
                           : isPsk
                             ? `${pskModeCfg(pskMode).label} Decoder`
                             : isOlivia
@@ -14905,6 +15013,7 @@ Slider: share of denoised audio, the rest is the original"
                       </div>
 
                       <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
+                        {#if !fskAsService}
                         <div>
                           <label class="text-xs text-gray-300 block mb-1"
                             >Variant</label
@@ -14914,10 +15023,6 @@ Slider: share of denoised audio, the rest is the original"
                             class="glass-select text-white text-xs px-2 py-1 rounded-md w-full"
                             on:change={fskVariantChanged}
                           >
-                            <option value="maritime"
-                              >Maritime FSK / SITOR</option
-                            >
-                            <option value="weather">Weather RTTY</option>
                             <option value="ham">Amateur RTTY</option>
                             <option value="psk31">PSK31·63·125 (BPSK/QPSK)</option>
                             <option value="olivia">Olivia / Contestia</option>
@@ -14929,11 +15034,12 @@ Slider: share of denoised audio, the rest is the original"
                             <option value="throb">THROB / THROBX</option>
                             <option value="hell">Hellschreiber</option>
                             <option value="mt63">MT63</option>
-                            <option value="ale">ALE 2G (MIL-STD-188-141)</option>
+                            <option value="ale">ALE 2G HAM</option>
                             <option value="packet">Packet (AX.25)</option>
                             <option value="aprs">APRS</option>
                           </select>
                         </div>
+                        {/if}
                         {#if (FSK_KNOWN_FREQUENCIES[fskVariant] || []).length}
                         <div>
                           <label class="text-xs text-gray-300 block mb-1"
@@ -14962,7 +15068,9 @@ Slider: share of denoised audio, the rest is the original"
 
                       {#if isAle}
                         <!-- ALE 2G: network/channel picker, events, Save. -->
-                        <AlePanel embedded bind:this={alePanelRef} dialKhz={Number(frequency) || 0} onTune={aleTune} />
+                        {#key fskInServices}
+                        <AlePanel embedded bind:this={alePanelRef} scope={fskInServices ? "util" : "ham"} dialKhz={Number(frequency) || 0} onTune={aleTune} />
+                        {/key}
                       {:else}
                       <!-- Broadcast schedule countdown -->
                       {#if fskScheduleRows.length > 0}
@@ -20137,8 +20245,11 @@ Slider: share of denoised audio, the rest is the original"
                           <span
                             class="inline-block w-2 h-2 rounded-full bg-green-400 animate-pulse"
                           ></span>
+                          {#if fskAsService}
+                            <ServiceSelect services={SERVICES} value={serviceMode} on:change={(e) => changeService(e.detail)} />
+                          {/if}
                           {isAle
-                            ? "ALE 2G Decoder"
+                            ? (fskInServices ? "ALE 2G Decoder" : "ALE 2G HAM Decoder")
                           : isPsk
                             ? `${pskModeCfg(pskMode).label} Decoder`
                             : isOlivia
@@ -20173,6 +20284,7 @@ Slider: share of denoised audio, the rest is the original"
                       </div>
 
                       <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
+                        {#if !fskAsService}
                         <div>
                           <label class="text-xs text-gray-300 block mb-1"
                             >Variant</label
@@ -20182,10 +20294,6 @@ Slider: share of denoised audio, the rest is the original"
                             class="glass-select text-white text-xs px-2 py-1 rounded-md w-full"
                             on:change={fskVariantChanged}
                           >
-                            <option value="maritime"
-                              >Maritime FSK / SITOR</option
-                            >
-                            <option value="weather">Weather RTTY</option>
                             <option value="ham">Amateur RTTY</option>
                             <option value="psk31">PSK31·63·125 (BPSK/QPSK)</option>
                             <option value="olivia">Olivia / Contestia</option>
@@ -20197,11 +20305,12 @@ Slider: share of denoised audio, the rest is the original"
                             <option value="throb">THROB / THROBX</option>
                             <option value="hell">Hellschreiber</option>
                             <option value="mt63">MT63</option>
-                            <option value="ale">ALE 2G (MIL-STD-188-141)</option>
+                            <option value="ale">ALE 2G HAM</option>
                             <option value="packet">Packet (AX.25)</option>
                             <option value="aprs">APRS</option>
                           </select>
                         </div>
+                        {/if}
                         {#if (FSK_KNOWN_FREQUENCIES[fskVariant] || []).length}
                         <div>
                           <label class="text-xs text-gray-300 block mb-1"
@@ -20230,7 +20339,9 @@ Slider: share of denoised audio, the rest is the original"
 
                       {#if isAle}
                         <!-- ALE 2G: network/channel picker, events, Save. -->
-                        <AlePanel embedded bind:this={alePanelRef} dialKhz={Number(frequency) || 0} onTune={aleTune} />
+                        {#key fskInServices}
+                        <AlePanel embedded bind:this={alePanelRef} scope={fskInServices ? "util" : "ham"} dialKhz={Number(frequency) || 0} onTune={aleTune} />
+                        {/key}
                       {:else}
                       <!-- Broadcast schedule countdown -->
                       {#if fskScheduleRows.length > 0}

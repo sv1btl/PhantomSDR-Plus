@@ -82,7 +82,8 @@ When the page loads, you'll see:
 ┌──────────────────────────────────────────────────────────────────────────┐
 │  WebSDR <callsign>, located in <QTH>              ⚙ [ Analog S-Meter ▾ ] │
 │  email · Keyboard Shortcuts · Users · Stats · Other servers 1 2 3        │
-│  Frequency Search: MW SW HamDash PSK Reporter WSPRnet · Callsign Search  │
+│  Frequency Search: MW SW EiBi HamDash PSK Reporter WSPRnet               │
+│  Callsign Search                                                         │
 │                        [ Open Additional Info ]                          │
 ├──────────────────────────────────────────────────────────────────────────┤
 │                     Spectrum  +  Waterfall                               │
@@ -303,6 +304,31 @@ Some stations run more than one receiver — for example one for HF and one for 
 **Choosing a band on the strip.** When the other receiver covers more than one band — the HF receiver seen from the 2 m page — the strip's header has a dropdown in place of that button: **Last view**, **Full span** and each band of that receiver, the same bands its band buttons show. Pick a band and the strip shows it as that band button does, edge to edge with the band's brightness and contrast; a click on the strip then opens that receiver framed on the band, tuned where you clicked. Your choice is remembered in your browser, separately for each receiver. A receiver with a single band, such as 2 m, keeps the button.
 
 **The right receiver by itself.** A frequency that this receiver does not cover but another of the station's receivers does — typed, from a link, a bookmark, a DX spot, a chat message or another listener's label — opens that receiver's page, tuned there. The mouse wheel and the digit steps never switch receivers, and neither does a transceiver connected over CAT.
+
+### EiBi schedule
+
+The **EiBi** button in the Frequency Search row, after **SW**, opens a window that searches the EiBi schedule: the worldwide list of long wave, medium wave and shortwave broadcasts and utility stations kept by Eike Bierwirth ([eibispace.de](http://www.eibispace.de/dx/)), the database shortwave.live is built on. The station keeps it up to date by itself.
+
+**Searching.** Set any of the filters; the list follows as you change them.
+
+- **Station**: type part of a name; names are suggested as you type.
+- **Language**, **Target area**, **Station country**, **Transmitter in**: pick from the lists.
+- **Band**: long wave, medium wave, all of shortwave, one broadcast band from 120 m to 11 m, or VLF/LF.
+- **Frequency (kHz, ±2)**: everything within 2 kHz of it; **dial** fills in the frequency you are tuned to.
+- **Time (UTC)**: *Any time*, *On air now*, or *On air at* a time you type (**now** fills in the current UTC time).
+- **Today only** hides what is not scheduled for today's weekday or date. **Receivable here** hides frequencies this receiver does not cover.
+
+Stations on the air right now are shown in green. Click a column header to sort by it, and hover over a row to see all its details: transmitter site, the dates it is valid, when it was last logged. **Reset** clears the filters. The window remembers your filters in your browser.
+
+**Tuning.** Click a row. The receiver tunes the station in the mode of the **Mode** column: AM for broadcasting, USB or LSB for utility voice (Volmet, coast stations, navies), CW for Morse stations. A mode in amber (FAX, HFDL, DRM, NAVTEX, RTTY-WX and CW) also starts its decoder, the same way a decoder marker on the waterfall does; a CW row opens the CW decoder. The waterfall zooms to 100 kHz around the station, and a red marker with the station's name in yellow shows what you are listening to; it goes away when you tune more than 200 Hz from it. A station outside this receiver's range opens the receiver that covers it, when the station has one. The row you clicked turns red in the list for as long as you stay on that station.
+
+**Show on waterfall** puts the results on the waterfall as markers with a thin green frame and green text (when zoomed in, like the other markers). They stay after the window closes, until you untick the box or reload the page. Clicking one tunes it like a row, and its row turns red in the list.
+
+**Hide HFCC markers** hides the yellow markers that come from the HFCC broadcast schedule, so that only the EiBi ones show. Your own markers and the decoder markers stay. The setting is kept after the window closes and remembered in your browser; untick it to bring them back.
+
+The window opens in the middle of the screen and can be dragged by its title. **Esc**, **✕**, the **EiBi** button or a click anywhere outside it closes it.
+
+> The mode of each row is worked out from what EiBi writes about the station, so a few may be wrong. The yellow markers on the waterfall come from a separate list (HFCC); this window can hide them but never changes them.
 
 ---
 
@@ -835,7 +861,7 @@ Save your favorite frequencies for quick access. You can also export the list of
 
 When bookmarks and markers overlap:
 
-🔵 Blue bookmarks appear on top <br /> 🟡 Yellow markers appear underneath <br />
+🔵 Bookmarks (thin cyan frame, yellow text) appear on top <br /> 🟡 Yellow markers appear underneath <br />
 ✅ Bookmark clicks take priority <br />
 
 

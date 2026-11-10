@@ -215,13 +215,17 @@ PhantomSDR-Plus
 │   ├── broadcas.txt
 │   ├── curl-output.txt
 │   ├── currentUpdateFile.txt
+│   ├── eibi-README.TXT  # не в репозитории: таблицы кодов EiBi, загружает update-eibi.sh
 │   ├── fmorg.txt
 │   ├── generate-current-shortwave.py
+│   ├── generate-eibi.py
 │   ├── language.txt
 │   ├── mymarkers.json
 │   ├── README.md
 │   ├── shortwavestations.json
 │   ├── site.txt
+│   ├── sked-b26.csv  # не в репозитории: сезонное расписание EiBi, загружает update-eibi.sh
+│   ├── update-eibi.sh
 │   └── update-markers.sh
 ├── frontend
 │   ├── build-all.sh
@@ -249,6 +253,7 @@ PhantomSDR-Plus
 │   │   │   ├── hfdl.wasm      # декодер HFDL, собранный из jsdsp/hfdl_wasm
 │   │   │   ├── js8_dict.bin   # словарь слов JS8, загружается только при необходимости
 │   │   │   └── js8.wasm       # декодер JS8, собран из jsdsp/js8_wasm
+│   │   ├── eibi.json  # не в репозитории: расписание EiBi, записывает frequencylist/update-eibi.sh
 │   │   ├── logo.jpg
 │   │   ├── stats.html
 │   │   ├── users.html
@@ -350,6 +355,7 @@ PhantomSDR-Plus
 │   │   │   ├── SsbReport.svelte       # аудиоотчёт SSB под анализатором
 │   │   │   ├── AmFmReport.svelte      # отчёт AM/FM под анализатором
 │   │   │   ├── StatusIndicators.svelte
+│   │   │   ├── SwSchedule.svelte          # окно EiBi
 │   │   │   ├── TimeSignalPanel.svelte     # Time Signals (SERVICES)
 │   │   │   ├── storage.js
 │   │   │   ├── sUnits.js              # шкала баллов S по частоте (S9 = −93 дБм выше 30 МГц)
@@ -1022,6 +1028,7 @@ PhantomSDR-Plus
 - Цифровая клавиатура для ввода частоты — `lib/FreqKeypad.svelte`; введённая частота настраивается с масштабом, Min/Max и видом модуляции своего диапазона (`tuneTypedFrequency()` в `App.svelte`), а частота, которую покрывает другой приёмник, открывает тот приёмник
 - Полосы **Show All** других приёмников — `lib/RxStrip.svelte`: по одному сокету `/waterfall?rx=<id>`, каждый кадр декодируется и рисуется, в палитре и уровнях другого приёмника, самая свежая строка сверху; диапазоны приёмников и ссылки между ними берутся из `lib/receivers.js`; если в диапазоне другого приёмника два или больше диапазона, в её заголовке выпадающий список диапазонов (выбор в `localStorage` `rxStripView:<id>`, щелчок приходит с `&band=1`)
 - Выбор вида модуляции (AM/FM/SSB/CW) — `lib/ModesSelector.svelte`, смена диапазона — `lib/BandSelector.svelte`
+- Окно EiBi — `lib/SwSchedule.svelte`: ищет по `/eibi.json` с критериями shortwave.live; строка настраивает приёмник через путь щелчка по маркеру (`handleFrequencyMarkerClick()` в `App.svelte`, поэтому режимы декодеров запускают свой декодер), а зелёные результаты и красный маркер «сейчас слушаете» рисует `lib/FrequencyMarkers.svelte`, а **Hide HFCC markers** скрывает записи `markers.json`, которые `update-markers.sh` помечает `"source": "hfcc"`; строки CW настраиваются с режимом маркера `MORSE`, поэтому открывают CW-декодер
 - AGC/NR/NB и остальные органы управления находятся в самом `App.svelte`; отдельного `Controls.svelte` нет
 
 #### 3a. Сканер (`scanner.js`)
@@ -1151,9 +1158,13 @@ frequencylist/
 ├── admin.txt · antenna.txt · broadcas.txt · fmorg.txt · language.txt · site.txt
 │                             # вспомогательные списки из того же источника (площадки, языки, администраторы, антенны)
 ├── generate-current-shortwave.py
+├── update-eibi.sh            # загружает расписание EiBi для окна EiBi, не чаще раза в день
+├── generate-eibi.py          # превращает его в frontend/public/eibi.json и frontend/dist/eibi.json
 ├── update-markers.sh         # обновляет всё перечисленное из сетевых расписаний
 └── README.md
 ```
+
+Окно EiBi (кнопка **EiBi**) использует второй, отдельный список. `update-markers.sh` сначала запускает `update-eibi.sh`, который проверяет расписание EiBi (http://www.eibispace.de/dx/) не чаще раза в день и загружает его, только когда EiBi опубликовал новое, сам переходя на список следующего сезона (лето A, зима B); `generate-eibi.py` превращает его в `eibi.json` для страницы и определяет режим каждой станции. Чтобы загрузить сразу, выполните `./frequencylist/update-eibi.sh --force`. Неудачная загрузка никогда не останавливает обновление маркеров. `update.sh` обновляет оба скрипта и сначала спрашивает, если вы их меняли. `update-markers.sh` также помечает каждую запись HFCC, которую пишет в `markers.json`, как `"source": "hfcc"`; **Hide HFCC markers** в окне EiBi скрывает именно их.
 
 ### Формат (`mymarkers.json`, `shortwavestations.json`)
 

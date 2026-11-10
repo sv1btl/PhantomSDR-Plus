@@ -215,13 +215,17 @@ PhantomSDR-Plus
 │   ├── broadcas.txt
 │   ├── curl-output.txt
 │   ├── currentUpdateFile.txt
+│   ├── eibi-README.TXT  # nije u repozitoriju: EiBi tablice kodova, dohvaća ih update-eibi.sh
 │   ├── fmorg.txt
 │   ├── generate-current-shortwave.py
+│   ├── generate-eibi.py
 │   ├── language.txt
 │   ├── mymarkers.json
 │   ├── README.md
 │   ├── shortwavestations.json
 │   ├── site.txt
+│   ├── sked-b26.csv  # nije u repozitoriju: EiBi raspored sezone, dohvaća ga update-eibi.sh
+│   ├── update-eibi.sh
 │   └── update-markers.sh
 ├── frontend
 │   ├── build-all.sh
@@ -249,6 +253,7 @@ PhantomSDR-Plus
 │   │   │   ├── hfdl.wasm      # HFDL dekoder, izgrađen iz jsdsp/hfdl_wasm
 │   │   │   ├── js8_dict.bin   # JS8 rječnik riječi, učitava se tek kad zatreba
 │   │   │   └── js8.wasm       # JS8 dekoder, izgrađen iz jsdsp/js8_wasm
+│   │   ├── eibi.json  # nije u repozitoriju: EiBi raspored, piše ga frequencylist/update-eibi.sh
 │   │   ├── logo.jpg
 │   │   ├── stats.html
 │   │   ├── users.html
@@ -350,6 +355,7 @@ PhantomSDR-Plus
 │   │   │   ├── SsbReport.svelte       # SSB audio izvještaj ispod analizatora
 │   │   │   ├── AmFmReport.svelte      # AM/FM izvještaj ispod analizatora
 │   │   │   ├── StatusIndicators.svelte
+│   │   │   ├── SwSchedule.svelte          # EiBi prozor
 │   │   │   ├── TimeSignalPanel.svelte     # Time Signals (SERVICES)
 │   │   │   ├── storage.js
 │   │   │   ├── sUnits.js              # ljestvica S-jedinica prema frekvenciji (S9 = −93 dBm iznad 30 MHz)
@@ -1021,6 +1027,7 @@ Web-sučelje izgrađeno pomoću Sveltea i Vitea.
 - Brojčana tipkovnica za upis frekvencije — `lib/FreqKeypad.svelte`; upisana se frekvencija ugađa sa zoomom, Min/Max i načinom rada svog pojasa (`tuneTypedFrequency()` u `App.svelte`), a ona koju pokriva drugi prijemnik otvara taj prijemnik
 - Trake **Show All** ostalih prijemnika — `lib/RxStrip.svelte`: po jedan socket `/waterfall?rx=<id>`, svaki okvir dekodiran i nacrtan, u paleti i razinama drugog prijemnika, najnoviji redak na vrhu; rasponi prijemnika i poveznice među njima dolaze iz `lib/receivers.js`; s dva ili više pojasa u rasponu drugog prijemnika, padajući popis pojasa u njezinom zaglavlju (izbor u `localStorage` `rxStripView:<id>`, klik stiže s `&band=1`)
 - Odabir načina rada (AM/FM/SSB/CW) — `lib/ModesSelector.svelte`, promjena pojasa — `lib/BandSelector.svelte`
+- EiBi prozor — `lib/SwSchedule.svelte`: pretražuje `/eibi.json` po kriterijima shortwave.livea; redak ugađa putem klika na marker (`handleFrequencyMarkerClick()` u `App.svelte`, pa načini dekodera pokreću svoj dekoder), a zelene rezultate i crveni marker „sada slušate“ crta `lib/FrequencyMarkers.svelte`, a **Hide HFCC markers** skriva unose u `markers.json` koje `update-markers.sh` označava s `"source": "hfcc"`; CW retci ugađaju se načinom markera `MORSE`, pa otvaraju CW dekoder
 - AGC/NR/NB i ostale kontrole nalaze se u samom `App.svelte`; zasebna `Controls.svelte` ne postoji
 
 #### 3a. Skener (`scanner.js`)
@@ -1151,9 +1158,13 @@ frequencylist/
 ├── admin.txt · antenna.txt · broadcas.txt · fmorg.txt · language.txt · site.txt
 │                             # pomoćni popisi iz istog izvora (lokacije, jezici, administratori, antene)
 ├── generate-current-shortwave.py
+├── update-eibi.sh            # dohvaća EiBi raspored za EiBi prozor, najviše jednom dnevno
+├── generate-eibi.py          # pretvara ga u frontend/public/eibi.json i frontend/dist/eibi.json
 ├── update-markers.sh         # osvježava sve navedeno iz mrežnih rasporeda
 └── README.md
 ```
+
+EiBi prozor (gumb **EiBi**) koristi drugi, zaseban popis. `update-markers.sh` najprije pokreće `update-eibi.sh`, koji EiBi raspored (http://www.eibispace.de/dx/) provjerava najviše jednom dnevno i preuzima ga samo kad EiBi objavi novi, a na popis sljedeće sezone (ljeto A, zima B) prelazi sam; `generate-eibi.py` ga pretvara u `eibi.json` za stranicu i određuje način rada svake postaje. Pokrenite `./frequencylist/update-eibi.sh --force` za odmah. Neuspjelo preuzimanje nikad ne zaustavlja ažuriranje markera. `update.sh` ažurira obje skripte i prvo pita ako ste ih mijenjali. `update-markers.sh` također označava svaki HFCC unos koji piše u `markers.json` s `"source": "hfcc"`; **Hide HFCC markers** u EiBi prozoru skriva upravo te.
 
 ### Format (`mymarkers.json`, `shortwavestations.json`)
 

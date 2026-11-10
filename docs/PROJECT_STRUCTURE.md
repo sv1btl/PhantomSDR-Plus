@@ -215,13 +215,17 @@ PhantomSDR-Plus
 │   ├── broadcas.txt
 │   ├── curl-output.txt
 │   ├── currentUpdateFile.txt
+│   ├── eibi-README.TXT  # not in the repo: EiBi's code tables, fetched by update-eibi.sh
 │   ├── fmorg.txt
 │   ├── generate-current-shortwave.py
+│   ├── generate-eibi.py
 │   ├── language.txt
 │   ├── mymarkers.json
 │   ├── README.md
 │   ├── shortwavestations.json
 │   ├── site.txt
+│   ├── sked-b26.csv  # not in the repo: the EiBi season schedule, fetched by update-eibi.sh
+│   ├── update-eibi.sh
 │   └── update-markers.sh
 ├── frontend
 │   ├── build-all.sh
@@ -249,6 +253,7 @@ PhantomSDR-Plus
 │   │   │   ├── hfdl.wasm      # HFDL decoder, built from jsdsp/hfdl_wasm
 │   │   │   ├── js8_dict.bin   # JS8 word dictionary, fetched only when needed
 │   │   │   └── js8.wasm       # JS8 decoder, built from jsdsp/js8_wasm
+│   │   ├── eibi.json  # not in the repo: the EiBi schedule, written by frequencylist/update-eibi.sh
 │   │   ├── logo.jpg
 │   │   ├── stats.html
 │   │   ├── users.html
@@ -350,6 +355,7 @@ PhantomSDR-Plus
 │   │   │   ├── SsbReport.svelte       # SSB audio report under the analyser
 │   │   │   ├── AmFmReport.svelte      # AM/FM report under the analyser
 │   │   │   ├── StatusIndicators.svelte
+│   │   │   ├── SwSchedule.svelte          # the EiBi window
 │   │   │   ├── TimeSignalPanel.svelte     # Time Signals (SERVICES)
 │   │   │   ├── storage.js
 │   │   │   ├── sUnits.js              # S-unit scale by frequency (S9 = −93 dBm above 30 MHz)
@@ -1021,6 +1027,7 @@ The web-based user interface built with Svelte and Vite.
 - Number pad for typing a frequency — `lib/FreqKeypad.svelte`; the typed frequency is tuned with its band's zoom, Min/Max and mode (`tuneTypedFrequency()` in `App.svelte`), and one another receiver covers opens that receiver
 - **Show All** strips of the other receivers — `lib/RxStrip.svelte`: one `/waterfall?rx=<id>` socket each, every frame decoded and drawn, in the other receiver's own palette and levels, newest line at the top; the receiver ranges and the links between receivers come from `lib/receivers.js`; with two or more bands in the other receiver's range, a band dropdown in its header (choice in `localStorage` `rxStripView:<id>`, click arrives with `&band=1`)
 - Mode selection (AM/FM/SSB/CW) — `lib/ModesSelector.svelte`, band switching — `lib/BandSelector.svelte`
+- EiBi window — `lib/SwSchedule.svelte`: searches `/eibi.json` with shortwave.live's criteria; a row tunes through the marker-click path (`handleFrequencyMarkerClick()` in `App.svelte`, so decoder modes start their decoder), and its green results and the red "now listening" marker are drawn by `lib/FrequencyMarkers.svelte`, and **Hide HFCC markers** hides the `markers.json` entries that `update-markers.sh` tags `"source": "hfcc"`; CW rows are tuned as the marker mode `MORSE`, so they open the CW decoder
 - AGC/NR/NB and the remaining controls live in `App.svelte` itself; there is no separate `Controls.svelte`
 
 #### 3a. Scanner (`scanner.js`)
@@ -1149,9 +1156,13 @@ frequencylist/
 ├── admin.txt · antenna.txt · broadcas.txt · fmorg.txt · language.txt · site.txt
 │                             # supporting lists from the same source (sites, languages, admins, antennas)
 ├── generate-current-shortwave.py
+├── update-eibi.sh            # fetches the EiBi schedule for the EiBi window, at most once a day
+├── generate-eibi.py          # turns it into frontend/public/eibi.json and frontend/dist/eibi.json
 ├── update-markers.sh         # refreshes everything above from the online schedules
 └── README.md
 ```
+
+The EiBi window (the **EiBi** button) uses a second, separate list. `update-markers.sh` first runs `update-eibi.sh`, which checks the EiBi schedule (http://www.eibispace.de/dx/) at most once a day and downloads it only when EiBi has published a new one, switching to the next season's list (summer A, winter B) by itself; `generate-eibi.py` turns it into `eibi.json` for the page and works out each station's receiver mode. Run `./frequencylist/update-eibi.sh --force` to fetch it at once. A failed download never stops the markers update. `update.sh` updates both scripts and asks first if you edited them. `update-markers.sh` also tags every HFCC entry it writes to `markers.json` with `"source": "hfcc"`; the EiBi window's **Hide HFCC markers** hides exactly those.
 
 ### Format (`mymarkers.json`, `shortwavestations.json`)
 

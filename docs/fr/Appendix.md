@@ -89,6 +89,7 @@ Toutes les commandes qu'un sysop utilise pour faire fonctionner une station Phan
 | `./update.sh --verbose` | Liste tous les fichiers, pas seulement les 40 premiers. | [Guide d'installation](INSTALLATION.md#autres-options) |
 | `./update.sh --restore LAST` | Remet les fichiers écrasés par la dernière mise à jour. | [Guide d'installation](INSTALLATION.md#annuler-une-mise-à-jour) |
 | `./update.sh --restore 20260923-164530` | Remet les fichiers de cette exécution précise. | [Guide d'installation](INSTALLATION.md#annuler-une-mise-à-jour) |
+| `./frequencylist/update-eibi.sh --force` | Récupère la grille EiBi pour la fenêtre EiBi maintenant, sans attendre la vérification quotidienne. | [Structure du projet](PROJECT_STRUCTURE.md#listes-de-fréquences-frequencylist) |
 
 ## Apparence de la page
 

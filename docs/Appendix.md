@@ -89,6 +89,7 @@ Every command a sysop uses to run a PhantomSDR-Plus station, grouped by task, ea
 | `./update.sh --verbose` | Lists every file, not only the first 40. | [Installation Guide](INSTALLATION.md#other-options) |
 | `./update.sh --restore LAST` | Puts back the files the last update overwrote. | [Installation Guide](INSTALLATION.md#undoing-an-update) |
 | `./update.sh --restore 20260923-164530` | Puts back the files from that particular run. | [Installation Guide](INSTALLATION.md#undoing-an-update) |
+| `./frequencylist/update-eibi.sh --force` | Fetches the EiBi schedule for the EiBi window now instead of waiting for the daily check. | [Project Structure](PROJECT_STRUCTURE.md#frequency-lists-frequencylist) |
 
 ## Look of the page
 

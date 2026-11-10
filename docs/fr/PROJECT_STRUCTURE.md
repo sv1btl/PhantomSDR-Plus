@@ -215,13 +215,17 @@ PhantomSDR-Plus
 │   ├── broadcas.txt
 │   ├── curl-output.txt
 │   ├── currentUpdateFile.txt
+│   ├── eibi-README.TXT  # pas dans le dépôt : les tables de codes d'EiBi, récupérées par update-eibi.sh
 │   ├── fmorg.txt
 │   ├── generate-current-shortwave.py
+│   ├── generate-eibi.py
 │   ├── language.txt
 │   ├── mymarkers.json
 │   ├── README.md
 │   ├── shortwavestations.json
 │   ├── site.txt
+│   ├── sked-b26.csv  # pas dans le dépôt : la grille de saison d'EiBi, récupérée par update-eibi.sh
+│   ├── update-eibi.sh
 │   └── update-markers.sh
 ├── frontend
 │   ├── build-all.sh
@@ -249,6 +253,7 @@ PhantomSDR-Plus
 │   │   │   ├── hfdl.wasm      # décodeur HFDL, compilé depuis jsdsp/hfdl_wasm
 │   │   │   ├── js8_dict.bin   # dictionnaire de mots JS8, chargé seulement au besoin
 │   │   │   └── js8.wasm       # décodeur JS8, compilé depuis jsdsp/js8_wasm
+│   │   ├── eibi.json  # pas dans le dépôt : la grille EiBi, écrite par frequencylist/update-eibi.sh
 │   │   ├── logo.jpg
 │   │   ├── stats.html
 │   │   ├── users.html
@@ -350,6 +355,7 @@ PhantomSDR-Plus
 │   │   │   ├── SsbReport.svelte       # bilan audio SSB sous l'analyseur
 │   │   │   ├── AmFmReport.svelte      # bilan AM/FM sous l'analyseur
 │   │   │   ├── StatusIndicators.svelte
+│   │   │   ├── SwSchedule.svelte          # la fenêtre EiBi
 │   │   │   ├── TimeSignalPanel.svelte     # Time Signals (SERVICES)
 │   │   │   ├── storage.js
 │   │   │   ├── sUnits.js              # échelle des points S selon la fréquence (S9 = −93 dBm au-dessus de 30 MHz)
@@ -1021,6 +1027,7 @@ L'interface utilisateur web construite avec Svelte et Vite.
 - Pavé numérique pour saisir une fréquence — `lib/FreqKeypad.svelte` ; la fréquence tapée est accordée avec le zoom, les Min/Max et le mode de sa bande (`tuneTypedFrequency()` dans `App.svelte`), et une fréquence couverte par un autre récepteur ouvre ce récepteur
 - Bandes **Show All** des autres récepteurs — `lib/RxStrip.svelte` : un socket `/waterfall?rx=<id>` chacune, chaque trame décodée et dessinée, avec la palette et les niveaux de l'autre récepteur, la ligne la plus récente en haut ; les plages des récepteurs et les liens entre eux viennent de `lib/receivers.js` ; avec deux bandes ou plus dans la plage de l'autre récepteur, une liste déroulante de bandes dans son en-tête (choix dans `localStorage` `rxStripView:<id>`, le clic arrive avec `&band=1`)
 - Choix du mode (AM/FM/BLU/CW) — `lib/ModesSelector.svelte`, changement de bande — `lib/BandSelector.svelte`
+- Fenêtre EiBi — `lib/SwSchedule.svelte` : cherche dans `/eibi.json` avec les critères de shortwave.live ; une ligne accorde par le chemin du clic sur un marqueur (`handleFrequencyMarkerClick()` dans `App.svelte`, d'où le démarrage du décodeur pour les modes de décodeur), et ses résultats verts ainsi que le marqueur rouge « en écoute » sont dessinés par `lib/FrequencyMarkers.svelte`, et **Hide HFCC markers** masque les entrées de `markers.json` que `update-markers.sh` marque `"source": "hfcc"` ; les lignes CW sont accordées avec le mode de marqueur `MORSE`, elles ouvrent donc le décodeur CW
 - L'AGC, le NR, le NB et les autres commandes se trouvent dans `App.svelte` lui-même ; il n'existe pas de `Controls.svelte` distinct
 
 #### 3a. Scanner (`scanner.js`)
@@ -1150,9 +1157,13 @@ frequencylist/
 ├── admin.txt · antenna.txt · broadcas.txt · fmorg.txt · language.txt · site.txt
 │                             # listes annexes de la même source (sites, langues, administrateurs, antennes)
 ├── generate-current-shortwave.py
+├── update-eibi.sh            # récupère la grille EiBi pour la fenêtre EiBi, au plus une fois par jour
+├── generate-eibi.py          # la transforme en frontend/public/eibi.json et frontend/dist/eibi.json
 ├── update-markers.sh         # actualise tout ce qui précède depuis les grilles en ligne
 └── README.md
 ```
+
+La fenêtre EiBi (le bouton **EiBi**) utilise une seconde liste, distincte. `update-markers.sh` lance d'abord `update-eibi.sh`, qui vérifie la grille EiBi (http://www.eibispace.de/dx/) au plus une fois par jour et ne la télécharge que si EiBi en a publié une nouvelle, en passant de lui-même à la liste de la saison suivante (été A, hiver B) ; `generate-eibi.py` la transforme en `eibi.json` pour la page et déduit le mode de chaque station. Lancez `./frequencylist/update-eibi.sh --force` pour la récupérer tout de suite. Un téléchargement raté n'arrête jamais la mise à jour des marqueurs. `update.sh` met à jour les deux scripts et demande d'abord si vous les avez modifiés. `update-markers.sh` marque aussi chaque entrée HFCC qu'il écrit dans `markers.json` avec `"source": "hfcc"` ; **Hide HFCC markers** de la fenêtre EiBi masque exactement celles-là.
 
 ### Format (`mymarkers.json`, `shortwavestations.json`)
 

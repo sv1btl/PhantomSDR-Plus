@@ -82,7 +82,8 @@ Beim Laden der Seite sehen Sie:
 ┌──────────────────────────────────────────────────────────────────────────┐
 │  WebSDR <callsign>, located in <QTH>              ⚙ [ Analog S-Meter ▾ ] │
 │  email · Keyboard Shortcuts · Users · Stats · Other servers 1 2 3        │
-│  Frequency Search: MW SW HamDash PSK Reporter WSPRnet · Callsign Search  │
+│  Frequency Search: MW SW EiBi HamDash PSK Reporter WSPRnet               │
+│  Callsign Search                                                         │
 │                        [ Open Additional Info ]                          │
 ├──────────────────────────────────────────────────────────────────────────┤
 │                     Spectrum  +  Waterfall                               │
@@ -304,6 +305,31 @@ Manche Stationen betreiben mehr als einen Empfänger — zum Beispiel einen für
 **Ein Band im Streifen wählen.** Deckt der andere Empfänger mehr als ein Band ab — der KW-Empfänger von der 2-m-Seite aus —, zeigt der Kopf des Streifens statt dieser Taste eine Auswahlliste: **Last view**, **Full span** und jedes Band dieses Empfängers, dieselben Bänder wie seine Bandschaltflächen. Wählen Sie ein Band, zeigt der Streifen es so wie diese Bandschaltfläche, von Rand zu Rand mit Helligkeit und Kontrast des Bandes; ein Klick auf den Streifen öffnet dann diesen Empfänger auf dieses Band gerahmt, abgestimmt auf die angeklickte Frequenz. Die Wahl wird in Ihrem Browser gespeichert, für jeden Empfänger getrennt. Ein Empfänger mit nur einem Band, etwa 2 m, behält die Taste.
 
 **Von selbst der richtige Empfänger.** Eine Frequenz, die dieser Empfänger nicht abdeckt, ein anderer Empfänger der Station aber schon — eingetippt, aus einem Link, einem Lesezeichen, einem DX-Spot, einer Chatnachricht oder dem Etikett eines anderen Hörers —, öffnet die Seite jenes Empfängers, dort abgestimmt. Mausrad und Ziffernschritte wechseln nie den Empfänger, ebenso wenig ein über CAT verbundener Transceiver.
+
+### EiBi-Sendeplan
+
+Die Schaltfläche **EiBi** in der Zeile Frequency Search, nach **SW**, öffnet ein Fenster, das den EiBi-Sendeplan durchsucht: die weltweite Liste der Lang-, Mittel- und Kurzwellensender und Utility-Stationen von Eike Bierwirth ([eibispace.de](http://www.eibispace.de/dx/)), die Datenbank, auf der shortwave.live aufbaut. Die Station hält sie selbst aktuell.
+
+**Suchen.** Setzen Sie beliebige Filter; die Liste folgt jeder Änderung.
+
+- **Station**: Teil eines Namens eintippen; passende Namen werden beim Tippen vorgeschlagen.
+- **Language**, **Target area**, **Station country**, **Transmitter in**: aus den Listen wählen (Sprache, Zielgebiet, Land der Station, Land des Senders).
+- **Band**: Langwelle, Mittelwelle, die ganze Kurzwelle, ein Rundfunkband von 120 m bis 11 m oder VLF/LF.
+- **Frequency (kHz, ±2)**: alles bis 2 kHz daneben; **dial** setzt die eingestellte Frequenz ein.
+- **Time (UTC)**: *Any time* (jederzeit), *On air now* (jetzt auf Sendung) oder *On air at* zu einer eingegebenen Zeit (**now** setzt die aktuelle UTC-Zeit ein).
+- **Today only** blendet aus, was heute (Wochentag oder Datum) nicht gesendet wird. **Receivable here** blendet Frequenzen aus, die dieser Empfänger nicht abdeckt.
+
+Gerade sendende Stationen sind grün. Ein Klick auf eine Spaltenüberschrift sortiert danach; mit der Maus über einer Zeile sehen Sie alle Angaben: Senderstandort, Gültigkeitsdaten, wann die Station zuletzt gehört wurde. **Reset** setzt die Filter zurück. Das Fenster merkt sich Ihre Filter in Ihrem Browser.
+
+**Abstimmen.** Klicken Sie auf eine Zeile. Der Empfänger stellt die Station in der Betriebsart der Spalte **Mode** ein: AM für Rundfunk, USB oder LSB für Sprechfunk von Utility-Stationen (Volmet, Küstenfunkstellen, Marine), CW für Morsestationen. Eine Betriebsart in Bernstein (FAX, HFDL, DRM, NAVTEX, RTTY-WX und CW) startet zusätzlich ihren Decoder, genau wie ein Decoder-Marker im Wasserfall; eine CW-Zeile öffnet den CW-Decoder. Der Wasserfall zoomt auf 100 kHz um die Station, und ein roter Marker mit dem Stationsnamen in Gelb zeigt, was Sie gerade hören; er verschwindet, sobald Sie mehr als 200 Hz davon weg abstimmen. Eine Station außerhalb des Bereichs dieses Empfängers öffnet den Empfänger, der sie abdeckt, sofern die Station einen hat. Die angeklickte Zeile wird in der Liste rot, solange Sie auf dieser Station bleiben.
+
+**Show on waterfall** zeigt die Ergebnisse als Marker mit dünnem grünem Rahmen und grüner Schrift im Wasserfall (beim Hineinzoomen, wie die anderen Marker). Sie bleiben nach dem Schließen des Fensters stehen, bis Sie das Häkchen entfernen oder die Seite neu laden. Ein Klick auf einen stimmt ihn ab wie eine Zeile, und seine Zeile wird in der Liste rot.
+
+**Hide HFCC markers** blendet die gelben Marker aus dem HFCC-Sendeplan aus, sodass nur die EiBi-Marker zu sehen sind. Ihre eigenen Marker und die Decoder-Marker bleiben. Die Einstellung bleibt nach dem Schließen des Fensters erhalten und wird in Ihrem Browser gespeichert; Häkchen entfernen bringt sie zurück.
+
+Das Fenster öffnet sich in der Mitte des Bildschirms und lässt sich an seinem Titel verschieben. **Esc**, **✕**, die Schaltfläche **EiBi** oder ein Klick irgendwo außerhalb schließt es.
+
+> Die Betriebsart jeder Zeile wird aus den Angaben von EiBi zur Station abgeleitet, einige können also falsch sein. Die gelben Marker im Wasserfall stammen aus einer eigenen Liste (HFCC); dieses Fenster kann sie ausblenden, ändert sie aber nie.
 
 ---
 
@@ -836,7 +862,7 @@ Speichern Sie Ihre Lieblingsfrequenzen für den schnellen Zugriff. Sie können d
 
 Wenn sich Lesezeichen und Marker überlappen:
 
-🔵 Blaue Lesezeichen erscheinen oben <br /> 🟡 Gelbe Marker erscheinen darunter <br />
+🔵 Lesezeichen (dünner cyanfarbener Rahmen, gelbe Schrift) erscheinen oben <br /> 🟡 Gelbe Marker erscheinen darunter <br />
 ✅ Klicks auf Lesezeichen haben Vorrang <br />
 
 

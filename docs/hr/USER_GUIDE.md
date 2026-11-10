@@ -82,7 +82,8 @@ Kada se stranica učita, vidjet ćete:
 ┌──────────────────────────────────────────────────────────────────────────┐
 │  WebSDR <callsign>, located in <QTH>              ⚙ [ Analog S-Meter ▾ ] │
 │  email · Keyboard Shortcuts · Users · Stats · Other servers 1 2 3        │
-│  Frequency Search: MW SW HamDash PSK Reporter WSPRnet · Callsign Search  │
+│  Frequency Search: MW SW EiBi HamDash PSK Reporter WSPRnet               │
+│  Callsign Search                                                         │
 │                        [ Open Additional Info ]                          │
 ├──────────────────────────────────────────────────────────────────────────┤
 │                     Spectrum  +  Waterfall                               │
@@ -303,6 +304,31 @@ Neke stanice imaju više od jednog prijemnika — na primjer jedan za kratki val
 **Odabir pojasa na traci.** Kad drugi prijemnik pokriva više od jednog pojasa — KV prijemnik gledan sa stranice za 2 m — zaglavlje trake umjesto te tipke ima padajući popis: **Last view**, **Full span** i svaki pojas tog prijemnika, iste pojaseve koje prikazuju njegovi gumbi pojasa. Odaberite pojas i traka ga prikazuje kao taj gumb pojasa, od ruba do ruba sa svjetlinom i kontrastom pojasa; klik na traku tada otvara taj prijemnik uokviren na pojas, ugođen ondje gdje ste kliknuli. Vaš se izbor pamti u pregledniku, zasebno za svaki prijemnik. Prijemnik sa samo jednim pojasom, poput 2 m, zadržava tipku.
 
 **Pravi prijemnik sam od sebe.** Frekvencija koju ovaj prijemnik ne pokriva, a drugi prijemnik stanice pokriva — upisana, iz poveznice, oznake, DX spota, poruke u chatu ili oznake drugog slušatelja — otvara stranicu tog prijemnika, ugođenu na nju. Kotačić miša i koraci po znamenkama nikad ne mijenjaju prijemnik, kao ni primopredajnik spojen preko CAT-a.
+
+### EiBi raspored
+
+Gumb **EiBi** u retku Frequency Search, iza **SW**, otvara prozor za pretraživanje EiBi rasporeda: svjetskog popisa emisija na dugom, srednjem i kratkom valu i uslužnih (utility) postaja koji vodi Eike Bierwirth ([eibispace.de](http://www.eibispace.de/dx/)), baze podataka na kojoj je izgrađen shortwave.live. Postaja ga sama održava ažurnim.
+
+**Pretraživanje.** Postavite bilo koje filtre; popis se mijenja s njima.
+
+- **Station**: upišite dio imena; imena se predlažu dok tipkate.
+- **Language**, **Target area**, **Station country**, **Transmitter in**: odaberite s popisa (jezik, ciljano područje, zemlja postaje, zemlja odašiljača).
+- **Band**: dugi val, srednji val, cijeli kratki val, jedan radiodifuzijski pojas od 120 m do 11 m, ili VLF/LF.
+- **Frequency (kHz, ±2)**: sve unutar 2 kHz od nje; **dial** upisuje frekvenciju na koju ste ugođeni.
+- **Time (UTC)**: *Any time* (bilo kada), *On air now* (sada u eteru) ili *On air at* u vrijeme koje upišete (**now** upisuje trenutno UTC vrijeme).
+- **Today only** skriva ono što danas nije u rasporedu (dan u tjednu ili datum). **Receivable here** skriva frekvencije koje ovaj prijemnik ne pokriva.
+
+Postaje koje upravo emitiraju prikazane su zeleno. Kliknite naslov stupca za sortiranje, a mišem preko retka vidite sve pojedinosti: lokaciju odašiljača, datume valjanosti, kada je postaja zadnji put slušana. **Reset** briše filtre. Prozor pamti vaše filtre u vašem pregledniku.
+
+**Ugađanje.** Kliknite redak. Prijemnik ugađa postaju u načinu rada iz stupca **Mode**: AM za radiodifuziju, USB ili LSB za govor uslužnih postaja (Volmet, obalne postaje, ratne mornarice), CW za Morse postaje. Način u jantarnoj boji (FAX, HFDL, DRM, NAVTEX, RTTY-WX i CW) pokreće i svoj dekoder, jednako kao marker dekodera na slapu; CW redak otvara CW dekoder. Slap zumira na 100 kHz oko postaje, a crveni marker s imenom postaje žutim slovima pokazuje što slušate; nestaje kad se ugodite više od 200 Hz od njega. Postaja izvan raspona ovog prijemnika otvara prijemnik koji je pokriva, ako ga postaja ima. Kliknuti redak postaje crven na popisu dok god ste na toj postaji.
+
+**Show on waterfall** stavlja rezultate na slap kao markere s tankim zelenim okvirom i zelenim slovima (kad je zumirano, kao i ostale markere). Ostaju i nakon zatvaranja prozora, dok ne maknete kvačicu ili ponovno učitate stranicu. Klik na jedan ugađa kao redak, a njegov redak postaje crven na popisu.
+
+**Hide HFCC markers** skriva žute markere iz HFCC rasporeda emisija, tako da se vide samo EiBi markeri. Vaši vlastiti markeri i markeri dekodera ostaju. Postavka ostaje nakon zatvaranja prozora i pamti se u vašem pregledniku; maknite kvačicu da se vrate.
+
+Prozor se otvara na sredini zaslona i može se povući za naslov. **Esc**, **✕**, gumb **EiBi** ili klik bilo gdje izvan njega zatvara ga.
+
+> Način rada svakog retka izvodi se iz onoga što EiBi piše o postaji, pa neki mogu biti pogrešni. Žuti markeri na slapu dolaze iz zasebnog popisa (HFCC); ovaj ih prozor može sakriti, ali ih nikad ne mijenja.
 
 ---
 
@@ -835,7 +861,7 @@ Spremite omiljene frekvencije za brzi pristup. Popis oznaka možete i izvesti te
 
 Kada se oznake i markeri preklapaju:
 
-🔵 Plave se oznake prikazuju iznad <br /> 🟡 Žuti se markeri prikazuju ispod <br />
+🔵 Oznake (tanki cijan okvir, žuta slova) prikazuju se iznad <br /> 🟡 Žuti se markeri prikazuju ispod <br />
 ✅ Klikovi na oznake imaju prednost <br />
 
 

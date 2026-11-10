@@ -89,6 +89,7 @@ Todos los comandos que un sysop usa para operar una estación PhantomSDR-Plus, a
 | `./update.sh --verbose` | Lista todos los ficheros, no solo los 40 primeros. | [Guía de instalación](INSTALLATION.md#otras-opciones) |
 | `./update.sh --restore LAST` | Restaura los ficheros que sobrescribió la última actualización. | [Guía de instalación](INSTALLATION.md#deshacer-una-actualización) |
 | `./update.sh --restore 20260923-164530` | Restaura los ficheros de esa ejecución concreta. | [Guía de instalación](INSTALLATION.md#deshacer-una-actualización) |
+| `./frequencylist/update-eibi.sh --force` | Trae ahora el horario EiBi para la ventana EiBi, en vez de esperar a la comprobación diaria. | [Estructura del proyecto](PROJECT_STRUCTURE.md#listas-de-frecuencias-frequencylist) |
 
 ## Aspecto de la página
 

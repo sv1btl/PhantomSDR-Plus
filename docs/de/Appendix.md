@@ -89,6 +89,7 @@ Alle Befehle, die ein Sysop zum Betrieb einer PhantomSDR-Plus-Station braucht, n
 | `./update.sh --verbose` | Listet alle Dateien, nicht nur die ersten 40. | [Installationsanleitung](INSTALLATION.md#weitere-optionen) |
 | `./update.sh --restore LAST` | Stellt die Dateien wieder her, die das letzte Update überschrieben hat. | [Installationsanleitung](INSTALLATION.md#ein-update-rückgängig-machen) |
 | `./update.sh --restore 20260923-164530` | Stellt die Dateien dieses bestimmten Laufs wieder her. | [Installationsanleitung](INSTALLATION.md#ein-update-rückgängig-machen) |
+| `./frequencylist/update-eibi.sh --force` | Holt den EiBi-Sendeplan für das EiBi-Fenster sofort, statt auf die tägliche Prüfung zu warten. | [Projektstruktur](PROJECT_STRUCTURE.md#frequenzlisten-frequencylist) |
 
 ## Aussehen der Seite
 

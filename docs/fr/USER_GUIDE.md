@@ -82,7 +82,8 @@ Au chargement de la page, vous verrez :
 ┌──────────────────────────────────────────────────────────────────────────┐
 │  WebSDR <callsign>, located in <QTH>              ⚙ [ Analog S-Meter ▾ ] │
 │  email · Keyboard Shortcuts · Users · Stats · Other servers 1 2 3        │
-│  Frequency Search: MW SW HamDash PSK Reporter WSPRnet · Callsign Search  │
+│  Frequency Search: MW SW EiBi HamDash PSK Reporter WSPRnet               │
+│  Callsign Search                                                         │
 │                        [ Open Additional Info ]                          │
 ├──────────────────────────────────────────────────────────────────────────┤
 │                     Spectrum  +  Waterfall                               │
@@ -303,6 +304,31 @@ Certaines stations ont plus d'un récepteur — par exemple un pour les ondes co
 **Choisir une bande radio dans la bande Show All.** Quand l'autre récepteur couvre plus d'une bande — le récepteur HF vu depuis la page 2 m —, l'en-tête de sa bande Show All porte une liste déroulante à la place de ce bouton : **Last view**, **Full span** et chaque bande de ce récepteur, les mêmes que ses boutons de bande. Choisissez une bande et la bande Show All l'affiche comme le fait ce bouton de bande, d'un bord à l'autre avec la luminosité et le contraste de la bande ; un clic dessus ouvre alors ce récepteur cadré sur la bande, accordé là où vous avez cliqué. Votre choix est mémorisé dans votre navigateur, séparément pour chaque récepteur. Un récepteur à une seule bande, comme le 2 m, garde le bouton.
 
 **Le bon récepteur, tout seul.** Une fréquence que ce récepteur ne couvre pas mais qu'un autre récepteur de la station couvre — tapée, issue d'un lien, d'un signet, d'un spot DX, d'un message du chat ou de l'étiquette d'un autre auditeur — ouvre la page de ce récepteur, accordée à cet endroit. La molette de la souris et les pas des chiffres ne changent jamais de récepteur, pas plus qu'un transceiver relié en CAT.
+
+### Grille EiBi
+
+Le bouton **EiBi** de la ligne Frequency Search, après **SW**, ouvre une fenêtre de recherche dans la grille EiBi : la liste mondiale des émissions en grandes ondes, ondes moyennes et ondes courtes et des stations utilitaires tenue par Eike Bierwirth ([eibispace.de](http://www.eibispace.de/dx/)), la base de données sur laquelle repose shortwave.live. La station la tient à jour d'elle-même.
+
+**Rechercher.** Réglez les filtres de votre choix ; la liste suit chaque changement.
+
+- **Station** : tapez une partie d'un nom ; des noms sont proposés pendant la frappe.
+- **Language**, **Target area**, **Station country**, **Transmitter in** : choisissez dans les listes (langue, zone cible, pays de la station, pays de l'émetteur).
+- **Band** : grandes ondes, ondes moyennes, toutes les ondes courtes, une bande de radiodiffusion de 120 m à 11 m, ou VLF/LF.
+- **Frequency (kHz, ±2)** : tout ce qui est à moins de 2 kHz ; **dial** inscrit la fréquence sur laquelle vous êtes accordé.
+- **Time (UTC)** : *Any time* (toute heure), *On air now* (à l'antenne maintenant) ou *On air at* à une heure que vous tapez (**now** inscrit l'heure UTC actuelle).
+- **Today only** masque ce qui n'est pas prévu aujourd'hui (jour de la semaine ou date). **Receivable here** masque les fréquences que ce récepteur ne couvre pas.
+
+Les stations à l'antenne en ce moment sont en vert. Cliquez sur un titre de colonne pour trier, et survolez une ligne pour voir tous ses détails : site de l'émetteur, dates de validité, dernière écoute signalée. **Reset** efface les filtres. La fenêtre retient vos filtres dans votre navigateur.
+
+**Accorder.** Cliquez sur une ligne. Le récepteur accorde la station dans le mode de la colonne **Mode** : AM pour la radiodiffusion, USB ou LSB pour la phonie utilitaire (Volmet, stations côtières, marines), CW pour les stations Morse. Un mode en ambre (FAX, HFDL, DRM, NAVTEX, RTTY-WX et CW) démarre aussi son décodeur, comme le fait un marqueur de décodeur sur la cascade ; une ligne CW ouvre le décodeur CW. La cascade zoome sur 100 kHz autour de la station, et un marqueur rouge portant le nom de la station en jaune montre ce que vous écoutez ; il disparaît quand vous vous accordez à plus de 200 Hz de lui. Une station hors de la plage de ce récepteur ouvre le récepteur qui la couvre, si la station en a un. La ligne cliquée devient rouge dans la liste tant que vous restez sur cette station.
+
+**Show on waterfall** place les résultats sur la cascade en marqueurs à fin cadre vert et lettres vertes (en zoom, comme les autres marqueurs). Ils restent après la fermeture de la fenêtre, jusqu'à ce que vous décochiez la case ou rechargiez la page. Un clic sur l'un d'eux accorde comme une ligne, et sa ligne devient rouge dans la liste.
+
+**Hide HFCC markers** masque les marqueurs jaunes issus de la grille de diffusion HFCC, pour ne voir que ceux d'EiBi. Vos propres marqueurs et les marqueurs de décodeur restent. Le réglage est conservé après la fermeture de la fenêtre et retenu dans votre navigateur ; décochez-le pour les faire revenir.
+
+La fenêtre s'ouvre au centre de l'écran et se déplace en tirant son titre. **Échap**, **✕**, le bouton **EiBi** ou un clic n'importe où en dehors la ferment.
+
+> Le mode de chaque ligne est déduit de ce qu'EiBi écrit sur la station, certains peuvent donc être faux. Les marqueurs jaunes de la cascade viennent d'une autre liste (HFCC) ; cette fenêtre peut les masquer mais ne les modifie jamais.
 
 ---
 
@@ -836,7 +862,7 @@ Enregistrez vos fréquences préférées pour y accéder rapidement. Vous pouvez
 
 Lorsque favoris et marqueurs se chevauchent :
 
-🔵 Les favoris bleus apparaissent au-dessus <br /> 🟡 Les marqueurs jaunes apparaissent en dessous <br />
+🔵 Les favoris (fin cadre cyan, texte jaune) apparaissent au-dessus <br /> 🟡 Les marqueurs jaunes apparaissent en dessous <br />
 ✅ Les clics sur les favoris sont prioritaires <br />
 
 

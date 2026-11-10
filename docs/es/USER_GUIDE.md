@@ -82,7 +82,8 @@ Al cargarse la página verá:
 ┌──────────────────────────────────────────────────────────────────────────┐
 │  WebSDR <callsign>, located in <QTH>              ⚙ [ Analog S-Meter ▾ ] │
 │  email · Keyboard Shortcuts · Users · Stats · Other servers 1 2 3        │
-│  Frequency Search: MW SW HamDash PSK Reporter WSPRnet · Callsign Search  │
+│  Frequency Search: MW SW EiBi HamDash PSK Reporter WSPRnet               │
+│  Callsign Search                                                         │
 │                        [ Open Additional Info ]                          │
 ├──────────────────────────────────────────────────────────────────────────┤
 │                     Spectrum  +  Waterfall                               │
@@ -304,6 +305,31 @@ Algunas estaciones tienen más de un receptor — por ejemplo uno para HF y otro
 **Elegir una banda en la franja.** Cuando el otro receptor cubre más de una banda —el receptor de HF visto desde la página de 2 m—, la cabecera de la franja tiene una lista desplegable en lugar de ese botón: **Last view**, **Full span** y cada banda de ese receptor, las mismas que muestran sus botones de banda. Elija una banda y la franja la muestra como lo hace ese botón de banda, de borde a borde con el brillo y el contraste de la banda; un clic en la franja abre entonces ese receptor encuadrado en la banda, sintonizado donde hizo clic. Su elección se guarda en su navegador, por separado para cada receptor. Un receptor con una sola banda, como 2 m, conserva el botón.
 
 **El receptor adecuado, por sí solo.** Una frecuencia que este receptor no cubre pero sí otro receptor de la estación —escrita, desde un enlace, un marcador, un spot DX, un mensaje del chat o la etiqueta de otro oyente— abre la página de ese receptor, sintonizada ahí. La rueda del ratón y los pasos de los dígitos nunca cambian de receptor, y tampoco un transceptor conectado por CAT.
+
+### Horario EiBi
+
+El botón **EiBi** de la fila Frequency Search, tras **SW**, abre una ventana que busca en el horario EiBi: la lista mundial de emisiones de onda larga, media y corta y de estaciones utilitarias que mantiene Eike Bierwirth ([eibispace.de](http://www.eibispace.de/dx/)), la base de datos sobre la que está hecho shortwave.live. La estación la mantiene al día por sí sola.
+
+**Buscar.** Ponga los filtros que quiera; la lista cambia con ellos.
+
+- **Station**: escriba parte de un nombre; se proponen nombres mientras escribe.
+- **Language**, **Target area**, **Station country**, **Transmitter in**: elija en las listas (idioma, zona de destino, país de la estación, país del transmisor).
+- **Band**: onda larga, onda media, toda la onda corta, una banda de radiodifusión de 120 m a 11 m, o VLF/LF.
+- **Frequency (kHz, ±2)**: todo lo que esté a menos de 2 kHz; **dial** pone la frecuencia sintonizada.
+- **Time (UTC)**: *Any time* (cualquier hora), *On air now* (en el aire ahora) u *On air at* a una hora que escriba (**now** pone la hora UTC actual).
+- **Today only** oculta lo que no está previsto para el día de hoy (día de la semana o fecha). **Receivable here** oculta las frecuencias que este receptor no cubre.
+
+Las estaciones que emiten en este momento aparecen en verde. Pulse un encabezado de columna para ordenar por él, y pase el ratón sobre una fila para ver todos sus datos: lugar del transmisor, fechas de validez, cuándo se escuchó por última vez. **Reset** borra los filtros. La ventana recuerda sus filtros en su navegador.
+
+**Sintonizar.** Pulse una fila. El receptor sintoniza la estación en el modo de la columna **Mode**: AM para radiodifusión, USB o LSB para voz utilitaria (Volmet, estaciones costeras, marinas de guerra), CW para estaciones Morse. Un modo en ámbar (FAX, HFDL, DRM, NAVTEX, RTTY-WX y CW) también arranca su decodificador, igual que un marcador de decodificador en la cascada; una fila CW abre el decodificador CW. La cascada se acerca a 100 kHz alrededor de la estación, y un marcador rojo con el nombre de la estación en amarillo indica lo que está escuchando; desaparece cuando sintoniza a más de 200 Hz de él. Una estación fuera del rango de este receptor abre el receptor que la cubre, si la estación tiene uno. La fila pulsada se pone roja en la lista mientras siga en esa estación.
+
+**Show on waterfall** pone los resultados en la cascada como marcadores con un fino marco verde y letras verdes (con zoom, como los demás marcadores). Se quedan después de cerrar la ventana, hasta que desmarque la casilla o recargue la página. Pulsar uno sintoniza igual que una fila, y su fila se pone roja en la lista.
+
+**Hide HFCC markers** oculta los marcadores amarillos que vienen del horario de emisiones HFCC, para que solo se vean los de EiBi. Sus propios marcadores y los marcadores de decodificador se quedan. El ajuste se mantiene al cerrar la ventana y se recuerda en su navegador; desmárquelo para que vuelvan.
+
+La ventana se abre en el centro de la pantalla y se puede arrastrar por su título. **Esc**, **✕**, el botón **EiBi** o un clic en cualquier punto fuera de ella la cierran.
+
+> El modo de cada fila se deduce de lo que EiBi escribe sobre la estación, así que algunos pueden ser erróneos. Los marcadores amarillos de la cascada vienen de otra lista (HFCC); esta ventana puede ocultarlos, pero nunca los cambia.
 
 ---
 
@@ -835,7 +861,7 @@ Guarde sus frecuencias favoritas para acceder a ellas rápidamente. También pue
 
 Cuando los marcadores propios y los del plan de bandas se solapan:
 
-🔵 Los marcadores azules aparecen encima <br /> 🟡 Los marcadores amarillos, debajo <br />
+🔵 Los marcadores propios (marco cian fino, letras amarillas) aparecen encima <br /> 🟡 Los marcadores amarillos, debajo <br />
 ✅ Los clics en los marcadores azules tienen prioridad <br />
 
 

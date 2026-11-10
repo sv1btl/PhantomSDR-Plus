@@ -89,6 +89,7 @@ Sve naredbe koje sysop koristi za rad PhantomSDR-Plus stanice, grupirane po zada
 | `./update.sh --verbose` | Prikazuje sve datoteke, ne samo prvih 40. | [Vodič za instalaciju](INSTALLATION.md#ostale-mogućnosti) |
 | `./update.sh --restore LAST` | Vraća datoteke koje je zadnje ažuriranje prepisalo. | [Vodič za instalaciju](INSTALLATION.md#poništavanje-ažuriranja) |
 | `./update.sh --restore 20260923-164530` | Vraća datoteke iz tog određenog pokretanja. | [Vodič za instalaciju](INSTALLATION.md#poništavanje-ažuriranja) |
+| `./frequencylist/update-eibi.sh --force` | Odmah dohvaća EiBi raspored za EiBi prozor, umjesto da čeka dnevnu provjeru. | [Struktura projekta](PROJECT_STRUCTURE.md#popisi-frekvencija-frequencylist) |
 
 ## Izgled stranice
 

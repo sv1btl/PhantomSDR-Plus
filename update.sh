@@ -342,6 +342,10 @@ tier_of() {
         frequencylist/decodermarkers.json) echo C; return ;;
         frequencylist/README.md)           echo C; return ;;
         frequencylist/update-markers.sh)   echo B; return ;;
+        # The EiBi schedule fetcher and converter (the EiBi window), called
+        # by update-markers.sh: scripts too, so asked about if edited.
+        frequencylist/update-eibi.sh)      echo B; return ;;
+        frequencylist/generate-eibi.py)    echo B; return ;;
     esac
     if matches_any "$path" "${TIER_A[@]}"; then echo A; return; fi
     if matches_any "$path" "${TIER_B[@]}"; then echo B; return; fi
@@ -365,9 +369,10 @@ if [ "$MODE" = "make-known" ]; then
 import hashlib, os, subprocess, sys
 root, extras = sys.argv[1], sys.argv[2:]
 skip = ("frequencylist/", "tools/", "subprojects/packagecache/", "update-known.txt")
-# the two files the project ships inside frequencylist/ (see tier_of)
+# the files the project ships inside frequencylist/ (see tier_of)
 shipped = ("frequencylist/decodermarkers.json", "frequencylist/update-markers.sh",
-           "frequencylist/README.md")
+           "frequencylist/README.md", "frequencylist/update-eibi.sh",
+           "frequencylist/generate-eibi.py")
 log = subprocess.run(["git", "-C", root, "log", "--all", "--format=", "--raw",
                       "--no-abbrev", "--no-renames"],
                      capture_output=True, text=True, check=True).stdout

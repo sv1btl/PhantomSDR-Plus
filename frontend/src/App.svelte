@@ -114,6 +114,7 @@
 
   import PassbandTuner from "./lib/PassbandTuner.svelte";
   import FreeDVReporter from "./lib/FreeDVReporter.svelte";
+  import SwSchedule from "./lib/SwSchedule.svelte";
   import FrequencyInput from "./lib/FrequencyInput.svelte";
   import FreqKeypad from "./lib/FreqKeypad.svelte";
   import FrequencyMarkers from "./lib/FrequencyMarkers.svelte";
@@ -7937,6 +7938,81 @@
     }
   }
 
+  // ── SW Schedule window (lib/SwSchedule.svelte) ──────────────────────────
+  // Searches the EiBi schedule (frequencylist/update-eibi.sh → /eibi.json);
+  // the HFCC waterfall markers stay as they are. A row tunes the way a
+  // waterfall marker does, so FAX and HFDL rows start their decoders.
+  let showSwSchedule = false;
+  let swScheduleMarkers = [];
+  // "Hide HFCC markers" (EiBi window): the yellow markers.json entries tagged
+  // "source": "hfcc" disappear; remembered in this browser.
+  const HIDE_HFCC_KEY = "phantom.hideHfccMarkers";
+  let hideHfccMarkers = false;
+  try { hideHfccMarkers = localStorage.getItem(HIDE_HFCC_KEY) === "1"; } catch (e) {}
+  function setHideHfcc(on) {
+    hideHfccMarkers = !!on;
+    try { localStorage.setItem(HIDE_HFCC_KEY, hideHfccMarkers ? "1" : "0"); } catch (e) {}
+  }
+  // The EiBi station picked last: a red marker with yellow text on its
+  // frequency, gone once the dial moves more than EIBI_PICK_HOLD_HZ away
+  // (fine-tuning a carrier keeps it). { frequency, name, dialHz }
+  let eibiPick = null;
+  const EIBI_PICK_HOLD_HZ = 200;
+  // A station picked from the EiBi list is shown with ±50 kHz around it.
+  const EIBI_VIEW_HALF_HZ = 50000;
+  function _frameAround(hz, halfHz) {
+    if (!waterfall || !(waterfall.waterfallMaxSize > 0)) return;
+    const max = waterfall.waterfallMaxSize;
+    let l = frequencyToFFTOffset(hz - halfHz);
+    let r = frequencyToFFTOffset(hz + halfHz);
+    // At the receiver's edges keep the full 100 kHz width, shifted inwards.
+    if (l < 0) { r -= l; l = 0; }
+    if (r > max) { l -= r - max; r = max; }
+    waterfall.setWaterfallRange(Math.max(0, Math.floor(l)), Math.min(max, Math.ceil(r)));
+    frequencyMarkerComponent.updateFrequencyMarkerPositions();
+    updatePassband();
+  }
+  $: if (eibiPick && eibiPick.dialHz > 0 &&
+         Math.abs(Number(frequency) * 1000 - eibiPick.dialHz) > EIBI_PICK_HOLD_HZ) {
+    eibiPick = null;
+  }
+  async function setEibiPick(hz, name, key = "") {
+    eibiPick = { frequency: hz, name, key, dialHz: 0 };
+    await tick();
+    // The dial may sit below the listed frequency (FAX, NAVTEX…): hold on to
+    // where the tuning actually landed.
+    if (eibiPick && eibiPick.frequency === hz) {
+      eibiPick = { ...eibiPick, dialHz: Number(frequency) * 1000 };
+    }
+  }
+  async function swScheduleTune(e) {
+    const hz = Number(e.detail.hz);
+    if (!(hz > 0)) return;
+    const lo = audio.baseFreq;
+    const hi = lo + audio.totalBandwidth;
+    if (!(hz >= lo && hz < hi)) {
+      switchToReceiverFor(hz, "view");
+      return;
+    }
+    // The row's mode is what EiBi writes (USB/LSB, CW, a FAX/HFDL/DRM/NAVTEX
+    // decoder, AM for broadcasting). A decoder left running from an earlier
+    // row would keep its own mode, so a plain-mode row stops it first.
+    if (!_markerDecoder(e.detail.mode) && decoderOn) {
+      decoderOn = false;
+      _deactivateAll();
+      selectedDecoder = "none";
+    }
+    eibiPick = null;
+    await handleFrequencyMarkerClick({ detail: { frequency: hz, modulation: e.detail.mode } });
+    _frameAround(hz, EIBI_VIEW_HALF_HZ);
+    setEibiPick(hz, e.detail.name || "", e.detail.key || "");
+  }
+  // The green "Show on waterfall" markers outlive the window (his call,
+  // 2026-11-09): they go when the box is unticked, or on reload.
+  function closeSwSchedule() {
+    showSwSchedule = false;
+  }
+
   // Tune to the frequency when clicked
   let frequencyMarkerComponent;
   // ── Marker → decoder shortcuts ─────────────────────────────────────────
@@ -8112,6 +8188,14 @@
 
   async function handleFrequencyMarkerClick(event) {
     const markerHz = Number(event.detail.frequency) || 0;
+    // A green EiBi marker marks its station as the one being listened to.
+    if (event.detail.sched) {
+      eibiPick = null;
+      const { sched, ...rest } = event.detail;
+      await handleFrequencyMarkerClick({ detail: rest });
+      setEibiPick(markerHz, event.detail.description || "", event.detail.key || "");
+      return;
+    }
     // A digital-mode marker names its decoder; the dial may sit below the
     // listed frequency (see MARKER_DECODERS).
     const decoderSpec = _markerDecoder(event.detail.modulation);
@@ -10489,6 +10573,22 @@
   </div>
 {/if}
 
+{#if showSwSchedule}
+  <SwSchedule
+    dataUrl={withRx("/eibi.json")}
+    lowHz={audio ? audio.baseFreq : 0}
+    highHz={audio ? audio.baseFreq + audio.totalBandwidth : 0}
+    dialKhz={Number(frequency) || 0}
+    markersShown={swScheduleMarkers.length > 0}
+    hfccHidden={hideHfccMarkers}
+    pickedKey={eibiPick ? eibiPick.key || "" : ""}
+    on:hidehfcc={(e) => setHideHfcc(e.detail)}
+    on:tune={swScheduleTune}
+    on:markers={(e) => (swScheduleMarkers = e.detail)}
+    on:close={closeSwSchedule}
+  />
+{/if}
+
 {#if showFreqKeypad}
   <FreqKeypad
     currentKHz={frequency}
@@ -10707,6 +10807,18 @@
                       )}+'&amp;timbus=NOW&amp;ip=179&amp;porm=4','websdrstationinfo','')"
                     >
                       <span class="icon">SW</span>
+                    </button>
+                    &nbsp;&nbsp;&nbsp;
+                    <button
+                      class="glass-button text-white py-1 px-3 mb-2 lg:mb-0 rounded-lg text-sm sm:text-sm"
+                      style="color:rgba(0, 225, 255, 0.993)"
+                      title="EiBi: search the EiBi broadcast schedule and tune with one click"
+                      aria-haspopup="dialog"
+                      aria-expanded={showSwSchedule}
+                      data-eibi-toggle
+                      on:click={() => (showSwSchedule ? closeSwSchedule() : (showSwSchedule = true))}
+                    >
+                      <span class="icon">EiBi</span>
                     </button>
                     &nbsp;&nbsp;&nbsp;
                     <button
@@ -11599,6 +11711,9 @@ Shift + Ctrl + Wheel = snap to .00 KHz"
                     <FrequencyMarkers
                       bind:this={frequencyMarkerComponent}
                       bookmarks={$bookmarks}
+                      scheduleMarkers={swScheduleMarkers}
+                      currentMarker={eibiPick}
+                      hideHfcc={hideHfccMarkers}
                       on:click={passbandTunerComponent.handlePassbandClick}
                       on:wheel={handleWaterfallWheel}
                       on:markerclick={handleFrequencyMarkerClick}
@@ -17193,6 +17308,9 @@ Slider: share of denoised audio, the rest is the original"
                     <FrequencyMarkers
                       bind:this={frequencyMarkerComponent}
                       bookmarks={$bookmarks}
+                      scheduleMarkers={swScheduleMarkers}
+                      currentMarker={eibiPick}
+                      hideHfcc={hideHfccMarkers}
                       on:click={passbandTunerComponent.handlePassbandClick}
                       on:wheel={handleWaterfallWheel}
                       on:markerclick={handleFrequencyMarkerClick}

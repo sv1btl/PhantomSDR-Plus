@@ -11,6 +11,7 @@
 - The script will generate the "shortwavestations.json" based on the data given from the database and finaly will merge it with "mymarkers.json", so to create the final "markers.json" in the root PhantomSDR-Plus folder).
 - **NB** Your markers in mymarkers.json will overwrite and replace the duplicate markers from shortwavestations.json in the final markers.json file which will be generated. The given mymarkers.json contains some demo markers, you can replace them with your own!
 - **Decoder markers:** "decodermarkers.json" ships with PhantomSDR-Plus and is merged in after your mymarkers.json: HFDL, DRM, FAX, NAVTEX, SITOR, RTTY, PSK31, Olivia, SSTV, the WSJT modes, RADE and CW (`MORSE`) frequencies, and clicking one starts its decoder. Every update replaces it, so do not edit it — a marker of yours on the same frequency always wins.
+- **EiBi window:** `update-markers.sh` also runs `update-eibi.sh`, which fetches the EiBi schedule (http://www.eibispace.de/dx/) at most once a day for the EiBi window of the receiver page, and `generate-eibi.py`, which turns it into `frontend/public/eibi.json`. It does not change your markers. To fetch it at once: `./update-eibi.sh --force`. Every HFCC entry in `markers.json` is tagged `"source": "hfcc"`, so the EiBi window can hide them (**Hide HFCC markers**).
 
 ---
 
@@ -27,6 +28,7 @@
 - Das Skript erzeugt aus den Daten der Datenbank die Datei "shortwavestations.json" und führt sie anschließend mit "mymarkers.json" zusammen, um im Stammverzeichnis von PhantomSDR-Plus die endgültige "markers.json" zu erstellen.
 - **Achtung:** Ihre Marker aus mymarkers.json überschreiben in der erzeugten markers.json die doppelten Marker aus shortwavestations.json. Die mitgelieferte mymarkers.json enthält einige Beispielmarker, die Sie durch Ihre eigenen ersetzen können!
 - **Decoder-Marker:** "decodermarkers.json" wird mit PhantomSDR-Plus ausgeliefert und nach Ihrer mymarkers.json eingemischt: HFDL-, DRM-, FAX-, NAVTEX-, SITOR-, RTTY-, PSK31-, Olivia-, SSTV-, WSJT-, RADE- und CW-Frequenzen (`MORSE`); ein Klick darauf startet den Decoder. Jedes Update ersetzt die Datei, bearbeiten Sie sie also nicht — ein eigener Marker auf derselben Frequenz hat immer Vorrang.
+- **EiBi-Fenster:** `update-markers.sh` ruft auch `update-eibi.sh` auf, das höchstens einmal am Tag den EiBi-Sendeplan (http://www.eibispace.de/dx/) für das EiBi-Fenster der Empfängerseite holt, und `generate-eibi.py`, das daraus `frontend/public/eibi.json` macht. Ihre Marker ändert das nicht. Sofort holen: `./update-eibi.sh --force`. Jeder HFCC-Eintrag in `markers.json` trägt `"source": "hfcc"`, damit das EiBi-Fenster sie ausblenden kann (**Hide HFCC markers**).
 
 ---
 
@@ -43,6 +45,7 @@
 - Το script δημιουργεί το "shortwavestations.json" από τα δεδομένα της βάσης και τελικά το συγχωνεύει με το "mymarkers.json", ώστε να παραχθεί το τελικό "markers.json" στον ριζικό φάκελο του PhantomSDR-Plus.
 - **ΠΡΟΣΟΧΗ:** Οι δικοί σας δείκτες στο mymarkers.json αντικαθιστούν τους διπλότυπους δείκτες από το shortwavestations.json στο τελικό markers.json που θα δημιουργηθεί. Το mymarkers.json που δίνεται περιέχει μερικούς δείκτες επίδειξης — μπορείτε να τους αντικαταστήσετε με δικούς σας!
 - **Δείκτες αποκωδικοποιητών:** το "decodermarkers.json" έρχεται με το PhantomSDR-Plus και συγχωνεύεται μετά το δικό σας mymarkers.json: συχνότητες HFDL, DRM, FAX, NAVTEX, SITOR, RTTY, PSK31, Olivia, SSTV, των WSJT, RADE και CW (`MORSE`), και το πάτημά τους ξεκινά τον αποκωδικοποιητή. Κάθε ενημέρωση το αντικαθιστά, οπότε μην το επεξεργάζεστε — ένας δικός σας δείκτης στην ίδια συχνότητα υπερισχύει πάντα.
+- **Παράθυρο EiBi:** το `update-markers.sh` τρέχει επίσης το `update-eibi.sh`, που φέρνει το πρόγραμμα EiBi (http://www.eibispace.de/dx/) το πολύ μία φορά τη μέρα για το παράθυρο EiBi της σελίδας του δέκτη, και το `generate-eibi.py`, που το μετατρέπει σε `frontend/public/eibi.json`. Δεν αλλάζει τους δείκτες σας. Για λήψη αμέσως: `./update-eibi.sh --force`. Κάθε εγγραφή HFCC στο `markers.json` έχει `"source": "hfcc"`, ώστε το παράθυρο EiBi να μπορεί να τις κρύψει (**Hide HFCC markers**).
 
 ---
 
@@ -59,6 +62,7 @@
 - El script genera "shortwavestations.json" a partir de los datos de la base de datos y finalmente lo combina con "mymarkers.json" para crear el "markers.json" definitivo en la carpeta raíz de PhantomSDR-Plus.
 - **NOTA:** Sus marcadores de mymarkers.json sobrescriben y reemplazan los marcadores duplicados de shortwavestations.json en el markers.json final que se genera. El mymarkers.json incluido contiene algunos marcadores de ejemplo, ¡puede sustituirlos por los suyos!
 - **Marcadores de decodificadores:** "decodermarkers.json" viene con PhantomSDR-Plus y se combina después de su mymarkers.json: frecuencias de HFDL, DRM, FAX, NAVTEX, SITOR, RTTY, PSK31, Olivia, SSTV, los modos WSJT, RADE y CW (`MORSE`); al pulsar uno se inicia su decodificador. Cada actualización lo reemplaza, así que no lo edite — un marcador suyo en la misma frecuencia siempre prevalece.
+- **Ventana EiBi:** `update-markers.sh` también ejecuta `update-eibi.sh`, que trae el horario EiBi (http://www.eibispace.de/dx/) como mucho una vez al día para la ventana EiBi de la página del receptor, y `generate-eibi.py`, que lo convierte en `frontend/public/eibi.json`. No cambia sus marcadores. Para traerlo enseguida: `./update-eibi.sh --force`. Cada entrada HFCC de `markers.json` lleva `"source": "hfcc"`, para que la ventana EiBi pueda ocultarlas (**Hide HFCC markers**).
 
 ---
 
@@ -75,6 +79,7 @@
 - Le script génère "shortwavestations.json" à partir des données de la base, puis le fusionne avec "mymarkers.json" afin de créer le "markers.json" final à la racine du dossier PhantomSDR-Plus.
 - **NB :** vos repères de mymarkers.json écrasent et remplacent les repères en double venant de shortwavestations.json dans le markers.json final qui sera généré. Le mymarkers.json fourni contient quelques repères de démonstration, que vous pouvez remplacer par les vôtres !
 - **Repères des décodeurs :** « decodermarkers.json » est livré avec PhantomSDR-Plus et fusionné après votre mymarkers.json : fréquences HFDL, DRM, FAX, NAVTEX, SITOR, RTTY, PSK31, Olivia, SSTV, des modes WSJT, RADE et CW (`MORSE`) ; un clic lance le décodeur. Chaque mise à jour le remplace, ne le modifiez donc pas — un repère à vous sur la même fréquence l’emporte toujours.
+- **Fenêtre EiBi :** `update-markers.sh` lance aussi `update-eibi.sh`, qui récupère la grille EiBi (http://www.eibispace.de/dx/) au plus une fois par jour pour la fenêtre EiBi de la page du récepteur, et `generate-eibi.py`, qui la transforme en `frontend/public/eibi.json`. Vos marqueurs ne changent pas. Pour la récupérer tout de suite : `./update-eibi.sh --force`. Chaque entrée HFCC de `markers.json` porte `"source": "hfcc"`, pour que la fenêtre EiBi puisse les masquer (**Hide HFCC markers**).
 
 ---
 
@@ -91,6 +96,7 @@
 - Skripta iz podataka baze stvara "shortwavestations.json" i naposljetku ga spaja s "mymarkers.json" kako bi u korijenskoj mapi PhantomSDR-Plusa nastao konačni "markers.json".
 - **NAPOMENA:** Vaše oznake iz mymarkers.json u konačnom markers.json prepisuju i zamjenjuju dvostruke oznake iz shortwavestations.json. Priloženi mymarkers.json sadrži nekoliko oglednih oznaka koje možete zamijeniti vlastitima!
 - **Oznake dekodera:** "decodermarkers.json" dolazi s PhantomSDR-Plusom i spaja se nakon vašeg mymarkers.json: frekvencije za HFDL, DRM, FAX, NAVTEX, SITOR, RTTY, PSK31, Olivia, SSTV, WSJT načine, RADE i CW (`MORSE`); klik na oznaku pokreće dekoder. Svako ažuriranje ga zamjenjuje, pa ga ne uređujte — vaša oznaka na istoj frekvenciji uvijek ima prednost.
+- **EiBi prozor:** `update-markers.sh` pokreće i `update-eibi.sh`, koji najviše jednom dnevno dohvaća EiBi raspored (http://www.eibispace.de/dx/) za EiBi prozor stranice prijemnika, te `generate-eibi.py`, koji ga pretvara u `frontend/public/eibi.json`. Vaše markere ne mijenja. Za odmah: `./update-eibi.sh --force`. Svaki HFCC unos u `markers.json` nosi `"source": "hfcc"`, kako bi ih EiBi prozor mogao sakriti (**Hide HFCC markers**).
 
 ---
 
@@ -107,3 +113,4 @@
 - Скрипт создаёт "shortwavestations.json" по данным из базы и затем объединяет его с "mymarkers.json", чтобы в корневой папке PhantomSDR-Plus получился итоговый "markers.json".
 - **ВНИМАНИЕ:** Ваши метки из mymarkers.json перезаписывают и заменяют дублирующиеся метки из shortwavestations.json в итоговом markers.json. В поставляемом mymarkers.json есть несколько демонстрационных меток — замените их своими!
 - **Метки декодеров:** "decodermarkers.json" поставляется с PhantomSDR-Plus и добавляется после вашего mymarkers.json: частоты HFDL, DRM, FAX, NAVTEX, SITOR, RTTY, PSK31, Olivia, SSTV, режимов WSJT, RADE и CW (`MORSE`); щелчок по метке запускает декодер. Каждое обновление заменяет этот файл, поэтому не редактируйте его — ваша метка на той же частоте всегда имеет приоритет.
+- **Окно EiBi:** `update-markers.sh` также запускает `update-eibi.sh`, который не чаще раза в день загружает расписание EiBi (http://www.eibispace.de/dx/) для окна EiBi на странице приёмника, и `generate-eibi.py`, который превращает его в `frontend/public/eibi.json`. Ваши маркеры это не меняет. Загрузить сразу: `./update-eibi.sh --force`. Каждая запись HFCC в `markers.json` помечена `"source": "hfcc"`, чтобы окно EiBi могло их скрыть (**Hide HFCC markers**).

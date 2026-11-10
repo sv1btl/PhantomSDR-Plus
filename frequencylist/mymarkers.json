@@ -105,6 +105,11 @@
       "mode": "USB"
     },
     {
+        "frequency": 2737000,
+        "name": "RUS AF HQ Morse (REA4)",
+        "mode": "MORSE"
+    },
+    {
       "frequency": 2789000,
       "name": "Messina (IT)",
       "mode": "USB"
@@ -148,6 +153,11 @@
       "frequency": 3205000,
       "name": "DRM KCBS (Korea)",
       "mode": "DRM"
+    },
+    {
+      "frequency": 3216000,
+      "name": "The Squeaky Wheel (S32) - Night",
+      "mode": "USB"
     },
     {
       "frequency": 3455000,
@@ -260,14 +270,39 @@
       "mode": "SITOR"
     },
     {
+      "frequency": 4125000,
+      "name": "RUS AF HQ Morse Secondary (REA4)",
+      "mode": "MORSE"
+    },
+    {
+      "frequency": 4182000,
+      "name": "RUS AF Tactical Secondary",
+      "mode": "USB"
+    },
+        {
       "frequency": 4280000,
       "name": "PBB RTTY (Holland)",
       "mode": "RTTY"
+    },
+        {
+      "frequency": 4224000,
+      "name": "RUS AF Tactical (Monolith)",
+      "mode": "USB"
+    },
+    {
+      "frequency": 4292000,
+      "name": "RUS AF Khabarovsk Morse (RHC71)",
+      "mode": "MORSE"
     },
     {
       "frequency": 4310000,
       "name": "The Goose",
       "mode": "USB"
+    },
+        {
+      "frequency": 4325000,
+      "name": "RUS Navy HQ Morse (RIW)",
+      "mode": "MORSE"
     },
     {
       "frequency": 4331000,
@@ -347,6 +382,16 @@
     {
       "frequency": 5450000,
       "name": "RAF Volmet (UK)",
+      "mode": "USB"
+    },
+    {
+      "frequency": 5473000,
+      "name": "The Squeaky Wheel (S32) - Day",
+      "mode": "USB"
+    },
+    {
+      "frequency": 5448000,
+      "name": "The Pip (S30) - Day",
       "mode": "USB"
     },
     {
@@ -493,6 +538,11 @@
       "frequency": 6646000,
       "name": "HFDL Bahrain",
       "mode": "HFDL"
+    },
+    {
+      "frequency": 6685000,
+      "name": "RUS AF Tactical Day-Channel",
+      "mode": "USB"
     },
     {
       "frequency": 6712000,

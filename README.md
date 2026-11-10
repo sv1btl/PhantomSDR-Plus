@@ -1,4 +1,4 @@
-# PhantomSDR-Plus WebSDR (version 5.5.0, November 3rd, 2026)
+# PhantomSDR-Plus WebSDR (version 5.5.0, November 11th, 2026)
 
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-cyan.svg)](https://www.gnu.org/licenses/gpl-3.0)
 [![Version](https://img.shields.io/badge/version-5.5.0-cyan.svg)](https://github.com/sv1btl/PhantomSDR-Plus)
@@ -76,6 +76,7 @@ We also provide a wide range of additional **features**:
   * **FT8, FT4 and JS8 → [PSK Reporter](https://pskreporter.info/)** using the native IPFIX/UDP protocol. Spots are batched and transmitted at the recommended interval of at least five minutes. JS8 is spotted at Normal speed, from heartbeats, compound frames and directed messages; group destinations such as `@ALLCALL` and unresolved callsigns are never reported.
   * **WSPR → [WSPRnet](https://wsprnet.org/)** using the standard WSPRnet upload endpoint. WSPR reports are sent only to WSPRnet to prevent duplicate submissions.
 * Integrated **FreeDV Reporter and DX Cluster tools**.
+* An **EiBi** window (button next to **SW**) that searches the worldwide [EiBi](http://www.eibispace.de/dx/) schedule of long wave, medium wave and shortwave broadcasts and utility stations — the database shortwave.live is built on — by station, language, target area, band, country, transmitter site, frequency and UTC time, with the stations on the air in green. One click tunes a station in the mode EiBi gives it (FAX, HFDL, DRM, NAVTEX, RTTY and CW rows start their decoder), zooms the waterfall to ±50 kHz and marks it in red; the results can be shown on the waterfall and the HFCC markers hidden. `frequencylist/update-eibi.sh` keeps the list current, checking once a day.
 * Chat with a **↪ Reply** button on every message; answers appear indented under the message they answer, on the desktop page and on /mobile. Messages are measured in characters, so Greek and Cyrillic get the full 200.
 * **Automatic C-QUAM status indication**. When a C-QUAM transmission is detected, the button label turns green. While operating in AM mode, pressing the button again enables synchronous AM detection on the carrier. The label then turns yellow and displays `SAM`. Pressing the button once more returns the receiver to standard AM mode.
 * A configurable band-plan overlay on the waterfall, with independent brightness, frequency-range, and visibility settings for each band; the 2 m modes follow the IARU Region 1 band plan.

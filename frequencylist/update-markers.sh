@@ -4,6 +4,10 @@
 # station is installed and whoever calls it — cron included.
 cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" || exit 1
 
+# EiBi schedule for the SW Schedule window (frontend/public/eibi.json). Goes to
+# the network at most once a day; a failure there never stops the markers.
+bash ./update-eibi.sh || echo "EiBi update failed, SW Schedule keeps its last list"
+
 #is the last HFCC DB downloaded?
 curl https://new.hfcc.org/data/ > ./curl-output.txt
 #scan the page and keep the last update at $lastUpdateLine
@@ -156,6 +160,12 @@ if duplicates_removed > 0:
             print(f"    ... and {len(removed_details) - 5} more")
 else:
     print(f"  ✓ No duplicates found")
+
+# The HFCC broadcasters carry "source": "hfcc", so the page can hide them
+# (the EiBi window's "Hide HFCC markers") without hiding your own markers or
+# the decoder markers.
+for sw in filtered_shortwave:
+    sw["source"] = "hfcc"
 
 # 4. Combine: YOUR MARKERS FIRST, then filtered shortwave
 markers.extend(my_markers)

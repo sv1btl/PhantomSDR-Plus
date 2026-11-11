@@ -36,7 +36,7 @@
 
 <div class="version-selector">
   <label for="version-select">⚙️</label>
-  <select id="version-select" bind:value={currentVersion} on:change={handleVersionChange}>
+  <select id="version-select" aria-label="Page layout" bind:value={currentVersion} on:change={handleVersionChange}>
     {#each versions as version}
       <option value={version.id}>{version.name}</option>
     {/each}

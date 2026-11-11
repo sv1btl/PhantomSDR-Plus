@@ -776,7 +776,7 @@
               {#if qrError}
                 <div class="text-amber-400">{qrError}</div>
               {/if}
-              <textarea
+              <textarea aria-label="Saved receivers export text"
                 readonly
                 rows="3"
                 class="w-full bg-gray-800 text-gray-300 font-mono text-[10px] rounded p-1 border border-gray-700 focus:outline-none"

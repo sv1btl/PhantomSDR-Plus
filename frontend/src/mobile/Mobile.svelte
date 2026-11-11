@@ -33,6 +33,7 @@
     browseUrl as divBrowseUrl
   } from '../diversityList.js'
   import { volumeToGain, initialVolume, saveVolume } from '../lib/volume.js'
+  import { srFeed, announce, describeSignal } from '../lib/a11y.js'
 
   // ── Header ───────────────────────────────────────────────────────────────
   // Plain text, no links — same source the desktop App.svelte imports.
@@ -651,8 +652,12 @@
     retune(!!explicitMode)
   }
 
+  // Screen readers say the button's name on a tap, not the new frequency.
+  let nudgeTimer = null
   function nudge (dir) {
     setFrequency(frequency + dir * tuneStep)
+    if (nudgeTimer) clearTimeout(nudgeTimer)
+    nudgeTimer = setTimeout(() => announce(`${(frequency / 1000).toFixed(2)} kilohertz`), 500)
   }
 
   /** Snap to the nearest whole kHz, so the readout's decimals go to .00. */
@@ -1287,6 +1292,7 @@
   // followed down at once and up by only 0.2 dB a second, so a long FM over
   // is not taken for noise. The bar rests at 0 until a signal stands out.
   let gatePower = NaN, gateFloor = NaN, gateLast = 0, gateClosed = false
+  let smeterSpoken = 'Signal meter', smeterSpokenAt = 0
 
   function startSmeter () {
     if (smeterRaf) cancelAnimationFrame(smeterRaf)
@@ -1308,6 +1314,11 @@
       gateClosed = meterGated(gateClosed, frequency, gatePower - gateFloor)
       if (gateClosed) drawSMeter(0)
       else setSignalStrength(power)
+      // What a screen reader says for the meter; refreshed once a second.
+      if (now - smeterSpokenAt > 1000) {
+        smeterSpokenAt = now
+        smeterSpoken = gateClosed ? 'Signal meter: no signal' : `Signal meter: ${describeSignal(raw + (Number(audio.analog_smeter_offset) || 0), frequency)}`
+      }
       smeterRaf = requestAnimationFrame(tickFn)
     }
     smeterRaf = requestAnimationFrame(tickFn)
@@ -1365,9 +1376,9 @@
       <!-- ── Always-visible tuning column ──────────────────────────────── -->
       <section class="pane pane-primary">
         <div class="freq-row">
-          <button class="step-btn" on:click={() => nudge(-1)} aria-label="Down">−</button>
+          <button class="step-btn" on:click={() => nudge(-1)} aria-label="Tune down one step">−</button>
           {#if freqEditing}
-            <input
+            <input aria-label="Frequency in kilohertz"
               class="freq-input"
               type="text"
               inputmode="decimal"
@@ -1376,28 +1387,31 @@
               on:keydown={(e) => e.key === 'Enter' && commitFreqEdit()}
               use:focusOnMount />
           {:else}
-            <button class="freq-display" on:click={beginFreqEdit}>
+            <button class="freq-display" on:click={beginFreqEdit} aria-label={`Frequency ${freqDisplay} kilohertz, tap to type a new one`}>
               {freqDisplay}<span class="freq-unit">kHz</span>
             </button>
           {/if}
-          <button class="step-btn" on:click={() => nudge(1)} aria-label="Up">+</button>
+          <button class="step-btn" on:click={() => nudge(1)} aria-label="Tune up one step">+</button>
         </div>
 
         <div class="grid-row steps">
           <button class="chip small snap" on:click={snapToKHz} aria-label="Snap to nearest kHz">&gt;|&lt;</button>
           {#each TUNE_STEPS as s}
-            <button class="chip small" class:active={tuneStep === s} on:click={() => (tuneStep = s)}>
+            <button class="chip small" class:active={tuneStep === s} aria-pressed={tuneStep === s} aria-label={`Step ${s >= 1000 ? `${s / 1000} kilohertz` : `${s} hertz`}`} on:click={() => (tuneStep = s)}>
               {s >= 1000 ? `${s / 1000}k` : s}
             </button>
           {/each}
         </div>
 
-        <canvas class="smeter" bind:this={smeterCanvas}></canvas>
+        <!-- role="img" is valid ARIA on <canvas>; Svelte's checker counts canvas
+             as interactive and objects. The label is what a screen reader says. -->
+        <!-- svelte-ignore a11y-no-interactive-element-to-noninteractive-role -->
+        <canvas class="smeter" bind:this={smeterCanvas} role="img" aria-label={smeterSpoken}></canvas>
 
         <div class="grid-row modes">
           <!-- No CW-L chip (user's choice); CW-L still works from links and markers. -->
           {#each MODES.filter((x) => x !== 'CW-L') as m}
-            <button class="chip" class:active={mode === m} on:click={() => setMode(m)}>{m}</button>
+            <button class="chip" class:active={mode === m} aria-pressed={mode === m} on:click={() => setMode(m)}>{m}</button>
           {/each}
         </div>
 
@@ -1428,7 +1442,7 @@
               aria-pressed={muted}
               title={muted ? 'Unmute' : 'Mute'}
               on:click={toggleMute}>{muted ? '🔇' : '🔊'}</button>
-            <input type="range" min="0" max="100" bind:value={volume} on:input={onVolumeInput} />
+            <input aria-label="Volume" type="range" min="0" max="100" bind:value={volume} on:input={onVolumeInput} />
           </div>
         </div>
       </section>
@@ -1437,7 +1451,7 @@
       <section class="pane pane-secondary">
         <nav class="tabs">
           {#each [['audio','Audio'],['bands','Bands'],['marks','Marks'],['div','Div'],['users','Users'],['chat','Chat']] as [id, label]}
-            <button class="tab" class:active={tab === id} on:click={() => (tab = id)}>{label}</button>
+            <button class="tab" class:active={tab === id} aria-pressed={tab === id} on:click={() => (tab = id)}>{label}</button>
           {/each}
         </nav>
 
@@ -1485,7 +1499,7 @@
                 {:else if exportQrError}
                   <div class="muted">{exportQrError}</div>
                 {/if}
-                <textarea class="blob" readonly rows="4" value={exportText}></textarea>
+                <textarea aria-label="Bookmarks export text" class="blob" readonly rows="4" value={exportText}></textarea>
                 <div class="transfer-actions">
                   <button class="btn" on:click={copyExport}>Copy text</button>
                   <button class="btn ghost" on:click={() => (transferMode = null)}>Close</button>
@@ -1525,7 +1539,7 @@
 
           {:else if tab === 'chat'}
             <div class="chat-wrap">
-              <div class="chat-msgs" bind:this={chatScroller}>
+              <div class="chat-msgs" bind:this={chatScroller} use:srFeed={{ name: "Chat", always: true }}>
                 {#each threadedChat as { msg: m, depth, quote } (m.id)}
                   <div class="chat-msg" class:chat-reply={depth > 0} data-chat-id={m.id}>
                     {#if quote}
@@ -1572,7 +1586,7 @@
                         title="Auto squelch — tap on a clear frequency to measure the noise, tap again to switch off">
                   SQ
                 </button>
-                <input type="range" min="-120" max="0" bind:value={squelch} on:input={applySquelch} />
+                <input aria-label="Squelch level" type="range" min="-120" max="0" bind:value={squelch} on:input={applySquelch} />
               </div>
             </div>
 
@@ -1585,7 +1599,7 @@
                         title="AI noise reduction (RNNoise) — USB, LSB and AM only. The slider sets how much of the result is denoised; the rest is the original audio.">
                   AI
                 </button>
-                <input type="range" min="0" max="100" step="5" bind:value={aiStrength} on:input={applyAiStrength} />
+                <input aria-label="AI noise reduction strength" type="range" min="0" max="100" step="5" bind:value={aiStrength} on:input={applyAiStrength} />
               </div>
             </div>
 
@@ -1598,7 +1612,7 @@
                         title="Step the buffer up — more delay rides out a slow link; wraps back to the shortest">
                   BUF
                 </button>
-                <input type="range" min="0" max={BUFFER_PRESETS.length - 1} step="1"
+                <input aria-label="Audio buffer" type="range" min="0" max={BUFFER_PRESETS.length - 1} step="1"
                        bind:value={bufferStep} on:input={applyBuffer} />
               </div>
             </div>
@@ -1659,7 +1673,7 @@
             </div>
 
             <div class="add-row">
-              <select class="text-input div-type" bind:value={divType}
+              <select aria-label="Receiver type" class="text-input div-type" bind:value={divType}
                       on:change={divOnTypeChange} disabled={divRunning}>
                 {#each DIV_TYPES as t}<option value={t}>{divTypeLabel(t)}</option>{/each}
               </select>
@@ -1721,7 +1735,7 @@
                   <img class="qr" src={divQr} alt="Saved receivers as a QR code" />
                 {/if}
                 {#if divQrError}<div class="muted">{divQrError}</div>{/if}
-                <textarea class="blob" rows="3" readonly value={divBlob}></textarea>
+                <textarea aria-label="Saved receivers export text" class="blob" rows="3" readonly value={divBlob}></textarea>
                 <div class="transfer-actions">
                   <button class="btn small" on:click={divCopyExport}>Copy</button>
                   <button class="btn small ghost" on:click={() => (divTransfer = null)}>Close</button>
@@ -1779,7 +1793,7 @@
               <span class="slider-label">
                 Remote SNR trim<em>{divCalib.toFixed(1)} dB</em>
               </span>
-              <input type="range" min="-15" max="15" step="0.5"
+              <input aria-label="Remote SNR trim" type="range" min="-15" max="15" step="0.5"
                      bind:value={divCalib} on:input={divSetCalib} />
             </div>
             <div class="muted">

@@ -1,4 +1,5 @@
 <script>
+  import { srFeed } from "./a11y.js";
   // HFDL (HF Data Link, aircraft ACARS on HF) decoder panel.
   // The decoding itself is dumphfdl in WebAssembly (hfdl.worker.js), switched
   // on by App.svelte; this panel receives the frames and lays them out.
@@ -405,6 +406,7 @@
   <!-- Messages -->
   <div
     bind:this={scrollEl}
+    use:srFeed={{ name: "HFDL" }}
     on:scroll={onScroll}
     class="rounded-md bg-gray-900 recess-window overflow-y-auto custom-scrollbar text-xs font-mono"
     style="height: 320px;"

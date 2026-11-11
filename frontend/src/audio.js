@@ -8074,7 +8074,7 @@ js8Pending() {
 
   setFSKVariant(variant = 'maritime') {
     const v = String(variant || 'maritime').toLowerCase();
-    if (v !== 'weather' && v !== 'maritime' && v !== 'ham' &&
+    if (v !== 'weather' && v !== 'naval' && v !== 'maritime' && v !== 'ham' &&
         v !== 'psk31' && v !== 'olivia' && v !== 'fst4w' && v !== 'msk144' && v !== 'ale' && v !== 'packet' && v !== 'aprs' &&
         !FSK_MODEM_VARIANTS.includes(v)) {
       console.warn('[FSK] unknown variant:', variant, '— using maritime');

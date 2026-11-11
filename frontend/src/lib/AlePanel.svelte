@@ -1,4 +1,5 @@
 <script>
+  import { srFeed } from "./a11y.js";
   // ALE 2G inside the FSK panel: FLDIGI "ALE 2G HAM" (scope "ham", the
   // amateur nets) and SERVICES "ALE 2G" (scope "util", every other net). The
   // decoding is ale.js in the FSK worker (fsk.js); App passes its events to
@@ -116,7 +117,7 @@
     <span>Events: <span class="font-mono text-gray-200">{rows.length}</span></span>
   </div>
 
-  <div bind:this={scrollEl} on:scroll={onScroll}
+  <div bind:this={scrollEl} use:srFeed={{ name: "ALE" }} on:scroll={onScroll}
     class="rounded-md bg-gray-900 recess-window overflow-y-auto custom-scrollbar text-xs font-mono" style="height: 300px;">
     {#if rows.length === 0}
       <div class="p-3 text-gray-500 italic font-sans">

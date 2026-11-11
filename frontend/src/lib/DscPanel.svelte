@@ -1,4 +1,5 @@
 <script>
+  import { srFeed } from "./a11y.js";
   // DSC (Digital Selective Calling, MF/HF) panel inside SERVICES.
   // The decoding is dsc.js in services.worker.js, switched on by App.svelte;
   // this panel receives the calls and lays them out.
@@ -167,6 +168,7 @@
 
   <div
     bind:this={scrollEl}
+    use:srFeed={{ name: "DSC" }}
     on:scroll={onScroll}
     class="rounded-md bg-gray-900 recess-window overflow-y-auto custom-scrollbar text-xs font-mono"
     style="height: 320px;"

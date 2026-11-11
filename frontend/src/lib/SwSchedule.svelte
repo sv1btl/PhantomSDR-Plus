@@ -493,7 +493,7 @@
       </label>
       <div>Time (UTC)
         <span class="flex items-center gap-1 flex-wrap">
-          <select class="glass-select text-white text-xs px-2 py-1 rounded-md" bind:value={f.time}>
+          <select aria-label="Time UTC" class="glass-select text-white text-xs px-2 py-1 rounded-md" bind:value={f.time}>
             <option value="any">Any time</option>
             <option value="now">On air now</option>
             <option value="at">On air at</option>

@@ -105,6 +105,14 @@
   import Waterfall3D from "./lib/Waterfall3D.svelte";
   import SMeterAnalog from "./lib/SMeterAnalog.svelte";
   import SMeterDigital from "./lib/SMeterDigital.svelte";
+  import {
+    srFeed,
+    srDialog,
+    handleA11yKey,
+    announceTuningSoon,
+    arrowsBelongToControl,
+    A11Y_SHORTCUTS,
+  } from "./lib/a11y.js";
   import StatusIndicators from "./lib/StatusIndicators.svelte";
   import BandSelector from "./lib/BandSelector.svelte";
   import ModesSelector from "./lib/ModesSelector.svelte";
@@ -1742,6 +1750,9 @@
     // Only arrows
     const c = e.code;
     if (!c || !c.startsWith("Arrow")) return;
+    // A focused slider, list or text field keeps its arrows (keyboard and
+    // screen-reader users could not move them at all otherwise).
+    if (arrowsBelongToControl(e.target)) return;
 
     const shift = e.shiftKey;
     const ctrlOrMeta = e.ctrlKey || e.metaKey;
@@ -1769,6 +1780,7 @@
 
     cancelBrowser(e);
     applyStep(sign * stepKHz);
+    announceTuningSoon(a11yState);
   }
 
   onMount(() => {
@@ -2281,6 +2293,16 @@
     showStats = false;
   }
 
+  // What the screen-reader shortcuts read out (lib/a11y.js).
+  function a11yState() {
+    let snr = NaN;
+    try {
+      const w = waterfall && waterfall.getSnrEstimate ? waterfall.getSnrEstimate() : null;
+      if (w && Number.isFinite(w.snrDb)) snr = w.snrDb;
+    } catch (e) {}
+    return { frequency, mode: demodulation, bandwidth, dbm: smeterDbmFlat, snr };
+  }
+
   function onGlobalKey(e) {
     // Close shortcuts dialog on Escape when open
     if (showShortcuts && (e.key === "Escape" || e.code === "Escape")) {
@@ -2301,6 +2323,9 @@
       return;
     }
 
+    // --- Screen-reader shortcuts: Alt+Shift+F/S/R/C/H (lib/a11y.js) ---
+    if (handleA11yKey(e, { get: a11yState })) return;
+
     // --- Mode shortcuts: l/u/a/q/f ---
     // Ignore if user is typing in an input/textarea or editable element
     try {
@@ -2320,26 +2345,31 @@
     if (k === "l") {
       e.preventDefault();
       SetMode("LSB");
+      announceTuningSoon(a11yState);
       return;
     }
     if (k === "u") {
       e.preventDefault();
       SetMode("USB");
+      announceTuningSoon(a11yState);
       return;
     }
     if (k === "a") {
       e.preventDefault();
       SetMode("AM");
+      announceTuningSoon(a11yState);
       return;
     }
     if (k === "q") {
       e.preventDefault();
       SetMode("QUAM");
+      announceTuningSoon(a11yState);
       return;
     }
     if (k === "f") {
       e.preventDefault();
       SetMode("FM");
+      announceTuningSoon(a11yState);
       return;
     }
     if (k === "w") {
@@ -3744,6 +3774,7 @@
     // services.worker.js: utility broadcasts, not amateur modes.
     { key: "maritime", label: "Maritime FSK / SITOR", report: "SITOR", title: "SITOR-B / NBDP maritime safety broadcasts (100 Bd, 170 Hz)" },
     { key: "weather", label: "Weather RTTY", report: "RTTY-WX", title: "Weather RTTY: DWD Pinneberg and similar (50 Bd, 450 Hz)" },
+    { key: "naval", label: "Naval RTTY (PBB CARB)", report: "RTTY-NAV", title: "Naval RTTY: PBB Royal Netherlands Navy CARB broadcast (75 Bd, 850 Hz, inverted)" },
     { key: "dsc", label: "DSC", report: "DSC", title: "Digital Selective Calling: MF/HF maritime calls (GMDSS)" },
     { key: "time", label: "Time Signals", report: "TIME", title: "DCF77, MSF, RWM, WWV/WWVH: decoded date and time" },
     { key: "selcall", label: "HF Selcall", report: "SELCALL", title: "CCIR 493-4 Selcall (Codan, Barrett …): who calls whom" },
@@ -3763,10 +3794,10 @@
   // key is the fsk.js variant). Maritime and Weather left FLDIGI; ALE 2G is in
   // both: FLDIGI "ALE 2G HAM" lists only the amateur (HFLINK) net, SERVICES
   // "ALE 2G" all the others (AlePanel `scope`).
-  const FSK_SERVICE_VARIANTS = ["maritime", "weather", "ale"];
+  const FSK_SERVICE_VARIANTS = ["maritime", "weather", "naval", "ale"];
   const _isFskService = (k) => FSK_SERVICE_VARIANTS.includes(k);
   // The variants only SERVICES offers.
-  const _isServiceOnlyVariant = (v) => v === "maritime" || v === "weather";
+  const _isServiceOnlyVariant = (v) => v === "maritime" || v === "weather" || v === "naval";
   // True while the FSK engine/panel belongs to SERVICES. Cleared when FLDIGI
   // starts, and by every path that picks an FLDIGI variant (markers, Signal
   // ID), so FLDIGI then keeps that variant.
@@ -3980,6 +4011,16 @@
       // −7 dB: −8 let 54 noise characters through in 20 min, −7 dB 10 (fsk.js)
       squelch: -7,
     },
+    // Naval CARB RTTY (PBB): NATO 75 Bd / 850 Hz, mark/space inverted.
+    naval: {
+      center: 1000,
+      shift: 850,
+      baud: 75,
+      framing: "5N1.5",
+      encoding: "ita2",
+      invert: true,
+      squelch: -7,
+    },
     ham: {
       center: 1000,
       shift: 170,
@@ -4158,6 +4199,7 @@
   const FSK_CENTER_OPTIONS = {
     maritime: [500, 800, 1000, 1200, 1500, 1700, 1800],
     weather: [1000, 500, 1200, 1500, 1700, 1800],
+    naval: [1000, 1200, 1500, 1700, 1800],
     ham: [1000, 500, 800, 1200, 1500, 1700, 1800, 2125],
     // psk31 uses a free-entry number field instead of a list: the carrier can
     // sit anywhere in the passband, and auto-tune reports back an exact value.
@@ -4165,11 +4207,13 @@
   const FSK_SHIFT_OPTIONS = {
     maritime: [170, 85, 200, 425, 500, 850],
     weather: [450, 170, 85, 200, 500, 850],
+    naval: [850, 450, 425, 170],
     ham: [170, 85, 200, 425, 450, 500, 850],
   };
   const FSK_BAUD_OPTIONS = {
     maritime: [100, 50, 75, 110, 150, 200, 300],
     weather: [50, 45.45, 75, 100, 110, 150],
+    naval: [75, 50, 100, 150],
     ham: [45.45, 50, 75, 100, 110, 150],
   };
 
@@ -4200,6 +4244,30 @@
       { label: "14467.30 kHz — DWD Prog.2 DDH8", khz: 14467.3 },
       // DDH47 is the only DWD outlet that is not 450 Hz: it runs +/-42.5 Hz.
       { label: "147.30 kHz — DWD Prog.2 DDH47 (LF)", khz: 147.3, shift: 85 },
+    ],
+    // PBB, Royal Netherlands Navy (Den Helder) CARB frequency list (sysop-supplied).
+    naval: [
+      { label: "2474.00 kHz — PBB CARB", khz: 2474.0 },
+      { label: "4250.00 kHz — PBB CARB", khz: 4250.0 },
+      { label: "4280.00 kHz — PBB CARB", khz: 4280.0 },
+      { label: "5052.00 kHz — PBB CARB", khz: 5052.0 },
+      { label: "5214.00 kHz — PBB CARB", khz: 5214.0 },
+      { label: "5659.00 kHz — PBB CARB", khz: 5659.0 },
+      { label: "5694.50 kHz — PBB CARB", khz: 5694.5 },
+      { label: "6356.00 kHz — PBB CARB", khz: 6356.0 },
+      { label: "6358.50 kHz — PBB CARB", khz: 6358.5 },
+      { label: "8435.40 kHz — PBB CARB", khz: 8435.4 },
+      { label: "8437.00 kHz — PBB CARB", khz: 8437.0 },
+      { label: "8439.00 kHz — PBB CARB", khz: 8439.0 },
+      { label: "9264.00 kHz — PBB CARB", khz: 9264.0 },
+      { label: "9368.00 kHz — PBB CARB", khz: 9368.0 },
+      { label: "12840.50 kHz — PBB CARB", khz: 12840.5 },
+      { label: "12841.00 kHz — PBB CARB", khz: 12841.0 },
+      { label: "16318.00 kHz — PBB CARB", khz: 16318.0 },
+      { label: "17116.70 kHz — PBB CARB", khz: 17116.7 },
+      { label: "17947.00 kHz — PBB CARB", khz: 17947.0 },
+      { label: "18308.00 kHz — PBB CARB", khz: 18308.0 },
+      { label: "20098.00 kHz — PBB CARB", khz: 20098.0 },
     ],
     ham: [
       { label: "3590.00 kHz — 80m RTTY", khz: 3590.0 },
@@ -4478,7 +4546,7 @@
   $: isAprs = fskVariant === "aprs";
   $: isPacketLike = isPacket || isAprs;
   // NAVTEX/SITOR (maritime) has FEC and its own framing; the squelch is RTTY's.
-  $: fskHasSquelch = fskVariant === "ham" || fskVariant === "weather";
+  $: fskHasSquelch = fskVariant === "ham" || fskVariant === "weather" || fskVariant === "naval";
 
   function _fskEffectiveConfig() {
     if (_fskIsPacket()) {
@@ -5090,6 +5158,8 @@
     const mode =
       fskVariant === "weather"
         ? "weather-rtty"
+        : fskVariant === "naval"
+          ? "naval-rtty"
         : fskVariant === "ham"
           ? "amateur-rtty"
           : fskVariant === "psk31"
@@ -6767,7 +6837,7 @@
     {
       key: "services",
       label: "SERVICES",
-      title: "SERVICES — HFDL (aircraft), Maritime FSK / SITOR, Weather RTTY, DSC (maritime calls), Time Signals, HF Selcall, ALE 2G",
+      title: "SERVICES — HFDL (aircraft), Maritime FSK / SITOR, Weather RTTY, Naval RTTY (PBB), DSC (maritime calls), Time Signals, HF Selcall, ALE 2G",
     },
     {
       key: "drm",
@@ -8037,6 +8107,7 @@
     // SERVICES since 2026-11-08; the dial sits below by the FSK centre
     // (FSK_VARIANT_PRESETS: weather 1000 Hz, maritime 500 Hz).
     "RTTY-WX": { key: "services", service: "weather", offset: 1000 },
+    "RTTY-NAV": { key: "services", service: "naval", offset: 1000 },
     SITOR: { key: "services", service: "maritime", offset: 500 },
     PSK31: { key: "fsk", variant: "psk31", pskMode: "bpsk31" },
     BPSK31: { key: "fsk", variant: "psk31", pskMode: "bpsk31" },
@@ -10854,7 +10925,7 @@
                       action="https://www.qrzcq.com"
                     >
                       Callsign Search: &nbsp;&nbsp;&nbsp;
-                      <input
+                      <input aria-label="Callsign search"
                         type="text"
                         name="q"
                         value=""
@@ -10917,6 +10988,9 @@
                                   ><td>Shift + Ctrl + ← / →</td><td>∓10 MHz</td
                                   ></tr
                                 >
+                                {#each A11Y_SHORTCUTS as [k, d]}
+                                  <tr><td>{k}</td><td>{d}</td></tr>
+                                {/each}
                               </tbody>
                             </table>
                           </div>
@@ -12154,13 +12228,14 @@ Slider: share of denoised audio, the rest is the original"
                     >
                       <div
                         class="p-6 rounded-lg max-w-lg w-full max-h-[80vh] flex flex-col decoder-window popup-panel"
+                        use:srDialog
                         on:click|stopPropagation
                       >
                         <div class="flex justify-between items-center mb-4">
                           <h2 class="text-base font-bold text-white">
                             Equalizer
                           </h2>
-                          <button
+                          <button aria-label="Close equalizer"
                             class="text-gray-400 hover:text-white"
                             on:click={toggleEqPopup}
                           >
@@ -12248,13 +12323,14 @@ Slider: share of denoised audio, the rest is the original"
                     >
                       <div
                         class="p-6 rounded-lg max-w-lg w-full max-h-[80vh] flex flex-col overflow-y-auto decoder-window popup-panel"
+                        use:srDialog
                         on:click|stopPropagation
                       >
                         <div class="flex justify-between items-center mb-4">
                           <h2 class="text-base font-bold text-white">
                             Compressor
                           </h2>
-                          <button
+                          <button aria-label="Close compressor"
                             class="text-gray-400 hover:text-white"
                             on:click={toggleCompPopup}
                           >
@@ -12912,6 +12988,7 @@ Slider: share of denoised audio, the rest is the original"
                                    scroll to reach the threshold. -->
                               <div
                                 class="z-50 p-2 rounded-md decoder-window popup-panel w-64"
+                                use:srDialog
                                 use:keepInView={{
                                   anchor: "#scanner-threshold",
                                   onOutside: () =>
@@ -13080,6 +13157,7 @@ Slider: share of denoised audio, the rest is the original"
                             >
                               <div
                                 class="p-6 rounded-lg max-w-lg w-full max-h-[80vh] flex flex-col decoder-window popup-panel"
+                                use:srDialog
                                 on:click|stopPropagation
                               >
                                 <div
@@ -13088,7 +13166,7 @@ Slider: share of denoised audio, the rest is the original"
                                   <h2 class="text-base font-bold text-white">
                                     Modes
                                   </h2>
-                                  <button
+                                  <button aria-label="Close modes"
                                     class="text-gray-400 hover:text-white"
                                     on:click={toggleModePopup}
                                   >
@@ -13186,6 +13264,7 @@ Slider: share of denoised audio, the rest is the original"
                             >
                               <div
                                 class="p-6 rounded-lg max-w-lg w-full max-h-[80vh] flex flex-col decoder-window popup-panel"
+                                use:srDialog
                                 on:click|stopPropagation
                               >
                                 <div
@@ -13194,7 +13273,7 @@ Slider: share of denoised audio, the rest is the original"
                                   <h2 class="text-base font-bold text-white">
                                     Bands
                                   </h2>
-                                  <button
+                                  <button aria-label="Close bands"
                                     class="text-gray-400 hover:text-white"
                                     on:click={toggleBandPopup}
                                   >
@@ -13286,6 +13365,7 @@ Slider: share of denoised audio, the rest is the original"
                             >
                               <div
                                 class="p-6 rounded-lg max-w-lg w-full max-h-[80vh] flex flex-col decoder-window popup-panel"
+                                use:srDialog
                                 on:click|stopPropagation
                               >
                                 <div
@@ -13294,7 +13374,7 @@ Slider: share of denoised audio, the rest is the original"
                                   <h2 class="text-base font-bold text-white">
                                     Static IF Filters
                                   </h2>
-                                  <button
+                                  <button aria-label="Close IF filters"
                                     class="text-gray-400 hover:text-white"
                                     on:click={toggleIFPopup}
                                   >
@@ -13418,6 +13498,7 @@ Slider: share of denoised audio, the rest is the original"
                             >
                               <div
                                 class="p-6 rounded-lg max-w-lg w-full max-h-[80vh] flex flex-col decoder-window popup-panel"
+                                use:srDialog
                                 on:click|stopPropagation
                               >
                                 <div
@@ -13426,7 +13507,7 @@ Slider: share of denoised audio, the rest is the original"
                                   <h2 class="text-base font-bold text-white">
                                     CAT control via TCI
                                   </h2>
-                                  <button
+                                  <button aria-label="Close CAT control"
                                     class="text-gray-400 hover:text-white"
                                     on:click={toggleCatPopup}
                                   >
@@ -13621,7 +13702,7 @@ Slider: share of denoised audio, the rest is the original"
                         {#if spectrogramEnabled}
                           <div class="flex items-center gap-2">
                             <label class="text-sm text-gray-300">Gain:</label>
-                            <input
+                            <input aria-label="Analyser display gain"
                               type="range"
                               min="0"
                               max="3"
@@ -13645,7 +13726,7 @@ Slider: share of denoised audio, the rest is the original"
 
                           <div class="flex items-center gap-2">
                             <label class="text-sm text-gray-300">Color:</label>
-                            <select
+                            <select aria-label="Analyser colour scheme"
                               bind:value={spectrogramColorScheme}
                               class="glass-select px-2 py-1 text-sm text-white"
                             >
@@ -13679,7 +13760,7 @@ Slider: share of denoised audio, the rest is the original"
                         {#if qrssEnabled}
                           <div class="flex items-center gap-2">
                             <label class="text-sm text-gray-300">Band:</label>
-                            <select
+                            <select aria-label="QRSS known frequency"
                               bind:value={qrssKnownFrequency}
                               class="glass-select px-2 py-1 text-sm text-white"
                             >
@@ -13698,7 +13779,7 @@ Slider: share of denoised audio, the rest is the original"
 
                           <div class="flex items-center gap-2">
                             <label class="text-sm text-gray-300">Speed:</label>
-                            <select
+                            <select aria-label="QRSS mode"
                               bind:value={qrssMode}
                               class="glass-select px-2 py-1 text-sm text-white"
                             >
@@ -13712,7 +13793,7 @@ Slider: share of denoised audio, the rest is the original"
 
                           <div class="flex items-center gap-2">
                             <label class="text-sm text-gray-300">Centre:</label>
-                            <input
+                            <input aria-label="QRSS centre frequency in hertz"
                               type="number"
                               min="100"
                               max="3000"
@@ -13727,7 +13808,7 @@ Slider: share of denoised audio, the rest is the original"
 
                           <div class="flex items-center gap-2">
                             <label class="text-sm text-gray-300">Span:</label>
-                            <select
+                            <select aria-label="QRSS span"
                               bind:value={qrssSpanHz}
                               on:change={() =>
                                 qrssHoldsReceiver && qrssApplyPassband()}
@@ -13749,7 +13830,7 @@ Slider: share of denoised audio, the rest is the original"
 
                           <div class="flex items-center gap-2">
                             <label class="text-sm text-gray-300">Gain:</label>
-                            <input
+                            <input aria-label="QRSS gain"
                               type="range"
                               min="-10"
                               max="40"
@@ -13764,7 +13845,7 @@ Slider: share of denoised audio, the rest is the original"
 
                           <div class="flex items-center gap-2">
                             <label class="text-sm text-gray-300">Color:</label>
-                            <select
+                            <select aria-label="QRSS colour scheme"
                               bind:value={qrssColorScheme}
                               class="glass-select px-2 py-1 text-sm text-white"
                             >
@@ -13803,7 +13884,7 @@ Slider: share of denoised audio, the rest is the original"
                         </button>
 
                         <!-- Decoder selector dropdown -->
-                        <select
+                        <select aria-label="Decoder"
                           bind:value={selectedDecoder}
                           on:change={handleDecoderChange}
                           disabled={!decoderOn}
@@ -13895,7 +13976,7 @@ Slider: share of denoised audio, the rest is the original"
                           <div>Locator</div>
                           <div class="ftx-num">Dist</div>
                         </div>
-                        <div id="ft8MessagesList">
+                        <div id="ft8MessagesList" use:srFeed={{ name: "" }}>
                           <!-- Dynamic content populated here -->
                         </div>
                         <div><hr class="border-gray-600 my-2" /></div>
@@ -14023,6 +14104,7 @@ Slider: share of denoised audio, the rest is the original"
 
                       <div
                         class="w-full text-gray-300 overflow-auto max-h-48 custom-scrollbar pr-1"
+                        use:srFeed={{ name: "JS8" }}
                       >
                         <div class="js8-row js8-head">
                           <span class="js8-mode">Mode</span>
@@ -14105,7 +14187,7 @@ Slider: share of denoised audio, the rest is the original"
                             title="Audio pitch of the CW tone (frequency offset from the dial)"
                           >Pitch</span
                         >
-                          <input
+                          <input aria-label="CW pitch in hertz"
                             type="range"
                             min="500"
                             max="800"
@@ -14165,6 +14247,7 @@ Slider: share of denoised audio, the rest is the original"
                       {:else}
                       <div
                         bind:this={cwScrollEl}
+                        use:srFeed={{ name: "" }}
                         class="w-full font-mono text-sm text-amber-300 bg-gray-900 rounded p-3 overflow-y-auto max-h-64 custom-scrollbar text-left recess-window"
                         style="letter-spacing:0.05em; word-break:break-all;"
                       >
@@ -14253,6 +14336,7 @@ Slider: share of denoised audio, the rest is the original"
                       >
                         <div
                           id="wsprMessagesList"
+                          use:srFeed={{ name: "WSPR" }}
                           class="flex flex-col gap-0.5"
                         >
                           <!-- Rows injected by audio.js stopWSPRCollection() -->
@@ -14304,7 +14388,7 @@ Slider: share of denoised audio, the rest is the original"
                       <div class="flex flex-wrap gap-2 items-end mb-3">
                         <div class="flex flex-col gap-1 flex-1 min-w-[180px]">
                           <label class="text-gray-400 text-xs">Station</label>
-                          <select
+                          <select aria-label="FAX station"
                             bind:value={faxSelectedStation}
                             on:change={() => {
                               faxStationObj =
@@ -14424,7 +14508,7 @@ Slider: share of denoised audio, the rest is the original"
                       <div class="flex flex-wrap gap-3 items-end mb-3">
                         <div class="flex flex-col gap-1">
                           <label class="text-gray-400 text-xs">LPM</label>
-                          <select
+                          <select aria-label="FAX lines per minute"
                             bind:value={faxLPM}
                             on:change={_faxUpdateParams}
                             class="glass-select text-white text-xs px-2 py-1 rounded-md cursor-pointer bg-gray-800 border border-gray-600"
@@ -14439,7 +14523,7 @@ Slider: share of denoised audio, the rest is the original"
 
                         <div class="flex flex-col gap-1">
                           <label class="text-gray-400 text-xs">IOC</label>
-                          <select
+                          <select aria-label="FAX index of cooperation"
                             bind:value={faxIOC}
                             on:change={_faxUpdateParams}
                             class="glass-select text-white text-xs px-2 py-1 rounded-md cursor-pointer bg-gray-800 border border-gray-600"
@@ -14451,7 +14535,7 @@ Slider: share of denoised audio, the rest is the original"
 
                         <div class="flex flex-col gap-1">
                           <label class="text-gray-400 text-xs">Shift</label>
-                          <select
+                          <select aria-label="FAX shift"
                             bind:value={faxShift}
                             on:change={_faxUpdateParams}
                             class="glass-select text-white text-xs px-2 py-1 rounded-md cursor-pointer bg-gray-800 border border-gray-600"
@@ -14723,7 +14807,7 @@ Slider: share of denoised audio, the rest is the original"
 
                       <!-- Station selector + Tune button -->
                       <div class="flex flex-wrap items-center gap-2 mb-3">
-                        <select
+                        <select aria-label="NAVTEX station"
                           bind:value={navtexSelectedStation}
                           class="glass-select text-white text-xs px-2 py-1 rounded-md flex-1 min-w-0"
                           on:change={_navtexTickCountdown}
@@ -14838,6 +14922,7 @@ Slider: share of denoised audio, the rest is the original"
                       <!-- Text output -->
                       <div
                         bind:this={navtexScrollEl}
+                        use:srFeed={{ name: "" }}
                         class="w-full font-mono text-sm text-teal-200 bg-gray-900 rounded p-3 overflow-y-auto max-h-72 custom-scrollbar text-left recess-window"
                         style="letter-spacing:0.04em; word-break:break-all; line-height:1.5; text-align:left;"
                       >
@@ -15285,7 +15370,7 @@ Slider: share of denoised audio, the rest is the original"
                                  centre) can sit anywhere in the passband, and
                                  auto-tune reports an exact value that no fixed
                                  list would contain. -->
-                            <input
+                            <input aria-label="Decoder centre frequency in hertz"
                               type="number"
                               min="200"
                               max="2800"
@@ -15295,7 +15380,7 @@ Slider: share of denoised audio, the rest is the original"
                               on:change={() => fskApplySettings(true)}
                             />
                           {:else}
-                            <select
+                            <select aria-label="Decoder centre frequency preset"
                               bind:value={fskCenter}
                               class="glass-select text-white text-xs px-2 py-1 rounded-md w-full"
                               on:change={() => fskApplySettings(true)}
@@ -15474,7 +15559,7 @@ Slider: share of denoised audio, the rest is the original"
                                 >{Number(oliviaSquelch).toFixed(1)}</span
                               >
                             </label>
-                            <input
+                            <input aria-label="Olivia squelch"
                               type="range"
                               min="3"
                               max="15"
@@ -15520,7 +15605,7 @@ Slider: share of denoised audio, the rest is the original"
                                   >{modemUi.sq.fmt(Number(modemSquelches[fskVariant]))}</span
                                 >
                               </label>
-                              <input
+                              <input aria-label="Modem squelch"
                                 type="range"
                                 min={modemUi.sq.min}
                                 max={modemUi.sq.max}
@@ -15558,7 +15643,7 @@ Slider: share of denoised audio, the rest is the original"
                                   : `${Number(fskSquelch)} dB`}</span
                               >
                             </label>
-                            <input
+                            <input aria-label="FSK squelch"
                               type="range"
                               min={FSK_SQUELCH_OFF}
                               max="10"
@@ -15924,6 +16009,7 @@ Slider: share of denoised audio, the rest is the original"
                       {:else}
                       <div
                         bind:this={fskScrollEl}
+                        use:srFeed={{ name: "" }}
                         class="w-full font-mono text-sm text-green-300 bg-gray-900 rounded p-3 overflow-y-auto max-h-72 custom-scrollbar text-left recess-window"
                         style="letter-spacing:0.04em; word-break:break-word; overflow-wrap:anywhere; white-space:pre-wrap; line-height:1.5; text-align:left;"
                       >
@@ -16152,7 +16238,7 @@ Slider: share of denoised audio, the rest is the original"
                         {:else}
                           <strong class="text-gray-300"
                             >Mode: USB. Please check "Invert mark / space" for
-                            RTTY (weather),
+                            RTTY (weather) and naval RTTY (PBB),
                             <br /> but leave it unchecked for maritime FSK and HAM RTTY</strong
                           >.
                         {/if}
@@ -16385,13 +16471,13 @@ Slider: share of denoised audio, the rest is the original"
                           >
                           <label class="toggle-switch">
                             {#if waterfallDisplay}
-                              <input
+                              <input aria-label="Waterfall display"
                                 type="checkbox"
                                 checked
                                 on:change={handleWaterfallChange}
                               />
                             {:else}
-                              <input
+                              <input aria-label="Waterfall display"
                                 type="checkbox"
                                 on:change={handleWaterfallChange}
                               />
@@ -16409,13 +16495,13 @@ Slider: share of denoised audio, the rest is the original"
                           >
                           <label class="toggle-switch">
                             {#if spectrumDisplay}
-                              <input
+                              <input aria-label="Spectrum display"
                                 type="checkbox"
                                 checked
                                 on:change={handleSpectrumChange}
                               />
                             {:else}
-                              <input
+                              <input aria-label="Spectrum display"
                                 type="checkbox"
                                 on:change={handleSpectrumChange}
                               />
@@ -16432,7 +16518,7 @@ Slider: share of denoised audio, the rest is the original"
                             >Auto Adj.</span
                           >
                           <label class="toggle-switch">
-                            <input
+                            <input aria-label="Waterfall auto adjust"
                               type="checkbox"
                               on:change={() => handleAutoAdjust()}
                             />
@@ -16448,7 +16534,7 @@ Slider: share of denoised audio, the rest is the original"
                             >Height (+)</span
                           >
                           <label class="toggle-switch">
-                            <input
+                            <input aria-label="Taller waterfall"
                               type="checkbox"
                               on:change={handleWaterfallSizeChange}
                             />
@@ -16463,7 +16549,7 @@ Slider: share of denoised audio, the rest is the original"
 
                   <div class="w-full mb-4">
                     <div id="colormap-select" class="relative">
-                      <select
+                      <select aria-label="Waterfall colour scheme"
                         bind:value={currentColormap}
                         on:change={handleWaterfallColormapSelect}
                         class="glass-select block w-full pl-3 pr-10 py-2 text-sm rounded-lg text-gray-200 appearance-none focus:outline-none"
@@ -16637,11 +16723,12 @@ Slider: share of denoised audio, the rest is the original"
                   >
                     <div
                       class="p-6 rounded-lg max-w-lg w-full max-h-[80vh] flex flex-col decoder-window popup-panel"
+                      use:srDialog
                       on:click|stopPropagation
                     >
                       <div class="flex justify-between items-center mb-4">
                         <h2 class="text-xl font-bold text-white">Bookmarks</h2>
-                        <button
+                        <button aria-label="Close bookmarks"
                           class="text-gray-400 hover:text-white"
                           on:click={toggleBookmarkPopup}
                         >
@@ -16915,6 +17002,7 @@ Slider: share of denoised audio, the rest is the original"
                   <div
                     class="bg-gray-900 rounded-lg p-2 sm:p-3 mb-2 sm:mb-4 h-48 sm:h-64 overflow-y-auto custom-scrollbar"
                     bind:this={chatMessages}
+                    use:srFeed={{ name: "Chat", kind: "chat" }}
                   >
                     {#each threadedMessages as { msg: { id, text }, depth, quote } (id)}
                       {@const formattedMessage = formatFrequencyMessage(
@@ -17484,7 +17572,7 @@ Slider: share of denoised audio, the rest is the original"
                   class="sm:p-5 flex flex-col items-center bg-gray-800 lg:border lg:border-gray-700 rounded-none rounded-t-lg lg:rounded-none lg:rounded-l-lg"
                 >
                   <div class="control-group" id="volume-slider">
-                    <button
+                    <button aria-label="Mute" aria-pressed={mute}
                       class="glass-button text-white font-bold rounded-full w-7 h-6 flex items-center justify-center mr-4"
                       style="background: {mute
                         ? 'rgba(255, 0, 0, 0.3)'
@@ -17510,7 +17598,7 @@ Slider: share of denoised audio, the rest is the original"
                     </button>
                     &nbsp;&nbsp;&nbsp;
                     <div class="slider-container">
-                      <input
+                      <input aria-label="Volume"
                         type="range"
                         bind:value={volume}
                         on:input={handleVolumeInput}
@@ -17538,7 +17626,7 @@ Slider: share of denoised audio, the rest is the original"
                     </button>
                     &nbsp;&nbsp;&nbsp;
                     <div class="slider-container">
-                      <input
+                      <input aria-label="Squelch level"
                         type="range"
                         bind:value={squelch}
                         on:input={handleSquelchMove}
@@ -17594,7 +17682,7 @@ Slider: share of denoised audio, the rest is the original"
 
                   <!-- Zoom Slider  -->
                   <div class="control-group mt-4" id="zoom-slider">
-                    <button
+                    <button aria-label="Waterfall zoom step, cycles"
                       class="glass-button text-white font-bold rounded-full w-7 h-6 flex items-center justify-center mr-4"
                       style="background: {zoomStepEnabled
                         ? 'rgba(0, 180, 255, 0.3)'
@@ -17624,7 +17712,7 @@ Slider: share of denoised audio, the rest is the original"
                     </button>
                     &nbsp;&nbsp;&nbsp;
                     <div class="slider-container">
-                      <input
+                      <input aria-label="Waterfall zoom"
                         type="range"
                         bind:value={zoomStep}
                         on:input={(e) => handleZoomStepMove(e, zoomStep)}
@@ -17723,7 +17811,7 @@ Slider: share of denoised audio, the rest is the original"
                           {#if currentBand == -2}
                             {initBandButton(frequency)}
                           {/if}
-                          <input
+                          <input aria-label="Frequency in kilohertz"
                             class="w-56 max-w-full text-center bg-black text-cyan-300 focus:outline-none focus:ring-2 focus:ring-cyan-500 rounded-lg mb-2"
                             style="font-size: clamp(1.6rem, 8vw, 2.4rem); font-weight: 600; line-height: 1.25; padding: 4px 6px;"
                             type="text"
@@ -17898,6 +17986,7 @@ Slider: share of denoised audio, the rest is the original"
                             >
                               <div
                                 class="p-6 rounded-lg max-w-lg w-full max-h-[80vh] flex flex-col decoder-window popup-panel"
+                                use:srDialog
                                 on:click|stopPropagation
                               >
                                 <div
@@ -17906,7 +17995,7 @@ Slider: share of denoised audio, the rest is the original"
                                   <h2 class="text-base font-bold text-white">
                                     Modes
                                   </h2>
-                                  <button
+                                  <button aria-label="Close modes"
                                     class="text-gray-400 hover:text-white"
                                     on:click={toggleModePopup}
                                   >
@@ -18004,6 +18093,7 @@ Slider: share of denoised audio, the rest is the original"
                             >
                               <div
                                 class="p-6 rounded-lg max-w-lg w-full max-h-[80vh] flex flex-col decoder-window popup-panel"
+                                use:srDialog
                                 on:click|stopPropagation
                               >
                                 <div
@@ -18012,7 +18102,7 @@ Slider: share of denoised audio, the rest is the original"
                                   <h2 class="text-base font-bold text-white">
                                     Bands
                                   </h2>
-                                  <button
+                                  <button aria-label="Close bands"
                                     class="text-gray-400 hover:text-white"
                                     on:click={toggleBandPopup}
                                   >
@@ -18104,6 +18194,7 @@ Slider: share of denoised audio, the rest is the original"
                             >
                               <div
                                 class="p-6 rounded-lg max-w-lg w-full max-h-[80vh] flex flex-col decoder-window popup-panel"
+                                use:srDialog
                                 on:click|stopPropagation
                               >
                                 <div
@@ -18112,7 +18203,7 @@ Slider: share of denoised audio, the rest is the original"
                                   <h2 class="text-base font-bold text-white">
                                     Static IF Filters
                                   </h2>
-                                  <button
+                                  <button aria-label="Close IF filters"
                                     class="text-gray-400 hover:text-white"
                                     on:click={toggleIFPopup}
                                   >
@@ -18236,6 +18327,7 @@ Slider: share of denoised audio, the rest is the original"
                             >
                               <div
                                 class="p-6 rounded-lg max-w-lg w-full max-h-[80vh] flex flex-col decoder-window popup-panel"
+                                use:srDialog
                                 on:click|stopPropagation
                               >
                                 <div
@@ -18244,7 +18336,7 @@ Slider: share of denoised audio, the rest is the original"
                                   <h2 class="text-base font-bold text-white">
                                     CAT control via TCI
                                   </h2>
-                                  <button
+                                  <button aria-label="Close CAT control"
                                     class="text-gray-400 hover:text-white"
                                     on:click={toggleCatPopup}
                                   >
@@ -18403,6 +18495,7 @@ Slider: share of denoised audio, the rest is the original"
                           >
                             <div
                               class="p-6 rounded-lg max-w-lg w-full max-h-[80vh] flex flex-col decoder-window popup-panel"
+                              use:srDialog
                               on:click|stopPropagation
                             >
                               <div
@@ -18411,7 +18504,7 @@ Slider: share of denoised audio, the rest is the original"
                                 <h2 class="text-base font-bold text-white">
                                   Equalizer
                                 </h2>
-                                <button
+                                <button aria-label="Close equalizer"
                                   class="text-gray-400 hover:text-white"
                                   on:click={toggleEqPopup}
                                 >
@@ -18501,6 +18594,7 @@ Slider: share of denoised audio, the rest is the original"
                           >
                             <div
                               class="p-6 rounded-lg max-w-lg w-full max-h-[80vh] flex flex-col overflow-y-auto decoder-window popup-panel"
+                              use:srDialog
                               on:click|stopPropagation
                             >
                               <div
@@ -18509,7 +18603,7 @@ Slider: share of denoised audio, the rest is the original"
                                 <h2 class="text-base font-bold text-white">
                                   Compressor
                                 </h2>
-                                <button
+                                <button aria-label="Close compressor"
                                   class="text-gray-400 hover:text-white"
                                   on:click={toggleCompPopup}
                                 >
@@ -18862,7 +18956,7 @@ Slider: share of denoised audio, the rest is the original"
                     >
                       <span class="text-gray-300 text-xs w-10">Min:</span>
                       <div class="slider-container w-10 mx-2">
-                        <input
+                        <input aria-label="Waterfall minimum level"
                           type="range"
                           bind:value={min_waterfall}
                           min="-100"
@@ -18879,7 +18973,7 @@ Slider: share of denoised audio, the rest is the original"
                     <div class="flex items-center justify-between">
                       <span class="text-gray-300 text-xs w-10">Max:</span>
                       <div class="slider-container w-10 mx-2">
-                        <input
+                        <input aria-label="Waterfall maximum level"
                           type="range"
                           bind:value={max_waterfall}
                           min="0"
@@ -18909,7 +19003,7 @@ Slider: share of denoised audio, the rest is the original"
                         >
                       </button>
                       <div class="slider-container w-10 mx-2">
-                        <input
+                        <input aria-label="Audio buffer delay"
                           type="range"
                           bind:value={audioBufferDelay}
                           on:input={() => handleAudioBufferDelayMove(audioBufferDelay)}
@@ -18929,7 +19023,7 @@ Slider: share of denoised audio, the rest is the original"
 
                   <div class="w-full mb-6">
                     <div id="colormap-select" class="relative">
-                      <select
+                      <select aria-label="Waterfall colour scheme"
                         bind:value={currentColormap}
                         on:change={handleWaterfallColormapSelect}
                         class="glass-select block w-full pl-3 pr-10 py-2 text-sm rounded-lg text-gray-200 appearance-none focus:outline-none"
@@ -19078,7 +19172,7 @@ Slider: share of denoised audio, the rest is the original"
                       </button>
 
                       <!-- Decoder selector dropdown -->
-                      <select
+                      <select aria-label="Decoder"
                         bind:value={selectedDecoder}
                         on:change={handleDecoderChange}
                         disabled={!decoderOn}
@@ -19169,7 +19263,7 @@ Slider: share of denoised audio, the rest is the original"
                           <div>Locator</div>
                           <div class="ftx-num">Dist</div>
                         </div>
-                        <div id="ft8MessagesList">
+                        <div id="ft8MessagesList" use:srFeed={{ name: "" }}>
                           <!-- Dynamic content populated here -->
                         </div>
                         <div><hr class="border-gray-600 my-2" /></div>
@@ -19297,6 +19391,7 @@ Slider: share of denoised audio, the rest is the original"
 
                       <div
                         class="w-full text-gray-300 overflow-auto max-h-48 custom-scrollbar pr-1"
+                        use:srFeed={{ name: "JS8" }}
                       >
                         <div class="js8-row js8-head">
                           <span class="js8-mode">Mode</span>
@@ -19379,7 +19474,7 @@ Slider: share of denoised audio, the rest is the original"
                             title="Audio pitch of the CW tone (frequency offset from the dial)"
                           >Pitch</span
                         >
-                          <input
+                          <input aria-label="CW pitch in hertz"
                             type="range"
                             min="500"
                             max="800"
@@ -19439,6 +19534,7 @@ Slider: share of denoised audio, the rest is the original"
                       {:else}
                       <div
                         bind:this={cwScrollEl}
+                        use:srFeed={{ name: "" }}
                         class="w-full font-mono text-sm text-amber-300 bg-gray-900 rounded p-3 overflow-y-auto max-h-64 custom-scrollbar text-left recess-window"
                         style="letter-spacing:0.05em; word-break:break-all;"
                       >
@@ -19527,6 +19623,7 @@ Slider: share of denoised audio, the rest is the original"
                       >
                         <div
                           id="wsprMessagesList"
+                          use:srFeed={{ name: "WSPR" }}
                           class="flex flex-col gap-0.5"
                         >
                           <!-- Rows injected by audio.js stopWSPRCollection() -->
@@ -19578,7 +19675,7 @@ Slider: share of denoised audio, the rest is the original"
                       <div class="flex flex-wrap gap-2 items-end mb-3">
                         <div class="flex flex-col gap-1 flex-1 min-w-[180px]">
                           <label class="text-gray-400 text-xs">Station</label>
-                          <select
+                          <select aria-label="FAX station"
                             bind:value={faxSelectedStation}
                             on:change={() => {
                               faxStationObj =
@@ -19698,7 +19795,7 @@ Slider: share of denoised audio, the rest is the original"
                       <div class="flex flex-wrap gap-3 items-end mb-3">
                         <div class="flex flex-col gap-1">
                           <label class="text-gray-400 text-xs">LPM</label>
-                          <select
+                          <select aria-label="FAX lines per minute"
                             bind:value={faxLPM}
                             on:change={_faxUpdateParams}
                             class="glass-select text-white text-xs px-2 py-1 rounded-md cursor-pointer bg-gray-800 border border-gray-600"
@@ -19713,7 +19810,7 @@ Slider: share of denoised audio, the rest is the original"
 
                         <div class="flex flex-col gap-1">
                           <label class="text-gray-400 text-xs">IOC</label>
-                          <select
+                          <select aria-label="FAX index of cooperation"
                             bind:value={faxIOC}
                             on:change={_faxUpdateParams}
                             class="glass-select text-white text-xs px-2 py-1 rounded-md cursor-pointer bg-gray-800 border border-gray-600"
@@ -19725,7 +19822,7 @@ Slider: share of denoised audio, the rest is the original"
 
                         <div class="flex flex-col gap-1">
                           <label class="text-gray-400 text-xs">Shift</label>
-                          <select
+                          <select aria-label="FAX shift"
                             bind:value={faxShift}
                             on:change={_faxUpdateParams}
                             class="glass-select text-white text-xs px-2 py-1 rounded-md cursor-pointer bg-gray-800 border border-gray-600"
@@ -19997,7 +20094,7 @@ Slider: share of denoised audio, the rest is the original"
 
                       <!-- Station selector + Tune button -->
                       <div class="flex flex-wrap items-center gap-2 mb-3">
-                        <select
+                        <select aria-label="NAVTEX station"
                           bind:value={navtexSelectedStation}
                           class="glass-select text-white text-xs px-2 py-1 rounded-md flex-1 min-w-0"
                           on:change={_navtexTickCountdown}
@@ -20112,6 +20209,7 @@ Slider: share of denoised audio, the rest is the original"
                       <!-- Text output -->
                       <div
                         bind:this={navtexScrollEl}
+                        use:srFeed={{ name: "" }}
                         class="w-full font-mono text-sm text-teal-200 bg-gray-900 rounded p-3 overflow-y-auto max-h-72 custom-scrollbar text-left recess-window"
                         style="letter-spacing:0.04em; word-break:break-all; line-height:1.5; text-align:left;"
                       >
@@ -20559,7 +20657,7 @@ Slider: share of denoised audio, the rest is the original"
                                  centre) can sit anywhere in the passband, and
                                  auto-tune reports an exact value that no fixed
                                  list would contain. -->
-                            <input
+                            <input aria-label="Decoder centre frequency in hertz"
                               type="number"
                               min="200"
                               max="2800"
@@ -20569,7 +20667,7 @@ Slider: share of denoised audio, the rest is the original"
                               on:change={() => fskApplySettings(true)}
                             />
                           {:else}
-                            <select
+                            <select aria-label="Decoder centre frequency preset"
                               bind:value={fskCenter}
                               class="glass-select text-white text-xs px-2 py-1 rounded-md w-full"
                               on:change={() => fskApplySettings(true)}
@@ -20748,7 +20846,7 @@ Slider: share of denoised audio, the rest is the original"
                                 >{Number(oliviaSquelch).toFixed(1)}</span
                               >
                             </label>
-                            <input
+                            <input aria-label="Olivia squelch"
                               type="range"
                               min="3"
                               max="15"
@@ -20794,7 +20892,7 @@ Slider: share of denoised audio, the rest is the original"
                                   >{modemUi.sq.fmt(Number(modemSquelches[fskVariant]))}</span
                                 >
                               </label>
-                              <input
+                              <input aria-label="Modem squelch"
                                 type="range"
                                 min={modemUi.sq.min}
                                 max={modemUi.sq.max}
@@ -20832,7 +20930,7 @@ Slider: share of denoised audio, the rest is the original"
                                   : `${Number(fskSquelch)} dB`}</span
                               >
                             </label>
-                            <input
+                            <input aria-label="FSK squelch"
                               type="range"
                               min={FSK_SQUELCH_OFF}
                               max="10"
@@ -21198,6 +21296,7 @@ Slider: share of denoised audio, the rest is the original"
                       {:else}
                       <div
                         bind:this={fskScrollEl}
+                        use:srFeed={{ name: "" }}
                         class="w-full font-mono text-sm text-green-300 bg-gray-900 rounded p-3 overflow-y-auto max-h-72 custom-scrollbar text-left recess-window"
                         style="letter-spacing:0.04em; word-break:break-word; overflow-wrap:anywhere; white-space:pre-wrap; line-height:1.5; text-align:left;"
                       >
@@ -21426,7 +21525,7 @@ Slider: share of denoised audio, the rest is the original"
                         {:else}
                           <strong class="text-gray-300"
                             >Mode: USB. Please check "Invert mark / space" for
-                            RTTY (weather),
+                            RTTY (weather) and naval RTTY (PBB),
                             <br /> but leave it unchecked for maritime FSK and HAM RTTY</strong
                           >.
                         {/if}
@@ -21485,11 +21584,12 @@ Slider: share of denoised audio, the rest is the original"
                   >
                     <div
                       class="p-6 rounded-lg max-w-lg w-full max-h-[80vh] flex flex-col decoder-window popup-panel"
+                      use:srDialog
                       on:click|stopPropagation
                     >
                       <div class="flex justify-between items-center mb-4">
                         <h2 class="text-xl font-bold text-white">Bookmarks</h2>
-                        <button
+                        <button aria-label="Close bookmarks"
                           class="text-gray-400 hover:text-white"
                           on:click={toggleBookmarkPopup}
                         >
@@ -21763,6 +21863,7 @@ Slider: share of denoised audio, the rest is the original"
                   <div
                     class="bg-gray-900 rounded-lg p-2 sm:p-3 mb-2 sm:mb-4 h-48 sm:h-64 overflow-y-auto custom-scrollbar"
                     bind:this={chatMessages}
+                    use:srFeed={{ name: "Chat", kind: "chat" }}
                   >
                     {#each threadedMessages as { msg: { id, text }, depth, quote } (id)}
                       {@const formattedMessage = formatFrequencyMessage(

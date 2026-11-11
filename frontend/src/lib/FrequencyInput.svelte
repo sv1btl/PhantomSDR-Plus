@@ -247,7 +247,7 @@
 
 <div class="w-full md-2 items-center bg-black pt-1">
   <div class="m-0 p-0" hidden bind:this={frequencyTextboxInput}>
-    <input
+    <input aria-label="Frequency in kilohertz"
       type="number"
       class="text-3xl font-mono text-white outline-none bg-transparent text-center appearance-none p-0 m-0 inline-block"
       bind:value={frequencyDisplay}

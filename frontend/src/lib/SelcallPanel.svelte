@@ -1,4 +1,5 @@
 <script>
+  import { srFeed } from "./a11y.js";
   // HF Selcall (CCIR 493-4 / Codan) panel inside SERVICES. The decoding is
   // dsc.js in its selcall mode (services.worker.js); the panel is the DSC
   // one with its own channels and wording.
@@ -169,6 +170,7 @@
 
   <div
     bind:this={scrollEl}
+    use:srFeed={{ name: "Selcall" }}
     on:scroll={onScroll}
     class="rounded-md bg-gray-900 recess-window overflow-y-auto custom-scrollbar text-xs font-mono"
     style="height: 320px;"

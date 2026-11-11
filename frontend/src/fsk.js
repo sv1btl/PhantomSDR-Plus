@@ -511,7 +511,7 @@ export class KiwiFSKDecoder {
 
   setVariant(variant = 'maritime') {
     const v = String(variant || 'maritime').toLowerCase();
-    if (v !== 'weather' && v !== 'maritime' && v !== 'ham' &&
+    if (v !== 'weather' && v !== 'naval' && v !== 'maritime' && v !== 'ham' &&
         v !== 'psk31' && v !== 'olivia' && v !== 'fst4w' && v !== 'msk144' && v !== 'ale' && !_isPacketVariant(v) && !_isModemVariant(v)) {
       console.warn('[FSK] unknown variant:', variant, '— using maritime');
       this._variant = 'maritime';
@@ -768,6 +768,16 @@ export class KiwiFSKDecoder {
           // property of these particular broadcasts, NOT a rule about USB —
           // see 'ham' below, which is the other way round. Matches the UI
           // default (FSK_VARIANT_PRESETS.weather.invert = true).
+          inverted: 1,
+        };
+      case 'naval':
+        // Naval CARB (Channel Availability / Receipt Broadcast) RTTY, e.g.
+        // PBB Royal Netherlands Navy: NATO 75 Bd / 850 Hz, ITA2, mark on the
+        // lower audio tone in USB (inverted), as reported by listeners.
+        return {
+          name: 'naval', center: 1000.0, shift: 850.0, baud: 75.0,
+          lowpass: 100.0, audioMinimum: 144.0, protocol: 'ita2', encoding: 'ita2', framing: '5N1.5',
+          dataBits: 5, parity: 'N', stopBits: 1.5, squelch: -7,
           inverted: 1,
         };
       case 'ham':
@@ -2039,7 +2049,7 @@ export class KiwiFSKDecoder {
     if (!this._fskRecentPCM || this._fskRecentPCM.length < 512) return;
     const SR = this._nvSampleRate || this._sampleRateFn();
     const center = this._nvCenterFreq || preset.center || 1000;
-    const candidates = preset.name === 'weather' ? [85, 170, 340, 425, 450, 850] : [85, 170, 200, 340, 425, 450];
+    const candidates = preset.name === 'weather' || preset.name === 'naval' ? [85, 170, 340, 425, 450, 850] : [85, 170, 200, 340, 425, 450];
     const samples = this._fskRecentPCM.slice(-Math.min(this._fskRecentPCM.length, 2048));
     const energyAt = (freq) => {
       const w = 2 * Math.PI * freq / SR;

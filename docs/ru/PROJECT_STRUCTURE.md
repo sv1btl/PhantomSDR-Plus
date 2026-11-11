@@ -304,6 +304,7 @@ PhantomSDR-Plus
 │   │   ├── ifk.js                    # DominoEX и THOR
 │   │   ├── kiwiSource.js
 │   │   ├── lib
+│   │   │   ├── a11y.js                    # screen readers: spoken names, announcements, Alt+Shift keys
 │   │   │   ├── AlePanel.svelte            # ALE 2G (FLDIGI, SERVICES)
 │   │   │   ├── aleNets.js                 # ALE: KiwiSDR ALE_nets + HFLINK
 │   │   │   ├── aprsMap.js
@@ -1175,7 +1176,7 @@ frequencylist/
 ]
 ```
 
-`mode` — режим приёмника (`USB`, `LSB`, `AM`, `FM`, `CW`, …) или название цифрового вида связи — `FT8`, `FT4`, `FT2`, `JS8`, `WSPR`, `SSTV`, `NAVTEX`, `FAX`, `RTTY`, `RTTY-WX`, `SITOR`, `PSK31`, `PSK63`, `PSK125`, `BPSK31`/`63`/`125`, `QPSK31`/`63`/`125`, `OLIVIA`, `CONTESTIA`, `MFSK`, `MFSK16`, `MFSK32`, `MFSK64`, `DOMINOEX`, `THOR`, `THROB`, `HELL`, `FELDHELL`, `MT63`, `PACKET`, `APRS`, `RADEU`, `RADEL`, `RADE` или `FREEDV`; в этом случае щелчок по метке запускает этот декодер ([подробности](DECODERS.md#запуск-декодера-с-частотной-метки)).
+`mode` — режим приёмника (`USB`, `LSB`, `AM`, `FM`, `CW`, …) или название цифрового вида связи — `FT8`, `FT4`, `FT2`, `JS8`, `WSPR`, `SSTV`, `NAVTEX`, `FAX`, `RTTY`, `RTTY-WX`, `RTTY-NAV`, `SITOR`, `PSK31`, `PSK63`, `PSK125`, `BPSK31`/`63`/`125`, `QPSK31`/`63`/`125`, `OLIVIA`, `CONTESTIA`, `MFSK`, `MFSK16`, `MFSK32`, `MFSK64`, `DOMINOEX`, `THOR`, `THROB`, `HELL`, `FELDHELL`, `MT63`, `PACKET`, `APRS`, `RADEU`, `RADEL`, `RADE` или `FREEDV`; в этом случае щелчок по метке запускает этот декодер ([подробности](DECODERS.md#запуск-декодера-с-частотной-метки)).
 
 ---
 

@@ -846,13 +846,29 @@ Les **touches fléchées** accordent depuis n'importe où sur la page :
 - **Flèche gauche / droite** : ±100 Hz ; avec **Shift** ±10 kHz, avec **Ctrl** (ou **Cmd**) ±500 kHz, avec **Shift + Ctrl** ±10 MHz
 - **Ctrl droit** : supprime la partie décimale et accorde sur le kHz entier égal ou inférieur à la fréquence actuelle
 
-Dans la zone de chat, gauche / droite déplacent le curseur à la place.
+Dans la zone de chat, et chaque fois qu'un curseur de réglage, une liste ou un champ de texte a le focus du clavier, les flèches agissent sur cet élément au lieu d'accorder.
 
 **Souris sur l'affichage de fréquence** : placez le pointeur sur un chiffre ; molette vers le haut ou clic gauche l'augmente, molette vers le bas ou clic droit le diminue, chaque fois de la valeur de position du chiffre (neuf chiffres, de 100 MHz à 1 Hz). Entre les chiffres, la molette avance du pas d'accord de la bande (1 kHz sauf indication du plan de bandes) ; **Shift** pour 1 kHz, **Alt** pour 10 kHz. Un clic ailleurs dans le cadre noir fréquence / S-mètre ouvre le pavé numérique (Méthode 2 dans *S'accorder sur une fréquence*).
 
 **Molette au-dessus de la cascade** : zoome. Maintenez **Ctrl** (ou **Cmd**) ou **Shift** pour accorder au lieu de zoomer, et **Shift + Ctrl** ensemble pour caler sur le kHz entier le plus proche.
 
 > Il n'y a pas de raccourcis Page précédente / Page suivante.
+
+### Lecteurs d'écran
+
+Les auditeurs aveugles ou malvoyants peuvent utiliser PhantomSDR-Plus avec un lecteur d'écran : NVDA, JAWS ou le Narrateur sous Windows, VoiceOver sur Mac et sur iPhone/iPad, TalkBack sous Android, Orca sous Linux, ChromeVox sous ChromeOS. Chaque bouton, curseur de réglage et liste a un nom parlé, et les fenêtres surgissantes ouvertes au clavier prennent le focus et le rendent à leur fermeture. Pour les auditeurs voyants, rien ne change à l'écran.
+
+Ces raccourcis fonctionnent partout dans la page, même pendant la saisie dans un champ :
+
+- **Alt + Shift + F** : annoncer la fréquence, le mode et la bande passante
+- **Alt + Shift + S** : annoncer la force du signal (unités S et dBm) et le SNR
+- **Alt + Shift + R** : lire à voix haute le texte des décodeurs, oui / non (FT8, FT4, FT2, JS8, WSPR, CW, NAVTEX, la fenêtre FLDIGI, HFDL, DSC, HF Selcall et ALE)
+- **Alt + Shift + C** : lire à voix haute les nouveaux messages du chat, oui / non
+- **Alt + Shift + H** : annoncer ces raccourcis
+
+Sur Mac, Alt est la touche **Option**. Les deux commutateurs de lecture restent éteints jusqu'à ce que vous les allumiez, et le navigateur s'en souvient. Après un accord aux flèches, ou un changement de mode avec **l**, **u**, **a**, **q** ou **f**, la nouvelle fréquence et le mode sont annoncés dès que les touches s'arrêtent. Avec NVDA ou JAWS, les lettres seules des modes demandent le mode formulaire (NVDA + Espace), car en mode navigation le lecteur d'écran utilise lui-même ces lettres ; les raccourcis Alt + Shift fonctionnent dans les deux.
+
+Sur un téléphone, utilisez la page /mobile : la fréquence, les pas, les modes et les onglets ont un nom et disent lequel est sélectionné, le S-mètre peut être lu, les boutons **+** et **−** annoncent la nouvelle fréquence, et les nouveaux messages du chat sont lus à voix haute tant que l'onglet Chat est ouvert.
 
 ---
 

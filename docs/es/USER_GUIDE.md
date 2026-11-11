@@ -845,13 +845,29 @@ Las **teclas de flecha** sintonizan desde cualquier punto de la página:
 - **Flecha izquierda / derecha**: ±100 Hz; con **Shift** ±10 kHz, con **Ctrl** (o **Cmd**) ±500 kHz, con **Shift + Ctrl** ±10 MHz
 - **Ctrl derecho**: descarta los decimales y sintoniza el kHz entero igual o inferior a la frecuencia actual
 
-En el cuadro del chat, izquierda / derecha mueven el cursor en su lugar.
+En el cuadro del chat, y siempre que un deslizador, una lista o un campo de texto tenga el foco del teclado, las flechas actúan sobre ese control en lugar de sintonizar.
 
 **Ratón sobre el indicador de frecuencia**: sitúe el puntero sobre un dígito; rueda hacia arriba o clic izquierdo lo sube, rueda hacia abajo o clic derecho lo baja, cada vez según el valor posicional del dígito (nueve dígitos, de 100 MHz a 1 Hz). Entre los dígitos, la rueda avanza con el paso de sintonía de la banda (1 kHz salvo que el plan de bandas indique otro); mantenga **Shift** para 1 kHz y **Alt** para 10 kHz. Un clic en cualquier otro punto del recuadro negro de frecuencia / S-meter abre el teclado numérico (Método 2 en *Sintonizar una frecuencia*).
 
 **Rueda del ratón sobre la cascada**: hace zoom. Mantenga **Ctrl** (o **Cmd**) o **Shift** para sintonizar en lugar de ampliar, y **Shift + Ctrl** juntos para ajustar al kHz entero más cercano.
 
 > No hay atajos de Página arriba / Página abajo.
+
+### Lectores de pantalla
+
+Los oyentes ciegos o con baja visión pueden usar PhantomSDR-Plus con un lector de pantalla: NVDA, JAWS o Narrador en Windows, VoiceOver en el Mac y en iPhone/iPad, TalkBack en Android, Orca en Linux, ChromeVox en ChromeOS. Cada botón, deslizador y lista tiene un nombre hablado, y las ventanas emergentes abiertas desde el teclado toman el foco y lo devuelven al cerrarse. Para los oyentes que ven, nada cambia en la pantalla.
+
+Estos atajos funcionan en cualquier parte de la página, también mientras se escribe en un campo:
+
+- **Alt + Shift + F**: decir la frecuencia, el modo y el ancho de banda
+- **Alt + Shift + S**: decir la intensidad de la señal (unidades S y dBm) y la SNR
+- **Alt + Shift + R**: leer en voz alta el texto de los decodificadores, sí / no (FT8, FT4, FT2, JS8, WSPR, CW, NAVTEX, la ventana FLDIGI, HFDL, DSC, HF Selcall y ALE)
+- **Alt + Shift + C**: leer en voz alta los mensajes nuevos del chat, sí / no
+- **Alt + Shift + H**: decir estos atajos
+
+En el Mac, Alt es la tecla **Opción**. Los dos interruptores de lectura siguen apagados hasta que los active, y el navegador los recuerda. Tras sintonizar con las flechas, o cambiar de modo con **l**, **u**, **a**, **q** o **f**, se dicen la nueva frecuencia y el modo en cuanto se dejan de pulsar las teclas. Con NVDA o JAWS, las letras sueltas de modo necesitan el modo foco (NVDA + Espacio), porque en el modo exploración el lector de pantalla usa esas letras; los atajos Alt + Shift funcionan en ambos.
+
+En el teléfono, use la página /mobile: la frecuencia, los pasos, los modos y las pestañas tienen nombre y dicen cuál está seleccionado, el S-meter se puede leer, los botones **+** y **−** dicen la nueva frecuencia, y los mensajes nuevos del chat se leen en voz alta mientras la pestaña Chat está abierta.
 
 ---
 

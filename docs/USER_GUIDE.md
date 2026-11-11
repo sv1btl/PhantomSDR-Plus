@@ -845,13 +845,29 @@ Keyboard shortcuts for faster operation.
 - **Arrow Left / Right**: ±100 Hz; hold **Shift** for ±10 kHz, **Ctrl** (or **Cmd**) for ±500 kHz, **Shift + Ctrl** for ±10 MHz
 - **Right Ctrl**: drops the fraction, tuning to the whole kHz at or below the current frequency
 
-In the chat box, Left / Right move the cursor instead.
+In the chat box, and whenever a slider, a list or a text field has the keyboard focus, the arrow keys work on that control instead of tuning.
 
 **Mouse on the frequency display**: hover a digit, then scroll up or left-click to raise it and scroll down or right-click to lower it, each time by the digit's own place value (nine digits, 100 MHz down to 1 Hz). Between the digits the wheel steps by the band's tuning step (1 kHz unless the band plan sets another); hold **Shift** for 1 kHz, **Alt** for 10 kHz. A click anywhere else in the black frequency / S-meter box opens the number pad (Method 2 under *Tuning to a Frequency*).
 
 **Mouse wheel over the waterfall**: zooms. Hold **Ctrl** (or **Cmd**) or **Shift** to tune instead of zooming, and **Shift + Ctrl** together to snap to the nearest whole kHz.
 
 > There are no Page Up / Page Down shortcuts.
+
+### Screen Readers
+
+PhantomSDR-Plus can be used by blind and low-vision listeners with a screen reader: NVDA, JAWS or Narrator on Windows, VoiceOver on the Mac and on iPhone/iPad, TalkBack on Android, Orca on Linux, ChromeVox on ChromeOS. Every button, slider and list has a spoken name, and pop-up windows opened from the keyboard take the focus and give it back when they close. Nothing changes on the screen for sighted listeners.
+
+These shortcuts work anywhere on the page, also while typing in a field:
+
+- **Alt + Shift + F**: say the frequency, mode and bandwidth
+- **Alt + Shift + S**: say the signal strength (S-units and dBm) and the SNR
+- **Alt + Shift + R**: read the decoders' text aloud, on / off (FT8, FT4, FT2, JS8, WSPR, CW, NAVTEX, the FLDIGI window, HFDL, DSC, HF Selcall and ALE)
+- **Alt + Shift + C**: read new chat messages aloud, on / off
+- **Alt + Shift + H**: say these shortcuts
+
+On a Mac, Alt is the **Option** key. The two reading switches stay off until you turn them on, and the browser remembers them. After tuning with the arrow keys, or changing mode with **l**, **u**, **a**, **q** or **f**, the new frequency and mode are said once the keys stop. With NVDA or JAWS the single-letter mode keys need focus mode (NVDA + Space), because in browse mode the screen reader uses those letters itself; the Alt + Shift shortcuts work in both.
+
+On a phone, use the /mobile page: the frequency, the steps, the modes and the tabs have names and say which one is selected, the S-meter can be read, the **+** and **−** buttons say the new frequency, and new chat messages are read aloud while the Chat tab is open.
 
 ---
 

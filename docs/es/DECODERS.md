@@ -44,7 +44,7 @@ El desplegable no es la única vía. El panel principal incluye una fila de boto
 | **FT4** | FT4 | **FLDIGI** | ALE 2G HAM, RTTY, PSK31·63·125, QPSK, Olivia, Contestia, FST4W, MFSK, MSK144, DominoEX, THOR, THROB, Hellschreiber, MT63, Packet, APRS |
 | **FT2** | FT2 | **NAVTEX** | NAVTEX |
 | **CW** | CW | **FAX** | HF FAX / WEFAX |
-| **JS8** | JS8 | **SERVICES** | HFDL (aviones), FSK marítimo / SITOR, RTTY meteorológico, DSC (barcos), Time Signals (señales horarias), HF Selcall, ALE 2G |
+| **JS8** | JS8 | **SERVICES** | HFDL (aviones), FSK marítimo / SITOR, RTTY meteorológico, RTTY naval (PBB), DSC (barcos), Time Signals (señales horarias), HF Selcall, ALE 2G |
 | **WSPR** | WSPR | **DRM** | DRM — radiodifusión digital |
 
 Pulsar un botón hace toda la secuencia de una vez: selecciona el decodificador, pone el decodificador en ON y desplaza su ventana hasta hacerla visible. El botón se pone azul mientras su decodificador funciona. **Pulse el mismo botón otra vez para detener el decodificador**: su ventana se cierra con él.
@@ -64,7 +64,7 @@ Un marcador de frecuencia (las etiquetas amarillas sobre la cascada, de `markers
 | `FT8`, `FT4`, `FT2`, `JS8`, `WSPR`, `SSTV` | ese decodificador | la frecuencia del dial |
 | `NAVTEX` | NAVTEX | la frecuencia de la señal (el dial baja 500 Hz) |
 | `FAX`, `WEFAX` | HF FAX | el centro publicado (el dial baja 1900 Hz) |
-| `RTTY`, `RTTY-WX`, `SITOR` | FLDIGI como RTTY de aficionado (`RTTY`); SERVICES en RTTY meteorológico o FSK marítimo / SITOR | la frecuencia de la señal (el dial baja el centro de audio del panel) |
+| `RTTY`, `RTTY-WX`, `RTTY-NAV`, `SITOR` | FLDIGI como RTTY de aficionado (`RTTY`); SERVICES en RTTY meteorológico, RTTY naval (PBB CARB) o FSK marítimo / SITOR | la frecuencia de la señal (el dial baja el centro de audio del panel) |
 | `PSK31`, `OLIVIA`, `FST4W`, `MFSK`, `MSK144`, `DOMINOEX`, `THOR`, `THROB`, `HELL`, `MT63` | FLDIGI en esa variante | como arriba |
 | `MFSK16`, `MFSK32`, `MFSK64`, `FELDHELL` | FLDIGI en esa variante y ese submodo | como arriba |
 | `PSK63`, `PSK125`, `BPSK31`/`63`/`125`, `QPSK31`/`63`/`125`, `CONTESTIA` | FLDIGI en esa variante y ese submodo | como arriba |
@@ -666,7 +666,7 @@ El panel se adapta a la variante elegida. **Shift**, **Baud**, **Framing**, **En
 | Reverse | FSK Hell 245 / 105, Hell 80 | Pinta el otro tono como tinta |
 | Speed | Packet y APRS | **1200 Bd · VHF/UHF (FM)** o **300 Bd · HF (USB)**. También elige el modo del receptor |
 | Show raw packet | solo APRS | Imprime además el paquete tal como se recibió (formato TNC2) encima de cada línea decodificada |
-| Squelch (SNR) | RTTY de aficionados y meteorológico | Evita que el ruido se imprima como letras al azar. Empieza en −5 dB para el RTTY de aficionados y en −7 dB para el meteorológico; del todo a la izquierda (**off**) queda desactivado. La cifra de SNR se vuelve gris mientras el squelch está cerrado |
+| Squelch (SNR) | RTTY de aficionados, meteorológico y naval | Evita que el ruido se imprima como letras al azar. Empieza en −5 dB para el RTTY de aficionados y en −7 dB para el meteorológico y el naval; del todo a la izquierda (**off**) queda desactivado. La cifra de SNR se vuelve gris mientras el squelch está cerrado |
 
 ### Métricas de señal
 
@@ -809,7 +809,7 @@ El packet radio envía datos en ráfagas cortas llamadas tramas (frames). Cada t
 
 > **Nota sobre el modo:** el decodificador toma el control del modo de demodulación y del paso de banda de FI mientras está activo. Ambos se restauran automáticamente al desactivarlo. Todas las variantes usan **USB**, salvo Packet y APRS a 1200 Bd, que usan **FM**.
 >
-> **Nota sobre la polaridad (solo variantes FSK):** en RTTY meteorológico normalmente hay que marcar **Invert mark / space**. En FSK marítimo (tipo SITOR/NAVTEX) y RTTY de aficionado, déjelo sin marcar — el RTTY de aficionado envía mark como la radiofrecuencia más alta, y USB la mantiene como el tono de audio más alto, que es justamente el caso sin marcar. Si el texto decodificado sale ilegible, lo primero que conviene probar es cambiar esta casilla. La casilla se oculta en todas las variantes salvo las tres FSK: las demás no tienen par mark/space, y la decodificación packet no depende de qué tono es cuál.
+> **Nota sobre la polaridad (solo variantes FSK):** en RTTY meteorológico y RTTY naval (PBB) normalmente hay que marcar **Invert mark / space**. En FSK marítimo (tipo SITOR/NAVTEX) y RTTY de aficionado, déjelo sin marcar — el RTTY de aficionado envía mark como la radiofrecuencia más alta, y USB la mantiene como el tono de audio más alto, que es justamente el caso sin marcar. Si el texto decodificado sale ilegible, lo primero que conviene probar es cambiar esta casilla. La casilla se oculta en todas las variantes salvo las cuatro FSK: las demás no tienen par mark/space, y la decodificación packet no depende de qué tono es cuál.
 >
 > **Nota sobre letras/cifras (solo variantes FSK):** el código Baudot mantiene letras y cifras en dos estados separados, y el ruido puede llevar al decodificador al estado equivocado, lo que corrompe todos los caracteres siguientes y no solo el dañado. Por eso el decodificador vuelve a letras en cada espacio; es la práctica habitual y repara un cambio corrompido en una o dos palabras en lugar de una línea entera. El coste es que los grupos de cifras separados por espacios exigen que el transmisor repita el cambio a cifras después de cada espacio, como suelen hacer los equipos.
 
@@ -893,7 +893,7 @@ Como Force omite todas las comprobaciones de seguridad, pintará ruido sin más 
 
 ## 12. SERVICES
 
-**SERVICES** (el botón se llamaba antes **HFDL**) es una ventana para los servicios utilitarios. La lista **Service**, arriba a la izquierda de la ventana, elige qué se decodifica: **HFDL** (aviones), **Maritime FSK / SITOR**, **Weather RTTY**, **DSC** (barcos), **Time Signals** (señales horarias), **HF Selcall** y **ALE 2G (MIL-STD-188-141)**. Su navegador recuerda la elección. Funciona un servicio a la vez; cada uno ajusta el modo y el filtro que necesita, tiene su propia lista de frecuencias con **⇒ Tune & Set IF** y decodifica en su navegador, así que no cuesta nada al receptor. Cada servicio tiene **💾 Save** (un archivo de texto) y **Clear**, y la ventana Users muestra qué servicio usa cada oyente. Los canales ALE de radioaficionado están en la ventana FLDIGI, como ALE 2G HAM (capítulo 10).
+**SERVICES** (el botón se llamaba antes **HFDL**) es una ventana para los servicios utilitarios. La lista **Service**, arriba a la izquierda de la ventana, elige qué se decodifica: **HFDL** (aviones), **Maritime FSK / SITOR**, **Weather RTTY**, **Naval RTTY (PBB CARB)**, **DSC** (barcos), **Time Signals** (señales horarias), **HF Selcall** y **ALE 2G (MIL-STD-188-141)**. Su navegador recuerda la elección. Funciona un servicio a la vez; cada uno ajusta el modo y el filtro que necesita, tiene su propia lista de frecuencias con **⇒ Tune & Set IF** y decodifica en su navegador, así que no cuesta nada al receptor. Cada servicio tiene **💾 Save** (un archivo de texto) y **Clear**, y la ventana Users muestra qué servicio usa cada oyente. Los canales ALE de radioaficionado están en la ventana FLDIGI, como ALE 2G HAM (capítulo 10).
 
 ### HFDL — mensajes de aviones
 
@@ -915,22 +915,25 @@ Cada línea muestra la hora (UTC), la frecuencia, la dirección (▼ tierra→ai
 
 **🗺 Map** muestra dentro del panel los aviones que informaron una posición; **⤢ Large map** abre el mismo mapa en una ventana que se puede mover y redimensionar. Cada avión apunta según su rumbo y deja una estela roja. **💾 Save** guarda los mensajes en un archivo de texto y **Clear** vacía la lista.
 
-### FSK marítimo / SITOR y RTTY meteorológico
+### FSK marítimo / SITOR, RTTY meteorológico y RTTY naval
 
-Estas dos emisiones de servicio usan el decodificador y el panel FSK de la ventana FLDIGI (capítulo 10), con la lista **Service** donde FLDIGI tiene su lista **Variant**. **Shift**, **Baud**, **Framing**, **Encoding**, **Invert mark / space**, **Auto shift detect**, **⇒ Set IF Band-Pass** y **⟳ Auto-tune Center** funcionan como se describe allí.
+Estas tres emisiones de servicio usan el decodificador y el panel FSK de la ventana FLDIGI (capítulo 10), con la lista **Service** donde FLDIGI tiene su lista **Variant**. **Shift**, **Baud**, **Framing**, **Encoding**, **Invert mark / space**, **Auto shift detect**, **⇒ Set IF Band-Pass** y **⟳ Auto-tune Center** funcionan como se describe allí.
 
 | Servicio | Centro | Shift | Baudios | Trama | Codificación |
 |----------|--------|-------|---------|-------|--------------|
 | FSK marítimo / SITOR | 500 Hz | 170 Hz | 100 | 7N1 | CCIR-476 |
 | RTTY meteorológico | 1000 Hz | 450 Hz | 50 | 5N1.5 | ITA2 |
+| RTTY naval (PBB CARB) | 1000 Hz | 850 Hz | 75 | 5N1.5 | ITA2 |
 
-1. Elija **Maritime FSK / SITOR** o **Weather RTTY** en la lista **Service**.
+1. Elija **Maritime FSK / SITOR**, **Weather RTTY** o **Naval RTTY (PBB CARB)** en la lista **Service**.
 2. Elija una **Known frequency** y pulse **Tune**. La frecuencia de la lista es la de la señal; el dial USB baja el centro del panel.
-3. Afine hasta que el texto sea estable. El RTTY meteorológico necesita **Invert mark / space** marcado (el ajuste predefinido lo hace) y tiene un deslizador **Squelch (SNR)** que empieza en −7 dB; el FSK marítimo lo deja sin marcar.
+3. Afine hasta que el texto sea estable. El RTTY meteorológico necesita **Invert mark / space** marcado (el ajuste predefinido lo hace) y tiene un deslizador **Squelch (SNR)** que empieza en −7 dB; el FSK marítimo lo deja sin marcar. El RTTY naval funciona igual (también invertido, squelch desde −7 dB).
 
 **FSK marítimo / SITOR:** 2174,5 kHz (NBDP de MF, canal de trabajo), 518 y 490 kHz (NAVTEX), 4209,5 kHz (NAVTEX de HF), y los canales SITOR de HF de información de seguridad marítima 4210, 6314, 8416,5, 12579, 16806,5, 19680,5, 22376 y 26100,5 kHz. NAVTEX también tiene su propio botón, con los horarios de las estaciones (capítulo 9).
 
 **RTTY meteorológico:** los transmisores del DWD (servicio meteorológico alemán) 4583, 7646 y 10100,8 kHz (programa 1, en inglés) y 11039, 14467,3 y 147,3 kHz (programa 2, en alemán; 147,3 kHz usa un shift de 85 Hz, que fija su entrada de la lista). Mientras hay una frecuencia del DWD elegida, **NEXT BROADCASTS** muestra las próximas emisiones.
+
+**RTTY naval (PBB CARB):** la Channel Availability / Receipt Broadcast de PBB, la Marina Real de los Países Bajos en Den Helder, en 2474, 4250, 4280, 5052, 5214, 5659, 5694,5, 6356, 6358,5, 8435,4, 8437, 8439, 9264, 9368, 12840,5, 12841, 16318, 17116,7, 17947, 18308 y 20098 kHz. Indica a los barcos en qué canales escucha la estación costera y confirma los mensajes recibidos; lo que envían los barcos va cifrado. Si el texto sale ilegible, desmarque primero **Invert mark / space**.
 
 ### DSC — Digital Selective Calling
 

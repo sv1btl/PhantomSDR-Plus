@@ -304,6 +304,7 @@ PhantomSDR-Plus
 │   │   ├── ifk.js                    # DominoEX και THOR
 │   │   ├── kiwiSource.js
 │   │   ├── lib
+│   │   │   ├── a11y.js                    # screen readers: spoken names, announcements, Alt+Shift keys
 │   │   │   ├── AlePanel.svelte            # ALE 2G (FLDIGI, SERVICES)
 │   │   │   ├── aleNets.js                 # ALE: KiwiSDR ALE_nets + HFLINK
 │   │   │   ├── aprsMap.js
@@ -1174,7 +1175,7 @@ frequencylist/
 ]
 ```
 
-Το `mode` είναι τρόπος λειτουργίας του δέκτη (`USB`, `LSB`, `AM`, `FM`, `CW`, …) ή το όνομα ενός ψηφιακού τρόπου — `FT8`, `FT4`, `FT2`, `JS8`, `WSPR`, `SSTV`, `NAVTEX`, `FAX`, `RTTY`, `RTTY-WX`, `SITOR`, `PSK31`, `PSK63`, `PSK125`, `BPSK31`/`63`/`125`, `QPSK31`/`63`/`125`, `OLIVIA`, `CONTESTIA`, `MFSK`, `MFSK16`, `MFSK32`, `MFSK64`, `DOMINOEX`, `THOR`, `THROB`, `HELL`, `FELDHELL`, `MT63`, `PACKET`, `APRS`, `RADEU`, `RADEL`, `RADE` ή `FREEDV` — οπότε το πάτημα του δείκτη ξεκινά εκείνον τον αποκωδικοποιητή ([λεπτομέρειες](DECODERS.md#εκκίνηση-αποκωδικοποιητή-από-δείκτη-συχνότητας)).
+Το `mode` είναι τρόπος λειτουργίας του δέκτη (`USB`, `LSB`, `AM`, `FM`, `CW`, …) ή το όνομα ενός ψηφιακού τρόπου — `FT8`, `FT4`, `FT2`, `JS8`, `WSPR`, `SSTV`, `NAVTEX`, `FAX`, `RTTY`, `RTTY-WX`, `RTTY-NAV`, `SITOR`, `PSK31`, `PSK63`, `PSK125`, `BPSK31`/`63`/`125`, `QPSK31`/`63`/`125`, `OLIVIA`, `CONTESTIA`, `MFSK`, `MFSK16`, `MFSK32`, `MFSK64`, `DOMINOEX`, `THOR`, `THROB`, `HELL`, `FELDHELL`, `MT63`, `PACKET`, `APRS`, `RADEU`, `RADEL`, `RADE` ή `FREEDV` — οπότε το πάτημα του δείκτη ξεκινά εκείνον τον αποκωδικοποιητή ([λεπτομέρειες](DECODERS.md#εκκίνηση-αποκωδικοποιητή-από-δείκτη-συχνότητας)).
 
 ---
 

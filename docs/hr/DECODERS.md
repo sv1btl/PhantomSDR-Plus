@@ -44,7 +44,7 @@ Padajući izbornik nije jedini put. Glavna ploča ima red gumba **Decoders** —
 | **FT4** | FT4 | **FLDIGI** | ALE 2G HAM, RTTY, PSK31·63·125, QPSK, Olivia, Contestia, FST4W, MFSK, MSK144, DominoEX, THOR, THROB, Hellschreiber, MT63, Packet, APRS |
 | **FT2** | FT2 | **NAVTEX** | NAVTEX |
 | **CW** | CW | **FAX** | HF FAX / WEFAX |
-| **JS8** | JS8 | **SERVICES** | HFDL (zrakoplovi), Pomorski FSK / SITOR, Meteorološki RTTY, DSC (brodovi), Time Signals (vremenski signali), HF Selcall, ALE 2G |
+| **JS8** | JS8 | **SERVICES** | HFDL (zrakoplovi), Pomorski FSK / SITOR, Meteorološki RTTY, Mornarički RTTY (PBB), DSC (brodovi), Time Signals (vremenski signali), HF Selcall, ALE 2G |
 | **WSPR** | WSPR | **DRM** | DRM — digitalno emitiranje |
 
 Pritisak na gumb odrađuje cijeli slijed odjednom: odabire dekoder, uključuje dekoder (ON) i dovodi njegov prozor na zaslon. Gumb je plav dok njegov dekoder radi. **Ponovni pritisak na isti gumb isključuje dekoder** — njegov se prozor zatvara s njim.
@@ -64,7 +64,7 @@ Oznaka frekvencije (žute oznake iznad vodopada, iz `markers.json`) inače ugađ
 | `FT8`, `FT4`, `FT2`, `JS8`, `WSPR`, `SSTV` | taj dekoder | frekvencija na skali |
 | `NAVTEX` | NAVTEX | frekvencija signala (skala ide 500 Hz niže) |
 | `FAX`, `WEFAX` | HF FAX | objavljeno središte (skala ide 1900 Hz niže) |
-| `RTTY`, `RTTY-WX`, `SITOR` | FLDIGI kao amaterski RTTY (`RTTY`); SERVICES na meteorološkom RTTY-u ili pomorskom FSK / SITOR | frekvencija signala (skala ide niže za audio središte ploče) |
+| `RTTY`, `RTTY-WX`, `RTTY-NAV`, `SITOR` | FLDIGI kao amaterski RTTY (`RTTY`); SERVICES na meteorološkom RTTY-u, mornaričkom RTTY-u (PBB CARB) ili pomorskom FSK / SITOR | frekvencija signala (skala ide niže za audio središte ploče) |
 | `PSK31`, `OLIVIA`, `FST4W`, `MFSK`, `MSK144`, `DOMINOEX`, `THOR`, `THROB`, `HELL`, `MT63` | FLDIGI u toj inačici | kao gore |
 | `MFSK16`, `MFSK32`, `MFSK64`, `FELDHELL` | FLDIGI u toj inačici i tom podnačinu | kao gore |
 | `PSK63`, `PSK125`, `BPSK31`/`63`/`125`, `QPSK31`/`63`/`125`, `CONTESTIA` | FLDIGI u toj inačici i tom podnačinu | kao gore |
@@ -666,7 +666,7 @@ Ploča se prilagođava odabranoj inačici. **Shift**, **Baud**, **Framing**, **E
 | Reverse | FSK Hell 245 / 105, Hell 80 | Drugi ton slika kao tintu |
 | Speed | Packet i APRS | **1200 Bd · VHF/UHF (FM)** ili **300 Bd · HF (USB)**. Bira i način rada prijemnika |
 | Show raw packet | samo APRS | Iznad svakog dekodiranog retka ispisuje i paket kako je primljen (format TNC2) |
-| Squelch (SNR) | Amaterski i meteorološki RTTY | Sprječava da se šum ispisuje kao nasumična slova. Počinje na −5 dB za amaterski RTTY i na −7 dB za meteorološki; skroz lijevo (**off**) je isključen. Brojka SNR postaje siva dok je squelch zatvoren |
+| Squelch (SNR) | Amaterski, meteorološki i mornarički RTTY | Sprječava da se šum ispisuje kao nasumična slova. Počinje na −5 dB za amaterski RTTY i na −7 dB za meteorološki i mornarički; skroz lijevo (**off**) je isključen. Brojka SNR postaje siva dok je squelch zatvoren |
 
 ### Mjerenja signala
 
@@ -809,7 +809,7 @@ Packet radio šalje podatke u kratkim naletima koji se zovu okviri (frames). Sva
 
 > **Napomena o načinu rada:** dekoder preuzima upravljanje načinom demodulacije i propusnim pojasom MF dok je aktivan. Oboje se automatski vraća kada ga isključite. Sve inačice koriste **USB**, osim Packeta i APRS-a pri 1200 Bd, koji koriste **FM**.
 >
-> **Napomena o polaritetu (samo FSK inačice):** za meteorološki RTTY obično treba označiti **Invert mark / space**. Za pomorski FSK (tipa SITOR/NAVTEX) i amaterski RTTY ostavite neoznačeno — amaterski RTTY šalje mark kao višu radiofrekvenciju, a USB je zadržava kao viši audio ton, što je upravo neoznačeni slučaj. Ako je dekodirani tekst iskrivljen, prvo što treba probati jest prebaciti ovaj okvir. Okvir je skriven za sve inačice osim tri FSK inačice: ostale nemaju par mark/space, a dekodiranje packeta ne ovisi o tome koji je ton koji.
+> **Napomena o polaritetu (samo FSK inačice):** za meteorološki i mornarički RTTY (PBB) obično treba označiti **Invert mark / space**. Za pomorski FSK (tipa SITOR/NAVTEX) i amaterski RTTY ostavite neoznačeno — amaterski RTTY šalje mark kao višu radiofrekvenciju, a USB je zadržava kao viši audio ton, što je upravo neoznačeni slučaj. Ako je dekodirani tekst iskrivljen, prvo što treba probati jest prebaciti ovaj okvir. Okvir je skriven za sve inačice osim četiri FSK inačice: ostale nemaju par mark/space, a dekodiranje packeta ne ovisi o tome koji je ton koji.
 >
 > **Napomena o slovima/brojkama (samo FSK inačice):** Baudot drži slova i brojke u dva odvojena stanja, a šum može prebaciti dekoder u pogrešno — što izobličuje svaki sljedeći znak, ne samo oštećeni. Zato se dekoder na svakom razmaku vraća na slova; to je uobičajena praksa i popravlja pokvareno prebacivanje unutar jedne do dvije riječi umjesto cijelog retka. Cijena je da skupine brojki odvojene razmacima traže da pošiljatelj ponovi prebacivanje na brojke nakon svakog razmaka, kako odašiljači inače i rade.
 
@@ -893,7 +893,7 @@ Budući da Force preskače svaku sigurnosnu provjeru, rado će nacrtati šum ako
 
 ## 12. SERVICES
 
-**SERVICES** (gumb se prije zvao **HFDL**) jedan je prozor za uslužne službe. Popis **Service** gore lijevo u prozoru bira što se dekodira: **HFDL** (zrakoplovi), **Maritime FSK / SITOR**, **Weather RTTY**, **DSC** (brodovi), **Time Signals** (vremenski signali), **HF Selcall** i **ALE 2G (MIL-STD-188-141)**. Vaš preglednik pamti izbor. Radi jedna služba u isto vrijeme; svaka postavlja način rada i filtar koji joj treba, ima vlastiti popis frekvencija s **⇒ Tune & Set IF** i dekodira u vašem pregledniku, pa prijemnik ništa ne košta. Svaka služba ima **💾 Save** (tekstna datoteka) i **Clear**, a prozor Users pokazuje koju službu slušatelj koristi. Amaterski ALE kanali nalaze se u prozoru FLDIGI, kao ALE 2G HAM (poglavlje 10).
+**SERVICES** (gumb se prije zvao **HFDL**) jedan je prozor za uslužne službe. Popis **Service** gore lijevo u prozoru bira što se dekodira: **HFDL** (zrakoplovi), **Maritime FSK / SITOR**, **Weather RTTY**, **Naval RTTY (PBB CARB)**, **DSC** (brodovi), **Time Signals** (vremenski signali), **HF Selcall** i **ALE 2G (MIL-STD-188-141)**. Vaš preglednik pamti izbor. Radi jedna služba u isto vrijeme; svaka postavlja način rada i filtar koji joj treba, ima vlastiti popis frekvencija s **⇒ Tune & Set IF** i dekodira u vašem pregledniku, pa prijemnik ništa ne košta. Svaka služba ima **💾 Save** (tekstna datoteka) i **Clear**, a prozor Users pokazuje koju službu slušatelj koristi. Amaterski ALE kanali nalaze se u prozoru FLDIGI, kao ALE 2G HAM (poglavlje 10).
 
 ### HFDL — poruke zrakoplova
 
@@ -915,22 +915,25 @@ Svaki redak prikazuje vrijeme (UTC), frekvenciju, smjer (▼ zemlja→zrak ili �
 
 **🗺 Map** u ploči prikazuje zrakoplove koji su javili položaj; **⤢ Large map** otvara istu kartu u prozoru koji se može pomicati i mijenjati mu se veličina. Svaki zrakoplov pokazuje smjer svoje putanje i ostavlja crveni trag. **💾 Save** sprema poruke u tekstnu datoteku, **Clear** prazni popis.
 
-### Pomorski FSK / SITOR i meteorološki RTTY
+### Pomorski FSK / SITOR, meteorološki RTTY i mornarički RTTY
 
-Ove dvije emisije službi koriste FSK dekoder i ploču prozora FLDIGI (poglavlje 10), s popisom **Service** ondje gdje FLDIGI ima popis **Variant**. **Shift**, **Baud**, **Framing**, **Encoding**, **Invert mark / space**, **Auto shift detect**, **⇒ Set IF Band-Pass** i **⟳ Auto-tune Center** rade kako je ondje opisano.
+Ove tri emisije službi koriste FSK dekoder i ploču prozora FLDIGI (poglavlje 10), s popisom **Service** ondje gdje FLDIGI ima popis **Variant**. **Shift**, **Baud**, **Framing**, **Encoding**, **Invert mark / space**, **Auto shift detect**, **⇒ Set IF Band-Pass** i **⟳ Auto-tune Center** rade kako je ondje opisano.
 
 | Usluga | Središte | Shift | Baud | Okvir | Kodiranje |
 |---------|----------|-------|------|-------|-----------|
 | Pomorski FSK / SITOR | 500 Hz | 170 Hz | 100 | 7N1 | CCIR-476 |
 | Meteorološki RTTY | 1000 Hz | 450 Hz | 50 | 5N1.5 | ITA2 |
+| Mornarički RTTY (PBB CARB) | 1000 Hz | 850 Hz | 75 | 5N1.5 | ITA2 |
 
-1. Odaberite **Maritime FSK / SITOR** ili **Weather RTTY** u popisu **Service**.
+1. Odaberite **Maritime FSK / SITOR**, **Weather RTTY** ili **Naval RTTY (PBB CARB)** u popisu **Service**.
 2. Odaberite **Known frequency** i kliknite **Tune**. Frekvencija s popisa je frekvencija signala; USB skala ide niže za središte ploče.
-3. Fino ugađajte dok tekst ne postane stabilan. Meteorološki RTTY treba označeno **Invert mark / space** (predložak to radi sam) i ima klizač **Squelch (SNR)** koji počinje na −7 dB; pomorski FSK ostavlja ga neoznačenim.
+3. Fino ugađajte dok tekst ne postane stabilan. Meteorološki RTTY treba označeno **Invert mark / space** (predložak to radi sam) i ima klizač **Squelch (SNR)** koji počinje na −7 dB; pomorski FSK ostavlja ga neoznačenim. Mornarički RTTY radi jednako (također invertirano, squelch od −7 dB).
 
 **Pomorski FSK / SITOR:** 2174,5 kHz (MF NBDP, radni kanal), 518 i 490 kHz (NAVTEX), 4209,5 kHz (KV NAVTEX) te KV SITOR kanali za pomorske sigurnosne informacije 4210, 6314, 8416,5, 12579, 16806,5, 19680,5, 22376 i 26100,5 kHz. NAVTEX ima i vlastiti gumb, s rasporedima postaja (poglavlje 9).
 
 **Meteorološki RTTY:** odašiljači DWD-a (Njemačka meteorološka služba) 4583, 7646 i 10100,8 kHz (program 1, na engleskom) te 11039, 14467,3 i 147,3 kHz (program 2, na njemačkom; 147,3 kHz koristi pomak od 85 Hz, koji postavlja njegova stavka popisa). Dok je odabrana frekvencija DWD-a, **NEXT BROADCASTS** prikazuje sljedeće emisije.
+
+**Mornarički RTTY (PBB CARB):** emisija Channel Availability / Receipt Broadcast postaje PBB, Kraljevske nizozemske ratne mornarice u Den Helderu, na 2474, 4250, 4280, 5052, 5214, 5659, 5694,5, 6356, 6358,5, 8435,4, 8437, 8439, 9264, 9368, 12840,5, 12841, 16318, 17116,7, 17947, 18308 i 20098 kHz. Javlja brodovima na kojim kanalima obalna postaja sluša i potvrđuje primljene poruke; ono što brodovi šalju je šifrirano. Ako je tekst iskrivljen, prvo odznačite **Invert mark / space**.
 
 ### DSC — Digital Selective Calling
 

@@ -845,13 +845,29 @@ Tipkovni prečaci za brži rad.
 - **Strelica lijevo / desno**: ±100 Hz; uz **Shift** ±10 kHz, uz **Ctrl** (ili **Cmd**) ±500 kHz, uz **Shift + Ctrl** ±10 MHz
 - **Desni Ctrl**: odbacuje decimale i ugađa na cijeli kHz jednak trenutnoj frekvenciji ili ispod nje
 
-U polju chata lijevo / desno umjesto toga pomiču kursor.
+U polju chata, i kad god klizač, popis ili tekstno polje ima fokus tipkovnice, strelice djeluju na taj element umjesto da ugađaju.
 
 **Miš na prikazu frekvencije**: postavite pokazivač iznad znamenke; kotačić prema gore ili lijevi klik je povećava, kotačić prema dolje ili desni klik je smanjuje, svaki put za mjesnu vrijednost znamenke (devet znamenki, od 100 MHz do 1 Hz). Između znamenki kotačić se pomiče korakom ugađanja pojasa (1 kHz osim ako plan pojasa kaže drukčije); držite **Shift** za 1 kHz, **Alt** za 10 kHz. Klik bilo gdje drugdje u crnom okviru frekvencije / S-metra otvara numeričku tipkovnicu (Način 2 u *Ugađanje na frekvenciju*).
 
 **Kotačić miša iznad slapa**: zumira. Držite **Ctrl** (ili **Cmd**) odnosno **Shift** za ugađanje umjesto zumiranja, a **Shift + Ctrl** zajedno za poravnanje na najbliži cijeli kHz.
 
 > Prečaca Page Up / Page Down nema.
+
+### Čitači zaslona
+
+Slijepi i slabovidni slušatelji mogu koristiti PhantomSDR-Plus s čitačem zaslona: NVDA, JAWS ili Pripovjedač (Narrator) na Windowsima, VoiceOver na Macu i na iPhoneu/iPadu, TalkBack na Androidu, Orca na Linuxu, ChromeVox na ChromeOS-u. Svaki gumb, klizač i popis ima izgovoreni naziv, a skočni prozori otvoreni s tipkovnice preuzimaju fokus i vraćaju ga kad se zatvore. Za slušatelje koji vide na zaslonu se ništa ne mijenja.
+
+Ovi prečaci rade bilo gdje na stranici, i dok tipkate u polju:
+
+- **Alt + Shift + F**: izgovori frekvenciju, način rada i širinu pojasa
+- **Alt + Shift + S**: izgovori jačinu signala (S-jedinice i dBm) i SNR
+- **Alt + Shift + R**: čitanje teksta dekodera naglas, uključeno / isključeno (FT8, FT4, FT2, JS8, WSPR, CW, NAVTEX, prozor FLDIGI, HFDL, DSC, HF Selcall i ALE)
+- **Alt + Shift + C**: čitanje novih poruka chata naglas, uključeno / isključeno
+- **Alt + Shift + H**: izgovori ove prečace
+
+Na Macu je Alt tipka **Option**. Oba prekidača za čitanje ostaju isključena dok ih ne uključite, a preglednik ih pamti. Nakon ugađanja strelicama ili promjene načina rada tipkama **l**, **u**, **a**, **q** ili **f**, nova frekvencija i način rada izgovaraju se čim tipke miruju. S NVDA-om ili JAWS-om jednoslovne tipke za način rada trebaju način fokusa (NVDA + razmaknica), jer u načinu pregledavanja čitač zaslona sam koristi ta slova; prečaci Alt + Shift rade u oba.
+
+Na telefonu koristite stranicu /mobile: frekvencija, koraci, načini rada i kartice imaju nazive i kažu koji je odabran, S-metar se može pročitati, gumbi **+** i **−** izgovaraju novu frekvenciju, a nove poruke chata čitaju se naglas dok je kartica Chat otvorena.
 
 ---
 

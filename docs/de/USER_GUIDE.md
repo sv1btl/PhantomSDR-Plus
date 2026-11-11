@@ -846,13 +846,29 @@ Die **Pfeiltasten** stimmen von überall auf der Seite ab:
 - **Pfeil links / rechts**: ±100 Hz; mit **Shift** ±10 kHz, mit **Ctrl** (oder **Cmd**) ±500 kHz, mit **Shift + Ctrl** ±10 MHz
 - **Rechte Ctrl-Taste**: verwirft die Nachkommastellen und stimmt auf das volle kHz auf oder unter der aktuellen Frequenz ab
 
-Im Chatfeld bewegen Links / Rechts stattdessen den Cursor.
+Im Chatfeld, und immer wenn ein Regler, eine Liste oder ein Textfeld den Tastaturfokus hat, wirken die Pfeiltasten auf dieses Element, statt abzustimmen.
 
 **Maus auf der Frequenzanzeige**: Zeigen Sie auf eine Ziffer; Rad nach oben oder Linksklick erhöht sie, Rad nach unten oder Rechtsklick verringert sie, jeweils um den Stellenwert der Ziffer (neun Ziffern, 100 MHz bis 1 Hz). Zwischen den Ziffern schrittet das Rad mit der Abstimmschrittweite des Bandes (1 kHz, sofern der Bandplan nichts anderes vorgibt); **Shift** für 1 kHz, **Alt** für 10 kHz. Ein Klick an eine andere Stelle des schwarzen Frequenz-/S-Meter-Kastens öffnet den Ziffernblock (Methode 2 unter *Auf eine Frequenz abstimmen*).
 
 **Mausrad über dem Wasserfall**: zoomt. Mit **Ctrl** (oder **Cmd**) bzw. **Shift** wird stattdessen abgestimmt, mit **Shift + Ctrl** auf volle kHz gerundet.
 
 > Page-Up- / Page-Down-Kürzel gibt es nicht.
+
+### Screenreader
+
+Blinde und sehbehinderte Hörer können PhantomSDR-Plus mit einem Screenreader bedienen: NVDA, JAWS oder Sprachausgabe (Narrator) unter Windows, VoiceOver auf dem Mac und auf iPhone/iPad, TalkBack unter Android, Orca unter Linux, ChromeVox unter ChromeOS. Jede Schaltfläche, jeder Regler und jede Liste hat einen gesprochenen Namen, und Pop-up-Fenster, die über die Tastatur geöffnet werden, übernehmen den Fokus und geben ihn beim Schließen zurück. Für sehende Hörer ändert sich am Bildschirm nichts.
+
+Diese Kürzel funktionieren überall auf der Seite, auch beim Tippen in einem Feld:
+
+- **Alt + Shift + F**: Frequenz, Betriebsart und Bandbreite ansagen
+- **Alt + Shift + S**: Signalstärke (S-Stufen und dBm) und SNR ansagen
+- **Alt + Shift + R**: Text der Decoder vorlesen, ein / aus (FT8, FT4, FT2, JS8, WSPR, CW, NAVTEX, das FLDIGI-Fenster, HFDL, DSC, HF Selcall und ALE)
+- **Alt + Shift + C**: neue Chat-Nachrichten vorlesen, ein / aus
+- **Alt + Shift + H**: diese Kürzel ansagen
+
+Auf dem Mac ist Alt die **Wahltaste (Option)**. Die beiden Vorlese-Schalter bleiben aus, bis Sie sie einschalten, und der Browser merkt sie sich. Nach dem Abstimmen mit den Pfeiltasten oder einem Wechsel der Betriebsart mit **l**, **u**, **a**, **q** oder **f** werden die neue Frequenz und die Betriebsart angesagt, sobald die Tasten ruhen. Mit NVDA oder JAWS brauchen die Einzelbuchstaben für die Betriebsart den Fokusmodus (NVDA + Leertaste), denn im Lesemodus verwendet der Screenreader diese Buchstaben selbst; die Alt + Shift-Kürzel funktionieren in beiden Modi.
+
+Auf dem Telefon verwenden Sie die Seite /mobile: Frequenz, Schritte, Betriebsarten und Reiter haben Namen und sagen, welcher gewählt ist, das S-Meter lässt sich vorlesen, die Tasten **+** und **−** sagen die neue Frequenz an, und neue Chat-Nachrichten werden vorgelesen, solange der Chat-Reiter offen ist.
 
 ---
 

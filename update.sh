@@ -257,7 +257,7 @@ TIER_A=(
     # see. The repository ships the placeholder version of this file, so leaving
     # it out of this list would reset a working site to "your name or callsign".
     'frontend/site_information.json' 'users.json' '*/users.json'
-    'autorun.json' 'autorun-status.json' 'autorun-totals.json'
+    'autorun.json' 'autorun-status.json' 'autorun-totals.json' 'autorun-stopped'
     'frontend/variant.json' '.tap_token'
     # The relay's own config: the .example beside it is what gets distributed.
     'websdr_relay.json' 'websdr_relay.json.bak'

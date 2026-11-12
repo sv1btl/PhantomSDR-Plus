@@ -13,11 +13,17 @@
  *   reporting  : autorun.json.reporting.{pskreporter,wsprnet} || AUTORUN_REPORT=..
  *   dryRun     : autorun.json.dryRun || AUTORUN_DRYRUN=1  (log spots, don't send)
  *
+ * Schedule: a slot may carry `hours` (UTC 0..23); see scheduler.js. The daemon
+ * re-reads autorun.json whenever it changes, so a Save in the admin panel
+ * (slots, hours, reporting toggles) takes effect without a restart. Identity
+ * and server changes still need Stop/Start. With no slot in its hours the
+ * daemon idles with no taps open.
+ *
  * The admin launcher pins the daemon to the top CPU cores (config-aware — the
  * E-cores on an 8P+4E box, fewer on smaller CPUs, unpinned on <=4 cores). To run
  * it by hand on such a box:  taskset -c 8-11 node autorun/index.js
  */
-import { readFileSync, existsSync, writeFileSync, unlinkSync } from 'node:fs';
+import { readFileSync, existsSync, writeFileSync, unlinkSync, statSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { AutorunManager } from './manager.js';
@@ -25,12 +31,19 @@ import { PskReporter } from './pskreporter.js';
 import { WsprNet } from './wsprnet.js';
 import { readServerPort } from './serverport.js';
 import { parseFtxSpot, parseJs8Spot, reporterGrid } from './spotparse.js';
+import { desiredSlots, activeSlots, nextChangeAt, inSchedule, normHours, slotKey, hoursLabel } from './scheduler.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(__dirname, '..');
 
 const PSK_FLUSH_MS = 5 * 60 * 1000; // PSK Reporter: >= 5 min between uploads
 const WSPR_FLUSH_MS = 2 * 60 * 1000;
+const SCHEDULE_TICK_MS = 5000;      // how often the schedule and autorun.json are checked
+const CONFIG_PATH = join(ROOT, 'autorun.json');
+
+function configMtime() {
+    try { return statSync(CONFIG_PATH).mtimeMs; } catch { return 0; }
+}
 
 function loadConfig() {
     const path = join(ROOT, 'autorun.json');
@@ -59,11 +72,13 @@ function loadConfig() {
     }
 
     // Slots: config.slots[enabled], else AUTORUN_SLOTS env ("band:mode,band:mode").
-    let slots = (cfg.slots || []).filter((s) => s.enabled).map((s) => ({ band: s.band, mode: s.mode }));
+    // Each keeps its `hours` (UTC); null = all day.
+    let slots = (cfg.slots || []).filter((s) => s.enabled)
+        .map((s) => ({ band: s.band, mode: s.mode, hours: normHours(s.hours) }));
     if (process.env.AUTORUN_SLOTS) {
         slots = process.env.AUTORUN_SLOTS.split(',').map((t) => {
             const [band, mode] = t.trim().split(':');
-            return { band, mode };
+            return { band, mode, hours: null };
         });
     }
 
@@ -93,12 +108,18 @@ function main() {
 
     console.log(`[autorun] identity ${cfg.callsign} / ${cfg.grid6}`);
     console.log(`[autorun] tap backend: ${cfg.host}:${cfg.port}`);
-    console.log(`[autorun] slots: ${cfg.slots.map((s) => `${s.mode} ${s.band}`).join(', ')}`);
+    console.log(`[autorun] slots: ${cfg.slots.map((s) => `${s.mode} ${s.band} (${hoursLabel(s.hours)})`).join(', ')}`);
     console.log(`[autorun] reporting: PSKReporter=${cfg.report.pskreporter} wsprnet=${cfg.report.wsprnet}${cfg.dryRun ? ' (DRY RUN)' : ''}`);
 
     const psk = new PskReporter({ callsign: cfg.callsign, grid: cfg.grid6 });
     const wspr = new WsprNet({ callsign: cfg.callsign, grid: cfg.grid6 });
-    const mgr = new AutorunManager({ slots: cfg.slots, poolSize: 4, host: cfg.host, port: cfg.port });
+    // Slots are opened by the schedule loop below, not here. A decode of a
+    // cycle outside the slot's hours (the pre-roll cycle) is skipped.
+    const slotSpec = (spec) => cfg.slots.find((s) => s.band === spec.band && s.mode === spec.mode);
+    const mgr = new AutorunManager({
+        slots: [], poolSize: 4, host: cfg.host, port: cfg.port,
+        decodeGate: (spec, slotTime) => { const s = slotSpec(spec); return !!s && inSchedule(s, slotTime); },
+    });
 
     const counts = { decodes: 0, pskQueued: 0, wsprQueued: 0, pskSent: 0, wsprSent: 0 };
     // Per-decoder tally for the admin panel. The aggregate counts above cannot
@@ -131,6 +152,7 @@ function main() {
         catch { /* ignore — totals are a convenience, never worth crashing over */ }
     };
     const startedAt = Math.floor(Date.now() / 1000);
+    let reloadedAt = 0;
     let lastDecodeAt = 0, lastUploadAt = 0, lastUploadMsg = '';
     const statusPath = join(ROOT, 'autorun-status.json');
 
@@ -142,6 +164,12 @@ function main() {
                 updatedAt: Math.floor(Date.now() / 1000),
                 identity: { callsign: cfg.callsign, grid: cfg.grid6 },
                 slots: cfg.slots,
+                schedule: {
+                    open: mgr.keys(),
+                    active: activeSlots(cfg.slots, Date.now()).map(slotKey),
+                    nextChangeAt: nextChangeAt(cfg.slots, Date.now()),
+                    reloadedAt,
+                },
                 reporting: cfg.report,
                 dryRun: cfg.dryRun,
                 counts,
@@ -152,6 +180,45 @@ function main() {
     };
 
     const statusTimer = setInterval(() => { writeStatus(); writeTotals(); }, 15000);
+
+    // ── Schedule loop ───────────────────────────────────────────────────────
+    // Every tick: pick up a saved autorun.json, then open/close taps so the
+    // open set matches the schedule (with pre-roll and grace, scheduler.js).
+    let lastMtime = configMtime();
+    const reloadConfig = () => {
+        const m = configMtime();
+        if (m === lastMtime) return;
+        lastMtime = m;
+        if (process.env.AUTORUN_SLOTS) return;   // env-pinned test run: ignore the file
+        const next = loadConfig();
+        if (next.callsign !== cfg.callsign || next.grid6 !== cfg.grid6) {
+            console.log('[autorun] identity changed in autorun.json — Stop/Start to apply it');
+        }
+        cfg.slots = next.slots;
+        cfg.report = next.report;
+        cfg.dryRun = next.dryRun;
+        for (const s of cfg.slots) { modeTally(s.mode); slotTally(s.mode, s.band); }
+        reloadedAt = Math.floor(Date.now() / 1000);
+        console.log(`[autorun] config reloaded: ${cfg.slots.length} slot(s); reporting PSKReporter=${cfg.report.pskreporter} wsprnet=${cfg.report.wsprnet}`);
+    };
+    let lastActiveSig = null;
+    const scheduleTick = () => {
+        try { reloadConfig(); } catch (e) { console.error(`[autorun] reload failed: ${e.message}`); }
+        const now = Date.now();
+        const { added, removed } = mgr.setSlots(desiredSlots(cfg.slots, now), now);
+        if (added.length) console.log(`[autorun] schedule: open ${added.join(', ')}`);
+        if (removed.length) console.log(`[autorun] schedule: close ${removed.join(', ')}`);
+        const sig = activeSlots(cfg.slots, now).map(slotKey).sort().join(', ');
+        if (sig !== lastActiveSig) {
+            lastActiveSig = sig;
+            const nx = nextChangeAt(cfg.slots, now);
+            console.log(`[autorun] active now: ${sig || 'none (idle)'}` +
+                        (nx ? ` · next change ${new Date(nx).toISOString().slice(11, 16)} UTC` : ''));
+        }
+        if (added.length || removed.length) writeStatus();
+    };
+    scheduleTick();
+    const scheduleTimer = setInterval(scheduleTick, SCHEDULE_TICK_MS);
     writeStatus();
 
     mgr.on('ready', (s) => { console.log(`[autorun] tuned ${s.mode} ${s.band}`); writeStatus(); });
@@ -239,9 +306,12 @@ function main() {
     const pskTimer = setInterval(flushPsk, PSK_FLUSH_MS);
     const wsprTimer = setInterval(flushWspr, WSPR_FLUSH_MS);
 
+    let shuttingDown = false;
     const shutdown = async () => {
+        if (shuttingDown) return;   // a second SIGTERM must not flush twice
+        shuttingDown = true;
         console.log('\n[autorun] shutting down…');
-        clearInterval(pskTimer); clearInterval(wsprTimer); clearInterval(statusTimer);
+        clearInterval(pskTimer); clearInterval(wsprTimer); clearInterval(statusTimer); clearInterval(scheduleTimer);
         await flushPsk(); await flushWspr();
         await mgr.stop(); psk.close(); wspr.close();
         writeTotals();   // totals persist across restarts; status does not

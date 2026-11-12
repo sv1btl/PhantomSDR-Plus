@@ -1264,6 +1264,48 @@ body{background-image:var(--body-bg);}
 .ar-slot-tot.none{color:var(--amber);text-shadow:0 0 6px rgba(var(--amber-rgb),.47);}
 .ar-slot-tot:empty{display:none;}
 
+/* Spot reporting schedule: one row per enabled slot, 24 UTC hour cells. */
+#ar-sched{border-collapse:collapse;font-size:.66rem;}
+#ar-sched th,#ar-sched td{padding:.18rem .12rem;text-align:center;white-space:nowrap;}
+#ar-sched th.ar-h{font-family:var(--font-mono);font-size:.58rem;color:var(--text3);min-width:1.45rem;}
+#ar-sched th.ar-h.now{color:var(--green);}
+#ar-sched td.ar-slot{text-align:left;padding-right:.5rem;color:var(--amber);}
+/* Slot names stay put while the hours scroll sideways (phones). */
+#ar-sched td.ar-slot,#ar-sched th:first-child{position:sticky;left:0;z-index:1;background:var(--panel);}
+#ar-sched td.ar-cell{cursor:pointer;user-select:none;-webkit-user-select:none;}
+#ar-sched td.ar-cell span{display:block;height:1.05rem;border-radius:2px;
+  background:var(--tile);border:1px solid var(--border);}
+/* A scheduled hour shows a tick in its box (not a filled square). */
+#ar-sched td.ar-cell span{display:flex;align-items:center;justify-content:center;
+  font-size:.8rem;line-height:1;font-weight:bold;color:var(--green);}
+#ar-sched td.ar-cell.on span{border-color:rgba(var(--accent-rgb),.6);}
+#ar-sched td.ar-cell.on span::after{content:"✓";text-shadow:0 0 5px rgba(var(--accent-rgb),.5);}
+#ar-sched td.ar-cell.now span{outline:1px solid var(--amber);outline-offset:1px;}
+/* Mode name in each schedule row and BANDS & MODES column has its own colour (fixed, not theme
+   accents, so the four stay distinct in every theme; darker on light). */
+#ar-sched .ar-mode{font-weight:bold;margin-left:.3rem;}
+.ar-mode-ft8{color:#38d6ff;}
+.ar-mode-ft4{color:#ff6fcf;}
+.ar-mode-js8{color:#b18cff;}
+.ar-mode-wspr{color:#a3f05a;}
+html[data-theme=light] .ar-mode-ft8{color:#0369a1;}
+html[data-theme=light] .ar-mode-ft4{color:#be185d;}
+html[data-theme=light] .ar-mode-js8{color:#6d28d9;}
+html[data-theme=light] .ar-mode-wspr{color:#3f6212;}
+/* A rule under the last row of each band, so the bands read as groups. */
+#ar-sched tr.ar-band-end td{border-bottom:1px solid rgba(var(--accent-rgb),.28);padding-bottom:.3rem;}
+#ar-sched tr.ar-band-start td{padding-top:.3rem;}
+#ar-sched td.ar-tot{font-family:var(--font-mono);font-size:.6rem;color:var(--text3);}
+#ar-sched td.ar-tot.over{color:var(--red);font-weight:bold;}
+#ar-sched td.ar-btns{text-align:left;padding-left:.5rem;}
+#ar-sched td.ar-btns button{font-size:.55rem;padding:.08rem .3rem;margin-right:.15rem;
+  background:var(--tile);border:1px solid var(--border);color:var(--text2);cursor:pointer;border-radius:2px;}
+#ar-sched td.ar-btns button:hover{color:var(--green);border-color:rgba(var(--accent-rgb),.5);}
+.ar-run{display:inline-block;width:.5rem;height:.5rem;border-radius:50%;margin-right:.35rem;
+  background:var(--text3);vertical-align:middle;}
+.ar-run.active{background:var(--green);box-shadow:0 0 6px rgba(var(--accent-rgb),.7);}
+.ar-run.preroll{background:var(--amber);}
+
 /* Server control card */
 .sdr-control{display:flex;gap:1rem;flex-wrap:wrap;align-items:flex-start;}
 .sdr-info{flex:1;min-width:200px;}
@@ -2153,6 +2195,11 @@ html[data-theme=light]{color-scheme:light;}
             <button class="btn btn-red" onclick="autorunFreeAll()">&#10005; FREE ALL SLOTS</button>
             <span id="ar-msg" style="font-size:.65rem;color:var(--text3);margin:auto 0;"></span>
           </div>
+          <label style="display:flex;align-items:center;gap:.5rem;font-size:.72rem;margin:.8rem 0 .2rem;">
+            <input type="checkbox" id="ar-autostart" style="width:auto;margin:0;"> Start automatically after a reboot or crash</label>
+          <p style="color:var(--text3);font-size:.62rem;margin:0;line-height:1.5;">
+            Takes effect on SAVE CONFIG. The panel starts the daemon about a minute after boot and restarts it within a
+            minute if it dies. STOP always wins: after STOP it stays off, reboots included, until you press START.</p>
         </div>
 
         <!-- Per-decoder spot tally.  The aggregate PSK Reporter figure above
@@ -2209,7 +2256,9 @@ html[data-theme=light]{color-scheme:light;}
         <div class="card">
           <div class="card-header"><div class="dot"></div>BANDS &amp; MODES
             <span style="margin-left:auto;font-size:.62rem;color:var(--text3);">MAX SLOTS
-              <input id="ar-max" type="number" min="1" max="64" onchange="autorunCount()" style="width:3.4rem;margin-left:.3rem;background:var(--tile);border:1px solid var(--border);color:var(--green);padding:.15rem;"></span>
+              <input id="ar-max" type="number" min="1" max="64" onchange="autorunCount()" style="width:3.4rem;margin-left:.3rem;background:var(--tile);border:1px solid var(--border);color:var(--green);padding:.15rem;">
+              <button type="button" id="ar-selall" onclick="autorunSelectAll()" title="Tick (or untick) every band and mode in the table"
+                style="margin-left:.4rem;font-size:.6rem;padding:.12rem .45rem;background:var(--tile);border:1px solid var(--border);color:var(--text2);cursor:pointer;border-radius:2px;">SELECT ALL</button></span>
           </div>
           <div style="overflow-x:auto;"><table class="markers" id="ar-matrix"></table></div>
           <p style="color:var(--text3);font-size:.62rem;margin-top:.5rem;" id="ar-count">&#8212;</p>
@@ -2219,6 +2268,20 @@ html[data-theme=light]{color-scheme:light;}
             uploaded yet &#8212; normal between flushes; a plain
             <span style="color:var(--amber)">0</span> means enabled but nothing decoded yet (WSPR can take
             minutes &#8212; it runs on a 2-minute cycle). Hover for the detail.</p>
+        </div>
+
+        <div class="card" style="margin-top:.9rem;">
+          <div class="card-header"><div class="dot"></div>SCHEDULE &#183; HOURS PER BAND
+            <label style="margin-left:auto;font-size:.62rem;color:var(--text3);display:flex;align-items:center;gap:.3rem;">
+              <input type="checkbox" id="ar-local" onchange="autorunBuildSchedule()" style="width:auto;margin:0;"> show local time</label>
+          </div>
+          <p style="color:var(--text2);font-size:.66rem;margin:.2rem 0 .6rem;">
+            Click or drag across the hours in which each enabled band+mode decodes and spots. Unmarked hours it sleeps,
+            with its receiver slot freed. The schedule is in UTC; a saved change reaches a running daemon within seconds,
+            no restart needed. A slot opens a little before its first hour (up to 2 min for WSPR) so its first cycle is
+            decoded. The bottom row counts the slots running in each hour &#8212; red is over MAX SLOTS.</p>
+          <div style="overflow-x:auto;"><table id="ar-sched" data-nostack></table></div>
+          <p style="color:var(--text3);font-size:.62rem;margin-top:.5rem;" id="ar-sched-note">&#8212;</p>
         </div>
       </div>
 
@@ -3653,6 +3716,8 @@ async function saveMarkers() {
 
 // ─── Spot Reporting (autorun) ─────────────────────────────────────────────────
 let AR_BANDS = [], AR_MODES = {}, AR_POLL = null;
+// Schedule per slot key "mode:band": null = all day, else UTC hours 0..23.
+let AR_HOURS = {}, AR_SCHED_STATUS = null, AR_PAINT = null;
 
 async function autorunLoad() {
   try {
@@ -3664,7 +3729,10 @@ async function autorunLoad() {
     document.getElementById('ar-psk').checked = !!c.reporting.pskreporter;
     document.getElementById('ar-wspr').checked = !!c.reporting.wsprnet;
     document.getElementById('ar-max').value = c.maxSlots || 12;
+    document.getElementById('ar-autostart').checked = !!c.autostart;
     const enabled = new Set((c.slots || []).filter(s => s.enabled).map(s => s.mode + ':' + s.band));
+    AR_HOURS = {};
+    (c.slots || []).forEach(s => { AR_HOURS[s.mode + ':' + s.band] = Array.isArray(s.hours) ? s.hours.slice() : null; });
     autorunBuildMatrix(enabled);
     autorunPoll();
     if (!AR_POLL) AR_POLL = setInterval(autorunPoll, 5000);
@@ -3676,7 +3744,7 @@ function autorunBuildMatrix(enabledSet) {
   // The badge is filled by autorunPoll; it is empty (and hidden) until the
   // daemon reports a count, so a rebuild never shows a stale number.
   let h = '<thead><tr><th>BAND</th>' + modes.map(m =>
-    '<th>' + m.toUpperCase() + '<span class="ar-hdr-badge" id="ar-hdr-' + m + '"></span></th>').join('') +
+    '<th><span class="ar-mode-' + m + '">' + m.toUpperCase() + '</span><span class="ar-hdr-badge" id="ar-hdr-' + m + '"></span></th>').join('') +
     '</tr></thead><tbody>';
   for (const band of AR_BANDS) {
     h += '<tr><td style="color:var(--amber)">' + band + '</td>';
@@ -3700,7 +3768,12 @@ function autorunGatherSlots() {
   const slots = [];
   document.querySelectorAll('#ar-matrix input[type=checkbox]').forEach(cb => {
     const [mode, band] = cb.dataset.key.split(':');
-    slots.push({ band, mode, enabled: cb.checked });
+    const slot = { band, mode, enabled: cb.checked };
+    // Hours are kept for unticked slots too, so unticking and ticking a band
+    // again does not lose its schedule.
+    const h = AR_HOURS[cb.dataset.key];
+    if (Array.isArray(h)) slot.hours = h.slice();
+    slots.push(slot);
   });
   return slots;
 }
@@ -3708,9 +3781,149 @@ function autorunGatherSlots() {
 function autorunCount() {
   const n = document.querySelectorAll('#ar-matrix input:checked').length;
   const max = parseInt(document.getElementById('ar-max').value || '12', 10);
+  const per = autorunPerHour();
+  const peak = Math.max(0, ...per);
   const el = document.getElementById('ar-count');
-  el.textContent = n + ' slot(s) enabled (cap ' + max + ')';
-  el.style.color = n > max ? 'var(--red)' : 'var(--text3)';
+  el.textContent = n + ' slot(s) enabled \u00b7 at most ' + peak + ' at once (cap ' + max + ')';
+  el.style.color = peak > max ? 'var(--red)' : 'var(--text3)';
+  const boxes = document.querySelectorAll('#ar-matrix input[type=checkbox]');
+  const sel = document.getElementById('ar-selall');
+  if (sel) sel.textContent = (boxes.length && n === boxes.length) ? 'DESELECT ALL' : 'SELECT ALL';
+  autorunBuildSchedule();
+}
+
+// Tick every band+mode; when all are ticked already, the button unticks them.
+function autorunSelectAll() {
+  const boxes = Array.from(document.querySelectorAll('#ar-matrix input[type=checkbox]'));
+  const all = boxes.length && boxes.every(cb => cb.checked);
+  boxes.forEach(cb => { cb.checked = !all; });
+  autorunCount();
+}
+
+// ── Schedule grid ──
+function autorunEnabledKeys() {
+  return Array.from(document.querySelectorAll('#ar-matrix input:checked')).map(cb => cb.dataset.key);
+}
+function autorunHourOn(key, h) {
+  const hs = AR_HOURS[key];
+  return !Array.isArray(hs) || hs.includes(h);
+}
+function autorunPerHour() {
+  const out = new Array(24).fill(0);
+  autorunEnabledKeys().forEach(k => { for (let h = 0; h < 24; h++) if (autorunHourOn(k, h)) out[h]++; });
+  return out;
+}
+function autorunSetHours(key, list) {
+  const u = Array.from(new Set(list)).filter(h => h >= 0 && h <= 23).sort((a, b) => a - b);
+  AR_HOURS[key] = u.length === 24 ? null : u;
+}
+// Daytime at the station: 06-18 local SOLAR time, from the grid's longitude
+// (so it is right for any station, not just one time zone).
+function autorunDayHours() {
+  const g = (document.getElementById('ar-grid').value || '').toUpperCase();
+  let lon = null;
+  if (/^[A-R]{2}[0-9]{2}/.test(g)) {
+    lon = (g.charCodeAt(0) - 65) * 20 - 180 + parseInt(g[2], 10) * 2 + 1;
+    if (/^[A-R]{2}[0-9]{2}[A-X]{2}/.test(g)) lon = lon - 1 + (g.charCodeAt(4) - 65) * (2 / 24) + (1 / 24);
+  }
+  const noonUtc = lon === null ? 12 : 12 - lon / 15;
+  const out = [];
+  for (let h = 0; h < 24; h++) {
+    const mid = h + 0.5;                                   // centre of the UTC hour
+    const solar = ((mid - noonUtc + 12) % 24 + 24) % 24;   // 0..24, 12 = solar noon
+    if (solar >= 6 && solar < 18) out.push(h);
+  }
+  return out;
+}
+function autorunPreset(key, what) {
+  const day = autorunDayHours();
+  if (what === 'all') AR_HOURS[key] = null;
+  else if (what === 'none') AR_HOURS[key] = [];
+  else if (what === 'day') autorunSetHours(key, day);
+  else if (what === 'night') autorunSetHours(key, [...Array(24).keys()].filter(h => !day.includes(h)));
+  else if (what === 'band') {
+    // Copy this row's hours to the other enabled modes on the same band.
+    const band = key.split(':')[1];
+    const src = AR_HOURS[key];
+    autorunEnabledKeys().forEach(k => {
+      if (k !== key && k.split(':')[1] === band) AR_HOURS[k] = Array.isArray(src) ? src.slice() : null;
+    });
+  }
+  autorunCount();
+}
+function autorunPaintCell(key, h, on) {
+  const cur = [...Array(24).keys()].filter(x => autorunHourOn(key, x));
+  autorunSetHours(key, on ? cur.concat([h]) : cur.filter(x => x !== h));
+  const td = document.querySelector('#ar-sched td.ar-cell[data-key="' + key + '"][data-h="' + h + '"]');
+  if (td) td.classList.toggle('on', on);
+}
+function autorunCellDown(ev, key, h) {
+  ev.preventDefault();
+  AR_PAINT = { on: !autorunHourOn(key, h) };
+  autorunPaintCell(key, h, AR_PAINT.on);
+}
+function autorunCellOver(key, h) {
+  if (AR_PAINT) autorunPaintCell(key, h, AR_PAINT.on);
+}
+document.addEventListener('mouseup', function() {
+  if (AR_PAINT) { AR_PAINT = null; autorunCount(); }
+});
+function autorunHourLabel(h) {
+  if (!document.getElementById('ar-local') || !document.getElementById('ar-local').checked) return String(h).padStart(2, '0');
+  const d = new Date(); d.setUTCHours(h, 0, 0, 0);
+  return String(d.getHours()).padStart(2, '0');
+}
+function autorunBuildSchedule() {
+  const tbl = document.getElementById('ar-sched');
+  if (!tbl) return;
+  const keys = autorunEnabledKeys();
+  const note = document.getElementById('ar-sched-note');
+  if (!keys.length) {
+    tbl.innerHTML = '';
+    note.textContent = 'Tick bands and modes above to schedule them.';
+    return;
+  }
+  const max = parseInt(document.getElementById('ar-max').value || '12', 10);
+  const nowH = new Date().getUTCHours();
+  const st = AR_SCHED_STATUS || {};
+  const active = new Set(st.active || []), open = new Set(st.open || []);
+  const local = document.getElementById('ar-local').checked;
+  let h = '<thead><tr><th style="text-align:left">SLOT</th>';
+  for (let x = 0; x < 24; x++) h += '<th class="ar-h' + (x === nowH ? ' now' : '') + '">' + autorunHourLabel(x) + '</th>';
+  h += '<th></th></tr></thead><tbody>';
+  keys.forEach((k, i) => {
+    const [mode, band] = k.split(':');
+    const prevBand = i > 0 ? keys[i - 1].split(':')[1] : null;
+    const nextBand = i < keys.length - 1 ? keys[i + 1].split(':')[1] : null;
+    const rowCls = (band !== nextBand ? ' ar-band-end' : '') + (prevBand !== null && band !== prevBand ? ' ar-band-start' : '');
+    let dot = '', tip = 'daemon stopped';
+    if (AR_SCHED_STATUS) {
+      dot = active.has(k) ? ' active' : (open.has(k) ? ' preroll' : '');
+      tip = active.has(k) ? 'decoding now' : (open.has(k) ? 'opening for its next hour / closing' : 'sleeping');
+    }
+    h += '<tr class="' + rowCls.trim() + '"><td class="ar-slot"><span class="ar-run' + dot + '" title="' + tip + '"></span>' + band + '<span class="ar-mode ar-mode-' + mode + '">' + mode.toUpperCase() + '</span></td>';
+    for (let x = 0; x < 24; x++) {
+      h += '<td class="ar-cell' + (autorunHourOn(k, x) ? ' on' : '') + (x === nowH ? ' now' : '') +
+           '" data-key="' + k + '" data-h="' + x + '" onmousedown="autorunCellDown(event,\\'' + k + '\\',' + x + ')"' +
+           ' onmouseover="autorunCellOver(\\'' + k + '\\',' + x + ')"><span></span></td>';
+    }
+    h += '<td class="ar-btns">' +
+         '<button onclick="autorunPreset(\\'' + k + '\\',\\'all\\')" title="All day">24h</button>' +
+         '<button onclick="autorunPreset(\\'' + k + '\\',\\'day\\')" title="06-18 local solar time at the grid above">Day</button>' +
+         '<button onclick="autorunPreset(\\'' + k + '\\',\\'night\\')" title="18-06 local solar time at the grid above">Night</button>' +
+         '<button onclick="autorunPreset(\\'' + k + '\\',\\'none\\')" title="Never">Clear</button>' +
+         '<button onclick="autorunPreset(\\'' + k + '\\',\\'band\\')" title="Copy these hours to the other modes on ' + band + '">&#8594; ' + band + '</button>' +
+         '</td></tr>';
+  });
+  const per = autorunPerHour();
+  h += '<tr><td class="ar-slot" style="color:var(--text3)">AT ONCE</td>';
+  for (let x = 0; x < 24; x++) h += '<td class="ar-tot' + (per[x] > max ? ' over' : '') + '">' + per[x] + '</td>';
+  h += '<td></td></tr></tbody>';
+  tbl.innerHTML = h;
+  let msg = 'Hours shown in ' + (local ? 'your browser\\'s local time' : 'UTC') + '; the current hour is outlined.';
+  if (AR_SCHED_STATUS && AR_SCHED_STATUS.nextChangeAt)
+    msg += ' Next change: ' + new Date(AR_SCHED_STATUS.nextChangeAt).toISOString().slice(11, 16) + ' UTC.';
+  note.textContent = msg;
 }
 
 async function autorunSave() {
@@ -3718,6 +3931,7 @@ async function autorunSave() {
     identity: { callsign: document.getElementById('ar-call').value.trim(), grid: document.getElementById('ar-grid').value.trim() },
     reporting: { pskreporter: document.getElementById('ar-psk').checked, wsprnet: document.getElementById('ar-wspr').checked },
     maxSlots: parseInt(document.getElementById('ar-max').value || '12', 10),
+    autostart: document.getElementById('ar-autostart').checked,
     slots: autorunGatherSlots(),
   };
   const d = await fetch('/admin/api/autorun/config', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }).then(r => r.json());
@@ -3765,14 +3979,23 @@ async function autorunPoll() {
     const s = d.status || {}, cn = s.counts || {}, rep = s.reporting || {};
     const fmt = t => t ? new Date(t * 1000).toLocaleTimeString('en-GB') : '—';
     const pending = (q, sent) => Math.max(0, (q || 0) - (sent || 0));
+    const auto = !d.autostart ? 'off &#8212; START by hand'
+      : (d.held ? '<span style="color:var(--amber)">ON, held by STOP</span> &#8212; press START to resume'
+                : '<b>ON</b> &#8212; restarts after a reboot or crash');
     document.getElementById('ar-status').innerHTML =
+      'Autostart: ' + auto + '<br>' +
       'Reporting: PSK Reporter <b>' + (rep.pskreporter ? 'ON' : 'off') + '</b> &#183; wsprnet <b>' + (rep.wsprnet ? 'ON' : 'off') + '</b>' + (s.dryRun ? ' &#183; <span style="color:var(--amber)">DRY RUN</span>' : '') + '<br>' +
       'Decodes: ' + (cn.decodes || 0) + '<br>' +
       'PSK Reporter: <b>' + (cn.pskSent || 0) + '</b> sent, ' + pending(cn.pskQueued, cn.pskSent) + ' pending <span style="color:var(--text3)">(uploads every 5 min)</span><br>' +
       'wsprnet: <b>' + (cn.wsprSent || 0) + '</b> sent, ' + pending(cn.wsprQueued, cn.wsprSent) + ' pending <span style="color:var(--text3)">(every 2 min)</span><br>' +
-      'Last decode: ' + fmt(s.lastDecodeAt) + ' &#183; Last upload: ' + fmt(s.lastUploadAt) + ' ' + (s.lastUploadMsg || '');
+      'Last decode: ' + fmt(s.lastDecodeAt) + ' &#183; Last upload: ' + fmt(s.lastUploadAt) + ' ' + (s.lastUploadMsg || '') +
+      (d.running && s.schedule ? '<br>Scheduled now: <b>' + ((s.schedule.active || []).join(', ') || 'none &#8212; idle') + '</b>' +
+        (s.schedule.nextChangeAt ? ' &#183; next change ' + new Date(s.schedule.nextChangeAt).toISOString().slice(11, 16) + ' UTC' : '') : '');
     autorunRenderSpots(s, d.running, rep);
     autorunRenderSlotTotals(d.totals || {});
+    const sch = d.running ? (s.schedule || null) : null;
+    const sig = JSON.stringify(sch);
+    if (sig !== JSON.stringify(AR_SCHED_STATUS) && !AR_PAINT) { AR_SCHED_STATUS = sch; autorunBuildSchedule(); }
   } catch (e) { /* ignore */ }
 }
 
@@ -6879,6 +7102,31 @@ def _autorun_default_identity():
         pass
     return call, grid
 
+def _autorun_norm_hours(hours):
+    """A slot's schedule as a sorted list of UTC hours, or None for all day.
+
+    Mirrors autorun/scheduler.js normHours, except that a full 24-hour list is
+    folded to None so an unscheduled slot is stored exactly as before.
+    """
+    if not isinstance(hours, list):
+        return None
+    out = sorted({int(h) for h in hours
+                  if isinstance(h, (int, float, str)) and str(h).strip().lstrip("-").isdigit()
+                  and 0 <= int(h) <= 23})
+    return None if len(out) == 24 else out
+
+def _autorun_concurrency(slots):
+    """How many enabled slots run in each UTC hour (list of 24)."""
+    out = [0] * 24
+    for s in slots:
+        if not s.get("enabled"):
+            continue
+        hours = s.get("hours")
+        for h in range(24):
+            if hours is None or h in hours:
+                out[h] += 1
+    return out
+
 def _autorun_running():
     try:
         r = subprocess.run(["pgrep", "-f", r"node .*autorun/index\.js"],
@@ -6912,6 +7160,7 @@ def api_autorun_config():
                               "wsprnet": bool(rep.get("wsprnet", False))},
                 "maxSlots": int(cfg.get("maxSlots", 12)),
                 "slots": cfg.get("slots", []),
+                "autostart": bool(cfg.get("autostart", False)),
             },
             "defaults": {"callsign": def_call, "grid": def_grid},
             "bands": AUTORUN_BANDS,
@@ -6922,14 +7171,23 @@ def api_autorun_config():
     for s in (req.get("slots") or []):
         band, mode = s.get("band"), s.get("mode")
         if mode in AUTORUN_MODES and band in AUTORUN_MODES[mode]:
-            slots.append({"band": band, "mode": mode, "enabled": bool(s.get("enabled"))})
+            slot = {"band": band, "mode": mode, "enabled": bool(s.get("enabled"))}
+            hours = _autorun_norm_hours(s.get("hours"))
+            if hours is not None:          # absent / all 24 = all day, stored as no field
+                slot["hours"] = hours
+            slots.append(slot)
     try:
         max_slots = max(1, min(64, int(req.get("maxSlots", 12))))
     except Exception:
         max_slots = 12
-    enabled_count = sum(1 for s in slots if s["enabled"])
-    if enabled_count > max_slots:
-        return jsonify({"ok": False, "msg": f"{enabled_count} slots enabled exceeds cap of {max_slots}"})
+    # The cap is on slots running AT THE SAME TIME, so with a schedule it is
+    # checked hour by hour, not against the day's total.
+    per_hour = _autorun_concurrency(slots)
+    peak = max(per_hour) if per_hour else 0
+    if peak > max_slots:
+        bad = [f"{h:02d}" for h, c in enumerate(per_hour) if c > max_slots]
+        return jsonify({"ok": False, "msg": f"{peak} slots at once exceeds cap of {max_slots} "
+                                            f"(UTC hour {', '.join(bad)})"})
     ident = req.get("identity") or {}
     call = (ident.get("callsign") or "").strip().upper()
     grid_in = (ident.get("grid") or "").strip()
@@ -6948,6 +7206,13 @@ def api_autorun_config():
         "maxSlots": max_slots,
         "slots": slots,
     }
+    autostart = req.get("autostart")
+    if autostart is None and cfg_path.exists():
+        try:
+            autostart = (json.loads(read_file_safe(cfg_path)) or {}).get("autostart")
+        except Exception:
+            autostart = None
+    out["autostart"] = bool(autostart)
     # Optional manual CPU-pin override (advanced; usually absent). Accept a
     # taskset core list or none/off/unpinned, else drop it. Preserve any value
     # already in autorun.json when the request doesn't carry one, so hand-edits
@@ -6979,8 +7244,16 @@ def api_autorun_status():
             status = json.loads(read_file_safe(status_path))
         except Exception:
             status = {}
+    autostart = False
+    try:
+        _, cfg_path, _, _ = _autorun_paths()
+        if cfg_path.exists():
+            autostart = bool((json.loads(read_file_safe(cfg_path)) or {}).get("autostart"))
+    except Exception:
+        pass
     return jsonify({"running": running, "pids": pids, "status": status,
-                    "totals": _autorun_totals()})
+                    "totals": _autorun_totals(),
+                    "autostart": autostart, "held": _autorun_hold_path().exists()})
 
 _CORELIST_RE = re.compile(r'^\d+([-,]\d+)*$')  # e.g. "2-3", "0,2,4", "0-2,5"
 
@@ -7034,24 +7307,50 @@ def _autorun_taskset_prefix():
     spec = f"{lo}-{hi}" if count > 1 else str(lo)
     return ["taskset", "-c", spec]
 
+def _autorun_hold_path():
+    """Present while the sysop's STOP holds: autostart leaves the daemon off,
+    across reboots too, until START is pressed again."""
+    return get_sdr_dir() / "autorun-stopped"
+
+def _autorun_set_hold(on):
+    p = _autorun_hold_path()
+    try:
+        if on:
+            p.write_text(time.strftime("%Y-%m-%d %H:%M:%S") + " stopped from the admin panel\n")
+        elif p.exists():
+            p.unlink()
+    except Exception as e:
+        logging.warning("autorun hold flag: %s", e)
+
 @app.route("/admin/api/autorun/start", methods=["POST"])
 @login_required
 def api_autorun_start():
-    base, cfg_path, _, log_path = _autorun_paths()
     running, _ = _autorun_running()
     if running:
+        _autorun_set_hold(False)
         return jsonify({"ok": False, "msg": "already running"})
+    ok, msg, pid = _autorun_spawn()
+    if ok:
+        _autorun_set_hold(False)
+    out = {"ok": ok, "msg": msg}
+    if pid:
+        out["pid"] = pid
+    return jsonify(out)
+
+def _autorun_spawn():
+    """Launch the daemon; (ok, msg, pid). Shared by START and autostart."""
+    base, cfg_path, _, log_path = _autorun_paths()
     if not cfg_path.exists():
-        return jsonify({"ok": False, "msg": "save config first"})
+        return False, "save config first", None
     try:
         cfg = json.loads(read_file_safe(cfg_path))
         if not any(s.get("enabled") for s in cfg.get("slots", [])):
-            return jsonify({"ok": False, "msg": "no bands/modes enabled"})
+            return False, "no bands/modes enabled", None
     except Exception as e:
-        return jsonify({"ok": False, "msg": f"bad config: {e}"})
+        return False, f"bad config: {e}", None
     index_js = base / "autorun" / "index.js"
     if not index_js.exists():
-        return jsonify({"ok": False, "msg": "autorun/index.js missing"})
+        return False, "autorun/index.js missing", None
     node = _resolve_node()
     # Pin the daemon to the top CPU cores so decode bursts stay off the lower
     # cores spectrumserver prefers (xgo.sh pins it to 0-7). Config-aware: on a
@@ -7063,9 +7362,74 @@ def api_autorun_start():
         logf = open(log_path, "a")
         proc = subprocess.Popen(cmd, cwd=str(base), stdout=logf,
                                 stderr=subprocess.STDOUT, start_new_session=True)
-        return jsonify({"ok": True, "msg": f"started (PID {proc.pid})", "pid": proc.pid})
+        return True, f"started (PID {proc.pid})", proc.pid
     except Exception as e:
-        return jsonify({"ok": False, "msg": str(e)})
+        return False, str(e), None
+
+# ── Autostart keeper ──
+# With "autostart" ticked in Spot Reporting, the panel (which systemd starts at
+# boot) starts the daemon after a reboot and restarts it if it dies, unless a
+# STOP from the panel holds (autorun-stopped). A receiver that is not up yet is
+# fine: the daemon's taps retry every 30 s. A daemon that keeps dying is given
+# a rest instead of being respawned every minute.
+AUTORUN_KEEPER_FIRST_S = 60       # let the receivers come up after boot
+AUTORUN_KEEPER_EVERY_S = 60
+AUTORUN_KEEPER_MAX_RESTARTS = 5   # in AUTORUN_KEEPER_WINDOW_S, then back off
+AUTORUN_KEEPER_WINDOW_S = 900
+AUTORUN_KEEPER_BACKOFF_S = 1800
+
+def _autorun_keeper_log(msg):
+    try:
+        _, _, _, log_path = _autorun_paths()
+        with open(log_path, "a") as f:
+            f.write(f"[admin {time.strftime('%Y-%m-%d %H:%M:%S')}] {msg}\n")
+    except Exception:
+        pass
+
+def _autorun_keeper_should_start():
+    """(start?, reason) for one keeper pass."""
+    _, cfg_path, _, _ = _autorun_paths()
+    try:
+        cfg = json.loads(read_file_safe(cfg_path)) if cfg_path.exists() else {}
+    except Exception:
+        return False, "bad autorun.json"
+    if not cfg.get("autostart"):
+        return False, "autostart off"
+    if _autorun_hold_path().exists():
+        return False, "held by STOP"
+    if not any(s.get("enabled") for s in cfg.get("slots", [])):
+        return False, "no bands/modes enabled"
+    if _autorun_running()[0]:
+        return False, "running"
+    return True, ""
+
+def _autorun_keeper():
+    time.sleep(AUTORUN_KEEPER_FIRST_S)
+    restarts = []
+    resume_at = 0.0
+    while True:
+        try:
+            now = time.time()
+            if now >= resume_at:
+                go, _ = _autorun_keeper_should_start()
+                if go:
+                    restarts = [t for t in restarts if now - t < AUTORUN_KEEPER_WINDOW_S]
+                    if len(restarts) >= AUTORUN_KEEPER_MAX_RESTARTS:
+                        resume_at = now + AUTORUN_KEEPER_BACKOFF_S
+                        restarts = []
+                        _autorun_keeper_log(f"autostart: daemon died {AUTORUN_KEEPER_MAX_RESTARTS} times "
+                                            f"in {AUTORUN_KEEPER_WINDOW_S // 60} min; next try in "
+                                            f"{AUTORUN_KEEPER_BACKOFF_S // 60} min — see the lines above")
+                    else:
+                        ok, msg, _ = _autorun_spawn()
+                        restarts.append(now)
+                        _autorun_keeper_log(f"autostart: {msg}" if ok else f"autostart failed: {msg}")
+        except Exception as e:
+            logging.warning("autorun keeper: %s", e)
+        time.sleep(AUTORUN_KEEPER_EVERY_S)
+
+def start_autorun_keeper():
+    threading.Thread(target=_autorun_keeper, name="autorun-keeper", daemon=True).start()
 
 @app.route("/admin/api/autorun/totals/reset", methods=["POST"])
 @login_required
@@ -7078,6 +7442,7 @@ def api_autorun_totals_reset():
     shutdown handler writes the totals one last time — and only then delete.
     """
     running, pids = _autorun_running()
+    _autorun_set_hold(True)   # it stops the daemon on purpose: autostart must not undo that
     if running:
         for pid in pids:
             try:
@@ -7105,6 +7470,8 @@ def api_autorun_totals_reset():
 @login_required
 def api_autorun_stop():
     running, pids = _autorun_running()
+    # STOP holds even when nothing was running: autostart must not start it.
+    _autorun_set_hold(True)
     if not running:
         return jsonify({"ok": False, "msg": "not running"})
     killed = []
@@ -8927,6 +9294,7 @@ if __name__ == "__main__":
     start_graph_sampler()
     start_ban_keeper()
     start_alert_monitor()
+    start_autorun_keeper()
     print(f"  Graphs    : sampling every {GRAPH_INTERVAL_S}s, "
           f"{GRAPH_HISTORY_S // 3600}h history (in memory)")
 

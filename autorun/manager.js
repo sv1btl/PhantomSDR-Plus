@@ -11,6 +11,11 @@
  *   'ready'  ({band, mode, sampleRate})    — a slot's tap tuned
  *   'decode' ({band, mode, dialHz, sampleRate, results, decodeMs})
  *   'error'  (Error, {band, mode})
+ *   'closed' ({band, mode, code})          — a tap died on its own (not removed)
+ *
+ * Slots can be added and removed while running (setSlots), which is how the
+ * hourly schedule (scheduler.js) opens and closes bands. A `decodeGate(spec,
+ * slotTimeS)` option can veto a decode, e.g. a cycle outside the schedule.
  */
 import { EventEmitter } from 'node:events';
 import { AudioTap } from './audiotap.js';
@@ -30,6 +35,9 @@ export const MODE_TIMING = {
     wspr: { periodS: 120, windowS: 116 },
 };
 
+/** How long a dead tap waits before setSlots reopens it. */
+export const REOPEN_MS = 30000;
+
 class Slot {
     constructor({ band, mode, host, port }) {
         this.band = band;
@@ -45,6 +53,9 @@ class Slot {
         this.ringLen = 0;
         this._timer = null;
         this._interval = null;
+        this.removed = false;   // set by removeSlot: its tap closing is expected
+        this.dead = false;      // its tap closed on its own
+        this.deadAt = 0;
     }
 
     _ensureRing() {
@@ -91,13 +102,57 @@ export class AutorunManager extends EventEmitter {
      * @param {number} [opts.poolSize=4]
      * @param {string} [opts.host] @param {number} [opts.port]
      */
-    constructor({ slots = [], poolSize = 4, host, port } = {}) {
+    constructor({ slots = [], poolSize = 4, host, port, decodeGate = null } = {}) {
         super();
         this.pool = new DecodePool(poolSize);
         this.slots = [];
+        this.host = host;
+        this.port = port;
+        this.decodeGate = decodeGate;
         this._stopping = false;
         this._decoding = new Set(); // slot keys currently queued/decoding (skip overlap)
         for (const spec of slots) this._addSlot({ ...spec, host, port });
+    }
+
+    static key(s) { return `${s.mode}:${s.band}`; }
+
+    /** Keys of the slots currently held (live or dead). */
+    keys() { return this.slots.map((s) => AutorunManager.key(s)); }
+
+    /**
+     * Make the open slots match `specs` [{band, mode}]: open the missing ones,
+     * close the ones no longer wanted. A tap that died on its own (receiver
+     * restarted, say) is reopened once it has been dead for REOPEN_MS, so a
+     * server that is down is not hammered. Returns {added, removed} key lists.
+     */
+    setSlots(specs, now = Date.now()) {
+        const want = new Map(specs.map((s) => [AutorunManager.key(s), s]));
+        const added = [], removed = [];
+        for (const slot of [...this.slots]) {
+            const k = AutorunManager.key(slot);
+            if (!want.has(k) || (slot.dead && now - slot.deadAt >= REOPEN_MS)) {
+                this.removeSlot(k);
+                if (!want.has(k)) removed.push(k);
+            }
+        }
+        const have = new Set(this.keys());
+        for (const [k, spec] of want) {
+            if (have.has(k)) continue;
+            this._addSlot({ band: spec.band, mode: spec.mode, host: this.host, port: this.port });
+            added.push(k);
+        }
+        return { added, removed };
+    }
+
+    removeSlot(key) {
+        const i = this.slots.findIndex((s) => AutorunManager.key(s) === key);
+        if (i < 0) return false;
+        const [slot] = this.slots.splice(i, 1);
+        slot.removed = true;
+        // A decode already submitted keeps its own copy of the window, so it
+        // finishes and reports normally after the tap is gone.
+        slot.stop();
+        return true;
     }
 
     _addSlot(spec) {
@@ -110,10 +165,18 @@ export class AutorunManager extends EventEmitter {
             this._schedule(slot);
         });
         slot.tap.on('pcm', (f32) => slot.push(f32));
-        slot.tap.on('error', (err) => this.emit('error', err, { band: slot.band, mode: slot.mode }));
+        slot.tap.on('error', (err) => {
+            if (slot.removed || this._stopping) return;
+            this.emit('error', err, { band: slot.band, mode: slot.mode });
+        });
         slot.tap.on('close', (code, reason) => {
-            if (this._stopping) return; // expected during shutdown
+            if (this._stopping || slot.removed) return; // expected: shutdown or schedule
+            slot.dead = true;
+            slot.deadAt = Date.now();
+            if (slot._timer) clearTimeout(slot._timer);
+            if (slot._interval) clearInterval(slot._interval);
             this.emit('error', new Error(`tap closed ${code} ${reason}`), { band: slot.band, mode: slot.mode });
+            this.emit('closed', { band: slot.band, mode: slot.mode, code });
         });
         slot.tap.connect();
     }
@@ -130,6 +193,7 @@ export class AutorunManager extends EventEmitter {
     async _decodeSlot(slot) {
         const key = `${slot.mode}:${slot.band}`;
         if (this._decoding.has(key)) return; // previous decode still in flight
+        if (slot.dead) return;
         const window = slot.trailingWindow();
         const haveS = window.length / slot.sampleRate;
         if (haveS < slot.timing.windowS - 1.5) return; // not enough buffered yet
@@ -141,6 +205,10 @@ export class AutorunManager extends EventEmitter {
         const periodS = slot.timing.periodS;
         const boundary = Math.round(t0 / 1000 / periodS) * periodS;
         const slotTime = boundary - periodS;
+        if (this.decodeGate && !this.decodeGate({ band: slot.band, mode: slot.mode }, slotTime)) {
+            this._decoding.delete(key);
+            return;
+        }
         try {
             const { results, error } = await this.pool.submit({
                 type: slot.mode,

@@ -661,7 +661,7 @@ ls -d frontend/node_modules/ws frontend/node_modules/cbor-x
 command -v taskset
 ```
 
-Then open the admin panel, go to the **Spot Reporting** tab, set your identity, tick the bands/modes to decode, enable the destination(s), and press **Start**. A "📶 REPORTING" badge appears on the main waterfall whenever reporting is active. (PSK Reporter uploads batch every 5 minutes and wsprnet every 2 minutes, so a freshly started daemon shows "0 sent" for the first few minutes — that is normal.)
+Then open the admin panel, go to the **Spot Reporting** tab, set your identity, tick the bands/modes to decode, enable the destination(s), and press **Start**. A "📶 REPORTING" badge appears on the main waterfall whenever reporting is active. (PSK Reporter uploads batch every 5 minutes and wsprnet every 2 minutes, so a freshly started daemon shows "0 sent" for the first few minutes — that is normal.) The same tab sets the UTC hours each band and mode runs, and can start the daemon by itself after a reboot or crash — see [Spot Reporting](ADMIN_PANEL_SETUP.md#spot-reporting-autorun-ft8ft4js8wspr).
 
 Two different counters are then shown, and it is easy to mistake one for the other. The **SPOTS UPLOADED PER DECODER** tiles count only the current run, so Stop/Start resets them to zero; the number beside each band/mode checkbox is that slot's **all-time** total, kept in `autorun-totals.json` so it survives restarts. See the [Admin Panel guide](ADMIN_PANEL_SETUP.md) for both, and for the **Graphs** page that plots CPU frequency, load, temperature and users online over the last 15 minutes to 24 hours.
 

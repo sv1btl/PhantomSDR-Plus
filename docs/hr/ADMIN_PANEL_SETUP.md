@@ -28,7 +28,7 @@ Obje usluge čitaju konfiguraciju iz `admin_config.json`, koju zapisuje `setup_a
 - **Korisnici** — živi popis spojenih slušatelja s imenom ili pozivnim znakom, lokacijom i IP adresom, frekvencijom, načinom i trajanjem, gumbom ⚡ Kick i izbornikom ⛔ Ban ▾ (8, 16 ili 24 sata) te kartom njihovih položaja
 - **Brisanje poruka razgovora** — gumb 🗑 Delete koji odmah uklanja tu jednu poruku iz zapisnika
 - **Emitirane poruke na slapu** — omogućuje slanje trajnog tekstualnog natpisa na slap svakog spojenog korisnika
-- **Spot Reporting** — pokretanje/zaustavljanje autorun dekodera FT8/FT4/JS8/WSPR, odabir pojaseva/načina rada i prijava spotova na PSK Reporter / wsprnet (prema zadanom isključeno), s dva brojača: pločice po dekoderu za tekući rad i ukupan zbroj od početka uz svaki potvrdni okvir pojasa/načina rada
+- **Spot Reporting** — pokretanje/zaustavljanje autorun dekodera FT8/FT4/JS8/WSPR, odabir pojaseva/načina rada i prijava spotova na PSK Reporter / wsprnet (prema zadanom isključeno), s dva brojača: pločice po dekoderu za tekući rad i ukupan zbroj od početka uz svaki potvrdni okvir pojasa/načina rada Za svaki pojas i način rada mogu se odrediti UTC sati, a daemon se može sam pokrenuti nakon ponovnog pokretanja računala ili rušenja.
 - **Grafikoni** — frekvencija procesora, opterećenje procesora, temperatura procesora i povezani korisnici, prikazani kroz zadnjih 15 minuta / 1 sat / 4 sata / 12 sati / 24 sata
 - **Toplinska zaštita (Thermal Guard)** — zaustavlja poslužitelj ako se procesor pregrije i ponovno ga pokreće kad se ohladi, s pragovima izvedenima iz vašeg vlastitog procesora; radi s bilo kojim načinom pokretanja/zaustavljanja i isporučuje se u načinu samo zapisivanja, pa ne čini ništa dok ga ne uključite
 - **Postavke** — promjena administratorske lozinke, osnovnog direktorija SDR-a, naziva procesa i porta spectrumservera (port slušatelja prikazan je ispod); pokretanje zadane skripte za pokretanje ili zaustavljanje s ▶ START / ■ STOP; kartica **HTTPS** koja provjerava https ili vas vodi kroz uključivanje
@@ -686,8 +686,8 @@ Autorun daemon treba Node.js 22+, npm pakete `ws` + `cbor-x` (razrješavaju se p
 1. **Identitet** — pozivni znak i lokator. Unaprijed popunjeni iz `frontend/site_information.json` (`siteSysop` / `siteGridSquare`, skraćeno na 6 znakova); ovdje ih po potrebi zamijenite. Reporteri primaju samo lokator od 4 ili 6 znakova (KM17 ili KM17VX): dulji se skraćuje na svoj kvadrat od 6 znakova, a ono što nije lokator odbija se pri spremanju.
 2. **Matrica pojas × način rada** — označite kombinacije za dekodiranje. Retci su pojasevi, stupci FT8 / FT4 / JS8 / WSPR; nepodržane ćelije su onemogućene. WSPR dodatno pokriva LF/MF pojaseve (2200 m, 630 m) i dodatni europski kanal na 80 m.
 3. **Odredišta** — uključite **PSK Reporter** i/ili **wsprnet** (oboje prema zadanom isključeno).
-4. **Max slots** — sigurnosno ograničenje broja mjesta pojas/način rada koja mogu raditi istodobno.
-5. **Start / Stop** — pokreće/gasi daemon (vezan uz gornje CPU jezgre pomoću `taskset`, koje se biraju automatski prema računalu — vidi *Zahtjevi za resursima i ograničenja* niže). **Save** / **Reload** spremaju i ponovno čitaju konfiguraciju; **Free All** prazni sva mjesta.
+4. **Max slots** — granica koliko slotova pojas/način radi istodobno; uz [raspored](#raspored-sati-po-pojasu-i-načinu-rada) provjerava se sat po sat. **SELECT ALL** pokraj nje označava sve pojaseve i načine.
+5. **Start / Stop** — pokreće/gasi daemon (vezan uz gornje CPU jezgre pomoću `taskset`, koje se biraju automatski prema računalu — vidi *Zahtjevi za resursima i ograničenja* niže). **Save** / **Reload** spremaju i ponovno čitaju konfiguraciju; **Free All** prazni sva mjesta. **Start automatically after a reboot or crash** sam vraća daemon — vidi [niže](#automatsko-pokretanje-nakon-ponovnog-pokretanja-ili-rušenja).
 
 Kartica stanja osvježava se svakih 5 s i prikazuje stanje rada, brojače dekodiranja/slanja i vrijeme posljednjeg slanja. Oznaka **📶 REPORTING** pojavljuje se na glavnom slapu dok je prijavljivanje aktivno.
 
@@ -695,18 +695,9 @@ Kartica stanja osvježava se svakih 5 s i prikazuje stanje rada, brojače dekodi
 
 ### Promjena pojaseva ili načina rada dok radi
 
-**Promjene ne vrijede dok se daemon ponovno ne pokrene.** `autorun/index.js` čita `autorun.json` samo jednom, pri pokretanju. Nema nadzora datoteke ni signala za ponovno učitavanje — jedini signali koje obrađuje su SIGINT i SIGTERM, a oba znače gašenje. Daemon koji radi zato i dalje dekodira slotove s kojima je pokrenut, što god poslije spremili.
+Spremljena promjena sama stiže do daemona koji radi. Daemon gleda `autorun.json` svakih 5 sekundi i, kad ga je **SAVE CONFIG** promijenio, preuzima nove pojaseve, načine, sate i odredišta bez ponovnog pokretanja: novi slotovi se otvaraju, uklonjeni zatvaraju, a `autorun.log` piše `config reloaded` s otvorenim i zatvorenim slotovima. Brojači se nastavljaju. **START** na daemonu koji radi i dalje odgovara `already running`, što je bezopasno: promjena koju je spremio ipak se preuzima.
 
-Za primjenu promjene:
-
-1. Označite / odznačite pojaseve i načine rada
-2. **SAVE CONFIG**
-3. **STOP**
-4. **START**
-
-Ili jednostavno **STOP** → promijenite kućice → **START**, jer START sprema konfiguraciju prije pokretanja.
-
-> ⚠️ **Pritisak na START bez prethodnog STOP-a ne primjenjuje promjenu.** START sprema konfiguraciju, a zatim zahtjev za pokretanje odgovara `already running` i ništa se ne pokreće ponovno. Vidjet ćete poruku „spremljeno" uz pogrešku „already running" dok daemon nastavlja sa **starim** pojasevima — lako se čita kao uspjeh. Uvijek prvo STOP.
+Dvije stvari i dalje traže **STOP** → **START**: pozivni znak i lokator (log javlja kad se promijene) te ručno upisan unos `server` ili `cores` u `autorun.json`.
 
 Što ponovno pokretanje čini brojačima:
 
@@ -716,7 +707,33 @@ Ili jednostavno **STOP** → promijenite kućice → **START**, jer START sprema
 - **Novouključeni** pojas kreće od `0`; pojas koji ste **već koristili** nastavlja svoj prijašnji zbroj.
 - Pojas koji **odznačite zadržava svoj broj** uz sada praznu kućicu; povijest se ne briše.
 
-Dekodiranje staje samo na nekoliko sekundi između STOP-a i START-a.
+**SELECT ALL**, pokraj MAX SLOTS, označava sve pojaseve i načine; kad su svi označeni, gumb glasi **DESELECT ALL** i uklanja oznake.
+
+### Raspored (sati po pojasu i načinu rada)
+
+Ispod BANDS & MODES kartica **SCHEDULE** ima redak za svaki označeni pojas i način, s 24 kućice za sate 00–23 **UTC**. Kvačica u kućici znači da taj slot u tom satu dekodira i šalje spotove. U ostalim satima spava, sa zatvorenom vezom prema prijemniku: ne troši CPU i ne zauzima nijedno slušateljsko mjesto prijemnika. Slot sa svim označenim satima radi cijeli dan, kao prije rasporeda — tako počinje svaka postojeća konfiguracija.
+
+- Klik označava ili odznačava kućicu; povlačenjem se zahvaća više njih.
+- **24h** i **Clear** — svi sati ili nijedan.
+- **Day** i **Night** — 06–18 i 18–06 po lokalnom *sunčevom* vremenu na lokatoru iz REPORTER IDENTITY (za KM17VX Day je 04–15 UTC). Sunčevo, a ne službeno vrijeme, da vrijedi za svaku postaju i da se ne pomiče s ljetnim računanjem vremena.
+- **→ 20m** (pojas tog retka) — daje iste sate ostalim označenim načinima tog pojasa i zamjenjuje njihove.
+- **show local time** — stupce označava vremenom vašeg preglednika; raspored se i dalje sprema u UTC-u.
+- Redak **AT ONCE** broji slotove koji rade u svakom satu. Crveni broj je iznad **MAX SLOTS**, a **SAVE CONFIG** odbija spremanje dok se to ne ispravi. MAX SLOTS ograničava slotove koji rade *istodobno*, a ne kroz dan, pa uz raspored više pojaseva dijeli isti CPU — na primjer 10, 12 i 15 m danju te 160 i 80 m noću.
+- Točka ispred svakog retka zelena je dok slot dekodira, narančasta dok se otvara za svoj sljedeći sat ili zatvara, a siva dok spava ili je daemon zaustavljen. Kartica stanja prikazuje slotove koji su upravo na rasporedu i vrijeme sljedeće promjene.
+
+Redci jednog pojasa grupirani su ispod crte, a nazivi načina imaju vlastite boje (FT8, FT4, JS8, WSPR), iste kao zaglavlja stupaca u BANDS & MODES.
+
+Slot se otvara malo prije svog prvog sata — jedan prozor dekodiranja plus 10 sekundi, dakle oko 25 s za FT8 i JS8 i nešto više od 2 minute za WSPR — kako bi se dekodirao prvi ciklus sata; ciklus čut tijekom tog predbroja pripada prethodnom satu i ne prijavljuje se. Zatvara se nekoliko sekundi nakon svog posljednjeg sata, kad je dekodiranje posljednjeg ciklusa tog sata već počelo. Veza koja pukne, na primjer jer je prijemnik ponovno pokrenut, ponovno se otvara nakon 30 sekundi.
+
+Ako u BANDS & MODES odznačite pojas, njegovi sati ostaju, pa se ponovnim označavanjem vraća i njegov raspored. Kao i svaka druga postavka kartice, raspored se sprema s **SAVE CONFIG**.
+
+### Automatsko pokretanje nakon ponovnog pokretanja ili rušenja
+
+**Start automatically after a reboot or crash**, ispod gumba, zadano je isključeno i djeluje nakon **SAVE CONFIG**. Kad je uključeno, administratorska ploča — koju systemd pokreće pri dizanju sustava — pokreće daemon otprilike minutu nakon što se ploča podigne, zatim svake minute provjerava radi li još i ponovno ga pokreće ako se zaustavio. Prijemnik koji još nije pokrenut ne smeta: daemon ponovno pokušava svoje veze svakih 30 sekundi.
+
+**STOP uvijek ima prednost.** Nakon **STOP** daemon ostaje zaustavljen, i nakon ponovnog pokretanja računala, dok ne pritisnete **START**; ploča to pamti u datoteci `autorun-stopped`. **FREE ALL SLOTS** također zaustavlja daemon i drži ga zaustavljenim na isti način. Kartica stanja prikazuje `Autostart: off`, `ON` ili `ON, held by STOP`.
+
+Daemon koji se zaustavi 5 puta unutar 15 minuta ostavlja se na miru 30 minuta umjesto da se pokreće svake minute. Svako automatsko pokretanje, i ta stanka, upisuju se u AUTORUN log kao `[admin …] autostart: …`.
 
 ### Brojači spotova
 
@@ -813,7 +830,9 @@ taskset -cp "$(pgrep -x spectrumserver)"       # spectrumserver
 
 | Stavka | Svrha |
 |---|---|
-| `autorun.json` | Spremljena konfiguracija (identitet, mjesta, odredišta, najveći broj mjesta, neobavezna zamjena `cores`). Zapisuje je kartica; git je zanemaruje. |
+| `autorun.json` | Spremljena konfiguracija (identitet, slotovi sa svojim UTC satima `hours`, odredišta, maks. slotova, `autostart`, neobavezno `cores`). Piše je kartica; git je ignorira. Slot bez `hours` radi cijeli dan. |
+| `autorun-stopped` | Postoji nakon **STOP**: automatsko pokretanje ostavlja daemon zaustavljenim, i nakon ponovnog pokretanja, dok ga **START** ne ukloni. Git ga ignorira. |
+| `autorun/scheduler.js` | Koji su slotovi otvoreni u danom trenutku: sati, predbroj prije prvog sata i odgoda nakon posljednjeg. Testira se s `node autorun/scheduler.test.mjs`. |
 | `autorun-status.json` | Trenutačno stanje koje čita kartica stanja (pid, brojači, posljednje slanje). Zapisuje se svakih 15 s; uklanja se pri zaustavljanju. |
 | `frontend/dist/autorun-active.json` | Javni podaci oznake, posluženi na `/autorun-active.json`. Prazno kada je prijavljivanje isključeno. |
 | `autorun.log` | Standardni izlaz i pogreške daemona. |
@@ -1020,6 +1039,8 @@ Sve teme koriste iste fontove i iste veličine; mijenjaju se samo boje i završn
 | Poruka na slapu izgubljena nakon ponovnog pokretanja | Očekivano — stanje poruke je samo u memoriji; pošaljite je ponovno nakon ponovnog pokretanja ploče |
 | „Start" u Spot Reportingu ne uspijeva / daemon se odmah gasi | Provjerite `autorun.log`. Obično nedostaje simbolička poveznica `autorun/node_modules` (`ln -sfn ../frontend/node_modules autorun/node_modules`) ili nije instaliran `taskset` (`sudo apt install -y util-linux`). |
 | Spot Reporting: daemon radi, ali `decodes` ostaje 0, a `autorun.log` pokazuje `504` / `tap closed 1006` | Audio odvod ne može doseći spectrumserver. Daemon automatski otkriva port iz konfiguracije **pokrenutog** poslužitelja; redak zapisnika `[autorun] tap backend: HOST:PORT` mora odgovarati vašem `[server] port`. Ako nije točan (ili poslužitelj nije radio pri pokretanju), zadajte ga u `autorun.json`: `"server": { "host": "127.0.0.1", "port": 9002 }`, zatim Stop→Start. |
+| **SAVE CONFIG** odbijen: „N slots at once exceeds cap of M (UTC hour …)" | MAX SLOTS ograničava slotove koji rade istodobno. Povećajte ga ili u SCHEDULE uklonite sate gdje je redak AT ONCE crven. |
+| Spot Reporting se nije pokrenuo nakon ponovnog pokretanja | **Start automatically after a reboot or crash** mora biti označeno i spremljeno, a **STOP** vrijedi do **START** (kartica stanja kaže `ON, held by STOP`). AUTORUN log prikazuje svaki redak `[admin …] autostart:`; sama ploča mora raditi (`sudo systemctl status phantomsdr-admin`). |
 | Spot Reporting prikazuje „0 sent" | Normalno prvih nekoliko minuta — PSK Reporter šalje svakih 5 min, wsprnet svake 2 min. Provjerite je li uključeno odredište i radi li daemon. |
 | Novi pojasevi/načini rada ne prikazuju se u matrici | [Ponovno pokretanje ploče](#ponovno-pokretanje-ploče) — matrica se učitava pri pokretanju ploče. |
 | `autorun.log` prikazuje `MODULE_TYPELESS_PACKAGE_JSON` / „Reparsing as ES module … performance overhead" | Kozmetičko upozorenje (dekodiranje i dalje radi). U `frontend/src/modules/package.json` nedostaje `"type": "module"`; dodajte taj redak pri vrhu, zatim Stop→Start. Ponovna izgradnja sučelja nije potrebna — daemon izravno uvozi izvornu datoteku. |

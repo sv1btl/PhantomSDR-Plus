@@ -28,7 +28,7 @@ Both services read their configuration from `admin_config.json`, which is writte
 - **Users** — live list of connected listeners with their name or callsign, location and IP address, tuned frequency, mode and duration, a ⚡ Kick button and a ⛔ Ban ▾ menu (8, 16 or 24 hours), and a map of where they are
 - **Chat message deletion** — 🗑 Delete button that removes that single message from the log immediately
 - **Waterfall broadcast messages** —  lets you push a persistent text banner to every connected user's waterfall
-- **Spot Reporting** — start/stop the autorun FT8/FT4/JS8/WSPR decoder, pick bands/modes, and report spots to PSK Reporter / wsprnet (OFF by default), with two counters: per-decoder tiles for the current run and an all-time total beside each band/mode checkbox
+- **Spot Reporting** — start/stop the autorun FT8/FT4/JS8/WSPR decoder, pick bands/modes and the UTC hours each one runs, start it automatically after a reboot, and report spots to PSK Reporter / wsprnet (OFF by default), with two counters: per-decoder tiles for the current run and an all-time total beside each band/mode checkbox
 - **Graphs** — CPU frequency, CPU load, CPU temperature and connected users plotted over the last 15 minutes / 1 hour / 4 hours / 12 hours / 24 hours
 - **Thermal Guard** — stops the server if the CPU overheats and restarts it once cool, with thresholds derived from your own CPU; works with any start/stop method, and ships in log-only mode so it does nothing until you enable it
 - **Settings** — change admin password, SDR base directory, process name and the spectrumserver port (with the listener port shown under it); run the default start or stop script with ▶ START / ■ STOP; an **HTTPS** card that checks https, or guides you through turning it on
@@ -682,8 +682,8 @@ The autorun daemon needs Node.js 22+, the `ws` + `cbor-x` npm packages (resolved
 1. **Identity** — callsign and grid. Pre-filled from `frontend/site_information.json` (`siteSysop` / `siteGridSquare`, truncated to 6 chars); override here if needed. The reporters take a 4- or 6-character locator only (KM17 or KM17VX): a longer one is cut to its 6-character square, and anything that is not a locator is refused when you save.
 2. **Band × mode matrix** — tick the combinations to decode. Rows are bands, columns are FT8 / FT4 / JS8 / WSPR; unsupported cells are disabled. WSPR additionally covers the LF/MF bands (2200m, 630m) and an extra 80m EU channel.
 3. **Destinations** — enable **PSK Reporter** and/or **wsprnet** (both off by default).
-4. **Max slots** — a safety cap on how many band/mode slots can run at once.
-5. **Start / Stop** — spawns/kills the daemon (pinned to the top CPU cores with `taskset`, chosen automatically for the machine — see *Resource requirements & limitations* below). **Save** / **Reload** persist and re-read the config; **Free All** clears every slot.
+4. **Max slots** — a cap on how many band/mode slots run at the same time; with a [schedule](#schedule-hours-per-band-and-mode) it is checked hour by hour. **SELECT ALL** beside it ticks every band and mode.
+5. **Start / Stop** — spawns/kills the daemon (pinned to the top CPU cores with `taskset`, chosen automatically for the machine — see *Resource requirements & limitations* below). **Save** / **Reload** persist and re-read the config; **Free All** clears every slot. **Start automatically after a reboot or crash** brings the daemon back by itself — see [below](#starting-automatically-after-a-reboot-or-crash).
 
 The status card polls every 5 s and shows running state, decode/upload counts and the last upload time. A **📶 REPORTING** badge appears on the main waterfall while reporting is active.
 
@@ -691,18 +691,9 @@ The status card polls every 5 s and shows running state, decode/upload counts an
 
 ### Changing bands or modes while it is running
 
-**Changes do not take effect until the daemon is restarted.** `autorun/index.js` reads `autorun.json` once, at startup. There is no file watcher and no reload signal — the only signals it handles are SIGINT and SIGTERM, both meaning shut down. A running daemon therefore keeps decoding the slots it was launched with, whatever you save afterwards.
+A saved change reaches a running daemon by itself. The daemon looks at `autorun.json` every 5 seconds, and when **SAVE CONFIG** has changed it, it takes the new bands, modes, hours and destinations without a restart: new slots open, removed ones close, and `autorun.log` says `config reloaded` with the slots opened and closed. The counters carry on. **START** on a running daemon still answers `already running`, which is harmless: the change it saved is picked up anyway.
 
-To apply a change:
-
-1. Tick / untick the bands and modes you want
-2. **SAVE CONFIG**
-3. **STOP**
-4. **START**
-
-Or simply **STOP** → change the boxes → **START**, since START saves the config before launching.
-
-> ⚠️ **Pressing START without stopping first does not apply the change.** START saves the config, then the start request answers `already running` and nothing relaunches. You get a "saved" toast beside an "already running" error while the daemon carries on with the **old** bands — easy to read as success. Always STOP first.
+Two things still need **STOP** → **START**: the callsign and grid (the log says so when they change), and a hand-edited `server` or `cores` entry in `autorun.json`.
 
 What a restart does to the counters:
 
@@ -712,7 +703,33 @@ What a restart does to the counters:
 - A **newly enabled** band starts at `0`; a band you had used **before** resumes its previous total.
 - A band you **deselect keeps its number** next to the now-unchecked box; the history is not deleted.
 
-Decoding stops only for the few seconds between STOP and START.
+**SELECT ALL**, beside MAX SLOTS, ticks every band and mode; when all are ticked it reads **DESELECT ALL** and unticks them.
+
+### Schedule (hours per band and mode)
+
+Under BANDS & MODES, the **SCHEDULE** card has a row for every ticked band and mode, with 24 boxes for the hours 00–23 **UTC**. A tick in a box means that slot decodes and spots in that hour. In the other hours it sleeps with its connection to the receiver closed, so it costs no CPU and takes none of the receiver's listener places. A slot with every hour ticked runs all day, as before there were schedules — which is how every existing configuration starts.
+
+- Click a box to tick or untick it, or drag across several.
+- **24h** and **Clear** — every hour, or none.
+- **Day** and **Night** — 06–18 and 18–06 local *solar* time at the grid square under REPORTER IDENTITY (for KM17VX, Day is 04–15 UTC). Solar time rather than clock time, so it is right for any station and does not move with daylight saving.
+- **→ 20m** (the row's own band) — gives the other ticked modes of that band the same hours, replacing theirs.
+- **show local time** — labels the columns in your browser's time; the schedule is still kept in UTC.
+- The **AT ONCE** row counts the slots running in each hour. A red number is over **MAX SLOTS**, and **SAVE CONFIG** refuses until it is fixed. MAX SLOTS limits the slots running *at the same time*, not over the day, so a schedule lets more bands share the same CPU — 10, 12 and 15 m by day and 160 and 80 m at night, for example.
+- The dot before each row is green while that slot is decoding, amber while it opens for its next hour or closes, and grey while it sleeps or the daemon is stopped. The status card shows the slots scheduled now and the time of the next change.
+
+Each band's rows are grouped under a line, and the mode names have their own colours (FT8, FT4, JS8, WSPR), the same as the column headers of BANDS & MODES.
+
+A slot opens a little before its first hour — one decode window plus 10 seconds, so about 25 s for FT8 and JS8 and just over 2 minutes for WSPR — so that the first cycle of the hour is decoded; the cycle heard during that lead-in belongs to the hour before and is not reported. It closes a few seconds after its last hour, once the decode of that hour's last cycle has started. A tap that drops, because the receiver was restarted for example, is reopened after 30 seconds.
+
+Unticking a band in BANDS & MODES keeps its hours, so ticking it again brings its schedule back. Like every other setting on the tab, the schedule is saved with **SAVE CONFIG**.
+
+### Starting automatically after a reboot or crash
+
+**Start automatically after a reboot or crash**, under the buttons, is off by default and takes effect on **SAVE CONFIG**. With it on, the admin panel — which systemd starts at boot — starts the daemon about a minute after the panel comes up, then checks every minute that it is still running and starts it again if it has died. A receiver that is not up yet does not matter: the daemon keeps retrying its taps every 30 seconds.
+
+**STOP always wins.** After **STOP** the daemon stays off, reboots included, until you press **START**; the panel keeps that in the file `autorun-stopped`. **FREE ALL SLOTS** stops the daemon too and holds it the same way. The status card shows `Autostart: off`, `ON`, or `ON, held by STOP`.
+
+A daemon that dies 5 times within 15 minutes is left alone for 30 minutes instead of being restarted every minute. Every automatic start, and that pause, is written to the AUTORUN log as `[admin …] autostart: …`.
 
 ### Spot counters
 
@@ -809,7 +826,9 @@ taskset -cp "$(pgrep -x spectrumserver)"       # spectrumserver
 
 | Item | Purpose |
 |---|---|
-| `autorun.json` | Saved config (identity, slots, destinations, max slots, optional `cores` pin override). Written by the tab; git-ignored. |
+| `autorun.json` | Saved config (identity, slots with their UTC `hours`, destinations, max slots, `autostart`, optional `cores` pin override). Written by the tab; git-ignored. A slot without `hours` runs all day. |
+| `autorun-stopped` | Present after **STOP**: autostart leaves the daemon off, across reboots too, until **START** removes it. Git-ignored. |
+| `autorun/scheduler.js` | Which slots are open at a given time: the hours, the lead-in before the first hour and the grace after the last. Tested by `node autorun/scheduler.test.mjs`. |
 | `autorun-status.json` | Live status the status card reads (pid, counts, last upload). Written every 15 s; removed on stop. |
 | `frontend/dist/autorun-active.json` | Public badge data served at `/autorun-active.json`. Empty when reporting is off. |
 | `autorun.log` | Daemon stdout/stderr. |
@@ -1016,6 +1035,8 @@ All themes use the same fonts and sizes; only colours and finish change. *On air
 | Waterfall message lost after restart | Expected — message state is in-memory only; re-send it after restarting the admin panel |
 | Spot Reporting "Start" fails / daemon exits immediately | Check `autorun.log`. Usually the missing `autorun/node_modules` symlink (`ln -sfn ../frontend/node_modules autorun/node_modules`) or `taskset` not installed (`sudo apt install -y util-linux`). |
 | Spot Reporting: daemon runs but `decodes` stays 0 and `autorun.log` shows `504` / `tap closed 1006` | The audio tap can't reach spectrumserver. The daemon auto-detects the port from the **running** server's config; the `[autorun] tap backend: HOST:PORT` log line must match your `[server] port`. If it's wrong (or the server wasn't running at start), pin it in `autorun.json`: `"server": { "host": "127.0.0.1", "port": 9002 }`, then Stop→Start. |
+| **SAVE CONFIG** refused: "N slots at once exceeds cap of M (UTC hour …)" | MAX SLOTS limits the slots running at the same time. Raise it, or take hours away in the SCHEDULE where the AT ONCE row is red. |
+| Spot Reporting did not start after a reboot | **Start automatically after a reboot or crash** must be ticked and saved, and a **STOP** holds until **START** (the status card says `ON, held by STOP`). The AUTORUN log shows every `[admin …] autostart:` line; the panel itself must be running (`sudo systemctl status phantomsdr-admin`). |
 | Spot Reporting shows "0 sent" | Normal for the first few minutes — PSK Reporter flushes every 5 min, wsprnet every 2 min. Confirm a destination is enabled and the daemon is running. |
 | New bands/modes not showing in the matrix | [Restart the panel](#restarting-the-panel) — the matrix is loaded at admin start. |
 | `autorun.log` shows `MODULE_TYPELESS_PACKAGE_JSON` / "Reparsing as ES module … performance overhead" | Cosmetic warning (decoding still works). `frontend/src/modules/package.json` is missing `"type": "module"`; add that line near the top, then Stop→Start. No frontend rebuild needed — the daemon imports the source file directly. |

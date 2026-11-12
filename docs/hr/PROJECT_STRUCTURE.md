@@ -38,6 +38,8 @@ PhantomSDR-Plus
 │   ├── probe-ft8.js
 │   ├── probe-js8.js
 │   ├── pskreporter.js
+│   ├── scheduler.js           # raspored prijave spotova: koji slotovi rade u danom UTC satu
+│   ├── scheduler.test.mjs     # test rasporeda bez prijemnika (simulirani sat)
 │   ├── serverport.js          # gdje odvojci nalaze spectrumserver (uz receivers.toml)
 │   ├── spotparse.js
 │   ├── wasm-shim.js
@@ -948,7 +950,8 @@ Svaka od donjih `start-*.sh` skripti samostalan je **pokretač + watchdog + zapi
 | `proxy.py` | Javni port. Poslužuje stranicu i prosljeđuje `/admin` ploči te — na stanici postavljenoj čarobnjakom — `/rade`, `/stats` i `/relay` uslugama iza sebe, tako da se prosljeđuje samo jedan port. Portove čita iz `admin_config.json`, ili iz `station.conf` kad nema ploče (`setup_admin.sh --proxy-only`) |
 | `thermal_guard.py` | Zaštita od pregrijavanja procesora. Zaustavlja poslužitelj kada procesor postane prevruć i ponovno ga pokreće kad se ohladi, izvodeći pragove iz kritičnog praga koji objavljuje vaš vlastiti procesor umjesto iz fiksnog broja. Nikada ne pokušava prepoznati što nadzire poslužitelj — dok je pregrijan, ponavlja zaustavljanje svake 2 s, pa je watchdog, systemd jedinica ili cron zadatak koji ga oživi poništen dok se stroj ne ohladi. Samo standardna biblioteka; uvozi ga `admin_server.py` (takt daje uzorkivač Grafikona), a radi i samostalno za instalacije bez ploče. Zadano samo zapisuje, pa ni na što ne djeluje dok se ne uključi — vidi [Administratorska ploča]vidi [priručnik Thermal Guard](THERMAL_GUARD.md) |
 | `autorun/` | Daemon za prijavljivanje spotova — vidi [Autorun Spot Reporter](INSTALLATION.md#autorun-spot-reporter-ft8ft4wspr) |
-| `autorun.json` | Pojasevi/načini rada za dekodiranje, identitet i odredišta |
+| `autorun.json` | Koje pojaseve/načine dekodirati i u kojim UTC satima, identitet, odredišta i automatsko pokretanje |
+| `autorun-stopped` | Postoji nakon STOP u ploči: automatsko pokretanje ostavlja daemon zaustavljenim, i nakon ponovnog pokretanja, do START |
 | `autorun-status.json` | Trenutačno stanje daemona — puni brojače **tekućeg rada** (pločice po dekoderu), koje Stop/Start vraća na nulu |
 | `autorun-totals.json` | **Ukupno** poslani spotovi po pojasu i načinu rada — broj uz svaki potvrdni okvir; zapisuje ga daemon pa preživljava ponovna pokretanja |
 

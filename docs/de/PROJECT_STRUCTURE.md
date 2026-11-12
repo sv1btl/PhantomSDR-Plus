@@ -38,6 +38,8 @@ PhantomSDR-Plus
 │   ├── probe-ft8.js
 │   ├── probe-js8.js
 │   ├── pskreporter.js
+│   ├── scheduler.js           # Zeitplan des Spot-Reportings: welche Slots in einer UTC-Stunde laufen
+│   ├── scheduler.test.mjs     # Offline-Test des Zeitplans (simulierte Uhr)
 │   ├── serverport.js          # wo die Abgriffe spectrumserver finden (kennt receivers.toml)
 │   ├── spotparse.js
 │   ├── wasm-shim.js
@@ -948,7 +950,8 @@ Jedes `start-*.sh` unten ist ein **eigenständiger Starter + Watchdog + Protokol
 | `proxy.py` | Der öffentliche Port. Liefert die Seite aus und reicht `/admin` an das Panel sowie — auf einer mit dem Assistenten eingerichteten Station — `/rade`, `/stats` und `/relay` an die Dienste dahinter weiter, sodass nur ein Port weitergeleitet wird. Liest seine Ports aus `admin_config.json` oder, ohne Panel, aus `station.conf` (`setup_admin.sh --proxy-only`) |
 | `thermal_guard.py` | CPU-Überhitzungsschutz. Stoppt den Server, wenn die CPU zu heiß wird, und startet ihn wieder, sobald sie abgekühlt ist; die Schwellen leitet er aus dem kritischen Grenzwert ab, den Ihre eigene CPU veröffentlicht, statt aus einer festen Zahl. Er versucht nie zu erkennen, was den Server überwacht — solange es zu heiß ist, wiederholt er den Stopp alle 2 Sekunden, sodass ein Watchdog, eine systemd-Unit oder ein Cron-Job, der ihn wiederbelebt, rückgängig gemacht wird, bis die Maschine abkühlt. Nur Standardbibliothek; wird von `admin_server.py` importiert (getaktet vom Graphen-Sampler) und läuft für Installationen ohne Panel auch eigenständig. Standardmäßig nur Protokollmodus, handelt also erst nach Aktivierung — siehe [Admin-Panel]siehe das [Thermal-Guard-Handbuch](THERMAL_GUARD.md) |
 | `autorun/` | Der Spot-Reporting-Daemon — siehe [Autorun Spot Reporter](INSTALLATION.md#autorun-spot-reporter-ft8ft4wspr) |
-| `autorun.json` | Zu dekodierende Bänder/Betriebsarten, Identität und Ziele |
+| `autorun.json` | Welche Bänder/Betriebsarten in welchen UTC-Stunden dekodiert werden, Identität, Ziele und Autostart |
+| `autorun-stopped` | Vorhanden nach STOP im Panel: Autostart lässt den Daemon aus, auch über Neustarts hinweg, bis START |
 | `autorun-status.json` | Laufender Zustand des Daemons — speist die **Zähler des aktuellen Laufs** (die Kacheln je Decoder), die bei Stop/Start zurückgesetzt werden |
 | `autorun-totals.json` | **Gesamtwerte seit Beginn** je Band und Betriebsart — die Zahl neben jedem Kontrollkästchen; vom Daemon geschrieben, damit sie Neustarts überstehen |
 

@@ -28,7 +28,7 @@ Les deux services lisent leur configuration dans `admin_config.json`, écrit par
 - **Utilisateurs** — liste en direct des auditeurs connectés avec leur nom ou indicatif, leur localisation et leur adresse IP, la fréquence, le mode et la durée, un bouton ⚡ Kick et un menu ⛔ Ban ▾ (8, 16 ou 24 heures), et une carte de leur position
 - **Suppression de messages du chat** — bouton 🗑 Delete qui retire immédiatement ce seul message du journal
 - **Messages diffusés sur la cascade** — permet de pousser une bannière de texte persistante sur la cascade de chaque utilisateur connecté
-- **Spot Reporting** — démarrez/arrêtez le décodeur autorun FT8/FT4/JS8/WSPR, choisissez les bandes/modes et rapportez les spots à PSK Reporter / wsprnet (désactivé par défaut), avec deux compteurs : des tuiles par décodeur pour l'exécution en cours et un total depuis toujours à côté de chaque case bande/mode
+- **Spot Reporting** — démarrez/arrêtez le décodeur autorun FT8/FT4/JS8/WSPR, choisissez les bandes/modes et rapportez les spots à PSK Reporter / wsprnet (désactivé par défaut), avec deux compteurs : des tuiles par décodeur pour l'exécution en cours et un total depuis toujours à côté de chaque case bande/mode Chaque bande et chaque mode tournent aux heures UTC programmées, et le démon peut redémarrer seul après un redémarrage ou un plantage.
 - **Graphiques** — fréquence du CPU, charge du CPU, température du CPU et utilisateurs connectés, tracés sur les 15 dernières minutes / 1 heure / 4 heures / 12 heures / 24 heures
 - **Protection thermique (Thermal Guard)** — arrête le serveur si le processeur surchauffe et le redémarre une fois refroidi, avec des seuils déduits de votre propre processeur ; fonctionne avec n'importe quelle méthode de démarrage/arrêt et est livrée en mode journalisation seule, elle ne fait donc rien tant que vous ne l'activez pas
 - **Paramètres** — modifiez le mot de passe d'administration, le répertoire de base du SDR, le nom du processus et le port de spectrumserver (le port des auditeurs est affiché dessous) ; lancez le script de démarrage ou d'arrêt par défaut avec ▶ START / ■ STOP ; une carte **HTTPS** qui vérifie https, ou vous guide pour l'activer
@@ -686,8 +686,8 @@ Le démon autorun nécessite Node.js 22+, les paquets npm `ws` + `cbor-x` (réso
 1. **Identité** — indicatif et locator. Pré-remplis depuis `frontend/site_information.json` (`siteSysop` / `siteGridSquare`, tronqué à 6 caractères) ; remplacez-les ici si nécessaire. Les reporters n'acceptent qu'un locator de 4 ou 6 caractères (KM17 ou KM17VX) : un locator plus long est coupé à son carré de 6 caractères, et ce qui n'est pas un locator est refusé à l'enregistrement.
 2. **Matrice bande × mode** — cochez les combinaisons à décoder. Les lignes sont les bandes, les colonnes FT8 / FT4 / JS8 / WSPR ; les cases non prises en charge sont désactivées. WSPR couvre en outre les bandes LF/MF (2200 m, 630 m) et un canal 80 m EU supplémentaire.
 3. **Destinations** — activez **PSK Reporter** et/ou **wsprnet** (désactivés par défaut).
-4. **Max slots** — limite de sécurité sur le nombre de créneaux bande/mode simultanés.
-5. **Start / Stop** — lance/arrête le démon (épinglé sur les cœurs CPU les plus élevés avec `taskset`, choisis automatiquement selon la machine — voir *Ressources requises et limitations* ci-dessous). **Save** / **Reload** enregistrent et relisent la configuration ; **Free All** libère tous les créneaux.
+4. **Max slots** — une limite au nombre de créneaux bande/mode qui tournent en même temps ; avec un [planning](#planning-heures-par-bande-et-par-mode), elle est vérifiée heure par heure. **SELECT ALL**, à côté, coche toutes les bandes et tous les modes.
+5. **Start / Stop** — lance/arrête le démon (épinglé sur les cœurs CPU les plus élevés avec `taskset`, choisis automatiquement selon la machine — voir *Ressources requises et limitations* ci-dessous). **Save** / **Reload** enregistrent et relisent la configuration ; **Free All** libère tous les créneaux. **Start automatically after a reboot or crash** relance le démon tout seul — voir [plus bas](#démarrage-automatique-après-un-redémarrage-ou-un-plantage).
 
 La carte d'état s'actualise toutes les 5 s et indique l'état d'exécution, les compteurs de décodage/téléversement et l'heure du dernier envoi. Un badge **📶 REPORTING** apparaît sur la cascade principale tant que le report est actif.
 
@@ -695,19 +695,9 @@ La carte d'état s'actualise toutes les 5 s et indique l'état d'exécution, les
 
 ### Changer de bandes ou de modes en cours de fonctionnement
 
-**Les changements ne prennent effet qu'après un redémarrage du démon.**
-`autorun/index.js` lit `autorun.json` une seule fois, au démarrage. Il n'y a ni surveillance de fichier ni signal de rechargement : les seuls signaux traités sont SIGINT et SIGTERM, qui signifient tous deux l'arrêt. Un démon en cours continue donc à décoder les créneaux avec lesquels il a été lancé, quoi que vous enregistriez ensuite.
+Une modification enregistrée atteint d'elle-même un démon en marche. Le démon regarde `autorun.json` toutes les 5 secondes et, quand **SAVE CONFIG** l'a modifié, il prend les nouvelles bandes, modes, heures et destinations sans redémarrer : les nouveaux créneaux s'ouvrent, ceux qui ont été retirés se ferment, et `autorun.log` écrit `config reloaded` avec les créneaux ouverts et fermés. Les compteurs continuent. **START** sur un démon en marche répond toujours `already running`, ce qui est sans conséquence : la modification qu'il a enregistrée est prise en compte quand même.
 
-Pour appliquer un changement :
-
-1. Cochez / décochez les bandes et modes
-2. **SAVE CONFIG**
-3. **STOP**
-4. **START**
-
-Ou simplement **STOP** → modifier les cases → **START**, puisque START enregistre la configuration avant de lancer.
-
-> ⚠️ **Appuyer sur START sans arrêter d'abord n'applique pas le changement.** START enregistre la configuration, puis la requête de démarrage répond `already running` et rien n'est relancé. Vous voyez un message « enregistré » à côté d'une erreur « already running » alors que le démon poursuit avec les **anciennes** bandes — cela ressemble facilement à une réussite. Arrêtez toujours d'abord.
+Deux choses demandent encore **STOP** → **START** : l'indicatif et le locator (le journal le signale quand ils changent), et une entrée `server` ou `cores` ajoutée à la main dans `autorun.json`.
 
 Ce qu'un redémarrage fait aux compteurs :
 
@@ -717,7 +707,33 @@ Ce qu'un redémarrage fait aux compteurs :
 - Une bande **nouvellement activée** part de `0` ; une bande **déjà utilisée** reprend son total précédent.
 - Une bande que vous **décochez garde son nombre** à côté de la case désormais vide ; l'historique n'est pas effacé.
 
-Le décodage ne s'interrompt que les quelques secondes entre STOP et START.
+**SELECT ALL**, à côté de MAX SLOTS, coche toutes les bandes et tous les modes ; quand tout est coché, le bouton devient **DESELECT ALL** et décoche tout.
+
+### Planning (heures par bande et par mode)
+
+Sous BANDS & MODES, la carte **SCHEDULE** a une ligne pour chaque bande et mode cochés, avec 24 cases pour les heures 00–23 **UTC**. Une coche dans une case signifie que ce créneau décode et envoie des spots pendant cette heure. Les autres heures, il dort, sa connexion au récepteur fermée : il ne coûte pas de CPU et n'occupe aucune place d'auditeur du récepteur. Un créneau dont toutes les heures sont cochées tourne toute la journée, comme avant les plannings — c'est ainsi que démarre toute configuration existante.
+
+- Un clic coche ou décoche une case ; en faisant glisser, on en prend plusieurs.
+- **24h** et **Clear** — toutes les heures, ou aucune.
+- **Day** et **Night** — de 06 à 18 h et de 18 à 06 h en heure *solaire* locale au locator de REPORTER IDENTITY (pour KM17VX, Day correspond à 04–15 UTC). L'heure solaire et non l'heure légale, pour que ce soit juste pour toute station et que cela ne bouge pas avec l'heure d'été.
+- **→ 20m** (la bande de la ligne) — donne les mêmes heures aux autres modes cochés de cette bande, en remplaçant les leurs.
+- **show local time** — affiche les colonnes à l'heure de votre navigateur ; le planning reste enregistré en UTC.
+- La ligne **AT ONCE** compte les créneaux qui tournent à chaque heure. Un nombre rouge dépasse **MAX SLOTS**, et **SAVE CONFIG** refuse d'enregistrer tant que ce n'est pas corrigé. MAX SLOTS limite les créneaux qui tournent *en même temps*, pas sur la journée : avec un planning, plus de bandes se partagent le même CPU — par exemple 10, 12 et 15 m le jour et 160 et 80 m la nuit.
+- Le point devant chaque ligne est vert tant que le créneau décode, ambre pendant qu'il s'ouvre pour sa prochaine heure ou se ferme, et gris tant qu'il dort ou que le démon est arrêté. La carte d'état montre les créneaux programmés en ce moment et l'heure du prochain changement.
+
+Les lignes d'une même bande sont groupées sous un trait, et les noms des modes ont leurs propres couleurs (FT8, FT4, JS8, WSPR), les mêmes que les en-têtes de colonnes de BANDS & MODES.
+
+Un créneau s'ouvre un peu avant sa première heure — une fenêtre de décodage plus 10 secondes, soit environ 25 s pour FT8 et JS8 et un peu plus de 2 minutes pour WSPR — afin que le premier cycle de l'heure soit décodé ; le cycle entendu pendant cette avance appartient à l'heure précédente et n'est pas signalé. Il se ferme quelques secondes après sa dernière heure, une fois lancé le décodage du dernier cycle de cette heure. Une connexion qui tombe, parce que le récepteur a redémarré par exemple, est rouverte au bout de 30 secondes.
+
+Décocher une bande dans BANDS & MODES conserve ses heures : en la recochant, son planning revient. Comme tout autre réglage de l'onglet, le planning est enregistré par **SAVE CONFIG**.
+
+### Démarrage automatique après un redémarrage ou un plantage
+
+**Start automatically after a reboot or crash**, sous les boutons, est désactivé par défaut et prend effet avec **SAVE CONFIG**. Activé, le panneau d'administration — que systemd lance au démarrage — démarre le démon environ une minute après le lancement du panneau, puis vérifie chaque minute qu'il tourne toujours et le relance s'il s'est arrêté. Un récepteur pas encore démarré ne pose pas de problème : le démon réessaie ses connexions toutes les 30 secondes.
+
+**STOP l'emporte toujours.** Après **STOP**, le démon reste arrêté, redémarrages compris, jusqu'à ce que vous appuyiez sur **START** ; le panneau le note dans le fichier `autorun-stopped`. **FREE ALL SLOTS** arrête aussi le démon et le maintient arrêté de la même façon. La carte d'état affiche `Autostart: off`, `ON` ou `ON, held by STOP`.
+
+Un démon qui s'arrête 5 fois en 15 minutes est laissé tranquille 30 minutes au lieu d'être relancé chaque minute. Chaque démarrage automatique, et cette pause, sont écrits dans le journal AUTORUN sous la forme `[admin …] autostart: …`.
 
 ### Compteurs de spots
 
@@ -814,7 +830,9 @@ taskset -cp "$(pgrep -x spectrumserver)"       # spectrumserver
 
 | Élément | Objet |
 |---|---|
-| `autorun.json` | Configuration enregistrée (identité, créneaux, destinations, nombre max de créneaux, remplacement facultatif `cores`). Écrite par l'onglet ; ignorée par git. |
+| `autorun.json` | Configuration enregistrée (identité, créneaux avec leurs heures UTC `hours`, destinations, max. créneaux, `autostart`, épinglage `cores` optionnel). Écrite par l'onglet ; ignorée par git. Un créneau sans `hours` tourne toute la journée. |
+| `autorun-stopped` | Présent après **STOP** : le démarrage automatique laisse le démon arrêté, redémarrages compris, jusqu'à ce que **START** le supprime. Ignoré par git. |
+| `autorun/scheduler.js` | Quels créneaux sont ouverts à un moment donné : les heures, l'avance avant la première heure et le délai après la dernière. Testé par `node autorun/scheduler.test.mjs`. |
 | `autorun-status.json` | État en direct lu par la carte d'état (pid, compteurs, dernier envoi). Écrit toutes les 15 s ; supprimé à l'arrêt. |
 | `frontend/dist/autorun-active.json` | Données publiques du badge, servies à `/autorun-active.json`. Vide quand le report est désactivé. |
 | `autorun.log` | Sortie standard/erreur du démon. |
@@ -1021,6 +1039,8 @@ Tous les thèmes utilisent les mêmes polices et les mêmes tailles ; seules les
 | Message sur la cascade perdu après un redémarrage | Comportement attendu — l'état du message n'est qu'en mémoire ; renvoyez-le après le redémarrage du panneau |
 | Le « Start » de Spot Reporting échoue / le démon se termine aussitôt | Consultez `autorun.log`. C'est généralement le lien symbolique `autorun/node_modules` manquant (`ln -sfn ../frontend/node_modules autorun/node_modules`) ou `taskset` non installé (`sudo apt install -y util-linux`). |
 | Spot Reporting : le démon tourne mais `decodes` reste à 0 et `autorun.log` montre `504` / `tap closed 1006` | La prise audio n'atteint pas spectrumserver. Le démon détecte automatiquement le port depuis la configuration du serveur **en cours d'exécution** ; la ligne de journal `[autorun] tap backend: HOST:PORT` doit correspondre à votre `[server] port`. Si elle est fausse (ou si le serveur n'était pas lancé au démarrage), fixez-le dans `autorun.json` : `"server": { "host": "127.0.0.1", "port": 9002 }`, puis Stop→Start. |
+| **SAVE CONFIG** refusé : « N slots at once exceeds cap of M (UTC hour …) » | MAX SLOTS limite les créneaux qui tournent en même temps. Augmentez-le, ou retirez des heures dans le SCHEDULE là où la ligne AT ONCE est rouge. |
+| Spot Reporting n'a pas démarré après un redémarrage | **Start automatically after a reboot or crash** doit être coché et enregistré, et un **STOP** tient jusqu'à **START** (la carte d'état indique `ON, held by STOP`). Le journal AUTORUN montre chaque ligne `[admin …] autostart:` ; le panneau lui-même doit tourner (`sudo systemctl status phantomsdr-admin`). |
 | Spot Reporting affiche « 0 sent » | Normal pendant les premières minutes — PSK Reporter envoie toutes les 5 min, wsprnet toutes les 2 min. Vérifiez qu'une destination est activée et que le démon tourne. |
 | Les nouvelles bandes/modes n'apparaissent pas dans la matrice | [Redémarrer le panneau](#redémarrer-le-panneau) — la matrice est chargée au démarrage. |
 | `autorun.log` affiche `MODULE_TYPELESS_PACKAGE_JSON` / « Reparsing as ES module … performance overhead » | Avertissement cosmétique (le décodage fonctionne toujours). Il manque `"type": "module"` à `frontend/src/modules/package.json` ; ajoutez cette ligne près du début, puis Stop→Start. Aucune recompilation du frontend n'est nécessaire — le démon importe directement le fichier source. |

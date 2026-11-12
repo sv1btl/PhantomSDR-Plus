@@ -28,7 +28,7 @@ Ambos servicios leen su configuración de `admin_config.json`, que escribe `setu
 - **Usuarios** — lista en vivo de los oyentes conectados con su nombre o indicativo, ubicación y dirección IP, frecuencia, modo y duración, un botón ⚡ Kick y un menú ⛔ Ban ▾ (8, 16 o 24 horas), y un mapa de dónde están
 - **Eliminación de mensajes del chat** — botón 🗑 Delete que quita de inmediato ese único mensaje del registro
 - **Mensajes difundidos en la cascada** — permite enviar un cartel de texto persistente a la cascada de cada usuario conectado
-- **Spot Reporting** — iniciar/detener el decodificador autorun de FT8/FT4/JS8/WSPR, elegir bandas y modos e informar de spots a PSK Reporter / wsprnet (desactivado por defecto), con dos contadores: paneles por decodificador para la ejecución actual y un total histórico junto a cada casilla de banda/modo
+- **Spot Reporting** — iniciar/detener el decodificador autorun de FT8/FT4/JS8/WSPR, elegir bandas y modos e informar de spots a PSK Reporter / wsprnet (desactivado por defecto), con dos contadores: paneles por decodificador para la ejecución actual y un total histórico junto a cada casilla de banda/modo Cada banda y modo funciona en las horas UTC que se programen, y el demonio puede arrancar solo tras un reinicio o un fallo.
 - **Gráficas** — frecuencia de CPU, carga de CPU, temperatura de CPU y usuarios conectados, representados en los últimos 15 minutos / 1 hora / 4 horas / 12 horas / 24 horas
 - **Protección térmica (Thermal Guard)** — detiene el servidor si la CPU se sobrecalienta y lo reinicia cuando se enfría, con umbrales derivados de su propia CPU; funciona con cualquier método de arranque/parada y se entrega en modo de solo registro, por lo que no hace nada hasta que usted lo active
 - **Ajustes** — cambiar la contraseña de administrador, el directorio base del SDR, el nombre del proceso y el puerto de spectrumserver (con el puerto de los oyentes debajo); ejecutar el script de inicio o de parada por defecto con ▶ START / ■ STOP; una tarjeta **HTTPS** que comprueba https o le guía para activarlo
@@ -686,8 +686,8 @@ El demonio autorun necesita Node.js 22+, los paquetes npm `ws` + `cbor-x` (resue
 1. **Identidad** — indicativo y localizador. Se rellenan previamente desde `frontend/site_information.json` (`siteSysop` / `siteGridSquare`, recortado a 6 caracteres); modifíquelos aquí si es necesario. Los reporters solo aceptan un locator de 4 o 6 caracteres (KM17 o KM17VX): uno más largo se recorta a su cuadrado de 6 caracteres, y lo que no sea un locator se rechaza al guardar.
 2. **Matriz banda × modo** — marque las combinaciones que desea decodificar. Las filas son bandas y las columnas FT8 / FT4 / JS8 / WSPR; las celdas no admitidas están desactivadas. WSPR cubre además las bandas de LF/MF (2200 m, 630 m) y un canal adicional de 80 m para Europa.
 3. **Destinos** — active **PSK Reporter** y/o **wsprnet** (ambos desactivados por defecto).
-4. **Max slots** — límite de seguridad sobre cuántas ranuras banda/modo pueden ejecutarse a la vez.
-5. **Start / Stop** — lanza o detiene el demonio (fijado a los núcleos de CPU superiores con `taskset`, elegidos automáticamente según la máquina; véase *Requisitos de recursos y limitaciones* más abajo). **Save** / **Reload** guardan y releen la configuración; **Free All** vacía todas las ranuras.
+4. **Max slots** — un límite de cuántas posiciones banda/modo funcionan a la vez; con un [horario](#horario-horas-por-banda-y-modo) se comprueba hora por hora. **SELECT ALL**, a su lado, marca todas las bandas y modos.
+5. **Start / Stop** — lanza o detiene el demonio (fijado a los núcleos de CPU superiores con `taskset`, elegidos automáticamente según la máquina; véase *Requisitos de recursos y limitaciones* más abajo). **Save** / **Reload** guardan y releen la configuración; **Free All** vacía todas las ranuras. **Start automatically after a reboot or crash** vuelve a poner en marcha el demonio por sí solo — vea [más abajo](#arranque-automático-tras-un-reinicio-o-un-fallo).
 
 La tarjeta de estado se actualiza cada 5 s y muestra el estado de ejecución, los contadores de decodificación/subida y la hora de la última subida. Aparece un distintivo **📶 REPORTING** en la cascada principal mientras el reporte está activo.
 
@@ -695,19 +695,9 @@ La tarjeta de estado se actualiza cada 5 s y muestra el estado de ejecución, lo
 
 ### Cambiar bandas o modos mientras está en marcha
 
-**Los cambios no surten efecto hasta que se reinicia el demonio.**
-`autorun/index.js` lee `autorun.json` una sola vez, al arrancar. No hay vigilancia del archivo ni señal de recarga: las únicas señales que atiende son SIGINT y SIGTERM, que significan apagar. Un demonio en marcha sigue por tanto decodificando las ranuras con las que se lanzó, guarde usted lo que guarde después.
+Un cambio guardado llega por sí solo a un demonio en marcha. El demonio mira `autorun.json` cada 5 segundos y, cuando **SAVE CONFIG** lo ha cambiado, toma las nuevas bandas, modos, horas y destinos sin reiniciarse: las posiciones nuevas se abren, las retiradas se cierran y `autorun.log` escribe `config reloaded` con las posiciones abiertas y cerradas. Los contadores siguen. **START** con el demonio en marcha sigue respondiendo `already running`, lo cual es inofensivo: el cambio que guardó se aplica igualmente.
 
-Para aplicar un cambio:
-
-1. Marque / desmarque las bandas y modos
-2. **SAVE CONFIG**
-3. **STOP**
-4. **START**
-
-O simplemente **STOP** → cambiar las casillas → **START**, ya que START guarda la configuración antes de lanzar.
-
-> ⚠️ **Pulsar START sin parar antes no aplica el cambio.** START guarda la configuración y después la petición de arranque responde `already running` y no se relanza nada. Verá un aviso de «guardado» junto a un error «already running» mientras el demonio continúa con las bandas **antiguas**: es fácil tomarlo por un éxito. Pare siempre primero.
+Dos cosas siguen necesitando **STOP** → **START**: el indicativo y el localizador (el registro lo indica cuando cambian), y una entrada `server` o `cores` escrita a mano en `autorun.json`.
 
 Qué hace un reinicio con los contadores:
 
@@ -717,7 +707,33 @@ Qué hace un reinicio con los contadores:
 - Una banda **recién activada** empieza en `0`; una banda ya **usada antes** retoma su total anterior.
 - Una banda que **desmarque conserva su número** junto a la casilla ahora vacía; el historial no se borra.
 
-La decodificación solo se detiene los pocos segundos entre STOP y START.
+**SELECT ALL**, junto a MAX SLOTS, marca todas las bandas y modos; cuando todos están marcados pasa a decir **DESELECT ALL** y los desmarca.
+
+### Horario (horas por banda y modo)
+
+Bajo BANDS & MODES, la tarjeta **SCHEDULE** tiene una fila por cada banda y modo marcados, con 24 casillas para las horas 00–23 **UTC**. Una marca en una casilla significa que esa posición decodifica y envía spots en esa hora. En las demás horas duerme, con su conexión al receptor cerrada: no gasta CPU ni ocupa ningún puesto de oyente del receptor. Una posición con todas las horas marcadas funciona todo el día, como antes de que hubiera horarios — así empieza toda configuración existente.
+
+- Un clic marca o desmarca una casilla; arrastrando se marcan varias.
+- **24h** y **Clear** — todas las horas o ninguna.
+- **Day** y **Night** — de 06 a 18 y de 18 a 06 en hora *solar* local del localizador de REPORTER IDENTITY (para KM17VX, Day es 04–15 UTC). Hora solar y no hora de reloj, para que valga en cualquier estación y no se mueva con el horario de verano.
+- **→ 20m** (la banda de la fila) — da las mismas horas a los demás modos marcados de esa banda, sustituyendo las suyas.
+- **show local time** — rotula las columnas con la hora de su navegador; el horario se sigue guardando en UTC.
+- La fila **AT ONCE** cuenta las posiciones que funcionan en cada hora. Un número rojo supera **MAX SLOTS**, y **SAVE CONFIG** se niega a guardar hasta corregirlo. MAX SLOTS limita las posiciones que funcionan *a la vez*, no a lo largo del día, así que con un horario más bandas comparten la misma CPU — por ejemplo 10, 12 y 15 m de día y 160 y 80 m de noche.
+- El punto delante de cada fila es verde mientras la posición decodifica, ámbar mientras se abre para su próxima hora o se cierra, y gris mientras duerme o el demonio está parado. La tarjeta de estado muestra las posiciones programadas ahora y la hora del próximo cambio.
+
+Las filas de cada banda se agrupan bajo una línea, y los nombres de los modos tienen sus propios colores (FT8, FT4, JS8, WSPR), los mismos que las cabeceras de columna de BANDS & MODES.
+
+Una posición se abre un poco antes de su primera hora — una ventana de decodificación más 10 segundos, es decir unos 25 s para FT8 y JS8 y algo más de 2 minutos para WSPR — para que se decodifique el primer ciclo de la hora; el ciclo oído durante esa antesala pertenece a la hora anterior y no se reporta. Se cierra unos segundos después de su última hora, una vez empezada la decodificación del último ciclo de esa hora. Una conexión que se cae, por ejemplo porque se reinició el receptor, se vuelve a abrir a los 30 segundos.
+
+Desmarcar una banda en BANDS & MODES conserva sus horas, y al volver a marcarla regresa su horario. Como cualquier otro ajuste de la pestaña, el horario se guarda con **SAVE CONFIG**.
+
+### Arranque automático tras un reinicio o un fallo
+
+**Start automatically after a reboot or crash**, bajo los botones, está desactivado por defecto y surte efecto con **SAVE CONFIG**. Activado, el panel de administración — que systemd arranca al iniciar el equipo — pone en marcha el demonio aproximadamente un minuto después de arrancar el panel, comprueba luego cada minuto que sigue funcionando y lo arranca de nuevo si se ha detenido. Que el receptor aún no esté en marcha no importa: el demonio reintenta sus conexiones cada 30 segundos.
+
+**STOP siempre manda.** Tras **STOP** el demonio sigue parado, también tras reiniciar el equipo, hasta que pulse **START**; el panel lo guarda en el archivo `autorun-stopped`. **FREE ALL SLOTS** también detiene el demonio y lo mantiene parado del mismo modo. La tarjeta de estado muestra `Autostart: off`, `ON` u `ON, held by STOP`.
+
+Un demonio que se detiene 5 veces en 15 minutos se deja en paz 30 minutos en lugar de arrancarlo cada minuto. Cada arranque automático, y esa pausa, se escriben en el registro AUTORUN como `[admin …] autostart: …`.
 
 ### Contadores de spots
 
@@ -814,7 +830,9 @@ taskset -cp "$(pgrep -x spectrumserver)"       # spectrumserver
 
 | Elemento | Finalidad |
 |---|---|
-| `autorun.json` | Configuración guardada (identidad, ranuras, destinos, máximo de ranuras, sustitución opcional `cores`). La escribe la pestaña; git la ignora. |
+| `autorun.json` | Configuración guardada (identidad, posiciones con sus horas UTC `hours`, destinos, máx. posiciones, `autostart`, anclaje opcional `cores`). La escribe la pestaña; ignorada por git. Una posición sin `hours` funciona todo el día. |
+| `autorun-stopped` | Existe tras **STOP**: el arranque automático deja el demonio parado, también tras reiniciar, hasta que **START** lo borra. Ignorado por git. |
+| `autorun/scheduler.js` | Qué posiciones están abiertas en un momento dado: las horas, la antesala antes de la primera hora y el margen tras la última. Se prueba con `node autorun/scheduler.test.mjs`. |
 | `autorun-status.json` | Estado en directo que lee la tarjeta de estado (pid, contadores, última subida). Se escribe cada 15 s; se elimina al parar. |
 | `frontend/dist/autorun-active.json` | Datos públicos del distintivo, servidos en `/autorun-active.json`. Vacío cuando el reporte está desactivado. |
 | `autorun.log` | Salida estándar y de error del demonio. |
@@ -1021,6 +1039,8 @@ Todos los temas usan las mismas fuentes y los mismos tamaños; solo cambian los 
 | El mensaje de la cascada se pierde tras reiniciar | Es lo previsto: el estado del mensaje solo está en memoria; vuelva a enviarlo tras reiniciar el panel |
 | El «Start» de Spot Reporting falla / el demonio se cierra al instante | Consulte `autorun.log`. Suele faltar el enlace simbólico `autorun/node_modules` (`ln -sfn ../frontend/node_modules autorun/node_modules`) o `taskset` no está instalado (`sudo apt install -y util-linux`). |
 | Spot Reporting: el demonio funciona pero `decodes` sigue en 0 y `autorun.log` muestra `504` / `tap closed 1006` | La toma de audio no llega a spectrumserver. El demonio detecta el puerto automáticamente a partir de la configuración del servidor **en ejecución**; la línea de registro `[autorun] tap backend: HOST:PORT` debe coincidir con su `[server] port`. Si es incorrecta (o el servidor no estaba en marcha al arrancar), fíjelo en `autorun.json`: `"server": { "host": "127.0.0.1", "port": 9002 }`, y después Stop→Start. |
+| **SAVE CONFIG** rechazado: «N slots at once exceeds cap of M (UTC hour …)» | MAX SLOTS limita las posiciones que funcionan a la vez. Súbalo o quite horas en el SCHEDULE donde la fila AT ONCE está en rojo. |
+| Spot Reporting no arrancó tras un reinicio | **Start automatically after a reboot or crash** debe estar marcado y guardado, y un **STOP** se mantiene hasta **START** (la tarjeta de estado indica `ON, held by STOP`). El registro AUTORUN muestra cada línea `[admin …] autostart:`; el propio panel debe estar en marcha (`sudo systemctl status phantomsdr-admin`). |
 | Spot Reporting muestra «0 sent» | Normal durante los primeros minutos: PSK Reporter envía cada 5 min y wsprnet cada 2 min. Confirme que hay un destino activado y que el demonio está en marcha. |
 | Las bandas o modos nuevos no aparecen en la matriz | [Reiniciar el panel](#reiniciar-el-panel) — la matriz se carga al arrancar el panel. |
 | `autorun.log` muestra `MODULE_TYPELESS_PACKAGE_JSON` / «Reparsing as ES module … performance overhead» | Aviso cosmético (la decodificación sigue funcionando). A `frontend/src/modules/package.json` le falta `"type": "module"`; añada esa línea cerca del principio y haga Stop→Start. No hace falta recompilar el frontend: el demonio importa el archivo fuente directamente. |

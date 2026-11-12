@@ -38,6 +38,8 @@ PhantomSDR-Plus
 │   ├── probe-ft8.js
 │   ├── probe-js8.js
 │   ├── pskreporter.js
+│   ├── scheduler.js           # planning du report des spots : quels créneaux tournent à une heure UTC donnée
+│   ├── scheduler.test.mjs     # test du planning sans récepteur (horloge simulée)
 │   ├── serverport.js          # où les prises trouvent spectrumserver (tient compte de receivers.toml)
 │   ├── spotparse.js
 │   ├── wasm-shim.js
@@ -948,7 +950,8 @@ Chaque `start-*.sh` ci-dessous est un **lanceur autonome + chien de garde + jour
 | `proxy.py` | Le port public. Sert la page et transmet `/admin` au panneau et — sur une station configurée avec l'assistant — `/rade`, `/stats` et `/relay` aux services derrière lui, de sorte qu'un seul port est redirigé. Lit ses ports dans `admin_config.json`, ou dans `station.conf` en l'absence de panneau (`setup_admin.sh --proxy-only`) |
 | `thermal_guard.py` | Protection contre la surchauffe du processeur. Arrête le serveur lorsque le processeur devient trop chaud et le relance une fois refroidi, en déduisant ses seuils du seuil critique que publie votre propre processeur plutôt que d'un nombre fixe. Elle ne cherche jamais à identifier ce qui supervise le serveur : tant qu'il fait trop chaud, elle réémet l'arrêt toutes les 2 s, si bien qu'un watchdog, une unité systemd ou une tâche cron qui le relance est défait jusqu'au refroidissement de la machine. Bibliothèque standard uniquement ; importée par `admin_server.py` (cadencée par l'échantillonneur des Graphiques) et exécutable seule pour les installations sans panneau. Par défaut en journalisation seule, elle n'agit donc sur rien tant qu'elle n'est pas activée — voir [Panneau d'administration]voir le [manuel du Thermal Guard](THERMAL_GUARD.md) |
 | `autorun/` | Le démon de report de spots — voir [Rapporteur de spots autorun](INSTALLATION.md#rapporteur-de-spots-autorun-ft8ft4wspr) |
-| `autorun.json` | Bandes et modes à décoder, identité et destinations |
+| `autorun.json` | Quelles bandes/quels modes décoder et à quelles heures UTC, identité, destinations et démarrage automatique |
+| `autorun-stopped` | Présent après STOP dans le panneau : le démarrage automatique laisse le démon arrêté, redémarrages compris, jusqu'à START |
 | `autorun-status.json` | État courant du démon : alimente les compteurs **de l'exécution en cours** (les tuiles par décodeur), remis à zéro par Stop/Start |
 | `autorun-totals.json` | Spots téléversés **depuis toujours** par bande et mode : le nombre à côté de chaque case ; écrit par le démon afin de survivre aux redémarrages |
 

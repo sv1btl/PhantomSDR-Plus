@@ -38,6 +38,8 @@ PhantomSDR-Plus
 │   ├── probe-ft8.js
 │   ├── probe-js8.js
 │   ├── pskreporter.js
+│   ├── scheduler.js           # spot reporting schedule: which slots run in a given UTC hour
+│   ├── scheduler.test.mjs     # offline test of the schedule (fake clock)
 │   ├── serverport.js          # where the taps find spectrumserver (receivers.toml aware)
 │   ├── spotparse.js
 │   ├── wasm-shim.js
@@ -948,7 +950,8 @@ Each `start-*.sh` below is a **self-contained launcher + watchdog + logger**: it
 | `proxy.py` | The public port. Serves the page and carries `/admin` to the panel and — on a station set up with the wizard — `/rade`, `/stats` and `/relay` to the services behind it, so only one port is forwarded. Reads its ports from `admin_config.json`, or from `station.conf` when there is no panel (`setup_admin.sh --proxy-only`) |
 | `thermal_guard.py` | CPU over-temperature guard. Stops the server when the CPU gets too hot and restarts it once cool, deriving its thresholds from the critical trip point your own CPU publishes instead of a fixed number. It never identifies what supervises the server — while over-temp it re-issues the stop every 2 s, so a watchdog, systemd unit or cron job that revives it is undone until the machine cools. Stdlib-only; imported by `admin_server.py` (ticked from the Graphs sampler) and also runnable standalone for installations without the panel. Defaults to log-only, so it acts on nothing until enabled — see the [Thermal Guard manual](THERMAL_GUARD.md) |
 | `autorun/` | The spot-reporting daemon — see [Autorun Spot Reporter](INSTALLATION.md#autorun-spot-reporter-ft8ft4wspr) |
-| `autorun.json` | Which bands/modes to decode, identity and destinations |
+| `autorun.json` | Which bands/modes to decode and in which UTC hours, identity, destinations and autostart |
+| `autorun-stopped` | Present after STOP in the panel: autostart leaves the daemon off, reboots included, until START |
 | `autorun-status.json` | Live state of the running daemon — feeds the **per-run** spot counters (the per-decoder tiles), which reset on Stop/Start |
 | `autorun-totals.json` | **All-time** uploaded spots per band+mode — the number beside each checkbox; written by the daemon so the counts survive restarts |
 

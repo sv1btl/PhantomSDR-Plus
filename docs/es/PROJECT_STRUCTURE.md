@@ -38,6 +38,8 @@ PhantomSDR-Plus
 │   ├── probe-ft8.js
 │   ├── probe-js8.js
 │   ├── pskreporter.js
+│   ├── scheduler.js           # horario del reporte de spots: qué posiciones funcionan en una hora UTC
+│   ├── scheduler.test.mjs     # prueba del horario sin receptor (reloj simulado)
 │   ├── serverport.js          # dónde encuentran las tomas a spectrumserver (con receivers.toml)
 │   ├── spotparse.js
 │   ├── wasm-shim.js
@@ -948,7 +950,8 @@ Cada `start-*.sh` de los siguientes es un **lanzador autónomo + watchdog + regi
 | `proxy.py` | El puerto público. Sirve la página y lleva `/admin` al panel y — en una estación configurada con el asistente — `/rade`, `/stats` y `/relay` a los servicios que hay detrás, de modo que solo se redirige un puerto. Lee sus puertos de `admin_config.json`, o de `station.conf` cuando no hay panel (`setup_admin.sh --proxy-only`) |
 | `thermal_guard.py` | Protección contra sobrecalentamiento de la CPU. Detiene el servidor cuando la CPU se calienta demasiado y lo reinicia una vez fría, derivando sus umbrales del límite crítico que publica su propia CPU en lugar de una cifra fija. Nunca intenta identificar qué supervisa el servidor: mientras hay exceso de temperatura repite la parada cada 2 s, de modo que un watchdog, una unidad de systemd o una tarea cron que lo reviva queda deshecha hasta que la máquina se enfríe. Solo biblioteca estándar; lo importa `admin_server.py` (temporizado por el muestreador de Gráficos) y también se ejecuta por su cuenta en instalaciones sin panel. Por defecto solo registra, así que no actúa sobre nada hasta que se active — véase [Panel de administración]véase el [manual del Thermal Guard](THERMAL_GUARD.md) |
 | `autorun/` | El demonio de reporte de spots — véase [Autorun Spot Reporter](INSTALLATION.md#autorun-spot-reporter-ft8ft4wspr) |
-| `autorun.json` | Bandas y modos a decodificar, identidad y destinos |
+| `autorun.json` | Qué bandas/modos decodificar y en qué horas UTC, identidad, destinos y arranque automático |
+| `autorun-stopped` | Existe tras STOP en el panel: el arranque automático deja el demonio parado, también tras reiniciar, hasta START |
 | `autorun-status.json` | Estado en vivo del demonio: alimenta los contadores **de la ejecución actual** (los paneles por decodificador), que se ponen a cero con Stop/Start |
 | `autorun-totals.json` | Spots subidos **históricos** por banda y modo: el número junto a cada casilla; lo escribe el demonio para que sobreviva a los reinicios |
 

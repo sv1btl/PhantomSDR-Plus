@@ -933,7 +933,7 @@ Estas tres emisiones de servicio usan el decodificador y el panel FSK de la vent
 
 **RTTY meteorológico:** los transmisores del DWD (servicio meteorológico alemán) 4583, 7646 y 10100,8 kHz (programa 1, en inglés) y 11039, 14467,3 y 147,3 kHz (programa 2, en alemán; 147,3 kHz usa un shift de 85 Hz, que fija su entrada de la lista). Mientras hay una frecuencia del DWD elegida, **NEXT BROADCASTS** muestra las próximas emisiones.
 
-**RTTY naval (PBB CARB):** la Channel Availability / Receipt Broadcast de PBB, la Marina Real de los Países Bajos en Den Helder, en 2474, 4250, 4280, 5052, 5214, 5659, 5694,5, 6356, 6358,5, 8435,4, 8437, 8439, 9264, 9368, 12840,5, 12841, 16318, 17116,7, 17947, 18308 y 20098 kHz. Indica a los barcos en qué canales escucha la estación costera y confirma los mensajes recibidos; lo que envían los barcos va cifrado. Si el texto sale ilegible, desmarque primero **Invert mark / space**.
+**RTTY naval (PBB CARB):** la Channel Availability / Receipt Broadcast de PBB, la Marina Real de los Países Bajos en Den Helder, en 2474, 4250, 4280, 5052, 5214, 5659, 5694,5, 6356, 6358,5, 8439, 9264, 9368, 12840,5, 16318, 17116,7, 17947, 18308 y 20098 kHz. Indica a los barcos en qué canales escucha la estación costera y confirma los mensajes recibidos; lo que envían los barcos va cifrado. Si el texto sale ilegible, desmarque primero **Invert mark / space**.
 
 ### DSC — Digital Selective Calling
 

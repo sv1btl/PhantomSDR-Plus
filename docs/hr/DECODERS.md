@@ -933,7 +933,7 @@ Ove tri emisije službi koriste FSK dekoder i ploču prozora FLDIGI (poglavlje 1
 
 **Meteorološki RTTY:** odašiljači DWD-a (Njemačka meteorološka služba) 4583, 7646 i 10100,8 kHz (program 1, na engleskom) te 11039, 14467,3 i 147,3 kHz (program 2, na njemačkom; 147,3 kHz koristi pomak od 85 Hz, koji postavlja njegova stavka popisa). Dok je odabrana frekvencija DWD-a, **NEXT BROADCASTS** prikazuje sljedeće emisije.
 
-**Mornarički RTTY (PBB CARB):** emisija Channel Availability / Receipt Broadcast postaje PBB, Kraljevske nizozemske ratne mornarice u Den Helderu, na 2474, 4250, 4280, 5052, 5214, 5659, 5694,5, 6356, 6358,5, 8435,4, 8437, 8439, 9264, 9368, 12840,5, 12841, 16318, 17116,7, 17947, 18308 i 20098 kHz. Javlja brodovima na kojim kanalima obalna postaja sluša i potvrđuje primljene poruke; ono što brodovi šalju je šifrirano. Ako je tekst iskrivljen, prvo odznačite **Invert mark / space**.
+**Mornarički RTTY (PBB CARB):** emisija Channel Availability / Receipt Broadcast postaje PBB, Kraljevske nizozemske ratne mornarice u Den Helderu, na 2474, 4250, 4280, 5052, 5214, 5659, 5694,5, 6356, 6358,5, 8439, 9264, 9368, 12840,5, 16318, 17116,7, 17947, 18308 i 20098 kHz. Javlja brodovima na kojim kanalima obalna postaja sluša i potvrđuje primljene poruke; ono što brodovi šalju je šifrirano. Ako je tekst iskrivljen, prvo odznačite **Invert mark / space**.
 
 ### DSC — Digital Selective Calling
 

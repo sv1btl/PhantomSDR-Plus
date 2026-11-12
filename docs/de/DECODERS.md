@@ -933,7 +933,7 @@ Diese drei Aussendungen des Gebrauchsfunks verwenden den FSK-Decoder und das Bed
 
 **Wetter-RTTY:** die Sender des DWD (Deutscher Wetterdienst) 4583, 7646 und 10100,8 kHz (Programm 1, Englisch) sowie 11039, 14467,3 und 147,3 kHz (Programm 2, Deutsch; 147,3 kHz verwendet 85 Hz Shift, den sein Listeneintrag setzt). Solange eine DWD-Frequenz gewählt ist, zeigt **NEXT BROADCASTS** die kommenden Sendungen.
 
-**Marine-RTTY (PBB CARB):** die Channel Availability / Receipt Broadcast von PBB, der Königlich Niederländischen Marine in Den Helder, auf 2474, 4250, 4280, 5052, 5214, 5659, 5694,5, 6356, 6358,5, 8435,4, 8437, 8439, 9264, 9368, 12840,5, 12841, 16318, 17116,7, 17947, 18308 und 20098 kHz. Sie teilt den Schiffen mit, auf welchen Kanälen die Landstation hört, und bestätigt empfangene Nachrichten; was die Schiffe senden, ist verschlüsselt. Ist der Text verstümmelt, nehmen Sie zuerst das Häkchen bei **Invert mark / space** heraus.
+**Marine-RTTY (PBB CARB):** die Channel Availability / Receipt Broadcast von PBB, der Königlich Niederländischen Marine in Den Helder, auf 2474, 4250, 4280, 5052, 5214, 5659, 5694,5, 6356, 6358,5, 8439, 9264, 9368, 12840,5, 16318, 17116,7, 17947, 18308 und 20098 kHz. Sie teilt den Schiffen mit, auf welchen Kanälen die Landstation hört, und bestätigt empfangene Nachrichten; was die Schiffe senden, ist verschlüsselt. Ist der Text verstümmelt, nehmen Sie zuerst das Häkchen bei **Invert mark / space** heraus.
 
 ### DSC — Digital Selective Calling
 

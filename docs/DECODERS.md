@@ -933,7 +933,7 @@ These three utility broadcasts use the FSK decoder and panel of the FLDIGI windo
 
 **Weather RTTY:** the DWD (German Weather Service) outlets 4583, 7646 and 10100.8 kHz (Programme 1, English) and 11039, 14467.3 and 147.3 kHz (Programme 2, German; 147.3 kHz uses an 85 Hz shift, which its list entry sets). While a DWD frequency is chosen, **NEXT BROADCASTS** shows the coming programme.
 
-**Naval RTTY (PBB CARB):** the Channel Availability / Receipt Broadcast of PBB, the Royal Netherlands Navy at Den Helder, on 2474, 4250, 4280, 5052, 5214, 5659, 5694.5, 6356, 6358.5, 8435.4, 8437, 8439, 9264, 9368, 12840.5, 12841, 16318, 17116.7, 17947, 18308 and 20098 kHz. It tells ships which channels the shore station is listening on and confirms the messages it has received; what the ships send is encrypted. If the text comes out garbled, untick **Invert mark / space** first.
+**Naval RTTY (PBB CARB):** the Channel Availability / Receipt Broadcast of PBB, the Royal Netherlands Navy at Den Helder, on 2474, 4250, 4280, 5052, 5214, 5659, 5694.5, 6356, 6358.5, 8439, 9264, 9368, 12840.5, 16318, 17116.7, 17947, 18308 and 20098 kHz. It tells ships which channels the shore station is listening on and confirms the messages it has received; what the ships send is encrypted. If the text comes out garbled, untick **Invert mark / space** first.
 
 ### DSC — Digital Selective Calling
 

@@ -35,6 +35,8 @@ import { transformFlat } from './lib/fftRadix2.js';
 import { PSK31Demodulator, PSK_MODE_DEFAULT, pskModeCfg } from './psk31.js';
 import { PskBrowser } from './pskBrowser.js';
 import { OliviaBrowser } from './oliviaBrowser.js';
+import { MfskBrowser } from './mfskBrowser.js';
+import { RttyBrowser } from './rttyBrowser.js';
 import { Fst4wDecoder } from './fst4w.js';
 import { Msk144Decoder } from './msk144.js';
 import { AleDecoder } from './ale.js';
@@ -128,6 +130,9 @@ export class KiwiFSKDecoder {
 
     this._variant      = String(options.variant || 'maritime').toLowerCase();
     this._customConfig = options.config ? { ...options.config } : null;
+    // One channel of the RTTY Browser (rttyBrowser.js): no auto-shift or
+    // auto-centre (they would wander onto a neighbour), no audio history.
+    this._noAuto = !!options.noAuto;
 
     if (this._role === 'navtex') this._navtexReset();
     else                         this._fskReset();
@@ -157,6 +162,8 @@ export class KiwiFSKDecoder {
     this._olivia = null;
     this._oliviaBrowser = null;
     this._pskBrowser = null;
+    this._mfskBrowser = null;
+    this._rttyBrowser = null;
     this._modem = null;
     this._packet = null;
   }
@@ -170,7 +177,11 @@ export class KiwiFSKDecoder {
       return;
     }
 
+    // RTTY Browser: its own channel decoders do the work.
+    if (this._rttyBrowser) { this._fskAutoCenterPending = false; this._rttyBrowser.feed(pcm); return; }
+
     // FSK keeps ~1.2 s of recent audio for the auto-shift / auto-centre scans.
+    if (this._noAuto) { this._nvFeedPCMCommon(pcm, this._variant || 'ham', false); return; }
     if (!this._fskRecentPCM) this._fskRecentPCM = [];
     for (let i = 0; i < pcm.length; i++) this._fskRecentPCM.push(pcm[i]);
     const keep = Math.max(1024, Math.floor(this._sampleRateFn() * 1.2));
@@ -272,6 +283,7 @@ export class KiwiFSKDecoder {
   // ── fldigi-family modems (see FLDIGI_MODEMS) ─────────────────────────────
 
   _modemFeed(pcm) {
+    if (this._mfskBrowser) { this._fskAutoCenterPending = false; this._mfskBrowser.feed(pcm); return; }
     const dec = this._modem;
     if (!dec) return;
     if (this._fskAutoCenterPending) {
@@ -540,13 +552,13 @@ export class KiwiFSKDecoder {
     }
     // Same for the fldigi-family squelch: their interleavers, FEC and timing
     // loops take seconds to fill. Hell's reverse only flips the paint.
-    if (_isModemVariant(this._variant) && this._modem && this._customConfig) {
+    if (_isModemVariant(this._variant) && (this._modem || this._mfskBrowser) && this._customConfig) {
       if (_onlyDiffersBy(this._customConfig, cfg, 'modemSquelch')) {
         this._customConfig = { ...cfg };
-        this._modem.setSquelch(cfg.modemSquelch);
+        (this._modem || this._mfskBrowser).setSquelch(cfg.modemSquelch);
         return;
       }
-      if (this._modem.setReverse && _onlyDiffersBy(this._customConfig, cfg, 'reverse')) {
+      if (this._modem && this._modem.setReverse && _onlyDiffersBy(this._customConfig, cfg, 'reverse')) {
         this._customConfig = { ...cfg };
         this._modem.setReverse(!!cfg.reverse);
         return;
@@ -568,6 +580,7 @@ export class KiwiFSKDecoder {
       this._customConfig = { ...cfg };
       if (this._nvPreset) this._nvPreset.squelch = Number(cfg.squelch);
       this._fskSquelchDb = Number.isFinite(Number(cfg.squelch)) ? Number(cfg.squelch) : FSK_SQUELCH_DEFAULT;
+      if (this._rttyBrowser) this._rttyBrowser.setSquelch(this._fskSquelchDb);
       return;
     }
 
@@ -858,6 +871,8 @@ export class KiwiFSKDecoder {
       out.bandwidth = m.bw(out.modemMode);
       out.modemSquelch = num(cfg.modemSquelch, m.squelch);
       out.reverse = !!cfg.reverse;
+      // MFSK Browser: every signal of this sub-mode in the passband.
+      out.browse = variant === 'mfsk' && !!cfg.browse;
       return out;
     }
     if (wantedEnc === 'varicode' || wantedEnc === 'olivia') {
@@ -932,6 +947,8 @@ export class KiwiFSKDecoder {
 
     if (enc === 'ita2' && out.dataBits < 5) out.dataBits = 5;
     out.framing = `${out.dataBits}${out.parity}${out.stopBits}`;
+    // RTTY Browser (amateur RTTY only): every signal of this shift / baud.
+    out.browse = variant === 'ham' && !!cfg.browse;
     return out;
   }
 
@@ -988,7 +1005,17 @@ export class KiwiFSKDecoder {
       this._packet = null;
     }
 
-    if (_isModemVariant(this._variant)) {
+    this._mfskBrowser = null;
+    if (this._variant === 'mfsk' && preset.browse) {
+      // MFSK Browser: the passband tiled with decoders, one line per signal.
+      this._modem = null;
+      this._mfskBrowser = new MfskBrowser({
+        sampleRate: this._sampleRateFn,
+        mode: preset.modemMode, squelch: preset.modemSquelch,
+        onUpdate: (channels) => { if (this._fskCb) this._fskCb({ type: 'browser', variant: 'mfsk', channels }); },
+        onStatus: (text) => { if (this._fskCb) this._fskCb({ type: 'status', variant: 'mfsk', text }); },
+      });
+    } else if (_isModemVariant(this._variant)) {
       const v = this._variant;
       this._modem = FLDIGI_MODEMS[v].make({
         sampleRate: this._sampleRateFn,
@@ -1044,6 +1071,19 @@ export class KiwiFSKDecoder {
       });
     } else {
       this._fst4w = null;
+    }
+
+    this._rttyBrowser = null;
+    if (this._variant === 'ham' && preset.browse && !this._noAuto) {
+      // RTTY Browser: one ordinary RTTY decoder per signal found.
+      const { browse, ...cfg } = this._customConfig || {};
+      this._rttyBrowser = new RttyBrowser({
+        sampleRate: this._sampleRateFn,
+        config: { ...cfg, shift: preset.shift, baud: preset.baud, squelch: preset.squelch },
+        makeDecoder: (o) => new KiwiFSKDecoder(o),
+        onUpdate: (channels) => { if (this._fskCb) this._fskCb({ type: 'browser', variant: 'ham', channels }); },
+        onStatus: (text) => { if (this._fskCb) this._fskCb({ type: 'status', variant: 'ham', text }); },
+      });
     }
 
     this._oliviaBrowser = null;
@@ -1611,6 +1651,7 @@ export class KiwiFSKDecoder {
             squelchOpen: this._nvAsyncMode ? !!this._fskSquelchOpen : true,
           });
         }
+        if (this._noAuto) continue;
         if (this._fskAutoShift && preset.protocol !== 'ccir476' && (nowMs - (this._fskLastAutoShiftAt || 0)) >= 1500 && this._fskCharsDecoded < 2) {
           this._fskLastAutoShiftAt = nowMs;
           this._fskTryAutoShift(preset);

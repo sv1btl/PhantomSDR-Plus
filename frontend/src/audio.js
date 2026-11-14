@@ -1442,6 +1442,7 @@ async init() {
     // A new /audio connection starts on the server's Auto AGC; re-apply the
     // listener's Fast/Medium/Slow choice.
     this._sentAgcSpeed = 0   // a new connection starts on Auto
+    this._sentScale = false  // ... and at the legacy output level
     this._syncAgcSpeed()
     // Name/callsign for the users list (see setIdentity).
     if (this._identity) this._safeSend({ cmd: 'identity', ...this._identity })
@@ -1843,6 +1844,12 @@ setAGC(newAGCSpeed) {
       this._agcHeld = held;
       try { this.agcHoldCallback?.(held); } catch (e) { console.warn('[AGC] hold callback', e); }
     }
+    // 8x output resolution (server out_scale): only with the low-latency
+    // FLAC decoder, which applies each packet's own label before its
+    // resampler; the WASM one (?flac=wasm) holds ~160 ms back and would put
+    // labels on the wrong samples. Old servers ignore the command.
+    if (!this._sentScale && this.decoder instanceof FlacLowLatencyDecoder &&
+        this._safeSend({ cmd: 'audio_scale', scale: 8 })) this._sentScale = true;
     const want = decoderHold ? 3 : (this.agcSpeed || 0);
     if (want === (this._sentAgcSpeed ?? 0)) return;
     if (this._safeSend({ cmd: 'agc_speed', speed: want })) this._sentAgcSpeed = want;
@@ -4159,16 +4166,28 @@ setAGC(newAGCSpeed) {
         this.dBPower = dBpower;
       }
 
-      this.decode(packet.data);
+      this.decode(packet.data, packet.scale);
     }
   }
 
-  decode(encoded) {
+  // scale: the packet's "scale" label -- the server sends mono FLAC at that
+  // many times the legacy level once this page asked for it (audio_scale in
+  // _syncAgcSpeed), for 3 more bits of resolution. Divided back here, so
+  // everything after decode() sees exactly the legacy level.
+  decode(encoded, scale) {
     // Audio not available
     if (!this.audioCtx) {
       return
     }
-    let pcmArray = this.decoder.decode(encoded)
+    const sc = Number.isFinite(scale) && scale > 1 ? scale : 1
+    const lowLat = this.decoder instanceof FlacLowLatencyDecoder
+    let pcmArray = lowLat ? this.decoder.decode(encoded, 1 / sc) : this.decoder.decode(encoded)
+    if (!lowLat && sc > 1 && pcmArray && pcmArray.length) {
+      // Not asked for with these decoders; only a stray labelled packet.
+      const d = new Float32Array(pcmArray.length)
+      for (let i = 0; i < d.length; i++) d[i] = pcmArray[i] / sc
+      pcmArray = d
+    }
     // More samples needed
     if (pcmArray.length === 0) {
       return

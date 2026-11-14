@@ -374,7 +374,11 @@ echo -e "${YELLOW}Please confirm your settings:${NC}"
 echo "  Installation directory: $INSTALL_DIR"
 echo "  Port: $PORT"
 echo "  Server address: $SERVER_ADDRESS"
-echo "  Stats URL will be: http://$SERVER_ADDRESS:$PORT"
+if [ -n "${PORT_STATS:-}" ] && [ "$PORT" = "$PORT_STATS" ]; then
+    echo "  Stats URL will be: /stats on the public port ${PORT_PUBLIC:-9000}"
+else
+    echo "  Stats URL will be: http://$SERVER_ADDRESS:$PORT"
+fi
 echo ""
 ask_yn "Continue with these settings? (y/n)" y confirm
 
@@ -914,8 +918,13 @@ fi
 echo -e "${YELLOW}Configuration Summary:${NC}"
 echo "  Installation: $INSTALL_DIR"
 echo "  Port: ${BLUE}$PORT${NC}"
-echo "  Server: $SERVER_ADDRESS"
-echo "  API URL: ${BLUE}http://$SERVER_ADDRESS:$PORT/api/system-stats${NC}"
+if [ -n "${PORT_STATS:-}" ] && [ "$PORT" = "$PORT_STATS" ]; then
+    # Inside the computer only: the page reaches it as /stats through the proxy.
+    echo -e "  API URL: ${BLUE}http://localhost:$PORT/api/system-stats${NC} (inside this computer)"
+else
+    echo "  Server: $SERVER_ADDRESS"
+    echo "  API URL: ${BLUE}http://$SERVER_ADDRESS:$PORT/api/system-stats${NC}"
+fi
 if [ "$ADMIN_INSTALLED" = true ]; then
     echo "  Admin panel: configured — password 'admin', change it on first login"
 fi

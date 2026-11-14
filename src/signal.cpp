@@ -996,6 +996,7 @@ void AudioClient::send_audio(std::complex<float> *buf, size_t frame_num) {
             buf, buf + len, 0.0f,
             [](float a, std::complex<float> &b) { return a + std::norm(b); });
 
+
         // Main demodulation logic for the frequency
         if (demod == USB || demod == LSB) {
             if (demod == USB) {
@@ -1313,8 +1314,18 @@ void AudioClient::send_audio(std::complex<float> *buf, size_t frame_num) {
             // Quantize into 16 bit audio to save bandwidth.
             // Mono boost — mono AM should be louder than stereo (30% boost).
             const float mono_boost = 1.5f;
+            // out_scale (see signal.h): only with the AGC on -- without it a
+            // strong station is already near full scale -- and only on FLAC,
+            // whose packets each hold exactly this frame (blocksize = frame),
+            // so the label can never land on another frame's samples.
+            int scale = 1;
+            if (agc_on && base_audio_compression != AUDIO_KIWI_PCM) {
+                std::scoped_lock lk(encoder_mtx_);
+                if (encoder && encoder->codec() == "flac")
+                    scale = out_scale.load(std::memory_order_relaxed);
+            }
             dsp_float_to_int16(audio_real.data(), audio_real_int16.data(),
-                            static_cast<int>(65536 / 2 * mono_boost), audio_fft_size / 2);
+                            static_cast<int>(65536 / 2 * mono_boost) * scale, audio_fft_size / 2);
 
 
             // Set audio details with mono channel count
@@ -1326,6 +1337,15 @@ void AudioClient::send_audio(std::complex<float> *buf, size_t frame_num) {
                                 sam_locked.load(std::memory_order_relaxed),
                                 sam_offset_hz.load(std::memory_order_relaxed),
                                 sam_quality.load(std::memory_order_relaxed));
+                if (encoder->codec() == "flac") {
+                    encoder->set_scale(scale);
+                } else if (scale > 1) {
+                    // The encoder was swapped (C-QUAM -> Opus) since the
+                    // scale was chosen: this frame goes out unlabelled, so
+                    // back to the legacy level.
+                    for (int i = 0; i < audio_fft_size / 2; i++)
+                        audio_real_int16[i] /= scale;
+                }
                 encoder->process(audio_real_int16.data(), audio_fft_size / 2);
             }
         }
@@ -1485,6 +1505,16 @@ void AudioClient::on_agc_enable_message(bool enabled) {
 void AudioClient::on_agc_speed_message(int speed) {
     std::scoped_lock lk(agc_mtx_);
     agc.setTrxSpeed(speed);
+}
+
+void AudioClient::on_audio_scale_message(int scale) {
+    // A power of two, 1..16 (rounded down): 16 puts the AGC's peaks at
+    // -32 dBFS, so every allowed value leaves room. The page asks for 8
+    // (2026-11-13): ~48 dB carried SNR, above any real HF signal, for
+    // ~40 % less extra FLAC bitrate than 16.
+    int s = 1;
+    while (s * 2 <= std::min(scale, 16)) s *= 2;
+    out_scale.store(s, std::memory_order_relaxed);
 }
 
 void AudioClient::on_identity_message(std::string &name) {

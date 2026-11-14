@@ -41,6 +41,13 @@ class AudioEncoder {
         if (scale > 1) packet["iqx"] = scale; else packet.erase("iqx");
         if (busy) packet["iqx_busy"] = true; else packet.erase("iqx_busy");
     }
+    // audio_scale: this packet's samples are N x the legacy level (the page
+    // divides by N right after decoding). Absent = 1. set_data() clears it,
+    // so only a path that calls set_scale() after it labels its packets.
+    void set_scale(int scale) {
+        if (scale > 1) packet["scale"] = scale; else packet.erase("scale");
+    }
+    const std::string &codec() const { return codec_name; }
     virtual ~AudioEncoder();
 
   protected:
@@ -78,6 +85,12 @@ class FlacEncoder : public AudioEncoder, public FLAC::Encoder::Stream {
                    unsigned current_frame);
     int finish_encoder();
     int process(int32_t *data, size_t size);
+    // libFLAC writes a block only once the NEXT one has started arriving, so
+    // a written frame belongs to an earlier process() call than the packet
+    // fields describe. The "scale" label is the one field that must match
+    // the samples exactly (a wrong 1 plays a x16 frame 24 dB loud): queue it
+    // per process() and attach it as each audio frame is written.
+    std::deque<int> scale_q_;
 };
 
 // Raw PCM "encoder": clamps the demodulated int32 samples to int16 and ships

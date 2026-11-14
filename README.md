@@ -1,4 +1,4 @@
-# PhantomSDR-Plus WebSDR (version 5.5.0, November 12th, 2026)
+# PhantomSDR-Plus WebSDR (version 5.5.0, November 14th, 2026)
 
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-cyan.svg)](https://www.gnu.org/licenses/gpl-3.0)
 [![Version](https://img.shields.io/badge/version-5.5.0-cyan.svg)](https://github.com/sv1btl/PhantomSDR-Plus)
@@ -33,10 +33,11 @@ PhantomSDR-Plus is licensed under the GPL v3 with the [additional terms](ADDITIO
 * **SERVICES: DSC, Time Signals and HF Selcall.** The **HFDL** button is now **SERVICES**, with a **Service** list in its window: **HFDL** as before; **DSC**, the GMDSS calls of ships and coast stations (distress, urgency, safety and routine, with MMSI country, position and working frequency); **Time Signals** from DCF77, MSF, RWM and WWV/WWVH — date, time, DUT1, the time in the receiver's own zone (from its QTH locator) and how late the minute mark reached the page; and **HF Selcall** (CCIR 493-4), the selective calls of Codan, Barrett and other HF networks. Frequency markers `DSC`, `TIME`, `DCF77`, `MSF`, `RWM`, `WWV`, `WWVH` and `SELCALL` start them. See [docs/DECODERS.md](docs/DECODERS.md).
 * **Utility modes move to SERVICES.** **Maritime FSK / SITOR** and **Weather RTTY** left the FLDIGI window and are in the **SERVICES** list, between HFDL and DSC, with the same decoder and settings. **ALE 2G** is split in two: FLDIGI's **ALE 2G HAM** has the amateur HFLINK channels, and SERVICES' **ALE 2G (MIL-STD-188-141)** the government, military (MARS among them) and utility networks. `SITOR` and `RTTY-WX` markers open SERVICES; an `ALE` marker opens FLDIGI on an HFLINK channel and SERVICES on any other. The Users window shows them as SITOR, RTTY-WX and ALE.
 * **Naval RTTY (PBB CARB) in SERVICES.** A new service for the Channel Availability / Receipt Broadcast of PBB, the Royal Netherlands Navy at Den Helder: RTTY at 75 baud, 850 Hz shift, ITA2, mark/space inverted, with a squelch and 21 PBB frequencies from 2474 to 20098 kHz. `RTTY-NAV` markers open it, and the Users window shows it as RTTY-NAV.
-* **Screen-reader support for blind and low-vision listeners.** Every button, slider and list has a spoken name, and keyboard-opened pop-ups take and return the focus, with no change to the layout. **Alt + Shift + F** says the frequency, mode and bandwidth, **Alt + Shift + S** the signal (S-units, dBm, SNR), **Alt + Shift + R** and **Alt + Shift + C** read the decoders' text and new chat messages aloud, **Alt + Shift + H** lists the keys. Arrow keys no longer tune while a slider, list or text field has the focus. The /mobile page names its controls, reads the S-meter and says the new frequency. Works with NVDA, JAWS, Narrator, VoiceOver, TalkBack, Orca and ChromeVox. See [Screen Readers](docs/USER_GUIDE.md#screen-readers).
+* **Screen-reader support for blind and low-vision listeners.** Every button, slider and list has a spoken name, and keyboard-opened pop-ups take and return the focus, with no change to the layout. **Alt + Shift + F** says the frequency, mode and bandwidth, **Alt + Ctrl** opens the number pad, **Alt + Shift + S** the signal (S-units, dBm, SNR), **Alt + Shift + R** and **Alt + Shift + C** read the decoders' text and new chat messages aloud, **Alt + Shift + H** lists the keys. Arrow keys no longer tune while a slider, list or text field has the focus. The /mobile page names its controls, reads the S-meter and says the new frequency. Works with NVDA, JAWS, Narrator, VoiceOver, TalkBack, Orca and ChromeVox. See [Screen Readers](docs/USER_GUIDE.md#screen-readers).
 * **A schedule for spot reporting, and an automatic start.** The admin panel's Spot Reporting tab has a **Schedule**: every band and mode ticked for PSK Reporter or WSPRnet gets a row of 24 UTC hours to click or drag across, with **24h**, **Day**, **Night** (from the station's own locator), **Clear** and a button that gives the other modes of the band the same hours. Outside its hours a slot sleeps and frees its place on the receiver, **MAX SLOTS** counts the slots running at the same time hour by hour, and **SELECT ALL** ticks every band and mode. A saved change reaches the running decoder within seconds, without Stop/Start. **Start automatically after a reboot or crash** brings the decoder back by itself; after **STOP** it stays off, reboots included, until **START**. See [Spot Reporting](docs/ADMIN_PANEL_SETUP.md#spot-reporting-autorun-ft8ft4js8wspr).
 * **New in the FLDIGI window: ALE 2G, FST4W, MSK144 and PSK Browser.** **ALE 2G HAM** (MIL-STD-188-141), just before Packet in the variant list, lists the soundings, calls and messages of the 31 HFLINK amateur ALE channels; the other public network lists are in SERVICES. **FST4W** decodes the WSJT-X beacons of 2200 m, 630 m and 160 m, one UTC period of 2 to 30 minutes at a time, down to about −31 dB (a real 30-minute signal decoded at −44 dB). **MSK144** decodes WSJT-X meteor scatter pings on 6 m and 2 m. **PSK Browser** (the Browser — all signals knob under the PSK31 Mode list) decodes every BPSK31 signal in the passband at once, one line each; click one to follow it. **Olivia Browser** (Browser — all signals, under the Olivia Mode list) does the same for every Olivia or Contestia station of the chosen configuration, also below the noise. Markers `ALE`, `FST4W` and `MSK144` start them.
 * **CW Browser.** Switch on the **Browser — all signals** knob in the CW window and every CW signal between 200 and 3000 Hz is decoded at once, one line each, with its frequency, speed and the station's callsign (CQ calls in green); a click hands a station to the normal CW decoder. The receiver is held on USB 200–3000 Hz while it runs and goes back to your own mode afterwards. In all three browsers (PSK, Olivia, CW) each line now keeps 4000 characters and gets its own scroll bar once it holds more than six lines, and **Save** writes every line, also the ones already dropped; the CW window has a **Save** button too. The keying sidebands of a strong station no longer show up as extra CW Browser lines.
+* **Amateur RTTY Browser and MFSK Browser.** The **Browser — all signals** knob now also sits under **Shift** in Amateur RTTY and under **Mode** in MFSK16·32·64: every RTTY signal of the chosen shift and speed, or every MFSK signal of the chosen mode, between 300 and 2700 Hz is decoded at once, one line each, as in the PSK, Olivia and CW browsers, and a click on a line decodes only that station. Each RTTY station gets its own narrow filter, so a strong neighbour does not wipe out a weaker one; the MFSK Browser finds stations below the noise too and ignores the FT8 signals next door, which the decoder would otherwise print as nonsense. Every new control has hover text.
 * **Video recordings show where you were tuned.** A video from Recording Options → Video carries the tuner's yellow marks: dotted yellow lines at the tuned frequency and the passband edges, through the spectrum and the waterfall, and the bracket across the top.
 * **DRM panel with long locators.** A station with an 8- or 10-character grid locator now gets the "beamed at this station" group and the distance ranking in the DRM selector.
 * **Documentation:** the Admin Panel, Several Receivers, Decoders, User Guide and Project Structure manuals cover all of the above in all seven languages, and the offline PDFs are rebuilt.
@@ -61,7 +62,7 @@ We also provide a wide range of additional **features**:
 * The sysop's kick and the `X-Forwarded-For` header are trusted only from the same machine, so nobody can kick listeners or slip past the per-IP limits through the proxy.
 * Optional server settings for multi-receiver stations: `[server] host`, `[server] html_fallback_root`, `[websdr] public_port`, and per-receiver `siteReceiverURL` / `siteAntennaURL` links.
 * A full-featured, password-protected Admin Panel for remote server management without requiring direct SSH access. It provides access to server logs, chat moderation, user messaging, chat-message deletion without restarting the server, user disconnection, command execution, file editing, and other administrative functions; its Users and Chat pages cover every receiver of the station.
-* Integrated decoders for **FT8, FT4, FT2, JS8, CW (with CW Browser), QRSS Grabber, WSPR, HF FAX, SSTV, NAVTEX, an FLDIGI window with ALE 2G HAM, RTTY, PSK31/63/125 (BPSK/QPSK) and PSK Browser, Olivia and Contestia with Olivia Browser, FST4W, MFSK16/32/64, MSK144, DominoEX, THOR, THROB, Hellschreiber, MT63, Packet (AX.25) and APRS (with a live map of the stations heard), SERVICES (HFDL aircraft messages with a live aircraft map, Maritime FSK / SITOR, Weather RTTY, Naval RTTY (PBB CARB), DSC, Time Signals, HF Selcall and ALE 2G), DRM (digital broadcasting, decoded on the server) and FreeDV RADE V1 and V2 (beta)**. RTTY, PSK31, FT8, FT4 and FT2 show a real SNR (the FT modes agree with WSJT-X), and RTTY has a squelch. The FLDIGI modes are ports of fldigi's own receivers, checked against real fldigi recordings, with no fldigi installed anywhere; Hellschreiber is shown as a picture that can be saved as a PNG. A frequency marker whose mode is a digital mode starts its decoder in one click. See the [decoder documentation](docs/DECODERS.md).
+* Integrated decoders for **FT8, FT4, FT2, JS8, CW (with CW Browser), QRSS Grabber, WSPR, HF FAX, SSTV, NAVTEX, an FLDIGI window with ALE 2G HAM, RTTY with RTTY Browser, PSK31/63/125 (BPSK/QPSK) and PSK Browser, Olivia and Contestia with Olivia Browser, FST4W, MFSK16/32/64 with MFSK Browser, MSK144, DominoEX, THOR, THROB, Hellschreiber, MT63, Packet (AX.25) and APRS (with a live map of the stations heard), SERVICES (HFDL aircraft messages with a live aircraft map, Maritime FSK / SITOR, Weather RTTY, Naval RTTY (PBB CARB), DSC, Time Signals, HF Selcall and ALE 2G), DRM (digital broadcasting, decoded on the server) and FreeDV RADE V1 and V2 (beta)**. RTTY, PSK31, FT8, FT4 and FT2 show a real SNR (the FT modes agree with WSJT-X), and RTTY has a squelch. The FLDIGI modes are ports of fldigi's own receivers, checked against real fldigi recordings, with no fldigi installed anywhere; Hellschreiber is shown as a picture that can be saved as a PNG. A frequency marker whose mode is a digital mode starts its decoder in one click. See the [decoder documentation](docs/DECODERS.md).
 * A **channel scanner** on the tuning row: it sweeps the band — or exactly what the waterfall is showing — and stops on the first channel rising a chosen number of dB above the band noise floor, resumes by itself when the channel goes quiet, keeps the step on the mode's own channel grid, and can skip empty channels by reading the spectrum. Locked-out channels and settings live in the listener's browser.
 * A **Decoder ID** tool that identifies an unknown digital signal and offers the matching decoder in one click. Off by default.
 * Picking a digital mode sets both the sideband and the passband.
@@ -145,6 +146,7 @@ We also provide a wide range of additional **features**:
 - Support for both IQ and real data.
 - Full decoder support.
 - Lightweight mobile view at **/mobile** for phones on limited data plans.
+- Finer audio resolution: the audio is sent with 8 times finer resolution, which removes a faint hiss of the stream's own on strong stations (see [docs/README.md](docs/README.md#audio-resolution)).
 
 ## Benchmarks
 - Ryzen 5* 2600 - All Cores - RX888 MKii with 64MHZ Sample Rate, 32MHZ IQ takes up 38-40% - per User it takes about nothing, 50 Users don't even take 1% of the CPU.
@@ -316,7 +318,7 @@ A successful start ends like this:
   ────────────────────────────────────────────────────────────
   ✔ server is up   (spectrumserver + rx888_stream running)
   ✔ RADE sidecar running
-  ✔ websdr.org registered (your.host.example:8900)
+  ✔ websdr.org registered (your.host.example:9000)
   · SDR directory posting enabled (errors only, in spectrumserver.log)
   Full log: /path/to/PhantomSDR-Plus/logwebsdr.txt
 ```
@@ -344,7 +346,7 @@ The station questions write this file for you — callsign, locator, city, anten
 	"siteAntenna": "Receiving Antenna.",
 	"siteNote": "This is a bright new open-source WebSDR project, under active development.",
 	"siteIP": "http://Your site IP:port",
-	"siteStats": "http://Your site IP:3001",
+	"siteStats": "/stats",
 	"siteSDRBaseFrequency": 0,
 	"siteSDRBandwidth": 30000000,
 	"siteRegion": 1,
@@ -355,8 +357,8 @@ Where: <br />
 
 **"siteInformation"**: "https://github.com/sv1btl/PhantomSDR-Plus" — please don't change this. It points to the project's GitHub repository.<br />
 **"siteIP": "http://Your site IP:port"** — e.g. http://mysite.com:9000 <br />
-**"siteStats"** — `/stats` on a station set up with the station questions (the proxy carries it on the public port); on an older station the full address, e.g. http://mysite.com:3001. <br />
-**"siteRade"**, **"siteRelay"** — `/rade` and `/relay` on a station set up with the station questions; left out on an older one, where the page uses ports 8074 and 8898 as before. <br />
+**"siteStats"** — `/stats`: the proxy carries it on the public port, so no other port is opened on the router. <br />
+**"siteRade"**, **"siteRelay"** — `/rade` and `/relay`: the proxy carries both on the public port, so no other port is opened on the router. <br />
 **"siteSDRBandwidth"**: enter the usable bandwidth of your receiver — e.g. 2048000 for the RTL, or 60000000 or 1200000000 for the RX-888, etc.<br />
 
 **"siteRegion"**: select your IARU region, where:<br />
@@ -376,7 +378,7 @@ You also need to edit these sections in the .toml file you use:
 [websdr] register_online=true # Enable directory registration updates register_urls=[ "https://sdr-list.xyz/api/update_websdr", "https://sdr.shbrg.nl/api/update_websdr" ] # One or more directory endpoints that accept the same JSON payload name="CALSIGN CATsync PhantomSDR+" # Name that is shown on https://sdr-list.xyz and/or https://sdr.shbrg.nl/sdr/ antenna="WIRE" # Antenna that is shown on https://sdr-list.xyz grid_locator="QTH_LOCATOR" # 4- or 6-character grid locator, shown on https://sdr-list.xyz and used for the distance of FT8 signals hostname="your_IP" # If you use ddns or something to host with a domain enter it here for https://sdr-list.xyz
 
 [server]<br />
-port=9002 # Select your Server port<br />
+port=9001 # Select your Server port<br />
 html_root="frontend/dist/" # HTML files to be hosted<br />
 otherusers=1 # Send where other users are listening, 0 to disable<br />
 threads=2<br />
@@ -650,7 +652,7 @@ python3 thermal_guard.py --help              # all options
 
 A ready-made systemd unit, **`thermal-guard.service`**, is included in the root folder — edit the user and the two paths in it, copy it to `/etc/systemd/system/` and enable it. The full no-panel walkthrough is in [Installation → CPU Thermal Protection](docs/INSTALLATION.md#cpu-thermal-protection).
 
-If you *do* run the admin panel, the guard rides inside it, so the panel being up is what keeps the machine protected. You can keep starting it by hand with `./manage_admin.sh start`, or let systemd do it: **`phantomsdr-admin.service`** and **`phantomsdr-proxy.service`** are in the root folder too, and start the panel and the proxy at boot and restart them after a crash. Use one method or the other — the two fight over the same ports if you mix them. Both are described in [Admin panel → Start / Stop / Restart](docs/ADMIN_PANEL_SETUP.md#step-3--start--stop--restart).
+If you *do* run the admin panel, the guard rides inside it, so the panel being up is what keeps the machine protected. You can keep starting it by hand with `./manage_admin.sh start`, or let systemd do it: **`phantomsdr-admin.service`** and **`phantomsdr-proxy.service`** are in the root folder too, and start the panel and the proxy at boot and restart them after a crash. Use one method or the other — the two fight over the same ports if you mix them. Both are described in [Admin panel → Start / Stop / Restart](docs/ADMIN_PANEL_SETUP.md#step-2--start--stop--restart).
 
 
 ## The waterfall floor tool
@@ -687,26 +689,24 @@ For detailed information about installation, usage, and the project structure, p
   - Supported Hardware
   - Quick Start
   - Installation
-  - Performance Benchmarks
   - Usage
   - Configuration, Customization
 
 - **[Installation Guide](docs/INSTALLATION.md)** - What the installer does, and everything around it
-  - System requirements and preparation
+  - System requirements
   - What `install.sh` sets up for you
   - Configuration, `.toml` and site information
   - SDR device-specific setup
   - Autostart and systemd service configuration
   - CPU thermal protection
-  - Troubleshooting and optimization
-  - Appendix: doing any step by hand, if you ever have to
+  - Troubleshooting
 
 - **[KiwiSDR Client Emulation](docs/Aether_config.md)** - connecting AetherSDR, kiwiclient and other Kiwi software
   - What a Kiwi client gets, and what is not supported
   - Installing the bridge, and switching it on
   - Reference table for every `[kiwi_emulation]` key
   - Audio level, the S-meter, the waterfall scale and frame rate
-  - Symptom table, and how far the protocol has been verified
+  - Symptom table
 
 - **[Receive Diversity](docs/RECEIVE_DIVERSITY.md)** - listening to two sites at once, and the WebSDR relay
   - What diversity does, and what it does not
@@ -719,14 +719,10 @@ For detailed information about installation, usage, and the project structure, p
   - What RADE is, and the quality it gives at low SNR
   - The `rade_helper.py` sidecar and the decode pipeline
   - Using it from the web interface
-
-- **[RADE Manual Installation](docs/RADE_General_INSTALL_MANUAL_LINUX.md)** - building RADE by hand on any Linux
-  - Ubuntu / Debian / Fedora / Arch / Raspberry Pi OS
-  - Every dependency, step by step
-  - Checking the install before trusting it
+  - Installing and updating it with `./install_rade.sh`
 
 - **[Project Structure](docs/PROJECT_STRUCTURE.md)** - Directory tree and code organization
-  - Complete directory tree visualization
+  - Overview of the main folders and files
   - Source code structure and organization
   - Configuration file formats
   - Build system documentation
@@ -796,7 +792,7 @@ For detailed information about installation, usage, and the project structure, p
 
 ### 📄 Offline PDF editions:
 
-Every document above, in one printable file — eighteen chapters in reading order, closing with an Appendix of every command a sysop types, each linked to the page that explains it, with a linked table of contents and working cross-references. Handy for reading away from the machine, or for printing the parts you keep coming back to.
+Every document above, in one printable file — sixteen chapters in reading order, closing with an Appendix of every command a sysop types, each linked to the page that explains it, with a linked table of contents and working cross-references. Handy for reading away from the machine, or for printing the parts you keep coming back to.
 
 | Language | Download |
 |---|---|

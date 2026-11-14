@@ -225,6 +225,7 @@ export function arrowsBelongToControl(t) {
 // -------------------------------------------------------------- shortcuts
 export const A11Y_SHORTCUTS = [
   ["Alt + Shift + F", "say frequency, mode and bandwidth"],
+  ["Alt + Ctrl", "open the frequency number pad"],
   ["Alt + Shift + S", "say signal strength and SNR"],
   ["Alt + Shift + R", "read decoder text aloud on/off"],
   ["Alt + Shift + C", "read new chat messages aloud on/off"],
@@ -276,6 +277,35 @@ export function handleA11yKey(e, ctx) {
   else if (c === "KeyH")
     announce(A11Y_SHORTCUTS.map(([k, d]) => `${k}: ${d}`).join(". "), { urgent: true });
   return true;
+}
+
+// Alt + Ctrl pressed together and let go with no other key or click in
+// between (so Ctrl+Alt+Del and the like never fire). Ctrl+Shift was dropped:
+// some Windows PCs switch the keyboard language with it. AltGr (European
+// keyboards, sent as Ctrl+Alt on Windows) arrives as key "AltGraph" and never
+// arms it. On a Mac, Ctrl+Option is the VoiceOver key, always used with a
+// further key, so it does not fire either. onFire runs on the release.
+export function bareCtrlAlt(onFire) {
+  let armed = false;
+  const isMod = (k) => k === "Control" || k === "Alt";
+  return {
+    keydown(e) {
+      if (isMod(e.key) && e.ctrlKey && e.altKey && !e.shiftKey && !e.metaKey) armed = !e.repeat || armed;
+      else armed = false;
+    },
+    // Another handler may stop the other key's keydown (arrow tuning does),
+    // so its keyup cancels too.
+    keyup(e) {
+      if (!isMod(e.key)) armed = false;
+      else if (armed) {
+        armed = false;
+        onFire(e);
+      }
+    },
+    cancel() {
+      armed = false;
+    },
+  };
 }
 
 // Tuning with the arrow keys says the new frequency once the keys stop.

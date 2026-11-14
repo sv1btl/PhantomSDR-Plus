@@ -297,7 +297,11 @@ export class FlacLowLatencyDecoder {
     return true
   }
 
-  decode(bytes) {
+  // gain: this packet's own level factor, applied to the integer samples
+  // BEFORE the resampler -- the resampler's 32-sample delay would otherwise
+  // carry the end of one packet into the next at the other packet's gain.
+  // audio.js passes 1 / packet.scale (the server's audio_scale: 8, or 1).
+  decode(bytes, gain = 1) {
     this._append(bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes))
     if (this.inHeader && !this._header()) return new Float32Array(0)
     const parts = []
@@ -323,7 +327,7 @@ export class FlacLowLatencyDecoder {
     const pcm = new Float32Array(frames * nch)
     let o = 0
     for (const f of parts) {
-      const k = this.scale / 2 ** (f.bps - 1)
+      const k = this.scale * gain / 2 ** (f.bps - 1)
       const n = f.channels[0].length
       for (let i = 0; i < n; i++) for (let c = 0; c < nch; c++) pcm[o++] = f.channels[c][i] * k
     }

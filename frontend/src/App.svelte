@@ -112,6 +112,7 @@
     announceTuningSoon,
     arrowsBelongToControl,
     A11Y_SHORTCUTS,
+    bareCtrlAlt,
   } from "./lib/a11y.js";
   import StatusIndicators from "./lib/StatusIndicators.svelte";
   import BandSelector from "./lib/BandSelector.svelte";
@@ -2385,6 +2386,19 @@
   onDestroy(() =>
     window.removeEventListener("keydown", onGlobalKey, { capture: true }),
   );
+
+  // Alt + Ctrl (alone) = the frequency number pad (lib/a11y.js).
+  const padChord = bareCtrlAlt(() => {
+    if (!showFreqKeypad) showFreqKeypad = true;
+  });
+  const padChordEvents = [
+    ["keydown", padChord.keydown],
+    ["keyup", padChord.keyup],
+    ["pointerdown", padChord.cancel],
+    ["blur", padChord.cancel],
+  ];
+  onMount(() => padChordEvents.forEach(([t, f]) => window.addEventListener(t, f, { capture: true })));
+  onDestroy(() => padChordEvents.forEach(([t, f]) => window.removeEventListener(t, f, { capture: true })));
   // End of the popup window
 
   // Window for system stats
@@ -4368,7 +4382,21 @@
   // configuration in the passband (oliviaBrowser.js), shown like PSK Browser.
   let oliviaBrowse = false;
   $: oliviaBrowsing = fskVariant === "olivia" && oliviaBrowse;
-  $: fskBrowsing = pskBrowsing || oliviaBrowsing;
+  // Amateur RTTY Browser (rttyBrowser.js): every signal of the chosen shift /
+  // baud; MFSK Browser (mfskBrowser.js): every signal of the chosen sub-mode.
+  let rttyBrowse = false;
+  let mfskBrowse = false;
+  $: rttyBrowsing = fskVariant === "ham" && rttyBrowse;
+  $: mfskBrowsing = fskVariant === "mfsk" && mfskBrowse;
+  $: fskBrowsing = pskBrowsing || oliviaBrowsing || rttyBrowsing || mfskBrowsing;
+  // What the running browser decodes, for its texts and hover labels.
+  $: browserModeLabel = oliviaBrowsing
+    ? `${oliviaCfg.contestia ? "Contestia" : "Olivia"} ${oliviaCfg.label}`
+    : rttyBrowsing
+      ? `RTTY ${fskBaud} Bd / ${fskShift} Hz`
+      : mfskBrowsing
+        ? (modemCfg ? modemCfg.label : "MFSK")
+        : "BPSK31";
   // ALE 2G in the FLDIGI window: the panel (AlePanel, embedded) shows the
   // events; a few networks are LSB, which the receiver then follows.
   let aleLsb = false;
@@ -4461,10 +4489,12 @@
     fskApplySettings(true);
   }
 
-  /** A browser row clicked: decode just that signal (BPSK31, or Olivia on its own). */
+  /** A browser row clicked: decode just that signal (BPSK31, or Olivia / RTTY / MFSK on its own). */
   function pskBrowserPick(hz) {
-    if (fskVariant === "olivia") {
+    if (fskVariant === "olivia" || fskVariant === "ham" || fskVariant === "mfsk") {
       oliviaBrowse = false;
+      rttyBrowse = false;
+      mfskBrowse = false;
       fskCenter = Math.round(hz);
       fskApplySettings(true);
       return;
@@ -4564,7 +4594,9 @@
       const v = fskVariant;
       const sq = Number(modemSquelches[v]);
       return {
-        center: Number(fskCenter) || 1500,
+        // The MFSK Browser listens to the whole voice passband around 1500 Hz.
+        center: v === "mfsk" && mfskBrowse ? 1500 : Number(fskCenter) || 1500,
+        browse: v === "mfsk" && !!mfskBrowse,
         encoding: v,
         modemMode: modemModes[v],
         bandwidth: _modemModeCfg(v).bw,
@@ -4603,7 +4635,11 @@
       };
     }
     return {
-      center: Number(fskCenter) || 1000,
+      // The RTTY Browser (amateur RTTY) listens to the whole voice passband.
+      // Read the knob itself, not rttyBrowsing: this runs in the knob's
+      // change handler, before the reactive value has caught up.
+      center: fskVariant === "ham" && rttyBrowse ? 1500 : Number(fskCenter) || 1000,
+      browse: fskVariant === "ham" && !!rttyBrowse,
       shift: Number(fskShift) || 170,
       baud: Number(fskBaud) || 45.45,
       framing: fskFraming,
@@ -4721,6 +4757,8 @@
       ? 100 + 300
       : fskVariant === "psk31"
         ? pskMode === "browser" ? 1300 : Math.round(3.2 * pskModeCfg(pskMode).baud)
+        : (fskVariant === "ham" && rttyBrowse) || (fskVariant === "mfsk" && mfskBrowse)
+          ? 1300
         : MODEM_UI[fskVariant]
           ? (cfg.bandwidth || 500) / 2 + Math.max(60, 0.15 * (cfg.bandwidth || 500))
         : fskVariant === "msk144"
@@ -4926,8 +4964,11 @@
         }
         if (moved && fskEnabled) fskApplyBandpass();
       } else if (
-        event.type === "parity-error" ||
-        event.type === "framing-error"
+        // These belong to the single RTTY decoder; one still in flight when
+        // the RTTY Browser starts must not cover its "N signals".
+        !fskBrowsing &&
+        (event.type === "parity-error" ||
+        event.type === "framing-error")
       ) {
         fskStatusText =
           event.type === "parity-error" ? "Parity error" : "Framing error";
@@ -5135,7 +5176,8 @@
       // One line per signal: its frequency and all the text heard on it,
       // including the lines the browser has already dropped.
       const rows = _browserSaveLines(browserArchive, fskBrowsing ? pskBrowserChannels : []);
-      _saveDecoderTextFile(oliviaBrowsing ? (oliviaCfg.contestia ? "contestia-browser" : "olivia-browser") : "psk-browser", rows, "");
+      _saveDecoderTextFile(oliviaBrowsing ? (oliviaCfg.contestia ? "contestia-browser" : "olivia-browser")
+        : rttyBrowsing ? "rtty-browser" : mfskBrowsing ? "mfsk-browser" : "psk-browser", rows, "");
       return;
     }
     if (fskVariant === "msk144") {
@@ -5825,6 +5867,23 @@
   // The server offers IQ to listeners ([server] iq, in basic_info).
   let iqAvailable = false;
   const MODE_BUTTONS = ["USB", "LSB", "CW", "AM", "QUAM", "FM"];
+  // Hover texts for the buttons built in {#each} loops.
+  const MODE_TITLES = {
+    USB: "Upper sideband", LSB: "Lower sideband", CW: "Morse",
+    AM: "AM (click again for\nsynchronous AM)", QUAM: "C-QUAM AM stereo",
+    FM: "Narrow FM", IQ: "Raw IQ output",
+  };
+  const AGC_TITLES = {
+    Auto: "The server's own AGC,\nset by the mode", Fast: "Fast recovery",
+    Medium: "Medium recovery", Slow: "Slow recovery, steady gain\n(good for SSB)",
+  };
+  const FILTER_TITLES = {
+    NR: "Noise reduction",
+    NB: "Noise blanker:\nremoves clicks and crackle",
+    NS: "Background noise suppression",
+    AN: "Auto notch:\nremoves steady whistles and carriers",
+    CTCSS: "Remove sub-audible tones,\nor set a tone squelch (FM)",
+  };
   $: modeButtons = iqAvailable ? [...MODE_BUTTONS, "IQ"] : MODE_BUTTONS;
 
   let demodulation = "USB";
@@ -10607,13 +10666,13 @@
   >
     <div class="mb-1 flex items-center justify-between">
       <span class="text-xs font-semibold text-gray-200">CTCSS subtone (Hz)</span>
-      <button
+      <button title="Close"
         class="px-1 text-xs text-gray-400 hover:text-white"
         on:click={() => (showCTCSSPicker = false)}
         aria-label="Close">✕</button
       >
     </div>
-    <button
+    <button title="Open the squelch on any CTCSS tone"
       class="mb-1 w-full rounded border border-gray-600 py-0.5 text-xs text-white {CTCSSToneHz === null
         ? 'bg-blue-600'
         : 'bg-gray-700 hover:bg-gray-600'}"
@@ -10621,7 +10680,7 @@
     >
     <div class="grid grid-cols-5 gap-1">
       {#each CTCSS_TONES as tone}
-        <button
+        <button title={`Open the squelch only on\n${tone.toFixed(1)} Hz`}
           class="rounded border border-gray-600 py-0.5 text-[11px] font-mono text-white {CTCSSToneHz === tone
             ? 'bg-blue-600'
             : 'bg-gray-700 hover:bg-gray-600'}"
@@ -10680,7 +10739,7 @@
         Everyone sharing your internet connection counts as one address. Close
         any other tabs that have this receiver open, then reload.
       </p>
-      <button
+      <button title="Reload the page and connect again"
         class="rounded bg-gray-700 px-4 py-2 text-sm hover:bg-gray-600"
         on:click={() => window.location.reload()}>Reload</button
       >
@@ -11121,7 +11180,7 @@
                       class="flex flex-wrap items-center justify-center gap-2"
                       style="margin-top: 15px;"
                     >
-                      <button
+                      <button title={"Show or hide the station\ninformation and links"}
                         class="bg-gray-700 hover:bg-gray-600 text-white font-medium py-2 px-4 rounded-lg flex items-center transition-colors ring-2 ring-blue-500 s-XsEmFtvddWTw"
                         on:click={() => toggleMenu()}
                       >
@@ -11144,7 +11203,7 @@
                             placeholder="Your name or callsign"
                             on:keydown={(e) => e.key === "Enter" && saveUsername()}
                           />
-                          <button
+                          <button title={"Save your name or callsign\n(up to 10 characters, no spaces)"}
                             class="glass-button text-white py-1 px-3 rounded-lg text-xs sm:text-sm"
                             on:click={saveUsername}
                           >
@@ -11159,7 +11218,7 @@
                           >
                             {username}
                           </span>
-                          <button
+                          <button title="Change your name or callsign"
                             class="glass-button text-white py-1 px-3 rounded-lg text-xs sm:text-sm"
                             on:click={editUsername}
                           >
@@ -11324,7 +11383,7 @@
                     <br><br>
 
                     <b>Note:</b> <br> 
-                     <span style="/*text-decoration: line-through*/"><button
+                     <span style="/*text-decoration: line-through*/"><button title={"PSK Reporter map of the\nFT8 spots heard here"}
                        type="button"
                        class="glass-button text-white py-1 px-2 mr-1 rounded text-xs"
                        on:click={() => window.open(`https://pskreporter.info/pskmap.html#preset&callsign=${encodeURIComponent(siteCallsign)}&txrx=rx&mode=FT8&timerange=3600&mapCenter=22.6243,10.9375,2.59`, 'FT8map', 'width=1100,height=750,menubar=no,toolbar=no,location=no,status=no,resizable=yes,scrollbars=yes')}
@@ -11332,7 +11391,7 @@
                      >
                        📡 FT8 map
                      </button>
-                     <button
+                     <button title={"PSK Reporter map of the\nFT4 spots heard here"}
                        type="button"
                        class="glass-button text-white py-1 px-2 mr-1 rounded text-xs"
                        on:click={() => window.open(`https://pskreporter.info/pskmap.html#preset&callsign=${encodeURIComponent(siteCallsign)}&txrx=rx&mode=FT4&timerange=3600&mapCenter=22.6243,10.9375,2.59`, 'FT4map', 'width=1100,height=750,menubar=no,toolbar=no,location=no,status=no,resizable=yes,scrollbars=yes')}
@@ -11340,7 +11399,7 @@
                      >
                        📡 FT4 map
                      </button>
-                     <button
+                     <button title={"PSK Reporter map of the\nJS8 spots heard here"}
                        type="button"
                        class="glass-button text-white py-1 px-2 mr-1 rounded text-xs"
                        on:click={() => window.open(`https://pskreporter.info/pskmap.html#preset&callsign=${encodeURIComponent(siteCallsign)}&txrx=rx&mode=JS8&timerange=3600&mapCenter=22.6243,10.9375,2.59`, 'JS8map', 'width=1100,height=750,menubar=no,toolbar=no,location=no,status=no,resizable=yes,scrollbars=yes')}
@@ -11348,7 +11407,7 @@
                      >
                        📡 JS8 map
                      </button>
-                     <button
+                     <button title="WSPRnet log of the spots heard here"
                        type="button"
                        class="glass-button text-white py-1 px-2 mr-1 rounded text-xs"
                        on:click={() => window.open(`https://www.wsprnet.org/olddb?mode=html&band=all&limit=100&findcall=&findreporter=${encodeURIComponent(siteCallsign)}&sort=date`, 'WSPRlog', 'width=1100,height=750,menubar=no,toolbar=no,location=no,status=no,resizable=yes,scrollbars=yes')}
@@ -11356,7 +11415,7 @@
                      >
                        📋 WSPR log
                      </button>
-                     <button
+                     <button title="World map of WSPR spots"
                        type="button"
                        class="glass-button text-white py-1 px-2 rounded text-xs"
                        on:click={() => window.open('https://wspr.aprsinfo.com/', 'WSPRmap', 'width=1100,height=750,menubar=no,toolbar=no,location=no,status=no,resizable=yes,scrollbars=yes')}
@@ -11434,7 +11493,7 @@
                      <!-- Band filter buttons -->
                      <div style="display:flex;flex-wrap:wrap;gap:3px;">
                        {#each DX_BAND_LIST as band}
-                         <button
+                         <button title={band === 'ALL' ? 'Show all spots' : `Show only ${band} m spots`}
                            on:click={() => dxSelectBand(band)}
                            style="
                              padding:2px 6px;
@@ -12194,7 +12253,7 @@ Slider: share of denoised audio, the rest is the original"
                       >Slow (decoder)</span
                     >{/if}</h3>
                     <div class="flex items-center gap-2">
-                      <button
+                      <button title="Compressor settings"
                         class={`retro-button text-white font-bold h-6 px-3 text-xs rounded-md flex items-center justify-center border border-gray-600 shadow-inner transition-all duration-200 ease-in-out ${
                           compressorEnabled
                             ? "bg-blue-600 pressed scale-95"
@@ -12204,7 +12263,7 @@ Slider: share of denoised audio, the rest is the original"
                       >
                         <span>Compressor</span>
                       </button>
-                      <button
+                      <button title="Equalizer settings"
                         class={`retro-button text-white font-bold h-6 px-3 text-xs rounded-md flex items-center justify-center border border-gray-600 shadow-inner transition-all duration-200 ease-in-out ${
                           eqEnabled
                             ? "bg-blue-600 pressed scale-95"
@@ -12232,7 +12291,7 @@ Slider: share of denoised audio, the rest is the original"
                           <h2 class="text-base font-bold text-white">
                             Equalizer
                           </h2>
-                          <button aria-label="Close equalizer"
+                          <button title="Close equalizer" aria-label="Close equalizer"
                             class="text-gray-400 hover:text-white"
                             on:click={toggleEqPopup}
                           >
@@ -12258,7 +12317,7 @@ Slider: share of denoised audio, the rest is the original"
                           <span class="text-white text-sm font-semibold"
                             >Enable Equalizer</span
                           >
-                          <button
+                          <button title="Turn the equalizer on or off"
                             class={`retro-button text-white font-bold h-8 px-4 text-sm rounded-md flex items-center justify-center border border-gray-600 shadow-inner transition-all duration-200 ease-in-out ${
                               eqEnabled
                                 ? "bg-blue-600 pressed scale-95"
@@ -12300,7 +12359,7 @@ Slider: share of denoised audio, the rest is the original"
 
                         <!-- Reset -->
                         <div class="mt-4 flex justify-end">
-                          <button
+                          <button title="Set all bands back to flat"
                             class="retro-button text-white font-bold h-8 px-4 text-sm rounded-md flex items-center justify-center border border-gray-600 shadow-inner bg-gray-700 hover:bg-gray-600 transition-all duration-200 ease-in-out"
                             on:click={handleEqReset}
                           >
@@ -12327,7 +12386,7 @@ Slider: share of denoised audio, the rest is the original"
                           <h2 class="text-base font-bold text-white">
                             Compressor
                           </h2>
-                          <button aria-label="Close compressor"
+                          <button title="Close compressor" aria-label="Close compressor"
                             class="text-gray-400 hover:text-white"
                             on:click={toggleCompPopup}
                           >
@@ -12353,7 +12412,7 @@ Slider: share of denoised audio, the rest is the original"
                           <span class="text-white text-sm font-semibold"
                             >Enable Compressor</span
                           >
-                          <button
+                          <button title="Turn the compressor on or off"
                             class={`retro-button text-white font-bold h-8 px-4 text-sm rounded-md flex items-center justify-center border border-gray-600 shadow-inner transition-all duration-200 ease-in-out ${
                               compressorEnabled
                                 ? "bg-blue-600 pressed scale-95"
@@ -12516,7 +12575,7 @@ Slider: share of denoised audio, the rest is the original"
 
                         <!-- Reset -->
                         <div class="mt-4 flex justify-end">
-                          <button
+                          <button title="Back to the default settings"
                             class="retro-button text-white font-bold h-8 px-4 text-sm rounded-md flex items-center justify-center border border-gray-600 shadow-inner bg-gray-700 hover:bg-gray-600 transition-all duration-200 ease-in-out"
                             on:click={handleCompReset}
                           >
@@ -12530,7 +12589,7 @@ Slider: share of denoised audio, the rest is the original"
                   <div class="w-full mb-6">
                     <div id="moreoptions" class="grid grid-cols-4 gap-2">
                       {#each [{ option: "Auto", AGCbutton: 0 }, { option: "Fast", AGCbutton: 1 }, { option: "Medium", AGCbutton: 2 }, { option: "Slow", AGCbutton: 3 }] as { option, AGCbutton }}
-                        <button
+                        <button title={AGC_TITLES[option]}
                           class={`retro-button text-white font-bold h-8 text-sm rounded-md flex items-center justify-center border border-gray-600 shadow-inner transition-all duration-200 ease-in-out ${
                             AGCbutton == currentAGC
                               ? "bg-blue-600 pressed scale-95"
@@ -12586,7 +12645,7 @@ Slider: share of denoised audio, the rest is the original"
                   <div class="w-full mb-6">
                     <div id="moreoptions" class="grid grid-cols-5 gap-2">
                       {#each [{ option: "NR", icon: "wave-square", enabled: NREnabled }, { option: "NB", icon: "zap", enabled: NBEnabled }, { option: "NS", icon: "waves", enabled: NSEnabled }, { option: "AN", icon: "shield", enabled: ANEnabled }, { option: "CTCSS", icon: "filter", enabled: CTCSSSupressEnabled }] as { option, icon, enabled }}
-                        <button
+                        <button title={FILTER_TITLES[option]}
                           class="retro-button h-8 text-white font-bold h-8 text-xs rounded-md flex items-center justify-center border border-gray-600 shadow-inner transition-all duration-200 ease-in-out {enabled
                             ? 'bg-blue-600 pressed scale-95'
                             : 'bg-gray-700 hover:bg-gray-600'}"
@@ -13094,7 +13153,7 @@ Slider: share of denoised audio, the rest is the original"
                                   {/each}
                                 </div>
                                 {#if scan.lockCount > 0}
-                                  <button
+                                  <button title={"Release all channels locked\nout of the scan"}
                                     class="mt-2 w-full px-2 py-1 text-xs font-mono rounded text-gray-200 bg-gray-700 hover:bg-gray-600"
                                     on:click={() => {
                                       scanner.clearLocks();
@@ -13139,7 +13198,7 @@ Slider: share of denoised audio, the rest is the original"
                             {vfo}
                           </button>
 
-                          <button
+                          <button title="Choose the demodulation mode"
                             id="mode-button"
                             class="glass-button h-7 text-white text-sm font-bold py-2 px-1 rounded-lg flex items-center w-full justify-center whitespace-nowrap"
                             on:click={toggleModePopup}
@@ -13163,7 +13222,7 @@ Slider: share of denoised audio, the rest is the original"
                                   <h2 class="text-base font-bold text-white">
                                     Modes
                                   </h2>
-                                  <button aria-label="Close modes"
+                                  <button title="Close modes" aria-label="Close modes"
                                     class="text-gray-400 hover:text-white"
                                     on:click={toggleModePopup}
                                   >
@@ -13191,7 +13250,7 @@ Slider: share of denoised audio, the rest is the original"
                                     : 'grid-cols-4 sm:grid-cols-7'} gap-2 w-full max-w-md"
                                 >
                                   {#each modeButtons as mode}
-                                    <button
+                                    <button title={MODE_TITLES[mode]}
                                       class="retro-button {mode === 'QUAM' &&
                                       cquamPilotDetected
                                         ? 'text-green-400 font-bold'
@@ -13245,7 +13304,7 @@ Slider: share of denoised audio, the rest is the original"
                           <!-- End of Modes Popup Menu -->
 
                           <!-- Begin Bands Popup Menu -->
-                          <button
+                          <button title="Jump to a band"
                             id="band-popup-button"
                             class="glass-button h-7 text-white text-sm font-bold py-2 px-1 rounded-lg flex items-center w-full justify-center whitespace-nowrap"
                             on:click={toggleBandPopup}
@@ -13270,7 +13329,7 @@ Slider: share of denoised audio, the rest is the original"
                                   <h2 class="text-base font-bold text-white">
                                     Bands
                                   </h2>
-                                  <button aria-label="Close bands"
+                                  <button title="Close bands" aria-label="Close bands"
                                     class="text-gray-400 hover:text-white"
                                     on:click={toggleBandPopup}
                                   >
@@ -13346,7 +13405,7 @@ Slider: share of denoised audio, the rest is the original"
                           <!-- End Bands Popup Menu -->
 
                           <!-- Begin IF Filters Popup Menu -->
-                          <button
+                          <button title="Choose the IF filter bandwidth"
                             id="if-filter-popup-button"
                             class="glass-button h-7 text-white text-sm font-bold py-2 px-1 rounded-lg flex items-center w-full justify-center whitespace-nowrap"
                             on:click={toggleIFPopup}
@@ -13371,7 +13430,7 @@ Slider: share of denoised audio, the rest is the original"
                                   <h2 class="text-base font-bold text-white">
                                     Static IF Filters
                                   </h2>
-                                  <button aria-label="Close IF filters"
+                                  <button title="Close IF filters" aria-label="Close IF filters"
                                     class="text-gray-400 hover:text-white"
                                     on:click={toggleIFPopup}
                                   >
@@ -13504,7 +13563,7 @@ Slider: share of denoised audio, the rest is the original"
                                   <h2 class="text-base font-bold text-white">
                                     CAT control via TCI
                                   </h2>
-                                  <button aria-label="Close CAT control"
+                                  <button title="Close CAT control" aria-label="Close CAT control"
                                     class="text-gray-400 hover:text-white"
                                     on:click={toggleCatPopup}
                                   >
@@ -13687,7 +13746,7 @@ Slider: share of denoised audio, the rest is the original"
                         Spectrogram
                       </h3>
                       <div class="flex items-center gap-3 flex-wrap">
-                        <button
+                        <button title="Audio analyser"
                           class="retro-button px-4 h-7 inline-flex items-center justify-center text-white text-sm rounded-md border border-gray-600 shadow-inner transition-all duration-200 ease-in-out {spectrogramEnabled
                             ? 'bg-blue-600 pressed scale-95'
                             : 'bg-gray-700 hover:bg-gray-600'}"
@@ -13745,7 +13804,7 @@ Slider: share of denoised audio, the rest is the original"
                         QRSS
                       </h3>
                       <div class="flex items-center gap-3 flex-wrap">
-                        <button
+                        <button title="QRSS slow-CW display"
                           class="retro-button px-4 h-7 inline-flex items-center justify-center text-white text-sm rounded-md border border-gray-600 shadow-inner transition-all duration-200 ease-in-out {qrssEnabled
                             ? 'bg-blue-600 pressed scale-95'
                             : 'bg-gray-700 hover:bg-gray-600'}"
@@ -13768,7 +13827,7 @@ Slider: share of denoised audio, the rest is the original"
                                 >
                               {/each}
                             </select>
-                            <button
+                            <button title={"Tune to the selected\nQRSS frequency"}
                               class="text-xs px-3 py-1 rounded bg-green-700 hover:bg-green-600 text-white transition-colors whitespace-nowrap"
                               on:click={qrssApplyKnownFrequency}>Tune</button
                             >
@@ -14014,7 +14073,7 @@ Slider: share of denoised audio, the rest is the original"
                               >
                             {/each}
                           </select>
-                          <button
+                          <button title="Clear the JS8 messages"
                             class="bg-green-900 hover:bg-green-800 text-green-100 hover:text-white text-xs px-2 py-0.5 rounded border border-green-700 hover:border-green-500 transition-colors"
                             on:click={() => {
                               js8Messages = [];
@@ -14198,11 +14257,11 @@ Slider: share of denoised audio, the rest is the original"
                           >
                         </div>
                         {/if}
-                        <button
+                        <button title="Save the text to a file"
                           class="{cwBrowsing ? 'ml-auto ' : ''}text-green-100 bg-green-900 hover:bg-green-800 hover:text-white text-xs px-2 py-0.5 rounded border border-green-700 hover:border-green-500 transition-colors"
                           on:click={saveCwText}>Save</button
                         >
-                        <button
+                        <button title="Clear the decoded text"
                           class="text-green-100 bg-green-900 hover:bg-green-800 hover:text-white text-xs px-2 py-0.5 rounded border border-green-700 hover:border-green-500 transition-colors"
                           on:click={() => {
                             cwMessages = [];
@@ -14307,7 +14366,7 @@ Slider: share of denoised audio, the rest is the original"
                             ></div>
                           {/if}
                         </div>
-                        <button
+                        <button title="Clear the spot list"
                           class="text-green-100 bg-green-900 hover:bg-green-800 hover:text-white text-xs px-2 py-0.5 rounded border border-green-700 hover:border-green-500 transition-colors"
                           on:click={() => {
                             wsprMessages = [];
@@ -14683,17 +14742,17 @@ Slider: share of denoised audio, the rest is the original"
                           >
                         </div>
                         <div class="flex items-center gap-0.5 shrink-0">
-                          <button
+                          <button title="Start the decoder"
                             class="text-xs px-[0.425rem] py-1 rounded bg-teal-700 hover:bg-teal-600 text-white transition-colors whitespace-nowrap"
                             on:click={_sstvStart}
                             disabled={sstvRunning}>▶ Start</button
                           >
-                          <button
+                          <button title="Stop the decoder"
                             class="text-xs px-[0.425rem] py-1 rounded bg-teal-700 hover:bg-teal-600 text-white transition-colors whitespace-nowrap"
                             on:click={_sstvStop}
                             disabled={!sstvRunning}>■ Stop</button
                           >
-                          <button
+                          <button title={"Clear the picture and\nrestart the decoder"}
                             class="text-xs px-[0.425rem] py-1 rounded bg-teal-700 hover:bg-teal-600 text-white transition-colors whitespace-nowrap"
                             on:click={sstvRefresh}
                             disabled={!sstvRunning}>↺ Reset</button
@@ -14705,7 +14764,7 @@ Slider: share of denoised audio, the rest is the original"
                             title="Start drawing now in the selected mode, without waiting for a VIS header or sync detection. Pick a mode other than Auto to enable."
                             >⏺ Force</button
                           >
-                          <button
+                          <button title="Save the picture as an image"
                             class="text-xs px-[0.425rem] py-1 rounded bg-teal-700 hover:bg-teal-600 text-white transition-colors whitespace-nowrap"
                             on:click={sstvSaveImage}>💾 Save</button
                           >
@@ -14796,7 +14855,7 @@ Slider: share of denoised audio, the rest is the original"
                             >
                           {/if}
                         </h4>
-                        <button
+                        <button title="Clear the decoded messages"
                           class="text-green-100 bg-green-900 hover:bg-green-800 text-xs px-2 py-0.5 rounded border border-green-700 hover:border-green-500 transition-colors"
                           on:click={navtexClear}>Clear</button
                         >
@@ -14813,7 +14872,7 @@ Slider: share of denoised audio, the rest is the original"
                             <option value={st.name}>{st.name}</option>
                           {/each}
                         </select>
-                        <button
+                        <button title={"Tune to the selected station\nand set the IF filter"}
                           class="text-xs px-2 py-1 rounded bg-teal-700 hover:bg-teal-600 text-white transition-colors whitespace-nowrap"
                           on:click={navtexApplyStation}
                           >⇒ Tune &amp; Set IF</button
@@ -14961,7 +15020,7 @@ Slider: share of denoised audio, the rest is the original"
                         >
                       </p>
                       <div class="mt-3 flex justify-end">
-                        <button
+                        <button title="Save the messages to a file"
                           class="text-xs px-2 py-1 rounded bg-teal-700 hover:bg-teal-600 text-white transition-colors whitespace-nowrap"
                           on:click={saveNavtexText}>Save Text</button
                         >
@@ -15113,7 +15172,7 @@ Slider: share of denoised audio, the rest is the original"
 
                       <!-- FreeDV Reporter toggle -->
                       <div class="mt-3 flex items-center justify-end gap-2">
-                        <button
+                        <button title={"Live list of FreeDV stations\n(qso.freedv.org)"}
                           class="text-xs px-3 py-1 rounded {radeReporterOpen
                             ? 'bg-green-500 hover:bg-green-400'
                             : 'bg-green-700 hover:bg-green-600'} text-white transition-colors whitespace-nowrap"
@@ -15185,12 +15244,14 @@ Slider: share of denoised audio, the rest is the original"
                               : isMsk144
                                 ? "MSK144 Decoder"
                               : isModem
-                                ? `${modemUi.name} Decoder`
+                                ? `${modemUi.name} ${mfskBrowsing ? `Browser (${modemCfg.label})` : "Decoder"}`
                               : isPacket
                                 ? "Packet (AX.25) Decoder"
                                 : isAprs
                                   ? "APRS Decoder"
-                                  : "FSK / RTTY Decoder"}
+                                  : rttyBrowsing
+                                    ? `Amateur RTTY Browser (${fskBaud} Bd / ${fskShift} Hz)`
+                                    : "FSK / RTTY Decoder"}
                           {#if fskStatusText}
                             <span
                               class="text-xs text-green-300 font-mono font-normal"
@@ -15203,7 +15264,7 @@ Slider: share of denoised audio, the rest is the original"
                             >
                           {/if}
                         </h4>
-                        <button
+                        <button title="Clear the decoded text"
                           class="text-green-100 bg-green-900 hover:bg-green-800 text-xs px-2 py-0.5 rounded border border-green-700 hover:border-green-500 transition-colors"
                           on:click={fskClear}>Clear</button
                         >
@@ -15254,7 +15315,7 @@ Slider: share of denoised audio, the rest is the original"
                                 >
                               {/each}
                             </select>
-                            <button
+                            <button title="Tune to the selected frequency"
                               class="text-xs px-3 py-1 rounded bg-green-700 hover:bg-green-600 text-white transition-colors whitespace-nowrap"
                               on:click={fskApplyKnownFrequency}>Tune</button
                             >
@@ -15382,6 +15443,10 @@ Slider: share of denoised audio, the rest is the original"
                               class="glass-select text-white text-xs px-2 py-1 rounded-md w-full"
                               on:change={() => fskApplySettings(true)}
                             >
+                              {#if !(FSK_CENTER_OPTIONS[fskVariant] || []).includes(Number(fskCenter))}
+                                <!-- a centre taken from a browser line -->
+                                <option value={fskCenter}>{fskCenter} Hz</option>
+                              {/if}
                               {#each FSK_CENTER_OPTIONS[fskVariant] || [] as v}
                                 <option value={v}>{v} Hz</option>
                               {/each}
@@ -15591,6 +15656,15 @@ Slider: share of denoised audio, the rest is the original"
                                 <option value={m.key}>{m.label}</option>
                               {/each}
                             </select>
+                            {#if fskVariant === "mfsk"}
+                              <label class="flex items-center gap-2 text-xs text-gray-300 mt-1.5 cursor-pointer"
+                                title={"Decode every signal of this Mode\nbetween 300 and 2700 Hz at once, one line each"}>
+                                <span class="toggle-switch shrink-0"><input type="checkbox" bind:checked={mfskBrowse}
+                                  aria-label="MFSK Browser — all signals"
+                                  on:change={() => fskApplySettings(true)} /><span class="toggle-slider"></span></span>
+                                Browser — all signals
+                              </label>
+                            {/if}
                           </div>
                           {#if modemUi.sq}
                             <div class="col-span-2">
@@ -15669,6 +15743,15 @@ Slider: share of denoised audio, the rest is the original"
                                 <option value={v}>{v} Hz</option>
                               {/each}
                             </select>
+                            {#if fskVariant === "ham"}
+                              <label class="flex items-center gap-2 text-xs text-gray-300 mt-1.5 cursor-pointer"
+                                title={"Decode every RTTY signal of this Shift and Baud\nbetween 300 and 2700 Hz at once, one line each"}>
+                                <span class="toggle-switch shrink-0"><input type="checkbox" bind:checked={rttyBrowse}
+                                  aria-label="RTTY Browser — all signals"
+                                  on:change={() => fskApplySettings(true)} /><span class="toggle-slider"></span></span>
+                                Browser — all signals
+                              </label>
+                            {/if}
                           </div>
                           <div>
                             <label class="text-xs text-gray-300 block mb-1"
@@ -15736,11 +15819,13 @@ Slider: share of denoised audio, the rest is the original"
                             Invert mark / space
                           </label>
                           <label
-                            class="flex items-center gap-2 text-xs text-gray-300 mt-5"
+                            class="flex items-center gap-2 text-xs text-gray-300 mt-5 {rttyBrowsing ? 'opacity-50' : ''}"
+                            title={rttyBrowsing ? "The RTTY Browser keeps the Shift you set:\nauto shift would wander onto a neighbour" : "Measure the shift of the signal and follow it"}
                           >
                             <input
                               type="checkbox"
                               bind:checked={fskAutoShift}
+                              disabled={rttyBrowsing}
                               on:change={() => fskApplySettings(false)}
                             />
                             Auto shift detect
@@ -15751,12 +15836,12 @@ Slider: share of denoised audio, the rest is the original"
                       <div
                         class="flex flex-wrap items-center gap-2 mb-3 text-xs"
                       >
-                        <button
+                        <button title={"Set the IF filter to fit\nthis mode's tones"}
                           class="text-xs px-3 py-1 rounded bg-green-700 hover:bg-green-600 text-white transition-colors whitespace-nowrap"
                           on:click={fskApplyBandpass}>⇒ Set IF Band-Pass</button
                         >
                         {#if !(isPacketLike && Number(packetBaud) !== 300) && !isFst4w && !isMsk144 && !fskBrowsing}
-                          <button
+                          <button title={"Find the signal and centre\nthe decoder on it"}
                             class="text-xs px-3 py-1 rounded bg-blue-700 hover:bg-blue-600 text-white transition-colors whitespace-nowrap"
                             on:click={() => {
                               audio.setFSKAutoCenter(true);
@@ -15831,7 +15916,7 @@ Slider: share of denoised audio, the rest is the original"
                             >Decodes: <span class="text-green-300 font-mono">{fst4wDecodes.length}</span></span
                           >
                         {:else if fskBrowsing}
-                          <span class="text-gray-300"
+                          <span class="text-gray-300" title={`${browserModeLabel} signals being decoded now`}
                             >Signals: <span class="text-green-300 font-mono">{pskBrowserChannels.length}</span></span
                           >
                         {:else if isPsk}
@@ -15988,16 +16073,17 @@ Slider: share of denoised audio, the rest is the original"
                         <!-- PSK Browser: one line per signal in the passband. -->
                         <div class="w-full font-mono text-xs bg-gray-900 rounded p-1 overflow-y-auto max-h-72 custom-scrollbar text-left recess-window">
                           {#if pskBrowserChannels.length === 0}
-                            <div class="p-2 text-gray-500 italic font-sans">{oliviaBrowsing ? `Listening for ${oliviaCfg.contestia ? "Contestia" : "Olivia"} ${oliviaCfg.label} signals between 300 and 2700 Hz… A station appears once its first characters are decoded, which takes a few seconds after it starts.` : "Looking for PSK31 signals between 300 and 2700 Hz… (a few seconds)"}</div>
+                            <div class="p-2 text-gray-500 italic font-sans">{oliviaBrowsing || mfskBrowsing ? `Listening for ${browserModeLabel} signals between 300 and 2700 Hz… A station appears once its first characters are decoded, which takes a few seconds after it starts.` : rttyBrowsing ? `Looking for ${browserModeLabel} signals between 300 and 2700 Hz… A station appears once its first words are decoded.` : "Looking for PSK31 signals between 300 and 2700 Hz… (a few seconds)"}</div>
                           {/if}
                           {#each pskBrowserChannels as c (c.id)}
                             <div class="flex items-start gap-2 px-1 py-0.5 border-b border-gray-800 cursor-pointer hover:bg-gray-800"
                               role="button" tabindex="0"
-                              title="Click to decode only this signal ({oliviaBrowsing ? oliviaCfg.label : 'BPSK31'} at {c.hz} Hz)"
+                              title="Click to decode only this signal ({browserModeLabel} at {c.hz} Hz)"
                               on:click={() => pskBrowserPick(c.hz)}
                               on:keydown={(e) => e.key === "Enter" && pskBrowserPick(c.hz)}>
                               <span class="text-sky-300 w-24 shrink-0">{(Number(frequency) + c.hz / 1000).toFixed(3)}</span>
-                              <span class="w-10 shrink-0 {c.lock >= 45 ? 'text-green-400' : 'text-gray-500'}" title="Lock quality">{c.lock}%</span>
+                              <span class="w-10 shrink-0 {c.lock >= (mfskBrowsing ? Number(modemSquelches.mfsk) || 22 : 45) ? 'text-green-400' : 'text-gray-500'}"
+                                title={mfskBrowsing ? "Decode quality (Viterbi metric, 0-100); the squelch acts on it" : rttyBrowsing ? "Share of characters that framed correctly" : "Lock quality"}>{c.lock}{mfskBrowsing ? "" : "%"}</span>
                               <div class="text-green-300 min-w-0 overflow-y-auto custom-scrollbar" use:stickBottom use:noScrollbarPick
                                 style="flex: 1 1 0; max-height: 6rem; white-space: pre-wrap; overflow-wrap: anywhere; word-break: break-word;">{c.text.trimStart()}</div>
                             </div>
@@ -16121,11 +16207,11 @@ Slider: share of denoised audio, the rest is the original"
                                 />
                                 Auto fit
                               </label>
-                              <button
+                              <button title={"Zoom the map to show\nall stations"}
                                 class="text-xs px-2 py-0.5 rounded bg-green-700 hover:bg-green-600 text-white"
                                 on:click={() => aprsMap.fitAll()}>Fit all</button
                               >
-                              <button
+                              <button title="Remove all stations from the map"
                                 class="text-xs px-2 py-0.5 rounded bg-gray-700 hover:bg-gray-600 text-white border border-gray-600"
                                 on:click={() => aprsMap.clear()}>Clear</button
                               >
@@ -16162,8 +16248,8 @@ Slider: share of denoised audio, the rest is the original"
                       <p class="text-gray-500 text-xs mt-3 leading-relaxed">
                         {#if fskBrowsing}
                           <strong class="text-gray-300"
-                            >Mode: USB. Every {oliviaBrowsing ? `${oliviaCfg.contestia ? "Contestia" : "Olivia"} ${oliviaCfg.label}` : "BPSK31"} signal between 300 and 2700 Hz gets its own line,
-                            <br /> and a click on a line decodes only that signal{oliviaBrowsing ? " — other tones / bandwidths need their own Mode" : ""}</strong
+                            >Mode: USB. Every {browserModeLabel} signal between 300 and 2700 Hz gets its own line,
+                            <br /> and a click on a line decodes only that signal{oliviaBrowsing ? " — other tones / bandwidths need their own Mode" : mfskBrowsing ? " — MFSK16, 32 and 64 each need their own Mode" : rttyBrowsing ? " — other shifts / speeds need their own Shift and Baud" : ""}</strong
                           >.
                         {:else if isPsk}
                           <strong class="text-gray-300"
@@ -16241,7 +16327,7 @@ Slider: share of denoised audio, the rest is the original"
                         {/if}
                       </p>
                       <div class="mt-3 flex justify-end">
-                        <button
+                        <button title="Save to a file"
                           class="text-xs px-3 py-1 rounded bg-green-700 hover:bg-green-600 text-white transition-colors whitespace-nowrap"
                           on:click={isHell ? saveHellPicture : saveFskText}
                           >{isHell ? "Save Picture" : "Save Text"}</button
@@ -16572,7 +16658,7 @@ Slider: share of denoised audio, the rest is the original"
                   </div>
 
                   <!-- Begin Bookmark Button Area -->
-                  <button
+                  <button title="Your saved frequencies"
                     id="bookmark-button"
                     class="glass-button text-white font-bold py-2 px-4 rounded-lg flex items-center w-full justify-center"
                     on:click={toggleBookmarkPopup}
@@ -16666,7 +16752,7 @@ Slider: share of denoised audio, the rest is the original"
                     {#if canDownload || canDownloadVideo || (videoCrop && !selectingArea)}
                       <div class="flex flex-wrap justify-center gap-2 mt-2">
                         {#if canDownload}
-                          <button
+                          <button title={"Save the recording\n(IQ is saved as WAV)"}
                             class="bg-gray-700 hover:bg-green-600 text-white text-xs font-medium py-2 px-3 rounded-lg whitespace-nowrap transition-colors"
                             on:click={downloadRecording}
                           >
@@ -16675,7 +16761,7 @@ Slider: share of denoised audio, the rest is the original"
                         {/if}
 
                         {#if canDownloadVideo}
-                          <button
+                          <button title={"Save the waterfall and audio\nas a video"}
                             class="bg-gray-700 hover:bg-green-600 text-white text-xs font-medium py-2 px-3 rounded-lg whitespace-nowrap transition-colors"
                             on:click={downloadVideoRecording}
                           >
@@ -16725,7 +16811,7 @@ Slider: share of denoised audio, the rest is the original"
                     >
                       <div class="flex justify-between items-center mb-4">
                         <h2 class="text-xl font-bold text-white">Bookmarks</h2>
-                        <button aria-label="Close bookmarks"
+                        <button title="Close bookmarks" aria-label="Close bookmarks"
                           class="text-gray-400 hover:text-white"
                           on:click={toggleBookmarkPopup}
                         >
@@ -16764,7 +16850,7 @@ Slider: share of denoised audio, the rest is the original"
                             bind:value={newBookmarkLabel}
                             placeholder="Label"
                           />
-                          <button
+                          <button title={"Bookmark the current\nfrequency and mode"}
                             class="glass-button text-white font-bold py-2 px-4 rounded-lg flex items-center whitespace-nowrap flex-shrink-0"
                             on:click={addBookmark}
                           >
@@ -16798,7 +16884,7 @@ Slider: share of denoised audio, the rest is the original"
                             value={link}
                             readonly
                           />
-                          <button
+                          <button title={"Copy a link to the current\nfrequency and mode"}
                             class="glass-button text-white font-bold py-2 px-4 rounded-lg flex items-center"
                             on:click={handleLinkCopyClick}
                           >
@@ -16843,7 +16929,7 @@ Slider: share of denoised audio, the rest is the original"
                           />
 
                           <!-- Button for activating file input  -->
-                          <button
+                          <button title="Load bookmarks from a file"
                             class="glass-button text-white font-bold py-2 px-4 rounded-lg flex items-center"
                             on:click={() => fileInput.click()}
                           >
@@ -16867,7 +16953,7 @@ Slider: share of denoised audio, the rest is the original"
 
                           <!-- download bookmark Section -->
 
-                          <button
+                          <button title="Save your bookmarks to a file"
                             class="glass-button text-white font-bold py-2 px-4 rounded-lg flex items-center"
                             on:click={downloadBookmarks}
                           >
@@ -16912,7 +16998,7 @@ Slider: share of denoised audio, the rest is the original"
                               >
                             </div>
                             <div class="flex gap-2">
-                              <button
+                              <button title="Tune to this bookmark"
                                 class="glass-button text-white font-bold py-1 px-3 rounded-lg flex items-center"
                                 on:click={() => goToBookmark(bookmark)}
                               >
@@ -16930,7 +17016,7 @@ Slider: share of denoised audio, the rest is the original"
                                 </svg>
                                 Go
                               </button>
-                              <button
+                              <button title="Copy this bookmark's link"
                                 class="glass-button text-white font-bold py-1 px-3 rounded-lg flex items-center"
                                 on:click={() => copy(bookmark.link)}
                               >
@@ -16949,7 +17035,7 @@ Slider: share of denoised audio, the rest is the original"
                                 </svg>
                                 Copy
                               </button>
-                              <button
+                              <button title="Delete this bookmark"
                                 class="glass-button text-white font-bold py-1 px-3 rounded-lg flex items-center"
                                 on:click={() => deleteBookmark(index)}
                               >
@@ -17125,7 +17211,7 @@ Slider: share of denoised audio, the rest is the original"
                         </svg>
                         Send
                       </button>
-                      <button
+                      <button title={"Insert the current frequency\ninto the message"}
                         class="glass-button text-white font-semibold py-2 px-4 rounded-lg flex items-center justify-center text-xs sm:text-sm flex-grow sm:flex-grow-0"
                         on:click={pasteFrequency}
                       >
@@ -17569,7 +17655,7 @@ Slider: share of denoised audio, the rest is the original"
                   class="sm:p-5 flex flex-col items-center bg-gray-800 lg:border lg:border-gray-700 rounded-none rounded-t-lg lg:rounded-none lg:rounded-l-lg"
                 >
                   <div class="control-group" id="volume-slider">
-                    <button aria-label="Mute" aria-pressed={mute}
+                    <button title="Mute" aria-label="Mute" aria-pressed={mute}
                       class="glass-button text-white font-bold rounded-full w-7 h-6 flex items-center justify-center mr-4"
                       style="background: {mute
                         ? 'rgba(255, 0, 0, 0.3)'
@@ -17612,7 +17698,10 @@ Slider: share of denoised audio, the rest is the original"
                   </div>
 
                   <div class="control-group mt-1" id="squelch-slider">
-                    <button
+                    <button title="Auto Squelch
+Click first to noise-free frequency
+to measure noise
+Click again to de-activate"
                       class="glass-button text-white font-bold rounded-full w-7 h-6 flex items-center justify-center mr-4"
                       style="background: {squelchEnable
                         ? 'rgba(255, 100, 0, 0.3)'
@@ -17679,7 +17768,7 @@ Slider: share of denoised audio, the rest is the original"
 
                   <!-- Zoom Slider  -->
                   <div class="control-group mt-4" id="zoom-slider">
-                    <button aria-label="Waterfall zoom step, cycles"
+                    <button title="Enables manual zoom in steps" aria-label="Enables manual zoom in steps"
                       class="glass-button text-white font-bold rounded-full w-7 h-6 flex items-center justify-center mr-4"
                       style="background: {zoomStepEnabled
                         ? 'rgba(0, 180, 255, 0.3)'
@@ -17768,7 +17857,7 @@ Slider: share of denoised audio, the rest is the original"
                             placeholder="Your name or callsign"
                             on:keydown={(e) => e.key === "Enter" && saveUsername()}
                           />
-                          <button
+                          <button title={"Save your name or callsign\n(up to 10 characters, no spaces)"}
                             class="glass-button text-white py-1 px-3 rounded-lg text-xs sm:text-sm"
                             on:click={saveUsername}
                           >
@@ -17783,7 +17872,7 @@ Slider: share of denoised audio, the rest is the original"
                           >
                             {username}
                           </span>
-                          <button
+                          <button title="Change your name or callsign"
                             class="glass-button text-white py-1 px-3 rounded-lg text-xs sm:text-sm"
                             on:click={editUsername}
                           >
@@ -17968,7 +18057,7 @@ Slider: share of denoised audio, the rest is the original"
                             {vfo}
                           </button>
 
-                          <button
+                          <button title="Choose the demodulation mode"
                             id="mode-button"
                             class="glass-button h-8 text-white text-sm font-bold py-2 px-1 rounded-lg flex items-center w-full justify-center whitespace-nowrap"
                             on:click={toggleModePopup}
@@ -17992,7 +18081,7 @@ Slider: share of denoised audio, the rest is the original"
                                   <h2 class="text-base font-bold text-white">
                                     Modes
                                   </h2>
-                                  <button aria-label="Close modes"
+                                  <button title="Close modes" aria-label="Close modes"
                                     class="text-gray-400 hover:text-white"
                                     on:click={toggleModePopup}
                                   >
@@ -18020,7 +18109,7 @@ Slider: share of denoised audio, the rest is the original"
                                     : 'grid-cols-4 sm:grid-cols-7'} gap-2 w-full max-w-md"
                                 >
                                   {#each modeButtons as mode}
-                                    <button
+                                    <button title={MODE_TITLES[mode]}
                                       class="retro-button {mode === 'QUAM' &&
                                       cquamPilotDetected
                                         ? 'text-green-400 font-bold'
@@ -18074,7 +18163,7 @@ Slider: share of denoised audio, the rest is the original"
                           <!-- End of Modes Popup Menu -->
 
                           <!-- Begin Bands Popup Menu -->
-                          <button
+                          <button title="Jump to a band"
                             id="band-popup-button"
                             class="glass-button h-8 text-white text-sm font-bold py-2 px-1 rounded-lg flex items-center w-full justify-center whitespace-nowrap"
                             on:click={toggleBandPopup}
@@ -18099,7 +18188,7 @@ Slider: share of denoised audio, the rest is the original"
                                   <h2 class="text-base font-bold text-white">
                                     Bands
                                   </h2>
-                                  <button aria-label="Close bands"
+                                  <button title="Close bands" aria-label="Close bands"
                                     class="text-gray-400 hover:text-white"
                                     on:click={toggleBandPopup}
                                   >
@@ -18175,7 +18264,7 @@ Slider: share of denoised audio, the rest is the original"
                           <!-- End Bands Popup Menu -->
 
                           <!-- Begin IF Filters Popup Menu -->
-                          <button
+                          <button title="Choose the IF filter bandwidth"
                             id="if-filter-popup-button"
                             class="glass-button h-8 text-white text-sm font-bold py-2 px-1 rounded-lg flex items-center w-full justify-center whitespace-nowrap"
                             on:click={toggleIFPopup}
@@ -18200,7 +18289,7 @@ Slider: share of denoised audio, the rest is the original"
                                   <h2 class="text-base font-bold text-white">
                                     Static IF Filters
                                   </h2>
-                                  <button aria-label="Close IF filters"
+                                  <button title="Close IF filters" aria-label="Close IF filters"
                                     class="text-gray-400 hover:text-white"
                                     on:click={toggleIFPopup}
                                   >
@@ -18333,7 +18422,7 @@ Slider: share of denoised audio, the rest is the original"
                                   <h2 class="text-base font-bold text-white">
                                     CAT control via TCI
                                   </h2>
-                                  <button aria-label="Close CAT control"
+                                  <button title="Close CAT control" aria-label="Close CAT control"
                                     class="text-gray-400 hover:text-white"
                                     on:click={toggleCatPopup}
                                   >
@@ -18447,7 +18536,7 @@ Slider: share of denoised audio, the rest is the original"
                     >{/if}</h3>
                           <!-- Compressor + Equalizer buttons in Mobile -->
                           <div class="flex items-center gap-2">
-                            <button
+                            <button title="Compressor settings"
                               class={`retro-button text-white font-bold h-6 px-3 text-xs rounded-md flex items-center justify-center border border-gray-600 shadow-inner transition-all duration-200 ease-in-out ${
                                 compressorEnabled
                                   ? "bg-blue-600 pressed scale-95"
@@ -18457,7 +18546,7 @@ Slider: share of denoised audio, the rest is the original"
                             >
                               <span>Compressor</span>
                             </button>
-                            <button
+                            <button title="Equalizer settings"
                               class={`retro-button text-white font-bold h-6 px-3 text-xs rounded-md flex items-center justify-center border border-gray-600 shadow-inner transition-all duration-200 ease-in-out ${
                                 eqEnabled
                                   ? "bg-blue-600 pressed scale-95"
@@ -18471,7 +18560,7 @@ Slider: share of denoised audio, the rest is the original"
                         </div>
                         <div id="moreoptions" class="grid grid-cols-4 gap-2">
                           {#each [{ option: "Auto", AGCbutton: 0 }, { option: "Fast", AGCbutton: 1 }, { option: "Medium", AGCbutton: 2 }, { option: "Slow", AGCbutton: 3 }] as { option, AGCbutton }}
-                            <button
+                            <button title={AGC_TITLES[option]}
                               class={`retro-button text-white font-bold h-8 text-sm rounded-md flex items-center justify-center border border-gray-600 shadow-inner transition-all duration-200 ease-in-out ${
                                 AGCbutton == currentAGC
                                   ? "bg-blue-600 pressed scale-95"
@@ -18501,7 +18590,7 @@ Slider: share of denoised audio, the rest is the original"
                                 <h2 class="text-base font-bold text-white">
                                   Equalizer
                                 </h2>
-                                <button aria-label="Close equalizer"
+                                <button title="Close equalizer" aria-label="Close equalizer"
                                   class="text-gray-400 hover:text-white"
                                   on:click={toggleEqPopup}
                                 >
@@ -18529,7 +18618,7 @@ Slider: share of denoised audio, the rest is the original"
                                 <span class="text-white text-sm font-semibold"
                                   >Enable Equalizer</span
                                 >
-                                <button
+                                <button title="Turn the equalizer on or off"
                                   class={`retro-button text-white font-bold h-8 px-4 text-sm rounded-md flex items-center justify-center border border-gray-600 shadow-inner transition-all duration-200 ease-in-out ${
                                     eqEnabled
                                       ? "bg-blue-600 pressed scale-95"
@@ -18571,7 +18660,7 @@ Slider: share of denoised audio, the rest is the original"
 
                               <!-- Reset -->
                               <div class="mt-4 flex justify-end">
-                                <button
+                                <button title="Set all bands back to flat"
                                   class="retro-button text-white font-bold h-8 px-4 text-sm rounded-md flex items-center justify-center border border-gray-600 shadow-inner bg-gray-700 hover:bg-gray-600 transition-all duration-200 ease-in-out"
                                   on:click={handleEqReset}
                                 >
@@ -18600,7 +18689,7 @@ Slider: share of denoised audio, the rest is the original"
                                 <h2 class="text-base font-bold text-white">
                                   Compressor
                                 </h2>
-                                <button aria-label="Close compressor"
+                                <button title="Close compressor" aria-label="Close compressor"
                                   class="text-gray-400 hover:text-white"
                                   on:click={toggleCompPopup}
                                 >
@@ -18628,7 +18717,7 @@ Slider: share of denoised audio, the rest is the original"
                                 <span class="text-white text-sm font-semibold"
                                   >Enable Compressor</span
                                 >
-                                <button
+                                <button title="Turn the compressor on or off"
                                   class={`retro-button text-white font-bold h-8 px-4 text-sm rounded-md flex items-center justify-center border border-gray-600 shadow-inner transition-all duration-200 ease-in-out ${
                                     compressorEnabled
                                       ? "bg-blue-600 pressed scale-95"
@@ -18807,7 +18896,7 @@ Slider: share of denoised audio, the rest is the original"
 
                               <!-- Reset -->
                               <div class="mt-4 flex justify-end">
-                                <button
+                                <button title="Back to the default settings"
                                   class="retro-button text-white font-bold h-8 px-4 text-sm rounded-md flex items-center justify-center border border-gray-600 shadow-inner bg-gray-700 hover:bg-gray-600 transition-all duration-200 ease-in-out"
                                   on:click={handleCompReset}
                                 >
@@ -18872,7 +18961,7 @@ Slider: share of denoised audio, the rest is the original"
                           class="grid grid-cols-5 gap-2 text-sm h-8 mb-3"
                         >
                           {#each [{ option: "NR", icon: "wave-square", enabled: NREnabled }, { option: "NB", icon: "zap", enabled: NBEnabled }, { option: "NS", icon: "waves", enabled: NSEnabled }, { option: "AN", icon: "shield", enabled: ANEnabled }, { option: "CTCSS", icon: "filter", enabled: CTCSSSupressEnabled }] as { option, icon, enabled }}
-                            <button
+                            <button title={FILTER_TITLES[option]}
                               class="retro-button text-white font-bold h-8 text-xs rounded-md flex items-center justify-center border border-gray-600 shadow-inner transition-all duration-200 ease-in-out {enabled
                                 ? 'bg-blue-600 pressed scale-95'
                                 : 'bg-gray-700 hover:bg-gray-600'}"
@@ -18987,7 +19076,7 @@ Slider: share of denoised audio, the rest is the original"
 
                     <!-- Audio Buffer Slider transfered by sv2amk -->
                     <div class="control-group mt-4" id="audio-buffer-slider">
-                      <button
+                      <button title={"Increase buffer to avoid\nslow internet issues"}
                         class="glass-button text-white font-bold rounded-full w-10 h-10 flex items-center justify-center mr-4"
                         style="background: {audioBufferDelayEnabled
                           ? 'rgba(16, 185, 129, 0.2)'
@@ -19301,7 +19390,7 @@ Slider: share of denoised audio, the rest is the original"
                               >
                             {/each}
                           </select>
-                          <button
+                          <button title="Clear the JS8 messages"
                             class="bg-green-900 hover:bg-green-800 text-green-100 hover:text-white text-xs px-2 py-0.5 rounded border border-green-700 hover:border-green-500 transition-colors"
                             on:click={() => {
                               js8Messages = [];
@@ -19485,11 +19574,11 @@ Slider: share of denoised audio, the rest is the original"
                           >
                         </div>
                         {/if}
-                        <button
+                        <button title="Save the text to a file"
                           class="{cwBrowsing ? 'ml-auto ' : ''}text-green-100 bg-green-900 hover:bg-green-800 hover:text-white text-xs px-2 py-0.5 rounded border border-green-700 hover:border-green-500 transition-colors"
                           on:click={saveCwText}>Save</button
                         >
-                        <button
+                        <button title="Clear the decoded text"
                           class="text-green-100 bg-green-900 hover:bg-green-800 hover:text-white text-xs px-2 py-0.5 rounded border border-green-700 hover:border-green-500 transition-colors"
                           on:click={() => {
                             cwMessages = [];
@@ -19594,7 +19683,7 @@ Slider: share of denoised audio, the rest is the original"
                             ></div>
                           {/if}
                         </div>
-                        <button
+                        <button title="Clear the spot list"
                           class="text-green-100 bg-green-900 hover:bg-green-800 hover:text-white text-xs px-2 py-0.5 rounded border border-green-700 hover:border-green-500 transition-colors"
                           on:click={() => {
                             wsprMessages = [];
@@ -19970,17 +20059,17 @@ Slider: share of denoised audio, the rest is the original"
                           >
                         </div>
                         <div class="flex flex-nowrap items-center gap-0.5 w-full">
-                          <button
+                          <button title="Start the decoder"
                             class="text-xs px-[0.425rem] py-1 rounded bg-teal-700 hover:bg-teal-600 text-white transition-colors whitespace-nowrap"
                             on:click={_sstvStart}
                             disabled={sstvRunning}>▶ Start</button
                           >
-                          <button
+                          <button title="Stop the decoder"
                             class="text-xs px-[0.425rem] py-1 rounded bg-teal-700 hover:bg-teal-600 text-white transition-colors whitespace-nowrap"
                             on:click={_sstvStop}
                             disabled={!sstvRunning}>■ Stop</button
                           >
-                          <button
+                          <button title={"Clear the picture and\nrestart the decoder"}
                             class="text-xs px-[0.425rem] py-1 rounded bg-teal-700 hover:bg-teal-600 text-white transition-colors whitespace-nowrap"
                             on:click={sstvRefresh}
                             disabled={!sstvRunning}>↺ Reset</button
@@ -19992,7 +20081,7 @@ Slider: share of denoised audio, the rest is the original"
                             title="Start drawing now in the selected mode, without waiting for a VIS header or sync detection. Pick a mode other than Auto to enable."
                             >⏺ Force</button
                           >
-                          <button
+                          <button title="Save the picture as an image"
                             class="text-xs px-[0.425rem] py-1 rounded bg-teal-700 hover:bg-teal-600 text-white transition-colors whitespace-nowrap"
                             on:click={sstvSaveImage}>💾 Save</button
                           >
@@ -20083,7 +20172,7 @@ Slider: share of denoised audio, the rest is the original"
                             >
                           {/if}
                         </h4>
-                        <button
+                        <button title="Clear the decoded messages"
                           class="text-green-100 bg-green-900 hover:bg-green-800 text-xs px-2 py-0.5 rounded border border-green-700 hover:border-green-500 transition-colors"
                           on:click={navtexClear}>Clear</button
                         >
@@ -20100,7 +20189,7 @@ Slider: share of denoised audio, the rest is the original"
                             <option value={st.name}>{st.name}</option>
                           {/each}
                         </select>
-                        <button
+                        <button title={"Tune to the selected station\nand set the IF filter"}
                           class="text-xs px-2 py-1 rounded bg-teal-700 hover:bg-teal-600 text-white transition-colors whitespace-nowrap"
                           on:click={navtexApplyStation}
                           >⇒ Tune &amp; Set IF</button
@@ -20248,7 +20337,7 @@ Slider: share of denoised audio, the rest is the original"
                         >
                       </p>
                       <div class="mt-3 flex justify-end">
-                        <button
+                        <button title="Save the messages to a file"
                           class="text-xs px-2 py-1 rounded bg-teal-700 hover:bg-teal-600 text-white transition-colors whitespace-nowrap"
                           on:click={saveNavtexText}>Save Text</button
                         >
@@ -20400,7 +20489,7 @@ Slider: share of denoised audio, the rest is the original"
 
                       <!-- FreeDV Reporter toggle -->
                       <div class="mt-3 flex items-center justify-end gap-2">
-                        <button
+                        <button title={"Live list of FreeDV stations\n(qso.freedv.org)"}
                           class="text-xs px-3 py-1 rounded {radeReporterOpen
                             ? 'bg-green-500 hover:bg-green-400'
                             : 'bg-green-700 hover:bg-green-600'} text-white transition-colors whitespace-nowrap"
@@ -20472,12 +20561,14 @@ Slider: share of denoised audio, the rest is the original"
                               : isMsk144
                                 ? "MSK144 Decoder"
                               : isModem
-                                ? `${modemUi.name} Decoder`
+                                ? `${modemUi.name} ${mfskBrowsing ? `Browser (${modemCfg.label})` : "Decoder"}`
                               : isPacket
                                 ? "Packet (AX.25) Decoder"
                                 : isAprs
                                   ? "APRS Decoder"
-                                  : "FSK / RTTY Decoder"}
+                                  : rttyBrowsing
+                                    ? `Amateur RTTY Browser (${fskBaud} Bd / ${fskShift} Hz)`
+                                    : "FSK / RTTY Decoder"}
                           {#if fskStatusText}
                             <span
                               class="text-xs text-green-300 font-mono font-normal"
@@ -20490,7 +20581,7 @@ Slider: share of denoised audio, the rest is the original"
                             >
                           {/if}
                         </h4>
-                        <button
+                        <button title="Clear the decoded text"
                           class="text-green-100 bg-green-900 hover:bg-green-800 text-xs px-2 py-0.5 rounded border border-green-700 hover:border-green-500 transition-colors"
                           on:click={fskClear}>Clear</button
                         >
@@ -20541,7 +20632,7 @@ Slider: share of denoised audio, the rest is the original"
                                 >
                               {/each}
                             </select>
-                            <button
+                            <button title="Tune to the selected frequency"
                               class="text-xs px-3 py-1 rounded bg-green-700 hover:bg-green-600 text-white transition-colors whitespace-nowrap"
                               on:click={fskApplyKnownFrequency}>Tune</button
                             >
@@ -20669,6 +20760,10 @@ Slider: share of denoised audio, the rest is the original"
                               class="glass-select text-white text-xs px-2 py-1 rounded-md w-full"
                               on:change={() => fskApplySettings(true)}
                             >
+                              {#if !(FSK_CENTER_OPTIONS[fskVariant] || []).includes(Number(fskCenter))}
+                                <!-- a centre taken from a browser line -->
+                                <option value={fskCenter}>{fskCenter} Hz</option>
+                              {/if}
                               {#each FSK_CENTER_OPTIONS[fskVariant] || [] as v}
                                 <option value={v}>{v} Hz</option>
                               {/each}
@@ -20878,6 +20973,15 @@ Slider: share of denoised audio, the rest is the original"
                                 <option value={m.key}>{m.label}</option>
                               {/each}
                             </select>
+                            {#if fskVariant === "mfsk"}
+                              <label class="flex items-center gap-2 text-xs text-gray-300 mt-1.5 cursor-pointer"
+                                title={"Decode every signal of this Mode\nbetween 300 and 2700 Hz at once, one line each"}>
+                                <span class="toggle-switch shrink-0"><input type="checkbox" bind:checked={mfskBrowse}
+                                  aria-label="MFSK Browser — all signals"
+                                  on:change={() => fskApplySettings(true)} /><span class="toggle-slider"></span></span>
+                                Browser — all signals
+                              </label>
+                            {/if}
                           </div>
                           {#if modemUi.sq}
                             <div class="col-span-2">
@@ -20956,6 +21060,15 @@ Slider: share of denoised audio, the rest is the original"
                                 <option value={v}>{v} Hz</option>
                               {/each}
                             </select>
+                            {#if fskVariant === "ham"}
+                              <label class="flex items-center gap-2 text-xs text-gray-300 mt-1.5 cursor-pointer"
+                                title={"Decode every RTTY signal of this Shift and Baud\nbetween 300 and 2700 Hz at once, one line each"}>
+                                <span class="toggle-switch shrink-0"><input type="checkbox" bind:checked={rttyBrowse}
+                                  aria-label="RTTY Browser — all signals"
+                                  on:change={() => fskApplySettings(true)} /><span class="toggle-slider"></span></span>
+                                Browser — all signals
+                              </label>
+                            {/if}
                           </div>
                           <div>
                             <label class="text-xs text-gray-300 block mb-1"
@@ -21023,11 +21136,13 @@ Slider: share of denoised audio, the rest is the original"
                             Invert mark / space
                           </label>
                           <label
-                            class="flex items-center gap-2 text-xs text-gray-300 mt-5"
+                            class="flex items-center gap-2 text-xs text-gray-300 mt-5 {rttyBrowsing ? 'opacity-50' : ''}"
+                            title={rttyBrowsing ? "The RTTY Browser keeps the Shift you set:\nauto shift would wander onto a neighbour" : "Measure the shift of the signal and follow it"}
                           >
                             <input
                               type="checkbox"
                               bind:checked={fskAutoShift}
+                              disabled={rttyBrowsing}
                               on:change={() => fskApplySettings(false)}
                             />
                             Auto shift detect
@@ -21038,12 +21153,12 @@ Slider: share of denoised audio, the rest is the original"
                       <div
                         class="flex flex-wrap items-center gap-2 mb-3 text-xs"
                       >
-                        <button
+                        <button title={"Set the IF filter to fit\nthis mode's tones"}
                           class="text-xs px-3 py-1 rounded bg-green-700 hover:bg-green-600 text-white transition-colors whitespace-nowrap"
                           on:click={fskApplyBandpass}>⇒ Set IF Band-Pass</button
                         >
                         {#if !(isPacketLike && Number(packetBaud) !== 300) && !isFst4w && !isMsk144 && !fskBrowsing}
-                          <button
+                          <button title={"Find the signal and centre\nthe decoder on it"}
                             class="text-xs px-3 py-1 rounded bg-blue-700 hover:bg-blue-600 text-white transition-colors whitespace-nowrap"
                             on:click={() => {
                               audio.setFSKAutoCenter(true);
@@ -21118,7 +21233,7 @@ Slider: share of denoised audio, the rest is the original"
                             >Decodes: <span class="text-green-300 font-mono">{fst4wDecodes.length}</span></span
                           >
                         {:else if fskBrowsing}
-                          <span class="text-gray-300"
+                          <span class="text-gray-300" title={`${browserModeLabel} signals being decoded now`}
                             >Signals: <span class="text-green-300 font-mono">{pskBrowserChannels.length}</span></span
                           >
                         {:else if isPsk}
@@ -21275,16 +21390,17 @@ Slider: share of denoised audio, the rest is the original"
                         <!-- PSK Browser: one line per signal in the passband. -->
                         <div class="w-full font-mono text-xs bg-gray-900 rounded p-1 overflow-y-auto max-h-72 custom-scrollbar text-left recess-window">
                           {#if pskBrowserChannels.length === 0}
-                            <div class="p-2 text-gray-500 italic font-sans">{oliviaBrowsing ? `Listening for ${oliviaCfg.contestia ? "Contestia" : "Olivia"} ${oliviaCfg.label} signals between 300 and 2700 Hz… A station appears once its first characters are decoded, which takes a few seconds after it starts.` : "Looking for PSK31 signals between 300 and 2700 Hz… (a few seconds)"}</div>
+                            <div class="p-2 text-gray-500 italic font-sans">{oliviaBrowsing || mfskBrowsing ? `Listening for ${browserModeLabel} signals between 300 and 2700 Hz… A station appears once its first characters are decoded, which takes a few seconds after it starts.` : rttyBrowsing ? `Looking for ${browserModeLabel} signals between 300 and 2700 Hz… A station appears once its first words are decoded.` : "Looking for PSK31 signals between 300 and 2700 Hz… (a few seconds)"}</div>
                           {/if}
                           {#each pskBrowserChannels as c (c.id)}
                             <div class="flex items-start gap-2 px-1 py-0.5 border-b border-gray-800 cursor-pointer hover:bg-gray-800"
                               role="button" tabindex="0"
-                              title="Click to decode only this signal ({oliviaBrowsing ? oliviaCfg.label : 'BPSK31'} at {c.hz} Hz)"
+                              title="Click to decode only this signal ({browserModeLabel} at {c.hz} Hz)"
                               on:click={() => pskBrowserPick(c.hz)}
                               on:keydown={(e) => e.key === "Enter" && pskBrowserPick(c.hz)}>
                               <span class="text-sky-300 w-24 shrink-0">{(Number(frequency) + c.hz / 1000).toFixed(3)}</span>
-                              <span class="w-10 shrink-0 {c.lock >= 45 ? 'text-green-400' : 'text-gray-500'}" title="Lock quality">{c.lock}%</span>
+                              <span class="w-10 shrink-0 {c.lock >= (mfskBrowsing ? Number(modemSquelches.mfsk) || 22 : 45) ? 'text-green-400' : 'text-gray-500'}"
+                                title={mfskBrowsing ? "Decode quality (Viterbi metric, 0-100); the squelch acts on it" : rttyBrowsing ? "Share of characters that framed correctly" : "Lock quality"}>{c.lock}{mfskBrowsing ? "" : "%"}</span>
                               <div class="text-green-300 min-w-0 overflow-y-auto custom-scrollbar" use:stickBottom use:noScrollbarPick
                                 style="flex: 1 1 0; max-height: 6rem; white-space: pre-wrap; overflow-wrap: anywhere; word-break: break-word;">{c.text.trimStart()}</div>
                             </div>
@@ -21408,11 +21524,11 @@ Slider: share of denoised audio, the rest is the original"
                                 />
                                 Auto fit
                               </label>
-                              <button
+                              <button title={"Zoom the map to show\nall stations"}
                                 class="text-xs px-2 py-0.5 rounded bg-green-700 hover:bg-green-600 text-white"
                                 on:click={() => aprsMap.fitAll()}>Fit all</button
                               >
-                              <button
+                              <button title="Remove all stations from the map"
                                 class="text-xs px-2 py-0.5 rounded bg-gray-700 hover:bg-gray-600 text-white border border-gray-600"
                                 on:click={() => aprsMap.clear()}>Clear</button
                               >
@@ -21449,8 +21565,8 @@ Slider: share of denoised audio, the rest is the original"
                       <p class="text-gray-500 text-xs mt-3 leading-relaxed">
                         {#if fskBrowsing}
                           <strong class="text-gray-300"
-                            >Mode: USB. Every {oliviaBrowsing ? `${oliviaCfg.contestia ? "Contestia" : "Olivia"} ${oliviaCfg.label}` : "BPSK31"} signal between 300 and 2700 Hz gets its own line,
-                            <br /> and a click on a line decodes only that signal{oliviaBrowsing ? " — other tones / bandwidths need their own Mode" : ""}</strong
+                            >Mode: USB. Every {browserModeLabel} signal between 300 and 2700 Hz gets its own line,
+                            <br /> and a click on a line decodes only that signal{oliviaBrowsing ? " — other tones / bandwidths need their own Mode" : mfskBrowsing ? " — MFSK16, 32 and 64 each need their own Mode" : rttyBrowsing ? " — other shifts / speeds need their own Shift and Baud" : ""}</strong
                           >.
                         {:else if isPsk}
                           <strong class="text-gray-300"
@@ -21528,7 +21644,7 @@ Slider: share of denoised audio, the rest is the original"
                         {/if}
                       </p>
                       <div class="mt-3 flex justify-end">
-                        <button
+                        <button title="Save to a file"
                           class="text-xs px-3 py-1 rounded bg-green-700 hover:bg-green-600 text-white transition-colors whitespace-nowrap"
                           on:click={isHell ? saveHellPicture : saveFskText}
                           >{isHell ? "Save Picture" : "Save Text"}</button
@@ -21542,7 +21658,7 @@ Slider: share of denoised audio, the rest is the original"
                   <!-- Begin Bookmark Button Area -->
 
                   <hr class="border-gray-600 my-2" />
-                  <button
+                  <button title="Your saved frequencies"
                     id="bookmark-button"
                     class="glass-button text-white font-bold py-2 px-4 rounded-lg flex items-center w-full justify-center"
                     on:click={toggleBookmarkPopup}
@@ -21586,7 +21702,7 @@ Slider: share of denoised audio, the rest is the original"
                     >
                       <div class="flex justify-between items-center mb-4">
                         <h2 class="text-xl font-bold text-white">Bookmarks</h2>
-                        <button aria-label="Close bookmarks"
+                        <button title="Close bookmarks" aria-label="Close bookmarks"
                           class="text-gray-400 hover:text-white"
                           on:click={toggleBookmarkPopup}
                         >
@@ -21625,7 +21741,7 @@ Slider: share of denoised audio, the rest is the original"
                             bind:value={newBookmarkLabel}
                             placeholder="Label (optional)"
                           />
-                          <button
+                          <button title={"Bookmark the current\nfrequency and mode"}
                             class="glass-button text-white font-bold py-2 px-4 rounded-lg flex items-center justify-center"
                             on:click={addBookmark}
                           >
@@ -21659,7 +21775,7 @@ Slider: share of denoised audio, the rest is the original"
                             value={link}
                             readonly
                           />
-                          <button
+                          <button title={"Copy a link to the current\nfrequency and mode"}
                             class="glass-button text-white font-bold py-2 px-4 rounded-lg flex items-center"
                             on:click={handleLinkCopyClick}
                           >
@@ -21704,7 +21820,7 @@ Slider: share of denoised audio, the rest is the original"
                           />
 
                           <!-- Button for activating file input  -->
-                          <button
+                          <button title="Load bookmarks from a file"
                             class="glass-button text-white font-bold py-2 px-4 rounded-lg flex items-center"
                             on:click={() => fileInput.click()}
                           >
@@ -21728,7 +21844,7 @@ Slider: share of denoised audio, the rest is the original"
 
                           <!-- download bookmark Section -->
 
-                          <button
+                          <button title="Save your bookmarks to a file"
                             class="glass-button text-white font-bold py-2 px-4 rounded-lg flex items-center"
                             on:click={downloadBookmarks}
                           >
@@ -21773,7 +21889,7 @@ Slider: share of denoised audio, the rest is the original"
                               >
                             </div>
                             <div class="flex gap-2">
-                              <button
+                              <button title="Tune to this bookmark"
                                 class="glass-button text-white font-bold py-1 px-3 rounded-lg flex items-center"
                                 on:click={() => goToBookmark(bookmark)}
                               >
@@ -21791,7 +21907,7 @@ Slider: share of denoised audio, the rest is the original"
                                 </svg>
                                 Go
                               </button>
-                              <button
+                              <button title="Copy this bookmark's link"
                                 class="glass-button text-white font-bold py-1 px-3 rounded-lg flex items-center"
                                 on:click={() => copy(bookmark.link)}
                               >
@@ -21810,7 +21926,7 @@ Slider: share of denoised audio, the rest is the original"
                                 </svg>
                                 Copy
                               </button>
-                              <button
+                              <button title="Delete this bookmark"
                                 class="glass-button text-white font-bold py-1 px-3 rounded-lg flex items-center"
                                 on:click={() => deleteBookmark(index)}
                               >
@@ -21985,7 +22101,7 @@ Slider: share of denoised audio, the rest is the original"
                         </svg>
                         Send
                       </button>
-                      <button
+                      <button title={"Insert the current frequency\ninto the message"}
                         class="glass-button text-white font-semibold py-2 px-4 rounded-lg flex items-center justify-center text-xs sm:text-sm flex-grow sm:flex-grow-0"
                         on:click={pasteFrequency}
                       >

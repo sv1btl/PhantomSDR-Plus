@@ -21,6 +21,12 @@
   /** The server offers IQ ([server] iq) — adds the IQ button. */
   export let iqAvailable = false;
   const MODES = ["USB", "LSB", "CW", "AM", "QUAM", "FM"];
+  // Hover texts, the same as the mode popup in App.svelte.
+  const MODE_TITLES = {
+    USB: "Upper sideband", LSB: "Lower sideband", CW: "Morse",
+    AM: "AM (click again for\nsynchronous AM)", QUAM: "C-QUAM AM stereo",
+    FM: "Narrow FM", IQ: "Raw IQ output",
+  };
   /** Called with the chosen mode string. */
   export let onSelect = () => {};
   /** Called with "RADE2"/"RADEL"/"RADEU" — one-touch RADE decoder launch (RADE2 = V2 beta, USB). */
@@ -59,7 +65,7 @@
                       : 'grid-cols-3 sm:grid-cols-6'} gap-2 w-full max-w-md"
                   >
                     {#each iqAvailable ? [...MODES, "IQ"] : MODES as mode}
-                      <button
+                      <button title={MODE_TITLES[mode]}
                         on:click={() => onSelect(mode)}
                         class="retro-button text-xs font-bold {mode === 'QUAM' &&
                         cquamPilotDetected

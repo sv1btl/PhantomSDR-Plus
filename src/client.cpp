@@ -213,6 +213,22 @@ struct glz::meta<agc_speed_cmd>
     );
 };
 
+// Output resolution: the page can take the mono stream at `scale` x the
+// legacy level: a power of two up to 16 (the page sends 8 = 3 more bits,
+// see AudioClient::out_scale).
+struct audio_scale_cmd {
+    int scale;
+};
+
+template <>
+struct glz::meta<audio_scale_cmd>
+{
+    using T = audio_scale_cmd;
+    static constexpr auto value = object(
+        "scale", &T::scale
+    );
+};
+
 // Codec capability command: the client advertises which codecs it can decode.
 // Currently only Opus support is negotiable; when false the server keeps this
 // client on FLAC even for C-QUAM (see AudioClient::set_am_stereo).
@@ -248,7 +264,7 @@ struct glz::meta<set_codec_cmd>
 using msg_variant = std::variant<window_cmd, demodulation_cmd, userid_cmd, mute_cmd, chat_cmd,
                                   noise_gate_enable_cmd, noise_gate_preset_cmd, agc_enable_cmd,
                                   codec_caps_cmd, set_codec_cmd, agc_speed_cmd, identity_cmd,
-                                  decoder_cmd, diversity_cmd, iq_width_cmd>;
+                                  decoder_cmd, diversity_cmd, iq_width_cmd, audio_scale_cmd>;
 
 template <>
 struct glz::meta<msg_variant>
@@ -269,7 +285,8 @@ struct glz::meta<msg_variant>
         "identity",
         "decoder",
         "diversity",
-        "iq_width"
+        "iq_width",
+        "audio_scale"
     };
 };
 
@@ -319,6 +336,9 @@ void Client::on_message(std::string &msg) {
             [&](agc_speed_cmd &cmd) {
                 on_agc_speed_message(cmd.speed);
             },
+            [&](audio_scale_cmd &cmd) {
+                on_audio_scale_message(cmd.scale);
+            },
             [&](identity_cmd &cmd) {
                 on_identity_message(cmd.name);
             },
@@ -356,3 +376,4 @@ void Client::on_noise_gate_enable_message(bool) {}
 void Client::on_noise_gate_preset_message(std::string &) {}
 void Client::on_agc_enable_message(bool) {}
 void Client::on_agc_speed_message(int) {}
+void Client::on_audio_scale_message(int) {}

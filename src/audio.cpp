@@ -24,6 +24,7 @@ void AudioEncoder::set_data(uint64_t frame_num, int l, double m, int r,
     packet["pwr"] = pwr;
     packet["channels"] = channels;
     packet["sam_locked"] = sam_locked;
+    packet.erase("scale");
     // Only while mono SAM runs, so other modes do not carry the two floats.
     if (std::isnan(sam_offset_hz)) {
         packet.erase("sam_hz");
@@ -51,14 +52,21 @@ int AudioEncoder::send(const void *buffer, size_t bytes, unsigned) {
 }
 
 FLAC__StreamEncoderWriteStatus
-FlacEncoder::write_callback(const FLAC__byte buffer[], size_t bytes, unsigned,
+FlacEncoder::write_callback(const FLAC__byte buffer[], size_t bytes, unsigned samples,
                             unsigned current_frame) {
+    if (samples > 0) {   // an audio frame (0 = the stream header)
+        int s = 1;
+        if (!scale_q_.empty()) { s = scale_q_.front(); scale_q_.pop_front(); }
+        set_scale(s);
+    }
     return send(buffer, bytes, current_frame)
                ? FLAC__STREAM_ENCODER_WRITE_STATUS_FATAL_ERROR
                : FLAC__STREAM_ENCODER_WRITE_STATUS_OK;
 }
 
 int FlacEncoder::process(int32_t *data, size_t size) {
+    scale_q_.push_back(packet.value("scale", 1));
+    while (scale_q_.size() > 8) scale_q_.pop_front();   // never written: keep it bounded
     return this->process_interleaved(data, size);
 }
 

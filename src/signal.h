@@ -262,6 +262,7 @@ class AudioClient : public Client,
     // AGC control methods
     void on_agc_enable_message(bool enabled);
     void on_agc_speed_message(int speed);
+    void on_audio_scale_message(int scale) override;
 
     // Codec capability: false means this client cannot decode Opus, so C-QUAM
     // stays on FLAC for it (see set_am_stereo).
@@ -374,6 +375,15 @@ class AudioClient : public Client,
     std::string listener_name_;
     std::string decoder_name_;
     std::string diversity_;
+    // Output resolution of the mono stream. The legacy level uses only +-49
+    // of +-32767 (the page multiplies FLAC by 175), so int16 rounding alone
+    // capped every station at ~30 dB SNR. A page that sends audio_scale gets
+    // its mono FLAC packets at this many times the level, labelled "scale",
+    // and divides back right after decoding. 1 = legacy (pages not yet
+    // reloaded, Kiwi clients, autorun taps, diversity partners). The
+    // desktop app shows the station's page, so it asks too. The page asks
+    // for 8 (power of two, up to 16).
+    std::atomic<int> out_scale{1};
     std::mutex agc_mtx_;              // guards agc against set_am_stereo / on_demodulation_message races
     AGC                 agc;
     MovingAverage<float> ma;

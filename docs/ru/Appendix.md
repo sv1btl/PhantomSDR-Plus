@@ -24,14 +24,14 @@
 | Команда | Что делает | См. |
 |---|---|---|
 | `./setup-rx888-udev.sh` | Устанавливает правила udev для RX888, чтобы он работал без sudo. | [Руководство по установке](INSTALLATION.md#запуск-rx888_stream-без-sudo-правила-udev) |
-| `./setup-rtlsdr.sh` | Устанавливает драйвер RTL-SDR; спрашивает, является ли донгл Blog V4. | [Руководство по установке](INSTALLATION.md#несколько-приёмников-на-одном-компьютере) |
-| `RTL_V4=y ./setup-rtlsdr.sh` | Устанавливает драйвер RTL-SDR Blog V4 без вопроса. | [Руководство по установке](INSTALLATION.md#несколько-приёмников-на-одном-компьютере) |
+| `./setup-rtlsdr.sh` | Устанавливает драйвер RTL-SDR; спрашивает, является ли донгл Blog V4. | [Руководство по установке](INSTALLATION.md#rtl-sdr) |
+| `RTL_V4=y ./setup-rtlsdr.sh` | Устанавливает драйвер RTL-SDR Blog V4 без вопроса. | [Руководство по установке](INSTALLATION.md#rtl-sdr) |
 | `./setup-rsp1a.sh` | Устанавливает открытую цепочку драйверов для SDRplay RSP1A. | [Руководство по установке](INSTALLATION.md#приёмники-через-soapysdr-rsp1a-fobos-airspy-hf) |
 | `./setup-airspyhf.sh` | Устанавливает цепочку драйверов Airspy HF+. | [Руководство по установке](INSTALLATION.md#приёмники-через-soapysdr-rsp1a-fobos-airspy-hf) |
 | `./setup-fobos.sh` | Устанавливает цепочку драйверов RigExpert Fobos. | [Руководство по установке](INSTALLATION.md#приёмники-через-soapysdr-rsp1a-fobos-airspy-hf) |
 | `./setup-hackrf.sh` | Устанавливает пакет hackrf и его правило udev. | [Руководство по установке](INSTALLATION.md#hackrf-one) |
 | `./setup-drm.sh` | Собирает декодер DRM (ubersdr-drm с fdk-aac 2.0.3) в `drm/bin/`. | [Декодеры](DECODERS.md#чтение-панели) |
-| `rtl_test` | Проверяет, виден ли донгл RTL-SDR. | [Руководство по установке](INSTALLATION.md#проверьте-rtl-sdr) |
+| `rtl_test` | Проверяет, виден ли донгл RTL-SDR. | [Руководство по установке](INSTALLATION.md#rtl-sdr-не-найден) |
 | `SoapySDRUtil --find="driver=soapyMiri"` | Проверяет, виден ли RSP1A (`driver=fobos`, `driver=airspyhf` для остальных). | [Руководство по установке](INSTALLATION.md#приёмники-через-soapysdr-rsp1a-fobos-airspy-hf) |
 | `SoapySDRUtil --info` | Показывает установленные драйверы SoapySDR. | [Руководство по установке](INSTALLATION.md#fobos-или-airspy-hf-не-найден) |
 
@@ -48,7 +48,7 @@
 | `./start-fobos-hf.sh` | То же для Fobos, прямая оцифровка КВ (0–25 МГц). | [README](README.md#основные-операции) |
 | `./start-all.sh` | Запускает все приёмники из `receivers.toml`. | [Несколько приёмников](MULTI_RECEIVER.md#5-запуск-и-остановка) |
 | `./start-rx888mk2.sh -q` | Любой скрипт запуска с `-q`: две строки вывода вместо живого журнала. | [README](README.md#основные-операции) |
-| `INSTANCE=vhf ./start-rtl.sh` | Запускает второй приёмник, настроенный в `instances/vhf/`. | [Несколько приёмников](MULTI_RECEIVER.md#3-добавление-второго-приёмника) |
+| `INSTANCE=vhf ./start-rtl.sh` | Запускает второй приёмник, настроенный в `instances/vhf/`. | [Несколько приёмников](MULTI_RECEIVER.md#5-запуск-и-остановка) |
 | `SPECTRUM_CORES=0-3 ./start-rx888mk2.sh` | Привязывает сервер к этим ядрам CPU (`none` = без привязки). | [README](README.md#основные-операции) |
 | `RADE_ENABLED=0 ./start-rx888mk2.sh` | Запускает без сайдкара RADE. | [RADE README](RADE_README.md#управление-sidecar) |
 | `DRM_ENABLED=0 ./start-rx888mk2.sh` | Запускает без помощника DRM. | [Декодеры](DECODERS.md#чтение-панели) |
@@ -72,12 +72,9 @@
 | Команда | Что делает | См. |
 |---|---|---|
 | `./recompile.sh` | Пересобирает сервер и/или веб-страницу; спрашивает, что собирать. | [Руководство по установке](INSTALLATION.md#обновление-вручную) |
-| `./recompile.sh --backend` | Пересобирает только сервер. | [Руководство по установке](INSTALLATION.md#обновление-вручную) |
-| `./recompile.sh --frontend` | Пересобирает только веб-страницу (десктоп и /mobile). | [Настройка панели администратора](ADMIN_PANEL_SETUP.md#резервная-копия-и-восстановление-настроек-станции) |
+| `./recompile.sh --backend` | Пересобирает только сервер. | [Структура проекта](PROJECT_STRUCTURE.md#когда-вы-изменяете-код-серверной-части-src) |
+| `./recompile.sh --frontend` | Пересобирает только веб-страницу (десктоп и /mobile). | [Структура проекта](PROJECT_STRUCTURE.md#когда-вы-изменяете-код-веб-интерфейса-frontendsrc) |
 | `./recompile.sh --both` | Пересобирает оба. | [Руководство по установке](INSTALLATION.md#обновление-вручную) |
-| `cd frontend && ./build-all.sh` | Собирает десктопную страницу и /mobile. | [Редактирование вариантов](EDITING_VARIANTS.md#6-после-правки--пересборка) |
-| `cd frontend && ./build-default.sh` | Собирает только десктопную страницу. | [Редактирование вариантов](EDITING_VARIANTS.md#6-после-правки--пересборка) |
-| `cd frontend && ./build-mobile.sh` | Собирает только /mobile. | [Редактирование вариантов](EDITING_VARIANTS.md#6-после-правки--пересборка) |
 | `bash update.sh` | Сообщает, что изменит новая версия, и спрашивает, обновлять ли. | [Руководство по установке](INSTALLATION.md#запуск) |
 | `./update.sh --check` | Только отчёт, без вопросов (для cron; код выхода 10 = есть обновление). | [Руководство по установке](INSTALLATION.md#другие-возможности) |
 | `./update.sh --apply` | Обновляет, спрашивая о файлах, которые вы правили сами. | [Руководство по установке](INSTALLATION.md#другие-возможности) |
@@ -98,18 +95,18 @@
 | `./waterfall.sh` | Меняет минимальный уровень водопада по умолчанию; показывает текущее значение и спрашивает. | [README](README.md#нижний-порог-водопада--waterfallsh) |
 | `./waterfall.sh -v -15` | Устанавливает −15 дБ без вопроса (`-y` пропускает и подтверждения). | [README](README.md#нижний-порог-водопада--waterfallsh) |
 | `./waterfall.sh -s` | Показывает только текущие значения. | [README](README.md#нижний-порог-водопада--waterfallsh) |
-| `./smeter_theme.sh` | Выбирает тему S-метра по умолчанию из меню. | [Редактирование вариантов](EDITING_VARIANTS.md#три-вида-шкалы--и-smeter_themesh) |
-| `./smeter_theme.sh vintage` | Сразу устанавливает эту тему и предлагает пересборку. | [Редактирование вариантов](EDITING_VARIANTS.md#три-вида-шкалы--и-smeter_themesh) |
-| `./smeter_theme.sh dark --build` | Устанавливает и пересобирает без вопроса (`--no-build` пропускает сборку). | [Редактирование вариантов](EDITING_VARIANTS.md#три-вида-шкалы--и-smeter_themesh) |
-| `./smeter_theme.sh amber --no-reset` | Только для новых посетителей; у существующих остаётся своя. | [Редактирование вариантов](EDITING_VARIANTS.md#три-вида-шкалы--и-smeter_themesh) |
+| `./smeter_theme.sh` | Выбирает тему S-метра по умолчанию из меню. | [Структура проекта](PROJECT_STRUCTURE.md#скрипты-запуска-остановки-и-обслуживания) |
+| `./smeter_theme.sh vintage` | Сразу устанавливает эту тему и предлагает пересборку. | [Структура проекта](PROJECT_STRUCTURE.md#скрипты-запуска-остановки-и-обслуживания) |
+| `./smeter_theme.sh dark --build` | Устанавливает и пересобирает без вопроса (`--no-build` пропускает сборку). | [Структура проекта](PROJECT_STRUCTURE.md#скрипты-запуска-остановки-и-обслуживания) |
+| `./smeter_theme.sh amber --no-reset` | Только для новых посетителей; у существующих остаётся своя. | [Структура проекта](PROJECT_STRUCTURE.md#скрипты-запуска-остановки-и-обслуживания) |
 
 ## Панель администратора и прокси
 
 | Команда | Что делает | См. |
 |---|---|---|
-| `./setup_admin.sh` | Интерактивная настройка панели: порты, скрипты, thermal guard, юниты systemd. | [Настройка панели администратора](ADMIN_PANEL_SETUP.md#шаг-2--запустите-сценарий-настройки) |
-| `./setup_admin.sh --sudoers` | Устанавливает только правило sudoers, чтобы оба юнита перезапускались без пароля. | [Настройка панели администратора](ADMIN_PANEL_SETUP.md#шаг-2--запустите-сценарий-настройки) |
-| `./setup_admin.sh --proxy-only` | Устанавливает только прокси на публичном порту, для станции без панели. | [Настройка панели администратора](ADMIN_PANEL_SETUP.md#шаг-2--запустите-сценарий-настройки) |
+| `./setup_admin.sh` | Интерактивная настройка панели: порты, скрипты, thermal guard, юниты systemd. | [Настройка панели администратора](ADMIN_PANEL_SETUP.md#шаг-1--запустите-сценарий-настройки) |
+| `./setup_admin.sh --sudoers` | Устанавливает только правило sudoers, чтобы оба юнита перезапускались без пароля. | [Настройка панели администратора](ADMIN_PANEL_SETUP.md#шаг-1--запустите-сценарий-настройки) |
+| `./setup_admin.sh --proxy-only` | Устанавливает только прокси на публичном порту, для станции без панели. | [Настройка панели администратора](ADMIN_PANEL_SETUP.md#шаг-1--запустите-сценарий-настройки) |
 | `./manage_admin.sh start` | Запускает панель и прокси (когда они не под systemd). | [Настройка панели администратора](ADMIN_PANEL_SETUP.md#способ-a--manage_adminsh-без-root-ничего-не-устанавливается) |
 | `./manage_admin.sh stop` | Останавливает оба. | [Настройка панели администратора](ADMIN_PANEL_SETUP.md#способ-a--manage_adminsh-без-root-ничего-не-устанавливается) |
 | `./manage_admin.sh status` | Показывает, работают ли они, с их PID. | [Настройка панели администратора](ADMIN_PANEL_SETUP.md#способ-a--manage_adminsh-без-root-ничего-не-устанавливается) |
@@ -118,7 +115,6 @@
 | `sudo systemctl disable --now phantomsdr-admin` | Останавливает панель и больше не запускает её при загрузке. | [Настройка панели администратора](ADMIN_PANEL_SETUP.md#способ-b--юниты-systemd-запуск-при-загрузке-перезапуск-после-сбоя) |
 | `systemctl status phantomsdr-admin` | Показывает состояние панели (без sudo). | [Настройка панели администратора](ADMIN_PANEL_SETUP.md#способ-b--юниты-systemd-запуск-при-загрузке-перезапуск-после-сбоя) |
 | `sudo journalctl -u phantomsdr-admin -f` | Следит за журналом панели. | [Настройка панели администратора](ADMIN_PANEL_SETUP.md#способ-b--юниты-systemd-запуск-при-загрузке-перезапуск-после-сбоя) |
-| `AUTORUN_CORES=2-3 ./manage_admin.sh start` | Привязывает демон декодирования autorun к этим ядрам CPU. | [Настройка панели администратора](ADMIN_PANEL_SETUP.md#ручное-переопределение-привязки-к-ядрам-для-опытных) |
 | `sudo cp logrotate/phantomsdr /etc/logrotate.d/phantomsdr` | Устанавливает ротацию журналов панели, прокси и autorun. | [Настройка панели администратора](ADMIN_PANEL_SETUP.md#ротация-proxylog-и-adminlog) |
 | `sudo logrotate -d /etc/logrotate.d/phantomsdr` | Пробный прогон ротации журналов. | [Настройка панели администратора](ADMIN_PANEL_SETUP.md#ротация-proxylog-и-adminlog) |
 
@@ -137,12 +133,12 @@
 
 | Команда | Что делает | См. |
 |---|---|---|
-| `./setup-firewall.sh --show` | Показывает правила ядра для ограничения подключений; ничего не меняет. | [Ограничения подключений](CONNECTION_LIMITS.md#5-защита-в-ядре) |
-| `sudo ./setup-firewall.sh --check` | Проверяет правила на вашем ядре. | [Ограничения подключений](CONNECTION_LIMITS.md#5-защита-в-ядре) |
-| `sudo ./setup-firewall.sh --apply` | Загружает правила с автоматическим откатом через 60 секунд. | [Ограничения подключений](CONNECTION_LIMITS.md#5-защита-в-ядре) |
-| `sudo ./setup-firewall.sh --persist` | Загружает правила при каждой загрузке. | [Ограничения подключений](CONNECTION_LIMITS.md#5-защита-в-ядре) |
-| `sudo ./setup-firewall.sh --status` | Показывает счётчики пакетов по каждому правилу. | [Ограничения подключений](CONNECTION_LIMITS.md#5-защита-в-ядре) |
-| `sudo ./setup-firewall.sh --remove` | Удаляет все правила. | [Ограничения подключений](CONNECTION_LIMITS.md#5-защита-в-ядре) |
+| `./setup-firewall.sh --show` | Показывает правила ядра для ограничения подключений; ничего не меняет. | [Ограничения подключений](CONNECTION_LIMITS.md#4-защита-в-ядре) |
+| `sudo ./setup-firewall.sh --check` | Проверяет правила на вашем ядре. | [Ограничения подключений](CONNECTION_LIMITS.md#4-защита-в-ядре) |
+| `sudo ./setup-firewall.sh --apply` | Загружает правила с автоматическим откатом через 60 секунд. | [Ограничения подключений](CONNECTION_LIMITS.md#4-защита-в-ядре) |
+| `sudo ./setup-firewall.sh --persist` | Загружает правила при каждой загрузке. | [Ограничения подключений](CONNECTION_LIMITS.md#4-защита-в-ядре) |
+| `sudo ./setup-firewall.sh --status` | Показывает счётчики пакетов по каждому правилу. | [Ограничения подключений](CONNECTION_LIMITS.md#4-защита-в-ядре) |
+| `sudo ./setup-firewall.sh --remove` | Удаляет все правила. | [Ограничения подключений](CONNECTION_LIMITS.md#4-защита-в-ядре) |
 | `sudo ufw allow 9000/tcp` | Открывает публичный порт в брандмауэре ufw. | [Руководство по установке](INSTALLATION.md#нет-доступа-с-других-устройств) |
 | `bash setup-https.sh` | Включает HTTPS с бесплатным сертификатом Let's Encrypt; HTTP продолжает работать. | [Безопасный доступ (HTTPS)](HTTPS.md#на-уже-работающей-станции) |
 | `bash setup-https.sh --lan` | HTTPS только в локальной сети (браузеры предупреждают о сертификате). | [Безопасный доступ (HTTPS)](HTTPS.md#только-в-локальной-сети----lan) |
@@ -156,16 +152,15 @@
 | `./install-stats-server.sh` | Устанавливает сервер статистики (CPU, температура, пользователи). | [Сервер статистики](../sdr-stats/readme_ru.md#шаг-1-запустите-скрипт) |
 | `sudo systemctl restart sdr-stats.service` | Перезапускает его (так же `start`, `stop`, `status`). | [Сервер статистики](../sdr-stats/readme_ru.md#управление-службой) |
 | `sudo journalctl -u sdr-stats.service -f` | Следит за его журналом. | [Сервер статистики](../sdr-stats/readme_ru.md#управление-службой) |
-| `curl http://localhost:3001/api/system-stats` | Проверяет, отвечает ли он. | [Сервер статистики](../sdr-stats/readme_ru.md#тест-1-проверьте-конечную-точку-api) |
+| `curl http://localhost:9011/api/system-stats` | Проверяет, отвечает ли он. | [Сервер статистики](../sdr-stats/readme_ru.md#тест-1-проверьте-конечную-точку-api) |
 | `./install_rade.sh` | Устанавливает сайдкар RADE / FreeDV (`install_rade_ubuntu22.sh` на Ubuntu 22.04). | [RADE README](RADE_README.md#установка--коротким-путём) |
 | `cd ~/rade_c && git pull && cmake --build build` | Обновляет rade_c, декодер RADE V2 (beta); новые подключения RADE2 используют новую версию. | [RADE README](RADE_README.md#rade-v2-beta--rade2) |
 | `./rade.sh start` | Запускает сайдкар RADE со сторожем. | [RADE README](RADE_README.md#управление-sidecar) |
 | `./rade.sh stop` | Останавливает его вместе со сторожем и процессами декодирования. | [RADE README](RADE_README.md#управление-sidecar) |
 | `./rade.sh restart` | Чисто останавливает и запускает его. | [RADE README](RADE_README.md#управление-sidecar) |
 | `./rade.sh status` | Показывает, работает ли он. | [RADE README](RADE_README.md#управление-sidecar) |
-| `RADE_CORES_PER_CLIENT=3 ./rade.sh restart` | Перезапускает его, выделяя каждому слушателю три ядра CPU. | [RADE README](RADE_README.md#если-ядра-насыщаются-раньше-излома) |
+| `RADE_CORES_PER_CLIENT=3 ./rade.sh restart` | Перезапускает его, выделяя каждому слушателю три ядра CPU. | [RADE README](RADE_README.md#управление-sidecar) |
 | `tail -f rade.log` | Следит за журналом RADE. | [RADE README](RADE_README.md#управление-sidecar) |
-| `python3 rade_loadtest.py` | Измеряет, сколько слушателей RADE выдержит эта машина. | [RADE README](RADE_README.md#требования) |
 | `./kiwi_install.sh` | Устанавливает эмуляцию клиента KiwiSDR (для программ Kiwi, например AetherSDR). | [Эмуляция клиента KiwiSDR](Aether_config.md#2-установка-моста) |
 | `./setup_websdr_relay.sh` | Устанавливает ретранслятор, позволяющий разнесённому приёму использовать WebSDR как второй приёмник. | [Разнесённый приём](RECEIVE_DIVERSITY.md#установка-ретранслятора) |
 
@@ -175,17 +170,17 @@
 |---|---|---|
 | `sudo usermod -aG dialout $USER` | Даёт вашему пользователю доступ к последовательному порту трансивера (затем войдите заново). | [Управление трансивером](RIG_CONTROL.md#linux) |
 | `rigctl -m 3073 -r /dev/ttyUSB0 -s 115200 f` | Читает частоту трансивера через Hamlib — проверяет связь CAT (модель, порт и скорость для вашего аппарата). | [Управление трансивером](RIG_CONTROL.md#пример-icom-ic-7300) |
-| `cd tci-bridge && node tci-rigctld.mjs` | Запускает мост поверх уже работающего `rigctld`. | [Управление трансивером](RIG_CONTROL.md#пример-yaesu-ft-991a) |
-| `node tci-rigctld.mjs --rigctl rigctl -m 3073 -r /dev/ttyUSB0 -s 115200` | Запускает мост, управляющий трансивером напрямую через `rigctl` (способ для Windows). | [Управление трансивером](RIG_CONTROL.md#пример-yaesu-ft-991a) |
+| `cd tci-bridge && node tci-rigctld.mjs` | Запускает мост поверх уже работающего `rigctld`. | [Управление трансивером](RIG_CONTROL.md#совместное-использование-трансивера-через-rigctld) |
+| `node tci-rigctld.mjs --rigctl rigctl -m 3073 -r /dev/ttyUSB0 -s 115200` | Запускает мост, управляющий трансивером напрямую через `rigctl` (способ для Windows). | [Управление трансивером](RIG_CONTROL.md#пример-icom-ic-7300) |
 
 ## Проверка и устранение неполадок
 
 | Команда | Что делает | См. |
 |---|---|---|
 | `ss -tlnp` | Показывает слушающие порты и программы за ними. | [Настройка панели администратора](ADMIN_PANEL_SETUP.md#полезные-команды-вручную) |
-| `sudo lsof -i :9002` | Показывает, какая программа занимает порт. | [Руководство по установке](INSTALLATION.md#порт-уже-занят) |
+| `sudo lsof -i :9000` | Показывает, какая программа занимает порт. | [Руководство по установке](INSTALLATION.md#порт-уже-занят) |
 | `pkill -f admin_server.py` | Завершает панель, запущенную вручную (так же `proxy.py`). | [Настройка панели администратора](ADMIN_PANEL_SETUP.md#полезные-команды-вручную) |
-| `sudo fuser -k 3000/tcp` | Освобождает порт, занятый зависшей программой. | [Настройка панели администратора](ADMIN_PANEL_SETUP.md#полезные-команды-вручную) |
+| `sudo fuser -k 9010/tcp` | Освобождает порт, занятый зависшей программой. | [Настройка панели администратора](ADMIN_PANEL_SETUP.md#полезные-команды-вручную) |
 | `lsusb` | Показывает USB-устройства — виден ли приёмник? | [Руководство по установке](INSTALLATION.md#rtl-sdr-не-найден) |
 | `sudo timedatectl set-ntp true` | Держит часы синхронизированными — это нужно декодерам FT8/FT4/WSPR. | [Руководство по установке](INSTALLATION.md#meson-setup-останавливается-с-clock-skew-detected) |
 
@@ -193,6 +188,4 @@
 
 | Скрипт | Что делает | См. |
 |---|---|---|
-| `start-*.sh --watchdog` | Сторож, который скрипт запуска запускает для себя. | [Руководство по установке](INSTALLATION.md#1-создайте-файл-службы) |
-| `setup-sdr-common.sh` | Общие вспомогательные функции, подключаемые установщиками драйверов `setup-*.sh`. | [Структура проекта](PROJECT_STRUCTURE.md#дерево-каталогов) |
-| `go.sh`, `xgo.sh`, `check-go.sh`, `kill.sh`, `_relaunch.sh` | Старая цепочка запуска, сохранённая для существующих станций; её заменяют скрипты `start-*.sh`. | [Структура проекта](PROJECT_STRUCTURE.md#дерево-каталогов) |
+| `setup-sdr-common.sh` | Общие вспомогательные функции, подключаемые установщиками драйверов `setup-*.sh`. | [Руководство по установке](INSTALLATION.md#приёмники-через-soapysdr-rsp1a-fobos-airspy-hf) |

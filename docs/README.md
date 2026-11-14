@@ -51,6 +51,7 @@ PhantomSDR-Plus is a fork of PhantomSDR that provides a high-performance Softwar
 - **Keyboard shortcuts**: Efficient navigation and control
 - **Mouse wheel support**: Intuitive frequency tuning
 - **WebSDR directory**: Integration with https://sdr-list.xyz
+- **Finer audio resolution**: the audio is sent with 8 times finer resolution, which removes a faint hiss of the stream's own on strong stations
 
 ---
 
@@ -112,18 +113,6 @@ Use `install_fedora.sh` on Fedora, `install_arch.sh` on Arch or `install_opensus
 Nothing has to be installed by hand first. The script installs the build dependencies and Node.js, builds the backend, builds the driver for the receiver you choose (and the RX888 udev rules with it), opens `site_information.json` for you to fill in, builds the frontend, installs OpenCL when the hardware supports it, then sets up the **admin panel**, the **FreeDV RADE decoder** and the **statistics server** — all three by default, answer `n` to skip any — and finishes with a full `recompile.sh`. It is interactive throughout and can take from twenty minutes to over an hour.
 
 For the step-by-step description, see [INSTALLATION.md → What the installer does](INSTALLATION.md#what-the-installer-does).
-
----
-
-## 📊 Performance Benchmarks
-
-| Hardware | Sample Rate | CPU Usage | User Capacity |
-|----------|-------------|-----------|---------------|
-| Ryzen 5 2600 (all cores) | 64 MHz (32 MHz IQ) | 38-40% | 100+ users |
-| AMD RX 580 (GPU) | 64 MHz (32 MHz IQ) | 28-35% | 100+ users |
-| Intel i5-6500T (with OpenCL) | 60 MHz (30 MHz IQ) | 10-12% | 100+ users |
-
-*Note: Per-user CPU overhead is minimal (<1% per user) when hardware acceleration is enabled.*
 
 ---
 
@@ -262,6 +251,10 @@ audio_compression="opus"  # or "flac"
 ```
 - After modifying it, restart the server.
 
+### Audio resolution
+
+Pages that are reloaded after an update also get the audio with 8 times finer resolution, which removes a faint hiss of the stream's own on strong stations. It costs about 17 kbit/s more per SSB listener and about 30 kbit/s per AM listener.
+
 
 ### S-meter calibration
 
@@ -277,17 +270,11 @@ smeter_offset=5         # digital bar only
 analog_smeter_offset=5  # analog needle only
 ```
 
-They are read in `src/websocket.cpp` and sent to the browser in the first `basic_info` frame, so **a server restart is enough** — no frontend rebuild is required.
-
 #### Analog chain
 
 ```
 displayed dBm = -130 + (rawDb + analog_smeter_offset + 130) x 1.1
 ```
-
-- The visual gain of 1.1 is applied *after* the offset, pivoting at -130 dBm. So one unit of `analog_smeter_offset` moves the reading by 1.1 dB. To shift the display by X dB, use `analog_smeter_offset ~= 0.91 x X`. The TOML value is parsed as an integer, so only whole steps are available.
-- The needle law (`powerFromDbm` in `frontend/src/lib/SMeterAnalog.svelte`) puts **S9 at -73 dBm**, at 60 of 100 needle units, with a `pow(...,0.6)` curve from -130 to -73 below S9 and a `pow(...,0.8)` curve from -73 to -13 (S9+60) above it.
-- It is **not** a linear 6 dB per S-unit scale, so S9 is the meaningful calibration anchor — the marks below S9 will not track a signal generator in 6 dB steps.
 
 #### Digital chain
 
@@ -296,17 +283,9 @@ value    = (rawDb / 150) x 100 + smeter_offset   -> clamped to [-100, 0]
 segments = round((value + 100) x 35 / 100) + DIGITAL_BAR_TRIM
 ```
 
-- Note the `/150 x 100`: the digital scale is **compressed to 2/3**, and it never sees `analog_smeter_offset` or the 1.1 visual gain. That is why the bar and the needle never agree exactly — it is intentional.
-- 35 segments over 100 units means one segment is 2.86 offset units, roughly 4.3 raw dB. So `smeter_offset=3` is about one segment.
-- `DIGITAL_BAR_TRIM` in `frontend/src/lib/SMeterDigital.svelte` (currently 0) shifts the bar by whole segments. Changing it is a source edit and **does** require a frontend rebuild.
-
 #### The LED windows are analog-driven in both meters
 
 The dBm / dBµV / SNR / NF windows in **both** meters read the analog-calibrated value and add a fixed `VISUAL_DBM_OFFSET` of 5, hardcoded in `SMeterAnalog.svelte` and `SMeterDigital.svelte`. Therefore:
-
-- `smeter_offset` does **not** change any number in the windows, only the bar length.
-- dBµV = dBm + 107 (50 ohm), and NF = dBm - SNR by construction, so NF follows automatically.
-- To correct the **numbers** without touching the needle position, `VISUAL_DBM_OFFSET` is the knob — but it is a source constant, needs a rebuild, and must be changed in **both** files to stay consistent.
 
 #### Procedure
 
@@ -315,12 +294,6 @@ The dBm / dBµV / SNR / NF windows in **both** meters read the analog-calibrated
 3. Switch to the digital meter and set `smeter_offset` so the bar length places S9 where you want it — roughly 3 units per segment. This step is cosmetic matching only and has no effect on the readouts.
 4. Without a signal generator, a quiet band with a known-level reference beacon is a reasonable substitute, or simply anchor the noise floor to a plausible value (e.g. -120 dBm on 20 m with a decent antenna) — accepting that this calibrates the whole chain including antenna gain, not the receiver alone.
 
-
-### GUI Variants
-
-All four GUI variants (analog/digital S-meter x v1/v2 layout) live in the one build. Visitors switch between them with the ⚙️ menu at the top right of the page — nothing reloads, so audio, the waterfall and any running decoder carry on — and each visitor's choice is remembered in their own browser.
-- Run recompile.sh in a terminal to set the *starting* variant, the one a first-time visitor sees.
-- **[EDITING_VARIANTS.md](EDITING_VARIANTS.md)** - How to edit the frontend variants (S-meter and layout) and rebuild them
 
 ---
 
@@ -334,7 +307,7 @@ All four GUI variants (analog/digital S-meter x v1/v2 layout) live in the one bu
 - **[MULTI_RECEIVER.md](MULTI_RECEIVER.md)** - Sysop manual for running several receivers on one computer: instances, `receivers.toml`, the receiver picker and `start-all.sh`
 - **[HTTPS.md](HTTPS.md)** - Secure access: serving the receiver over https:// with Caddy and a free Let's Encrypt certificate, `setup-https.sh`, the local-network mode, and an existing nginx or Apache
 - **[PROJECT_STRUCTURE.md](PROJECT_STRUCTURE.md)** - Directory structure and code organization
-- **[EDITING_VARIANTS.md](EDITING_VARIANTS.md)** - How to edit the frontend variants (S-meter and layout) and rebuild them
+- **[EDITING_VARIANTS.md](https://github.com/sv1btl/PhantomSDR-Plus/blob/main/docs/EDITING_VARIANTS.md)** - How to edit the frontend variants (S-meter and layout) and rebuild them
 
 ---
 
@@ -350,33 +323,11 @@ Set `register_online=true` in your `.toml` configuration file to automatically r
 
 ### Common Issues
 
-**OpenCL Not Working**
-- Ensure drivers are properly installed
-- Check with `clinfo` command
-- See INSTALLATION.md for detailed OpenCL setup
-
 **Audio Latency Issues**
 - Keep FLAC as the codec: it is the lower-latency one, while Opus holds back up to 20 ms per packet
 - Open the page with `?diag=1` added to its address (for example `/mobile?diag=1`) to see the delay split into packet, buffer and output; the buffer shrinks by itself within a minute or two of a network hiccup
 - If the audio breaks up, move the buffer control one step higher (see the User Guide, *Audio Buffer and Delay*)
 - Ensure adequate CPU/GPU resources
-
-**Build Failures**
-- Verify all dependencies are installed
-- Try cleaning build directory: `rm -rf build && meson setup build`
-- Check for conflicting library versions
-
----
-
-## 🤝 Contributing
-
-Contributions are welcome! This is an independent fork with additional features. Please:
-
-1. Fork the repository
-2. Create a feature branch
-3. Commit your changes
-4. Push to the branch
-5. Create a Pull Request
 
 ---
 
@@ -398,23 +349,6 @@ This project is licensed under the GNU General Public License v3.0 - see the [LI
 - **Live Demo**: http://phantomsdr.no-ip.org:8900/
 - **WebSDR Directory**: https://sdr-list.xyz
 - **GitHub Repository**: https://github.com/sv1btl/PhantomSDR-Plus
-
----
-
-## 📞 Support
-
-- **Issues**: Report bugs via [GitHub Issues](https://github.com/sv1btl/PhantomSDR-Plus/issues)
-- **Email**: contact sv1btl@otenet.gr
-
----
-
-## ⚡ Performance Tips
-
-1. **Enable OpenCL/CUDA** for GPU acceleration - dramatically reduces CPU usage
-2. **Use SSD storage** for better I/O performance
-3. **Allocate sufficient RAM** - at least 8 GB recommended
-4. **Optimize FFT size** - larger FFT = better resolution but more CPU usage
-5. **Consider dedicated GPU** - AMD or NVIDIA with OpenCL support
 
 ---
 

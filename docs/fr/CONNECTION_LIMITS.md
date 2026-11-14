@@ -12,33 +12,20 @@ Ce manuel traite des trois couches qui l'arrêtent, de ce que chacune peut et ne
 
 ## Sommaire
 
-1. [Contre quoi vous vous défendez réellement](#1-contre-quoi-vous-vous-défendez-réellement)
-2. [Les trois couches](#2-les-trois-couches)
-3. [Limites par adresse — la politique des auditeurs](#3-limites-par-adresse)
-4. [Connexions inactives — l'attaque silencieuse](#4-connexions-inactives)
-5. [La protection au niveau du noyau — `setup-firewall.sh`](#5-la-protection-au-niveau-du-noyau)
-6. [Référence de configuration](#6-référence-de-configuration)
-7. [Ce que voit un auditeur refusé](#7-ce-que-voit-un-auditeur-refusé)
-8. [Lire les journaux et les compteurs](#8-lire-les-journaux-et-les-compteurs)
-9. [Choisir vos nombres](#9-choisir-vos-nombres)
-10. [Pièges à connaître](#10-pièges-à-connaître)
-11. [Tout désactiver](#11-tout-désactiver)
+1. [Les trois couches](#1-les-trois-couches)
+2. [Limites par adresse — la politique des auditeurs](#2-limites-par-adresse)
+3. [Connexions inactives — l'attaque silencieuse](#3-connexions-inactives)
+4. [La protection au niveau du noyau — `setup-firewall.sh`](#4-la-protection-au-niveau-du-noyau)
+5. [Référence de configuration](#5-référence-de-configuration)
+6. [Ce que voit un auditeur refusé](#6-ce-que-voit-un-auditeur-refusé)
+7. [Lire les journaux et les compteurs](#7-lire-les-journaux-et-les-compteurs)
+8. [Choisir vos nombres](#8-choisir-vos-nombres)
+9. [Pièges à connaître](#9-pièges-à-connaître)
+10. [Tout désactiver](#10-tout-désactiver)
 
 ---
 
-## 1. Contre quoi vous vous défendez réellement
-
-Il vaut la peine d'être précis, car le mot « DDoS » recouvre deux choses très différentes et une seule d'entre elles peut se régler sur votre propre machine.
-
-**Afflux d'une source unique.** Une machine, ou une poignée, ouvrant des connexions aussi vite qu'elle le peut. C'est ce qui s'est produit ici, et cela se corrige entièrement : les connexions arrivent d'une adresse que l'on peut compter, et compter suffit.
-
-**Une véritable attaque distribuée.** Des milliers de machines, souvent avec des adresses source falsifiées, qui saturent votre lien. Quand ces paquets atteignent votre carte réseau, la bande passante est déjà dépensée. **Rien de ce que décrit ce manuel n'aide**, et rien de ce que vous installez sur le serveur ne le peut — la seule réponse est un service en amont de vous, ce qui est une autre discussion, impliquant un vrai domaine et un fournisseur comme Cloudflare devant le récepteur.
-
-Tout ce qui suit traite du premier cas. Ce n'est pas une limite dont il faille s'excuser : le premier cas est ce qui arrive réellement aux stations d'amateur.
-
----
-
-## 2. Les trois couches
+## 1. Les trois couches
 
 ```
    l'internet
@@ -62,11 +49,9 @@ Tout ce qui suit traite du premier cas. Ce n'est pas une limite dont il faille s
    └─────────────────────────────────────────────────────────┘
 ```
 
-Elles ne sont délibérément pas redondantes. La couche noyau est rapide mais bête — elle compte les paquets venant d'une adresse et ne sait rien des auditeurs. La couche serveur est précise mais ne voit une connexion qu'une fois acceptée et analysée, ce qui coûte quelque chose. La couche navigateur existe pour qu'un auditeur refusé sache ce qui s'est passé, au lieu de fixer une page qui ne charge jamais.
-
 ---
 
-## 3. Limites par adresse
+## 2. Limites par adresse
 
 ### Ce qui compte pour un auditeur
 
@@ -99,8 +84,6 @@ per_ip_ban_s=600    # durée de refus d'une adresse qui dépasse le débit
 
 **`per_ip_rate`** est ce qui met réellement fin à un afflux. Le plafond seul n'y suffit pas : refuser une connexion est peu coûteux mais pas gratuit, et un attaquant peut se reconnecter aussi vite que les refus reviennent, en brûlant votre processeur en montages et démontages. La limite de débit lui donne un blocage au lieu d'une réponse. Rappelez-vous qu'un onglet coûte quatre : 40/minute, c'est environ dix chargements de page par minute depuis une adresse.
 
-> **Un ordre délibéré.** Le débit est débité *avant* que le plafond de simultanéité ne soit testé. Cela semble à l'envers jusqu'à ce qu'on pense à une adresse déjà à son plafond et qui se reconnecte en boucle : si le refus bon marché « tu es au plafond » lui répondait à chaque fois, les infractions de débit ne s'accumuleraient jamais et le blocage qui met fin à la boucle ne se déclencherait jamais.
-
 ### Qui est exempté
 
 **La boucle locale n'est jamais limitée.** Le tap autorun pour les rapports de spots, le panneau d'administration et un navigateur ouvert sur la machine du serveur elle-même arrivent tous depuis `127.0.0.1`, et les laisser consommer des places reviendrait à ce que votre propre station enferme dehors vos auditeurs.
@@ -111,7 +94,7 @@ Depuis la v5.0.0, cet en-tête n'est cru **que s'il vient d'un pair loopback** �
 
 ---
 
-## 4. Connexions inactives
+## 3. Connexions inactives
 
 Il existe une attaque qu'aucun des mécanismes ci-dessus ne peut voir.
 
@@ -125,17 +108,15 @@ idle_per_ip=8       # connexions inactives (avant requête) par adresse
 idle_total=512      # plafond toutes adresses confondues
 ```
 
-La limite porte sur le **combien**, pas sur le **combien de temps**, et cette distinction fait toute la conception. **Il n'y a aucun délai sur une connexion inactive, et c'est délibéré.** Un délai semble la réponse évidente et c'est un piège (voir [§10](#10-pièges-à-connaître)) : il existe des interlocuteurs légitimes qui se connectent puis restent silencieux longtemps avant de parler. Ce qui les sépare d'une attaque, c'est la quantité — un interlocuteur légitime tient une telle connexion, un attaquant en tient des milliers.
+La limite porte sur le **combien**, pas sur le **combien de temps**, et cette distinction fait toute la conception. **Il n'y a aucun délai sur une connexion inactive, et c'est délibéré.** Un délai semble la réponse évidente et c'est un piège (voir [§9](#9-pièges-à-connaître)) : il existe des interlocuteurs légitimes qui se connectent puis restent silencieux longtemps avant de parler. Ce qui les sépare d'une attaque, c'est la quantité — un interlocuteur légitime tient une telle connexion, un attaquant en tient des milliers.
 
 Une connexion inactive vit donc jusqu'à ce qu'elle fasse une requête ou qu'elle meure, et sa place est rendue dans les deux cas.
 
 `idle_total` borne un afflux réparti sur de nombreuses adresses source. Une fois le plafond atteint, ce sont les **nouvelles** connexions inactives qui sont refusées plutôt que les existantes évincées : une connexion légitime et de longue durée n'est donc jamais ce que l'on sacrifie pour faire de la place.
 
-Les deux s'appliquent au moment où la socket est acceptée, à partir de l'adresse du pair — il n'y a pas encore de requête, donc pas de `X-Forwarded-For` à consulter. Ce n'est pas gênant : la boucle locale n'est pas comptée, ce qui couvre tout ce qui arrive par `proxy.py`, et un afflux direct porte sa propre adresse.
-
 ---
 
-## 5. La protection au niveau du noyau
+## 4. La protection au niveau du noyau
 
 `setup-firewall.sh` installe une table nftables qui écrête le volume avant que `spectrumserver` n'en lise le moindre octet. Elle est délibérément grossière, et ses nombres se situent bien au-dessus de ceux de `config.toml`, afin qu'un auditeur normal ne puisse jamais être pris par les deux.
 
@@ -165,7 +146,7 @@ Utilisez bien cette fenêtre. Vérifiez **depuis un autre appareil, hors de votr
 
 ---
 
-## 6. Référence de configuration
+## 5. Référence de configuration
 
 Chaque clé ci-dessous vit sous `[limits]` dans votre fichier `.toml`. **Toutes sont par défaut désactivées ou généreuses** : une configuration qui ne les mentionne pas se comporte donc exactement comme avant.
 
@@ -180,10 +161,6 @@ Chaque clé ci-dessous vit sous `[limits]` dans votre fichier `.toml`. **Toutes 
 
 Mettre n'importe quelle clé à `0` désactive ce contrôle précis.
 
-### Les trois qui ne sont pas des limites
-
-`[limits]` contient aussi `audio`, `waterfall` et `events`, héritées du PhantomSDR d'origine, et **aucune des trois n'est appliquée.** `waterfall` et `events` ne sont lues par aucun code. `audio` est lue en un seul endroit : elle est envoyée comme `max_users` dans le JSON d'enregistrement aux annuaires de `[websdr] register_urls`, c'est donc le chiffre qu'affichent sdr-list.xyz et les autres, et elle ne fait absolument rien lorsque `register_online=false`. Si vous voulez un plafond d'auditeurs, c'est `per_ip` plus haut qui agit.
-
 ### Une de plus, sous `[server]`
 
 ```toml
@@ -193,23 +170,15 @@ min_client_version=0
 
 Ce n'est pas une limite mais un refus, et comme il partage le même code de fermeture, sa place est ici. Les pages annoncent la version depuis laquelle elles ont été chargées sous la forme `/audio?v=N`, et tout ce qui est en dessous de `min_client_version` est éconduit avec *« cette page est périmée — veuillez la recharger »*.
 
-Cela existe parce que le serveur ne peut pas atteindre du JavaScript qui tourne déjà dans le navigateur de quelqu'un. Un onglet conserve le code qu'il a chargé jusqu'à ce que quelqu'un le recharge : une modification de la page n'atteint donc que les auditeurs qui rechargent par hasard — et une station qui vient de changer le comportement des sessions peut avoir besoin que les anciennes pages disparaissent maintenant, et non un jour.
-
-Seul `/audio` est vérifié, car c'est là que vit une session, et la boucle locale ainsi que les chemins Kiwi sont exemptés afin que le tap autorun et les clients Kiwi ne soient pas touchés. `0` le désactive et c'est la valeur par défaut. Le laisser actif une fois les anciennes pages écoulées ne pose pas de problème : un client de diversité actuel refusé sur un `/audio` nu réessaie avec le marqueur, si bien que seuls restent éconduits les clients de diversité d'une version plus ancienne de PhantomSDR-Plus et les outils tiers qui ouvrent `/audio` sans `?v=`. Remettez-le à `0` si une autre station signale qu'elle ne peut plus vous utiliser comme partenaire de diversité.
-
 Les configurations livrées avec PhantomSDR-Plus fixent `min_client_version=2`, la version actuelle (`CLIENT_VERSION` dans `frontend/src/clientVersion.js`), avec un commentaire qui l'explique ; sans la ligne, la valeur est `0`. Si une future mise à jour augmente `CLIENT_VERSION`, augmentez cette valeur d'autant.
 
 ---
 
-## 7. Ce que voit un auditeur refusé
+## 6. Ce que voit un auditeur refusé
 
 ### Rien ne se reconnecte jamais
 
 Commencez par là, car cela gouverne tout le reste : **une connexion `/audio` qui tombe met fin à la session.** Il n'y a pas de reconnexion automatique, et c'est voulu.
-
-Se reconnecter est le bon réflexe pour une application de discussion et le mauvais pour un récepteur. `/waterfall` et `/events` ne revenaient jamais avec elle : une session réessayée était donc une connexion audio vivante boulonnée à une cascade figée ; et arrêter le serveur ne le vidait plus, puisque chaque auditeur était de retour quelques secondes plus tard, remplissant la liste d'utilisateurs de sessions où en réalité personne ne se trouvait. La page se tait et l'auditeur la recharge — ce que faisait précisément ce récepteur avant qu'une reconnexion n'y soit ajoutée.
-
-Pour les limites de ce manuel, cela supprime aussi un piège : face à une limite de débit, une tentative automatique prolongerait justement le blocage qu'elle cherchait à contourner.
 
 ### Les deux codes de fermeture
 
@@ -217,8 +186,6 @@ Pour les limites de ce manuel, cela supprime aussi un piège : face à une limit
 |---|---|---|
 | **4003** | refusé — au-delà d'une limite par adresse, ou page périmée | `spectrumserver` |
 | **4001** | expulsé ou banni par l'opérateur | `spectrumserver`, quand le panneau appelle `/~~kick` |
-
-Tous deux sont dans la plage privée 4000–4999, aucun ne peut donc être confondu avec un état de protocole, et tous deux sont tenus pour définitifs par toutes les pages. Le texte du motif voyage dans la trame de fermeture plutôt qu'en message, car la première trame sur `/audio` est réservée aux réglages du récepteur et tout ce qui serait envoyé avant casserait toute connexion normale.
 
 ### Sur la page
 
@@ -230,9 +197,7 @@ Ce silence après une exclusion est intentionnel. **Exclure, c'est le sysop qui 
 
 Un **bannissement** — le ⛔ Ban ▾ du panneau d'administration — est la seule exception : c'est la même expulsion assortie d'un refus de 8, 16 ou 24 heures, donc le rechargement est refusé avec 4001 jusqu'à ce que le bannissement expire ou que l'opérateur le lève.
 
-L'exclusion est faite par `spectrumserver` lui-même, et non par `proxy.py` : les auditeurs se connectent directement au port du récepteur, le proxy ne possède donc aucune de leurs connexions et son exclusion n'atteint personne. Le panneau appelle `/~~kick?ip=&secs=`, joignable en boucle locale seulement et vérifié sur le vrai pair TCP, non sur `X-Forwarded-For`, que le client fournit. `secs` vaut zéro par défaut — aucun bannissement — mais accepte une durée si vous voulez garder l'adresse dehors un moment, et cela réutilise le mécanisme de bannissement de `per_ip_rate`, si bien que la reconnexion est refusée à la porte. Le Ban 24h du panneau envoie `secs=86400`, le maximum accepté, et `/~~unban?ip=` lève un bannissement plus tôt.
-
-## 8. Lire les journaux et les compteurs
+## 7. Lire les journaux et les compteurs
 
 ### Le serveur
 
@@ -255,30 +220,15 @@ sudo ./setup-firewall.sh --status
 
 Lisez le **`counter packets N`** de chaque règle ; c'est le nombre réellement rejeté. Tout à zéro signifie que rien n'a été bloqué et que vos seuils sont confortablement larges.
 
-Ne vous alarmez pas des listes `elements = { ... }` dans les ensembles au-dessus des règles. Ce sont vos auditeurs ordinaires *suivis* par rapport aux limites — une entrée apparaît à la première connexion d'une adresse et expire une ou deux minutes plus tard. Suivre n'est pas bloquer.
-
 ---
 
-## 9. Choisir vos nombres
-
-Deviner est inutile ; vos propres journaux vous le diront. Voici la mesure qui a fixé ici `per_ip=3`, sur une semaine de `logs/users_*.jsonl` :
-
-| Sessions simultanées depuis une adresse | Nombre d'adresses |
-|---|---|
-| 1 | 682 |
-| 2 | 54 |
-| 3 | 13 |
-| plus de 3 | **8** |
-
-758 adresses distinctes en sept jours, et une limite de trois en aurait touché huit. L'afflux, lui, était à 181.
-
-Pour refaire la mesure sur votre propre station, appariez les identifiants de session par adresse dans `logs/users_*.jsonl` et prenez le recouvrement maximal. Notez que le journal enregistre des événements `tune` et `disconnect` mais n'a pas d'événement `connect` : le début d'une session doit donc être déduit de son premier `tune`.
+## 8. Choisir vos nombres
 
 **N'oubliez pas le NAT.** Un club, une école, un bureau ou un opérateur mobile apparaissent comme une adresse unique, et tous ceux qui sont derrière partagent un même quota. C'est inhérent à toute limite indexée sur une adresse ; la seule atténuation est de choisir un nombre qui vous convienne. Si un auditeur signale un jour ne pas pouvoir se connecter, c'est la première chose à soupçonner — regardez `grep Refused` avant toute autre chose.
 
 ---
 
-## 10. Pièges à connaître
+## 9. Pièges à connaître
 
 ### Jamais de délai sur une connexion inactive
 
@@ -304,7 +254,7 @@ sudo ./setup-firewall.sh --status | grep -c dport   # doit donner 8, pas 16
 
 ---
 
-## 11. Tout désactiver
+## 10. Tout désactiver
 
 Les limites du serveur : mettez les clés à `0`, ou effacez-les de votre `.toml`, puis redémarrez le récepteur. Il n'y a pas d'autre état ; rien ne survit à un redémarrage.
 

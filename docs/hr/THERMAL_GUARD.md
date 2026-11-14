@@ -39,12 +39,6 @@ Svake 2 sekunde čuvar čita temperaturu jezgre procesora i uspoređuje je s če
                dnevniku   takta         stop skripte  ostaje ugašen  start skripte
 ```
 
-Dvije projektne odluke čine ga upotrebljivim na stroju *bilo kojeg* sysopa, i vrijedi ih razumjeti prije nego se na njega oslonite:
-
-**Nikad ne pita kako pokrećete poslužitelj.** systemd, watchdog petlja, cron, tmux, obična ljuska — čuvar to ne zna i nije ga briga. Umjesto toga, dok je stroj pregrijan, drži **lockout**: ponavlja naredbu zaustavljanja u *svakom* ciklusu. Ako vaš watchdog ponovno pokrene poslužitelj, čuvar ga zaustavi unutar dvije sekunde. Što god ga pokušava održati na životu, gubi — dok se procesor ne ohladi. Upravo to ga čini univerzalnim, i testirano je protiv stvarnog watchdoga.
-
-**Nikad ne ugrađuje fiksnu temperaturu.** „Zaustavi na 95 °C“ loše je pravilo: na Intelu s Tjmax 100 to je gotovo normalno opterećenje, na Ryzenu je *ispod* mjesta na kojem Tctl po dizajnu stoji pod boostom, a na Raspberry Piju je nedostižno jer se SoC sam ograničava na 80. Zato čuvar čita kritični prag koji objavljuje vaša vlastita jezgra sustava (`tempN_crit`) i računa unatrag. Isti kod, razumne brojke posvuda.
-
 ---
 
 ## 2. Brzi početak
@@ -86,10 +80,6 @@ Ako `sensor` kaže `NONE`, stanite ovdje i pročitajte [Rješavanje problema](#1
 | `cpu_thermal`, `soc_thermal` | Raspberry Pi, ARM pločice |
 | Toplinska zona `x86_pkg_temp` | rezerva na x86 |
 
-`acpitz` i neoznačene toplinske zone **namjerno** su isključeni. Na tipičnom stolnom računalu `acpitz` pokazuje oko 28 °C dok je paket procesora na 59 °C — čuvar koji bi mu vjerovao jednostavno se nikad ne bi oglasio. Prijaviti „isključeno, nema pouzdanog senzora“ poštenije je nego glumiti zaštitu.
-
-`psutil` se koristi ako je slučajno instaliran, ali nikad nije nužan. Čuvar koristi isključivo standardnu biblioteku.
-
 ### Pragovi
 
 Svaki je odmak ispod kritičnog praga koji stroj sam objavljuje:
@@ -118,8 +108,6 @@ Ništa se ne događa na temelju jednog vrućeg očitanja. Prag mora biti zadrža
 - **warn** i **throttle**: 30 s (`thermal_warn_sustain_s`)
 - **stop**: 60 s (`thermal_sustain_s`)
 - **resume**: 300 s ispod praga povratka prije ponovnog pokretanja (`thermal_resume_s`)
-
-Vršak pri prevođenju, nalet dekodiranja, ventilator koji ubrzava — sve je predugo kratko da bi se računalo. Jedno očitanje ispod praga vraća sat na nulu. Uz to, nakon pokretanja čuvar traži 3 uzastopna valjana očitanja prije nego uopće nešto poduzme, i odbacuje svaku vrijednost izvan 20–125 °C kao grešku senzora, a ne kao temperaturu.
 
 ---
 
@@ -208,8 +196,6 @@ Lepršanje sprječava `thermal_max_stops_hour` (zadano 2). Nakon dva toplinska z
 | Granično hlađenje, ne smijete gubiti slušatelje | `throttle`, pa dalje na `stop+restart` |
 | Stroj bez pouzdanog senzora procesora | nijedan neće raditi — prvo riješite senzor |
 
-Za većinu sysopa odgovor je `stop+restart`, a pošten sažetak ostalih glasi: `log` ne štiti ništa, a `throttle` štiti malo.
-
 ---
 
 ## 6. Referenca postavki
@@ -292,18 +278,6 @@ Po zadanome `python3 thermal_guard.py --once` javlja:
 cpufreq    : not writable — throttle stage disabled
 ```
 
-To je normalno i nije greška. Jezgra sustava stvara
-
-```
-/sys/devices/system/cpu/cpuN/cpufreq/scaling_max_freq
-```
-
-u vlasništvu `root:root`, s pravima `0644`. Administratorska ploča koja radi kao običan korisnik tamo ne može pisati, pa čuvar preskače throttle fazu i to kaže u dnevniku umjesto da tiho zakaže.
-
-**Pogrešno rješenje** je pokretati čuvara kao root. On pokreće i vaše start i stop skripte, a one trebaju ostati bez povlastica.
-
-**Ispravno rješenje** je dati pravo pisanja upravo tim datotekama posebnoj grupi. Jedna skripta to obavlja:
-
 ```
 cd ~/PhantomSDR-Plus
 ./setup-cpufreq-perms.sh
@@ -326,7 +300,7 @@ id | grep cpufreq
 sudo systemctl restart phantomsdr-admin
 #    (ovako odjava nije potrebna — systemd iznova gradi popis grupa pri
 #     svakom pokretanju. Samo ako jedinice NISU instalirane:
-#     ./manage_admin.sh stop && ./manage_admin.sh start — nikad oboje, bore se za port 3000)
+#     ./manage_admin.sh stop && ./manage_admin.sh start — nikad oboje, bore se za port 9010)
 
 # 3. potvrdite
 python3 thermal_guard.py --once
@@ -347,13 +321,7 @@ Za potpuno poništavanje: `sudo ./setup-cpufreq-perms.sh --revoke`.
 
 Najčešće pitanje o čuvaru: *što se događa kad nitko ne gleda?* Kratak odgovor: upravo je za taj slučaj i napravljen.
 
-**Ne treba mu otvoren preglednik.** Čuvar je pozadinska nit unutar `admin_server.py`, taktirana uzorkivačem grafova svake 2 sekunde. Radi bez obzira je li itko prijavljen u ploču, je li preglednik otvoren i jeste li budni. U samostalnom načinu on je systemd usluga, dakle još neovisniji. Kartica na nadzornoj ploči *prozor* je prema čuvaru, a ne sam čuvar.
-
 **Djeluje bez pitanja.** Nema dijaloga za potvrdu ni obavijesti koju treba čekati. Na pragu zaustavljanja zaustavlja poslužitelj, i točka. Upravo je to smisao.
-
-**Ali samo ako ste mu dali dopuštenje.** U načinu `log` vjerno će zabilježiti stroj koji se kuha i neće poduzeti ništa. Ako ovaj odjeljak čitate zato što *„nisam tu da to nadzirem“*, način koji želite je `stop+restart` — jedini koji i štiti stroj i vraća uslugu bez vas.
-
-**Pomaže samo dok je ploča živa.** Čuvar je dio `admin_server.py`: ploča koja je pala u 02:00 odnosi zaštitu sa sobom, a nakon ponovnog pokretanja sustava stroj ostaje nezaštićen dok se ne prijavite i ponovno je pokrenete. Ako nitko ne gleda, neka gleda systemd: repozitorij donosi `phantomsdr-admin.service` i `phantomsdr-proxy.service`, koji se pokreću pri dizanju sustava i ponovno pokreću ploču u roku od pet sekundi nakon pada. Vidi [ADMIN_PANEL_SETUP.md](ADMIN_PANEL_SETUP.md). Za prijamnik bez nadzora ovo se **snažno preporučuje** — uključiti `stop+restart` bez toga štiti vas samo do sljedećeg dizanja sustava.
 
 **Kako ćete saznati poslije.** Otprilike po korisnosti:
 
@@ -365,20 +333,6 @@ Najčešće pitanje o čuvaru: *što se događa kad nitko ne gleda?* Kratak odgo
 | `journalctl -u thermal-guard` | Samo u samostalnom načinu. |
 
 Razumna rutina za lokaciju bez nadzora: naoružan `stop+restart` i `grep THERMAL crash.log` kad se ionako prijavite. Ako je prazno, nema se što doznati.
-
-**Primjer do kraja.** Kvar ventilatora u 03:00 na stroju u načinu `stop+restart`:
-
-```
-03:14  temperatura prelazi 88 °C, drži 30 s      →  zabilježeno upozorenje
-03:16  prelazi 92 °C, drži 30 s                  →  primijenjen throttle (ako je dopušten)
-03:19  prelazi 95 °C, drži 60 s                  →  STOP — stop skripta, lockout uključen
-03:19  watchdog ponovno pokreće poslužitelj      →  čuvar ga opet zaustavlja i bilježi
-03:26  procesor je 5 minuta ispod 75 °C          →  lockout otpušten, start skripta
-03:41  pregrije se i stane drugi put             →  ograničenje dosegnuto, nema više pokretanja
-                                                     poslužitelj ostaje ugašen, zaštita ostaje
-```
-
-Budite se uz ugašen WebSDR, `crash.log` koji točno kaže zašto i — što je najvažnije — procesor koji se nikad nije približio svojoj kritičnoj točki.
 
 ---
 
@@ -433,8 +387,6 @@ Reci su namjerno jednoretčani i prikladni za grep. Što ćete vidjeti:
 
 ## 12. Lockout i ograničenje broja zaustavljanja
 
-Ova dva ponašanja najviše iznenađuju, pa ih vrijedi jasno izreći.
-
 **Lockout** je ono što čini da čuvar djeluje upravo protiv *vaše* postave. Kad zaustavi poslužitelj, ne šalje samo jednu naredbu i nada se. Označi se zaključanim i u svakom ciklusu od 2 sekunde, dok je temperatura iznad praga povratka, provjerava je li se proces vratio — i ako jest, opet ga zaustavlja. Vaš watchdog, systemdov `Restart=always`, cron posao, nestrpljiv sysop: svi gube tu raspravu dok se procesor ne ohladi. Otpušta se sam čim temperatura ostane ispod praga povratka `thermal_resume_s` (zadano 5 minuta).
 
 **Gumb CLEAR LOCKOUT** na kartici nadzorne ploče otpušta lockout *i* brojač zaustavljanja po satu, za slučaj kad ste popravili hlađenje i ne želite čekati. **Ne** razoružava čuvara: ako je stroj još vruć, sljedeća provjera opet će zaustaviti poslužitelj. To je namjerno.
@@ -477,8 +429,6 @@ Ne — u načinu s pločom čuvar živi unutar `admin_server.py`. Želite li za�
 - **Potpuno isključivanje:** postavite `thermal_enabled` na `false`.
 - **Samostalno:** `sudo systemctl disable --now thermal-guard`.
 - **Poništavanje cpufreq prava:** `sudo ./setup-cpufreq-perms.sh --revoke`.
-
-Brisanje `thermal_guard.py` također je sigurno — `admin_server.py` uvozi ga unutar `try` i jednostavno prijavi čuvara kao nedostupnog ako ga nema.
 
 ---
 

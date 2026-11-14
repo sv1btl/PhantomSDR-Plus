@@ -12,8 +12,6 @@ El segundo receptor puede ser otro PhantomSDR-Plus, un KiwiSDR, un UberSDR o un 
 
 Aquí diversidad significa **selección**: en cada instante está escuchando a uno u otro emplazamiento, con un breve fundido al cambiar. No es una agrupación en fase y no suma las dos señales.
 
-Es una decisión deliberada, y la razón es física, no de software. Dos receptores separados cientos de kilómetros oyen la misma emisión por caminos ionosféricos distintos. Las dos formas de onda llegan con fase no relacionada y un Doppler ligeramente distinto, así que sumarlas suena hueco y con filtrado de peine — el clásico efecto «phasey». La combinación coherente real exige dos receptores con un **reloj común**, alineados muestra a muestra; dos receptores independientes a través de internet nunca pueden ofrecer eso.
-
 Lo que se gana, por tanto, es **continuidad, no intensidad de señal**:
 
 - En un camino estable donde un receptor es simplemente mejor, oirá ese receptor y no ganará nada. Es lo normal.
@@ -40,7 +38,7 @@ Esa es toda la configuración. No hay nada que ajustar en el otro receptor ni un
 
 | Segundo receptor | Qué escribir | Notas |
 |---|---|---|
-| PhantomSDR+ | `host:8900` | El puerto normal del receptor |
+| PhantomSDR+ | `host:9000` | El puerto normal del receptor |
 | KiwiSDR | `host:8073` | El puerto propio del KiwiSDR |
 | UberSDR | `host` | Su **puerto web normal**, no el 8073 |
 | WebSDR | `host:8901` | El puerto propio de la estación. Necesita el relé — véase abajo |
@@ -76,8 +74,6 @@ La lista guardada pertenece a un navegador, así que un teléfono empieza con un
 
 Un WebSDR — el software de Pieter-Tjerk de Boer, PA3FWM, que funciona en Twente y en varios cientos de estaciones más — puede usarse como segundo receptor, pero no directamente desde el navegador.
 
-El motivo es una comprobación deliberada por su parte. Un WebSDR rechaza la conexión de audio si la cabecera `Origin` no nombra su propio sitio, y `Origin` es un *nombre de cabecera prohibido*: el navegador la fija a partir de la página en la que está y ningún script puede cambiarla. No hay forma de sortearlo desde el cliente, ni debería haberla.
-
 Por eso la conexión la realiza un pequeño programa en su propio servidor, `websdr_relay.py`. Su navegador habla con el relé, y el relé habla con el WebSDR.
 
 ### Instalar el relé
@@ -91,7 +87,7 @@ cd ~/PhantomSDR-Plus
 
 En una estación configurada con las preguntas de la estación (`configure-station.sh`) detecta que la estación está detrás del proxy: el relé escucha entonces solo en este ordenador y se alcanza como `/relay` en su dirección pública, así que no pide puerto. En una estación más antigua pide uno. En ambos casos toma su indicativo y la dirección de su estación de `frontend/site_information.json` y ofrece instalar un servicio systemd para que el relé arranque con el sistema. Los ajustes están en `websdr_relay.json` y pueden cambiarse en cualquier momento. Responder sí a la pregunta del relé en `bash configure-station.sh` también lo instala y lo pone en marcha.
 
-**Puerto del router.** Detrás del proxy no hay ninguno que abrir: la página llega al relé como `/relay` a través de la dirección que los oyentes ya usan, tanto por http como por https. Solo una estación más antigua, configurada antes de las preguntas de la estación, ejecuta el relé en un puerto propio; los navegadores de los oyentes se conectan entonces directamente a él, así que ese puerto debe abrirse en su router, o la diversidad con WebSDR solo funciona dentro de su propia red. Los otros tres tipos de receptor no necesitan el relé — salvo desde una página servida por https, donde también transporta socios PhantomSDR+ y KiwiSDR que solo tienen http (vea más arriba).
+**Puerto del router.** Detrás del proxy no hay ninguno que abrir: la página llega al relé como `/relay` a través de la dirección que los oyentes ya usan, tanto por http como por https. Los otros tres tipos de receptor no necesitan el relé — salvo desde una página servida por https, donde también transporta socios PhantomSDR+ y KiwiSDR que solo tienen http (vea más arriba).
 
 Si el panel de administración está instalado, su dashboard muestra una tarjeta **WebSDR Diversity Relay** con el estado, el puerto y cuántas sesiones hay en curso y hacia qué estaciones. Encima, una tarjeta **Receive Diversity** lista cada oyente que combina su receptor con otro — de cualquier tipo, no solo WebSDR — con el receptor, su nombre y ciudad, la frecuencia y el modo, y el tipo y la dirección del socio.
 
@@ -103,9 +99,6 @@ El relé se conecta a receptores ajenos desde su servidor y no desde la direcci�
 - **Un `User-Agent` que nombra su estación y a su operador**, para que quien prefiera no ser usado así sepa exactamente a quién escribir. Rellénelo con honestidad.
 - **Solo se reenvían órdenes de sintonía.** La conexión no puede usarse para enviar nada más.
 - **Se rechazan las direcciones privadas, de loopback y de NAT de operador**, de modo que ningún visitante pueda apuntar el relé a algo dentro de su máquina o de su LAN.
-
-> [!IMPORTANT]
-> La comprobación de `Origin` existe porque los autores de WebSDR no querían que sus receptores se manejaran desde páginas ajenas. Usar el relé es una decisión meditada, no un descuido suyo. Deje el límite donde está, mantenga el User-Agent honesto y deténgase si un operador se lo pide.
 
 ### Qué cambia con un WebSDR
 
@@ -147,19 +140,11 @@ El punto de color añade a qué emplazamiento está escuchando realmente — ver
 
 Es normal. Los dos flujos se alinean correlando sus **envolventes de audio**, y eso necesita una ventana de audio. La búsqueda se hace en dos etapas: una búsqueda estrecha de ±1,5 segundos puede empezar en cuanto se han reunido unos 9 segundos de sonido, y una segunda medición independiente, cinco segundos más tarde, debe **coincidir** con la primera antes de dar la alineación por buena. Cuando las dos estaciones están más separadas en el tiempo que eso — uno o dos segundos de almacenamiento adicional en algún punto del camino — toma el relevo la búsqueda completa de ±4 segundos, a los 14 segundos, y la confirmación llega a los 19.
 
-Ese paso de confirmación importa. Cuando dos emplazamientos se desvanecen en antifase — sin llevar nunca la señal a la vez —, una sola correlación engancha tan campante un retardo rotundamente equivocado, que suena a eco. Exigir dos mediciones independientes que coincidan lo descarta.
-
-Una segunda cosa debe ser correcta antes de que un enganche se sostenga: las velocidades de muestreo de los dos receptores. Dos receptores son dos relojes y dos cadenas de diezmado, así que sus flujos de audio **no** llegan exactamente a la misma velocidad aunque ambos declaren 12 kHz — un 2% de diferencia es normal, es decir 240 muestras por segundo de deriva, muy por encima de la tolerancia de alineación. Por eso el flujo remoto se remuestrea continuamente para igualar la velocidad de su propio receptor. Esa relación se mide **contando muestras**, no correlando, así que no necesita enganche propio y queda establecida en los primeros segundos — antes incluso de que se ejecute la primera búsqueda de alineación. Una señal débil o intermitente puede necesitar dos o tres intentos, así que 30 segundos no son motivo de preocupación; un minuto sin nada sí lo es.
-
-Mientras dura la búsqueda, la diversidad no la espera. Los dos flujos se emparejan según cuándo llega su audio —o según el último retardo encontrado— y el mejor sitio se elige por SNR como siempre; la corrección de tasa, el ajuste de nivel y el ajuste de SNR siguen actuando. Así pasa también una estación que **solo** oye el receptor remoto: el caso en que la diversidad más ayuda y en que no hay alineación posible. El panel muestra entonces `Ready (unaligned)` y la fila **aligned** dice `by arrival, searching`. Mientras ambos sitios oyen la estación pero aún no están alineados, un cambio entre ellos puede repetir u omitir hasta el retardo real entre ambos, normalmente menos de 1,5 s; en cuanto la búsqueda se fija, pasa al retardo exacto.
-
 ---
 
 ## Remote SNR trim
 
 Este deslizador sesga la elección entre los dos emplazamientos. Se suma al SNR medido del receptor remoto antes de la comparación — positivo favorece al remoto, negativo al suyo. No cambia **nada más**: ni el nivel de audio ni la combinación, solo qué emplazamiento gana.
-
-Existe porque las dos cifras de SNR no siempre son comparables. Ambas se miden igual — como recorrido entre percentiles del audio —, pero un receptor cuyo códec eleva su propio suelo de ruido marca menos de lo que merece. Un KiwiSDR aplica mucha ganancia y un limitador, lo que comprime el recorrido; un códec con pérdidas fija un suelo de ruido por debajo del cual la señal nunca baja.
 
 **Cómo ajustarlo:**
 
@@ -220,4 +205,4 @@ El ajuste se aplica al momento y se recuerda en su navegador.
 - **Solo dos receptores.**
 - **Mono.** Si su receptor está en un modo estéreo como C-QUAM, el audio pasa intacto y la diversidad no entra en juego.
 - **La alineación necesita señal.** Por debajo de unos 10 dB de SNR en uno de los dos emplazamientos, espere que se quede en `searching`.
-- **Un WebSDR necesita el relé** en su propio servidor, con su puerto redirigido. Los otros tres tipos de receptor no necesitan ninguna de las dos cosas.
+- **Un WebSDR necesita el relé** en su propio servidor; el proxy lo lleva por el puerto público, así que no se abre nada más en el router. Los otros tres tipos de receptor no lo necesitan.

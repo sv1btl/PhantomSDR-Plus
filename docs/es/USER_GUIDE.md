@@ -16,9 +16,7 @@
 8. [Atajos de teclado](#atajos-de-teclado)
 9. [Marcadores](#marcadores)
 10. [Uso en móviles](#uso-en-móviles)
-11. [Consejos y buenas prácticas](#consejos-y-buenas-prácticas)
-12. [Resolución de problemas](#resolución-de-problemas)
-13. [Preguntas frecuentes](#preguntas-frecuentes)
+11. [Resolución de problemas](#resolución-de-problemas)
 
 ---
 
@@ -55,7 +53,7 @@ Según la configuración del WebSDR, podrá sintonizar:
 
 Abra su navegador y vaya a la dirección del WebSDR que le haya facilitado el operador.
 
-Ejemplo: `http://websdr.example.com:9002`
+Ejemplo: `http://websdr.example.com:9000`
 
 ### 2. Carga inicial de la página
 
@@ -424,8 +422,6 @@ El audio llega al navegador en pequeños paquetes, de 35 ms cada uno en un recep
 - **Escritorio**: en el panel Audio & Buffer, el botón con el icono de red sube el búfer un paso por clic (se pone verde por encima del paso más bajo), y el control deslizante de al lado elige directamente un paso del 1 al 6. El paso más bajo va bien con una conexión por cable; los teléfonos empiezan en el paso 2.
 - **/mobile**: el botón **BUF** y el control **Buffer** de la pestaña Audio hacen lo mismo.
 
-El búfer se ajusta solo. La página mide lo irregular que es la entrega del audio en su conexión y guarda solo la reserva que el último minuto demostró necesaria, más el margen de seguridad del paso elegido: 20 ms en el paso 1, 50 ms en el paso 2 y más en los pasos superiores. Tras un momento de problemas de red, el retardo extra se vuelve a absorber en uno o dos minutos, y una pequeña diferencia entre el reloj de su tarjeta de sonido y el del receptor ya no provoca un corte cada pocos minutos. Los ajustes son de unos pocos milisegundos cada vez, se hacen donde el sonido se repite y no se oyen. Los decodificadores y sus grabaciones nunca se ven afectados: reciben todas las muestras.
-
 Si el audio se corta, suba el búfer un paso. En un teléfono con Wi-Fi doméstico el retardo del receptor al altavoz suele ser de unos 100–150 ms; la red entre usted y el receptor se suma a eso.
 
 ### Su nombre o indicativo
@@ -505,18 +501,6 @@ La aplicación, sus instaladores y su manual completo están en [Desktop Phantom
 
 El manual completo — cada ajuste, los equipos admitidos, cómo se evita que los dos lados se peleen y la solución de problemas — es **[Control del transceptor](RIG_CONTROL.md)**.
 
-**Para desarrolladores.** Cada página de receptor ofrece estas funciones en `window`, que son las que usan ambas herramientas:
-
-| Función | Qué hace |
-|---|---|
-| `catsync_getFrequency()` / `catsync_setFrequency(hz)` | Frecuencia sintonizada, en Hz |
-| `catsync_getMode()` / `catsync_setMode(mode)` | `USB`, `LSB`, `CW`, `CW-L`, `AM`, `FM`, `WBFM` … |
-| `catsync_getBandwidth()` / `catsync_setBandwidth(hz)` | Ancho total de la banda de paso, en Hz. Fíjelo después del modo: cambiar de modo restablece la banda de paso |
-| `catsync_getMute()` / `catsync_setMute(on)` | Silencio, mediante el propio botón de silencio de la página |
-| `catsync_ready` | `true` en cuanto las funciones están instaladas |
-
-Las tres últimas filas son nuevas en la 4.1.0; compruebe que una función existe antes de llamarla.
-
 ---
 
 ## Modos de demodulación
@@ -528,16 +512,6 @@ Las tres últimas filas son nuevas en la 4.1.0; compruebe que una función exist
 - radiodifusión en AM
 - parte de la radioafición
 - comunicaciones marítimas
-
-**Características:**
-- ancho de banda amplio (normalmente 10 kHz)
-- sensible al ruido
-- fácil de sintonizar (basta con hacer clic en la señal)
-
-**Buenas prácticas:**
-- use AGC rápido
-- active el supresor de impulsos si oye chasquidos
-- sintonice el pico de la señal en la cascada
 
 ### QUAM (AM estéreo C-QUAM)
 
@@ -563,32 +537,12 @@ Las tres últimas filas son nuevas en la 4.1.0; compruebe que una función exist
 - radio comercial bidireccional
 - algunas comunicaciones por satélite
 
-**Características:**
-- ancho de banda estrecho (normalmente 12,5 o 25 kHz)
-- excelente inmunidad al ruido
-- «efecto captura» (gana la señal más fuerte)
-
-**Buenas prácticas:**
-- sintonice con precisión el centro de la señal
-- use el silenciador para enmudecer en reposo
-- desactive la reducción de ruido (no hace falta)
-
 ### USB (banda lateral superior)
 
 **Se usa para:**
 - radioafición en HF (por encima de 10 MHz)
 - la mayoría de los modos digitales de HF
 - comunicaciones marítimas (por encima de 8 MHz)
-
-**Características:**
-- ancho de banda estrecho (normalmente 2.4 kHz)
-- uso eficiente del espectro
-- exige sintonía precisa
-
-**Buenas prácticas:**
-- use AGC lento
-- sintonice el borde inferior de la señal en la cascada
-- active la reducción de ruido si hace falta
 
 ### LSB (banda lateral inferior)
 
@@ -597,31 +551,12 @@ Las tres últimas filas son nuevas en la 4.1.0; compruebe que una función exist
 - algunos modos digitales de HF
 - comunicaciones marítimas (por debajo de 8 MHz)
 
-**Características:**
-- igual que USB pero en imagen especular
-- convención: LSB en las bandas bajas de HF
-
-**Buenas prácticas:**
-- use AGC lento
-- sintonice el borde superior de la señal en la cascada
-- active la reducción de ruido si hace falta
-
 ### CW (onda continua / código Morse)
 
 **Se usa para:**
 - telegrafía de radioaficionados
 - radiobalizas de navegación
 - estaciones de señales horarias
-
-**Características:**
-- ancho de banda muy estrecho (100-500 Hz)
-- gran eficiencia
-- requiere conocer el código Morse para entenderlo
-
-**Buenas prácticas:**
-- use un filtro estrecho (400-500 Hz)
-- sintonice con precisión el centro del tono
-- active el filtro de audio para obtener mejor tono
 
 ### CW-L (CW, banda lateral inferior)
 
@@ -636,16 +571,6 @@ También funcionan los enlaces escritos para KiwiSDR o UberSDR: `modulation=CWU`
 **Se usa para:**
 - radiodifusión en FM (88-108 MHz)
 - algunos enlaces descendentes de satélite
-
-**Características:**
-- ancho de banda muy amplio (200 kHz)
-- excelente calidad de audio
-- alta fidelidad
-
-**Buenas prácticas:**
-- sintonice exactamente la frecuencia central
-- no hace falta silenciador para la radiodifusión
-- ¡disfrute de un audio de gran calidad!
 
 ### IQ (I/Q en bruto)
 
@@ -668,13 +593,6 @@ También funcionan los enlaces escritos para KiwiSDR o UberSDR: `modulation=CWU`
 
 Donde la estación lo ofrece, el panel IQ Demodulators tiene **Width: 12 kHz · 24 kHz · 48 kHz**. 24 kHz abarca los modos anchos de DRM o una emisora con sus dos vecinas, 48 kHz todo un grupo de emisoras de radiodifusión o un segmento de CW/digitales. La banda de paso en la cascada y la imagen del panel siguen el ancho, la grabación se hace con él (un WAV a 24 o 48 kHz) y su navegador recuerda la elección. Un IQ más ancho cuesta a la estación más subida — unos 0,7 Mbit/s por oyente a 24 kHz y 1,4 Mbit/s a 48 kHz, frente a 0,35 a 12 kHz —, así que la estación decide cuántos oyentes pueden tenerlo a la vez; cuando todas las plazas están ocupadas sigue en 12 kHz (el panel lo indica) y la página vuelve a pedirlo cada 30 segundos. Para Dream u otro programa en un cable virtual a 48 kHz, ponga también el cable a 48 kHz. Los clientes KiwiSDR reciben siempre 12 kHz.
 
-**Para el sysop:** dos líneas bajo `[server]` en la configuración del receptor lo activan, para cualquier receptor; reinicie después ese receptor. Los mismos ajustes están en el panel de administración, en **Receivers → ✎ CHANGE SETTINGS**, que además reinicia el receptor.
-
-```
-iq_wide=48            # 12 (desactivado, por defecto), 24 o 48 kHz
-iq_wide_listeners=4   # oyentes con IQ ancho a la vez, 0 = sin límite
-```
-
 #### Demoduladores IQ
 
 Mientras el receptor está en IQ, bajo los decodificadores se abre un panel **IQ Demodulators**. Ejecuta hasta seis receptores sobre el I/Q en su navegador — el receptor no se resintoniza y el ordenador de la estación no trabaja más:
@@ -696,138 +614,6 @@ PhantomSDR-Plus incluye decodificadores integrados para modos digitales. Para un
 La vía más rápida es la fila de botones **Decoders** del panel principal, justo debajo de **Wheel Tuning Steps**: diez botones — **FT8, FT4, FT2, JS8, CW, WSPR, FAX, SSTV, NAVTX, FLDIGI** — que, con una sola pulsación, activan su decodificador, ponen en ON el interruptor principal Decoder y desplazan la ventana del decodificador hasta hacerla visible. El botón permanece azul mientras el decodificador funciona; púlselo de nuevo para detenerlo y cerrar su ventana. El desplegable **Decoder Options** sigue funcionando igual que antes y se mantiene sincronizado con los botones.
 
 **RADE-v2U**, **RADE-v1L** y **RADE-v1U** (voz digital RADE) tienen sus propios botones junto al encabezado **Modes** y dentro de las ventanas emergentes **Modes** y **Bands**, y funcionan del mismo modo: pulsar para iniciar, volver a pulsar para detener. **RADE-v2U** inicia RADE V2 (beta), siempre en USB; **RADE-v1L** y **RADE-v1U** inician RADE v1.
-
-Los decodificadores de SSTV, FAX de HF, NAVTEX, FSK/RTTY y CW se ejecutan cada uno en su propio hilo en segundo plano, de modo que activar o desactivar un decodificador nunca interrumpe el audio y la cascada sigue fluida mientras se decodifica. Reciben audio tomado antes de la reducción de ruido y el silenciado de su navegador: puede silenciar el receptor y la decodificación continúa sin verse afectada. Mientras haya un decodificador abierto, el AGC se mantiene en Slow para que la ganancia sea estable para él.
-
-**Mientras un decodificador está en marcha, retiene el modo y el paso de banda.** Normalmente el modo sigue el plan de bandas: sintonice un segmento marcado LSB o AM y el receptor cambia. Un decodificador en marcha manda por encima de eso y conserva el modo y el paso de banda estrecho que necesita, aunque se vaya a otra banda. El modo propio de la banda vuelve en cuanto apaga el decodificador, y los botones de modo funcionan en todo momento si quiere tomar el mando. El decodificador de CW es la excepción: decodifica en el modo en que usted esté escuchando.
-
-### Decodificador FT8, FT4
-
-**¿Qué son FT8 y FT4?**
-- modos digitales muy populares en radioafición
-- comunicación con señales débiles
-- transmisiones de 15 segundos en FT8 y de 7,5 segundos en FT4
-
-**Cómo se usa:**
-1. Sintonice frecuencias de FT8 o FT4
-2. Seleccione el modo USB
-3. Active el decodificador FT8: pulse el botón **FT8** o selecciónelo desde el menú
-4. Observe cómo aparecen los mensajes decodificados
-
-**Frecuencias habituales de FT8 (USB):**
-- 160 metros: 1.840 MHz
-- 80 metros: 3.573 MHz
-- 60 metros: 5.357 MHz
-- 40 metros: 7.074 MHz
-- 30 metros: 10.136 MHz
-- 20 metros: 14.074 MHz
-- 17 metros: 18.100 MHz
-- 15 metros: 21.074 MHz
-- 12 metros: 24.915 MHz
-- 10 metros: 28.074 MHz
-- 6 metros: 50.313 MHz (50.323 MHz para DX)
-
-**Frecuencias habituales de FT4 (USB):**
-
-- 80 m: 3.575 MHz
-- 40 m: 7.0475 MHz
-- 30 m: 10.140 MHz
-- 20 m: 14.080 MHz
-- 17 m: 18.104 MHz
-- 15 m: 21.140 MHz
-- 12 m: 24.919 MHz
-- 10 m: 28.180 MHz
-- 6 m: 50.318 MHz
-
----
-
-### Decodificador JS8
-
-**¿Qué es JS8?**
-- El motor de señal débil de FT8 usado para conversación de teclado a teclado
-- Texto libre en vez de intercambios fijos: los mensajes largos llegan en varios ciclos
-- Cinco velocidades; **Normal** (15 s) es la de llamada y concentra casi todo el tráfico
-
-**Cómo usarlo:**
-1. Sintonice una frecuencia de JS8
-2. Seleccione modo **USB**
-3. Active el decodificador JS8 — botón **JS8** o desde el menú
-4. Deje **Speed** en *Normal* y el sync offset en **Auto**
-
-**Cómo leer el panel:**
-- Los mensajes que aún llegan se muestran arriba en verde con un cursor parpadeante — en Normal un mensaje puede tardar un minuto entero
-- Los completos se listan debajo como `Mode | Hz | dB | Message`, con **los indicativos en verde**
-- Una fila atenuada y en cursiva expiró antes de su última trama: el texto es real pero puede estar cortado
-
-**Frecuencias JS8 habituales (USB):**
-
-- 160m: 1.842 MHz
-- 80m: 3.578 MHz
-- 40m: 7.078 MHz
-- 30m: 10.130 MHz
-- 20m: 14.078 MHz
-- 17m: 18.104 MHz
-- 15m: 21.078 MHz
-- 12m: 24.922 MHz
-- 10m: 28.078 MHz
-
-JS8 es mucho más tranquilo que FT8: una transmisión cada pocos minutos es normal y los silencios no son un fallo. Guía completa: [Decodificadores](DECODERS.md).
-
----
-
-### Decodificador de CW
-Basta con pulsar el botón CW y aparecerá el texto decodificado. Pulse el botón CW una vez más para limpiar la ventana y reiniciar el decodificador.
-
----
-
-### WSPR
-
-WSPR (Weak Signal Propagation Reporter, pronunciado «whisper») es un modo baliza de señales ultradébiles que cartografía las trayectorias de propagación en HF por todo el mundo. Cada transmisión dura unos 110 segundos y cabe en una ranura de 200 Hz de ancho. El decodificador espera a una ranura completa de 2 minutos alineada con UTC antes de decodificar. Active el decodificador y seleccione **WSPR** en la lista desplegable. O basta con pulsar el botón **WSPR**.
-
----
-
-### FAX de HF / WEFAX
-
-El radiofax de HF (también conocido como WEFAX) lo utilizan los servicios de guardacostas y meteorológicos de todo el mundo para difundir mapas del tiempo, cartas del estado del mar y análisis de superficie por onda corta. El decodificador reconstruye la imagen línea a línea a medida que se recibe.
-
----
-
-### NAVTEX
-
-NAVTEX es el sistema internacional de radiodifusión marítima de información de seguridad costera: avisos a la navegación, previsiones meteorológicas y avisos de búsqueda y rescate.
-
----
-
-### FLDIGI — ALE 2G, RTTY, PSK31, Olivia, FST4W, MFSK, MSK144, DominoEX, THOR, THROB, Hellschreiber, MT63, Packet y APRS
-
-Una ventana para los modos de teclado de banda estrecha que popularizó fldigi, con catorce variantes: RTTY de aficionado, **PSK31/63/125** (modulación por desplazamiento de fase, BPSK/QPSK, 31,25–125 baudios), **Olivia**, **Contestia** y **MFSK16/32/64** (multitono con corrección de errores), **DominoEX** y **THOR** (saltos incrementales de frecuencia, THOR con corrección de errores), **THROB**, **Hellschreiber** (pintado como imagen), **MT63** (64 portadoras), **Packet (AX.25)** y **APRS**. Se abre con el botón **FLDIGI** o con **FLDIGI** en el menú de decodificadores; no hace falta tener fldigi. El panel se adapta a la variante — los controles de shift, baudios y trama desaparecen en todas salvo el RTTY de aficionado, y los demás modos añaden un selector de Mode y, salvo Hellschreiber, un deslizador de squelch. Tres variantes listan lo que decodifican línea a línea en lugar de texto: **ALE 2G HAM**, justo antes de Packet en la lista (establecimiento de enlace en HF, MIL-STD-188-141, en los canales de aficionado de HFLINK), y **FST4W** y **MSK144**, los modos de WSJT-X para balizas de LF/MF y para meteor scatter. **PSK Browser**, el interruptor **Browser — all signals** bajo la lista **Mode** de PSK31, decodifica a la vez todas las señales BPSK31 de la banda de paso, una línea por señal; un clic en una línea sigue esa señal. Vea el [manual de decodificadores](DECODERS.md). **Browser — all signals** bajo la lista **Mode** de Olivia hace lo mismo para Olivia y Contestia, con la configuración elegida allí. El FSK marítimo (SITOR), el RTTY meteorológico y las redes ALE gubernamentales, militares y de servicios (**ALE 2G**) están en la ventana **SERVICES**, con los mismos decodificadores.
-
-**CW Browser:** active el interruptor **Browser — all signals** en la ventana CW para decodificar a la vez todas las señales CW en 200–3000 Hz, una línea por señal, con el indicativo de la estación y las llamadas CQ marcadas; mientras funciona, el receptor pasa a USB 200–3000 Hz.
-
-El RTTY de aficionados y el meteorológico tienen un control **Squelch (SNR)** que evita que el ruido se imprima como letras al azar, y todas las variantes salvo Olivia muestran una SNR real en la misma escala de 3 kHz. Dos cosas que conviene saber: PSK31 corrige por sí mismo su error de sintonía en unos ±25 Hz, así que basta con acercarse; Olivia necesita que **Mode** (tonos / ancho de banda) coincida exactamente con la transmisión, no envía preámbulo y por tanto tarda unos segundos en sincronizarse antes de que aparezca texto. El panel se abre en Olivia **8 / 250**. Para los demás modos de fldigi, ponga la señal en la frecuencia central o pulse **⟳ Auto-tune Center** y elija el **Mode** correcto: THROB necesita sintonía dentro de ±3 Hz, DominoEX, THOR y MT63 perdonan mucho más, y MFSK, THOR y MT63 imprimen unos segundos después de la señal. Hellschreiber muestra una imagen, no texto.
-
-**Packet** imprime cada trama AX.25 que oye, como un monitor de TNC; **APRS** convierte los paquetes APRS en texto llano — posición con localizador, velocidad, altitud, meteorología, mensajes, objetos y estado. Elija la **Speed**: **1200 Bd** para VHF/UHF, que pasa el receptor a **FM** sobre el canal (los 144,800 MHz de Europa están en la lista de frecuencias), o **300 Bd** para HF, en USB. Solo se imprimen los paquetes con la suma de comprobación correcta, así que en un canal tranquilo no aparece nada. Debajo del texto, un mapa muestra cada estación oída con posición, con recorridos para las que se mueven y su receptor en ámbar; se puede minimizar, y pulsar una línea decodificada acerca el mapa a esa estación. Véase el [manual de decodificadores](DECODERS.md#notas-sobre-packet-y-aprs).
-
----
-
-### Grabber QRSS
-
-QRSS es CW enviado tan despacio que un solo punto dura segundos, y se mira en lugar de escucharse: el grabber dibuja la traza en su propia presentación. No está en el desplegable de decodificadores; tiene su propia sección **QRSS** y puede funcionar a la vez que un decodificador.
-
-Pulse **🐌 Show**, elija después una ventana en la lista **Band** y pulse **Tune**: el receptor va a esa frecuencia en **CW** con un paso de banda a la medida del modo, y la traza cae sobre la línea central de la presentación. La ventana más concurrida es la de 30 m (10.140,00 kHz). Ajuste **Speed** a la baliza —**QRSS 10** si no lo sabe— y tenga paciencia: un indicativo puede tardar diez minutos en cruzar la pantalla. Todos los detalles en [Decodificadores](DECODERS.md).
-
----
-
-### SSTV
-
-La televisión de barrido lento envía imágenes fijas por un canal SSB normal, línea a línea. Active el decodificador, seleccione **SSTV** y sintonice una frecuencia de SSTV: 14.230 MHz es la principal frecuencia internacional de llamada. Deje **Mode** en **Auto**: el decodificador lee la cabecera VIS de la transmisión y, si sintonizó después de la cabecera, identifica el modo a partir de la temporización de sincronismo. Se admiten los modos Martin, Scottie y Robot, y la imagen se va formando línea a línea según llega. O basta con pulsar el botón **SSTV**.
-
-### Reporte automático de spots y gráficas del servidor
-
-Las decodificaciones de FT8, FT4 y WSPR también puede subirlas el propio servidor — FT8/FT4 a PSK Reporter y WSPR a WSPRnet — mediante un demonio autorun que el sysop inicia desde el panel de administración. Es independiente de los decodificadores de su navegador: sigue funcionando haya o no oyentes, y nada de lo que usted decodifique en el navegador se reporta. Allí el operador del sistema también decide en qué bandas, modos y horas UTC se reporta.
-
-El sysop lo sigue con dos contadores, fáciles de confundir entre sí: los paneles por decodificador cuentan los spots subidos desde el último arranque del demonio, mientras que el número junto a cada casilla de banda/modo es el total histórico de esa ranura y sobrevive a los reinicios. El mismo panel tiene una página **Gráficos** que representa la frecuencia de CPU, la carga, la temperatura y los usuarios conectados en los últimos 15 minutos a 24 horas. Ambos se describen en la [guía del panel de administración](ADMIN_PANEL_SETUP.md).
-
 
 ---
 
@@ -860,6 +646,7 @@ Los oyentes ciegos o con baja visión pueden usar PhantomSDR-Plus con un lector 
 Estos atajos funcionan en cualquier parte de la página, también mientras se escribe en un campo:
 
 - **Alt + Shift + F**: decir la frecuencia, el modo y el ancho de banda
+- **Alt + Ctrl**: abrir el teclado numérico de frecuencia (pulse las dos teclas a la vez y suéltelas)
 - **Alt + Shift + S**: decir la intensidad de la señal (unidades S y dBm) y la SNR
 - **Alt + Shift + R**: leer en voz alta el texto de los decodificadores, sí / no (FT8, FT4, FT2, JS8, WSPR, CW, NAVTEX, la ventana FLDIGI, HFDL, DSC, HF Selcall y ALE)
 - **Alt + Shift + C**: leer en voz alta los mensajes nuevos del chat, sí / no
@@ -942,76 +729,6 @@ Al cambiar entre las dos vistas su modo actual viaja con usted, pero si la vista
 
 Una frecuencia fuera de la cobertura del receptor se ajusta al extremo más cercano, de manera que un enlace antiguo nunca puede dejarle fuera de banda.
 
-### Funciones específicas para móviles
-
-- **Controles táctiles**: botones y deslizadores grandes
-- **Deslizar para sintonizar**: deslice a izquierda/derecha sobre la cascada
-- **Pellizcar para ampliar**: pellizque la cascada para acercar o alejar
-- **Modo horizontal**: gire el dispositivo para ver mejor
-- **Espectro y cascada a la medida del teléfono**: en la vista ampliada ambos son más altos de lo que darían las proporciones de escritorio
-
-### Consejos para móviles
-
-1. **Use wifi**: la transmisión de audio consume datos
-2. **Orientación horizontal**: mejor vista de la cascada
-3. **Auriculares**: mejor calidad de audio
-4. **Guarde sus favoritas como marcadores**: es más fácil volver a las emisoras
-5. **Cierre otras aplicaciones**: garantiza un funcionamiento fluido
-
-### Navegadores móviles recomendados
-
-- **Android**: Chrome o Samsung Internet
-- **iOS**: Mozilla
-- **Ambos**: asegúrese de que el navegador esté actualizado
-
----
-
-## Consejos y buenas prácticas
-
-### Para la mejor recepción
-
-1. **Elija señales fuertes**: busque el naranja/rojo en la cascada
-2. **Sintonice con precisión**: haga clic justo en el centro de la señal
-3. **Seleccione el modo correcto**: adecuado al tipo de señal
-4. **Ajuste el AGC**: rápido para AM, lento para SSB
-5. **Use NR/NB**: ayudan en condiciones ruidosas
-
-### Encontrar actividad
-
-1. **Observe la cascada**: los colores indican la intensidad de la señal
-2. **Escuche en frecuencias populares**:
-   - 40 m: 7.100-7.300 MHz (LSB)
-   - 20 m: 14.200-14.350 MHz (USB)
-   - 2 m: 145.200-145.600 MHz (FM)
-3. **Consulte la superposición del plan de bandas**: muestra las atribuciones de frecuencia
-4. **Use los marcadores**: acceso rápido a frecuencias activas
-
-### Entender las condiciones de propagación
-
-**HF de día:**
-- las bandas altas funcionan mejor (20 m, 15 m, 10 m)
-- es posible la comunicación a larga distancia (DX)
-- se oyen emisoras de radiodifusión
-
-**HF de noche:**
-- las bandas bajas funcionan mejor (80 m, 40 m)
-- pautas de propagación distintas
-- se oyen emisoras distintas
-
-**VHF/UHF:**
-- principalmente con visibilidad directa
-- comunicaciones locales
-- condiciones más constantes
-
-### Etiqueta
-
-1. **No monopolice el receptor**: otras personas también quieren escuchar
-2. **Use el chat con respeto**: sea cortés con los demás usuarios
-3. **Informe de los problemas**: ayude al operador a mantener la estación
-4. **No pida soporte técnico**: esta es una plataforma de escucha. Envíe un mensaje al SysOp si necesita ayuda.
-
----
-
 ## Resolución de problemas
 
 ### No hay audio
@@ -1077,198 +794,6 @@ Para verlo con detalle, abra la página añadiendo `?diag=1` a su dirección (po
 1. Compruebe la cobertura de frecuencias del SDR (indicada en la página)
 2. Use los ejemplos de formato de frecuencia facilitados
 3. Haga clic en la cascada en su lugar
-
-### Audio entrecortado
-
-**Posibles causas:**
-1. conexión a Internet lenta
-2. carga elevada del servidor
-3. problemas de rendimiento del navegador
-
-**Soluciones:**
-1. Cierre otras aplicaciones que consuman ancho de banda
-2. Inténtelo fuera de las horas punta
-3. Cierre las pestañas innecesarias
-4. Use conexión por cable en lugar de wifi
-
----
-
-## Preguntas frecuentes
-
-### Preguntas generales
-
-**P: ¿Necesito equipo especial para usar WebSDR?**
-R: ¡No! Solo un ordenador o dispositivo móvil con acceso a Internet.
-
-**P: ¿Es gratuito usar WebSDR?**
-R: Sí, la mayoría de los WebSDR son gratuitos. Los mantienen voluntarios.
-
-**P: ¿Puedo transmitir con WebSDR?**
-R: No, WebSDR es solo de recepción. No se puede transmitir.
-
-**P: ¿Qué frecuencias puedo escuchar?**
-R: Depende de la configuración del WebSDR. Consulte la información de la estación.
-
-**P: ¿Puedo grabar el audio?**
-R: Algunos navegadores permiten grabar. Compruebe las funciones de su navegador.
-
-### Preguntas técnicas
-
-**P: ¿Qué tasa de muestreo usa el SDR?**
-R: Varía según la estación. Consulte la página de información de la estación.
-
-**P: ¿Cuál es la latencia?**
-R: Normalmente unas décimas de segundo entre la señal de radio y sus altavoces: el procesado en el receptor, la red y el búfer de reproducción del navegador, que se ajusta a su conexión (unos 100–150 ms en un teléfono con Wi-Fi doméstico). Vea *Búfer de audio y retardo*.
-
-**P: ¿Puedo abrir varias instancias?**
-R: Normalmente sí, pero puede sobrecargar el servidor. Sea considerado.
-
-**P: ¿Funciona sin conexión?**
-R: No, WebSDR requiere conexión a Internet.
-
-**P: ¿Qué navegadores son compatibles?**
-R: Chrome, Firefox, Edge y Safari (versiones recientes)
-
-### Preguntas sobre el uso
-
-**P: ¿Cuántas personas pueden escuchar a la vez?**
-R: Depende de la capacidad del servidor. A menudo entre 50 y más de 200 usuarios.
-
-**P: ¿Puedo ver qué escuchan los demás?**
-R: Si está habilitado, sí. Busque los indicadores de «otros usuarios».
-
-**P: ¿Puedo chatear con otros oyentes?**
-R: Si el operador lo ha activado. Busque el cuadro de chat; **↪ Reply** responde a un mensaje concreto (vea *Chat* más arriba).
-
-**P: ¿Por qué algunas frecuencias no muestran nada?**
-R: En ese momento no hay señales en esa frecuencia. ¡Pruebe otras!
-
-**P: ¿Qué son las bandas de color de la cascada?**
-R: La superposición del plan de bandas, que muestra las atribuciones de frecuencia.
-
----
-
-## Recursos
-
-### Aprender más sobre radio
-
-- **Planes de bandas**: busque «amateur radio band plan» + su región
-- **Propagación**: infórmese sobre la propagación de las ondas de HF
-- **Modos digitales**: investigue sobre FT8, PSK31 y RTTY
-- **Radioafición**: ¡plantéese obtener una licencia de radioaficionado!
-
-### Encontrar más WebSDR
-
-- **Directorio WebSDR**: http://sdr-list.xyz
-- **WebSDR.org**: http://websdr.org
-- **KiwiSDR**: http://kiwisdr.com/public/
-
-### Obtener ayuda
-
-1. **Operador de la estación**: consulte los datos de contacto en la página
-2. **Chat de usuarios**: pregunte a otros oyentes (si está disponible)
-3. **Foros en línea**: busque comunidades de WebSDR
-4. **Documentación**: ¡consulte esta guía!
-
----
-
-## Apéndice: frecuencias habituales
-
-### Bandas de radioafición de HF
-
-| Banda | Margen de frecuencias | Modo | Actividad |
-|-------|-----------------------|------|-----------|
-| 160 m | 1.800-2.000 MHz | LSB | Noche/local |
-| 80 m | 3.500-4.000 MHz | LSB | Noche/regional |
-| 40 m | 7.000-7.300 MHz | LSB | Día/noche/DX |
-| 30 m | 10.100-10.150 MHz | USB | Solo datos/CW |
-| 20 m | 14.000-14.350 MHz | USB | Día/DX |
-| 17 m | 18.068-18.168 MHz | USB | Día/DX |
-| 15 m | 21.000-21.450 MHz | USB | Día/DX |
-| 12 m | 24.890-24.990 MHz | USB | Día/DX |
-| 10 m | 28.000-29.700 MHz | USB | Esporádica/DX |
-
-### Bandas de radioafición de VHF/UHF
-
-| Banda | Margen de frecuencias | Modo | Actividad |
-|-------|-----------------------|------|-----------|
-| 6 m | 50.000-54.000 MHz | USB/FM | Esporádica |
-| 2 m | 144.000-148.000 MHz | FM | Muy activa |
-| 70 cm | 420.000-450.000 MHz | FM | Activa |
-
-### Bandas de radiodifusión
-
-| Servicio | Margen de frecuencias | Modo |
-|----------|-----------------------|------|
-| Radio AM | 530-1710 kHz | AM |
-| Onda corta | 2.3-26.1 MHz | AM |
-| Radio FM | 88-108 MHz | WBFM |
-
-### Aviación
-
-| Servicio | Margen de frecuencias | Modo |
-|----------|-----------------------|------|
-| Control del tráfico aéreo | 118-137 MHz | AM |
-| ACARS (datos) | 130-136 MHz | Datos |
-
-### Marítimo
-
-| Servicio | Margen de frecuencias | Modo |
-|----------|-----------------------|------|
-| VHF marina | 156-162 MHz | FM |
-| HF marina | 2-22 MHz | USB |
-
----
-
-## Glosario
-
-**AGC**: control automático de ganancia — ajusta los niveles de audio automáticamente
-
-**AM**: modulación de amplitud — modo de voz usado en aviación y radiodifusión
-
-**Ancho de banda**: el margen de frecuencias de una señal
-
-**CW**: onda continua — señales en código Morse
-
-**DX**: comunicación a larga distancia
-
-**FFT**: transformada rápida de Fourier — convierte el dominio del tiempo en el de la frecuencia
-
-**FLDIGI**: la ventana de decodificación para ALE 2G, RTTY, PSK31, Olivia, FST4W, MFSK, MSK144, DominoEX, THOR, THROB, Hellschreiber, MT63, Packet y APRS, llamada así por el programa fldigi, que popularizó estos modos
-
-**FM**: modulación de frecuencia — modo de voz para VHF/UHF
-
-**HF**: alta frecuencia (3-30 MHz) — bandas de larga distancia
-
-**kHz**: kilohercio (1.000 Hz)
-
-**LSB**: banda lateral inferior — modo de voz para las bandas bajas de HF
-
-**MHz**: megahercio (1.000.000 Hz)
-
-**NB**: supresor de impulsos — elimina el ruido impulsivo
-
-**NR**: reducción de ruido — reduce el ruido de fondo
-
-**PSK**: modulación por desplazamiento de fase — modo digital
-
-**RTTY**: radioteletipo — modo digital de texto
-
-**S-metro**: medidor de intensidad de señal
-
-**SDR**: radio definida por software
-
-**SQL**: silenciador — enmudece el audio cuando no hay señal
-
-**SSB**: banda lateral única (USB o LSB)
-
-**USB**: banda lateral superior — modo de voz para las bandas altas de HF
-
-**VHF**: muy alta frecuencia (30-300 MHz) — visibilidad directa
-
-**UHF**: ultra alta frecuencia (300-3000 MHz) — visibilidad directa
-
-**Cascada**: representación visual del espectro radioeléctrico a lo largo del tiempo
 
 ---
 

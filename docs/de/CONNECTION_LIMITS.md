@@ -12,33 +12,20 @@ Dieses Handbuch beschreibt die drei Schichten, die das verhindern, was jede von 
 
 ## Inhalt
 
-1. [Wogegen Sie sich tatsächlich verteidigen](#1-wogegen-sie-sich-tatsächlich-verteidigen)
-2. [Die drei Schichten](#2-die-drei-schichten)
-3. [Limits pro Adresse — die Hörer-Politik](#3-limits-pro-adresse)
-4. [Untätige Verbindungen — der stille Angriff](#4-untätige-verbindungen)
-5. [Der Kernel-Schutz — `setup-firewall.sh`](#5-der-kernel-schutz)
-6. [Konfigurationsreferenz](#6-konfigurationsreferenz)
-7. [Was ein abgewiesener Hörer sieht](#7-was-ein-abgewiesener-hörer-sieht)
-8. [Logs und Zähler lesen](#8-logs-und-zähler-lesen)
-9. [Ihre Zahlen wählen](#9-ihre-zahlen-wählen)
-10. [Fallen, die man kennen sollte](#10-fallen-die-man-kennen-sollte)
-11. [Alles wieder abschalten](#11-alles-wieder-abschalten)
+1. [Die drei Schichten](#1-die-drei-schichten)
+2. [Limits pro Adresse — die Hörer-Politik](#2-limits-pro-adresse)
+3. [Untätige Verbindungen — der stille Angriff](#3-untätige-verbindungen)
+4. [Der Kernel-Schutz — `setup-firewall.sh`](#4-der-kernel-schutz)
+5. [Konfigurationsreferenz](#5-konfigurationsreferenz)
+6. [Was ein abgewiesener Hörer sieht](#6-was-ein-abgewiesener-hörer-sieht)
+7. [Logs und Zähler lesen](#7-logs-und-zähler-lesen)
+8. [Ihre Zahlen wählen](#8-ihre-zahlen-wählen)
+9. [Fallen, die man kennen sollte](#9-fallen-die-man-kennen-sollte)
+10. [Alles wieder abschalten](#10-alles-wieder-abschalten)
 
 ---
 
-## 1. Wogegen Sie sich tatsächlich verteidigen
-
-Genauigkeit lohnt sich hier, denn das Wort „DDoS“ deckt zwei sehr verschiedene Dinge ab, und nur eines davon lässt sich auf der eigenen Maschine lösen.
-
-**Flut aus einer Quelle.** Ein Rechner, oder eine Handvoll, die so schnell Verbindungen öffnen wie sie können. Das ist hier passiert, und es ist vollständig behebbar: die Verbindungen kommen von einer Adresse, die man zählen kann, und Zählen genügt.
-
-**Ein echter verteilter Angriff.** Tausende Rechner, oft mit gefälschten Absenderadressen, die Ihre Anbindung füllen. Wenn diese Pakete Ihre Netzwerkkarte erreichen, ist die Bandbreite bereits verbraucht. **Nichts aus diesem Handbuch hilft dagegen**, und nichts, was Sie auf dem Server installieren, kann es — die einzige Antwort ist ein Dienst oberhalb von Ihnen, was ein anderes Thema ist und eine echte Domain sowie einen Anbieter wie Cloudflare vor dem Empfänger voraussetzt.
-
-Alles Folgende betrifft den ersten Fall. Das ist keine Einschränkung, für die man sich entschuldigen müsste: der erste Fall ist das, was Amateurstationen tatsächlich trifft.
-
----
-
-## 2. Die drei Schichten
+## 1. Die drei Schichten
 
 ```
    das Internet
@@ -63,11 +50,9 @@ Alles Folgende betrifft den ersten Fall. Das ist keine Einschränkung, für die 
    └─────────────────────────────────────────────────────────┘
 ```
 
-Sie sind bewusst nicht redundant. Die Kernel-Schicht ist schnell, aber dumm — sie zählt Pakete von einer Adresse und weiß nichts über Hörer. Die Server-Schicht ist präzise, sieht eine Verbindung aber erst, wenn sie angenommen und ausgewertet wurde, was etwas kostet. Die Browser-Schicht existiert, damit ein abgewiesener Hörer erfährt, was passiert ist, statt auf eine Seite zu starren, die nie lädt.
-
 ---
 
-## 3. Limits pro Adresse
+## 2. Limits pro Adresse
 
 ### Was als ein Hörer zählt
 
@@ -100,8 +85,6 @@ per_ip_ban_s=600    # wie lange eine Adresse abgewiesen wird, die die Rate reiß
 
 **`per_ip_rate`** ist das, was eine Flut tatsächlich beendet. Ein Limit allein tut das nicht: eine Verbindung abzuweisen ist billig, aber nicht umsonst, und ein Angreifer kann so schnell neu verbinden, wie die Absagen zurückkommen, und dabei Ihre CPU mit Auf- und Abbau verheizen. Das Ratenlimit gibt ihm eine Sperre statt einer Antwort. Denken Sie daran, dass ein Tab vier kostet: 40/Minute sind also etwa zehn Seitenaufrufe pro Minute von einer Adresse.
 
-> **Eine bewusste Reihenfolge.** Die Rate wird belastet, *bevor* das Gleichzeitigkeitslimit geprüft wird. Das wirkt verkehrt herum, bis man an eine Adresse denkt, die bereits an ihrem Limit sitzt und in einer Schleife neu verbindet: würde ihr jedes Mal die billige Absage „du bist am Limit“ antworten, sammelten sich nie Ratenverstöße an, und die Sperre, die die Schleife beendet, käme nie zustande.
-
 ### Wer ausgenommen ist
 
 **Loopback wird nie limitiert.** Der Autorun-Tap für die Spot-Meldungen, das Admin-Panel und ein auf dem Serverrechner selbst geöffneter Browser kommen alle von `127.0.0.1`, und ließe man sie Plätze verbrauchen, würde Ihre eigene Station Ihre Hörer aussperren.
@@ -112,7 +95,7 @@ Seit v5.0.0 wird dieser Header **nur noch von einem Loopback-Partner** geglaubt 
 
 ---
 
-## 4. Untätige Verbindungen
+## 3. Untätige Verbindungen
 
 Es gibt einen Angriff, den nichts von alledem sehen kann.
 
@@ -126,17 +109,15 @@ idle_per_ip=8       # untätige Verbindungen (vor der Anfrage) pro Adresse
 idle_total=512      # Obergrenze über alle Adressen hinweg
 ```
 
-Das Limit liegt auf dem **Wie viele**, nicht auf dem **Wie lange**, und diese Unterscheidung ist der ganze Entwurf. **Es gibt keine Frist für eine untätige Verbindung, und das mit Absicht.** Eine Frist scheint die naheliegende Antwort und ist eine Falle (siehe [§10](#10-fallen-die-man-kennen-sollte)): es gibt legitime Gegenstellen, die sich verbinden und dann lange schweigen, bevor sie sprechen. Was sie von einem Angriff unterscheidet, ist die Menge — eine legitime Gegenstelle hält eine solche Verbindung, ein Angreifer Tausende.
+Das Limit liegt auf dem **Wie viele**, nicht auf dem **Wie lange**, und diese Unterscheidung ist der ganze Entwurf. **Es gibt keine Frist für eine untätige Verbindung, und das mit Absicht.** Eine Frist scheint die naheliegende Antwort und ist eine Falle (siehe [§9](#9-fallen-die-man-kennen-sollte)): es gibt legitime Gegenstellen, die sich verbinden und dann lange schweigen, bevor sie sprechen. Was sie von einem Angriff unterscheidet, ist die Menge — eine legitime Gegenstelle hält eine solche Verbindung, ein Angreifer Tausende.
 
 Eine untätige Verbindung lebt also, bis sie eine Anfrage stellt oder stirbt, und ihr Platz wird in beiden Fällen freigegeben.
 
 `idle_total` begrenzt eine Flut, die über viele Quelladressen verteilt ist. Ist die Obergrenze erreicht, werden **neue** untätige Verbindungen abgewiesen, statt bestehende zu verdrängen — eine legitime, langlebige Verbindung ist also nie das, was Platz machen muss.
 
-Beides greift in dem Moment, in dem der Socket angenommen wird, anhand der Adresse der Gegenstelle — es gibt noch keine Anfrage, also auch kein `X-Forwarded-For`. Das ist in Ordnung: Loopback wird nicht gezählt, was alles über `proxy.py` abdeckt, und eine direkte Flut bringt ihre eigene Adresse mit.
-
 ---
 
-## 5. Der Kernel-Schutz
+## 4. Der Kernel-Schutz
 
 `setup-firewall.sh` installiert eine nftables-Tabelle, die Last abfängt, bevor `spectrumserver` auch nur ein Byte liest. Sie ist bewusst grob, und ihre Zahlen liegen deutlich über denen in `config.toml`, damit ein normaler Hörer nie von beiden erwischt werden kann.
 
@@ -166,7 +147,7 @@ Nutzen Sie dieses Fenster richtig. Prüfen Sie **von einem anderen Gerät, auße
 
 ---
 
-## 6. Konfigurationsreferenz
+## 5. Konfigurationsreferenz
 
 Jeder Schlüssel unten steht unter `[limits]` in Ihrer `.toml`-Datei. **Alle sind standardmäßig aus oder großzügig**, eine Konfiguration, die sie nicht erwähnt, verhält sich also genau wie bisher.
 
@@ -181,10 +162,6 @@ Jeder Schlüssel unten steht unter `[limits]` in Ihrer `.toml`-Datei. **Alle sin
 
 Ein Schlüssel auf `0` schaltet die jeweilige Prüfung ab.
 
-### Die drei, die keine Limits sind
-
-In `[limits]` stehen außerdem `audio`, `waterfall` und `events`, von upstream PhantomSDR übernommen, und **keines der drei wird durchgesetzt.** `waterfall` und `events` werden von keinem Code gelesen. `audio` wird an genau einer Stelle gelesen: es geht als `max_users` in die Registrierungs-JSON an die Verzeichnisse aus `[websdr] register_urls`, ist also die Zahl, die sdr-list.xyz und die anderen anzeigen, und tut überhaupt nichts, wenn `register_online=false` gilt. Wenn Sie eine Obergrenze für Hörer wollen, ist `per_ip` weiter oben das, was wirkt.
-
 ### Noch einer, unter `[server]`
 
 ```toml
@@ -194,23 +171,15 @@ min_client_version=0
 
 Kein Limit, sondern eine Abweisung — und weil sie denselben Schließcode verwendet, gehört sie hierher. Seiten melden den Stand, aus dem sie geladen wurden, als `/audio?v=N`, und alles unterhalb von `min_client_version` wird mit *„diese Seite ist veraltet — bitte neu laden“* abgewiesen.
 
-Es gibt das, weil der Server JavaScript, das bereits im Browser eines Nutzers läuft, nicht mehr erreichen kann. Ein Tab behält den Code, den er geladen hat, bis jemand neu lädt; eine Änderung an der Seite erreicht also nur die Hörer, die zufällig neu laden — und eine Station, die gerade das Sitzungsverhalten geändert hat, braucht die alten Seiten unter Umständen jetzt weg und nicht irgendwann.
-
-Geprüft wird nur `/audio`, denn dort lebt eine Sitzung, und Loopback sowie die Kiwi-Pfade sind ausgenommen, damit der Autorun-Tap und Kiwi-Clients unberührt bleiben. `0` schaltet es ab und ist die Vorgabe. Es eingeschaltet zu lassen, nachdem die alten Seiten abgeflossen sind, ist unbedenklich: Ein aktueller Diversity-Client, der auf einem blanken `/audio` abgewiesen wird, versucht es erneut mit der Kennung. Abgewiesen werden also nur noch Diversity-Clients mit einem älteren PhantomSDR-Plus-Stand und Fremdwerkzeuge, die `/audio` ohne `?v=` öffnen. Setzen Sie es zurück auf `0`, wenn eine andere Station meldet, dass sie Sie nicht mehr als Diversity-Partner nutzen kann.
-
 Die mit PhantomSDR-Plus ausgelieferten Konfigurationen setzen `min_client_version=2`, den aktuellen Stand (`CLIENT_VERSION` in `frontend/src/clientVersion.js`), mit einem erklärenden Kommentar; ohne die Zeile gilt `0`. Hebt ein künftiges Update `CLIENT_VERSION` an, heben Sie diesen Wert ebenso an.
 
 ---
 
-## 7. Was ein abgewiesener Hörer sieht
+## 6. Was ein abgewiesener Hörer sieht
 
 ### Nichts verbindet sich je neu
 
 Fangen Sie hier an, denn davon hängt alles Weitere ab: **eine abgebrochene `/audio`-Verbindung beendet die Sitzung.** Es gibt kein automatisches Wiederverbinden, und das mit Absicht.
-
-Wiederverbinden ist der richtige Reflex für eine Chat-Anwendung und der falsche für einen Empfänger. `/waterfall` und `/events` kamen damit nie zurück, eine erneut aufgebaute Sitzung war also eine lebende Audioverbindung an einem eingefrorenen Wasserfall; und das Anhalten des Servers räumte ihn nicht mehr, weil jeder Hörer Sekunden später wieder da war und die Benutzerliste mit Sitzungen füllte, in denen in Wahrheit niemand saß. Die Seite verstummt und der Hörer lädt sie neu — genau das tat dieser Empfänger, bevor überhaupt ein Wiederverbinden eingebaut wurde.
-
-Für die Limits dieses Handbuchs fällt damit auch eine Falle weg: gegen ein Ratenlimit würde ein automatischer Versuch genau die Sperre verlängern, die er zu umgehen sucht.
 
 ### Die zwei Schließcodes
 
@@ -218,8 +187,6 @@ Für die Limits dieses Handbuchs fällt damit auch eine Falle weg: gegen ein Rat
 |---|---|---|
 | **4003** | abgewiesen — über einem Limit pro Adresse, oder Seite veraltet | `spectrumserver` |
 | **4001** | vom Sysop hinausgeworfen oder gesperrt | `spectrumserver`, wenn das Panel `/~~kick` aufruft |
-
-Beide liegen im privaten Bereich 4000–4999, können also nicht mit einem Protokollstatus verwechselt werden, und beide gelten auf jeder Seite als endgültig. Der Begründungstext reist im Schließ-Frame statt als Nachricht, weil das erste Frame auf `/audio` den Einstellungen des Empfängers vorbehalten ist und alles davor jede normale Verbindung zerstören würde.
 
 ### Auf der Seite
 
@@ -231,9 +198,7 @@ Dieses Schweigen nach einem Rauswurf ist Absicht. **Hinauswerfen heißt, dass de
 
 Eine **Sperre** — ⛔ Ban ▾ im Admin-Panel — ist die einzige Ausnahme: Sie ist derselbe Rauswurf mit einer Abweisung von 8, 16 oder 24 Stunden, das Neuladen wird also mit 4001 abgewiesen, bis die Sperre abläuft oder der Sysop sie aufhebt.
 
-Den Rauswurf erledigt `spectrumserver` selbst, nicht `proxy.py`: Hörer verbinden sich direkt mit dem Port des Empfängers, der Proxy besitzt also keine ihrer Verbindungen und sein Rauswurf erreicht niemanden. Das Panel ruft `/~~kick?ip=&secs=` auf — nur über Loopback erreichbar und anhand des echten TCP-Gegenübers geprüft, nicht anhand von `X-Forwarded-For`, das vom Client kommt. `secs` ist standardmäßig null, also keine Sperre, nimmt aber eine Dauer an, wenn die Adresse doch eine Weile draußen bleiben soll; das nutzt dieselbe Sperrmechanik wie `per_ip_rate`, sodass der Wiederverbindungsversuch schon an der Tür abgewiesen wird. Ban 24h im Panel sendet `secs=86400`, das Maximum, und `/~~unban?ip=` hebt eine Sperre vorzeitig auf.
-
-## 8. Logs und Zähler lesen
+## 7. Logs und Zähler lesen
 
 ### Der Server
 
@@ -256,30 +221,15 @@ sudo ./setup-firewall.sh --status
 
 Lesen Sie den **`counter packets N`** jeder Regel; das ist die Zahl der tatsächlich verworfenen Pakete. Lauter Nullen heißt, dass nichts blockiert wurde und Ihre Schwellen bequem locker sitzen.
 
-Lassen Sie sich von den `elements = { ... }`-Listen in den Sets oberhalb der Regeln nicht beunruhigen. Das sind Ihre ganz normalen Hörer, die gegen die Limits *verfolgt* werden — ein Eintrag entsteht bei der ersten Verbindung einer Adresse und verfällt ein paar Minuten später. Verfolgen ist nicht Blockieren.
-
 ---
 
-## 9. Ihre Zahlen wählen
-
-Raten ist unnötig; Ihre eigenen Logs sagen es Ihnen. Das ist die Messung, die hier `per_ip=3` festgelegt hat, über eine Woche `logs/users_*.jsonl`:
-
-| Gleichzeitige Sitzungen von einer Adresse | Anzahl Adressen |
-|---|---|
-| 1 | 682 |
-| 2 | 54 |
-| 3 | 13 |
-| mehr als 3 | **8** |
-
-758 verschiedene Adressen in sieben Tagen, und ein Limit von drei hätte acht davon berührt. Die Flut saß bei 181.
-
-Um das auf Ihrer eigenen Station zu wiederholen, ordnen Sie die Sitzungs-IDs je Adresse in `logs/users_*.jsonl` einander zu und nehmen die größte Überlappung. Beachten Sie: das Log führt `tune`- und `disconnect`-Ereignisse, aber kein `connect`-Ereignis, der Beginn einer Sitzung muss also aus ihrem ersten `tune` erschlossen werden.
+## 8. Ihre Zahlen wählen
 
 **Denken Sie an NAT.** Ein Verein, eine Schule, ein Büro oder ein Mobilfunkanbieter erscheinen als eine einzige Adresse, und alle dahinter teilen sich ein Kontingent. Das steckt in jedem Limit, das auf eine Adresse geschlüsselt ist; die einzige Abmilderung ist, eine Zahl zu wählen, mit der Sie leben können. Meldet ein Hörer je, dass er nicht verbinden kann, ist das der erste Verdacht — prüfen Sie `grep Refused` vor allem anderen.
 
 ---
 
-## 10. Fallen, die man kennen sollte
+## 9. Fallen, die man kennen sollte
 
 ### Niemals eine Frist für eine untätige Verbindung
 
@@ -305,7 +255,7 @@ sudo ./setup-firewall.sh --status | grep -c dport   # sollte 8 ergeben, nicht 16
 
 ---
 
-## 11. Alles wieder abschalten
+## 10. Alles wieder abschalten
 
 Die Server-Limits: Schlüssel auf `0` setzen oder aus der `.toml` löschen und den Empfänger neu starten. Es gibt keinen weiteren Zustand; nichts überdauert einen Neustart.
 

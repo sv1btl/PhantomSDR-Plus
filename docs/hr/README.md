@@ -51,6 +51,7 @@ PhantomSDR-Plus je fork projekta PhantomSDR koji pruža web-poslužitelj softver
 - **Tipkovni prečaci**: učinkovita navigacija i upravljanje
 - **Podrška za kotačić miša**: intuitivno ugađanje frekvencije
 - **WebSDR imenik**: integracija s https://sdr-list.xyz
+- **Finija rezolucija zvuka**: zvuk se prenosi s 8 puta finijom rezolucijom, što na jakim stanicama uklanja slabi šum samog toka podataka
 
 ---
 
@@ -112,18 +113,6 @@ Na Fedori koristite `install_fedora.sh`, na Archu `install_arch.sh`, a na openSU
 Ništa se ne mora instalirati ručno unaprijed. Skripta instalira ovisnosti za građenje i Node.js, gradi backend, gradi upravljački program za prijamnik koji odaberete (uz RX888 i udev pravila), otvara `site_information.json` da ga ispunite, gradi frontend, instalira OpenCL kada ga hardver podržava, zatim postavlja **administratorsku ploču**, **FreeDV RADE dekoder** i **poslužitelj statistike** — sva tri prema zadanome, s `n` preskačete pojedini — i završava potpunim `recompile.sh`. Interaktivna je od početka do kraja i traje od dvadesetak minuta do više od sat vremena.
 
 Opis korak po korak nalazi se u [INSTALLATION.md → Što instalacijska skripta radi](INSTALLATION.md#što-instalacijska-skripta-radi). Za detaljne upute o instalaciji pogledajte [INSTALLATION.md](INSTALLATION.md).
-
----
-
-## 📊 Mjerenja performansi
-
-| Hardver | Frekvencija uzorkovanja | Opterećenje CPU-a | Kapacitet korisnika |
-|---------|--------------------------|-------------------|----------------------|
-| Ryzen 5 2600 (sve jezgre) | 64 MHz (32 MHz IQ) | 38-40 % | 100+ korisnika |
-| AMD RX 580 (GPU) | 64 MHz (32 MHz IQ) | 28-35 % | 100+ korisnika |
-| Intel i5-6500T (s OpenCL) | 60 MHz (30 MHz IQ) | 10-12 % | 100+ korisnika |
-
-*Napomena: dodatno opterećenje CPU-a po korisniku minimalno je (<1 % po korisniku) kada je omogućeno hardversko ubrzanje.*
 
 ---
 
@@ -262,6 +251,10 @@ audio_compression="opus"  # or "flac"
 ```
 - Nakon izmjene ponovno pokrenite poslužitelj.
 
+### Rezolucija zvuka
+
+Stranice koje se ponovno učitaju nakon ažuriranja dobivaju zvuk i s 8 puta finijom rezolucijom, što na jakim stanicama uklanja slabi šum samog toka podataka. To stoji oko 17 kbit/s više po SSB slušatelju i oko 30 kbit/s po AM slušatelju.
+
 
 ### Kalibracija S-metra
 
@@ -277,17 +270,11 @@ smeter_offset=5         # samo digitalna traka
 analog_smeter_offset=5  # samo analogna kazaljka
 ```
 
-Čitaju se u `src/websocket.cpp` i šalju pregledniku u prvom `basic_info` okviru, pa je **dovoljno ponovno pokrenuti poslužitelj** — nije potrebna ponovna izgradnja frontenda.
-
 #### Analogni lanac
 
 ```
 prikazani dBm = -130 + (rawDb + analog_smeter_offset + 130) x 1,1
 ```
-
-- Vizualno pojačanje 1,1 djeluje *nakon* pomaka, s uporištem na -130 dBm. Jedna jedinica `analog_smeter_offset` pomiče očitanje za 1,1 dB. Za pomak prikaza za X dB vrijedi `analog_smeter_offset ~= 0,91 x X`. TOML vrijednost čita se kao cijeli broj, pa su mogući samo cijeli koraci.
-- Zakon kazaljke (`powerFromDbm` u `frontend/src/lib/SMeterAnalog.svelte`) stavlja **S9 na -73 dBm**, na 60 od 100 jedinica kazaljke, uz krivulju `pow(...,0,6)` od -130 do -73 ispod S9 i krivulju `pow(...,0,8)` od -73 do -13 (S9+60) iznad.
-- To **nije** linearna ljestvica od 6 dB po S-jedinici, pa je smislena točka umjeravanja S9 — oznake ispod S9 neće pratiti generator u koracima od 6 dB.
 
 #### Digitalni lanac
 
@@ -296,17 +283,9 @@ value    = (rawDb / 150) x 100 + smeter_offset   -> ograničeno na [-100, 0]
 segments = round((value + 100) x 35 / 100) + DIGITAL_BAR_TRIM
 ```
 
-- Primijetite `/150 x 100`: digitalna je ljestvica **sažeta na 2/3** i nikada ne vidi ni `analog_smeter_offset` ni vizualno pojačanje 1,1. Zato se traka i kazaljka nikada ne poklapaju točno — to je namjerno.
-- 35 segmenata na 100 jedinica znači da je jedan segment 2,86 jedinica pomaka, otprilike 4,3 dB sirovo. Dakle `smeter_offset=3` približno je jedan segment.
-- `DIGITAL_BAR_TRIM` u `frontend/src/lib/SMeterDigital.svelte` (trenutno 0) pomiče traku za cijele segmente. Njegova je promjena zahvat u izvorni kod i **zahtijeva** ponovnu izgradnju frontenda.
-
 #### LED prozori su u oba instrumenta vođeni analognim lancem
 
 Prozori dBm / dBµV / SNR / NF u **oba** instrumenta čitaju analogno umjerenu vrijednost i dodaju fiksni `VISUAL_DBM_OFFSET` od 5, čvrsto upisan u `SMeterAnalog.svelte` i `SMeterDigital.svelte`. Stoga:
-
-- `smeter_offset` **ne** mijenja nijedan broj u prozorima, samo duljinu trake.
-- dBµV = dBm + 107 (50 oma), a NF = dBm - SNR po konstrukciji, pa NF slijedi automatski.
-- Želite li ispravne **brojeve** bez diranja položaja kazaljke, postavka je `VISUAL_DBM_OFFSET` — ali to je konstanta u izvornom kodu, traži ponovnu izgradnju i mora se promijeniti u **obje** datoteke da ostane dosljedno.
 
 #### Postupak
 
@@ -315,12 +294,6 @@ Prozori dBm / dBµV / SNR / NF u **oba** instrumenta čitaju analogno umjerenu v
 3. Prijeđite na digitalni instrument i namjestite `smeter_offset` tako da duljina trake postavi S9 gdje želite — otprilike 3 jedinice po segmentu. Taj je korak samo estetski i ne utječe na očitanja.
 4. Bez generatora, dobra je zamjena mirni opseg s radiofarom poznate razine, ili jednostavno usidrite šumni prag na uvjerljivu vrijednost (npr. -120 dBm na 20 m s pristojnom antenom) — uz svijest da se time umjerava cijeli lanac uključujući dobitak antene, a ne samo prijamnik.
 
-
-### Varijante grafičkog sučelja
-
-Sve četiri varijante sučelja (analogni/digitalni S-metar x raspored v1/v2) nalaze se u jednoj izgradnji. Posjetitelji ih prebacuju izbornikom ⚙️ u gornjem desnom kutu — ništa se ne učitava ponovno, pa zvuk, slap i svaki dekoder koji radi nastavljaju — a odabir se pamti u svakom pregledniku.
-- Pokrenite recompile.sh u terminalu da postavite *početnu* varijantu, onu koju posjetitelj vidi prvi put.
-- **[EDITING_VARIANTS.md](EDITING_VARIANTS.md)** – kako uređivati varijante frontenda (S-metar i raspored) i ponovno ih izgraditi
 
 ---
 
@@ -334,7 +307,7 @@ Sve četiri varijante sučelja (analogni/digitalni S-metar x raspored v1/v2) nal
 - **[MULTI_RECEIVER.md](MULTI_RECEIVER.md)** - Priručnik za sysopa o više prijemnika na jednom računalu: instance, `receivers.toml`, izbornik prijemnika i `start-all.sh`
 - **[HTTPS.md](HTTPS.md)** - Siguran pristup: prijemnik preko https:// s Caddyjem i besplatnim Let's Encrypt certifikatom, `setup-https.sh`, način rada za lokalnu mrežu te postojeći nginx ili Apache
 - **[PROJECT_STRUCTURE.md](PROJECT_STRUCTURE.md)** – struktura direktorija i organizacija koda
-- **[EDITING_VARIANTS.md](EDITING_VARIANTS.md)** – kako uređivati varijante frontenda (S-metar i raspored) i ponovno ih izgraditi
+- **[EDITING_VARIANTS.md](https://github.com/sv1btl/PhantomSDR-Plus/blob/main/docs/hr/EDITING_VARIANTS.md)** – kako uređivati varijante frontenda (S-metar i raspored) i ponovno ih izgraditi
 
 ---
 
@@ -350,33 +323,11 @@ Postavite `register_online=true` u svojoj `.toml` konfiguracijskoj datoteci za a
 
 ### Česti problemi
 
-**OpenCL ne radi**
-- Provjerite jesu li upravljački programi ispravno instalirani
-- Provjerite naredbom `clinfo`
-- Za detaljno postavljanje OpenCL-a vidi INSTALLATION.md
-
 **Problemi s latencijom zvuka**
 - Zadržite FLAC kao kodek: on ima manju latenciju, dok Opus zadržava do 20 ms po paketu
 - Otvorite stranicu s dodanim `?diag=1` na adresi (na primjer `/mobile?diag=1`) da biste vidjeli kašnjenje podijeljeno na paket, spremnik i izlaz; spremnik se sam smanji za minutu-dvije nakon problema s mrežom
 - Ako se zvuk prekida, povećajte spremnik za jedan korak (vidi Korisnički priručnik, *Zvučni spremnik i kašnjenje*)
 - Osigurajte dostatne CPU/GPU resurse
-
-**Neuspjeli build**
-- Provjerite jesu li instalirane sve ovisnosti
-- Pokušajte očistiti direktorij za izgradnju: `rm -rf build && meson setup build`
-- Provjerite ima li sukobljenih verzija biblioteka
-
----
-
-## 🤝 Doprinosi
-
-Doprinosi su dobrodošli! Ovo je nezavisni fork s dodatnim mogućnostima. Molimo:
-
-1. Napravite fork repozitorija
-2. Stvorite granu za novu značajku
-3. Predajte (commit) svoje izmjene
-4. Pošaljite granu na udaljeni repozitorij
-5. Otvorite Pull Request
 
 ---
 
@@ -398,23 +349,6 @@ Ovaj projekt licenciran je pod GNU General Public License v3.0 – pojedinosti p
 - **Demonstracija uživo**: http://phantomsdr.no-ip.org:8900/
 - **WebSDR imenik**: https://sdr-list.xyz
 - **GitHub repozitorij**: https://github.com/sv1btl/PhantomSDR-Plus
-
----
-
-## 📞 Podrška
-
-- **Problemi**: prijavite pogreške putem [GitHub Issues](https://github.com/sv1btl/PhantomSDR-Plus/issues)
-- **E-pošta**: kontakt sv1btl@otenet.gr
-
----
-
-## ⚡ Savjeti za performanse
-
-1. **Omogućite OpenCL/CUDA** za GPU ubrzanje – dramatično smanjuje opterećenje CPU-a
-2. **Koristite SSD pohranu** za bolje U/I performanse
-3. **Dodijelite dovoljno RAM-a** – preporučuje se najmanje 8 GB
-4. **Optimizirajte veličinu FFT-a** – veći FFT = bolja razlučivost, ali veće opterećenje CPU-a
-5. **Razmislite o namjenskom GPU-u** – AMD ili NVIDIA s podrškom za OpenCL
 
 ---
 

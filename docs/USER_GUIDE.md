@@ -16,9 +16,7 @@ Welcome to PhantomSDR-Plus! This guide will help you get the most out of your We
 8. [Keyboard Shortcuts](#keyboard-shortcuts)
 9. [Bookmarks](#bookmarks)
 10. [Mobile Usage](#mobile-usage)
-11. [Tips and Best Practices](#tips-and-best-practices)
-12. [Troubleshooting](#troubleshooting)
-13. [Frequently Asked Questions](#frequently-asked-questions)
+11. [Troubleshooting](#troubleshooting)
 
 ---
 
@@ -55,7 +53,7 @@ Depending on the WebSDR's configuration, you can tune into:
 
 Open your browser and navigate to the WebSDR URL provided by the operator.
 
-Example: `http://websdr.example.com:9002`
+Example: `http://websdr.example.com:9000`
 
 ### 2. Initial Page Load
 
@@ -424,8 +422,6 @@ Audio reaches the browser in small packets, 35 ms each on a typical receiver, an
 - **Desktop**: in the Audio & Buffer panel, the button with the network icon moves the buffer one step up per click (it turns green above the lowest step), and the slider beside it picks a step from 1 to 6 directly. The lowest step suits a wired connection; phones start on step 2.
 - **/mobile**: the **BUF** button and the **Buffer** slider in the Audio tab do the same.
 
-The buffer adjusts itself. The page measures how irregularly your connection delivers the audio and keeps only as much in hand as the last minute showed was needed, plus the safety margin of the step you chose: 20 ms on step 1, 50 ms on step 2, more on the higher steps. After a moment of network trouble the extra delay drains away again within a minute or two, and a small difference between your sound card's clock and the receiver's no longer leads to a break every few minutes. The adjustments are a few milliseconds at a time, made where the sound repeats itself, and cannot be heard. The decoders and your recordings are never affected: they receive every sample.
-
 If the audio breaks up, move the buffer one step higher. On a phone over home Wi-Fi the delay from the receiver to the loudspeaker is typically about 100–150 ms; the network between you and the receiver adds to it.
 
 ### Your name or callsign
@@ -505,18 +501,6 @@ The application, its installers and its full manual are at [Desktop PhantomSDR+ 
 
 The full manual — every setting, the supported rigs, how the two sides are kept from fighting, and troubleshooting — is **[Rig Control](RIG_CONTROL.md)**.
 
-**For developers.** Every receiver page offers these functions on `window`, which is what both tools use:
-
-| Function | Does |
-|---|---|
-| `catsync_getFrequency()` / `catsync_setFrequency(hz)` | Tuned frequency, in Hz |
-| `catsync_getMode()` / `catsync_setMode(mode)` | `USB`, `LSB`, `CW`, `CW-L`, `AM`, `FM`, `WBFM` … |
-| `catsync_getBandwidth()` / `catsync_setBandwidth(hz)` | Whole passband width, in Hz. Set it after the mode: changing mode resets the passband |
-| `catsync_getMute()` / `catsync_setMute(on)` | Mute, through the page's own mute button |
-| `catsync_ready` | `true` once the functions are installed |
-
-The last three rows are new in 4.1.0; check that a function exists before calling it.
-
 ---
 
 ## Demodulation Modes
@@ -528,16 +512,6 @@ The last three rows are new in 4.1.0; check that a function exists before callin
 - AM broadcast radio
 - Some amateur radio
 - Maritime communications
-
-**Characteristics:**
-- Wide bandwidth (typically 10 kHz)
-- Susceptible to noise
-- Easy to tune (just click on signal)
-
-**Best Practices:**
-- Use Fast AGC
-- Enable Noise Blanker if you hear clicks
-- Tune to peak of signal on waterfall
 
 ### QUAM (C-QUAM AM Stereo)
 
@@ -563,32 +537,12 @@ The last three rows are new in 4.1.0; check that a function exists before callin
 - Commercial two-way radio
 - Some satellite communications
 
-**Characteristics:**
-- Narrow bandwidth (typically 12.5 or 25 kHz)
-- Excellent noise immunity
-- "Capture effect" (strongest signal wins)
-
-**Best Practices:**
-- Tune precisely to center of signal
-- Use squelch to mute when idle
-- Disable noise reduction (not needed)
-
 ### USB (Upper Sideband)
 
 **Used for:**
 - HF amateur radio (above 10 MHz)
 - Most HF digital modes
 - Maritime communications (above 8 MHz)
-
-**Characteristics:**
-- Narrow bandwidth (typically 2.4 kHz)
-- Efficient use of spectrum
-- Requires precise tuning
-
-**Best Practices:**
-- Use Slow AGC
-- Tune to lower edge of signal on waterfall
-- Enable Noise Reduction if needed
 
 ### LSB (Lower Sideband)
 
@@ -597,31 +551,12 @@ The last three rows are new in 4.1.0; check that a function exists before callin
 - Some HF digital modes
 - Maritime communications (below 8 MHz)
 
-**Characteristics:**
-- Same as USB but mirror image
-- Convention: LSB on lower HF bands
-
-**Best Practices:**
-- Use Slow AGC
-- Tune to upper edge of signal on waterfall
-- Enable Noise Reduction if needed
-
 ### CW (Continuous Wave / Morse Code)
 
 **Used for:**
 - Amateur radio telegraphy
 - Navigational beacons
 - Time signal stations
-
-**Characteristics:**
-- Very narrow bandwidth (100-500 Hz)
-- High efficiency
-- Requires learning Morse code to understand
-
-**Best Practices:**
-- Use narrow filter (400-500 Hz)
-- Tune precisely to tone center
-- Enable audio filter for better tone
 
 ### CW-L (CW, Lower Sideband)
 
@@ -636,16 +571,6 @@ Links written for KiwiSDR or UberSDR work too: `modulation=CWU` (or `CW-U`) open
 **Used for:**
 - FM broadcast radio (88-108 MHz)
 - Some satellite downlinks
-
-**Characteristics:**
-- Very wide bandwidth (200 kHz)
-- Excellent audio quality
-- High fidelity
-
-**Best Practices:**
-- Tune to exact center frequency
-- No squelch needed for broadcast
-- Enjoy high-quality audio!
 
 ### IQ (raw I/Q)
 
@@ -668,13 +593,6 @@ Links written for KiwiSDR or UberSDR work too: `modulation=CWU` (or `CW-U`) open
 
 Where the station offers it, the IQ Demodulators panel has **Width: 12 kHz · 24 kHz · 48 kHz**. 24 kHz takes in DRM's wide modes or a station with both its neighbours, 48 kHz a whole group of broadcast stations or a CW/digital sub-band. The waterfall passband and the panel's picture follow the width, a recording is made at it (a WAV at 24 or 48 kHz), and your browser remembers the choice. A wider IQ costs the station more upload — about 0.7 Mbit/s per listener at 24 kHz and 1.4 Mbit/s at 48 kHz, against 0.35 at 12 kHz — so the station decides how many listeners may have it at once; when every place is taken you stay at 12 kHz (the panel says so) and the page asks again every 30 seconds. For Dream or another program on a virtual cable at 48 kHz, set the cable to 48 kHz as well. KiwiSDR clients always get 12 kHz.
 
-**For the sysop:** two lines under `[server]` in the receiver's config turn it on, for any receiver; restart that receiver afterwards. The same settings are in the admin panel under **Receivers → ✎ CHANGE SETTINGS**, which also restarts the receiver.
-
-```
-iq_wide=48            # 12 (off, the default), 24 or 48 kHz
-iq_wide_listeners=4   # listeners with a wide IQ at once, 0 = no limit
-```
-
 #### IQ demodulators
 
 While the receiver is in IQ, an **IQ Demodulators** panel opens under the decoders. It runs up to six receivers on the I/Q in your browser — the receiver is not retuned and the station's computer does no extra work:
@@ -696,138 +614,6 @@ PhantomSDR-Plus includes built-in decoders for digital modes. For a complete gui
 The quickest way in is the **Decoders** button row on the main panel, just below **Wheel Tuning Steps**: ten buttons — **FT8, FT4, FT2, JS8, CW, WSPR, FAX, SSTV, NAVTX, FLDIGI** — that each start their decoder, switch the master Decoder toggle ON and scroll the decoder's window into view in a single press. The button stays blue while the decoder runs; press it again to stop the decoder and close its window. The **Decoder Options** dropdown still works exactly as before and stays in sync with the buttons.
 
 **RADE-v2U**, **RADE-v1L** and **RADE-v1U** (RADE digital voice) have their own buttons next to the **Modes** heading and inside the **Modes** and **Bands** popup windows, and work the same press-on / press-off way. **RADE-v2U** starts RADE V2 (beta), always on USB; **RADE-v1L** and **RADE-v1U** start RADE v1.
-
-The SSTV, HF FAX, NAVTEX, FSK/RTTY and CW decoders each run on their own background thread, so switching a decoder on or off never interrupts the audio, and the waterfall stays smooth while decoding. They are fed audio taken before the noise reduction and mute of your browser — you can mute the receiver and decoding continues unaffected. While a decoder is open the AGC is held on Slow, so the gain stays steady for it.
-
-**While a decoder runs it holds the mode and the passband.** Normally the mode follows the band plan — tune into a segment marked LSB or AM and the receiver switches to it. A running decoder overrides that, keeping the mode and the narrow passband it needs even if you tune to another band. The band's own mode returns as soon as you switch the decoder off, and the mode buttons still work at any time if you want to take over. The CW decoder is the exception: it decodes in whatever mode you are listening in.
-
-### FT8, FT4 Decoder
-
-**What is FT8, FT4?**
-- Popular amateur radio digital mode
-- Weak signal communication
-- 15-second transmissions for FT8, 7.5-second transmissions for FT4
-
-**How to use:**
-1. Tune to FT8 or FT4 frequencies
-2. Select USB mode
-3. Enable the FT8 decoder — press the **FT8** button, or pick it from the menu
-4. Watch decoded messages appear
-
-**Common FT8 Frequencies (USB):**
-- 160 meters: 1.840 MHz
-- 80 meters: 3.573 MHz
-- 60 meters: 5.357 MHz
-- 40 meters: 7.074 MHz
-- 30 meters: 10.136 MHz
-- 20 meters: 14.074 MHz
-- 17 meters: 18.100 MHz
-- 15 meters: 21.074 MHz
-- 12 meters: 24.915 MHz
-- 10 meters: 28.074 MHz
-- 6 meters: 50.313 MHz (50.323 MHz for DX)
-
-**Common FT4 Frequencies (USB):**
-
-- 80m: 3.575 MHz
-- 40m: 7.0475 MHz
-- 30m: 10.140 MHz
-- 20m: 14.080 MHz
-- 17m: 18.104 MHz
-- 15m: 21.140 MHz
-- 12m: 24.919 MHz
-- 10m: 28.180 MHz
-- 6m: 50.318 MHz
-
----
-
-### JS8 Decoder
-
-**What is JS8?**
-- FT8's weak-signal engine used for keyboard-to-keyboard conversation
-- Free text instead of fixed exchanges, so long messages arrive over several cycles
-- Five speeds; **Normal** (15 s) is the calling speed and carries almost all traffic
-
-**How to use:**
-1. Tune to a JS8 frequency
-2. Select USB mode
-3. Enable the JS8 decoder — press the **JS8** button, or pick it from the menu
-4. Leave **Speed** on *Normal* and leave the sync offset on **Auto**
-
-**Reading the panel:**
-- Messages still arriving show at the top in green with a blinking cursor — a message can take a full minute to complete on Normal
-- Completed messages list below as `Mode | Hz | dB | Message`, with **callsigns in green**
-- A dimmed, italic row timed out before its last frame arrived: the text is real but may be cut short
-
-**Common JS8 Frequencies (USB):**
-
-- 160m: 1.842 MHz
-- 80m: 3.578 MHz
-- 40m: 7.078 MHz
-- 30m: 10.130 MHz
-- 20m: 14.078 MHz
-- 17m: 18.104 MHz
-- 15m: 21.078 MHz
-- 12m: 24.922 MHz
-- 10m: 28.078 MHz
-
-JS8 is far quieter than FT8 — one transmission every few minutes is normal, and quiet spells are not a fault. See [Decoders](DECODERS.md) for the full guide.
-
----
-
-### CW Decoder
-Just press the CW button and the decoded text will appear. Press the CW button once more to clear the window and restart the decoder.
-
----
-
-### WSPR
-
-WSPR (Weak Signal Propagation Reporter, pronounced "whisper") is an ultra-weak-signal beacon mode that maps HF propagation paths worldwide. Each transmission takes approximately 110 seconds and fits inside a 200 Hz-wide slot. The decoder waits for a complete 2-minute UTC-aligned slot before decoding. Enable the decoder and select **WSPR** from the dropdown. Or simply press the **WSPR** button.
-
----
-
-### HF FAX / WEFAX
-
-HF Radiofax (also known as WEFAX) is used by coast guard and meteorological services worldwide to broadcast weather maps, sea-state charts, and surface analyses over shortwave. The decoder reconstructs the image line by line as it is received.
-
----
-
-### NAVTEX
-
-NAVTEX is the international maritime broadcast system for coastal safety information — navigational warnings, weather forecasts, and search-and-rescue notices.
-
----
-
-### FLDIGI — ALE 2G, RTTY, PSK31, Olivia, FST4W, MFSK, MSK144, DominoEX, THOR, THROB, Hellschreiber, MT63, Packet and APRS
-
-One window for the narrow-band keyboard modes fldigi made popular, with fourteen variants: Amateur RTTY, **PSK31/63/125** (phase-shift keying, BPSK/QPSK, 31.25–125 baud), **Olivia**, **Contestia** and **MFSK16/32/64** (multi-tone with forward error correction), **DominoEX** and **THOR** (incremental frequency keying, THOR with error correction), **THROB**, **Hellschreiber** (painted as a picture), **MT63** (64 carriers), **Packet (AX.25)** and **APRS**. It opens from the **FLDIGI** button, or from **FLDIGI** in the decoder dropdown; fldigi itself is not needed. The panel adapts to the variant — the shift, baud and framing controls disappear for everything but Amateur RTTY, and the other modes add a Mode selector and, except Hellschreiber, a squelch slider. Three variants list what they decode one line at a time instead of text: **ALE 2G HAM**, just before Packet in the list (HF link establishment, MIL-STD-188-141, on the HFLINK amateur channels), and **FST4W** and **MSK144**, the WSJT-X modes for LF/MF beacons and for meteor scatter. **PSK Browser**, the **Browser — all signals** knob under the PSK31 **Mode** list, decodes every BPSK31 signal in the passband at once, one line per signal; click a line to follow that one. See the [Decoder manual](DECODERS.md). **Browser — all signals** under the Olivia **Mode** list does the same for Olivia and Contestia, for the configuration chosen there. Maritime FSK (SITOR), Weather RTTY and the government, military and utility ALE networks (**ALE 2G**) are in the **SERVICES** window, with the same decoders.
-
-**CW Browser:** switch on the **Browser — all signals** knob in the CW window to decode every CW signal in 200–3000 Hz at once, one line each, with the station's callsign and CQ calls marked; the receiver goes to USB 200–3000 Hz while it runs.
-
-Amateur RTTY and Weather RTTY have a **Squelch (SNR)** slider that stops noise from printing as random letters, and every variant except Olivia shows a real SNR on the same 3 kHz scale. Two things to know: PSK31 corrects its own tuning error over about ±25 Hz, so you only need to get close; Olivia needs its **Mode** (tones / bandwidth) set to exactly match the transmission, sends no preamble, and therefore takes a few seconds to synchronise before any text appears. The panel opens on Olivia **8 / 250**. For the other fldigi modes, put the signal on the centre frequency or press **⟳ Auto-tune Center** and pick the matching **Mode**: THROB needs tuning within ±3 Hz, DominoEX, THOR and MT63 forgive much more, and MFSK, THOR and MT63 print a few seconds behind the signal. Hellschreiber shows a picture, not text.
-
-**Packet** prints every AX.25 frame it hears, like a TNC monitor; **APRS** turns APRS packets into plain text — position with locator, speed, altitude, weather, messages, objects and status. Choose the **Speed**: **1200 Bd** for VHF/UHF, which switches the receiver to **FM** on the channel (144.800 MHz in Europe is in the frequency list), or **300 Bd** for HF, in USB. Only packets with a correct checksum are printed, so nothing appears on a quiet channel. Under the text, a map shows every station heard with a position, with tracks for moving ones and your receiver in amber; it can be minimised, and clicking a decoded line zooms to that station. See the [Decoder manual](DECODERS.md#packet-and-aprs-notes).
-
----
-
-### QRSS Grabber
-
-QRSS is CW sent so slowly that a single dot lasts seconds, and it is watched rather than heard — the grabber paints the trace on its own display. It is not in the Decoder dropdown; it has its own **QRSS** section and can run at the same time as a decoder.
-
-Press **🐌 Show**, then pick a window from the **Band** list and press **Tune**: the receiver goes to that frequency in **CW** with a passband sized for the mode, and the trace lands on the centre line of the display. 30 m (10,140.00 kHz) is the busiest window. Set **Speed** to match the beacon — **QRSS 10** if you do not know — and be patient: a callsign can take ten minutes to cross the screen. Full details in [Decoders](DECODERS.md).
-
----
-
-### SSTV
-
-Slow-Scan Television sends still pictures over a normal SSB channel, one line at a time. Enable the decoder, select **SSTV**, and tune to an SSTV frequency — 14.230 MHz is the main international calling frequency. Leave **Mode** on **Auto**: the decoder reads the transmission's VIS header, and falls back to identifying the mode from the sync timing if you tuned in after the header. Martin, Scottie and Robot modes are supported, and the picture builds line by line as it arrives. Or simply press the **SSTV** button.
-
-### Automatic spot reporting and server graphs
-
-FT8, FT4 and WSPR decodes can also be uploaded automatically by the server itself — FT8/FT4 to PSK Reporter, WSPR to WSPRnet — by an autorun daemon the sysop starts from the admin panel, on the bands, modes and hours scheduled there. It is independent of the decoders in your browser: it keeps running whether or not anyone is listening, and nothing you decode in the browser is reported.
-
-The sysop follows it with two counters, which are easy to mistake for each other: the per-decoder tiles count the spots uploaded since the daemon last started, while the number beside each band/mode checkbox is that slot's all-time total and survives restarts. The same panel has a **Graphs** page plotting CPU frequency, CPU load, CPU temperature and users online over the last 15 minutes to 24 hours. Both are described in the [Admin Panel guide](ADMIN_PANEL_SETUP.md).
-
 
 ---
 
@@ -860,6 +646,7 @@ PhantomSDR-Plus can be used by blind and low-vision listeners with a screen read
 These shortcuts work anywhere on the page, also while typing in a field:
 
 - **Alt + Shift + F**: say the frequency, mode and bandwidth
+- **Alt + Ctrl**: open the frequency number pad (press both keys together and let go)
 - **Alt + Shift + S**: say the signal strength (S-units and dBm) and the SNR
 - **Alt + Shift + R**: read the decoders' text aloud, on / off (FT8, FT4, FT2, JS8, WSPR, CW, NAVTEX, the FLDIGI window, HFDL, DSC, HF Selcall and ALE)
 - **Alt + Shift + C**: read new chat messages aloud, on / off
@@ -942,76 +729,6 @@ When you switch between the two views your current mode travels with you, but if
 
 A frequency outside the receiver's coverage is pulled back to the nearest edge, so an old link can never strand you off-band.
 
-### Mobile-Specific Features
-
-- **Touch-friendly controls**: Large buttons and sliders
-- **Swipe to tune**: Swipe left/right on waterfall
-- **Pinch to zoom**: Pinch waterfall to zoom in/out
-- **Landscape mode**: Rotate for better view
-- **Spectrum and waterfall sized for a phone**: in the extended view both are taller than the desktop proportions would make them
-
-### Mobile Tips
-
-1. **Use WiFi**: Streaming audio uses data
-2. **Landscape orientation**: Better waterfall view
-3. **Headphones**: Better audio quality
-4. **Bookmark favorites**: Easier to revisit stations
-5. **Close other apps**: Ensure smooth performance
-
-### Mobile Browser Recommendations
-
-- **Android**: Chrome or Samsung Internet
-- **iOS**: Mozilla
-- **Both**: Ensure browser is up to date
-
----
-
-## Tips and Best Practices
-
-### For Best Reception
-
-1. **Choose strong signals**: Look for orange/red on waterfall
-2. **Tune precisely**: Click directly on signal center
-3. **Select correct mode**: Match the signal type
-4. **Adjust AGC**: Fast for AM, Slow for SSB
-5. **Use NR/NB**: Help with noisy conditions
-
-### Finding Activity
-
-1. **Watch the waterfall**: Colors show signal strength
-2. **Listen on popular frequencies**:
-   - 40m: 7.100-7.300 MHz (LSB)
-   - 20m: 14.200-14.350 MHz (USB)
-   - 2m: 145.200-145.600 MHz (FM)
-3. **Check band plan overlay**: Shows frequency allocations
-4. **Use bookmarks**: Quick access to active frequencies
-
-### Understanding Band Conditions
-
-**Daytime HF (High Frequency):**
-- Higher bands work better (20m, 15m, 10m)
-- Long-distance (DX) communication possible
-- Broadcast stations audible
-
-**Nighttime HF:**
-- Lower bands work better (80m, 40m)
-- Different propagation patterns
-- Different stations audible
-
-**VHF/UHF:**
-- Mostly line-of-sight
-- Local communications
-- More consistent conditions
-
-### Etiquette
-
-1. **Don't tie up the receiver**: Others want to listen too
-2. **Use chat respectfully**: Be courteous to other users
-3. **Report problems**: Help the operator maintain the station
-4. **Don't ask for tech support**: This is a listening platform. Send a message to the Sysop for help.
-
----
-
 ## Troubleshooting
 
 ### No Audio
@@ -1077,198 +794,6 @@ For a closer look, open the page with `?diag=1` added to its address (for exampl
 1. Check SDR's frequency coverage (shown on page)
 2. Use frequency format examples provided
 3. Click on waterfall instead
-
-### Stuttering/Choppy Audio
-
-**Possible causes:**
-1. Slow internet connection
-2. High server load
-3. Browser performance issues
-
-**Solutions:**
-1. Close other applications using bandwidth
-2. Try again during off-peak hours
-3. Close unnecessary browser tabs
-4. Use wired connection instead of WiFi
-
----
-
-## Frequently Asked Questions
-
-### General Questions
-
-**Q: Do I need special equipment to use WebSDR?**
-A: No! Just a computer or mobile device with internet access.
-
-**Q: Is WebSDR free to use?**
-A: Yes, most WebSDRs are free. They're operated by volunteers.
-
-**Q: Can I transmit with WebSDR?**
-A: No, WebSDR is receive-only. You cannot transmit.
-
-**Q: What frequencies can I listen to?**
-A: Depends on the WebSDR's configuration. Check the station info.
-
-**Q: Can I record audio?**
-A: Some browsers allow recording. Check your browser's features.
-
-### Technical Questions
-
-**Q: What sample rate does the SDR use?**
-A: Varies by station. Check the station information page.
-
-**Q: What's the latency?**
-A: Usually a few tenths of a second between the radio signal and your speakers: the receiver's processing, the network, and the browser's playback buffer, which adjusts itself to your connection (about 100–150 ms on a phone over home Wi-Fi). See *Audio Buffer and Delay*.
-
-**Q: Can I use multiple instances?**
-A: Usually yes, but it may strain the server. Be considerate.
-
-**Q: Does it work offline?**
-A: No, WebSDR requires internet connection.
-
-**Q: What browsers are supported?**
-A: Chrome, Firefox, Edge, Safari (all recent versions)
-
-### Usage Questions
-
-**Q: How many people can listen at once?**
-A: Depends on server capacity. Often 50-200+ users.
-
-**Q: Can I see what others are listening to?**
-A: If enabled, yes. Look for "other users" indicators.
-
-**Q: Can I chat with other listeners?**
-A: If enabled by the operator. Look for the chat box; **↪ Reply** answers a particular message (see *Chat* above).
-
-**Q: Why do some frequencies show nothing?**
-A: No signals on that frequency at the moment. Try others!
-
-**Q: What are the colored bands on the waterfall?**
-A: Band plan overlay showing frequency allocations.
-
----
-
-## Resources
-
-### Learning More About Radio
-
-- **Band Plans**: Search "amateur radio band plan" + your region
-- **Propagation**: Learn about HF radio wave propagation
-- **Digital Modes**: Research FT8, PSK31, RTTY
-- **Ham Radio**: Consider getting an amateur radio license!
-
-### Finding More WebSDRs
-
-- **WebSDR Directory**: http://sdr-list.xyz
-- **WebSDR.org**: http://websdr.org
-- **KiwiSDR**: http://kiwisdr.com/public/
-
-### Getting Help
-
-1. **Station operator**: Check contact info on page
-2. **User chat**: Ask other listeners (if available)
-3. **Online forums**: Search for WebSDR communities
-4. **Documentation**: Refer to this guide!
-
----
-
-## Appendix: Common Frequencies
-
-### HF Amateur Radio Bands
-
-| Band | Frequency Range | Mode | Activity |
-|------|----------------|------|----------|
-| 160m | 1.800-2.000 MHz | LSB | Night/Local |
-| 80m | 3.500-4.000 MHz | LSB | Night/Regional |
-| 40m | 7.000-7.300 MHz | LSB | Day/Night/DX |
-| 30m | 10.100-10.150 MHz | USB | Data/CW only |
-| 20m | 14.000-14.350 MHz | USB | Daytime/DX |
-| 17m | 18.068-18.168 MHz | USB | Daytime/DX |
-| 15m | 21.000-21.450 MHz | USB | Daytime/DX |
-| 12m | 24.890-24.990 MHz | USB | Daytime/DX |
-| 10m | 28.000-29.700 MHz | USB | Sporadic/DX |
-
-### VHF/UHF Amateur Bands
-
-| Band | Frequency Range | Mode | Activity |
-|------|----------------|------|----------|
-| 6m | 50.000-54.000 MHz | USB/FM | Sporadic |
-| 2m | 144.000-148.000 MHz | FM | Very Active |
-| 70cm | 420.000-450.000 MHz | FM | Active |
-
-### Broadcast Bands
-
-| Service | Frequency Range | Mode |
-|---------|----------------|------|
-| AM Radio | 530-1710 kHz | AM |
-| Shortwave | 2.3-26.1 MHz | AM |
-| FM Radio | 88-108 MHz | WBFM |
-
-### Aviation
-
-| Service | Frequency Range | Mode |
-|---------|----------------|------|
-| Air Traffic Control | 118-137 MHz | AM |
-| ACARS (data) | 130-136 MHz | Data |
-
-### Maritime
-
-| Service | Frequency Range | Mode |
-|---------|----------------|------|
-| Marine VHF | 156-162 MHz | FM |
-| Marine HF | 2-22 MHz | USB |
-
----
-
-## Glossary
-
-**AGC**: Automatic Gain Control - adjusts audio levels automatically
-
-**AM**: Amplitude Modulation - voice mode used for aviation and broadcast
-
-**Bandwidth**: The frequency range of a signal
-
-**CW**: Continuous Wave - Morse code signals
-
-**DX**: Long distance communication
-
-**FFT**: Fast Fourier Transform - converts time to frequency domain
-
-**FLDIGI**: the decoder window for ALE 2G, RTTY, PSK31, Olivia, FST4W, MFSK, MSK144, DominoEX, THOR, THROB, Hellschreiber, MT63, Packet and APRS, named after the fldigi program that made these modes popular
-
-**FM**: Frequency Modulation - voice mode for VHF/UHF
-
-**HF**: High Frequency (3-30 MHz) - long distance bands
-
-**kHz**: Kilohertz (1,000 Hz)
-
-**LSB**: Lower Sideband - voice mode for lower HF bands
-
-**MHz**: Megahertz (1,000,000 Hz)
-
-**NB**: Noise Blanker - removes impulse noise
-
-**NR**: Noise Reduction - reduces background noise
-
-**PSK**: Phase Shift Keying - digital mode
-
-**RTTY**: Radio Teletype - digital text mode
-
-**S-meter**: Signal strength meter
-
-**SDR**: Software Defined Radio
-
-**SQL**: Squelch - mutes audio when no signal present
-
-**SSB**: Single Sideband (USB or LSB)
-
-**USB**: Upper Sideband - voice mode for higher HF bands
-
-**VHF**: Very High Frequency (30-300 MHz) - line-of-sight
-
-**UHF**: Ultra High Frequency (300-3000 MHz) - line-of-sight
-
-**Waterfall**: Visual display of radio spectrum over time
 
 ---
 

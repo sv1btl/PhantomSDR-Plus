@@ -72,8 +72,6 @@ Promijenite li kasnije DNS ime s `bash configure-station.sh`, Caddy sam prelazi 
 | 9000 | proxy.py — http, kao prije | da |
 | 9014 | proxy.py — gdje Caddy predaje posjetitelje | ne — unutar računala |
 
-Caddy doseže proxy kroz vlastiti port jer bi, gledano iz proxyja, svaki posjetitelj koji dolazi preko Caddyja inače dolazio sa samog računala — a zahtjevu sa samog računala vjeruje se: smije odspajati slušatelje i ne broji se u ograničenja po IP-u. Na portu 9014 proxy od Caddyja preuzima stvarnu adresu posjetitelja i nikad posjetitelja ne smatra lokalnim, pa popis slušatelja, ograničenja po IP-u i sysopov kick rade točno kao preko http-a, a nitko ne može izbaciti slušatelja preko https-a.
-
 ---
 
 ## Što se mijenja za slušatelje

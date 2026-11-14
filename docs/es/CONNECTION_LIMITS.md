@@ -12,33 +12,20 @@ Este manual trata de las tres capas que lo detienen, de lo que cada una puede y 
 
 ## Contenido
 
-1. [De qué se está defendiendo realmente](#1-de-qué-se-está-defendiendo-realmente)
-2. [Las tres capas](#2-las-tres-capas)
-3. [Límites por dirección — la política de oyentes](#3-límites-por-dirección)
-4. [Conexiones inactivas — el ataque silencioso](#4-conexiones-inactivas)
-5. [La protección en el núcleo — `setup-firewall.sh`](#5-la-protección-en-el-núcleo)
-6. [Referencia de configuración](#6-referencia-de-configuración)
-7. [Qué ve un oyente rechazado](#7-qué-ve-un-oyente-rechazado)
-8. [Leer los registros y los contadores](#8-leer-los-registros-y-los-contadores)
-9. [Elegir sus números](#9-elegir-sus-números)
-10. [Trampas que conviene conocer](#10-trampas-que-conviene-conocer)
-11. [Desactivarlo todo](#11-desactivarlo-todo)
+1. [Las tres capas](#1-las-tres-capas)
+2. [Límites por dirección — la política de oyentes](#2-límites-por-dirección)
+3. [Conexiones inactivas — el ataque silencioso](#3-conexiones-inactivas)
+4. [La protección en el núcleo — `setup-firewall.sh`](#4-la-protección-en-el-núcleo)
+5. [Referencia de configuración](#5-referencia-de-configuración)
+6. [Qué ve un oyente rechazado](#6-qué-ve-un-oyente-rechazado)
+7. [Leer los registros y los contadores](#7-leer-los-registros-y-los-contadores)
+8. [Elegir sus números](#8-elegir-sus-números)
+9. [Trampas que conviene conocer](#9-trampas-que-conviene-conocer)
+10. [Desactivarlo todo](#10-desactivarlo-todo)
 
 ---
 
-## 1. De qué se está defendiendo realmente
-
-Conviene ser preciso, porque la palabra «DDoS» cubre dos cosas muy distintas y solo una de ellas puede resolverse en su propia máquina.
-
-**Avalancha desde una sola fuente.** Un equipo, o unos pocos, abriendo conexiones tan rápido como pueden. Es lo que ocurrió aquí, y tiene arreglo completo: las conexiones llegan de una dirección que se puede contar, y contar basta.
-
-**Un ataque distribuido de verdad.** Miles de equipos, a menudo con direcciones de origen falsificadas, llenando su enlace. Cuando esos paquetes llegan a su tarjeta de red, el ancho de banda ya se ha gastado. **Nada de lo descrito en este manual ayuda**, ni puede ayudar nada que instale en el servidor — la única respuesta es un servicio por delante de usted, lo que es otra conversación que implica un dominio real y un proveedor como Cloudflare delante del receptor.
-
-Todo lo que sigue aborda el primer caso. No es una limitación de la que haya que disculparse: el primer caso es lo que realmente les ocurre a las estaciones de aficionado.
-
----
-
-## 2. Las tres capas
+## 1. Las tres capas
 
 ```
    internet
@@ -62,11 +49,9 @@ Todo lo que sigue aborda el primer caso. No es una limitación de la que haya qu
    └─────────────────────────────────────────────────────────┘
 ```
 
-No son redundantes entre sí, y es deliberado. La capa del núcleo es rápida pero tonta: cuenta paquetes de una dirección y no sabe nada de oyentes. La capa del servidor es precisa, pero solo ve una conexión una vez aceptada y analizada, lo cual cuesta algo. La capa del navegador existe para que un oyente rechazado sepa qué ha pasado, en lugar de mirar una página que nunca carga.
-
 ---
 
-## 3. Límites por dirección
+## 2. Límites por dirección
 
 ### Qué cuenta como un oyente
 
@@ -99,8 +84,6 @@ per_ip_ban_s=600    # cuánto se rechaza a una dirección que rompe el ritmo
 
 **`per_ip_rate`** es lo que de verdad termina con una avalancha. El tope por sí solo no lo hace: rechazar una conexión es barato pero no gratis, y un atacante puede seguir reconectando tan rápido como vuelven los rechazos, quemando su CPU en montar y desmontar. El límite de ritmo le da un bloqueo en lugar de una respuesta. Recuerde que una pestaña cuesta cuatro, así que 40/minuto son unas diez cargas de página por minuto desde una dirección.
 
-> **Un orden deliberado.** El ritmo se cobra *antes* de comprobar el tope de simultáneas. Parece al revés hasta que se piensa en una dirección que ya está en su tope y reconecta en bucle: si el rechazo barato de «estás en el tope» le respondiera siempre, las infracciones de ritmo nunca se acumularían y el bloqueo que termina el bucle no llegaría nunca.
-
 ### Quién queda exento
 
 **El loopback nunca se limita.** El tap de autorun para el reporte de spots, el panel de administración y un navegador abierto en la propia máquina del servidor llegan todos desde `127.0.0.1`, y dejar que consuman plazas significaría que su propia estación deja fuera a sus oyentes.
@@ -111,7 +94,7 @@ Desde la v5.0.0 esa cabecera se cree **solo si viene de un par loopback** — un
 
 ---
 
-## 4. Conexiones inactivas
+## 3. Conexiones inactivas
 
 Hay un ataque que nada de lo anterior puede ver.
 
@@ -125,17 +108,15 @@ idle_per_ip=8       # conexiones inactivas (previas a la petición) por direcci�
 idle_total=512      # tope para todas las direcciones juntas
 ```
 
-El límite está en **cuántas**, no en **cuánto tiempo**, y esa distinción es todo el diseño. **No hay plazo alguno para una conexión inactiva, y es deliberado.** Un plazo parece la respuesta obvia y es una trampa (vea [§10](#10-trampas-que-conviene-conocer)): hay interlocutores legítimos que se conectan y luego permanecen callados mucho tiempo antes de hablar. Lo que los separa de un ataque es la cantidad — un interlocutor legítimo mantiene una de esas conexiones, un atacante miles.
+El límite está en **cuántas**, no en **cuánto tiempo**, y esa distinción es todo el diseño. **No hay plazo alguno para una conexión inactiva, y es deliberado.** Un plazo parece la respuesta obvia y es una trampa (vea [§9](#9-trampas-que-conviene-conocer)): hay interlocutores legítimos que se conectan y luego permanecen callados mucho tiempo antes de hablar. Lo que los separa de un ataque es la cantidad — un interlocutor legítimo mantiene una de esas conexiones, un atacante miles.
 
 Una conexión inactiva vive por tanto hasta que hace una petición o muere, y su plaza se libera en ambos casos.
 
 `idle_total` acota una avalancha repartida entre muchas direcciones de origen. Al alcanzar el tope, se rechazan las **nuevas** conexiones inactivas en vez de expulsar las existentes, de modo que una conexión legítima y de larga vida nunca es lo que se sacrifica para hacer sitio.
 
-Ambos se aplican en el momento en que se acepta el socket, usando la dirección del interlocutor — todavía no hay petición, así que no hay `X-Forwarded-For` que consultar. No pasa nada: el loopback no se cuenta, lo que cubre todo lo que llega por `proxy.py`, y una avalancha directa trae su propia dirección.
-
 ---
 
-## 5. La protección en el núcleo
+## 4. La protección en el núcleo
 
 `setup-firewall.sh` instala una tabla de nftables que quita volumen antes de que `spectrumserver` lea un solo byte. Es deliberadamente tosca, y sus números quedan muy por encima de los de `config.toml`, de modo que un oyente normal nunca puede quedar atrapado por ambos.
 
@@ -165,7 +146,7 @@ Aproveche bien esa ventana. Compruebe **desde otro dispositivo, fuera de su prop
 
 ---
 
-## 6. Referencia de configuración
+## 5. Referencia de configuración
 
 Todas las claves de abajo viven bajo `[limits]` en su fichero `.toml`. **Todas vienen desactivadas o con valores generosos**, así que una configuración que no las mencione se comporta exactamente como siempre.
 
@@ -180,10 +161,6 @@ Todas las claves de abajo viven bajo `[limits]` en su fichero `.toml`. **Todas v
 
 Poner cualquier clave a `0` desactiva esa comprobación concreta.
 
-### Las tres que no son límites
-
-`[limits]` contiene además `audio`, `waterfall` y `events`, heredadas del PhantomSDR original, y **ninguna de las tres se aplica.** `waterfall` y `events` no las lee ningún código. `audio` se lee en un único sitio: se envía como `max_users` en el JSON de registro a los directorios de `[websdr] register_urls`, así que es la cifra que muestran sdr-list.xyz y los demás, y no hace absolutamente nada cuando `register_online=false`. Si quiere un tope de oyentes, `per_ip` de más arriba es el que actúa.
-
 ### Una más, bajo `[server]`
 
 ```toml
@@ -193,23 +170,15 @@ min_client_version=0
 
 No es un límite sino un rechazo, y como comparte el mismo código de cierre, su sitio está aquí. Las páginas anuncian la versión desde la que se cargaron como `/audio?v=N`, y todo lo que esté por debajo de `min_client_version` se rechaza con *«esta página está desactualizada — recárguela»*.
 
-Existe porque el servidor no puede alcanzar el JavaScript que ya se está ejecutando en el navegador de alguien. Una pestaña conserva el código que cargó hasta que alguien la recarga, así que un cambio en la página solo llega a los oyentes que por casualidad recargan — y una estación que acaba de cambiar el comportamiento de las sesiones puede necesitar que las páginas antiguas desaparezcan ya, no algún día.
-
-Solo se comprueba `/audio`, porque es donde vive una sesión, y el loopback y las rutas Kiwi quedan exentos para que el tap de autorun y los clientes Kiwi no se vean afectados. `0` lo desactiva y es el valor por defecto. Dejarlo activo una vez agotadas las páginas antiguas no supone problema: un cliente de diversidad actual al que se rechaza en un `/audio` sin más vuelve a intentarlo con el marcador, de modo que solo se sigue rechazando a clientes de diversidad con una versión anterior de PhantomSDR-Plus y a herramientas de terceros que abren `/audio` sin `?v=`. Vuelva a ponerlo en `0` si otra estación le informa de que ya no puede usarle como pareja de diversidad.
-
 Las configuraciones que trae PhantomSDR-Plus fijan `min_client_version=2`, la versión actual (`CLIENT_VERSION` en `frontend/src/clientVersion.js`), con un comentario que lo explica; sin la línea vale `0`. Si una actualización futura sube `CLIENT_VERSION`, suba también este valor.
 
 ---
 
-## 7. Qué ve un oyente rechazado
+## 6. Qué ve un oyente rechazado
 
 ### Nada se reconecta nunca
 
 Empiece por aquí, porque gobierna todo lo demás: **una conexión `/audio` caída termina la sesión.** No hay reconexión automática, y es deliberado.
-
-Reconectar es el instinto correcto para una aplicación de chat y el equivocado para un receptor. `/waterfall` y `/events` nunca volvían con ella, así que una sesión reintentada era una conexión de audio viva atornillada a una cascada congelada; y detener el servidor ya no lo vaciaba, porque todos los oyentes estaban de vuelta unos segundos después, llenando la lista de usuarios con sesiones en las que en realidad no había nadie. La página se queda en silencio y el oyente la vuelve a cargar — que es justo lo que hacía este receptor antes de que se añadiera reconexión alguna.
-
-Para los límites de este manual eso elimina además una trampa: frente a un límite de ritmo, un reintento automático alargaría precisamente el bloqueo que intentaba sortear.
 
 ### Los dos códigos de cierre
 
@@ -217,8 +186,6 @@ Para los límites de este manual eso elimina además una trampa: frente a un lí
 |---|---|---|
 | **4003** | rechazado — por encima de un límite por dirección, o página obsoleta | `spectrumserver` |
 | **4001** | expulsado o bloqueado por el operador | `spectrumserver`, cuando el panel llama a `/~~kick` |
-
-Ambos están en el rango privado 4000–4999, así que ninguno puede confundirse con un estado de protocolo, y ambos se tratan como definitivos en todas las páginas. El texto del motivo viaja en la trama de cierre y no como mensaje, porque la primera trama de `/audio` está reservada a los ajustes del receptor y cualquier cosa enviada antes rompería toda conexión normal.
 
 ### En la página
 
@@ -230,9 +197,7 @@ Ese silencio tras una expulsión es intencionado. **Expulsar es el sysop termina
 
 Un **bloqueo** — el ⛔ Ban ▾ del panel de administración — es la única excepción: es la misma expulsión con un rechazo de 8, 16 o 24 horas, así que la recarga se rechaza con 4001 hasta que el bloqueo expira o el operador lo levanta.
 
-De la expulsión se encarga `spectrumserver` mismo, no `proxy.py`: los oyentes se conectan directamente al puerto del receptor, así que el proxy no posee ninguna de sus conexiones y su expulsión no alcanza a nadie. El panel llama a `/~~kick?ip=&secs=`, accesible solo por loopback y comprobado contra el interlocutor TCP real, no contra `X-Forwarded-For`, que lo envía el cliente. `secs` vale cero por defecto — sin bloqueo — pero acepta una duración si quiere dejar la dirección fuera un rato, y eso reutiliza el mismo mecanismo de bloqueo que `per_ip_rate`, de modo que la reconexión se rechaza en la puerta. El Ban 24h del panel envía `secs=86400`, lo máximo que acepta, y `/~~unban?ip=` levanta un bloqueo antes de tiempo.
-
-## 8. Leer los registros y los contadores
+## 7. Leer los registros y los contadores
 
 ### El servidor
 
@@ -255,30 +220,15 @@ sudo ./setup-firewall.sh --status
 
 Lea el **`counter packets N`** de cada regla; ese es el número realmente descartado. Todo a cero significa que no se ha bloqueado nada y que sus umbrales están cómodamente holgados.
 
-No se alarme por las listas `elements = { ... }` de los conjuntos que hay sobre las reglas. Esos son sus oyentes normales siendo *seguidos* respecto a los límites — una entrada aparece en la primera conexión de una dirección y caduca un par de minutos después. Seguir no es bloquear.
-
 ---
 
-## 9. Elegir sus números
-
-No hace falta adivinar; sus propios registros se lo dirán. Esta es la medición que fijó aquí `per_ip=3`, sobre una semana de `logs/users_*.jsonl`:
-
-| Sesiones simultáneas desde una dirección | Número de direcciones |
-|---|---|
-| 1 | 682 |
-| 2 | 54 |
-| 3 | 13 |
-| más de 3 | **8** |
-
-758 direcciones distintas en siete días, y un límite de tres habría afectado a ocho de ellas. La avalancha estaba en 181.
-
-Para repetirlo en su propia estación, empareje los identificadores de sesión por dirección en `logs/users_*.jsonl` y tome el solapamiento máximo. Tenga en cuenta que el registro anota eventos `tune` y `disconnect` pero no tiene evento `connect`, así que el inicio de una sesión debe deducirse de su primer `tune`.
+## 8. Elegir sus números
 
 **Recuerde el NAT.** Un club, un colegio, una oficina o un operador móvil aparecen como una sola dirección, y todos los que están detrás comparten un cupo. Esto es inherente a cualquier límite basado en la dirección; la única mitigación es elegir un número con el que se sienta cómodo. Si alguna vez un oyente informa de que no puede conectar, esto es lo primero que hay que sospechar — mire `grep Refused` antes que nada.
 
 ---
 
-## 10. Trampas que conviene conocer
+## 9. Trampas que conviene conocer
 
 ### Nunca un plazo para una conexión inactiva
 
@@ -304,7 +254,7 @@ sudo ./setup-firewall.sh --status | grep -c dport   # debe dar 8, no 16
 
 ---
 
-## 11. Desactivarlo todo
+## 10. Desactivarlo todo
 
 Los límites del servidor: ponga las claves a `0`, o bórrelas de su `.toml`, y reinicie el receptor. No hay más estado; nada sobrevive a un reinicio.
 

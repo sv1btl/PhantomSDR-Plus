@@ -17,862 +17,39 @@ Ce document offre une vue d'ensemble complète de la structure de répertoires d
 ---
 
 ## Arborescence des répertoires
+
+*Seulement les dossiers principaux et les fichiers qu'un sysop utilise ; la liste complète se trouve dans le dépôt lui-même.*
+
 ```
 PhantomSDR-Plus
 ├── add-receiver.sh            # ajoute un récepteur de plus : pilote, instances/<nom>/, receivers.toml — voir docs/MULTI_RECEIVER.md
-├── ADDITIONAL_TERMS.md        # conditions supplémentaires selon la section 7 de la GPL v3 : la ligne « original from » est conservée
-├── admin_config.json
 ├── admin_server.py
 ├── autorun
-│   ├── audiotap.js
-│   ├── bandplan.js
-│   ├── decodeworker.js
-│   ├── drm-helper.js          # DRM pour les auditeurs : un ubersdr-drm par session, sur une prise IQ
-│   ├── drmheard.js            # services DRM décodés ici (« heard here »), ajoutés à la grille
-│   ├── drmschedule.js         # grille DRM : drmrx.org + confirmations KiwiSDR + HFCC
-│   ├── index.js
-│   ├── iqtap.js               # AudioTap dans le mode IQ du serveur
-│   ├── manager.js
-│   ├── package.json
-│   ├── pool.js
-│   ├── probe-ft8.js
-│   ├── probe-js8.js
-│   ├── pskreporter.js
-│   ├── scheduler.js           # planning du report des spots : quels créneaux tournent à une heure UTC donnée
-│   ├── scheduler.test.mjs     # test du planning sans récepteur (horloge simulée)
-│   ├── serverport.js          # où les prises trouvent spectrumserver (tient compte de receivers.toml)
-│   ├── spotparse.js
-│   ├── wasm-shim.js
-│   └── wsprnet.js
-├── cf32_to_real.c             # Fobos HF : garde I du CF32 de rx_sdr, mis à l'échelle en s16 (compilé par setup-fobos.sh)
-├── chat_history.txt
-├── check-go.sh                # ancien : chien de garde de la chaîne go.sh
-├── config-airspyhf.toml
-├── config.example.hackrf.toml
-├── config.example.rtlsdr.toml
-├── config-fobos-hf.toml
-├── config-fobos.toml
-├── config-hackrf.toml
-├── config-rsp1a.toml
 ├── config-rtl.toml
-├── config-rx888mk2.toml
 ├── config.toml
 ├── configure-station.sh       # l'assistant de station : demande une fois, écrit station.conf, le .toml et site_information.json
-├── connection_impl.hpp
 ├── docs
-│   ├── ADMIN_PANEL_SETUP.md
-│   ├── Aether_config.md
-│   ├── Appendix.md
-│   ├── CONNECTION_LIMITS.md
-│   ├── de
-│   │   ├── ADMIN_PANEL_SETUP.md
-│   │   ├── Aether_config.md
-│   │   ├── Appendix.md
-│   │   ├── CONNECTION_LIMITS.md
-│   │   ├── DECODERS.md
-│   │   ├── EDITING_VARIANTS.md
-│   │   ├── HTTPS.md
-│   │   ├── INSTALLATION.md
-│   │   ├── MULTI_RECEIVER.md
-│   │   ├── PhantomSDR-Plus-Documentation-DE.pdf
-│   │   ├── PROJECT_STRUCTURE.md
-│   │   ├── RADE_General_INSTALL_MANUAL_LINUX.md
-│   │   ├── RADE_README.md
-│   │   ├── README.md
-│   │   ├── RECEIVE_DIVERSITY.md
-│   │   ├── RIG_CONTROL.md
-│   │   ├── THERMAL_GUARD.md
-│   │   └── USER_GUIDE.md
-│   ├── DECODERS.md
-│   ├── EDITING_VARIANTS.md
-│   ├── el
-│   │   ├── ADMIN_PANEL_SETUP.md
-│   │   ├── Aether_config.md
-│   │   ├── Appendix.md
-│   │   ├── CONNECTION_LIMITS.md
-│   │   ├── DECODERS.md
-│   │   ├── EDITING_VARIANTS.md
-│   │   ├── HTTPS.md
-│   │   ├── INSTALLATION.md
-│   │   ├── MULTI_RECEIVER.md
-│   │   ├── PhantomSDR-Plus-Documentation-EL.pdf
-│   │   ├── PROJECT_STRUCTURE.md
-│   │   ├── RADE_General_INSTALL_MANUAL_LINUX.md
-│   │   ├── RADE_README.md
-│   │   ├── README.md
-│   │   ├── RECEIVE_DIVERSITY.md
-│   │   ├── RIG_CONTROL.md
-│   │   ├── THERMAL_GUARD.md
-│   │   └── USER_GUIDE.md
-│   ├── es
-│   │   ├── ADMIN_PANEL_SETUP.md
-│   │   ├── Aether_config.md
-│   │   ├── Appendix.md
-│   │   ├── CONNECTION_LIMITS.md
-│   │   ├── DECODERS.md
-│   │   ├── EDITING_VARIANTS.md
-│   │   ├── HTTPS.md
-│   │   ├── INSTALLATION.md
-│   │   ├── MULTI_RECEIVER.md
-│   │   ├── PhantomSDR-Plus-Documentation-ES.pdf
-│   │   ├── PROJECT_STRUCTURE.md
-│   │   ├── RADE_General_INSTALL_MANUAL_LINUX.md
-│   │   ├── RADE_README.md
-│   │   ├── README.md
-│   │   ├── RECEIVE_DIVERSITY.md
-│   │   ├── RIG_CONTROL.md
-│   │   ├── THERMAL_GUARD.md
-│   │   └── USER_GUIDE.md
-│   ├── fr
-│   │   ├── ADMIN_PANEL_SETUP.md
-│   │   ├── Aether_config.md
-│   │   ├── Appendix.md
-│   │   ├── CONNECTION_LIMITS.md
-│   │   ├── DECODERS.md
-│   │   ├── EDITING_VARIANTS.md
-│   │   ├── HTTPS.md
-│   │   ├── INSTALLATION.md
-│   │   ├── MULTI_RECEIVER.md
-│   │   ├── PhantomSDR-Plus-Documentation-FR.pdf
-│   │   ├── PROJECT_STRUCTURE.md
-│   │   ├── RADE_General_INSTALL_MANUAL_LINUX.md
-│   │   ├── RADE_README.md
-│   │   ├── README.md
-│   │   ├── RECEIVE_DIVERSITY.md
-│   │   ├── RIG_CONTROL.md
-│   │   ├── THERMAL_GUARD.md
-│   │   └── USER_GUIDE.md
-│   ├── hr
-│   │   ├── ADMIN_PANEL_SETUP.md
-│   │   ├── Aether_config.md
-│   │   ├── Appendix.md
-│   │   ├── CONNECTION_LIMITS.md
-│   │   ├── DECODERS.md
-│   │   ├── EDITING_VARIANTS.md
-│   │   ├── HTTPS.md
-│   │   ├── INSTALLATION.md
-│   │   ├── MULTI_RECEIVER.md
-│   │   ├── PhantomSDR-Plus-Documentation-HR.pdf
-│   │   ├── PROJECT_STRUCTURE.md
-│   │   ├── RADE_General_INSTALL_MANUAL_LINUX.md
-│   │   ├── RADE_README.md
-│   │   ├── README.md
-│   │   ├── RECEIVE_DIVERSITY.md
-│   │   ├── RIG_CONTROL.md
-│   │   ├── THERMAL_GUARD.md
-│   │   └── USER_GUIDE.md
-│   ├── HTTPS.md
-│   ├── INSTALLATION.md
-│   ├── MULTI_RECEIVER.md
-│   ├── PhantomSDR-Plus-Documentation-EN.pdf
-│   ├── PROJECT_STRUCTURE.md
-│   ├── RADE_General_INSTALL_MANUAL_LINUX.md
-│   ├── RADE_README.md
-│   ├── README.md
-│   ├── RECEIVE_DIVERSITY.md
-│   ├── RIG_CONTROL.md
-│   ├── ru
-│   │   ├── ADMIN_PANEL_SETUP.md
-│   │   ├── Aether_config.md
-│   │   ├── Appendix.md
-│   │   ├── CONNECTION_LIMITS.md
-│   │   ├── DECODERS.md
-│   │   ├── EDITING_VARIANTS.md
-│   │   ├── HTTPS.md
-│   │   ├── INSTALLATION.md
-│   │   ├── MULTI_RECEIVER.md
-│   │   ├── PhantomSDR-Plus-Documentation-RU.pdf
-│   │   ├── PROJECT_STRUCTURE.md
-│   │   ├── RADE_General_INSTALL_MANUAL_LINUX.md
-│   │   ├── RADE_README.md
-│   │   ├── README.md
-│   │   ├── RECEIVE_DIVERSITY.md
-│   │   ├── RIG_CONTROL.md
-│   │   ├── THERMAL_GUARD.md
-│   │   └── USER_GUIDE.md
-│   ├── sdr-stats
-│   │   ├── package.json
-│   │   ├── readme_de.md
-│   │   ├── readme_el.md
-│   │   ├── readme_es.md
-│   │   ├── readme_fr.md
-│   │   ├── readme_hr.md
-│   │   ├── README.md
-│   │   └── readme_ru.md
-│   ├── THERMAL_GUARD.md
-│   ├── USER_GUIDE.md
-│   ├── websdr2.png
-│   ├── websdr3.png
-│   └── websdr.png
 ├── drm                        # créé par setup-drm.sh : src/ et bin/ (pas dans git)
-├── favicon.ico
-├── fftw_wisdom
-├── fix_local_geo.py
 ├── frequencylist
-│   ├── 0.TXT
-│   ├── A26all00.TXT           # absent du dépôt : extrait de a26allx2.zip par update-markers.sh
-│   ├── a26allx2.zip
-│   ├── admin.txt
-│   ├── antenna.txt
-│   ├── broadcas.txt
-│   ├── curl-output.txt
-│   ├── currentUpdateFile.txt
-│   ├── eibi-README.TXT  # pas dans le dépôt : les tables de codes d'EiBi, récupérées par update-eibi.sh
-│   ├── fmorg.txt
-│   ├── generate-current-shortwave.py
-│   ├── generate-eibi.py
-│   ├── language.txt
-│   ├── mymarkers.json
-│   ├── README.md
-│   ├── shortwavestations.json
-│   ├── site.txt
-│   ├── sked-b26.csv  # pas dans le dépôt : la grille de saison d'EiBi, récupérée par update-eibi.sh
-│   ├── update-eibi.sh
-│   └── update-markers.sh
 ├── frontend
-│   ├── build-all.sh
-│   ├── build-default.sh
-│   ├── build-mobile.sh
-│   ├── debug-title.sh
-│   ├── favicon.ico
-│   ├── fix-title-python.py
-│   ├── index.html
-│   ├── jsconfig.json
-│   ├── LICENSE
-│   ├── make-redirect-stubs.sh
-│   ├── mobile
-│   │   └── index.html
-│   ├── package.json
-│   ├── package-lock.json
-│   ├── pnpm-lock.yaml
-│   ├── postcss.config.cjs
-│   ├── .prettierrc.json      # règles de formatage Prettier pour les sources du frontend
-│   ├── public
-│   │   ├── analyze_users.py
-│   │   ├── decoders
-│   │   │   ├── ft8_lib.wasm
-│   │   │   ├── hfdl_systable.conf # stations au sol HFDL (table système de dumphfdl)
-│   │   │   ├── hfdl.wasm      # décodeur HFDL, compilé depuis jsdsp/hfdl_wasm
-│   │   │   ├── js8_dict.bin   # dictionnaire de mots JS8, chargé seulement au besoin
-│   │   │   └── js8.wasm       # décodeur JS8, compilé depuis jsdsp/js8_wasm
-│   │   ├── eibi.json  # pas dans le dépôt : la grille EiBi, écrite par frequencylist/update-eibi.sh
-│   │   ├── logo.jpg
-│   │   ├── stats.html
-│   │   ├── users.html
-│   │   └── wf-message.json
-│   ├── README.md
-│   ├── site_information.example.json # le modèle générique, sans risque à distribuer ; à copier en site_information.json
-│   ├── site_information.json
-│   ├── src
-│   │   ├── app.css
-│   │   ├── App.svelte
-│   │   ├── assets
-│   │   │   ├── amateurfrequencies.json
-│   │   │   ├── background.jpg
-│   │   │   ├── shortwavestations.json
-│   │   │   ├── SSTV.png
-│   │   │   ├── SSTV.svg
-│   │   │   └── svelte.png
-│   │   ├── ale.js                         # ALE 2G (FLDIGI, SERVICES) — gr-ale / LinuxALE
-│   │   ├── audio.js
-│   │   ├── audio-stream-worklet.js
-│   │   ├── ax25.js
-│   │   ├── bands-config.js
-│   │   ├── broadcastSchedules.js
-│   │   ├── clientVersion.js
-│   │   ├── cwDecoder.js
-│   │   ├── cwBrowser.js                   # CW Browser (CW, all signals)
-│   │   ├── cw.worker.js
-│   │   ├── cwWorkerProxy.js
-│   │   ├── decoder.worker.js
-│   │   ├── diversity.js
-│   │   ├── diversityList.js
-│   │   ├── dsc.js                         # DSC + HF Selcall (SERVICES)
-│   │   ├── eventBus.js
-│   │   ├── events.js
-│   │   ├── fax.js
-│   │   ├── fax.worker.js
-│   │   ├── faxWorkerProxy.js
-│   │   ├── fft.js
-│   │   ├── flacLowLatency.js         # décodeur FLAC qui joue chaque paquet dès son arrivée
-│   │   ├── fldigiFec.js              # décodeur de Viterbi et utilitaires de la famille fldigi
-│   │   ├── fsk.js
-│   │   ├── fsk.worker.js
-│   │   ├── fskWorkerProxy.js
-│   │   ├── fst4w.js                       # FST4W (FLDIGI) — WSJT-X
-│   │   ├── hell.js
-│   │   ├── hfdl.worker.js
-│   │   ├── hfdlWorkerProxy.js
-│   │   ├── ifk.js                    # DominoEX et THOR
-│   │   ├── kiwiSource.js
-│   │   ├── lib
-│   │   │   ├── a11y.js                    # screen readers: spoken names, announcements, Alt+Shift keys
-│   │   │   ├── AlePanel.svelte            # ALE 2G (FLDIGI, SERVICES)
-│   │   │   ├── aleNets.js                 # ALE: KiwiSDR ALE_nets + HFLINK
-│   │   │   ├── aprsMap.js
-│   │   │   ├── backend.js
-│   │   │   ├── BandSelector.svelte
-│   │   │   ├── catsync.js
-│   │   │   ├── chatReply.js              # marqueur et fils des réponses du chat
-│   │   │   ├── CheckButton.svelte
-│   │   │   ├── colormaps.js
-│   │   │   ├── Counter.svelte
-│   │   │   ├── DiversityPanel.svelte
-│   │   │   ├── DrmPanel.svelte # panneau DRM : voyants, mesures, station, sélecteur de grille
-│   │   │   ├── DscPanel.svelte            # DSC (SERVICES)
-│   │   │   ├── drmSchedule.js # copie de la grille DRM + « à l'antenne » selon le jour
-│   │   │   ├── fftRadix2.js
-│   │   │   ├── fftMixed.js                # FFT, any N (FST4W)
-│   │   │   ├── fst4wTables.js             # LDPC (240,74) — WSJT-X
-│   │   │   ├── freedv-reporter.js
-│   │   │   ├── FreeDVReporter.svelte
-│   │   │   ├── FreqKeypad.svelte      # pavé numérique pour saisir une fréquence
-│   │   │   ├── FrequencyInput.svelte
-│   │   │   ├── FrequencyMarkers.svelte
-│   │   │   ├── FtxSpectrum.svelte
-│   │   │   ├── hammeractions.js
-│   │   │   ├── HfdlPanel.svelte # panneau HFDL et carte des avions (de PhantomSDR-ORSAT)
-│   │   │   ├── hfdlStations.js # stations au sol et fréquences HFDL
-│   │   │   ├── identity.js               # nom/indicatif de l'auditeur : case, stockage, passage par l'URL
-│   │   │   ├── LineThroughButton.svelte
-│   │   │   ├── Logger.svelte
-│   │   │   ├── MagicEyeIndicator.svelte
-│   │   │   ├── ModeIdChip.svelte
-│   │   │   ├── ModesSelector.svelte
-│   │   │   ├── msk144Tables.js            # LDPC (128,90) — WSJT-X
-│   │   │   ├── opusMlDecoder.js
-│   │   │   ├── pack77.js                  # WSJT-X 77-bit messages (FST4W, MSK144)
-│   │   │   ├── PassbandTuner.svelte
-│   │   │   ├── Popover.svelte
-│   │   │   ├── QrssPanel.svelte
-│   │   │   ├── receivers.js           # données du sélecteur de récepteur (/receivers.json), plages, liens entre récepteurs
-│   │   │   ├── rnnoise.js     # charge RNNoise pour la réduction de bruit par IA
-│   │   │   ├── rx.js                  # à quel récepteur appartient une page (?rx=)
-│   │   │   ├── RxStrip.svelte         # « Show All » : bande en direct d'un autre récepteur
-│   │   │   ├── SelcallPanel.svelte        # HF Selcall (SERVICES)
-│   │   │   ├── ServiceSelect.svelte       # SERVICES: Service
-│   │   │   ├── sideService.js         # où la page trouve RADE et le relais (siteRade / siteRelay)
-│   │   │   ├── SMeterAnalog.svelte
-│   │   │   ├── SMeterDigital.svelte
-│   │   │   ├── Spectrogram.svelte     # analyseur audio (📊 Show)
-│   │   │   ├── SsbReport.svelte       # bilan audio SSB sous l'analyseur
-│   │   │   ├── AmFmReport.svelte      # bilan AM/FM sous l'analyseur
-│   │   │   ├── StatusIndicators.svelte
-│   │   │   ├── SwSchedule.svelte          # la fenêtre EiBi
-│   │   │   ├── TimeSignalPanel.svelte     # Time Signals (SERVICES)
-│   │   │   ├── storage.js
-│   │   │   ├── sUnits.js              # échelle des points S selon la fréquence (S9 = −93 dBm au-dessus de 30 MHz)
-│   │   │   ├── Tooltip.svelte
-│   │   │   ├── tzLookup.js                # tz-lookup 6.1.25 (CC0)
-│   │   │   ├── version.js             # VERSION + ORIGIN_URL pour la page du récepteur et /mobile
-│   │   │   ├── VersionSelector.svelte
-│   │   │   ├── VideoAreaSelector.svelte
-│   │   │   ├── volume.js              # courbe du curseur de volume, volume de départ, réglage mémorisé
-│   │   │   ├── Waterfall3D.svelte     # spectre 3D (WebGL2)
-│   │   │   ├── wfAutoLevel.js         # Auto Adj. : luminosité et contraste de la cascade
-│   │   │   └── wrappers.js
-│   │   ├── main.js
-│   │   ├── mobile
-│   │   │   ├── backend.js
-│   │   │   ├── bookmarks.js
-│   │   │   ├── main.js
-│   │   │   ├── Mobile.svelte
-│   │   │   └── tuning.js
-│   │   ├── modeId.js
-│   │   ├── modeId.worker.js
-│   │   ├── modeIdWorkerProxy.js
-│   │   ├── modePriors.js
-│   │   ├── modules
-│   │   │   ├── decode.wasm
-│   │   │   ├── encode.wasm
-│   │   │   ├── ft4.js
-│   │   │   ├── ft8.js
-│   │   │   ├── hfdl.mjs
-│   │   │   ├── js8-decoder.js
-│   │   │   ├── js8-format.js
-│   │   │   ├── js8.js
-│   │   │   ├── js8-reassembler.js
-│   │   │   ├── js8-slots.js
-│   │   │   ├── js8-tables.js
-│   │   │   ├── package.json
-│   │   │   ├── phantomsdrdsp_bg_fallback.js
-│   │   │   ├── phantomsdrdsp_bg.js
-│   │   │   ├── phantomsdrdsp_bg.wasm
-│   │   │   ├── phantomsdrdsp_bg.wasm.d.ts
-│   │   │   ├── phantomsdrdsp.d.ts
-│   │   │   ├── phantomsdrdsp.js
-│   │   │   ├── phantomsdrdsp_router.js
-│   │   │   └── wspr.js
-│   │   ├── mfsk.js
-│   │   ├── msk144.js                      # MSK144 (FLDIGI) — WSJT-X
-│   │   ├── mt63.js
-│   │   ├── olivia.js
-│   │   ├── oliviaBrowser.js               # Olivia Browser (Olivia / Contestia)
-│   │   ├── playoutControl.js         # mesure la connexion, garde petit le tampon de lecture
-│   │   ├── psk31.js
-│   │   ├── pskBrowser.js                  # PSK Browser (BPSK31)
-│   │   ├── refused.js
-│   │   ├── remoteSource.js
-│   │   ├── scanner.js
-│   │   ├── services.worker.js             # SERVICES: DSC, Time Signals, HF Selcall
-│   │   ├── servicesWorkerProxy.js         # SERVICES worker proxy
-│   │   ├── siteInfo.js               # site_information.json, recouvert par la copie propre au récepteur
-│   │   ├── sstv.js
-│   │   ├── sstv.worker.js
-│   │   ├── sstvWorkerProxy.js
-│   │   ├── timesig.js                     # Time Signals: DCF77, MSF, RWM, WWV/WWVH
-│   │   ├── throb.js
-│   │   ├── uberSource.js
-│   │   ├── unused
-│   │   │   ├── AudioProcessor.js
-│   │   │   ├── decoder.js
-│   │   │   ├── decoding.js
-│   │   │   ├── modules-emscripten
-│   │   │   │   ├── dav1d.js
-│   │   │   │   ├── dav1dnoWasm.js
-│   │   │   │   ├── dav1dnoWasm.js.mem
-│   │   │   │   ├── dav1d.wasm
-│   │   │   │   ├── decode_ft8.js
-│   │   │   │   ├── decode_ft8.wasm
-│   │   │   │   ├── FoxenFlac.js
-│   │   │   │   ├── jsDSP.js
-│   │   │   │   ├── jsDSPnoWasm.js
-│   │   │   │   ├── jsDSPnoWasm.js.mem
-│   │   │   │   ├── jsDSPnoWasm.wasm
-│   │   │   │   ├── jsDSP.wasm
-│   │   │   │   ├── libzstd.js
-│   │   │   │   ├── LiquidDSP.js
-│   │   │   │   ├── opus.js
-│   │   │   │   ├── opusnoWasm.js
-│   │   │   │   ├── opusnoWasm.js.mem
-│   │   │   │   ├── opus.wasm
-│   │   │   │   ├── redsea.js
-│   │   │   │   └── redsea.wasm
-│   │   │   ├── unused.js
-│   │   │   └── wrappers.js
-│   │   ├── videoRecorder.js
-│   │   ├── vite-env.d.ts
-│   │   ├── waterfall.js
-│   │   ├── webSdrCodec.js
-│   │   └── webSdrSource.js
-│   ├── stats.html
-│   ├── svelte.config.js
-│   ├── tailwind.config.cjs
-│   └── vite.config.js
-├── go.sh                      # ancienne chaîne de lancement, remplacée par start-<radio>.sh
-├── install_arch.sh
-├── install_fedora.sh
-├── install_opensuse.sh
-├── install_rade.sh
-├── install_rade_ubuntu22.sh
 ├── install.sh
-├── install-stats-server.sh
 ├── instances                  # récepteurs supplémentaires, un dossier chacun (hors git) — voir docs/MULTI_RECEIVER.md
-├── instructions-for-airspy
-├── instructions-for-rsp1a
 ├── jsdsp
-│   ├── compilejs.sh
-│   ├── configureredsea.sh
-│   ├── extract_EXPORTED_FUNCTIONS.js
-│   ├── ft8_wasm
-│   │   ├── build_ft8_wasm.sh
-│   │   ├── README.md
-│   │   └── wasm_wrapper.c
-│   ├── include
-│   │   ├── avif
-│   │   │   ├── avif.h
-│   │   │   └── internal.h
-│   │   └── liquid
-│   │       └── liquid.h
-│   ├── hfdl_wasm              # décodeur HFDL : dumphfdl + libacars en WebAssembly — voir son README
-│   ├── js8_wasm               # décodeur JS8 en C, compilé en WebAssembly, avec ses tests et son banc de référence — voir son README
-│   │   ├── build_js8_wasm.sh
-│   │   ├── check_against_reference.sh
-│   │   ├── extract_js8_constants.py
-│   │   ├── extract_js8_varicode.py
-│   │   ├── js8_ab_test.mjs
-│   │   ├── js8_autorun_test.mjs
-│   │   ├── js8_chain_test.mjs
-│   │   ├── js8_constants.c
-│   │   ├── js8_constants.h
-│   │   ├── js8_decode.c
-│   │   ├── js8_decode.h
-│   │   ├── js8_decode_test.c
-│   │   ├── js8_encode.c
-│   │   ├── js8_encode.h
-│   │   ├── js8_frames_test.mjs
-│   │   ├── js8_osd.c
-│   │   ├── js8_osd.h
-│   │   ├── js8_reassembly_test.mjs
-│   │   ├── js8_roundtrip.c
-│   │   ├── js8_slots_test.mjs
-│   │   ├── js8_subtract.c
-│   │   ├── js8_subtract.h
-│   │   ├── js8_wasm_test.mjs
-│   │   ├── js8_wasm_wrapper.c
-│   │   ├── README.md
-│   │   ├── reference
-│   │   │   ├── build_in_container.sh
-│   │   │   ├── build_reference_decoder.sh
-│   │   │   ├── build_reference_frames.sh
-│   │   │   ├── Containerfile
-│   │   │   ├── Containerfile.decoder
-│   │   │   ├── ref_decode.f90
-│   │   │   ├── ref_decode.txt
-│   │   │   ├── ref_frames.cpp
-│   │   │   └── ref_frames.txt
-│   │   ├── ref_gen.f90
-│   │   └── run_tests.sh
-│   ├── lib
-│   │   ├── ANR.c
-│   │   ├── arm_funcs.h
-│   │   ├── CMSIS_DSP
-│   │   │   ├── BUILDING.txt
-│   │   │   └── LICENSE.txt
-│   │   ├── dav1d.cpp
-│   │   ├── NB.c
-│   │   ├── NR_spectral.c
-│   │   └── types.h
-│   ├── redsea.js
-│   ├── redsea.wasm
-│   └── src
-│       ├── index.js
-│       ├── libzstd.js
-│       ├── LiquidDSP.js
-│       ├── NoiseProcessing.js
-│       └── wbfmpll.cpp
-├── kill.sh                    # ancien : tue les processus du serveur, appelé par go.sh
-├── kiwi_install.sh             # installe la passerelle KiwiSDR dans une arborescence existante
-├── LICENSE
-├── logproxy                   # copies tournantes des journaux panneau/mandataire/autorun
-├── logrotate
-│   └── phantomsdr             # configuration logrotate pour proxy.log + admin.log (adapter les chemins avant installation)
-├── manage_admin.sh
-├── markers.json
-├── meson.build
-├── meson_options.txt
-├── phantom_fftw_wisdom
-├── phantomsdr-admin.service   # unité systemd d'exemple pour le panneau (démarrage au boot, redémarrage après plantage)
-├── phantomsdr-proxy.service   # unité systemd d'exemple pour le proxy, à installer avec celle du panneau
-├── phantomsdr-websdr-relay.service  # unité systemd d'exemple pour le relais de diversité WebSDR
 ├── proxy.py                   # l'unique port public : la page, /admin, /rade, /stats, /relay et récepteurs ?rx=
 ├── rade_helper.py             # le sidecar RADE : V1 via ~/radae, V2 (beta) via ~/rade_c
-├── rade_loadtest.csv          # sortie de rade_loadtest.py (une ligne par palier de charge)
-├── rade_loadtest.py           # test de charge RADE : combien de décodeurs simultanés la machine supporte — voir docs/RADE_README.md
-├── rade.sh
-├── README.md
 ├── recompile.sh               # recompilation ; --backend / --frontend / --both ne demandent rien
 ├── receivers.toml.example     # liste des récepteurs pour proxy.py — à copier en receivers.toml
-├── _relaunch.sh               # ancien : relance différée de la chaîne go.sh
-├── request.hpp
-├── setup_admin.sh
-├── setup-airspyhf.sh          # chaîne de pilote Airspy HF+ : libairspyhf + SoapyAirspyHF + rx_sdr + udev
-├── setup-autostart.sh         # démarrage au boot : phantomsdr-receiver.service pour le script de démarrage de station.conf
-├── setup-cpufreq-perms.sh     # donne au groupe l'écriture sur scaling_max_freq pour que la protection puisse brider sans root
-├── setup-drm.sh               # compile le décodeur DRM (ubersdr-drm + fdk-aac 2.0.3) dans drm/bin
-├── setup-firewall.sh          # garde nftables optionnelle — voir docs/CONNECTION_LIMITS.md
-├── setup-fobos.sh             # chaîne de pilote Fobos : libfobos + SoapyFobosSDR + rx_sdr + cf32_to_real + udev
-├── setup-hackrf.sh            # HackRF : paquet hackrf de la distribution + udev (rien de compilé)
 ├── setup-https.sh             # https:// devant : Caddy sur 443 avec un certificat Let's Encrypt — voir docs/HTTPS.md
-├── setup-rsp1a.sh             # chaîne de pilote RSP1A : libmirisdr-5 + SoapyMiri + rx_sdr + liste noire msi2500 + udev
-├── setup-rtlsdr.sh            # pilote RTL-SDR : paquet de la distribution, ou pilote Blog V4 compilé + blocage DVB + udev
-├── setup-rx888-udev.sh
-├── setup-sdr-common.sh        # fonctions communes des trois scripts setup ci-dessus
-├── setup_websdr_relay.sh      # installe le relais de diversité WebSDR (port, identité, systemd)
-├── smeter_theme.sh
 ├── src
-│   ├── audio.cpp
-│   ├── audio.h
-│   ├── chat.cpp
-│   ├── chat.h
-│   ├── client.cpp
-│   ├── client.h
-│   ├── compression.cpp
-│   ├── compression.h
-│   ├── crash_handler.cpp
-│   ├── crash_handler.h
-│   ├── events.cpp
-│   ├── events.h
-│   ├── fft.cpp
-│   ├── fft_cuda.cu
-│   ├── fft.h
-│   ├── fft_impl.cpp
-│   ├── fft_mkl.cpp
-│   ├── http.cpp
-│   ├── kiwi_bridge.h          # passerelle du protocole KiwiSDR — voir docs/Aether_config.md
-│   ├── listing
-│   │   ├── software_info.cpp
-│   │   └── software_info.h
-│   ├── samplereader.cpp
-│   ├── samplereader.h
-│   ├── signal.cpp
-│   ├── signal.h
-│   ├── spectrumserver.cpp
-│   ├── spectrumserver.h
-│   ├── utils
-│   │   ├── audioprocessing.cpp
-│   │   ├── audioprocessing.h
-│   │   ├── dsp.cpp
-│   │   └── dsp.h
-│   ├── utils.cpp
-│   ├── utils.h
-│   ├── waterfallcompression.cpp
-│   ├── waterfallcompression.h
-│   ├── waterfall.cpp
-│   ├── waterfall.h
-│   ├── websocket.cpp
-│   └── websocket.h
-├── start-airspyhf.sh
-├── start-all.sh               # démarre chaque récepteur de receivers.toml
-├── start-fobos-hf.sh
-├── start-fobos.sh
-├── start-hackrf.sh
-├── start-rsp1a.sh
 ├── start-rtl.sh
 ├── start-rx888mk2.sh
 ├── station.conf               # les réponses de la station à l'assistant (pas dans git, jamais touché par update.sh)
-├── main.env                   # le gain du récepteur principal, réglé dans le panneau d'administration (pas dans git, jamais touché par update.sh)
 ├── stop-websdr.sh
 ├── subprojects
-│   ├── fftw3.wrap
-│   ├── flac.wrap
-│   ├── glaze.wrap
-│   ├── libcds.wrap
-│   ├── libflac.wrap
-│   ├── libvolk.wrap
-│   ├── ogg.wrap
-│   ├── opus.wrap
-│   ├── tomlplusplus-3.4.0
-│   │   ├── CHANGELOG.md
-│   │   ├── cmake
-│   │   │   ├── install-rules.cmake
-│   │   │   ├── project-is-top-level.cmake
-│   │   │   ├── tomlplusplusConfig.cmake
-│   │   │   ├── tomlplusplusConfig.cmake.meson.in
-│   │   │   ├── tomlplusplusConfigVersion.cmake.meson.in
-│   │   │   └── variables.cmake
-│   │   ├── CMakeLists.txt
-│   │   ├── CODE_OF_CONDUCT.md
-│   │   ├── CONTRIBUTING.md
-│   │   ├── cpp.hint
-│   │   ├── docs
-│   │   │   ├── images
-│   │   │   │   ├── badge-awesome.svg
-│   │   │   │   ├── badge-C++17.svg
-│   │   │   │   ├── badge-gitter.svg
-│   │   │   │   ├── badge-license-MIT.svg
-│   │   │   │   ├── badge-TOML.svg
-│   │   │   │   ├── banner.ai
-│   │   │   │   ├── banner.png
-│   │   │   │   ├── banner.svg
-│   │   │   │   ├── favicon.ico
-│   │   │   │   ├── logo.ai
-│   │   │   │   └── logo.svg
-│   │   │   ├── pages
-│   │   │   │   └── main_page.md
-│   │   │   └── poxy.toml
-│   │   ├── examples
-│   │   │   ├── benchmark_data.toml
-│   │   │   ├── CMakeLists.txt
-│   │   │   ├── error_printer.cpp
-│   │   │   ├── error_printer.vcxproj
-│   │   │   ├── examples.hpp
-│   │   │   ├── example.toml
-│   │   │   ├── merge_base.toml
-│   │   │   ├── merge_overrides.toml
-│   │   │   ├── meson.build
-│   │   │   ├── parse_benchmark.cpp
-│   │   │   ├── parse_benchmark.vcxproj
-│   │   │   ├── simple_parser.cpp
-│   │   │   ├── simple_parser.vcxproj
-│   │   │   ├── toml_generator.cpp
-│   │   │   ├── toml_generator.vcxproj
-│   │   │   ├── toml_merger.cpp
-│   │   │   ├── toml_merger.vcxproj
-│   │   │   ├── toml_to_json_transcoder.cpp
-│   │   │   └── toml_to_json_transcoder.vcxproj
-│   │   ├── include
-│   │   │   ├── meson.build
-│   │   │   └── toml++
-│   │   │       ├── impl
-│   │   │       │   ├── array.hpp
-│   │   │       │   ├── array.inl
-│   │   │       │   ├── at_path.hpp
-│   │   │       │   ├── at_path.inl
-│   │   │       │   ├── date_time.hpp
-│   │   │       │   ├── formatter.hpp
-│   │   │       │   ├── formatter.inl
-│   │   │       │   ├── forward_declarations.hpp
-│   │   │       │   ├── header_end.hpp
-│   │   │       │   ├── header_start.hpp
-│   │   │       │   ├── json_formatter.hpp
-│   │   │       │   ├── json_formatter.inl
-│   │   │       │   ├── key.hpp
-│   │   │       │   ├── make_node.hpp
-│   │   │       │   ├── node.hpp
-│   │   │       │   ├── node.inl
-│   │   │       │   ├── node_view.hpp
-│   │   │       │   ├── parse_error.hpp
-│   │   │       │   ├── parse_result.hpp
-│   │   │       │   ├── parser.hpp
-│   │   │       │   ├── parser.inl
-│   │   │       │   ├── path.hpp
-│   │   │       │   ├── path.inl
-│   │   │       │   ├── preprocessor.hpp
-│   │   │       │   ├── print_to_stream.hpp
-│   │   │       │   ├── print_to_stream.inl
-│   │   │       │   ├── simd.hpp
-│   │   │       │   ├── source_region.hpp
-│   │   │       │   ├── std_except.hpp
-│   │   │       │   ├── std_initializer_list.hpp
-│   │   │       │   ├── std_map.hpp
-│   │   │       │   ├── std_new.hpp
-│   │   │       │   ├── std_optional.hpp
-│   │   │       │   ├── std_string.hpp
-│   │   │       │   ├── std_string.inl
-│   │   │       │   ├── std_utility.hpp
-│   │   │       │   ├── std_variant.hpp
-│   │   │       │   ├── std_vector.hpp
-│   │   │       │   ├── table.hpp
-│   │   │       │   ├── table.inl
-│   │   │       │   ├── toml_formatter.hpp
-│   │   │       │   ├── toml_formatter.inl
-│   │   │       │   ├── unicode_autogenerated.hpp
-│   │   │       │   ├── unicode.hpp
-│   │   │       │   ├── unicode.inl
-│   │   │       │   ├── value.hpp
-│   │   │       │   ├── version.hpp
-│   │   │       │   ├── yaml_formatter.hpp
-│   │   │       │   └── yaml_formatter.inl
-│   │   │       ├── toml.h
-│   │   │       └── toml.hpp
-│   │   ├── LICENSE
-│   │   ├── meson.build
-│   │   ├── meson_options.txt
-│   │   ├── README.md
-│   │   ├── src
-│   │   │   ├── meson.build
-│   │   │   └── toml.cpp
-│   │   ├── tests
-│   │   │   ├── at_path.cpp
-│   │   │   ├── conformance_burntsushi_invalid.cpp
-│   │   │   ├── conformance_burntsushi_valid.cpp
-│   │   │   ├── conformance_iarna_invalid.cpp
-│   │   │   ├── conformance_iarna_valid.cpp
-│   │   │   ├── cpp.hint
-│   │   │   ├── for_each.cpp
-│   │   │   ├── formatters.cpp
-│   │   │   ├── impl_toml.cpp
-│   │   │   ├── leakproof.hpp
-│   │   │   ├── lib_catch2.hpp
-│   │   │   ├── main.cpp
-│   │   │   ├── manipulating_arrays.cpp
-│   │   │   ├── manipulating_parse_result.cpp
-│   │   │   ├── manipulating_tables.cpp
-│   │   │   ├── manipulating_values.cpp
-│   │   │   ├── meson.build
-│   │   │   ├── odr_test_1.cpp
-│   │   │   ├── odr_test_2.cpp
-│   │   │   ├── parsing_arrays.cpp
-│   │   │   ├── parsing_booleans.cpp
-│   │   │   ├── parsing_comments.cpp
-│   │   │   ├── parsing_dates_and_times.cpp
-│   │   │   ├── parsing_floats.cpp
-│   │   │   ├── parsing_integers.cpp
-│   │   │   ├── parsing_key_value_pairs.cpp
-│   │   │   ├── parsing_spec_example.cpp
-│   │   │   ├── parsing_strings.cpp
-│   │   │   ├── parsing_tables.cpp
-│   │   │   ├── path.cpp
-│   │   │   ├── settings.hpp
-│   │   │   ├── tests.cpp
-│   │   │   ├── tests.hpp
-│   │   │   ├── user_feedback.cpp
-│   │   │   ├── using_iterators.cpp
-│   │   │   ├── visit.cpp
-│   │   │   ├── vs
-│   │   │   │   ├── odr_test.vcxproj
-│   │   │   │   ├── test_debug_x64_cpplatest_noexcept_unrel.vcxproj
-│   │   │   │   ├── test_debug_x64_cpplatest_noexcept.vcxproj
-│   │   │   │   ├── test_debug_x64_cpplatest_unrel.vcxproj
-│   │   │   │   ├── test_debug_x64_cpplatest.vcxproj
-│   │   │   │   ├── test_debug_x64_noexcept_unrel.vcxproj
-│   │   │   │   ├── test_debug_x64_noexcept.vcxproj
-│   │   │   │   ├── test_debug_x64_unrel.vcxproj
-│   │   │   │   ├── test_debug_x64.vcxproj
-│   │   │   │   ├── test_debug_x86_cpplatest_noexcept_unrel.vcxproj
-│   │   │   │   ├── test_debug_x86_cpplatest_noexcept.vcxproj
-│   │   │   │   ├── test_debug_x86_cpplatest_unrel.vcxproj
-│   │   │   │   ├── test_debug_x86_cpplatest.vcxproj
-│   │   │   │   ├── test_debug_x86_noexcept_unrel.vcxproj
-│   │   │   │   ├── test_debug_x86_noexcept.vcxproj
-│   │   │   │   ├── test_debug_x86_unrel.vcxproj
-│   │   │   │   ├── test_debug_x86.vcxproj
-│   │   │   │   ├── test_release_x64_cpplatest_noexcept_unrel.vcxproj
-│   │   │   │   ├── test_release_x64_cpplatest_noexcept.vcxproj
-│   │   │   │   ├── test_release_x64_cpplatest_unrel.vcxproj
-│   │   │   │   ├── test_release_x64_cpplatest.vcxproj
-│   │   │   │   ├── test_release_x64_noexcept_unrel.vcxproj
-│   │   │   │   ├── test_release_x64_noexcept.vcxproj
-│   │   │   │   ├── test_release_x64_unrel.vcxproj
-│   │   │   │   ├── test_release_x64.vcxproj
-│   │   │   │   ├── test_release_x86_cpplatest_noexcept_unrel.vcxproj
-│   │   │   │   ├── test_release_x86_cpplatest_noexcept.vcxproj
-│   │   │   │   ├── test_release_x86_cpplatest_unrel.vcxproj
-│   │   │   │   ├── test_release_x86_cpplatest.vcxproj
-│   │   │   │   ├── test_release_x86_noexcept_unrel.vcxproj
-│   │   │   │   ├── test_release_x86_noexcept.vcxproj
-│   │   │   │   ├── test_release_x86_unrel.vcxproj
-│   │   │   │   └── test_release_x86.vcxproj
-│   │   │   └── windows_compat.cpp
-│   │   ├── toml++.code-workspace
-│   │   ├── toml.hpp
-│   │   ├── toml++.natvis
-│   │   ├── toml++.props
-│   │   ├── toml++.sln
-│   │   ├── toml-test
-│   │   │   ├── meson.build
-│   │   │   ├── README.md
-│   │   │   ├── tt_decoder.cpp
-│   │   │   ├── tt_decoder.vcxproj
-│   │   │   ├── tt_encoder.cpp
-│   │   │   ├── tt_encoder.vcxproj
-│   │   │   └── tt.hpp
-│   │   ├── toml++.vcxproj
-│   │   ├── toml++.vcxproj.filters
-│   │   ├── tools
-│   │   │   ├── ci_single_header_check.py
-│   │   │   ├── clang_format.bat
-│   │   │   ├── generate_conformance_tests.py
-│   │   │   ├── generate_single_header.bat
-│   │   │   ├── generate_single_header.py
-│   │   │   ├── generate_windows_test_targets.py
-│   │   │   ├── requirements.txt
-│   │   │   ├── utils.py
-│   │   │   └── version.py
-│   │   └── vendor
-│   │       ├── catch.hpp
-│   │       ├── json.hpp
-│   │       └── README.md
-│   ├── tomlplusplus.wrap
-│   ├── websocketpp.wrap
-│   ├── zlib.wrap
-│   └── zstd.wrap
 ├── tci-bridge
-│   └── tci-rigctld.mjs        # serveur TCI pour postes Hamlib (IC-7300…), tourne sur le PC de l'auditeur — voir docs/RIG_CONTROL.md
 ├── thermal_guard.py           # Protection contre la surchauffe du processeur pour le panneau (fonctionne aussi seule)
-├── thermal-guard.service      # unité systemd d'exemple pour le garde, sans panneau d'administration
-├── tmpfiles
-│   └── phantomsdr-logs.conf   # garde admin.log + proxy.log à l'utilisateur du panneau (adapter les chemins avant installation)
-├── update-known.txt           # empreintes de chaque version publiée — update.sh distingue fichiers anciens et modifiés
 ├── update.sh                  # mise à jour : rapport, puis « update now? » ; --check, --from, --make-known
-├── waterfall.sh
-├── websdr_relay.json.example  # modèle de configuration (port, limites, identité de la station)
-├── websdr_relay.py            # le relais lui-même — voir docs/RECEIVE_DIVERSITY.md
-├── websocketpp_asio_connection.hpp  # adaptateur Boost >= 1.87 : ws_post au lieu de io_service::post
-├── websocketpp_asio_endpoint.hpp    # adaptateur Boost >= 1.87 : ws_work / ws_restart, max_listen_connections
-├── websocketpp_asio.hpp        # adaptateur Boost >= 1.87 pour websocketpp (io_context, executor_work_guard)
-└── xgo.sh                     # ancien : démarre spectrumserver, appelé par check-go.sh
+└── websdr_relay.py            # le relais lui-même — voir docs/RECEIVE_DIVERSITY.md
 ```
 ---
 
@@ -924,12 +101,10 @@ Chaque `start-*.sh` ci-dessous est un **lanceur autonome + chien de garde + jour
 | `update.sh` | Met à jour l'installation depuis l'arborescence publiée sans toucher à votre configuration, vos marqueurs, la liste de fréquences ni vos modifications : rapport, question « Update these files now? » (ENTRÉE = non), sauvegarde, application et recompilation de ce qui a changé seulement. `--check` pour cron, `--from` depuis un ZIP, une archive ou un dossier sans réseau — voir le [Guide d'installation](INSTALLATION.md) |
 | `update-known.txt` | Le SHA-256 de chaque version de chaque fichier jamais publiée, livré avec chaque version, pour que `update.sh` mette à jour sans question un fichier simplement ancien. Écrit par `bash update.sh --make-known` dans l'arborescence source |
 | `recompile.sh` | Recompile le backend et/ou le frontend et choisit la variante servie à `/`. Avec `--backend`, `--frontend` ou `--both` il ne demande rien et garde la variante actuelle — c'est ainsi que `install.sh` et `update.sh` l'appellent |
-| `smeter_theme.sh` | Définir le cadran par défaut du S-mètre analogique (dark / amber / vintage) pour tous les utilisateurs, et proposer la reconstruction du frontend — voir [Modifier les variantes](EDITING_VARIANTS.md) |
+| `smeter_theme.sh` | Définir le cadran par défaut du S-mètre analogique (dark / amber / vintage) pour tous les utilisateurs, et proposer la reconstruction du frontend — voir [Modifier les variantes](https://github.com/sv1btl/PhantomSDR-Plus/blob/main/docs/fr/EDITING_VARIANTS.md) |
 | `waterfall.sh` | Modifie le niveau minimal de cascade par défaut (dB) dans `waterfall.js` + `App.svelte` — voir [README](README.md) |
 | `kiwi_install.sh` | Installe l'émulation des clients KiwiSDR sur une arborescence qui ne l'a pas : corrige les sources du backend, copie `src/kiwi_bridge.h` et ajoute un bloc `[kiwi_emulation]` documenté aux fichiers de configuration de la racine. Idempotent, et sauvegarde chaque fichier qu'il touche — voir [Émulation des clients KiwiSDR](Aether_config.md) |
 | `tci-bridge/tci-rigctld.mjs` | Non utilisé par le récepteur. Un petit programme Node.js que l'auditeur lance à côté de son propre transceiver : il lit la fréquence, le mode et l'état d'émission dans `rigctld` de Hamlib et les sert en TCI sur le port 50001, pour que le bouton **TCI-CAT** de la page pilote un poste sans TCI, comme l'IC-7300 — voir [Pilotage du transceiver](RIG_CONTROL.md) |
-
-**Ancienne chaîne de lancement.** `go.sh`, `xgo.sh`, `check-go.sh`, `kill.sh` et `_relaunch.sh` sont la génération précédente de scripts de lancement, de surveillance et d'arrêt. Tout ce qu'ils faisaient se trouve désormais dans chaque `start-<radio>.sh`, qui est ce qu'il faut utiliser. Ils restent sur le disque parce que des installations existantes les référencent, et ne sont plus maintenus.
 
 ### Fichiers de données
 
@@ -1061,31 +236,6 @@ Chacun des décodeurs de modes lourds s'exécute dans son propre Web Worker, de 
 | SERVICES (DSC, Time Signals, HF Selcall) | `dsc.js`, `timesig.js` | `services.worker.js` | `servicesWorkerProxy.js` |
 | CW, CW Browser | `cwDecoder.js`, `cwBrowser.js` | `cw.worker.js` | `cwWorkerProxy.js` |
 
-- Le **moteur** est du code DSP pur qui ignore tout des workers : il peut donc aussi être exécuté directement (tests unitaires, ou repli dans le thread principal).
-- Le **worker** détient une instance du moteur et retransmet ses événements tels quels.
-- Le **proxy** reproduit la surface de méthodes du moteur, de sorte qu'`audio.js` l'appelle exactement comme il appellerait le décodeur. Il crée le worker paresseusement à la première activation et bascule vers une exécution dans le thread principal si les workers ne sont pas disponibles.
-
-Deux détails sont porteurs : le PCM est **copié** dans un nouveau tampon avant d'être transféré au worker (transférer une vue sur l'accumulateur audio le détacherait et tuerait la lecture), et le message `init` du worker réapplique la configuration à un moteur déjà en cours plutôt que d'en supposer un neuf.
-
-`fsk.js` sert à la fois NAVTEX et FSK/RTTY à partir d'un seul moteur, sélectionné par instance via un champ `role` ; chaque instance possède son propre état, de sorte que les deux peuvent tourner indépendamment.
-
-Le rôle `fsk` héberge en outre des décodeurs qui n'utilisent pas du tout sa chaîne FSK. Lorsque la variante `psk31`, `olivia`, `packet` ou `aprs`, ou l'un des modems de la famille fldigi (`mfsk`, `dominoex`, `thor`, `throb`, `hell`, `mt63`, listés dans `FLDIGI_MODEMS`), est sélectionnée, `fsk.js` transmet l'audio à `psk31.js`, `olivia.js`, `ax25.js`, `mfsk.js`, `ifk.js`, `throb.js`, `hell.js` ou `mt63.js` au lieu de sa propre chaîne à discriminateur, tout en empruntant sa configuration, son worker et sa gestion d'événements — ainsi `fsk.worker.js` et `fskWorkerProxy.js` n'ont besoin de rien savoir de ces modes, et l'interface consomme partout les mêmes événements `char`/`status`/`metrics`, plus un événement `line` qui transporte un paquet décodé complet. S'y ajoute un événement `hell` qui transporte une colonne peinte de Hellschreiber. Les modems prennent tous la même configuration — un sous-mode (`modemMode`), un squelch (`modemSquelch`) et un centre —, et un changement du seul squelch règle le décodeur en marche au lieu de le reconstruire.
-
-- `psk31.js` — BPSK31/63/125, QPSK31/63/125 (K=5 Viterbi) : bande de base complexe, filtre adapté, détection différentielle et varicode, avec une acquisition spectrale grossière puis un AFC fin couvrant environ ±25 Hz.
-- `olivia.js` — Olivia/Contestia MFSK : un portage du récepteur MFSK de Pawel Jalocha issu de fldigi (`pj_mfsk.h`, GPL-3, comme ce projet), y compris la correction d'erreurs de Walsh/Hadamard et la recherche aveugle de synchronisation sur la phase de bloc et le décalage de fréquence.
-- `mfsk.js` — MFSK16/32/64 : un portage du récepteur MFSK IZ8BLY de fldigi (`mfsk.cxx`, GPL-3) — TFD glissante, entrelaceur de profondeur 10, décodeur de Viterbi K=7, varicode IZ8BLY, boucles de synchronisation de symbole et d'AFC. fldigi nomme ses deux fonctions de code Gray à l'inverse des manuels ; `mfsk.js` suit fldigi, car c'est ce qui est émis.
-- `ifk.js` — DominoEX et THOR : un portage du récepteur IFK+ de fldigi (`dominoex.cxx`, `thor.cxx`, GPL-3) — trois TFD glissantes espacées d'un tiers de case, synchronisation symbole sur le pic de la tonalité précédente, le Varicode par quartets de DominoEX et, pour THOR, décisions souples, détection du préambule, l'entrelaceur et un décodeur de Viterbi K=7 ou K=15. Son squelch mesure la tonalité face aux autres cases plutôt que le chiffre de fldigi, trop bas sur certains signaux propres.
-- `throb.js` — THROB et THROBX : le `throb.cxx` de fldigi — références de tonalité mises en forme par l'impulsion, corrélées avec le signal décimé, recherche de la paire de tonalités la plus forte, synchronisation sur le pic d'enveloppe et AFC.
-- `hell.js` — Hellschreiber (Feld, Slow, X5, X9, FSK Hell 245/105, Hell 80) : la partie réception du `feld.cxx` de fldigi ; émet des colonnes de 2 × 20 pixels que `App.svelte` peint sur un canvas.
-- `mt63.js` — MT63-500/1000/2000, entrelacement court et long : le récepteur MT63 de Pawel Jalocha tel que fldigi l'embarque (`mt63base.cxx`, `dsp.cxx`) — filtre séparateur I/Q, une FFT de 512 points sondée quatre fois par symbole, le synchroniseur par corrélation en temps et en fréquence, la démodulation différentielle et la FEC de Walsh avec son balayage de ±8 porteuses.
-- `fldigiFec.js` — ce qu'ils partagent : un décodeur de Viterbi à décisions souples pour toute longueur de contrainte (métriques Int32, si bien que K=15 tient dans 24 Mo), des moyennes glissantes et le rééchantillonneur.
-- `ax25.js` — Packet radio et APRS : un démodulateur AFSK pour 1200 Bd (Bell 202, reçu en FM) et pour le packet HF à 300 Bd (reçu en USB), avec cinq décideurs à des équilibres de tonalités différents et une boucle de récupération d'horloge chacun, puis le désencapsulage NRZI/HDLC, le contrôle de trame CRC-16, l'analyse des champs d'adresse et de contrôle AX.25 et un analyseur APRS (positions, y compris compressées et Mic-E, météo, messages, objets, items, état, télémesure). Seules les trames qui passent la somme de contrôle et portent une adresse valide sont signalées. `packet` affiche chaque trame comme un moniteur de TNC ; `aprs` affiche les trames APRS décodées en texte clair.
-- `ale.js` — ALE 2G (MIL-STD-188-141) : un portage de gr-ale (Milen Rangelov, GPL-3) tel que repris dans l'extension ALE 2G de KiwiSDR, elle-même fondée sur LinuxALE — une DFT glissante de 64 points à 8 kHz, 17 décodeurs sur des décalages de 125 Hz, vote à triple redondance et Golay (24,12). Son panneau est `lib/AlePanel.svelte`, ses réseaux `lib/aleNets.js`.
-- `fst4w.js` et `msk144.js` — FST4W et MSK144, portages de WSJT-X (GPL-3) : LDPC (240,74) avec OSD et CRC-24, et LDPC (128,90) avec CRC-13. FST4W enregistre une période UTC entière sur une bande de base complexe étroite et la transforme avec `lib/fftMixed.js` ; les deux décompressent leurs messages avec `lib/pack77.js`.
-- `pskBrowser.js` — PSK Browser : repère chaque seconde tous les signaux BPSK31 entre 300 et 2700 Hz et fait tourner un démodulateur `psk31.js` par signal.
-- `lib/aprsMap.js` — la carte APRS : garde chaque station ayant une position décodée (objets et items sous leur propre nom, ceux supprimés retirés, une trace pour celles qui se déplacent) et les dessine avec Leaflet sur des tuiles OpenStreetMap ; la position du récepteur lui-même vient de `siteGridSquare`. Leaflet n'est chargé qu'à la première apparition de la carte, il ne coûte donc rien aux auditeurs qui n'ouvrent jamais APRS. Le texte reçu par radio n'atteint la page que via `textContent` ou un échappement. `App.svelte` place la carte sous le panneau de texte APRS et l'ouvre et la ferme avec lui.
-- `broadcastSchedules.js` — les horaires UTC que les décodeurs FAX, NAVTEX et RTTY proposent en présélections, issus des programmes de fac-similé maritime de la NOAA/NWS et des listes publiées de stations NAVTEX
-
 #### 4b. Diversité de réception (`diversity.js`)
 - Associe le récepteur local à un second situé ailleurs et suit le site qui a, à cet instant, le meilleur signal. Du JS simple, pas un composant — il s'insère à un seul endroit de `audio.js`, qui lui passe le PCM local et restitue ce qu'il renvoie
 - **Sélection, pas addition.** Deux sites entendent la même émission par des trajets ionosphériques différents, donc leurs formes d'onde ont des phases sans rapport ; les additionner donne un filtrage en peigne. Une combinaison cohérente exigerait une horloge commune, que deux récepteurs reliés par internet ne partagent pas. Le mélange n'a lieu que pendant un fondu de 30 ms
@@ -1138,16 +288,6 @@ Le rôle `fsk` héberge en outre des décodeurs qui n'utilisent pas du tout sa c
 
 ---
 
-### Fonctions clés
-
-- Traitement audio en temps réel
-- Décodage de modes numériques (FT8, RTTY, etc.)
-- Filtrage audio
-- Analyse spectrale
-
----
-
-
 ## Listes de fréquences (`frequencylist/`)
 
 Les repères de fréquence sur la cascade. `mymarkers.json` est la liste que le récepteur affiche réellement ; le reste est la matière première que `update-markers.sh` transforme en elle, actualisée depuis les grilles en ligne. Le `README.md` de ce dossier explique la mise à jour dans les sept langues.
@@ -1191,7 +331,7 @@ Structure des fichiers de configuration :
 ```toml
 [server]
 # Web server settings
-port = 9002
+port = 9001
 html_root = "frontend/dist/"
 threads = 2
 otherusers = 1
@@ -1246,7 +386,7 @@ modulation = "FM"
   "siteReceiver": "SDR model",
   "siteAntenna": "Antenna description",
   "siteNote": "Additional notes",
-  "siteIP": "http://domain.com:9002",
+  "siteIP": "http://domain.com:9000",
   "siteSDRBaseFrequency": 0,
   "siteSDRBandwidth": 2048000,
   "siteRegion": 1,
@@ -1276,43 +416,6 @@ Options disponibles :
 option('opencl', type: 'boolean', value: false, description: 'Enable OpenCL support')
 option('cuda', type: 'boolean', value: false, description: 'Enable CUDA support')
 option('optimization', type: 'string', value: '3', description: 'Optimization level')
-```
-
----
-
-## Dépendances entre fichiers
-
-### Dépendances de compilation du backend
-
-```
-spectrumserver binary depends on:
-├── C++ source files (src/**/*.cpp)
-├── External libraries:
-│   ├── FFTW3
-│   ├── WebSocket++
-│   ├── FLAC
-│   ├── Opus
-│   ├── Liquid-DSP
-│   ├── Boost
-│   ├── zlib
-│   ├── zstd
-│   └── OpenCL/CUDA (optional)
-└── Subproject headers:
-    ├── nlohmann/json
-    └── toml11
-```
-
-### Dépendances de compilation du frontend
-
-```
-frontend/dist/ depends on:
-├── Source files (frontend/src/**)
-├── npm packages (node_modules/):
-│   ├── Svelte
-│   ├── Vite
-│   ├── @wasm-audio-decoders/opus-ml
-│   └── ...
-└── Static assets (frontend/public/)
 ```
 
 ---
@@ -1362,18 +465,13 @@ frontend/dist/ depends on:
 ### Lorsque vous modifiez le code du backend (`src/**`) :
 
 ```bash
-cd PhantomSDR-Plus
-meson compile -C build
-# Server restart required
+./recompile.sh --backend
 ```
 
 ### Lorsque vous modifiez le code du frontend (`frontend/src/**`) :
 
 ```bash
-cd PhantomSDR-Plus/frontend
-npm run build
-cd ..
-# Server restart required (for static files)
+./recompile.sh --frontend
 ```
 
 ### Lorsque vous modifiez la configuration (`.toml`, `.json`) :
@@ -1393,46 +491,12 @@ cd ..
 
 ---
 
-## Chemins importants
-
-### Chemins d'exécution
-
-- **Configuration** : `./config-*.toml`
-- **Racine HTML** : `./frontend/dist/`
-- **Marqueurs** : `./markers.json`
-- **Historique du chat** : `./chat_history.txt`
-- **FFTW wisdom** : `./fftw_wisdom`, `./phantom_fftw_wisdom`
-
-### Chemins de compilation
-
-- **Binaire produit** : `./build/spectrumserver`
-- **Sortie du frontend** : `./frontend/dist/`
-- **Modules Node** : `./frontend/node_modules/`
-
-### Chemins des sources
-
-- **Sources du backend** : `./src/`
-- **Sources du frontend** : `./frontend/src/`
-- **Bibliothèques DSP** : `./jsdsp/`
-
----
-
 ## Opérations courantes sur les fichiers
-
-### Ajouter une nouvelle configuration SDR
-
-1. Copiez une configuration existante : `cp config-rtl.toml config-mydevice.toml`
-2. Modifiez les paramètres : `nano config-mydevice.toml`
-3. Créez un script de démarrage : `cp start-rtl.sh start-mydevice.sh`
-4. Modifiez le script de démarrage : `nano start-mydevice.sh` — ne changez que le bloc **RECEIVER CONFIGURATION** en tête (`RX_LABEL`, `RX_COMM` = le nom du processus du récepteur, `RX_ARGS`, `CONFIG`, `FIFO`, ainsi que le hook `prestart` si l'appareil en a besoin). La logique de lancement/chien de garde/journalisation en dessous est générique et ne nécessite aucune modification.
-5. Rendez-le exécutable : `chmod +x start-mydevice.sh`
-
-> `stop-websdr.sh` arrête déjà n'importe quel `start-*.sh --watchdog` ; si votre récepteur utilise un nom de processus autre que `rx888_stream`/`rx_sdr`/`rtl_sdr`/`hackrf_transfer`/`cf32_to_real`, ajoutez-y aussi une ligne `killall -9 <nom>`.
 
 ### Personnaliser le frontend
 
 1. Modifiez la source : `nano frontend/src/App.svelte`
-2. Recompilez : `cd frontend && npm run build && cd ..`
+2. Recompilez : `./recompile.sh --frontend`
 3. Redémarrez le serveur : `./stop-websdr.sh && ./start-rtl.sh`
 
 ### Ajouter des marqueurs personnalisés
@@ -1456,14 +520,6 @@ cd ..
 
 ## Gestion de versions
 
-### Fichiers à suivre dans Git
-
-- Code source (`src/`, `frontend/src/`, `jsdsp/`)
-- Exemples de configuration (`config.example.*.toml`)
-- Système de compilation (`meson.build`, `meson_options.txt`)
-- Documentation (`*.md`, `docs/`)
-- Scripts (`*.sh`)
-
 ### Publier une version (mainteneur)
 
 Avant d'envoyer les fichiers, renouvelez la liste d'empreintes, afin que `update.sh` reconnaisse sur chaque station les versions qu'elle possède comme publiées :
@@ -1476,17 +532,7 @@ bash update.sh --make-known /path/to/the/upload/copy
 
 La liste ne fait que grandir : les entrées des versions précédentes sont conservées, si bien qu'une copie publique publiée une fois reste reconnaissable dans toutes les versions suivantes.
 
-### Fichiers à ignorer (`.gitignore`)
-
-- Résultats de compilation (`build/`, `frontend/dist/`)
-- Dépendances (`frontend/node_modules/`)
-- Données utilisateur (`chat_history.txt`)
-- Configurations personnelles (`config-rtl.toml` s'il est personnalisé)
-- Données binaires (`*.o`, `*.so`)
-
 ---
-
-**Cette documentation de la structure devrait vous aider à naviguer dans le code de PhantomSDR-Plus et à le comprendre.**
 
 Pour les instructions d'installation, voir [INSTALLATION.md](INSTALLATION.md). Pour les informations d'utilisation, voir [USER_GUIDE.md](USER_GUIDE.md).
 

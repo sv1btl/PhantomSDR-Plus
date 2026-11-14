@@ -72,8 +72,6 @@ Changing the DNS name later with `bash configure-station.sh` moves Caddy to the 
 | 9000 | proxy.py — http, as before | yes |
 | 9014 | proxy.py — where Caddy hands the visitors over | no — inside the computer |
 
-Caddy reaches the proxy on a port of its own because, seen from the proxy, every visitor coming through Caddy would otherwise come from the computer itself — and a request from the computer itself is trusted: it may disconnect listeners, and it is not counted against the per-IP limits. On port 9014 the proxy takes the visitor's real address from Caddy and never treats a visitor as local, so the listener list, the per-IP limits and the sysop's kick all work exactly as over http, and nobody can kick a listener through https.
-
 ---
 
 ## What changes for listeners

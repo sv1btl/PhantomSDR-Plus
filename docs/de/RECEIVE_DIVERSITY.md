@@ -12,8 +12,6 @@ Der zweite Empfänger kann ein weiterer PhantomSDR-Plus, ein KiwiSDR, ein UberSD
 
 Diversität bedeutet hier **Auswahl**: Sie hören zu jedem Zeitpunkt den einen oder den anderen Standort, mit einer kurzen Überblendung beim Wechsel. Es ist keine Phasengruppe und addiert die beiden Signale nicht.
 
-Das ist bewusst so, und der Grund ist Physik, nicht Software. Zwei Empfänger in Hunderten von Kilometern Entfernung hören dieselbe Aussendung über unterschiedliche ionosphärische Wege. Die beiden Audio-Signalverläufe treffen mit unabhängiger Phase und leicht unterschiedlichem Doppler ein; addiert man sie, klingt das hohl und kammgefiltert — der klassische „phasige" Effekt. Echtes kohärentes Zusammenführen braucht zwei Empfänger an einem **gemeinsamen Takt**, abtastgenau ausgerichtet; zwei unabhängige Empfänger über das Internet können das nie leisten.
-
 Der Gewinn ist deshalb **Kontinuität, nicht Signalstärke**:
 
 - Auf einem stabilen Weg, auf dem ein Empfänger schlicht besser ist, hören Sie diesen und gewinnen nichts. Das ist normal.
@@ -40,7 +38,7 @@ Das ist die gesamte Einrichtung. Am anderen Empfänger ist nichts zu konfigurier
 
 | Zweiter Empfänger | Was Sie eintragen | Hinweise |
 |---|---|---|
-| PhantomSDR+ | `host:8900` | Der normale Port des Empfängers |
+| PhantomSDR+ | `host:9000` | Der normale Port des Empfängers |
 | KiwiSDR | `host:8073` | Der eigene Port des KiwiSDR |
 | UberSDR | `host` | Sein **normaler Web-Port**, nicht 8073 |
 | WebSDR | `host:8901` | Der eigene Port der Station. Braucht das Relay — siehe unten |
@@ -76,8 +74,6 @@ Die gespeicherte Liste gehört zu einem Browser, ein Telefon beginnt also mit ei
 
 Ein WebSDR — die Software von Pieter-Tjerk de Boer, PA3FWM, die in Twente und an mehreren hundert weiteren Standorten läuft — lässt sich als zweiter Empfänger nutzen, aber nicht direkt aus dem Browser.
 
-Der Grund ist eine bewusste Prüfung auf deren Seite. Ein WebSDR verweigert die Audioverbindung, wenn der `Origin`-Header nicht seine eigene Seite nennt, und `Origin` ist ein *verbotener Headername*: der Browser setzt ihn aus der Seite, auf der Sie sind, und kein Skript darf ihn ändern. Auf der Clientseite gibt es keinen Weg daran vorbei — und es sollte auch keinen geben.
-
 Die Verbindung stellt deshalb ein kleines Programm auf Ihrem eigenen Server her, `websdr_relay.py`. Ihr Browser spricht mit dem Relay, und das Relay spricht mit dem WebSDR.
 
 ### Das Relay installieren
@@ -91,7 +87,7 @@ cd ~/PhantomSDR-Plus
 
 Auf einer Station, die mit den Stationsfragen (`configure-station.sh`) eingerichtet wurde, erkennt es, dass die Station hinter dem Proxy liegt: Das Relay lauscht dann nur auf diesem Rechner und wird als `/relay` unter Ihrer öffentlichen Adresse erreicht, daher fragt es nach keinem Port. Auf einer älteren Station fragt es nach einem. In beiden Fällen übernimmt es Rufzeichen und Adresse Ihrer Station aus `frontend/site_information.json` und bietet an, einen systemd-Dienst einzurichten, damit das Relay beim Booten startet. Die Einstellungen stehen in `websdr_relay.json` und lassen sich jederzeit ändern. Wer in `bash configure-station.sh` die Relay-Frage mit Ja beantwortet, bekommt es ebenfalls installiert und gestartet.
 
-**Router-Port.** Hinter dem Proxy ist keiner freizugeben: Die Seite erreicht das Relay als `/relay` über die Adresse, die die Zuhörer ohnehin benutzen, über http wie über https. Nur eine ältere Station, eingerichtet vor den Stationsfragen, betreibt das Relay auf einem eigenen Port; die Browser der Zuhörer verbinden sich dann direkt damit, dieser Port muss also im Router freigegeben werden, sonst funktioniert WebSDR-Diversity nur aus Ihrem eigenen Netz. Die anderen drei Empfängertypen brauchen das Relay nicht — außer von einer über https ausgelieferten Seite, wo es auch PhantomSDR+- und KiwiSDR-Partner nur mit http überträgt (siehe oben).
+**Router-Port.** Hinter dem Proxy ist keiner freizugeben: Die Seite erreicht das Relay als `/relay` über die Adresse, die die Zuhörer ohnehin benutzen, über http wie über https. Die anderen drei Empfängertypen brauchen das Relay nicht — außer von einer über https ausgelieferten Seite, wo es auch PhantomSDR+- und KiwiSDR-Partner nur mit http überträgt (siehe oben).
 
 Ist das Admin-Panel installiert, zeigt sein Dashboard eine Karte **WebSDR Diversity Relay** mit Zustand, Port und der Zahl der laufenden Sitzungen samt Gegenstellen. Darüber listet eine Karte **Receive Diversity** jeden Hörer auf, der Ihren Empfänger mit einem anderen kombiniert — jeder Art, nicht nur WebSDR — mit Empfänger, Name und Ort, Frequenz und Betriebsart sowie Typ und Adresse des Partners.
 
@@ -103,9 +99,6 @@ Das Relay verbindet sich mit fremden Empfängern von Ihrem Server aus statt von 
 - **Ein `User-Agent`, der Ihre Station und deren Betreiber nennt**, damit ein Betreiber, der das nicht möchte, genau weiß, an wen er sich wenden kann. Bitte tragen Sie ihn ehrlich ein.
 - **Nur Abstimmbefehle werden weitergereicht.** Über die Verbindung lässt sich nichts anderes senden.
 - **Private, Loopback- und Carrier-NAT-Adressen werden abgelehnt**, damit niemand das Relay auf etwas in Ihrem Rechner oder Ihrem LAN richten kann.
-
-> [!IMPORTANT]
-> Die `Origin`-Prüfung gibt es, weil die WebSDR-Autoren ihre Empfänger nicht von fremden Seiten aus steuern lassen wollten. Das Relay zu benutzen ist eine bewusste Entscheidung, kein Versehen ihrerseits. Lassen Sie das Limit, wo es ist, halten Sie den User-Agent ehrlich, und hören Sie auf, wenn ein Betreiber Sie darum bittet.
 
 ### Was bei einem WebSDR anders ist
 
@@ -147,19 +140,11 @@ Der farbige Punkt sagt zusätzlich, welchen Standort Sie gerade hören — grün
 
 Das ist normal. Die beiden Ströme werden über die Korrelation ihrer **Audio-Hüllkurven** ausgerichtet, und dafür braucht es ein Zeitfenster. Die Suche läuft in zwei Stufen: eine schmale Suche über ±1,5 Sekunden kann beginnen, sobald etwa 9 Sekunden Ton gesammelt sind, und eine zweite, unabhängige Messung fünf Sekunden später muss mit der ersten **übereinstimmen**, bevor die Ausrichtung akzeptiert wird. Liegen die beiden Stationen zeitlich weiter auseinander — ein bis zwei Sekunden zusätzliche Pufferung irgendwo auf dem Weg —, übernimmt bei etwa 14 Sekunden die volle Suche über ±4 Sekunden, und die Bestätigung folgt bei 19.
 
-Dieser Bestätigungsschritt ist wichtig. Schwinden zwei Standorte gegenphasig — tragen also nie beide gleichzeitig das Signal —, rastet eine einzelne Korrelation bereitwillig auf eine überzeugte, völlig falsche Verzögerung ein, die wie ein Echo klingt. Zwei unabhängige, übereinstimmende Messungen zu verlangen, weist das zurück.
-
-Eine zweite Sache muss stimmen, bevor eine Ausrichtung hält: die Abtastraten der beiden Empfänger. Zwei Empfänger sind zwei Takte und zwei Dezimierungsketten, ihre Audioströme treffen also **nicht** ganz mit derselben Rate ein, selbst wenn beide 12 kHz melden — 2% Unterschied sind normal, also 240 Abtastwerte pro Sekunde Drift, weit mehr als die Ausrichtungstoleranz. Der entfernte Strom wird deshalb laufend auf die Rate Ihres eigenen Empfängers resampelt. Dieses Verhältnis wird durch **Zählen von Abtastwerten** ermittelt, nicht durch Korrelation; es braucht also keine eigene Einrastung und steht schon in den ersten Sekunden fest — noch bevor die erste Ausrichtungssuche läuft. Ein schwaches oder unterbrochenes Signal kann zwei bis drei Anläufe brauchen, 30 Sekunden sind also kein Grund zur Sorge; eine Minute ohne Ergebnis schon.
-
-Während die Suche läuft, wartet die Diversität nicht auf sie. Die beiden Datenströme werden nach dem Eintreffen ihres Audios gepaart — oder nach der zuletzt gefundenen Verzögerung —, und der bessere Standort wird wie gewohnt nach SNR gewählt; Ratenkorrektur, Pegelangleichung und SNR-Trimm wirken weiterhin. So kommt auch eine Station durch, die **nur** der entfernte Empfänger hört: der Fall, in dem Diversität am meisten hilft und keine Ausrichtung möglich ist. Das Feld zeigt dann `Ready (unaligned)`, die Zeile **aligned** `by arrival, searching`. Solange beide Standorte die Station hören, aber noch nicht ausgerichtet sind, kann ein Wechsel bis zur tatsächlichen Verzögerung zwischen beiden wiederholen oder überspringen, meist unter 1,5 s; sobald die Suche einrastet, geht sie auf die genaue Verzögerung über.
-
 ---
 
 ## Remote SNR trim
 
 Dieser Regler gewichtet die Wahl zwischen den beiden Standorten. Er wird vor dem Vergleich zum gemessenen SNR des entfernten Empfängers addiert — positiv bevorzugt den entfernten, negativ den eigenen. Er ändert **sonst nichts**: weder den Pegel noch die Zusammenführung, nur wer gewinnt.
-
-Er ist nötig, weil die beiden SNR-Werte nicht immer vergleichbar sind. Beide werden gleich gemessen — als Perzentilspanne des Audios —, aber ein Empfänger, dessen Codec sein eigenes Rauschen anhebt, liest niedriger als er verdient. Ein KiwiSDR arbeitet mit kräftiger Verstärkung und einem Limiter, was die Spanne staucht; ein verlustbehafteter Codec setzt einen Rauschteppich, unter den das Signal nie kommt.
 
 **So stellen Sie ihn ein:**
 
@@ -220,4 +205,4 @@ Die Einstellung wirkt sofort und wird im Browser gespeichert.
 - **Nur zwei Empfänger.**
 - **Mono.** Läuft Ihr Empfänger in einer Stereo-Betriebsart wie C-QUAM, wird das Audio unverändert durchgereicht und die Diversität greift nicht.
 - **Ausrichten braucht Signal.** Unter etwa 10 dB SNR an einem der beiden Standorte bleibt es erwartungsgemäß bei `searching`.
-- **Ein WebSDR braucht das Relay** auf Ihrem eigenen Server und dessen freigegebenen Port. Die anderen drei Empfängertypen brauchen beides nicht.
+- **Ein WebSDR braucht das Relay** auf Ihrem eigenen Server; der Proxy leitet es über den öffentlichen Port weiter, am Router wird also nichts weiter geöffnet. Die anderen drei Empfängertypen brauchen es nicht.

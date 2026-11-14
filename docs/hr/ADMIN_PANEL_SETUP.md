@@ -55,26 +55,7 @@ Python biblioteke ploče (`flask`, `psutil`, `aiohttp`, `tomli-w`) instalira `se
 
 ---
 
-## Korak 1 — Datoteke
-
-Postavite ove četiri datoteke u svoj PhantomSDR-Plus direktorij:
-
-```
-admin_server.py
-manage_admin.sh
-setup_admin.sh
-proxy.py
-```
-
-Postavite skripte ljuske kao izvršne:
-
-```bash
-chmod +x setup_admin.sh manage_admin.sh
-```
-
----
-
-## Korak 2 — Pokrenite skriptu za postavljanje
+## Korak 1 — Pokrenite skriptu za postavljanje
 
 ```bash
 ./setup_admin.sh
@@ -89,19 +70,11 @@ Skripta će:
 3. Zabilježiti `127.0.0.1` kao `sdr_host` u konfiguraciji (vidi [Postavka `sdr_host`](#postavka-sdr_host))
 4. Zatražiti tri broja porta. Svaki upit nudi zadanu vrijednost u uglatim zagradama koju
 prihvaća običan Enter, pa je uobičajeno postavljanje pitanje triju pritisaka tipke:
-   - **Port spectrumservera** — port na kojem sluša vaš SDR poslužitelj (zadano `8900`,
+   - **Port spectrumservera** — port na kojem sluša vaš SDR poslužitelj (zadano `9001`,
      upravo ono što donosi svaki `config-*.toml` u repozitoriju)
-   - **Interni port administratorske ploče** — gdje se `admin_server.py` lokalno veže (zadano `3000`)
+   - **Interni port administratorske ploče** — gdje se `admin_server.py` lokalno veže (zadano `9010`)
    - **Javni port proxyja** — jedini vanjski port koji objedinjuje SDR + administraciju (zadano `8902`)
    Na stanici postavljenoj s pitanjima o stanici (`configure-station.sh`) tri zadane vrijednosti su vlastiti portovi stanice iz `station.conf` — 9001, 9010 i 9000 — pa je Enter ispravan, a skripta za pokretanje je već unaprijed odabrana.
-
-Neispravni odgovori odbijaju se i pitanje se ponavlja, ali samo pet puta — nakon toga uzima se zadana vrijednost. Izvođenje čiji ulaz nije terminal (kroz cijev, cron, bez nadzora) odmah uzima zadane vrijednosti umjesto da čeka unos koji nikad neće stići.
-5. Instalirati `flask`, `psutil`, `aiohttp` i `tomli-w` putem pipa
-6. Dodijeliti naredbi `ss` mogućnost `cap_net_admin` (pomoćni put značajke Kick Users, potreban samo ako ploča radi bez proxyja)
-7. Pitati koja skripta pokreće, a koja zaustavlja prijamnik — preko njih ploča upravlja poslužiteljem, a jednako tako i toplinska zaštita
-8. Pitati koliko daleko toplinska zaštita procesora smije ići sama — `log`, `throttle`, `stop` ili `stop+restart` — i ponuditi pokretanje `setup-cpufreq-perms.sh` kako bi throttle faza radila bez roota (vidi [THERMAL_GUARD.md](THERMAL_GUARD.md))
-9. Zapisati `admin_config.json` sa svim postavkama
-10. Ponuditi instalaciju dviju systemd jedinica (ploča + proxy) — pokretanje pri dizanju sustava i ponovno pokretanje nakon pada. **Preporučeno i zadano** (dovoljan je Enter): zaštita od pregrijavanja procesora radi samo dok radi ploča, pa bez jedinica ponovno dizanje sustava ostavlja računalo nezaštićenim. Korak se automatski preskače ondje gdje systemd nije PID 1 (kontejneri, WSL1, OpenRC) ili gdje nemate sudo.
 
 Nakon postavljanja otvorite preglednik putem proxyja:
 ```
@@ -113,7 +86,7 @@ Zadana lozinka: **`admin`**
 
 ---
 
-## Korak 3 — Pokretanje / zaustavljanje / ponovno pokretanje
+## Korak 2 — Pokretanje / zaustavljanje / ponovno pokretanje
 
 Postoje dva načina za pokretanje ploče i proxyja. **Odaberite jedan i držite ga se** — upozorenje na kraju ovog odjeljka objašnjava što se događa ako ih miješate.
 
@@ -127,11 +100,7 @@ Postoje dva načina za pokretanje ploče i proxyja. **Odaberite jedan i držite 
 ./manage_admin.sh status     # show running status and PIDs
 ```
 
-Namjerno **nema `restart`**. Prije je ubijao ploču i odmah pokretao vlastitu kopiju, što se sudara sa systemd-om na svakom računalu koje koristi Način B. Za ponovno pokretanje po Načinu A izvršite `stop` pa `start` — vidi [Ponovno pokretanje ploče](#ponovno-pokretanje-ploče) niže.
-
 Jedna skripta upravlja **objema** procesima. Prije pokretanja proxyja provjerava je li instaliran `aiohttp` i ispisuje jasnu pogrešku s naredbom za ispravak ako ga nema.
-
-Ništa se ne pokreće samo od sebe: nakon ponovnog pokretanja sustava, ili ako se ploča sruši, pokrećete je ručno. To je u redu za prijamnik koji nadzirete, ali imajte na umu da toplinska zaštita procesora radi unutar ploče: dok je ploča ugašena, ništa ne štiti stroj (vidi [THERMAL_GUARD.md](THERMAL_GUARD.md)).
 
 ### Način B — systemd jedinice (pokreću se pri dizanju sustava, ponovno se pokreću nakon pada)
 
@@ -157,11 +126,7 @@ sudo journalctl -u phantomsdr-admin -f
 
 Iste četiri s `phantomsdr-proxy`, ili obje odjednom: `sudo systemctl restart phantomsdr-admin phantomsdr-proxy`.
 
-`admin.log` i `proxy.log` rade točno kao i prije — jedinice pišu u iste datoteke.
-
 Jedno napravite jednom: instalirajte tmpfiles pravilo iz `tmpfiles/phantomsdr-logs.conf` (prvo u njemu izmijenite putanje i korisnika). systemd te dvije datoteke stvara kao `root` prije nego se spusti na `User=`, pa gumb **Clear Logs** na ploči na njima pada uz `Permission denied` — vidi niže „Clear Logs javlja Permission denied“. `setup_admin.sh` pravilo instalira umjesto vas.
-
-Jedinica ploče nosi `SupplementaryGroups=cpufreq`, što throttle fazi toplinske zaštite omogućuje snižavanje takta procesora bez da ploča radi kao root. Tu grupu prvo stvorite s `./setup-cpufreq-perms.sh`, inače systemd neće pokrenuti jedinicu; obrišite taj redak ako ne koristite throttle fazu.
 
 Povratak na način A:
 
@@ -184,26 +149,9 @@ sudo systemctl restart phantomsdr-admin phantomsdr-proxy
 ./manage_admin.sh stop && ./manage_admin.sh start
 ```
 
-Jedinica dolazi s `KillMode=process` i ta je linija ključna. Ako SDR pokrećete iz ploče, prijamnik je dijete administratorske jedinice i nasljeđuje njezinu cgroup. Uz systemdovu zadanu vrijednost `KillMode=control-group`, ponovno pokretanje ploče povuklo bi sa sobom spectrumserver, njegov watchdog i autorun demon — nakon što bi prethodno stalo punih 90 sekundi vremena čekanja na zaustavljanje. Uz `KillMode=process` systemd signalizira samo ploči, pa `sudo systemctl restart phantomsdr-admin` ostavlja zauzet prijamnik na eteru.
-
-**Nadogradnja jedinice instalirane prije v4.1.0.** Starije datoteke jedinice nemaju tu liniju, a ponovno pokretanje ploče je neće dodati: `systemctl restart` ponovno pokreće program, ali ne mijenja njegovu konfiguraciju. Uredite *instaliranu* kopiju — ona u repozitoriju samo je predložak koji systemd nikada ne čita:
-
-```bash
-sudo nano /etc/systemd/system/phantomsdr-admin.service
-```
-
-Dodajte `KillMode=process` u odjeljak `[Service]`, uz `Restart=always`. Zatim neka systemd ponovno pročita datoteku i provjerite:
-
-```bash
-sudo systemctl daemon-reload
-systemctl show phantomsdr-admin -p KillMode
-```
-
-Druga naredba mora ispisati `KillMode=process`. Ako i dalje ispisuje `control-group`, systemd radi sa spremljenom kopijom — `systemctl show phantomsdr-admin -p NeedDaemonReload` javlja `yes` dok je ponovno učitavanje na čekanju. Vodeći razmaci u datotekama jedinica se zanemaruju, pa uvlaka nije važna.
-
 ---
 
-## Korak 4 — Otvorite port na vatrozidu
+## Korak 3 — Otvorite port na vatrozidu
 
 Na vatrozidu otvorite samo **javni port proxyja**. Interni port administratorske ploče nije potrebno izlagati prema van:
 
@@ -213,25 +161,15 @@ sudo ufw allow <proxy_port>
 
 ---
 
-## Korak 5 — Značajka Kick Users
+## Korak 4 — Značajka Kick Users
 
 Stranica Users prikazuje svakog trenutačno spojenog slušatelja. Svaki redak prikazuje ime ili pozivni znak koji je slušatelj upisao (`--` ako ga nema), lokaciju s IP adresom ispod, ugođenu frekvenciju, način i koliko je dugo spojen. Da biste odspojili jednog korisnika, kliknite gumb **⚡ Kick** u njegovom retku — zatvaraju se samo veze tog slušatelja. Svi ostali slušatelji ostaju spojeni i ništa ne primjećuju.
 
 Pokraj načina rada stranica Users prikazuje dekoder koji slušatelj koristi na svojoj stranici, na primjer `USB · FT8` (DRM slušatelji prikazuju se kao `DRM`). Stranice otvorene prije ažuriranja poslužitelja javljaju ga tek nakon ponovnog učitavanja.
 
-IP adrese nalaze se samo na ovoj stranici. Od 5.3.0 javni popis korisnika (`/users`) i Statistika korisnika ne sadrže nijednu, kao na WebSDR-u; ploča čita svoj popis s `/~~users`, na koji spectrumserver odgovara samo na vlastitom računalu i nikad kroz proxy.
-
 Izbacivanje je trenutačno i precizno: poslužitelj se ne pokreće ponovno, ničiji se zvuk ne prekida, a izbačeni korisnik može se odmah ponovno spojiti (funkcija služi za uklanjanje problematičnih ili zaglavljenih veza; da nekoga zadržite vani, koristite zabranu ispod).
 
 **⛔ Ban ▾** otvara mali izbornik — **8**, **16** ili **24 sata** — a odabrano trajanje odspaja slušatelja sa svih prijemnika postaje i odbija tu adresu toliko dugo (24 sata najviše je što prijemnik prihvaća) (kod zatvaranja 4001, koji stranica ne pokušava ponovno). Zabrana se čuva u `admin_bans.json` pokraj ploče i jednom u minuti ponovno šalje svakom prijemniku, pa je ponovno pokretanje prijemnika ne ukida. Dok zabrane vrijede, popis **Banned** ispod tablice prikazuje svaku s imenom, adresom i vremenom isteka, a gumb **Unban** odmah je ukida. Svi iza iste internetske veze dijele adresu i zabranjeni su s njom.
-
-U pozadini prekid koristi `ss -K dst <IP> dport <port>` za rušenje te konkretne TCP utičnice. To zahtijeva Linux mogućnost koju skripta za postavljanje dodjeljuje automatski. Ako ste preskočili postavljanje ili gumb javlja pogrešku, primijenite je ručno:
-
-```bash
-sudo setcap cap_net_admin+ep $(which ss)
-# Verify:
-getcap $(which ss)    # should show: cap_net_admin=ep
-```
 
 ---
 
@@ -244,7 +182,7 @@ Ključna polja koja zapisuje `setup_admin.sh`:
 | Ključ | Opis |
 |---|---|
 | `port` | Interni port administratorske ploče (ondje se veže `admin_server.py`) |
-| `public_port` | Port spectrumservera glavnog prijemnika (8901 iza proxy.py) — **nije** port slušatelja, to je `proxy_port`. proxy.py prosljeđuje na njega; Kick, stranica Users i broj slušatelja ga pitaju |
+| `public_port` | Port spectrumservera glavnog prijemnika (9001 iza proxy.py) — **nije** port slušatelja, to je `proxy_port`. proxy.py prosljeđuje na njega; Kick, stranica Users i broj slušatelja ga pitaju |
 | `proxy_port` | Javni port na kojem sluša proxy |
 | `sdr_host` | Računalo preko kojeg proxy doseže spectrumserver — `127.0.0.1` (vidi dolje) |
 | `password_hash` | SHA-256 sažetak administratorske lozinke |
@@ -254,31 +192,6 @@ Ključna polja koja zapisuje `setup_admin.sh`:
 
 > **Više prijemnika na jednom računalu?** Postavite `start_script` na `start-all.sh`. Skripta za zaustavljanje već zaustavlja sve prijemnike, a Restart i toplinska zaštita koriste skriptu za pokretanje; sa `start-all.sh` vraćaju sve prijemnike iz `receivers.toml` umjesto samo glavnoga. Stranica Users, broj slušatelja i izbacivanje tada također obuhvaćaju svaki prijemnik. Vidi [Više prijemnika](MULTI_RECEIVER.md).
 
-Ključevi toplinske zaštite (svi neobavezni — ploča ih zapisuje kad spremite postavke Thermal Guarda, a oni koji nedostaju koriste ove zadane vrijednosti):
-
-| Ključ | Zadano | Opis |
-|---|---|---|
-| `thermal_enabled` | `true` | Glavni prekidač zaštite |
-| `thermal_mode` | `"log"` | `log` (samo zapisuje, nikad ne djeluje) · `throttle` · `stop` · `stop+restart` |
-| `thermal_warn` | `null` | Temperatura upozorenja °C; `null` = izvesti iz kritičnog praga vašeg procesora |
-| `thermal_throttle` | `null` | Temperatura na kojoj se snižava gornja granica takta; `null` = automatski |
-| `thermal_stop` | `null` | Temperatura na kojoj se poslužitelj zaustavlja; `null` = automatski |
-| `thermal_resume` | `null` | Temperatura ispod koje procesor mora pasti za oporavak; `null` = automatski |
-| `thermal_sustain_s` | `60` | Sekunde koliko se temperatura zaustavljanja mora zadržati prije djelovanja |
-| `thermal_warn_sustain_s` | `30` | Sekunde koliko se moraju zadržati temperature upozorenja/throttlea |
-| `thermal_resume_s` | `300` | Sekunde ispod temperature oporavka prije otpuštanja zaključavanja |
-| `thermal_max_stops_hour` | `2` | Toplinskih zaustavljanja na sat prije isključivanja automatskog ponovnog pokretanja |
-| `thermal_test_temp` | `null` | Lažna temperatura za testiranje; `null` = koristi stvarni senzor |
-
-Promjene stupaju na snagu pri sljedećem uzorku — u nekoliko sekundi, bez ponovnog pokretanja.
-
-Za promjenu portova nakon početnog postavljanja uredite `admin_config.json` i ponovno pokrenite:
-
-```bash
-sudo systemctl restart phantomsdr-admin phantomsdr-proxy   # B
-./manage_admin.sh stop && ./manage_admin.sh start        # A
-```
-
 ---
 
 ## Postavka `sdr_host`
@@ -286,8 +199,6 @@ sudo systemctl restart phantomsdr-admin phantomsdr-proxy   # B
 `proxy.py` se na `spectrumserver` spaja preko povratne (loopback) adrese — `sdr_host` je `127.0.0.1` u `admin_config.json`, gdje ga upisuje `setup_admin.sh`. Ne biste to trebali morati mijenjati.
 
 Postavite stvarnu adresu samo ako `spectrumserver` radi na **drugom računalu** od proxyja. Zatim [Ponovno pokretanje ploče](#ponovno-pokretanje-ploče).
-
-> **Promjena:** starije verzije zahtijevale su da `sdr_host` bude LAN IP računala, jer je `spectrumserver` zatvarao WebSocket veze koje dolaze s povratne adrese. Taj je filtar uklonjen, pa lokalne veze rade normalno. Dvije posljedice: otvaranje `http://localhost:<port>` na samom poslužiteljskom računalu sada prikazuje cijelo sučelje (prije bi se stranica učitala, ali ostala prazna), a proxy se više ne kvari kad DHCP dodijeli računalu novu IP adresu. Ako nadograđujete, a vaš `admin_config.json` još sadrži LAN IP, promijenite ga u `127.0.0.1` ili ponovno pokrenite `setup_admin.sh`.
 
 ---
 
@@ -312,9 +223,9 @@ Uredite `admin_config.json` izravno:
 
 ```json
 {
-  "port":        3000,
+  "port":        9010,
   "public_port": 9001,
-  "proxy_port":  9002,
+  "proxy_port":  9000,
   "sdr_host":    "127.0.0.1"
 }
 ```
@@ -324,18 +235,6 @@ Zatim ponovno pokrenite obje usluge:
 ```bash
 sudo systemctl restart phantomsdr-admin phantomsdr-proxy   # B
 ./manage_admin.sh stop && ./manage_admin.sh start        # A
-```
-
-Ako uz to trebate da se `admin_server.py` pri pokretanju veže na drugi port (npr. u systemd usluzi), to možete nadjačati varijablom okruženja:
-
-```bash
-ADMIN_PORT=3000 python3 admin_server.py
-```
-
-Prema zadanom, `admin_server.py` veže se samo na `127.0.0.1`. Za samostalno pokretanje bez proxyja (razvoj/testiranje) vežite ga na sva sučelja:
-
-```bash
-ADMIN_BIND=0.0.0.0 python3 admin_server.py
 ```
 
 ---
@@ -353,10 +252,10 @@ pkill -f admin_server.py
 pkill -f proxy.py
 
 # Free a port that is stuck in use
-sudo fuser -k 3000/tcp
+sudo fuser -k 9010/tcp
 
 # Check what is listening on a port
-ss -tlnp | grep 3000
+ss -tlnp | grep 9010
 ```
 
 ---
@@ -386,15 +285,7 @@ sudo cp logrotate/phantomsdr /etc/logrotate.d/phantomsdr
 sudo logrotate -d /etc/logrotate.d/phantomsdr     # dry run, should list all three logs
 ```
 
-`logrotate/phantomsdr` u repozitoriju i `/etc/logrotate.d/phantomsdr` dvije su **neovisne kopije** — `cp` ih ne povezuje. Uređivanje datoteke u repozitoriju ne mijenja ništa na pokrenutom sustavu dok ponovno ne izvršite gornji `sudo cp`. Logrotate zapravo čita samo kopiju u `/etc`.
-
-Konfiguracija koristi `copytruncate`, što je nužno: `manage_admin.sh` pokreće oba procesa s `>> <log>` i nijedan ponovno ne otvara svoj standardni izlaz, pa bi ih rotacija temeljena na preimenovanju ostavila da pišu u rotiranu datoteku dok bi novi zapisnik zauvijek ostao prazan.
-
-Arhive završavaju u `logproxy/` (stvara se automatski zahvaljujući `createolddir`) i nose nazive `proxy.log.1.gz` … `proxy.log.7.gz`, najnovija prva. Jednu pročitajte naredbom `zcat logproxy/proxy.log.1.gz | less`, ili pretražite sve odjednom pomoću `zgrep "pattern" logproxy/*.gz`.
-
 Gumb **Clear Logs** na ploči prazni **svaku** datoteku iz gornje tablice, uključujući `autorun.log` i `proxy.log` (`CLEAR_EXCLUDE` u `admin_server.py` je prazan). Imajte na umu što to stoji kod `autorun.log`: njegova povijest dekodiranja jedini je zapis o tome što je i kada primljeno i nije je moguće rekonstruirati — pražnjenje preživi samo ono što je logrotate već premjestio u `logproxy/`, pa se gubi sve dekodirano od zadnje rotacije. Pražnjenje uz dekoder u radu je sigurno: daemon datoteku drži otvorenu s `O_APPEND` i nastavlja pisati u isti inode. Obavijest navodi što je ispražnjeno, a ako se u neku datoteku nije moglo pisati — recimo `proxy.log` koji na instalaciji s odvojenim korisnicima pripada drugom korisniku — navodi tu datoteku i pogrešku umjesto da javi uspjeh te ostavlja prikaz tog zapisnika na zaslonu umjesto da ga isprazni. Datoteke se prazne na mjestu, nikada se ne brišu: i `manage_admin.sh` i systemd jedinice otvaraju ih s `O_APPEND`, pa bi obrisana datoteka nastavila puniti nevidljiv inode sve do ponovnog pokretanja usluge.
-
-Uspješna ispitivanja filtriraju se iz **oba** zapisnika pristupa, `QuietPollFilterom` u `proxy.py` i onim u `admin_server.py`. Nadzorna ploča poziva `/admin/api/status` svake 3 sekunde, a `/admin/api/logs`, `/admin/api/autorun/status`, `/admin/api/users`, `/admin/api/graph-stats` i `/admin/api/chat` svakih 5 sekundi; nefiltrirani bi činili ~95 % obiju datoteka. Izbacuju se samo obični `200` na tim putanjama — svaki drugi status, putanja ili metoda bilježi se kao i prije, pa neuspjelo ispitivanje ostaje vidljivo, a radnje koje mijenjaju stanje (`kick`, `autorun/start`, …) idu zasebnim putanjama i uvijek se zapisuju. Jedina namjerna iznimka je `/admin/api/logs/clear`, filtrirana u obje datoteke: njezin vlastiti redak pristupa piše se *nakon* pražnjenja, pa je bez filtra svako uspješno pražnjenje ostavljalo jedan svjež redak u zapisniku koji je upravo ispraznilo, a gumb je izgledao neispravno.
 
 Budući da je `proxy.log` zapisnik pristupa, sadrži IP adrese posjetitelja i nizove user-agenta — imajte to na umu prije nego što ga podijelite tražeći pomoć.
 
@@ -418,20 +309,12 @@ sudo chmod 664 admin.log proxy.log
 
 Ponovno pokretanje nije potrebno — systemd i dalje piše kroz već otvoreni opisnik datoteke, a dopisivanje ne mijenja vlasništvo. Pritisnite **Clear Logs** ponovno i obje se prazne.
 
-**Nemojte umjesto toga obrisati datoteke.** Obje su otvorene s `O_APPEND`; brisanjem jedne systemd nastavlja puniti nevidljivi inode sve do ponovnog pokretanja usluge, a datoteka koja se ponovno pojavi opet pripada rootu.
-
 Da se ne bi vraćalo, instalirajte tmpfiles pravilo koje repozitorij isporučuje u `tmpfiles/phantomsdr-logs.conf`. Ono pri svakom dizanju sustava, prije pokretanja jedinica, ponovno stvara oba zapisnika s ispravnim vlasnikom, pa se uklonjeni zapisnik — ručno čišćenje, ponovna instalacija, premješten instalacijski direktorij — nikada ne vrati u vlasništvu roota. **Pravilo ovisi o stroju: otvorite ga i najprije promijenite dvije putanje i user:group da odgovaraju vašem sustavu**, a zatim:
 
 ```bash
 sudo cp tmpfiles/phantomsdr-logs.conf /etc/tmpfiles.d/99-phantomsdr-logs.conf
 sudo systemd-tmpfiles --create /etc/tmpfiles.d/99-phantomsdr-logs.conf
 ```
-
-Kao i kod `logrotate/phantomsdr`, datoteka u repozitoriju i kopija u `/etc` neovisne su — uređivanje one u repozitoriju ne mijenja ništa dok ponovno ne pokrenete `cp`. Na systemd 254 i novijem pravilo popravlja i vlasništvo i prava već postojećeg zapisnika, pa rješava i trenutni kvar i buduće; na starijim verzijama gumb odblokira upravo `chown` iznad.
-
-`setup_admin.sh` sve ovo obavlja umjesto vas pri instalaciji jedinica, pa postava napravljena skriptom nikada ne naiđe na ovo. Gornji koraci su za ručno instalirani par ili za instalaciju stariju od koraka sa vlasništvom zapisnika u skripti.
-
-Logrotate ne vraća problem: isporučena konfiguracija koristi `copytruncate`, koji zadržava isti inode, a time i istog vlasnika.
 
 ---
 
@@ -455,12 +338,6 @@ Kako to radi:
 - Brisanje cijelog zapisnika (gumb **Clear All**) prazni datoteku, što također djeluje bez ponovnog pokretanja.
 - **Odgovor u chatu** sprema se kao obična poruka koja počinje oznakom što imenuje poruku na koju odgovara, na primjer `[RE:2026-09-25 12:00:01|SV1BTL]`, pa se u ovom popisu prikazuje s tom oznakom ispred. Brisanje odgovora uklanja samo taj odgovor. Brisanje poruke na koju odgovara ostavlja njezine odgovore na mjestu, a oni tada prikazuju samo ime i vrijeme na koje odgovaraju.
 
-Gumb za brisanje dosljedno se prikazuje u svih pet Svelte inačica aplikacije. Ako se čini da brisanje nema učinka, provjerite ima li administratorska ploča pravo pisanja u datoteku zapisnika razgovora:
-
-```bash
-ls -l ~/PhantomSDR-Plus/chat.jsonl   # path depends on your config
-```
-
 ---
 
 ## Emitirane poruke na slapu
@@ -477,23 +354,6 @@ Ploča **Waterfall Message** omogućuje slanje trajnog tekstualnog natpisa na pr
 
 Kliknite **Clear** da uklonite natpis sa svih slapova. Stanje poruke administratorska ploča drži u memoriji; briše se automatski ako se proces ploče ponovno pokrene.
 
-### Kako to radi
-
-Administratorska ploča izlaže dvije interne krajnje točke koje proxy prosljeđuje:
-
-| Krajnja točka | Metoda | Svrha |
-|---|---|---|
-| `/admin/api/waterfall-message` | `POST` | Postavljanje ili brisanje trenutačnog teksta i boje natpisa |
-| `/admin/api/waterfall-message` | `GET` | Vraćanje trenutačnog stanja poruke kao JSON |
-
-Sučelje ispituje stanje poruke i iscrtava je kao preklop na platnu slapa. Na strani klijenta nije potrebno ni ponovno spajanje WebSocketa ni ponovno učitavanje stranice.
-
-### Uobičajene primjene
-
-- Najava planiranog održavanja: `"Server restart in 10 minutes"`
-- Naznaka uvjeta na pojasu: `"Solar flux 180 — 10m wide open"`
-- Poruka dobrodošlice: `"Welcome to SV1BTL WebSDR — Athens, KM17"`
-
 ---
 
 ## Grafikoni sustava
@@ -507,48 +367,6 @@ Stranica **Grafikoni** crta četiri veličine na zajedničkoj vremenskoj osi:
 
 Raspon birate s **15 MIN / 1 HOUR / 4 HOURS / 12 HOURS / 24 HOURS**. Prelaskom miša preko grafikona pojavljuje se nitni križ s sve četiri vrijednosti tog trenutka. Četiri kartice iznad grafikona uvijek prikazuju najnoviji uzorak.
 
-### Kako se uzorkuje
-
-Pozadinska dretva u `admin_server.py` uzima jedan uzorak svake **2 sekunde**. Uzorci se čuvaju u dvije razine: zadnji **1 sat** u punoj razlučivosti od 2 sekunde (1800 točaka) i **24 sata** tridesetsekundnih prosjeka (2880 točaka) za duge raspone. Stranica bira razinu koja pokriva odabrani raspon i u zaglavlju piše `30s averages` kada gledate prosječenu razinu.
-
-Cijeli dan u razlučivosti od 2 sekunde bio bi ~43000 točaka — deseci MB memorije, prvi prijenos od nekoliko megabajta i oko 40 točaka po pikselu, što nijedan zaslon ne može prikazati. Prosjek na 30 sekundi drži dan u 2880 točaka.
-
-Uzorkovanje kreće zajedno s administracijskom pločom, a ne pri prvom otvaranju stranice, pa se stranica otvara na povijesti koja već postoji.
-
-Međuspremnik je **samo u memoriji**: ništa se ne zapisuje na disk, a povijest se gubi pri ponovnom pokretanju ploče. To je namjerno — funkciju drži izvan rotacije zapisnika i s diska.
-
-2 sekunde daju gotovo živu sliku i dovoljno su kratke da ne izobliče frekvenciju procesora, koja na suvremenom procesoru od uzorka do uzorka skače između takta mirovanja i turba. Jedan uzorak košta otprilike jednu milisekundu, pa je uzorkivač zanemariv uz SDR poslužitelj. Stranica pita u ritmu svoje razine — svake 2 sekunde na živim rasponima, svakih 30 sekundi na prosječenima, jer češće pitanje vraća samo prazne odgovore.
-
-Za promjenu ritma ili trajanja pohrane uredite ove konstante na početku bloka uzorkivača u `admin_server.py` i ponovno pokrenite:
-
-```python
-GRAPH_INTERVAL_S   = 2          # sekundi između finih uzoraka
-GRAPH_FINE_S       = 3600       # dokle seže fina razina (1 h)
-GRAPH_COARSE_EVERY = 15         # finih uzoraka po skupnoj točki (15 x 2 s = 30 s)
-GRAPH_COARSE_S     = 24 * 3600  # dokle seže skupna razina (24 h)
-```
-
-### Odakle dolaze brojke
-
-| Veličina | Izvor |
-|---|---|
-| Frekvencija procesora | `psutil.cpu_freq()`, uz zamjenu `/sys/devices/system/cpu/cpu*/cpufreq/`. To su isti podaci jezgre koje oblikuje `cpufreq-info`, pa **cpufrequtils nije potreban**. |
-| Opterećenje procesora | `psutil.cpu_percent()` |
-| Temperatura procesora | `psutil.sensors_temperatures()`, uz zamjenu `/sys/class/thermal`, zatim naredba `sensors` |
-| Korisnici na vezi | Vlastita krajnja točka `/users` poslužitelja spectrumserver — mjerodavan popis sesija. Brojanje priključaka s `ss` ne vidi stvarne IP adrese klijenata iza proxy.py. |
-
-Ako neka veličina na vašem računalu nije dostupna, taj to okvir kaže umjesto da crta ravnu nulu. Neuspjelo očitanje prekida liniju, da praznina nikada ne izgleda kao izmjerena vrijednost.
-
-### Zašto četiri okvira, a ne jedan grafikon
-
-GHz, postotak, stupnjevi i broj ljudi nemaju zajedničku skalu. Crtanje u jednom grafikonu tražilo bi više y-osi, a sjecišta koja pritom nastaju artefakt su skaliranja, a ne činjenica o poslužitelju. Četiri složena okvira na jednoj vremenskoj osi drže usporedbu poštenom. Svaki okvir počinje od nule, pa visina krivulje ostaje razmjerna vrijednosti.
-
-Boja je pridržana za temperaturu, gdje jantarna i crvena označavaju gornje pragove. Ostali okviri dijele jednu boju jer svaki sadrži jednu jedinu seriju koju njegov naslov već imenuje.
-
-### Krajnja točka
-
-`GET /admin/api/graph-stats?since=<epoch>` (potrebna prijava) vraća uzorke novije od `since`, pa stranica pita postupno umjesto da svaki ciklus ponovno preuzima cijeli međuspremnik.
-
 ---
 
 ## Thermal Guard
@@ -558,108 +376,6 @@ Boja je pridržana za temperaturu, gdje jantarna i crvena označavaju gornje pra
 Zaustavlja SDR poslužitelj kada procesor postane opasno vruć i ponovno ga pokreće kad se ohladi. Dio je ploče — nema ničega dodatnog za instalirati — i pojavljuje se kao kartica **THERMAL GUARD** na Nadzornoj ploči, a postavke su pod **Postavke**.
 
 Isporučuje se **neaktivna**: način rada počinje na `log`, pa u početku samo bilježi što bi *učinila*. Ništa ne dira vaš poslužitelj dok ne promijenite način rada.
-
-### Radi s bilo kojim načinom pokretanja/zaustavljanja
-
-Zaštita nikada ne pokušava utvrditi što nadzire vaš poslužitelj. Djeluje preko skripti koje ste postavili kao **Default start script** i **Default stop script** u Postavkama, a dok je procesor pregrijan ponavlja zaustavljanje pri **svakoj provjeri** (svake 2 s). Sve što vrati poslužitelj — watchdog unutar `start-*.sh`, systemd jedinica, cron zadatak, `tmux` sesija — poništeno je u nekoliko sekundi, sve dok se stroj ne ohladi. To je *zaključavanje* (lockout).
-
-Ako skripta za zaustavljanje nije postavljena, šalje `SIGTERM` procesu navedenom u `sdr_process_name`, a nakon 10 sekundi počeka `SIGKILL`.
-
-### Pragovi dolaze iz vašeg vlastitog procesora
-
-Umjesto fiksnog broja koji bi na većini strojeva bio pogrešan, zaštita čita kritični prag koji jezgra objavljuje za vaš procesor i računa unatrag od njega:
-
-| Vaš procesor prijavljuje | upozorenje | throttle | zaustavljanje | oporavak |
-|---|---|---|---|---|
-| Intel, granica 100 °C | 88 | 92 | **95** | 75 |
-| AMD Ryzen, granica 95 °C | 83 | 87 | **90** | 70 |
-| Raspberry Pi, granica 85 °C | 73 | 77 | **80** | 60 |
-
-To je važno: fiksnih 95 °C gotovo je normalno na Intelu, ali na Ryzenu — čiji Tctl po dizajnu stoji na 95 °C pod boostom — zaustavilo bi poslužitelj na posve zdravom stroju, a na Piju, koji smanjuje takt već na 80 °C, ne bi se nikada aktiviralo. Svaki se prag može postaviti i ručno u Postavkama; ostavite polje prazno za *automatski*.
-
-Da vidite kako zaštita vidi vaš stroj:
-
-```bash
-python3 thermal_guard.py --once
-```
-
-```
-sensor     : hwmon:coretemp
-temperature: 58.0 C
-crit       : 100.0 C
-mode       : log
-thresholds : warn 88.0  throttle 92.0  stop 95.0  resume 75.0 (C)
-cpufreq    : not writable — throttle stage disabled
-```
-
-### Četiri stupnja
-
-Zaustavljanje poslužitelja posljednje je sredstvo, a ne jedini alat:
-
-1. **warn** — samo se zapisuje, ništa više.
-2. **throttle** — snižava gornju granicu takta procesora za 20 %. Zahtijeva cpufreq upravljački program *i* pravo pisanja u `scaling_max_freq`, dakle obično root; gdje toga nema (uobičajeno za ploču bez povlastica i na većini VPS-ova) stupanj se **sam isključuje** i zaštita ide s warn izravno na stop. `./setup-cpufreq-perms.sh` daje to pravo pisanja grupi `cpufreq`, pa stupanj radi bez roota — vidi [THERMAL_GUARD.md](THERMAL_GUARD.md#8-uključivanje-throttle-faze-bez-roota).
-3. **stop** — pokreće vašu skriptu za zaustavljanje i drži poslužitelj dolje (vidi zaključavanje).
-4. **resume** — nakon što procesor ostane ispod temperature oporavka `thermal_resume_s` (zadano 5 minuta), granica takta se vraća i, u načinu `stop+restart`, ponovno se pokreće vaša skripta za pokretanje.
-
-Svaki stupanj mora se **zadržati** svoje vrijeme — 30 s za warn i throttle, 60 s za stop — pa kratkotrajni skok tijekom prevođenja nikada ne okine zaštitu.
-
-Ponovljena okidanja ograničena su s `thermal_max_stops_hour` (zadano 2). Kad se to dosegne, isključuje se *automatsko ponovno pokretanje* dok zaštita i dalje radi, tako da stroj koji se pregrijava ne titra između rada i zaustavljenosti.
-
-### Koji se senzori koriste
-
-Samo pravi senzori na samom procesoru: `coretemp` (Intel), `k10temp` / `zenpower` (AMD), `cpu_thermal` / `soc_thermal` (ARM, Raspberry Pi). Uzima se najviše očitanje na čipu, a ne prosjek.
-
-`acpitz` i neoznačene toplinske zone **namjerno se zanemaruju** — često prijavljuju temperaturu kućišta ili ploče desetke stupnjeva nižu od stvarnog procesora, pa se zaštita koja bi im vjerovala nikada ne bi aktivirala kad je važno. Ako vaš stroj nema upotrebljiv senzor (često na VPS-u ili unutar kontejnera), kartica to jasno kaže (`no trusted CPU sensor`) i zaštita ostaje neaktivna umjesto da se pretvara da vas štiti.
-
-### Što zapisuje
-
-Sve ide u `crash.log`, odnosno u karticu **CRASH** preglednika zapisa, jedan događaj po retku:
-
-```
-[THERMAL] warn: 89.0C (warn=88.0 crit=100.0) sustained 31s
-[THERMAL] throttle: 93.0C sustained 30s — cpufreq max lowered 20%
-[THERMAL] STOPPED server: 96.0C sustained 62s (stop=95.0 crit=100.0) — Started stop-websdr.sh
-[THERMAL] lockout: process reappeared at 94.0C — re-stopped [3 time(s) so far]
-[THERMAL] recovered: 74.0C held below 75.0 — lockout cleared
-[THERMAL] auto-restart: Started start-rx888mk2.sh
-```
-
-Redak zaključavanja ograničen je na jedan u minuti, kako nadzornik koji se stalno opire ne bi preplavio zapis.
-
-### Testirajte prije nego joj povjerite
-
-Postavite **TEST TEMPERATURE** u Postavkama na vrijednost iznad svojeg praga zaustavljanja. Zaštita to tretira kao stvarno očitanje, pa se cijeli put — warn, throttle, stop, zaključavanje, oporavak, ponovno pokretanje — odvija na zahtjev. Ispraznite polje za povratak na stvarni senzor.
-
-> Napravite li taj test s načinom rada `stop`, poslužitelj se doista zaustavlja i vaši se slušatelji odspajaju. Učinite to kad nikoga nema ili ostavite način na `log`, gdje test pokazuje što bi se *dogodilo*, bez diranja ičega.
-
-### Preporučeni način uvođenja
-
-1. Ostavite način na **`log`** tjedan dana i nastavite normalno.
-2. Pročitajte karticu CRASH nakon teških trenutaka — potpunog prevođenja, vrućeg poslijepodneva. Ako se ništa ne pojavi, vaš stroj nikada nije ni prišao.
-3. Ako zabilježene temperature izgledaju točno, postavite način na **`stop`** (ili **`stop+restart`** da se sam vrati).
-4. Potvrdite to jednom poljem testne temperature pa ga pustite na miru.
-
-### Izlazak iz zaključavanja
-
-**CLEAR LOCKOUT** na kartici Nadzorne ploče briše zaključavanje i ograničenje učestalosti. Ne razoružava zaštitu: ako je procesor još prevruć, sljedeća provjera jednostavno će ponovno zaustaviti poslužitelj. Koristite ga nakon što ste popravili hlađenje.
-
-### Endpoint
-
-`GET /admin/api/thermal` (potrebna prijava) vraća cijelo stanje zaštite — senzor, pragove, stupanj, zaključavanje, posljednji događaj. `POST` s `{"action":"reset"}` čini isto što i gumb CLEAR LOCKOUT.
-
-### Bez administratorske ploče
-
-`thermal_guard.py` koristi samo standardnu biblioteku i radi samostalno, čitajući isti `admin_config.json`:
-
-```bash
-python3 thermal_guard.py --once              # ispis senzora, kritičnog praga i pragova
-python3 thermal_guard.py                     # pokretanje kao usluga (samo zapisuje dok se ne naoruža)
-python3 thermal_guard.py --mode stop+restart # naoružavanje bez ijedne konfiguracijske datoteke
-python3 thermal_guard.py --config /path/to/other.json
-python3 thermal_guard.py --help
-```
-
-`--mode` nadjačava `thermal_mode` iz konfiguracijske datoteke, pa se stroj bez ploče može naoružati izravno iz svoje systemd jedinice, bez ikakvog JSON-a.
 
 ---
 
@@ -721,11 +437,7 @@ Ispod BANDS & MODES kartica **SCHEDULE** ima redak za svaki označeni pojas i na
 - Redak **AT ONCE** broji slotove koji rade u svakom satu. Crveni broj je iznad **MAX SLOTS**, a **SAVE CONFIG** odbija spremanje dok se to ne ispravi. MAX SLOTS ograničava slotove koji rade *istodobno*, a ne kroz dan, pa uz raspored više pojaseva dijeli isti CPU — na primjer 10, 12 i 15 m danju te 160 i 80 m noću.
 - Točka ispred svakog retka zelena je dok slot dekodira, narančasta dok se otvara za svoj sljedeći sat ili zatvara, a siva dok spava ili je daemon zaustavljen. Kartica stanja prikazuje slotove koji su upravo na rasporedu i vrijeme sljedeće promjene.
 
-Redci jednog pojasa grupirani su ispod crte, a nazivi načina imaju vlastite boje (FT8, FT4, JS8, WSPR), iste kao zaglavlja stupaca u BANDS & MODES.
-
 Slot se otvara malo prije svog prvog sata — jedan prozor dekodiranja plus 10 sekundi, dakle oko 25 s za FT8 i JS8 i nešto više od 2 minute za WSPR — kako bi se dekodirao prvi ciklus sata; ciklus čut tijekom tog predbroja pripada prethodnom satu i ne prijavljuje se. Zatvara se nekoliko sekundi nakon svog posljednjeg sata, kad je dekodiranje posljednjeg ciklusa tog sata već počelo. Veza koja pukne, na primjer jer je prijemnik ponovno pokrenut, ponovno se otvara nakon 30 sekundi.
-
-Ako u BANDS & MODES odznačite pojas, njegovi sati ostaju, pa se ponovnim označavanjem vraća i njegov raspored. Kao i svaka druga postavka kartice, raspored se sprema s **SAVE CONFIG**.
 
 ### Automatsko pokretanje nakon ponovnog pokretanja ili rušenja
 
@@ -743,29 +455,11 @@ Prikazana su dva različita brojanja koja odgovaraju na različita pitanja.
 
 **Broj uz svaku kućicu** u BANDS & MODES je broj **ukupno** poslanih spotova za tu kombinaciju pojasa i načina rada. Čuva se u `autorun-totals.json` i preživljava ponovna pokretanja. **Jantarno s točkom ispred** (`·123`) znači da je taj slot dekodirao, ali još ništa nije poslao. To je normalno između slanja — PSK Reporter šalje svakih 5 minuta, a wsprnet svake 2 — pa FT8/FT4 brojači prvih nekoliko minuta nakon pokretanja stoje jantarno. Jantarno ostaje i ako je odredište tog dekodera isključeno. Obična `0` bez točke znači da je slot uključen, ali još ništa nije dekodirao — WSPR stoji na nuli nekoliko minuta nakon pokretanja jer radi u ciklusu od 2 minute, dok FT8 već broji u stotinama. Slot koji daemon nikada nije pokrenuo ne prikazuje ništa. Prelaskom miša vide se slanja, dekodiranja i vrijeme zadnjeg slanja.
 
-FT8 i FT4 dijele jedan red za slanje prema PSK Reporteru, pa daemon svaki spot pripisuje vlastitom načinu rada i pojasu u trenutku slanja; podjela se ne procjenjuje naknadno iz ukupnih brojeva.
-
 **Poništavanje brojača.** **FREE ALL SLOTS** odznačuje sve pojaseve i načine rada, isključuje oba odredišta, zaustavlja daemon i **briše ukupne brojače** — nakon toga uz nijednu kućicu nema broja. To je jedini način da ih poništite i ne može se poništiti. Gumb zaustavlja daemon i čeka da izađe prije brisanja `autorun-totals.json`, jer daemon tu datoteku ponovno zapisuje pri gašenju; brisanje dok daemon radi samo bi vratilo brojeve.
 
 ### Zahtjevi za resursima i ograničenja
 
 Daemon je namjerno lagan i radi na hardveru skromnih resursa (četverojezgreni i5 je dovoljan), ali postoje stvarna ograničenja kojih treba biti svjestan.
-
-**Vezanje autoruna uz jezgre svjesno je konfiguracije i automatsko.** **Autorun daemon** uvijek pokreće administratorska ploča (`admin_server.py`), pa se njegovo vezanje postavlja pri svakoj instalaciji bez ikakve konfiguracije: iz broja procesora izvodi raspon jezgri za `taskset`, rezervirajući nekoliko gornjih jezgri za dekodiranje, ili radi bez vezanja na ≤ 4 jezgre.
-
-**Vezanje spectrumservera ovisi o vašem načinu pokretanja.** Način na koji pokrećete spectrumserver razlikuje se među instalacijama (vrsta SDR-a, alati, osobne skripte), pa ovaj dokument ne pretpostavlja nikakav određeni pokretač. Administratorska ploča ne pokreće niti veže spectrumserver — to u potpunosti ovisi o naredbi ili usluzi kojom ga izvodite. Ako želite spectrumserver držati podalje od jezgri koje koristi autorun daemon, vežite ga sami pomoću `taskset` u vlastitoj naredbi za pokretanje (vidi odjeljak o zamjeni niže). Ako to ne učinite, jednostavno radi bez vezanja, a raspoređivač operacijskog sustava ga uravnotežuje — ispravno i sigurno, samo gubite namjerno razdvajanje jezgri.
-
-Za orijentaciju, autorun daemon rezervira ove gornje jezgre (pa ako vežete spectrumserver, zadržite ga na nižima kako biste izbjegli preklapanje):
-
-| Logičkih CPU-a | Koristi autorun daemon | Ostaviti za spectrumserver |
-|---|---|---|
-| ≤ 4 | *bez vezanja* | *bez vezanja* |
-| 6 | `5` | `0-4` |
-| 8 | `6-7` | `0-5` |
-| 12 (npr. hibrid 8P+4E) | `8-11` | `0-7` |
-| 16 | `12-15` | `0-11` |
-
-Na računalu s **4 jezgre (ili manje)** nema se što razdvajati, pa i autorun daemon radi *bez vezanja* i dijeli sve jezgre — ispravno i sigurno, ali FFT SDR-a i naleti dekodiranja natječu se za iste jezgre.
 
 **Poznata ograničenja:**
 
@@ -775,56 +469,6 @@ Na računalu s **4 jezgre (ili manje)** nema se što razdvajati, pa i autorun da
 4. **Vezanje pretpostavlja hibridnu Intel topologiju** (niže jezgre = brže P-jezgre). Na AMD-u ili procesorima s isprepletenim SMT numeriranjem automatska podjela i dalje vrijedi (bez preklapanja, bez rušenja), ali „niže jezgre su brže" možda ne vrijedi doslovno; na čipu 4C/8T s hyperthreadingom gornje su jezgre SMT blizanci — ograničene, ali ne i potpuno izolirane. Ondje gdje automatski raspon nije idealan, upotrijebite **ručnu zamjenu** niže.
 5. **Pokrivenost pojaseva ograničava prijamnik.** Konfiguracija RX888 (`sps=60000000` → Nyquist na 30 MHz) ne doseže 6 m i više; tablica pojaseva ide od 160 m do 10 m. Drugi SDR-ovi pokrivaju ono što dopušta njihov ugođeni prozor.
 6. **Ritam prijavljivanja.** PSK Reporter šalje svakih 5 min, wsprnet svake 2 min — „0 sent" prvih nekoliko minuta normalno je, a ne kvar.
-
-### Ručna zamjena vezanja uz jezgre (napredno)
-
-Automatski izvedena podjela jezgri prikladna je za većinu računala, no možete nametnuti određeno vezanje ondje gdje nije (AMD CCX/CCD, ARM big.LITTLE, isprepleteni SMT). Dvije su neovisne zamjene, a svaka prihvaća popis jezgri u obliku `taskset -c` (`2-3`, `0,2,4`, `0-2,5`) ili `none`/`off`/`unpinned` za isključivanje vezanja. Neispravna vrijednost se zanemaruje i primjenjuje se automatsko izvođenje — tipfeler nikada ne može spriječiti pokretanje.
-
-**Autorun daemon** — varijabla okruženja `AUTORUN_CORES` ili polje `"cores"` u `autorun.json` (okruženje ima prednost). Polje `"cores"` čuva se pri **Save** u administratorskoj ploči, pa ručna izmjena ostaje. Dva načina da ga postavite:
-
-*Mogućnost A — `autorun.json` (trajno, preporučeno).* Dodajte redak `"cores"` u konfiguraciju u korijenu repozitorija, zatim na kartici Spot Reporting učinite **Stop → Start**:
-
-```jsonc
-// autorun.json
-{ "identity": { "callsign": "SV1BTL", "grid": "KM17VX" },
-  "reporting": { "pskreporter": true, "wsprnet": false },
-  "slots": [ /* … */ ],
-  "cores": "2-3" }          // or "none" to run unpinned
-```
-
-*Mogućnost B — varijabla okruženja (jednokratno).* Daemon pokreće administratorska ploča, pa varijabla mora biti u okruženju **ploče** — postavite je i ponovno pokrenite ploču (okruženje ima prednost pred vrijednošću u `autorun.json`):
-
-```bash
-# Način A — varijabla mora biti na procesu koji se pokreće:
-./manage_admin.sh stop && AUTORUN_CORES=2-3 ./manage_admin.sh start
-
-# Način B — systemd ignorira varijablu zadanu u naredbenom retku
-# systemctl, pa je stavite u jedinicu:
-sudo systemctl set-environment AUTORUN_CORES=2-3
-sudo systemctl restart phantomsdr-admin
-```
-
-**spectrumserver** — vežite ga sami tako da naredbi kojom pokrećete poslužitelj dodate prefiks `taskset -c <jezgre>`. To radi sa svakim načinom pokretanja (izravno pokretanje, SDR cjevovod, jedinica usluge itd.):
-
-```bash
-# pin the server to cores 0-3, direct launch:
-taskset -c 0-3 ./build/spectrumserver --config <your-config>.toml < <your-input>
-# or in an SDR pipeline:
-<your-sdr-source> | taskset -c 0-3 ./build/spectrumserver --config <your-config>.toml
-```
-
-> ⚠️ **Pobrinite se da preživi ponovna pokretanja.** Ugrađeni `taskset` vrijedi samo za to jedno pokretanje. Ako nešto automatski ponovno pokreće poslužitelj (watchdog, systemd usluga, cron/`@reboot` unos …), dodajte prefiks `taskset` unutar skripte ili jedinice koja ga zapravo pokreće — inače ponovno pokretanje gubi vezanje.
-
-**Provjerite je li vezanje primijenjeno** — ispišite stvarni afinitet CPU-a pokrenutih procesa:
-
-```bash
-taskset -cp "$(pgrep -f 'autorun/index.js')"   # autorun daemon
-taskset -cp "$(pgrep -x spectrumserver)"       # spectrumserver
-```
-
-**Prihvaćene vrijednosti (za obje zamjene):** popis u obliku `taskset -c` (`2-3`, `0,2,4`, `0-2,5`) ili `none`/`off`/`unpinned` za rad bez vezanja. Sve neispravno zanemaruje se i primjenjuje se automatsko izvođenje, pa tipfeler nikada ne može blokirati pokretanje.
-
-> Na Raspberry Piju / bilo kojem računalu s ≤ 4 jezgre obično ne trebate nijednu — automatski put već pokreće oba procesa bez vezanja, što je ispravan izbor na malom, homogenom procesoru. Zamjena je namijenjena većim računalima koja nisu Intel hibridi.
 
 ### Datoteke i krajnje točke
 
@@ -944,7 +588,7 @@ Skripta uzima svaki odgovor iz te datoteke i traži samo vašu sudo lozinku (tre
 
 **PORTS**, ispod **🔑 UPDATE PASSWORD**, navodi svaki port koji ova stanica koristi — javni port, https (443/80) ako je postavljen, spectrumserver svakog prijemnika, administratorsku ploču, statistiku, RADE, DRM i relej — pročitane iz `admin_config.json`, `station.conf` i `receivers.toml`, istih datoteka koje čita `proxy.py`. Zeleni ● znači da nešto upravo sluša na portu, ○ da ništa ne sluša. Na routeru treba proslijediti samo portove označene s *open on the router*; ostali ostaju na ovom računalu i dostupni su preko javnog porta. Usluge koje nisu instalirane ne prikazuju se.
 
-**SPECTRUMSERVER PORT (MAIN RECEIVER)** je `public_port`: port na kojem sluša spectrumserver glavnog prijemnika — 8901 iza `proxy.py`, ili 9001 na stanici postavljenoj s `configure-station.sh`. To **nije** port slušatelja; on je prikazan samo za čitanje ispod polja kao **Listener port (proxy)** (`proxy_port`), ili kao *none* na stanici bez proxyja, gdje su oba ista. **💾 SAVE SETTINGS** provjerava broj: vlastiti port proxyja se odbija, a port različit od `[server] port` prijemnika koji radi najprije traži potvrdu — s pogrešnim brojem `proxy.py` od svog sljedećeg ponovnog pokretanja šalje slušatelje na port na kojem ništa ne odgovara. Da biste spectrumserver stvarno premjestili, upišite isti broj u `[server] port` u `.toml` prijemnika, u njegov redak u `receivers.toml` i u ovo polje, a zatim ponovno pokrenite prijemnik i proxy.
+**SPECTRUMSERVER PORT (MAIN RECEIVER)** je `public_port`: port na kojem sluša spectrumserver glavnog prijemnika — 9001 iza `proxy.py` na stanici postavljenoj s `install.sh`. To **nije** port slušatelja; on je prikazan samo za čitanje ispod polja kao **Listener port (proxy)** (`proxy_port`), ili kao *none* na stanici bez proxyja, gdje su oba ista. **💾 SAVE SETTINGS** provjerava broj: vlastiti port proxyja se odbija, a port različit od `[server] port` prijemnika koji radi najprije traži potvrdu — s pogrešnim brojem `proxy.py` od svog sljedećeg ponovnog pokretanja šalje slušatelje na port na kojem ništa ne odgovara. Da biste spectrumserver stvarno premjestili, upišite isti broj u `[server] port` u `.toml` prijemnika, u njegov redak u `receivers.toml` i u ovo polje, a zatim ponovno pokrenite prijemnik i proxy.
 
 **▶ START** i **■ STOP**, pokraj **DEFAULT START SCRIPT** i **DEFAULT STOP SCRIPT**, odmah pokreću **spremljenu** skriptu, nakon potvrde — obje prekidaju vezu svim slušateljima. Ako ste promijenili odabir, najprije spremite: gumb odbija nespremljeni. Prve sekunde izlaza pojavljuju se ispod gumba; cijeli izlaz tih skripti, i ponovnih pokretanja koja radi thermal guard, ide u `logs/admin-scripts.log`.
 
@@ -993,29 +637,6 @@ Izbornik **THEME** nalazi se u gornjoj traci svake stranice, između **ONLINE** 
 
 Sve teme koriste iste fontove i iste veličine; mijenjaju se samo boje i završna obrada. *On air* ostaje zeleno, a upozorenja narančasta i crvena u svakoj temi, i **Graphs** također prate temu. **Auto** izračunava izlazak i zalazak sunca na lokatoru stanice (`siteGridSquare` u Site Info) i sam se prebacuje dok je stranica otvorena; bez lokatora danom smatra 07:00–19:00 po lokalnom vremenu. Izbor se čuva po pregledniku, pa računalo i telefon mogu imati različite teme. Stranica za prijavu zadržava zeleni izgled.
 
-### Krajnje točke (nove stranice)
-
-| Endpoint | Namjena |
-|---|---|
-| `GET /admin/api/health` | Kartica System Health: prijamnici, disk, mape zapisa, posljednji unos u crash.log, nedavna upozorenja |
-| `GET /admin/api/visitor-stats?days=N` | Statistika posjetitelja za 1–31 dan (u predmemoriji jednu minutu) |
-| `GET` / `POST /admin/api/alerts` | Čitanje / spremanje postavki upozorenja (tajne se vraćaju kao `********`) |
-| `POST /admin/api/alerts/test` | Spremi pa pošalji probu; odgovor po kanalu |
-| `GET /admin/api/backup` | Preuzimanje zipa postavki |
-| `POST /admin/api/restore` | Vraćanje zipa postavki (multipart, polje `file`) |
-| `POST /admin/api/run-default-script` | Pokreće spremljenu zadanu skriptu za pokretanje ili zaustavljanje (`{"which": "start"}` ili `"stop"`) |
-| `GET /admin/api/https` | Stanje https-a, iz `station.conf` |
-| `POST /admin/api/https/check` | Pokreće `setup-https.sh --status` |
-| `POST /admin/api/https/precheck` | Provjere prije uključivanja https-a, i naredbe za pokretanje |
-| `GET /admin/api/receivers-info` | Svaki prijemnik s opsegom, širinom pojasa i stanjem |
-| `POST /admin/api/receivers-info/retune` | Mijenja postavke prijemnika (frekvencija, širina pojasa, početna frekvencija, način rada, početna glasnoća, pojačanje, ime gumba) i ponovno ga pokreće kad treba |
-| `POST /admin/api/receivers-info/rename` | Ime na gumbu prijemnika (`{"id", "name"}`); ništa se ne pokreće ponovno |
-| `POST /admin/api/receivers-info/power` | Zaustavlja ili pokreće jedan prijemnik (`{"id", "action": "stop"}` ili `"start"`) |
-| `POST /admin/api/receivers-info/delete` | Uklanja dodatni prijemnik (`{"id", "confirm": <id>, "keep_copy"}`) |
-| `GET /admin/api/receivers-info/add-defaults` | Početne vrijednosti obrasca za dodavanje, i viđeni USB prijemnici |
-| `POST /admin/api/receivers-info/add-plan` | Provjerava obrazac za dodavanje i piše `instances/.add-rx.env` |
-| `GET /admin/api/station-grid` | Lokator iz Site Info, za temu Auto |
-
 ---
 
 ## Rješavanje problema
@@ -1038,7 +659,7 @@ Sve teme koriste iste fontove i iste veličine; mijenjaju se samo boje i završn
 | Poruka na slapu se ne pojavljuje | Potvrdite da proxy radi (`./manage_admin.sh status`) i da je sučelje iz novije verzije koja uključuje iscrtavanje preklopa |
 | Poruka na slapu izgubljena nakon ponovnog pokretanja | Očekivano — stanje poruke je samo u memoriji; pošaljite je ponovno nakon ponovnog pokretanja ploče |
 | „Start" u Spot Reportingu ne uspijeva / daemon se odmah gasi | Provjerite `autorun.log`. Obično nedostaje simbolička poveznica `autorun/node_modules` (`ln -sfn ../frontend/node_modules autorun/node_modules`) ili nije instaliran `taskset` (`sudo apt install -y util-linux`). |
-| Spot Reporting: daemon radi, ali `decodes` ostaje 0, a `autorun.log` pokazuje `504` / `tap closed 1006` | Audio odvod ne može doseći spectrumserver. Daemon automatski otkriva port iz konfiguracije **pokrenutog** poslužitelja; redak zapisnika `[autorun] tap backend: HOST:PORT` mora odgovarati vašem `[server] port`. Ako nije točan (ili poslužitelj nije radio pri pokretanju), zadajte ga u `autorun.json`: `"server": { "host": "127.0.0.1", "port": 9002 }`, zatim Stop→Start. |
+| Spot Reporting: daemon radi, ali `decodes` ostaje 0, a `autorun.log` pokazuje `504` / `tap closed 1006` | Audio odvod ne može doseći spectrumserver. Daemon automatski otkriva port iz konfiguracije **pokrenutog** poslužitelja; redak zapisnika `[autorun] tap backend: HOST:PORT` mora odgovarati vašem `[server] port`. Ako nije točan (ili poslužitelj nije radio pri pokretanju), zadajte ga u `autorun.json`: `"server": { "host": "127.0.0.1", "port": 9001 }`, zatim Stop→Start. |
 | **SAVE CONFIG** odbijen: „N slots at once exceeds cap of M (UTC hour …)" | MAX SLOTS ograničava slotove koji rade istodobno. Povećajte ga ili u SCHEDULE uklonite sate gdje je redak AT ONCE crven. |
 | Spot Reporting se nije pokrenuo nakon ponovnog pokretanja | **Start automatically after a reboot or crash** mora biti označeno i spremljeno, a **STOP** vrijedi do **START** (kartica stanja kaže `ON, held by STOP`). AUTORUN log prikazuje svaki redak `[admin …] autostart:`; sama ploča mora raditi (`sudo systemctl status phantomsdr-admin`). |
 | Spot Reporting prikazuje „0 sent" | Normalno prvih nekoliko minuta — PSK Reporter šalje svakih 5 min, wsprnet svake 2 min. Provjerite je li uključeno odredište i radi li daemon. |

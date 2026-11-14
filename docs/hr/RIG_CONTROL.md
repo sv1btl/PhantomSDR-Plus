@@ -114,16 +114,6 @@ Za **Hamlib** iste se postavke prosljeđuju `rigctld`-u. Stop bitovi tamo imaju 
 
 Smjer se može promijeniti i iz izbornika **Rig** tijekom veze.
 
-### Kako se sprječava da se strane „svađaju”
-
-Svaka vrijednost koju aplikacija upiše pojavi se trenutak kasnije kao promjena na drugoj strani. Kad bi se to shvatilo doslovno, uređaj i prijemnik beskonačno bi se ganjali. Aplikacija to izbjegava na tri načina:
-
-- Stranica prijemnika primjenjuje promjenu odmah, pa se čita odmah nakon upisa i to očitanje postaje novo polazište.
-- Uređaj primjenjuje promjenu nešto kasnije, pa se svaka poslana vrijednost pamti. Kad uređaj javi tu vrijednost, prepoznaje se kao upis aplikacije, a ne kao ruka na gumbu.
-- Vrijednost koju uređaj odbije — npr. široki FM na KV uređaju — šalje se **dvaput**, a zatim se ostavlja na miru dok se izvorna strana ne promijeni, umjesto da se ponavlja nekoliko puta u sekundi.
-
-Ponovno ugađanje stranice prijemnika može je navesti da odabere zadani način rada za opseg (npr. LSB ispod 10 MHz). Kad vodi uređaj, aplikacija odmah vraća njegov način rada, pa uređaj u USB-u na 40 m drži i prijemnik u USB-u.
-
 ### Koji prozor prijemnika
 
 **Receiver window** bira koja stanica slijedi uređaj:
@@ -217,8 +207,6 @@ Treba vezu koja javlja stanje odašiljanja — svi ugrađeni upravljači, flrig 
 | **Mute receiver while transmitting** | Da / ne |
 | Statusni redak | *Not connected*, *Connecting...*, *Connected: naziv*, ili posljednja pogreška |
 
-Živi prikaz frekvencije nalazi se u prozoru Rig control, a ne u izborniku, koji bi se inače sam zatvarao pri svakoj promjeni.
-
 ---
 
 ## Linux
@@ -276,8 +264,6 @@ Preglednici koji traže dopuštenje prije nego što web stranica pristupi lokaln
 | **Bez jeke** | Promjena koja je došla s uređaja nikad mu se ne vraća, a javljanje prethodnog načina ili filtra uređaja koje stigne odmah nakon promjene na stranici zanemaruje se |
 | **Utišavanje pri odašiljanju** | Uvijek uključeno, čak i s isključenim CAT Sync: stranica utihne dok uređaj odašilje. Pomicanje klizača glasnoće tijekom odašiljanja ne vraća zvuk; pri prijemu zvuk se vraća na trenutni položaj klizača |
 | **Nije podržano** | Split, VFO B, RIT/XIT i pomaci transvertera. Prati se samo VFO A prvog prijemnika |
-
-Način rada i širina filtra šalju se vlastitim TCI naredbama (`modulation`, `rx_filter_band`), pa bi ih i ExpertSDR, AetherSDR i Thetis trebali pratiti; isproban je samo Hamlib most. Za pomak transvertera koristite Desktop PhantomSDR+. Ne koristite oboje istodobno na istom uređaju — dva upravljača bore se oko skale.
 
 ### S kojim primopredajnicima radi
 
@@ -403,99 +389,6 @@ Dodatne opcije, samo kad zatrebaju:
 - **Postavka koju Hamlib nudi za taj uređaj:** `rigctl -m <model> -L` ih ispisuje; postavite jednu s `-C ime=vrijednost`, npr. `-C post_write_delay=10` za sporo sučelje.
 - **Uređaj koji pri otvaranju porta prelazi na odašiljanje ili se ponovno pokreće:** neki CAT kabeli koriste DTR ili RTS za PTT; dodajte `-C dtr_state=OFF -C rts_state=OFF`.
 
-#### Primjer: Yaesu FT-991A
-
-Nije isprobano sa stvarnim FT-991A — slijedi Hamlibove postavke za taj uređaj; provjera `rigctl … f` odmah pokazuje radi li.
-
-Na uređaju postavite **CAT RATE** (izbornik 031) na `38400`. Hamlibov broj modela za FT-991 i FT-991A je `1035`.
-
-USB kabel FT-991A stvara **dva** serijska porta. CAT je na **Enhanced** portu:
-
-- **Linux:** `ls /dev/serial/by-id/` prikazuje dva retka za uređaj; onaj koji završava s `-if00-port0` je Enhanced, obično `/dev/ttyUSB0`.
-- **Windows:** Upravitelj uređaja prikazuje *Silicon Labs Dual CP2105 USB to UART Bridge: Enhanced COM Port (COM5)* i *Standard COM Port*; koristite broj Enhanced porta.
-
-**Linux:**
-```bash
-rigctl -m 1035 -r /dev/ttyUSB0 -s 38400 f
-cd ~/PhantomSDR-Plus/tci-bridge
-node tci-rigctld.mjs --rigctl rigctl -m 1035 -r /dev/ttyUSB0 -s 38400
-```
-
-**Windows:**
-```bat
-C:\hamlib\bin\rigctl.exe -m 1035 -r COM5 -s 38400 f
-cd C:\tci-bridge
-node tci-rigctld.mjs --rigctl C:\hamlib\bin\rigctl.exe -m 1035 -r COM5 -s 38400
-```
-
-Ako provjera ne ispiše ništa korisno, uobičajeni uzrok je Standard port umjesto Enhanced, ili CAT RATE različit od `-s`.
-
-#### Primjer: Kenwood TS-590SG
-
-Nije isprobano sa stvarnim TS-590SG — slijedi Hamlibove postavke za taj uređaj; provjera `rigctl … f` odmah pokazuje radi li.
-
-U izborniku uređaja postavite brzinu **USB** porta na `115200` (broj izbornika je u priručniku za TS-590SG). Hamlibov broj modela je `2037`; stariji TS-590S je `2031`. Na Windowsima najprije instalirajte Kenwoodov upravljački program virtualnog COM porta za USB priključak.
-
-USB kabel stvara **jedan** serijski port:
-
-- **Linux:** redak uređaja u `ls /dev/serial/by-id/`, obično `/dev/ttyUSB0`.
-- **Windows:** Upravitelj uređaja → Priključci (COM i LPT), na primjer `COM6`.
-
-**Linux:**
-```bash
-rigctl -m 2037 -r /dev/ttyUSB0 -s 115200 f
-cd ~/PhantomSDR-Plus/tci-bridge
-node tci-rigctld.mjs --rigctl rigctl -m 2037 -r /dev/ttyUSB0 -s 115200
-```
-
-**Windows:**
-```bat
-C:\hamlib\bin\rigctl.exe -m 2037 -r COM6 -s 115200 f
-cd C:\tci-bridge
-node tci-rigctld.mjs --rigctl C:\hamlib\bin\rigctl.exe -m 2037 -r COM6 -s 115200
-```
-
-Ako provjera ne uspije, uobičajeni uzrok je USB brzina različita od `-s`, ili kabel u RS-232 (COM) utičnici uređaja dok `-r` navodi USB port.
-
-#### Još primjera
-
-Nijedan nije isproban na stvarnom uređaju. Svaki redak daje opcije koje idu iza `rigctl` pri provjeri i iza `--rigctl rigctl` za most; u izborniku uređaja postavite istu brzinu. Linux port je uobičajeni — potvrdite ga s `ls /dev/serial/by-id/`. Na Windowsima zamijenite port COM brojem iz Upravitelja uređaja, a `rigctl` s `C:\hamlib\bin\rigctl.exe`.
-
-| Uređaj | Izbornik uređaja | Opcije (Linux) | Napomene |
-|---|---|---|---|
-| Icom IC-705 (USB) | CI-V USB Baud Rate `19200` | `-m 3085 -r /dev/ttyACM0 -s 19200` | Pojavljuju se dva porta; CI-V je prvi (`ttyACM0`) |
-| Icom IC-7100 (USB) | CI-V USB Baud Rate `19200` | `-m 3070 -r /dev/ttyUSB0 -s 19200` | Hamlibova najveća brzina za ovaj uređaj je 19200 |
-| Icom IC-7610 | CI-V USB Baud Rate `115200` | `-m 3078 -r /dev/ttyUSB0 -s 115200` | |
-| Icom IC-9700 | CI-V USB Baud Rate `38400` | `-m 3081 -r /dev/ttyUSB0 -s 38400` | |
-| Yaesu FTDX101D / FTDX101MP | CAT RATE `38400` | `-m 1040 -r /dev/ttyUSB0 -s 38400` | `-m 1044` za FTDX101MP. Dva porta; koristite Enhanced |
-| Yaesu FTDX10 | CAT RATE `38400` | `-m 1042 -r /dev/ttyUSB0 -s 38400` | Dva porta; koristite Enhanced, kao kod FT-991A |
-| Yaesu FT-710 | CAT RATE `38400` | `-m 1049 -r /dev/ttyUSB0 -s 38400` | Dva porta; koristite Enhanced, kao kod FT-991A |
-| Yaesu FT-891 | CAT RATE `38400` | `-m 1036 -r /dev/ttyUSB0 -s 38400` | Dva porta; koristite Enhanced, kao kod FT-991A |
-| Yaesu FT-450D | CAT RATE `38400` | `-m 1046 -r /dev/ttyUSB0 -s 38400` | RS-232 utičnica: koristite USB-serijski adapter |
-| Yaesu FT-817 / FT-818 | CAT RATE `38400` | `-m 1020 -r /dev/ttyUSB0 -s 38400` | `-m 1041` za FT-818. Treba CAT kabel na ACC utičnici |
-| Yaesu FT-857 / FT-897 | CAT RATE `38400` | `-m 1022 -r /dev/ttyUSB0 -s 38400` | `-m 1023` za FT-897. Treba CAT kabel |
-| Kenwood TS-890S (USB) | USB brzina `115200` | `-m 2041 -r /dev/ttyUSB0 -s 115200` | |
-| Kenwood TS-990S (USB) | USB brzina `115200` | `-m 2039 -r /dev/ttyUSB0 -s 115200` | |
-| Kenwood TS-590SG / TS-590S (USB) | USB brzina `115200` | `-m 2037 -r /dev/ttyUSB0 -s 115200` | Detaljan primjer gore |
-| Kenwood TS-480 | Brzina COM porta `57600` | `-m 2028 -r /dev/ttyUSB0 -s 57600` | RS-232 utičnica: koristite USB-serijski adapter |
-| Kenwood TS-2000 | Brzina COM porta `57600` | `-m 2014 -r /dev/ttyUSB0 -s 57600` | RS-232 utičnica; Hamlibova najveća brzina za ovaj uređaj je 57600 |
-| Elecraft K4 (USB) | RS232 brzina `115200` | `-m 2047 -r /dev/ttyUSB0 -s 115200` | |
-| Elecraft K3 / K3S | RS232 brzina `38400` | `-m 2029 -r /dev/ttyUSB0 -s 38400` | K3S: USB; K3: serijski port ili KUSB kabel |
-| Elecraft KX3 | RS232 brzina `38400` | `-m 2045 -r /dev/ttyUSB0 -s 38400` | KXUSB kabel |
-| Elecraft KX2 | RS232 brzina `38400` | `-m 2044 -r /dev/ttyUSB0 -s 38400` | KXUSB kabel |
-| Xiegu G90 | CI-V brzina `19200` | `-m 3088 -r /dev/ttyUSB0 -s 19200` | Hamlib koristi zadanu CI-V adresu G90 |
-| Xiegu X6100 | CI-V brzina `19200` | `-m 3087 -r /dev/ttyUSB0 -s 19200` | Hamlibova najveća brzina za ovaj uređaj je 19200 |
-| Lab599 TX-500 | — | `-m 2050 -r /dev/ttyUSB0 -s 9600` | Hamlib koristi samo 9600 |
-| ELAD FDM-DUO | — | `-m 33001 -r /dev/ttyUSB0 -s 115200` | |
-| QRP Labs QDX | — | `-m 2052 -r /dev/ttyACM0 -s 9600` | USB serijski port; brzina nije bitna, ali se mora navesti |
-
-Potpuna Linux naredba za IC-705, kao primjer čitanja retka:
-
-```bash
-rigctl -m 3085 -r /dev/ttyACM0 -s 19200 f
-node tci-rigctld.mjs --rigctl rigctl -m 3085 -r /dev/ttyACM0 -s 19200
-```
-
 #### Uređaji kojima upravlja drugi program
 
 Nekim uređajima već upravlja program koji može obaviti posao — ponekad bez ikakvog mosta. Nijedan od ovih načina nije isproban.
@@ -547,36 +440,6 @@ Bez `--rigctl` most traži `rigctld` na `127.0.0.1:4532` i ispiše `rigctld conn
 Nema se što podešavati. Upravljanje primopredajnikom koristi malo JavaScript sučelje koje svaka PhantomSDR-Plus stranica već ima; ne treba postavka poslužitelja, otvoreni port ni administratorska ovlast. Funkcije filtra i utišavanja stigle su s inačicom 4.1.0 — nakon primjene ponovno izgradite frontend (`./recompile.sh`, opcija 2); prijemnik ne treba zaustavljati. Ni prijemnici KiwiSDR, WebSDR i UberSDR ne trebaju ništa: aplikacija koristi kontrole koje njihove stranice već imaju.
 
 Gumb **TCI-CAT** stigao je također s inačicom 4.1.0, opet samo uz ponovnu izgradnju frontenda. Ne otvara nijedan port na prijemniku: veza ide iz preglednika svakog slušatelja prema njegovom vlastitom računalu. Hamlib most, `tci-bridge/tci-rigctld.mjs`, slušatelji pokreću kod kuće; prijemnik ga ne koristi. Preglednik otvara tu vezu tek nakon što slušatelj otvori **TCI-CAT** ili uključi **CAT Sync** (pamti se po pregledniku), pa preko https posjetitelji koji ga nikad ne koriste ne vide upit za pristup lokalnoj mreži.
-
----
-
-## Za programere: sučelje stranice
-
-I Desktop PhantomSDR+ i CATsync Tool koriste ove funkcije, koje svaka PhantomSDR-Plus stranica postavlja na `window` nakon učitavanja (stranicama KiwiSDR, WebSDR i UberSDR upravlja se preko njihovih vlastitih, drugačijih kontrola):
-
-| Funkcija | Vraća / radi |
-|---|---|
-| `catsync_ready` | `true` čim su funkcije ispod postavljene |
-| `catsync_getFrequency()` | Ugođena frekvencija, Hz |
-| `catsync_setFrequency(hz)` | Ugađa na `hz` |
-| `catsync_getMode()` | `USB`, `LSB`, `CW`, `CW-L`, `AM`, `QUAM`, `FM`, `WBFM`, `RADEU`, `RADEL` |
-| `catsync_setMode(mode)` | Postavlja način rada; vraća propusni pojas na zadano za taj način |
-| `catsync_getBandwidth()` | Ukupna širina propusnog pojasa, Hz |
-| `catsync_setBandwidth(hz)` | Postavlja širinu — raste prema gore u USB-u, prema dolje u LSB-u, inače jednako na obje strane. Pozovite je **nakon** `catsync_setMode` |
-| `catsync_getMute()` | `true` kad je utišano |
-| `catsync_setMute(on)` | Utišava ili vraća zvuk, preko gumba za utišavanje na stranici |
-
-Posljednje četiri stigle su s inačicom 4.1.0, pa ih provjerite prije poziva:
-
-```js
-if (window.catsync_ready) {
-  window.catsync_setFrequency(7074000)
-  window.catsync_setMode('USB')
-  if (typeof window.catsync_setBandwidth === 'function') window.catsync_setBandwidth(2400)
-}
-```
-
-Postavljanje frekvencije ponovno ugađa zvuk, pa setter pozovite samo kad se vrijednost stvarno promijenila — setter koji se stalno poziva s istom vrijednošću čuje se. Stariji ulazi u stilu KiwiSDR/WebSDR (`setfreq`, `set_mode`, `freqset_complete`) i dalje postoje za alate koji ih očekuju.
 
 ---
 

@@ -12,8 +12,6 @@ The second receiver can be another PhantomSDR-Plus, a KiwiSDR, an UberSDR or a W
 
 Diversity here means **selection**: at any moment you are listening to one site or the other, with a short crossfade when it switches. It is not a phased array and it does not add the two signals together.
 
-That is a deliberate choice, and the reason is physics rather than software. Two receivers hundreds of kilometres apart hear the same transmission over different ionospheric paths. The two audio waveforms arrive with unrelated phase and slightly different Doppler, so adding them sounds hollow and comb-filtered — the classic "phasey" artefact. True coherent combining needs two receivers on a **common clock**, sample-aligned; two independent receivers connected over the internet can never provide that.
-
 So what you gain is **continuity, not raw signal strength**:
 
 - On a stable path where one receiver is simply better, you will hear that receiver and gain nothing. This is normal.
@@ -40,7 +38,7 @@ That is the whole setup. There is nothing to configure on the other receiver, an
 
 | Second receiver | What to type | Notes |
 |---|---|---|
-| PhantomSDR+ | `host:8900` | The receiver's normal port |
+| PhantomSDR+ | `host:9000` | The receiver's normal port |
 | KiwiSDR | `host:8073` | The KiwiSDR's own port |
 | UberSDR | `host` | Its **normal web port**, not 8073 |
 | WebSDR | `host:8901` | The site's own port. Needs the relay — see below |
@@ -76,8 +74,6 @@ The saved list belongs to one browser, so a phone starts with an empty one howev
 
 A WebSDR — the software written by Pieter-Tjerk de Boer, PA3FWM, that runs at Twente and several hundred other sites — can be used as the second receiver, but not directly from the browser.
 
-The reason is a deliberate check on their side. A WebSDR refuses its audio connection unless the `Origin` header names its own site, and `Origin` is a *forbidden header name*: the browser sets it from the page you are on and no script is permitted to change it. There is no client-side way around this, and there should not be.
-
 So the connection is made by a small program on your own server instead, `websdr_relay.py`. Your browser talks to the relay, and the relay talks to the WebSDR.
 
 ### Installing the relay
@@ -91,7 +87,7 @@ cd ~/PhantomSDR-Plus
 
 On a station set up with the station questions (`configure-station.sh`) it sees that the station sits behind the proxy: the relay then listens on this computer only and is reached as `/relay` on your public address, so it asks no port. On an older station it asks for one. Either way it takes your callsign and site address from `frontend/site_information.json` and offers to install a systemd service so the relay starts at boot. Settings live in `websdr_relay.json` and can be changed at any time. Answering yes to the relay question in `bash configure-station.sh` installs and starts it as well.
 
-**Router port.** Behind the proxy there is none to open: the page reaches the relay as `/relay` through the address listeners already use, over http and https alike. Only an older station, set up before the station questions, runs the relay on a port of its own; visitors' browsers then connect to it directly, so that port must be forwarded on your router, or WebSDR diversity works only from inside your own network. The other three receiver types do not need the relay — except from a page served over https, where it also carries http-only PhantomSDR+ and KiwiSDR partners (see above).
+**Router port.** Behind the proxy there is none to open: the page reaches the relay as `/relay` through the address listeners already use, over http and https alike. The other three receiver types do not need the relay — except from a page served over https, where it also carries http-only PhantomSDR+ and KiwiSDR partners (see above).
 
 If the admin panel is installed, its dashboard shows a **WebSDR Diversity Relay** card with the relay's state, the port, how many sessions are running and to which sites. Above it, a **Receive Diversity** card lists every listener who is combining your receiver with another one — of any type, not only WebSDR — with the receiver, their name and city, frequency and mode, and the partner's type and address.
 
@@ -103,9 +99,6 @@ The relay connects to other people's receivers from your server rather than from
 - **A `User-Agent` naming your station and its operator**, so an operator who would rather not be used this way knows exactly who to write to. Please fill it in honestly.
 - **Only tuning commands are forwarded.** The connection cannot be used to send anything else.
 - **Private, loopback and carrier-NAT addresses are refused**, so a visitor cannot aim the relay at something inside your machine or your LAN.
-
-> [!IMPORTANT]
-> The `Origin` check exists because the WebSDR authors did not want their receivers driven from other people's pages. Using the relay is a considered decision, not an oversight on their part. Keep the cap where it is, keep the User-Agent honest, and stop if an operator asks you to.
 
 ### What is different about a WebSDR
 
@@ -147,19 +140,11 @@ The coloured dot adds which site you are actually hearing — green for your own
 
 This is normal and worth expecting. The two streams are aligned by correlating their **audio envelopes**, and that needs a window of audio to work with. The search runs in two stages: a narrow ±1.5 second search can start once about 9 seconds of audio has been gathered, and a second, independent measurement five seconds later has to **agree** with the first before the alignment is trusted. When the two sites are further apart in time than that — a second or two of extra buffering somewhere along the path — the full ±4 second search takes over at about 14 seconds and confirmation follows at 19.
 
-The confirmation step matters. When two sites fade in antiphase — never both carrying the signal at the same moment — a single correlation will happily lock onto a confident, completely wrong delay, which sounds like an echo. Requiring two independent measurements to agree rejects that.
-
-A second thing has to be right before a lock can hold: the two receivers' sample rates. Two receivers are two clocks and two decimation chains, so their audio streams do **not** arrive at quite the same rate even when both declare 12 kHz — 2% apart is normal, which is 240 samples a second of creep, far more than the alignment tolerance. The remote stream is therefore continuously resampled to match your own receiver's rate. That ratio is measured by **counting samples**, not by correlating, so it needs no lock of its own and is settled within the first few seconds — before the first alignment search even runs. A weak or intermittent signal can still take two or three tries to align, so 30 seconds is not a cause for concern; a minute with nothing to show is.
-
-While the search runs, diversity does not wait for it. The two streams are paired by when their audio arrives — or by the last delay that was found — and the better site is chosen by SNR as usual; rate correction, level matching and the SNR trim all apply. That is what lets a station heard **only** by the remote come through: the case where diversity helps most, and where no alignment is possible at all. The panel then says `Ready (unaligned)` and the **aligned** row reads `by arrival, searching`. While both sites hear the station but are not aligned yet, a switch between them can repeat or skip up to the real delay between the two, usually under 1.5 s; once the search locks, it moves to the exact delay.
-
 ---
 
 ## Remote SNR trim
 
 This slider biases the choice between the two sites. It is added to the remote receiver's measured SNR before the comparison — positive favours the remote, negative favours your own. It changes **nothing else**: not the audio level, not the combining, only which site wins.
-
-It exists because the two SNR figures are not always comparable. Both are measured the same way — a percentile spread of the audio — but a receiver whose codec floors its own noise reads lower than it deserves. A KiwiSDR applies strong gain and a limiter, which compresses the spread; a lossy codec sets a noise floor the signal never gets below.
 
 **How to set it:**
 
@@ -220,4 +205,4 @@ The setting applies immediately and is remembered in your browser.
 - **Two receivers only.**
 - **Mono.** If your receiver is in a stereo mode such as C-QUAM, the audio passes through untouched and diversity does not engage.
 - **Alignment needs signal.** Under about 10 dB SNR at one of the two sites, expect it to sit at `searching`.
-- **A WebSDR needs the relay** on your own server, and its port forwarded. The other three receiver types need neither.
+- **A WebSDR needs the relay** on your own server; the proxy carries it on the public port, so nothing more is opened on the router. The other three receiver types do not need it.

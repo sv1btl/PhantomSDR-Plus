@@ -16,9 +16,7 @@ Dobrodošli u PhantomSDR-Plus! Ovaj će vam vodič pomoći da izvučete najviše
 8. [Tipkovni prečaci](#tipkovni-prečaci)
 9. [Oznake](#oznake)
 10. [Upotreba na mobilnim uređajima](#upotreba-na-mobilnim-uređajima)
-11. [Savjeti i dobre prakse](#savjeti-i-dobre-prakse)
-12. [Rješavanje problema](#rješavanje-problema)
-13. [Često postavljana pitanja](#često-postavljana-pitanja)
+11. [Rješavanje problema](#rješavanje-problema)
 
 ---
 
@@ -55,7 +53,7 @@ Ovisno o konfiguraciji WebSDR-a, možete se ugoditi na:
 
 Otvorite preglednik i idite na adresu WebSDR-a koju vam je dao operater.
 
-Primjer: `http://websdr.example.com:9002`
+Primjer: `http://websdr.example.com:9000`
 
 ### 2. Prvo učitavanje stranice
 
@@ -424,8 +422,6 @@ Zvuk stiže u preglednik u malim paketima, kod tipičnog prijamnika po 35 ms, a 
 - **Desktop**: u panelu Audio & Buffer tipka s ikonom mreže povećava spremnik za jedan korak po kliku (postaje zelena iznad najnižeg koraka), a klizač pokraj nje izravno bira korak od 1 do 6. Najniži korak odgovara žičanoj vezi; telefoni počinju na koraku 2.
 - **/mobile**: tipka **BUF** i klizač **Buffer** u kartici Audio rade isto.
 
-Spremnik se sam prilagođava. Stranica mjeri koliko nepravilno vaša veza isporučuje zvuk i drži samo onoliko zalihe koliko je posljednja minuta pokazala da treba, plus sigurnosnu rezervu odabranog koraka: 20 ms na koraku 1, 50 ms na koraku 2, više na višim koracima. Nakon trenutnog problema s mrežom dodatno kašnjenje ponovno nestaje za minutu-dvije, a mala razlika između takta vaše zvučne kartice i takta prijamnika više ne izaziva prekid svakih nekoliko minuta. Prilagodbe su po nekoliko milisekundi, rade se ondje gdje se zvuk ponavlja i ne čuju se. Dekoderi i vaše snimke nikad nisu pogođeni: dobivaju svaki uzorak.
-
 Ako se zvuk prekida, povećajte spremnik za jedan korak. Na telefonu preko kućnog Wi-Fija kašnjenje od prijamnika do zvučnika obično je oko 100–150 ms; mreža između vas i prijamnika dodaje se na to.
 
 ### Vaše ime ili pozivni znak
@@ -505,18 +501,6 @@ Aplikacija, njezini instalacijski programi i cijeli priručnik nalaze se na [Des
 
 Cijeli priručnik — svaka postavka, podržani uređaji, kako se sprječava da se strane „svađaju” i rješavanje problema — nalazi se u **[Upravljanje primopredajnikom](RIG_CONTROL.md)**.
 
-**Za programere.** Svaka stranica prijemnika nudi ove funkcije na `window`, a njih koriste oba alata:
-
-| Funkcija | Što radi |
-|---|---|
-| `catsync_getFrequency()` / `catsync_setFrequency(hz)` | Ugođena frekvencija, u Hz |
-| `catsync_getMode()` / `catsync_setMode(mode)` | `USB`, `LSB`, `CW`, `CW-L`, `AM`, `FM`, `WBFM` … |
-| `catsync_getBandwidth()` / `catsync_setBandwidth(hz)` | Ukupna širina propusnog pojasa, u Hz. Postavite je nakon načina rada: promjena načina vraća propusni pojas na zadano |
-| `catsync_getMute()` / `catsync_setMute(on)` | Utišavanje, preko gumba za utišavanje na stranici |
-| `catsync_ready` | `true` čim su funkcije postavljene |
-
-Posljednja tri retka nova su u inačici 4.1.0; prije poziva provjerite postoji li funkcija.
-
 ---
 
 ## Načini demodulacije
@@ -528,16 +512,6 @@ Posljednja tri retka nova su u inačici 4.1.0; prije poziva provjerite postoji l
 - AM radiodifuziju
 - dio amaterskog radija
 - pomorske komunikacije
-
-**Značajke:**
-- široki pojas (obično 10 kHz)
-- osjetljiva na šum
-- lako se ugađa (dovoljno je kliknuti na signal)
-
-**Dobre prakse:**
-- koristite brzi AGC
-- uključite prigušivač impulsnog šuma ako čujete klikove
-- ugodite se na vrh signala u slapu
 
 ### QUAM (C-QUAM AM stereo)
 
@@ -563,32 +537,12 @@ Posljednja tri retka nova su u inačici 4.1.0; prije poziva provjerite postoji l
 - komercijalni dvosmjerni radio
 - neke satelitske komunikacije
 
-**Značajke:**
-- uski pojas (obično 12,5 ili 25 kHz)
-- izvrsna otpornost na šum
-- „efekt zahvata" (pobjeđuje najjači signal)
-
-**Dobre prakse:**
-- ugodite se precizno na sredinu signala
-- koristite squelch za utišavanje u mirovanju
-- isključite smanjenje šuma (nije potrebno)
-
 ### USB (gornji bočni pojas)
 
 **Koristi se za:**
 - KV amaterski radio (iznad 10 MHz)
 - većinu digitalnih KV načina rada
 - pomorske komunikacije (iznad 8 MHz)
-
-**Značajke:**
-- uski pojas (obično 2.4 kHz)
-- učinkovito iskorištenje spektra
-- zahtijeva precizno ugađanje
-
-**Dobre prakse:**
-- koristite spori AGC
-- ugodite se na donji rub signala u slapu
-- po potrebi uključite smanjenje šuma
 
 ### LSB (donji bočni pojas)
 
@@ -597,31 +551,12 @@ Posljednja tri retka nova su u inačici 4.1.0; prije poziva provjerite postoji l
 - neke digitalne KV načine rada
 - pomorske komunikacije (ispod 8 MHz)
 
-**Značajke:**
-- isto kao USB, ali zrcalno
-- konvencija: LSB na nižim KV pojasevima
-
-**Dobre prakse:**
-- koristite spori AGC
-- ugodite se na gornji rub signala u slapu
-- po potrebi uključite smanjenje šuma
-
 ### CW (neprekinuti val / Morseov kod)
 
 **Koristi se za:**
 - amatersku telegrafiju
 - navigacijske svjetionike
 - postaje signala točnog vremena
-
-**Značajke:**
-- vrlo uski pojas (100-500 Hz)
-- velika učinkovitost
-- za razumijevanje je potrebno poznavanje Morseova koda
-
-**Dobre prakse:**
-- koristite uski filtar (400-500 Hz)
-- ugodite se precizno na sredinu tona
-- uključite audiofiltar za bolji ton
 
 ### CW-L (CW, donji bočni pojas)
 
@@ -636,16 +571,6 @@ Rade i poveznice pisane za KiwiSDR ili UberSDR: `modulation=CWU` (ili `CW-U`) ot
 **Koristi se za:**
 - FM radiodifuziju (88-108 MHz)
 - neke satelitske silazne veze
-
-**Značajke:**
-- vrlo široki pojas (200 kHz)
-- izvrsna kvaliteta zvuka
-- visoka vjernost
-
-**Dobre prakse:**
-- ugodite se točno na središnju frekvenciju
-- za radiodifuziju squelch nije potreban
-- uživajte u zvuku visoke kvalitete!
 
 ### IQ (sirovi I/Q)
 
@@ -668,13 +593,6 @@ Rade i poveznice pisane za KiwiSDR ili UberSDR: `modulation=CWU` (ili `CW-U`) ot
 
 Gdje ga postaja nudi, ploča IQ Demodulators ima **Width: 12 kHz · 24 kHz · 48 kHz**. 24 kHz obuhvaća široke DRM načine ili stanicu s oba susjeda, 48 kHz cijelu skupinu radiodifuznih stanica ili CW/digitalni dio opsega. Propusni pojas na vodopadu i slika na ploči prate širinu, snimka se radi u njoj (WAV na 24 ili 48 kHz), a preglednik pamti izbor. Širi IQ postaju stoji više uploada — oko 0,7 Mbit/s po slušatelju na 24 kHz i 1,4 Mbit/s na 48 kHz, prema 0,35 na 12 kHz — pa postaja određuje koliko ga slušatelja smije imati istodobno; kad su sva mjesta zauzeta, ostajete na 12 kHz (ploča to kaže), a stranica ponovno pita svakih 30 sekundi. Za Dream ili drugi program na virtualnom kabelu na 48 kHz postavite i kabel na 48 kHz. KiwiSDR klijenti uvijek dobivaju 12 kHz.
 
-**Za sysopa:** dva retka pod `[server]` u konfiguraciji prijemnika uključuju ga, za bilo koji prijemnik; zatim ponovno pokrenite taj prijemnik. Iste postavke nalaze se u administratorskoj ploči pod **Receivers → ✎ CHANGE SETTINGS**, koja ujedno ponovno pokreće prijemnik.
-
-```
-iq_wide=48            # 12 (isključeno, zadano), 24 ili 48 kHz
-iq_wide_listeners=4   # slušatelji sa širokim IQ-om istodobno, 0 = bez ograničenja
-```
-
 #### IQ demodulatori
 
 Dok je prijemnik u IQ-u, ispod dekodera otvara se ploča **IQ Demodulators**. Pokreće do šest prijemnika na I/Q-u u vašem pregledniku — prijemnik se ne preugađa, a računalo stanice nema dodatnog posla:
@@ -696,138 +614,6 @@ PhantomSDR-Plus uključuje ugrađene dekodere za digitalne načine rada. Za potp
 Najbrži je put red gumba **Decoders** na glavnoj ploči, odmah ispod **Wheel Tuning Steps**: deset gumba — **FT8, FT4, FT2, JS8, CW, WSPR, FAX, SSTV, NAVTX, FLDIGI** — od kojih svaki jednim pritiskom pokreće svoj dekoder, uključuje glavni prekidač Decoder i dovodi prozor dekodera na zaslon. Gumb ostaje plav dok dekoder radi; pritisnite ga ponovno da zaustavite dekoder i zatvorite njegov prozor. Padajući izbornik **Decoder Options** radi točno kao i prije te ostaje usklađen s gumbima.
 
 **RADE-v2U**, **RADE-v1L** i **RADE-v1U** (RADE digitalni glas) imaju vlastite gumbe uz naslov **Modes** te u skočnim prozorima **Modes** i **Bands**, i rade na isti način: pritisak za pokretanje, ponovni pritisak za zaustavljanje. **RADE-v2U** pokreće RADE V2 (beta), uvijek u USB-u; **RADE-v1L** i **RADE-v1U** pokreću RADE v1.
-
-Dekoderi za SSTV, HF FAX, NAVTEX, FSK/RTTY i CW rade svaki u vlastitoj pozadinskoj dretvi, pa uključivanje ili isključivanje dekodera nikada ne prekida zvuk, a slap ostaje gladak tijekom dekodiranja. Dobivaju zvuk uzet prije smanjenja šuma i utišavanja u vašem pregledniku — možete utišati prijamnik, a dekodiranje se nastavlja bez smetnji. Dok je dekoder otvoren, AGC se drži na Slow, kako bi pojačanje za njega ostalo ujednačeno.
-
-**Dok dekoder radi, drži način rada i propusni pojas.** Uobičajeno način rada slijedi plan opsega — ugodite u odsječak označen kao LSB ili AM i prijamnik se prebaci. Dekoder koji radi nadjačava to i zadržava način rada i uski propusni pojas koji mu treba, čak i ako odete na drugi opseg. Vlastiti način rada opsega vraća se čim isključite dekoder, a gumbi načina rada rade u svakom trenutku ako želite preuzeti upravljanje. CW dekoder je iznimka: dekodira u načinu rada u kojem slušate.
-
-### FT8 i FT4 dekoder
-
-**Što su FT8 i FT4?**
-- popularni digitalni načini rada u amaterskom radiju
-- komunikacija slabim signalima
-- emisije od 15 sekundi za FT8 i 7,5 sekundi za FT4
-
-**Kako se koristi:**
-1. Ugodite se na FT8 ili FT4 frekvencije
-2. Odaberite način USB
-3. Uključite FT8 dekoder — pritisnite gumb **FT8** ili ga odaberite iz izbornika
-4. Promatrajte kako se pojavljuju dekodirane poruke
-
-**Uobičajene FT8 frekvencije (USB):**
-- 160 metara: 1.840 MHz
-- 80 metara: 3.573 MHz
-- 60 metara: 5.357 MHz
-- 40 metara: 7.074 MHz
-- 30 metara: 10.136 MHz
-- 20 metara: 14.074 MHz
-- 17 metara: 18.100 MHz
-- 15 metara: 21.074 MHz
-- 12 metara: 24.915 MHz
-- 10 metara: 28.074 MHz
-- 6 metara: 50.313 MHz (50.323 MHz za DX)
-
-**Uobičajene FT4 frekvencije (USB):**
-
-- 80 m: 3.575 MHz
-- 40 m: 7.0475 MHz
-- 30 m: 10.140 MHz
-- 20 m: 14.080 MHz
-- 17 m: 18.104 MHz
-- 15 m: 21.140 MHz
-- 12 m: 24.919 MHz
-- 10 m: 28.180 MHz
-- 6 m: 50.318 MHz
-
----
-
-### JS8 dekoder
-
-**Što je JS8?**
-- FT8-ov mehanizam za slabe signale, korišten za razgovor s tipkovnice na tipkovnicu
-- Slobodan tekst umjesto fiksnih poruka: duge poruke stižu kroz nekoliko ciklusa
-- Pet brzina; **Normal** (15 s) je pozivna brzina i nosi gotovo sav promet
-
-**Kako se koristi:**
-1. Ugodite se na JS8 frekvenciju
-2. Odaberite način **USB**
-3. Uključite JS8 dekoder — tipka **JS8** ili iz izbornika
-4. Ostavite **Speed** na *Normal*, a sync offset na **Auto**
-
-**Kako čitati ploču:**
-- Poruke koje još pristižu prikazuju se na vrhu zeleno, s trepćućim pokazivačem — na Normal poruka može trajati punu minutu
-- Dovršene se navode ispod kao `Mode | Hz | dB | Message`, s **pozivnim znakovima u zelenom**
-- Blijed, kurzivni redak istekao je prije posljednjeg okvira: tekst je stvaran, ali može biti skraćen
-
-**Uobičajene JS8 frekvencije (USB):**
-
-- 160m: 1.842 MHz
-- 80m: 3.578 MHz
-- 40m: 7.078 MHz
-- 30m: 10.130 MHz
-- 20m: 14.078 MHz
-- 17m: 18.104 MHz
-- 15m: 21.078 MHz
-- 12m: 24.922 MHz
-- 10m: 28.078 MHz
-
-JS8 je mnogo tiši od FT8 — jedna emisija svakih nekoliko minuta je normalna, a tišina nije kvar. Potpuni vodič: [Dekoderi](DECODERS.md).
-
----
-
-### CW dekoder
-Samo pritisnite gumb CW i pojavit će se dekodirani tekst. Pritisnite gumb CW još jednom da očistite prozor i ponovno pokrenete dekoder.
-
----
-
-### WSPR
-
-WSPR (Weak Signal Propagation Reporter, izgovara se „whisper") način je rada svjetionika s iznimno slabim signalima koji kartira putove KV prostiranja diljem svijeta. Svaka emisija traje otprilike 110 sekundi i stane u kanal širine 200 Hz. Dekoder čeka potpuni dvominutni interval usklađen s UTC-om prije dekodiranja. Uključite dekoder i s padajućeg popisa odaberite **WSPR**. Ili jednostavno pritisnite gumb **WSPR**.
-
----
-
-### HF FAX / WEFAX
-
-HF radiofaks (poznat i kao WEFAX) koriste obalne straže i meteorološke službe diljem svijeta za emitiranje vremenskih karata, karata stanja mora i prizemnih analiza na kratkim valovima. Dekoder rekonstruira sliku redak po redak kako je prima.
-
----
-
-### NAVTEX
-
-NAVTEX je međunarodni pomorski sustav emitiranja obavijesti o sigurnosti u priobalju — navigacijskih upozorenja, vremenskih prognoza te obavijesti o traganju i spašavanju.
-
----
-
-### FLDIGI — ALE 2G, RTTY, PSK31, Olivia, FST4W, MFSK, MSK144, DominoEX, THOR, THROB, Hellschreiber, MT63, Packet i APRS
-
-Jedan prozor za uskopojasne tipkovničke načine rada koje je proslavio fldigi, s četrnaest inačica: amaterski RTTY, **PSK31/63/125** (fazno ključanje, BPSK/QPSK, 31,25–125 bauda), **Olivia**, **Contestia** i **MFSK16/32/64** (višetonski s korekcijom pogrešaka), **DominoEX** i **THOR** (inkrementalno frekvencijsko ključanje, THOR s korekcijom pogrešaka), **THROB**, **Hellschreiber** (iscrtan kao slika), **MT63** (64 nosioca), **Packet (AX.25)** i **APRS**. Otvara se gumbom **FLDIGI** ili stavkom **FLDIGI** u izborniku dekodera; sam fldigi nije potreban. Ploča se prilagođava inačici — kontrole za shift, baud i okvir nestaju za sve osim amaterskog RTTY-a, a ostali načini dodaju birač Mode i, osim Hellschreibera, klizač squelcha. Tri inačice ispisuju ono što dekodiraju redak po redak umjesto teksta: **ALE 2G HAM**, neposredno prije Packet na popisu (uspostava KV veze, MIL-STD-188-141, na HFLINK amaterskim kanalima), te **FST4W** i **MSK144**, WSJT-X načini rada za LF/MF svjetionike i za meteor scatter. **PSK Browser**, prekidač **Browser — all signals** ispod popisa **Mode** za PSK31, istodobno dekodira sve BPSK31 signale u propusnom pojasu, jedan redak po signalu; klik na redak prati taj signal. Vidi [priručnik za dekodere](DECODERS.md). **Browser — all signals** ispod popisa **Mode** za Oliviju čini isto za Oliviju i Contestiju, za ondje odabranu konfiguraciju. Pomorski FSK (SITOR), meteorološki RTTY i ALE mreže državnih službi, vojske i službi (**ALE 2G**) nalaze se u prozoru **SERVICES**, s istim dekoderima.
-
-**CW Browser:** uključite prekidač **Browser — all signals** u CW prozoru da se istodobno dekodiraju svi CW signali u 200–3000 Hz, jedan redak po signalu, s pozivnim znakom postaje i označenim CQ pozivima; prijemnik dok radi prelazi na USB 200–3000 Hz.
-
-Amaterski i meteorološki RTTY imaju klizač **Squelch (SNR)** koji sprječava da se šum ispisuje kao nasumična slova, a sve varijante osim Olivije prikazuju pravi SNR na istoj ljestvici od 3 kHz. Dvije stvari treba znati: PSK31 sam ispravlja pogrešku ugađanja u rasponu od otprilike ±25 Hz, pa se dovoljno samo približiti; Olivia traži da **Mode** (tonovi / širina pojasa) točno odgovara emisiji, ne šalje preambulu i stoga joj treba nekoliko sekundi za sinkronizaciju prije nego što se pojavi tekst. Ploča se otvara na Olivia **8 / 250**. Za ostale fldigi načine postavite signal na središnju frekvenciju ili pritisnite **⟳ Auto-tune Center** i odaberite odgovarajući **Mode**: THROB traži ugađanje unutar ±3 Hz, DominoEX, THOR i MT63 opraštaju mnogo više, a MFSK, THOR i MT63 ispisuju tekst nekoliko sekundi iza signala. Hellschreiber prikazuje sliku, a ne tekst.
-
-**Packet** ispisuje svaki AX.25 okvir koji čuje, kao TNC monitor; **APRS** pretvara APRS pakete u običan tekst — položaj s lokatorom, brzinu, visinu, vrijeme, poruke, objekte i stanje. Odaberite **Speed**: **1200 Bd** za VHF/UHF, čime se prijemnik prebacuje na **FM** na kanalu (europskih 144,800 MHz nalazi se na popisu frekvencija), ili **300 Bd** za KV, u USB-u. Ispisuju se samo paketi s ispravnim kontrolnim zbrojem, pa se na mirnom kanalu ništa ne pojavljuje. Ispod teksta karta prikazuje svaku čutu postaju s položajem, s putanjama za one u pokretu i vašim prijemnikom u jantarnoj boji; može se smanjiti, a klik na dekodirani redak približi kartu toj postaji. Vidi [priručnik za dekodere](DECODERS.md#napomene-o-packetu-i-aprs-u).
-
----
-
-### QRSS grabber
-
-QRSS je CW poslan tako sporo da jedna točka traje sekundama, i gleda se umjesto da se sluša — grabber crta trag na vlastitom prikazu. Nije u izborniku dekodera; ima vlastiti odjeljak **QRSS** i može raditi istodobno s dekoderom.
-
-Pritisnite **🐌 Show**, zatim odaberite prozor s popisa **Band** i pritisnite **Tune**: prijamnik odlazi na tu frekvenciju u **CW**-u s propusnim pojasom skrojenim za taj način rada, a trag pada na središnju crtu prikaza. Najprometniji je prozor na 30 m (10.140,00 kHz). Postavite **Speed** prema svjetioniku — **QRSS 10** ako ne znate — i budite strpljivi: pozivnom znaku može trebati deset minuta da prijeđe zaslon. Sve pojedinosti u [Dekoderi](DECODERS.md).
-
----
-
-### SSTV
-
-Televizija sporog raščlanjivanja šalje nepomične slike običnim SSB kanalom, redak po redak. Uključite dekoder, odaberite **SSTV** i ugodite se na SSTV frekvenciju — 14.230 MHz glavna je međunarodna pozivna frekvencija. Ostavite **Mode** na **Auto**: dekoder čita VIS zaglavlje emisije, a ako ste se ugodili nakon zaglavlja, način rada prepoznaje prema vremenskim odnosima sinkronizacije. Podržani su načini Martin, Scottie i Robot, a slika se gradi redak po redak kako pristiže. Ili jednostavno pritisnite gumb **SSTV**.
-
-### Automatska prijava spotova i grafikoni poslužitelja
-
-Dekodiranja FT8, FT4 i WSPR može slati i sam poslužitelj — FT8/FT4 na PSK Reporter, WSPR na WSPRnet — pomoću autorun daemona koji sysop pokreće s administratorske ploče. Neovisan je o dekoderima u vašem pregledniku: radi bez obzira sluša li tko ili ne, a ništa što dekodirate u pregledniku ne prijavljuje se. Ondje sysop određuje i na kojim pojasevima, kojim načinima i u kojim UTC satima se prijavljuje.
-
-Sysop ga prati preko dva brojača koja je lako zamijeniti: pločice po dekoderu broje spotove poslane od zadnjeg pokretanja daemona, dok je broj uz svaki potvrdni okvir pojasa/načina rada ukupan zbroj tog mjesta od početka i preživljava ponovna pokretanja. Ista ploča ima stranicu **Grafikoni** koja crta frekvenciju procesora, opterećenje, temperaturu i broj korisnika kroz zadnjih 15 minuta do 24 sata. Oboje je opisano u [vodiču za administratorsku ploču](ADMIN_PANEL_SETUP.md).
-
 
 ---
 
@@ -860,6 +646,7 @@ Slijepi i slabovidni slušatelji mogu koristiti PhantomSDR-Plus s čitačem zasl
 Ovi prečaci rade bilo gdje na stranici, i dok tipkate u polju:
 
 - **Alt + Shift + F**: izgovori frekvenciju, način rada i širinu pojasa
+- **Alt + Ctrl**: otvori numeričku tipkovnicu za frekvenciju (pritisnite obje tipke zajedno i pustite)
 - **Alt + Shift + S**: izgovori jačinu signala (S-jedinice i dBm) i SNR
 - **Alt + Shift + R**: čitanje teksta dekodera naglas, uključeno / isključeno (FT8, FT4, FT2, JS8, WSPR, CW, NAVTEX, prozor FLDIGI, HFDL, DSC, HF Selcall i ALE)
 - **Alt + Shift + C**: čitanje novih poruka chata naglas, uključeno / isključeno
@@ -942,76 +729,6 @@ Pri prebacivanju između dva prikaza trenutačni način rada ide s vama; ako pri
 
 Frekvencija izvan pokrivenosti prijamnika povlači se na najbliži rub, pa vas stara poveznica nikada ne može ostaviti izvan pojasa.
 
-### Značajke posebno za mobilne uređaje
-
-- **Kontrole prilagođene dodiru**: veliki gumbi i klizači
-- **Povlačenje za ugađanje**: povucite lijevo/desno po slapu
-- **Stiskanje za uvećanje**: stisnite slap za približavanje/udaljavanje
-- **Vodoravni način**: okrenite uređaj za bolji pregled
-- **Spektar i vodopad po mjeri telefona**: u proširenom prikazu oba su viša nego što bi ih učinile proporcije stolne stranice
-
-### Savjeti za mobilne uređaje
-
-1. **Koristite Wi-Fi**: prijenos zvuka troši podatkovni promet
-2. **Vodoravna orijentacija**: bolji pogled na slap
-3. **Slušalice**: bolja kvaliteta zvuka
-4. **Spremite omiljene postaje kao oznake**: lakše im se vraćate
-5. **Zatvorite druge aplikacije**: osigurava gladak rad
-
-### Preporučeni mobilni preglednici
-
-- **Android**: Chrome ili Samsung Internet
-- **iOS**: Mozilla
-- **Oba**: pobrinite se da je preglednik ažuriran
-
----
-
-## Savjeti i dobre prakse
-
-### Za najbolji prijam
-
-1. **Birajte jake signale**: tražite narančastu/crvenu boju u slapu
-2. **Ugodite se precizno**: kliknite točno na sredinu signala
-3. **Odaberite ispravan način rada**: uskladite ga s vrstom signala
-4. **Podesite AGC**: brzi za AM, spori za SSB
-5. **Koristite NR/NB**: pomažu u uvjetima s puno šuma
-
-### Pronalaženje aktivnosti
-
-1. **Promatrajte slap**: boje pokazuju jakost signala
-2. **Slušajte popularne frekvencije**:
-   - 40 m: 7.100-7.300 MHz (LSB)
-   - 20 m: 14.200-14.350 MHz (USB)
-   - 2 m: 145.200-145.600 MHz (FM)
-3. **Provjerite preklop plana pojaseva**: prikazuje dodjelu frekvencija
-4. **Koristite oznake**: brz pristup aktivnim frekvencijama
-
-### Razumijevanje uvjeta prostiranja
-
-**KV danju:**
-- viši pojasevi rade bolje (20 m, 15 m, 10 m)
-- moguća je veza na velike udaljenosti (DX)
-- čuju se radiodifuzijske postaje
-
-**KV noću:**
-- niži pojasevi rade bolje (80 m, 40 m)
-- drukčiji obrasci prostiranja
-- čuju se druge postaje
-
-**VHF/UHF:**
-- uglavnom optička vidljivost
-- lokalne komunikacije
-- ujednačeniji uvjeti
-
-### Bonton
-
-1. **Nemojte dugo zauzimati prijamnik**: i drugi žele slušati
-2. **Koristite razgovor s poštovanjem**: budite pristojni prema drugim korisnicima
-3. **Prijavite probleme**: pomozite operateru u održavanju postaje
-4. **Nemojte tražiti tehničku podršku**: ovo je platforma za slušanje. Za pomoć pošaljite poruku SysOpu.
-
----
-
 ## Rješavanje problema
 
 ### Nema zvuka
@@ -1077,198 +794,6 @@ Za detaljniji uvid otvorite stranicu s dodanim `?diag=1` na adresi (na primjer `
 1. Provjerite frekvencijsku pokrivenost SDR-a (prikazana na stranici)
 2. Koristite navedene primjere formata frekvencije
 3. Umjesto toga kliknite na slap
-
-### Isprekidan zvuk
-
-**Mogući uzroci:**
-1. spora internetska veza
-2. veliko opterećenje poslužitelja
-3. problemi s performansama preglednika
-
-**Rješenja:**
-1. Zatvorite druge aplikacije koje troše propusnost
-2. Pokušajte izvan vršnih sati
-3. Zatvorite nepotrebne kartice preglednika
-4. Koristite žičanu vezu umjesto Wi-Fija
-
----
-
-## Često postavljana pitanja
-
-### Opća pitanja
-
-**P: Trebam li posebnu opremu za korištenje WebSDR-a?**
-O: Ne! Samo računalo ili mobilni uređaj s pristupom internetu.
-
-**P: Je li korištenje WebSDR-a besplatno?**
-O: Da, većina WebSDR-ova je besplatna. Vode ih volonteri.
-
-**P: Mogu li odašiljati putem WebSDR-a?**
-O: Ne, WebSDR služi samo za prijam. Odašiljanje nije moguće.
-
-**P: Koje frekvencije mogu slušati?**
-O: Ovisi o konfiguraciji WebSDR-a. Pogledajte podatke o postaji.
-
-**P: Mogu li snimati zvuk?**
-O: Neki preglednici omogućuju snimanje. Provjerite mogućnosti svojeg preglednika.
-
-### Tehnička pitanja
-
-**P: Koju frekvenciju uzorkovanja koristi SDR?**
-O: Razlikuje se od postaje do postaje. Pogledajte stranicu s podacima o postaji.
-
-**P: Kolika je latencija?**
-O: Obično nekoliko desetinki sekunde između radijskog signala i vaših zvučnika: obrada u prijamniku, mreža i spremnik reprodukcije preglednika, koji se prilagođava vašoj vezi (oko 100–150 ms na telefonu preko kućnog Wi-Fija). Vidi *Zvučni spremnik i kašnjenje*.
-
-**P: Mogu li koristiti više instanci?**
-O: Obično da, ali to može opteretiti poslužitelj. Budite obzirni.
-
-**P: Radi li izvan mreže?**
-O: Ne, WebSDR zahtijeva internetsku vezu.
-
-**P: Koji su preglednici podržani?**
-O: Chrome, Firefox, Edge, Safari (sve novije verzije)
-
-### Pitanja o korištenju
-
-**P: Koliko ljudi može slušati istodobno?**
-O: Ovisi o kapacitetu poslužitelja. Često 50-200+ korisnika.
-
-**P: Mogu li vidjeti što drugi slušaju?**
-O: Ako je omogućeno, da. Potražite oznake „drugi korisnici".
-
-**P: Mogu li razgovarati s drugim slušateljima?**
-O: Ako ga je operater uključio. Potražite okvir za chat; **↪ Reply** odgovara na određenu poruku (vidi *Chat* gore).
-
-**P: Zašto se na nekim frekvencijama ništa ne vidi?**
-O: Na toj frekvenciji trenutačno nema signala. Isprobajte druge!
-
-**P: Što su obojene trake u slapu?**
-O: Preklop plana pojaseva koji prikazuje dodjelu frekvencija.
-
----
-
-## Izvori
-
-### Saznajte više o radiju
-
-- **Planovi pojaseva**: potražite „amateur radio band plan" + svoju regiju
-- **Prostiranje**: naučite o prostiranju KV radiovalova
-- **Digitalni načini rada**: istražite FT8, PSK31, RTTY
-- **Amaterski radio**: razmislite o polaganju za amatersku dozvolu!
-
-### Pronalaženje drugih WebSDR-ova
-
-- **WebSDR imenik**: http://sdr-list.xyz
-- **WebSDR.org**: http://websdr.org
-- **KiwiSDR**: http://kiwisdr.com/public/
-
-### Kako doći do pomoći
-
-1. **Operater postaje**: pogledajte kontaktne podatke na stranici
-2. **Razgovor korisnika**: pitajte druge slušatelje (ako je dostupan)
-3. **Mrežni forumi**: potražite zajednice WebSDR-a
-4. **Dokumentacija**: pogledajte ovaj vodič!
-
----
-
-## Dodatak: uobičajene frekvencije
-
-### KV amaterski pojasevi
-
-| Pojas | Frekvencijski raspon | Način rada | Aktivnost |
-|-------|----------------------|------------|-----------|
-| 160 m | 1.800-2.000 MHz | LSB | Noć/lokalno |
-| 80 m | 3.500-4.000 MHz | LSB | Noć/regionalno |
-| 40 m | 7.000-7.300 MHz | LSB | Dan/noć/DX |
-| 30 m | 10.100-10.150 MHz | USB | Samo podaci/CW |
-| 20 m | 14.000-14.350 MHz | USB | Danju/DX |
-| 17 m | 18.068-18.168 MHz | USB | Danju/DX |
-| 15 m | 21.000-21.450 MHz | USB | Danju/DX |
-| 12 m | 24.890-24.990 MHz | USB | Danju/DX |
-| 10 m | 28.000-29.700 MHz | USB | Sporadično/DX |
-
-### VHF/UHF amaterski pojasevi
-
-| Pojas | Frekvencijski raspon | Način rada | Aktivnost |
-|-------|----------------------|------------|-----------|
-| 6 m | 50.000-54.000 MHz | USB/FM | Sporadično |
-| 2 m | 144.000-148.000 MHz | FM | Vrlo aktivno |
-| 70 cm | 420.000-450.000 MHz | FM | Aktivno |
-
-### Radiodifuzijski pojasevi
-
-| Služba | Frekvencijski raspon | Način rada |
-|--------|----------------------|------------|
-| AM radio | 530-1710 kHz | AM |
-| Kratki valovi | 2.3-26.1 MHz | AM |
-| FM radio | 88-108 MHz | WBFM |
-
-### Zrakoplovstvo
-
-| Služba | Frekvencijski raspon | Način rada |
-|--------|----------------------|------------|
-| Kontrola zračnog prometa | 118-137 MHz | AM |
-| ACARS (podaci) | 130-136 MHz | Podaci |
-
-### Pomorstvo
-
-| Služba | Frekvencijski raspon | Način rada |
-|--------|----------------------|------------|
-| Pomorski VHF | 156-162 MHz | FM |
-| Pomorski KV | 2-22 MHz | USB |
-
----
-
-## Pojmovnik
-
-**AGC**: automatska regulacija pojačanja – automatski podešava razine zvuka
-
-**AM**: amplitudna modulacija – govorni način rada u zrakoplovstvu i radiodifuziji
-
-**Širina pojasa**: frekvencijski raspon signala
-
-**CW**: neprekinuti val – signali Morseova koda
-
-**DX**: veza na veliku udaljenost
-
-**FFT**: brza Fourierova transformacija – pretvara vremensku domenu u frekvencijsku
-
-**FLDIGI**: prozor dekodera za ALE 2G, RTTY, PSK31, Oliviju, FST4W, MFSK, MSK144, DominoEX, THOR, THROB, Hellschreiber, MT63, Packet i APRS, nazvan po programu fldigi koji je proslavio te načine rada
-
-**FM**: frekvencijska modulacija – govorni način rada za VHF/UHF
-
-**HF**: kratki valovi (3-30 MHz) – pojasevi za velike udaljenosti
-
-**kHz**: kilohertz (1.000 Hz)
-
-**LSB**: donji bočni pojas – govorni način rada za niže KV pojaseve
-
-**MHz**: megahertz (1.000.000 Hz)
-
-**NB**: prigušivač impulsnog šuma – uklanja impulsni šum
-
-**NR**: smanjenje šuma – smanjuje pozadinski šum
-
-**PSK**: fazno pomično ključanje – digitalni način rada
-
-**RTTY**: radioteleprinter – digitalni tekstualni način rada
-
-**S-metar**: mjerač jakosti signala
-
-**SDR**: softverski definirani radio
-
-**SQL**: squelch – utišava zvuk kada nema signala
-
-**SSB**: jednobočni pojas (USB ili LSB)
-
-**USB**: gornji bočni pojas – govorni način rada za više KV pojaseve
-
-**VHF**: vrlo visoke frekvencije (30-300 MHz) – optička vidljivost
-
-**UHF**: ultravisoke frekvencije (300-3000 MHz) – optička vidljivost
-
-**Slap (waterfall)**: vizualni prikaz radijskog spektra kroz vrijeme
 
 ---
 

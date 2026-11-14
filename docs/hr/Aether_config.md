@@ -19,7 +19,6 @@ Od v4.1.0 PhantomSDR-Plus može odgovarati i na **KiwiSDR protokol**, pa se soft
 7. [S-metar](#7-s-metar)
 8. [Slap i spektar](#8-slap-i-spektar)
 9. [Ako nešto ne izgleda dobro](#9-ako-nešto-ne-izgleda-dobro)
-10. [Dokle je provjereno](#10-dokle-je-provjereno)
 
 ---
 
@@ -39,8 +38,6 @@ Ugađanje je podržano za **realni** ulaz (`signal = "real"` u vašem `.toml`). 
 
 ## 2. Instalacija mosta
 
-Most je skup zakrpa na izvorni kod pozadinskog dijela plus jedno novo zaglavlje, `src/kiwi_bridge.h`. Postoje dva načina da ih ugradite.
-
 **Instalacijskim programom.** `install.sh` (te `install_arch.sh`, `install_fedora.sh`, `install_opensuse.sh`) imaju vlastiti korak za to — korak 17, *Kiwi client emulation*. Nudi se, ne nameće: odgovorite `n` i ništa se ne zakrpa. Za nenadzirano izvođenje odlučuje `PHANTOM_KIWI=y|n`, a zadano je da.
 
 **Na stablu koje je već instalirano** pokrenite skriptu koja dolazi u korijenu repozitorija:
@@ -51,13 +48,7 @@ cd ~/PhantomSDR-Plus
 ./recompile.sh          # odaberite [1] Samo pozadinski dio
 ```
 
-`kiwi_install.sh` najprije spremi svaku datoteku koje se dotakne u `backup_kiwi_bridge_<vremenska-oznaka>/` i primjenjuje svaku zakrpu točnim podudaranjem teksta — ako sidro nije ondje gdje ga očekuje (lokalno izmijenjeno stablo, druga inačica), tu se zaustavi, imenuje datoteku i ostavi je netaknutom. Idempotentan je: na stablu koje već ima most prijavljuje svaku zakrpu kao već primijenjenu i ništa ne mijenja.
-
 > **Ako ste upravo primijenili arhivu ažuriranja koja već sadrži most, ne morate ga pokretati.** Zakrpani izvorni kod je u paketu; `kiwi_install.sh` bi vam samo rekao da je svaka zakrpa već na mjestu.
-
-Datoteke koje zakrpava su `src/client.h`, `src/signal.cpp`, `src/waterfall.cpp`, `src/spectrumserver.h`, `src/spectrumserver.cpp`, `src/websocket.cpp` i `src/http.cpp`, a `kiwi_bridge.h` kopira u `src/`.
-
-> **Instalira most, ne nadograđuje ga.** Ako zakrpa ikada *padne* na stablu na kojem most već radi, izvorni kod je otišao ispred skripte — i skriptu treba osvježiti, ne vaše stablo.
 
 ---
 
@@ -106,8 +97,6 @@ wf_fps_max    = 28      # sličica/s. 23 je maksimum protokola.
 
 > **Svaki se ovdje navedeni ključ čita pri pokretanju.** Promjena bilo kojeg od njih je **ponovno pokretanje**, a ne ponovno prevođenje — `./stop-websdr.sh`, pa vaša skripta za pokretanje. Za njihovo podešavanje nikada ne morate ponovno prevoditi.
 
-Prihvaćaju se i cjelobrojni i decimalni oblik: `28` i `28.0` čitaju se jednako. Samo ključ koji zaista nedostaje pada na svoju zadanu vrijednost.
-
 ---
 
 ## 5. Spajanje klijenta
@@ -140,10 +129,6 @@ audio_gain = 55.0       # dB, samo Kiwi klijenti. 0 = netaknuto.
 
 **Počnite oko 55–60 dB.** 55 dB nije račun: to je vrijednost pri kojoj su Kiwi klijent i PhantomSDR web stranica izmjereni na istoj razini, na jakom lokalnom signalu na 729 kHz. U praksi se često voli malo više — ovaj se prijamnik zaustavio na 60 — pa birajte po sluhu.
 
-Time ne možete pokvariti zvuk. **Graničnik vrhova s uvidom unaprijed** stoji između pojačanja i 16-bitnog odsijecanja: svaki se uzorak kasni 4 ms dok se pojačanje računa iz zvuka koji još nije poslan, pa glasan odsječak dočeka pojačanje koje je već sišlo zbog njega, a vrhovi se preklapaju umjesto da budu spljošteni. Potjeran na 60 pa i 70 dB — daleko iznad rezerve koju samo pojačanje ima — nije odsječen ni jedan uzorak od četvrt milijuna. Ispod praga graničnika pojačanje je točno 1,0, pa prijamnik koji ne tjera zvuk dobiva uzorke netaknute.
-
-Previsoka vrijednost stoji glasnoće, ne kvalitete. Iznad otprilike 60 dB dodatno se pojačanje jednostavno ograniči: izmjereno ovdje, razina je porasla oko 1 dB od 55 do 60 i jedva se pomaknula od 60 do 70. Nakon toga kupujete kompresiju, a ne glasnoću.
-
 Ništa od toga ne dira web stranicu i ništa ne pomiče S-metar — on dolazi iz snage demodulatora, a ne iz audio uzoraka, pa pojačavanjem glasnoće ne možete natjerati instrument da laže.
 
 ---
@@ -160,10 +145,6 @@ enabled       = true
 smeter_offset = 5.0     # zamjenjuje input.analog_smeter_offset samo za Kiwi klijente
 ```
 
-> **Uspoređujte dva instrumenta na istom filtru, ili nikako.** Očitanje dolazi iz snage u propusnom pojasu, pa širi filtar skuplja više šuma i pokazuje više — na mirnom pojasu ista je frekvencija izmjerena 5,6 dB jače pri 9 kHz nego pri 2,4 kHz. Kiwi klijent sa 6 kHz filtrom naspram web stranice na 2,4 kHz razlikovat će se za nekoliko dB koliko god oba bila kalibrirana. Najprije uskladite način rada i širinu pojasa.
-
-> **Ovo je skala stranice, a ne fizička.** Web instrument širi svoj raspon radi čitljivosti, pa se 10 dB stvarne promjene signala prikazuje kao otprilike 11. Uskladiti se s njom znači da se Kiwi klijenti slažu s vašim prijamnikom i razlikuju od pravog KiwiSDR-a za iznos koji raste s jakošću signala. To je ispravan kompromis kada je vaša stranica mjerilo s kojim svi uspoređuju; ako biste radije da most ostane fizički pošten, ovo je odjeljak koji treba promijeniti.
-
 ---
 
 ## 8. Slap i spektar
@@ -178,15 +159,11 @@ enabled = true
 wf_cal  = 0.0           # dB, samo Kiwi klijenti
 ```
 
-> **`wf_cal` nije kalibracija.** `0` je vrijednost pri kojoj se spektar slaže s vašim S-metrom, i ondje ga ostavite ako želite da brojke nešto znače. Postoji zato što je pitanje ukusa — i onoga što vaš klijent radi s rasponom — koliko *jako* spektar treba izgledati: prijamnik ovog projekta radi na `-10` jednostavno zato što tako izgleda dobro u AetherSDR-u. Jedna vrijednost pomiče spektar i slap zajedno: to su isti bajtovi na vodu, a Kiwi protokol ih ne može skalirati odvojeno. Želite li da se razlikuju, to mora doći iz klijentovih vlastitih prikaznih kontrola.
-
 Za provjeru skale usporedite slap zbrojen preko propusnog pojasa sa S-metrom na **mirnoj** frekvenciji. Na nosiocu SSB propusni pojas isključuje sam nosilac i to dvoje nije usporedivo.
 
 ### Brzina sličica — `wf_fps_max`
 
 Kiwi klijent traži najbrži slap koji može dobiti (`SET wf_speed=4`) i ravna svoje klizanje — te usrednjavanje spektra — prema brzini koju poslužitelj obeća isporučiti. Ako se to dvoje ne poklapa, prikaz izgleda tromo iako zapravo ništa ne kasni.
-
-Prijamnik proizvodi `2 × sps / fft_size` spektara u sekundi. Kiwi klijenti se poslužuju iz svakog od njih i prorjeđuju na brzinu koju su tražili; web stranica zadržava vlastiti, sporiji ritam i nije zahvaćena.
 
 ```toml
 [kiwi_emulation]
@@ -201,14 +178,6 @@ wf_fps_max = 23         # sličica u sekundi
 | nema (zadano 23) | 23,0 fps |
 | `28` | 28,0 fps |
 | `40` | 28,6 fps — pobjeđuje vlastita granica prijamnika |
-
-Poštuje se i `SET wf_speed` s klijenta: `0` isključeno, `1` = 1 fps, `2` četvrtina maksimuma, `3` polovica, `4` maksimum. Klijent na slaboj vezi tako može tražiti manje.
-
-> **Hoće li povećanje pomoći odlučuje klijent, ne poslužitelj.** Klijent koji crta svaku sličicu čim stigne dat će vam glatkije klizanje; klijent koji se ravna prema 23 koje očekuje jednostavno će višak sličica staviti u red, a kašnjenje će rasti. Isprobajte, i ako slap djeluje tromije umjesto glatkije, vratite na `23`.
-
-### Što određuje ostatak kašnjenja
-
-Ako lovite kašnjenje, većina ga nije u mostu. Prozor analize širok je `fft_size / sps` — 70 ms uz FFT od 4194304 točke na 60 Muzoraka/s — a uzorak uz to čeka do polovice toga da se korak napuni. Prepoloviti `fft_size` prepolovljuje oboje i udvostručuje brzinu sličica, ali i prepolovljuje vašu frekvencijsku razlučivost, od koje žive uskopojasni dekoderi (WSPR, FT8, CW). Na većini prijamnika to je loša zamjena za nekoliko desetaka milisekundi. To je odluka u `[input]`, a ne nešto što most može promijeniti.
 
 ---
 
@@ -227,16 +196,6 @@ Svaka naredba koju Kiwi klijent pošalje zapisuje se u **`/tmp/kiwi_retune.log`*
 | Promijenjena postavka nije imala učinka | ti se ključevi čitaju pri pokretanju — ponovno pokrenite prijamnik |
 
 > **AGC je na strani klijenta.** `SET agc=` s Kiwi klijenta prihvaća se i zanemaruje — zvuk stiže s primijenjenim PhantomSDR-ovim vlastitim AGC-om, a klijentove AGC kontrole djeluju na ono što primi.
-
----
-
-## 10. Dokle je provjereno
-
-Format na vodu provjeren je naspram živog prijamnika i pročitan redak po redak naspram izvornog koda obaju klijenata kojima je namijenjen — AetherSDR-ovog `KiwiSdrProtocol.cpp` i kiwiclientovog `kiwi/client.py`. Raspored i veličina okvira, redni brojevi, redoslijed bajtova, skala S-metra, ugađanje i slap — sve se slaže. Za most je također **potvrđeno da radi sa samom AetherSDR desktop aplikacijom**, od strane održavatelja, naspram ovog prijamnika.
-
-Izmjereno na tom prijamniku, s testnim klijentom na živim utičnicama: ugađanje se izvrši u 35–50 ms, zvuk teče u stvarnom vremenu bez zanošenja, a slap isporučuje postavljenu brzinu bez zastoja i bez izgubljenih sličica.
-
-Ako ipak nešto izgleda pogrešno na vašoj instalaciji, `/tmp/kiwi_retune.log` je prvo mjesto za pogledati, a povratna je informacija dobrodošla u svakom slučaju.
 
 ---
 

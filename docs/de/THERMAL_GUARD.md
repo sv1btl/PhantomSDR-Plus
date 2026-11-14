@@ -39,12 +39,6 @@ Alle 2 Sekunden liest der Guard die Die-Temperatur Ihrer CPU und vergleicht sie 
               Protokoll    absenken      Skript        bleibt aus     Skript
 ```
 
-Zwei Entwurfsentscheidungen sorgen dafür, dass er auf *jeder* Maschine funktioniert — es lohnt sich, sie zu verstehen, bevor Sie sich auf ihn verlassen:
-
-**Er fragt nie, wie Sie Ihren Server betreiben.** systemd, eine Watchdog-Schleife, cron, tmux, eine nackte Shell — der Guard weiß es nicht und es interessiert ihn nicht. Stattdessen hält er, solange die Maschine zu heiß ist, einen **Lockout**: Er wiederholt den Stopp bei *jedem* Takt. Startet Ihr Watchdog den Server neu, stoppt der Guard ihn innerhalb von zwei Sekunden wieder. Was auch immer den Server am Leben halten will, verliert — bis die CPU abgekühlt ist. Genau das macht ihn universell, und es ist gegen einen echten Watchdog getestet.
-
-**Er verdrahtet nie eine feste Temperatur.** „Stopp bei 95 °C“ ist eine schlechte Regel: Auf einem Intel mit Tjmax 100 ist das eher normale Last, auf einem Ryzen liegt es *unter* dem Wert, auf dem Tctl unter Boost von Haus aus sitzt, und auf einem Raspberry Pi ist es unerreichbar, weil der SoC sich bei 80 selbst drosselt. Also liest der Guard den kritischen Grenzwert, den Ihr eigener Kernel veröffentlicht (`tempN_crit`), und rechnet davon zurück. Gleicher Code, überall sinnvolle Zahlen.
-
 ---
 
 ## 2. Schnellstart
@@ -86,10 +80,6 @@ Der Guard vertraut nur echten CPU-Die-Sensoren:
 | `cpu_thermal`, `soc_thermal` | Raspberry Pi, ARM-SBCs |
 | Thermal Zone `x86_pkg_temp` | Rückfallebene auf x86 |
 
-`acpitz` und unbeschriftete Thermal Zones sind **absichtlich ausgeschlossen**. Auf einem typischen Desktop meldet `acpitz` rund 28 °C, während das CPU-Package bei 59 °C liegt — ein Guard, der dem vertraut, würde schlicht nie auslösen. „Deaktiviert, kein vertrauenswürdiger Sensor“ zu melden ist ehrlicher, als Schutz vorzutäuschen.
-
-`psutil` wird genutzt, falls es zufällig installiert ist, ist aber nie erforderlich. Der Guard kommt mit der reinen Standardbibliothek aus.
-
 ### Die Schwellen
 
 Jede ist ein Abstand unterhalb des kritischen Grenzwerts, den die Maschine selbst veröffentlicht:
@@ -118,8 +108,6 @@ Bei einem einzelnen heißen Messwert passiert nichts. Eine Schwelle muss **durch
 - **warn** und **throttle**: 30 s (`thermal_warn_sustain_s`)
 - **stop**: 60 s (`thermal_sustain_s`)
 - **resume**: 300 s unterhalb der Resume-Schwelle vor einem Neustart (`thermal_resume_s`)
-
-Eine Compile-Spitze, ein Schub Dekodierarbeit, ein hochdrehender Lüfter — alles viel zu kurz. Ein einziger Wert unterhalb der Schwelle setzt die Uhr zurück. Zusätzlich verlangt der Guard nach dem Start 3 aufeinanderfolgende gültige Messwerte, bevor er überhaupt handelt, und verwirft jeden Wert außerhalb von 20–125 °C als Sensorfehler statt als Temperatur.
 
 ---
 
@@ -208,8 +196,6 @@ Gegen Flattern schützt `thermal_max_stops_hour` (Standard 2). Nach zwei thermis
 | Grenzwertige Kühlung, dürfen keine Zuhörer verlieren | `throttle`, danach weiter zu `stop+restart` |
 | Maschine ohne vertrauenswürdigen CPU-Sensor | keiner davon funktioniert — erst den Sensor klären |
 
-Für die meisten Sysops lautet die Antwort `stop+restart`, und die ehrliche Zusammenfassung der anderen ist: `log` schützt nichts und `throttle` schützt ein wenig.
-
 ---
 
 ## 6. Konfigurationsreferenz
@@ -292,18 +278,6 @@ Standardmäßig meldet `python3 thermal_guard.py --once`:
 cpufreq    : not writable — throttle stage disabled
 ```
 
-Das ist normal und kein Fehler. Der Kernel legt
-
-```
-/sys/devices/system/cpu/cpuN/cpufreq/scaling_max_freq
-```
-
-als `root:root` mit Modus `0644` an. Ein Admin-Panel, das als gewöhnlicher Benutzer läuft, kann dort nicht schreiben — der Guard überspringt die Throttle-Stufe und sagt das im Protokoll, statt stillschweigend zu versagen.
-
-**Die falsche Lösung** ist, den Guard als root laufen zu lassen. Er führt auch Ihre Start- und Stopp-Skripte aus, und die sollen unprivilegiert bleiben.
-
-**Die richtige Lösung** ist, den Schreibzugriff auf genau diese Dateien einer eigenen Gruppe zu geben. Ein Skript erledigt das:
-
 ```
 cd ~/PhantomSDR-Plus
 ./setup-cpufreq-perms.sh
@@ -326,7 +300,7 @@ id | grep cpufreq
 sudo systemctl restart phantomsdr-admin
 #    (so ist kein Abmelden nötig — systemd baut die Gruppenliste bei jedem
 #     Start neu auf. Nur wenn die Units NICHT installiert sind:
-#     ./manage_admin.sh stop && ./manage_admin.sh start — niemals beides, sie streiten um Port 3000)
+#     ./manage_admin.sh stop && ./manage_admin.sh start — niemals beides, sie streiten um Port 9010)
 
 # 3. bestätigen
 python3 thermal_guard.py --once
@@ -347,13 +321,7 @@ Vollständig rückgängig machen: `sudo ./setup-cpufreq-perms.sh --revoke`.
 
 Die häufigste Frage zum Guard: *Was passiert, wenn niemand zusieht?* Die kurze Antwort: Genau dafür wurde er gebaut.
 
-**Er braucht kein offenes Browserfenster.** Der Guard ist ein Hintergrund-Thread in `admin_server.py`, getaktet vom Graphen-Sampler alle 2 Sekunden. Er läuft, ob jemand im Panel angemeldet ist oder nicht, ob ein Browser offen ist oder nicht, ob Sie wach sind oder nicht. Im eigenständigen Betrieb ist er ein systemd-Dienst und damit noch unabhängiger. Die Dashboard-Kachel ist ein *Fenster* auf den Guard, nicht der Guard selbst.
-
 **Er handelt ohne zu fragen.** Es gibt keinen Bestätigungsdialog und keine Benachrichtigung, auf die gewartet wird. An der Stopp-Schwelle stoppt er den Server, Punkt. Genau darum geht es.
-
-**Aber nur, wenn Sie es erlaubt haben.** Im Modus `log` protokolliert er getreulich, wie sich eine Maschine gart, und tut nichts dagegen. Wenn Sie diesen Abschnitt lesen, weil *„ich bin nicht da, um zuzusehen“*, ist `stop+restart` der Modus, den Sie wollen — nur er schützt die Maschine und bringt den Dienst ohne Sie zurück.
-
-**Er hilft nur, solange das Panel lebt.** Der Wächter ist Teil von `admin_server.py`: Ein Panel, das um 02:00 Uhr gestorben ist, nimmt den Schutz mit, und nach einem Neustart bleibt die Maschine ungeschützt, bis Sie sich anmelden und es erneut starten. Wenn niemand zusieht, lassen Sie systemd zusehen: Das Repository liefert `phantomsdr-admin.service` und `phantomsdr-proxy.service` mit, die beim Booten starten und das Panel innerhalb von fünf Sekunden nach einem Absturz neu starten. Siehe [ADMIN_PANEL_SETUP.md](ADMIN_PANEL_SETUP.md). Für einen unbeaufsichtigten Empfänger wird das **dringend empfohlen** — `stop+restart` scharfzuschalten schützt Sie sonst nur bis zum nächsten Neustart.
 
 **Wie Sie es hinterher erfahren.** Grob nach Nützlichkeit:
 
@@ -365,20 +333,6 @@ Die häufigste Frage zum Guard: *Was passiert, wenn niemand zusieht?* Die kurze 
 | `journalctl -u thermal-guard` | Nur im eigenständigen Betrieb. |
 
 Eine sinnvolle Routine für einen unbeaufsichtigten Standort: `stop+restart` scharf, und `grep THERMAL crash.log`, wann immer Sie sich ohnehin anmelden. Ist es leer, gibt es nichts zu wissen.
-
-**Ein durchgespieltes Beispiel.** Lüfterausfall um 03:00 auf einer Maschine im Modus `stop+restart`:
-
-```
-03:14  Temperatur überschreitet 88 °C, hält 30 s     →  warn protokolliert
-03:16  überschreitet 92 °C, hält 30 s                →  throttle angewandt (falls erlaubt)
-03:19  überschreitet 95 °C, hält 60 s                →  STOP — Stopp-Skript, Lockout an
-03:19  Watchdog startet den Server neu               →  Guard stoppt erneut, protokolliert
-03:26  CPU seit 5 Minuten unter 75 °C                →  Lockout endet, Start-Skript läuft
-03:41  überhitzt ein zweites Mal und stoppt          →  Ratengrenze erreicht, kein Neustart mehr
-                                                        Server bleibt aus, Schutz bleibt an
-```
-
-Sie wachen auf mit einem WebSDR, das aus ist, einer `crash.log`, die genau sagt warum, und — vor allem — einer CPU, die ihrem kritischen Punkt nie nahe gekommen ist.
 
 ---
 
@@ -433,8 +387,6 @@ Die Zeilen sind bewusst einzeilig und grep-freundlich. Was Sie sehen werden:
 
 ## 12. Lockout und Ratenbegrenzung
 
-Diese beiden Verhaltensweisen überraschen am ehesten, deshalb hier deutlich:
-
 **Der Lockout** ist das, was den Guard gerade gegen *Ihre* Einrichtung wirksam macht. Wenn er den Server stoppt, setzt er nicht einfach einen Stopp ab und hofft. Er markiert sich als gesperrt und prüft bei jedem 2-Sekunden-Takt, solange die Temperatur über der Resume-Schwelle liegt, ob der Serverprozess wieder da ist — und stoppt ihn dann erneut. Ihr Watchdog, `Restart=always` in systemd, ein cron-Job, ein ungeduldiger Sysop: Sie alle verlieren diesen Streit, bis die CPU abkühlt. Er endet automatisch, sobald die Temperatur `thermal_resume_s` lang (Standard 5 Minuten) unter der Resume-Schwelle geblieben ist.
 
 **Die Schaltfläche CLEAR LOCKOUT** auf der Dashboard-Kachel beendet den Lockout *und* setzt den Stopps-pro-Stunde-Zähler zurück — für den Fall, dass Sie die Kühlung repariert haben und nicht warten wollen. Sie **entschärft den Guard nicht**: Ist die Maschine noch heiß, stoppt die nächste Prüfung den Server sofort wieder. Das ist so beabsichtigt.
@@ -477,8 +429,6 @@ Nein — im Panel-Betrieb lebt der Guard in `admin_server.py`. Wollen Sie Schutz
 - **Vollständig deaktivieren:** `thermal_enabled` auf `false` setzen.
 - **Eigenständig:** `sudo systemctl disable --now thermal-guard`.
 - **cpufreq-Rechte zurücknehmen:** `sudo ./setup-cpufreq-perms.sh --revoke`.
-
-`thermal_guard.py` zu löschen ist ebenfalls unbedenklich — `admin_server.py` importiert die Datei in einem `try` und meldet den Guard einfach als nicht verfügbar, wenn sie fehlt.
 
 ---
 

@@ -55,22 +55,7 @@ The panel's Python libraries (`flask`, `psutil`, `aiohttp`, `tomli-w`) are insta
 
 ---
 
-## Step 1 — Files
-
-All four files ship with the repository, so there is nothing to copy:
-
-```
-admin_server.py
-manage_admin.sh
-setup_admin.sh
-proxy.py
-```
-
-The installer sets the executable bits itself. On a tree copied by hand, run the script as `bash setup_admin.sh`.
-
----
-
-## Step 2 — Run the setup script
+## Step 1 — Run the setup script
 
 ```bash
 ./setup_admin.sh
@@ -85,19 +70,11 @@ The script will:
 3. Record `127.0.0.1` as `sdr_host` in config (see [The `sdr_host` setting](#the-sdr_host-setting))
 4. Ask for three port numbers. Each offers a default in brackets that a bare Enter
 accepts, so a normal setup is three keystrokes:
-   - **Spectrumserver port** — the port your SDR server listens on (default `8900`,
+   - **Spectrumserver port** — the port your SDR server listens on (default `9001`,
      which is what every `config-*.toml` in the repository ships with)
-   - **Admin panel internal port** — where `admin_server.py` binds locally (default `3000`)
+   - **Admin panel internal port** — where `admin_server.py` binds locally (default `9010`)
    - **Proxy public port** — the single external port that combines SDR + admin (default `8902`)
    On a station set up with the station questions (`configure-station.sh`), the three defaults are that station's own ports from `station.conf` — 9001, 9010 and 9000 — so Enter is right, and the start script is already preselected.
-
-Invalid answers are rejected and re-asked, but only five times — after that the default is used. A run whose input is not a terminal (piped, cron, unattended) takes the defaults straight away instead of waiting for input that never comes.
-5. Install `flask`, `psutil`, `aiohttp` and `tomli-w` via pip
-6. Grant `ss` the `cap_net_admin` capability (fallback path of Kick Users, used only when the panel runs without the proxy)
-7. Ask which script starts and which stops the receiver — the panel drives the server through these, and so does the thermal guard
-8. Ask how far the CPU over-temperature guard may act on its own — `log`, `throttle`, `stop` or `stop+restart` — and offer to run `setup-cpufreq-perms.sh` so the throttle stage works without root (see [THERMAL_GUARD.md](THERMAL_GUARD.md))
-9. Write `admin_config.json` with all settings
-10. Offer to install two systemd units (panel + proxy) — auto-start on boot and restart after a crash. **Recommended, and the default** (a bare Enter accepts it): the CPU over-temperature guard only runs while the panel runs, so without the units a reboot leaves the machine unprotected. The step is skipped automatically where systemd is not PID 1 (containers, WSL1, OpenRC), or where you have no sudo.
 
 After setup, open your browser via the proxy:
 ```
@@ -109,7 +86,7 @@ Default password: **`admin`**
 
 ---
 
-## Step 3 — Start / Stop / Restart
+## Step 2 — Start / Stop / Restart
 
 There are two ways to run the panel and the proxy. **Pick one and stay with it** — the warning at the end of this section explains what happens if you mix them.
 
@@ -123,11 +100,7 @@ There are two ways to run the panel and the proxy. **Pick one and stay with it**
 ./manage_admin.sh status     # show running status and PIDs
 ```
 
-There is deliberately **no `restart`**. It used to kill the panel and immediately start its own copy, which collides with systemd on any machine using Method B. To restart under Method A, run `stop` then `start` — see [Restarting the panel](#restarting-the-panel) below.
-
 One script controls **both** processes. It checks that `aiohttp` is installed before starting the proxy and prints a clear error with the fix command if it is missing.
-
-Nothing starts by itself: after a reboot, or if the panel crashes, you start it again by hand. That is fine for a receiver you watch, but note that the CPU over-temperature guard runs inside the panel — while the panel is down, nothing is protecting the machine (see [THERMAL_GUARD.md](THERMAL_GUARD.md)).
 
 ### Method B — systemd units (starts at boot, restarts after a crash)
 
@@ -153,11 +126,7 @@ sudo journalctl -u phantomsdr-admin -f    # live logs
 
 The same four with `phantomsdr-proxy`, or both at once: `sudo systemctl restart phantomsdr-admin phantomsdr-proxy`.
 
-`admin.log` and `proxy.log` keep working exactly as before — the units append to those same files.
-
 One thing to do once: install the tmpfiles rule at `tmpfiles/phantomsdr-logs.conf` (edit its paths and user first). systemd creates those two logs as `root` before it drops to `User=`, and the panel's **Clear Logs** button then fails on them with `Permission denied` — see [“Clear Logs” says Permission denied](#clear-logs-says-permission-denied) below. `setup_admin.sh` installs the rule for you.
-
-The admin unit carries `SupplementaryGroups=cpufreq`, which is what lets the thermal guard's throttle stage lower the CPU clock without the panel running as root. Create that group first with `./setup-cpufreq-perms.sh`, or systemd will refuse to start the unit; delete the line if you do not use the throttle stage.
 
 To go back to Method A:
 
@@ -180,26 +149,9 @@ sudo systemctl restart phantomsdr-admin phantomsdr-proxy
 ./manage_admin.sh stop && ./manage_admin.sh start
 ```
 
-The unit ships with `KillMode=process`, and that line is load-bearing. If you start the SDR from the panel, the receiver is a child of the admin unit and inherits its cgroup. Under systemd's default `KillMode=control-group`, restarting the panel would take spectrumserver, its watchdog and the autorun daemon down with it, and stall for the full 90-second stop timeout first. With `KillMode=process` systemd signals only the panel, so `sudo systemctl restart phantomsdr-admin` leaves a busy receiver on air.
-
-**Upgrading a unit installed before v4.1.0.** Older unit files have no such line, and restarting the panel will not add one: `systemctl restart` re-runs the program, it does not change the program's configuration. Edit the *installed* copy — the one in the repository is only a template systemd never reads:
-
-```bash
-sudo nano /etc/systemd/system/phantomsdr-admin.service
-```
-
-Add `KillMode=process` in the `[Service]` section, next to `Restart=always`. Then make systemd re-read the file and confirm:
-
-```bash
-sudo systemctl daemon-reload
-systemctl show phantomsdr-admin -p KillMode
-```
-
-The second command must print `KillMode=process`. If it still prints `control-group`, systemd is running its cached copy — `systemctl show phantomsdr-admin -p NeedDaemonReload` prints `yes` while a reload is pending. Leading whitespace in unit files is ignored, so indentation does not matter.
-
 ---
 
-## Step 4 — Open firewall port
+## Step 3 — Open firewall port
 
 Open only the **proxy public port** in your firewall. There is no need to expose the admin panel internal port externally:
 
@@ -209,25 +161,15 @@ sudo ufw allow <proxy_port>
 
 ---
 
-## Step 5 — Kick Users feature
+## Step 4 — Kick Users feature
 
 The Users page shows every currently connected listener. Each row shows the name or callsign the listener typed (`--` when none), the location with the IP address under it, the tuned frequency, mode and how long they have been connected. To disconnect one user, click the **⚡ Kick** button on their row — only that listener's connections are closed. All other listeners stay connected and hear nothing.
 
 Next to the mode the Users page shows the decoder a listener is running in their page, for example `USB · FT8` (DRM listeners read `DRM`). Pages opened before the server was updated report it only after they are reloaded.
 
-The IP addresses are on this page only. Since 5.3.0 the public users list (`/users`) and the User Statistics carry none, as on a WebSDR; the panel reads its list from `/~~users`, which spectrumserver answers only on its own computer and never through the proxy.
-
 The kick is instant and surgical: the server does not restart, no audio is interrupted for anyone else, and the kicked user can reconnect immediately (the feature is for removing misbehaving or stuck connections; to keep someone out, use the ban below).
 
 **⛔ Ban ▾** opens a small menu — **8**, **16** or **24 hours** — and the chosen length disconnects the listener from every receiver of the station and refuses that address for that long (24 hours is the most the receiver accepts) (close code 4001, which the page does not retry). The ban is kept in `admin_bans.json` next to the panel and sent to every receiver again once a minute, so a receiver restart does not lift it. While bans are in force, a **Banned** list under the table shows each one with its name, address and end time, and an **Unban** button lifts it at once. Everyone behind the same internet connection shares the address and is banned with it.
-
-Under the hood the kick uses `ss -K dst <IP> dport <port>` to tear down the specific TCP socket. This requires a Linux capability that the setup script grants automatically. If you skipped setup or the button reports an error, apply it manually:
-
-```bash
-sudo setcap cap_net_admin+ep $(which ss)
-# Verify:
-getcap $(which ss)    # should show: cap_net_admin=ep
-```
 
 ---
 
@@ -240,7 +182,7 @@ Key fields written by `setup_admin.sh`:
 | Key | Description |
 |---|---|
 | `port` | Admin panel internal port (`admin_server.py` binds here) |
-| `public_port` | Spectrumserver port of the main receiver (8901 behind proxy.py) — **not** the port listeners use, that is `proxy_port`. proxy.py forwards to it; Kick, the Users page and the user count query it |
+| `public_port` | Spectrumserver port of the main receiver (9001 behind proxy.py) — **not** the port listeners use, that is `proxy_port`. proxy.py forwards to it; Kick, the Users page and the user count query it |
 | `proxy_port` | Public port the proxy listens on |
 | `sdr_host` | Host the proxy uses to reach spectrumserver — `127.0.0.1` (see below) |
 | `password_hash` | SHA-256 hash of the admin password |
@@ -250,31 +192,6 @@ Key fields written by `setup_admin.sh`:
 
 > **Several receivers on one computer?** Set `start_script` to `start-all.sh`. The stop script already stops every receiver, and Restart and the thermal guard use the start script, so with `start-all.sh` they bring back every receiver in `receivers.toml` instead of only the main one. The Users page, the user count and the kick then cover every receiver as well. See [Several Receivers](MULTI_RECEIVER.md).
 
-Thermal guard keys (all optional — the panel writes them when you save the Thermal Guard settings, and any that are missing fall back to these defaults):
-
-| Key | Default | Description |
-|---|---|---|
-| `thermal_enabled` | `true` | Master switch for the guard |
-| `thermal_mode` | `"log"` | `log` (record only, never act) · `throttle` · `stop` · `stop+restart` |
-| `thermal_warn` | `null` | Warn temperature °C; `null` = derive from your CPU's critical trip point |
-| `thermal_throttle` | `null` | Temperature at which the CPU clock ceiling is lowered; `null` = auto |
-| `thermal_stop` | `null` | Temperature at which the server is stopped; `null` = auto |
-| `thermal_resume` | `null` | Temperature the CPU must fall below to recover; `null` = auto |
-| `thermal_sustain_s` | `60` | Seconds the stop temperature must be held before acting |
-| `thermal_warn_sustain_s` | `30` | Seconds the warn/throttle temperatures must be held |
-| `thermal_resume_s` | `300` | Seconds below the resume temperature before the lockout is released |
-| `thermal_max_stops_hour` | `2` | Thermal stops per hour before the automatic restart is disabled |
-| `thermal_test_temp` | `null` | Inject a fake temperature to test the guard; `null` = use the real sensor |
-
-Changes to these take effect on the next sample — within a couple of seconds, with no restart.
-
-To change ports after initial setup, edit `admin_config.json` and restart:
-
-```bash
-sudo systemctl restart phantomsdr-admin phantomsdr-proxy   # Method B
-./manage_admin.sh stop && ./manage_admin.sh start        # Method A
-```
-
 ---
 
 ## The `sdr_host` setting
@@ -282,8 +199,6 @@ sudo systemctl restart phantomsdr-admin phantomsdr-proxy   # Method B
 `proxy.py` connects to `spectrumserver` over loopback — `sdr_host` is `127.0.0.1` in `admin_config.json`, written there by `setup_admin.sh`. You should not need to change it.
 
 Set it to a real address only if `spectrumserver` runs on a **different machine** than the proxy. Then [restart the panel](#restarting-the-panel).
-
-> **Changed:** earlier versions required `sdr_host` to be the machine's LAN IP, because `spectrumserver` closed WebSockets arriving from the loopback address. That filter has been removed, so local connections work normally. Two consequences: browsing `http://localhost:<port>` on the server machine itself now shows the full GUI (it used to load the page but stay blank), and the proxy no longer breaks when DHCP reassigns the machine's IP. If you are upgrading and your `admin_config.json` still holds a LAN IP, change it to `127.0.0.1` or re-run `setup_admin.sh`.
 
 ---
 
@@ -308,9 +223,9 @@ Edit `admin_config.json` directly:
 
 ```json
 {
-  "port":        3000,
+  "port":        9010,
   "public_port": 9001,
-  "proxy_port":  9002,
+  "proxy_port":  9000,
   "sdr_host":    "127.0.0.1"
 }
 ```
@@ -320,18 +235,6 @@ Then restart both services:
 ```bash
 sudo systemctl restart phantomsdr-admin phantomsdr-proxy   # Method B
 ./manage_admin.sh stop && ./manage_admin.sh start        # Method A
-```
-
-If you also need `admin_server.py` to bind on a different port at launch (e.g. the systemd service), you can override with the environment variable:
-
-```bash
-ADMIN_PORT=3000 python3 admin_server.py
-```
-
-By default `admin_server.py` binds to `127.0.0.1` only. To run it standalone without the proxy (development/testing), bind to all interfaces:
-
-```bash
-ADMIN_BIND=0.0.0.0 python3 admin_server.py
 ```
 
 ---
@@ -349,10 +252,10 @@ pkill -f admin_server.py
 pkill -f proxy.py
 
 # Free a port that is stuck in use
-sudo fuser -k 3000/tcp
+sudo fuser -k 9010/tcp
 
 # Check what is listening on a port
-ss -tlnp | grep 3000
+ss -tlnp | grep 9010
 ```
 
 ---
@@ -382,15 +285,7 @@ sudo cp logrotate/phantomsdr /etc/logrotate.d/phantomsdr
 sudo logrotate -d /etc/logrotate.d/phantomsdr     # dry run, should list all three logs
 ```
 
-`logrotate/phantomsdr` in the repo and `/etc/logrotate.d/phantomsdr` are two **independent copies** — `cp` does not link them. Editing the repo file changes nothing on a running system until you re-run the `sudo cp` above. Only the `/etc` copy is what logrotate actually reads.
-
-The config uses `copytruncate`, which is required: `manage_admin.sh` starts both processes with `>> <log>` and neither reopens its stdout, so a rename-based rotation would leave them writing into the rotated file while the new log stays empty forever.
-
-Archives land in `logproxy/` (created automatically by `createolddir`) and are named `proxy.log.1.gz` … `proxy.log.7.gz`, newest first. Read one with `zcat logproxy/proxy.log.1.gz | less`, or search all of them at once with `zgrep "pattern" logproxy/*.gz`.
-
 The panel's **Clear Logs** button truncates **every** file in the table above, `autorun.log` and `proxy.log` included (`CLEAR_EXCLUDE` in `admin_server.py` is empty). Note what that costs on `autorun.log`: its decode history is the only record of what was heard and when, and nothing can reconstruct it — what survives a clear is whatever logrotate has already rotated into `logproxy/`, so a clear discards everything decoded since the last rotation. Clearing it under a running decoder is safe: the daemon holds it open `O_APPEND` and goes on appending to the same inode. The toast names what was cleared, and if a file could not be written — a `proxy.log` owned by a different user, say, on a split-user install — it names that file and the error instead of reporting success, and leaves that log's pane on screen rather than blanking it. The files are truncated in place, never deleted: both `manage_admin.sh` and the systemd units open them `O_APPEND`, so an unlinked file would go on filling an invisible inode until the service restarts.
-
-Successful polls are filtered out of **both** access logs, by the `QuietPollFilter` in `proxy.py` and the one in `admin_server.py`. The dashboard hits `/admin/api/status` every 3 seconds, and `/admin/api/logs`, `/admin/api/autorun/status`, `/admin/api/users`, `/admin/api/graph-stats` and `/admin/api/chat` every 5 seconds; unfiltered they are ~95% of both files. Only plain `200`s on those paths are dropped — any other status, path or method is logged as before, so a failing poll stays visible and state-changing actions (`kick`, `autorun/start`, …) are separate paths and always recorded. The one deliberate exception is `/admin/api/logs/clear`, filtered in both files: its own access line is written *after* the truncate, so without the filter every successful clear left one fresh line behind in the log it had just emptied, and the button looked broken.
 
 Because `proxy.log` is an access log, it contains visitor IP addresses and user-agent strings — keep that in mind before sharing it when asking for help.
 
@@ -414,20 +309,12 @@ sudo chmod 664 admin.log proxy.log
 
 No restart is needed — systemd keeps writing through the file descriptor it already holds, and appending does not change ownership. Press **Clear Logs** again and both are emptied.
 
-**Do not delete the files instead.** Both are held open `O_APPEND`; unlinking one leaves systemd filling an invisible inode until the service restarts, and the file that reappears is root-owned again.
-
 To stop it coming back, install the tmpfiles rule the repo ships at `tmpfiles/phantomsdr-logs.conf`. It re-creates both logs with the right owner at every boot, before the units start, so a removed log — manual cleanup, a reinstall, a moved installation directory — never returns root-owned. **It is site-specific: open it and change the two paths and the user:group to match your machine first**, then:
 
 ```bash
 sudo cp tmpfiles/phantomsdr-logs.conf /etc/tmpfiles.d/99-phantomsdr-logs.conf
 sudo systemd-tmpfiles --create /etc/tmpfiles.d/99-phantomsdr-logs.conf
 ```
-
-As with `logrotate/phantomsdr`, the repo file and the `/etc` copy are independent — editing the repo copy changes nothing until you re-run the `cp`. On systemd 254 and newer the rule also repairs the ownership and mode of a log that already exists, so it fixes the current failure as well as future ones; on older versions the `chown` above is what unblocks the button.
-
-`setup_admin.sh` does all of this for you when it installs the units, so a setup made with the script never hits this. The steps above are for a hand-installed pair, or for an installation that predates the script's log-ownership step.
-
-Logrotate does not reintroduce the problem: the shipped config uses `copytruncate`, which keeps the same inode and therefore the same owner.
 
 ---
 
@@ -451,12 +338,6 @@ How it works:
 - Clearing the entire log (the **Clear All** button) truncates the file, which also takes effect without a restart.
 - A **chat reply** is stored as an ordinary message that begins with a marker naming the message it answers, for example `[RE:2026-09-25 12:00:01|SV1BTL]`, so in this list it shows with that marker in front. Deleting a reply removes only that reply. Deleting the message it answers leaves its replies in place, showing only the name and time they answer.
 
-The delete button is rendered consistently across all five Svelte App variants. If a deletion appears not to take effect, confirm the admin panel has write permission to the chat log file:
-
-```bash
-ls -l ~/PhantomSDR-Plus/chat.jsonl   # path depends on your config
-```
-
 ---
 
 ## Waterfall broadcast messages
@@ -473,23 +354,6 @@ The **Waterfall Message** panel lets you push a persistent text banner to every 
 
 Click **Clear** to remove the banner from all waterfalls. The message state is held in memory by the admin panel; it is cleared automatically if the admin panel process is restarted.
 
-### How it works
-
-The admin panel exposes two internal endpoints that the proxy forwards:
-
-| Endpoint | Method | Purpose |
-|---|---|---|
-| `/admin/api/waterfall-message` | `POST` | Set or clear the current banner text and colour |
-| `/admin/api/waterfall-message` | `GET` | Return the current message state as JSON |
-
-The frontend polls the message state and renders it as an overlay on the waterfall canvas. No WebSocket reconnection or page reload is needed on the client side.
-
-### Typical uses
-
-- Announce scheduled maintenance: `"Server restart in 10 minutes"`
-- Flag band conditions: `"Solar flux 180 — 10m wide open"`
-- Welcome message: `"Welcome to SV1BTL WebSDR — Athens, KM17"`
-
 ---
 
 ## System Graphs
@@ -503,48 +367,6 @@ The **Graphs** page plots four measures against one shared time axis:
 
 Pick a range with **15 MIN / 1 HOUR / 4 HOURS / 12 HOURS / 24 HOURS**. Hovering the plot draws a crosshair and reads out all four values at that instant. The four cards above the plot always show the newest sample.
 
-### How sampling works
-
-A background thread in `admin_server.py` takes one sample every **2 seconds**. Samples are held in two tiers: the last **1 hour** at full 2-second resolution (1800 points), and **24 hours** of 30-second averages (2880 points) for the longer ranges. The page picks the tier that covers the range you chose, and says `30s averages` in the header when you are looking at the aggregated one.
-
-Storing a full day at 2-second resolution would mean ~43000 points — tens of MB of memory, a multi-megabyte first load, and about 40 points per pixel of canvas, which no screen can render. Averaging to 30 seconds keeps a day in 2880 points.
-
-Sampling starts together with the admin panel, not when you first open the page, so the page opens onto history that already exists.
-
-The buffer is **memory-only**: nothing is written to disk, and the history is lost when the admin panel restarts. That is deliberate — it keeps the feature out of log rotation and off your disk.
-
-2 seconds gives a near-live view and is short enough not to alias CPU frequency, which on a modern CPU swings between its idle and turbo clock from one sample to the next. A sample costs about a millisecond, so the sampler is negligible next to the SDR server. The page polls at the tier's own cadence — every 2 seconds on the live ranges, every 30 seconds on the aggregated ones, because asking more often than points are produced only returns empty replies.
-
-To change the cadence or the retention, edit these constants near the top of the sampler block in `admin_server.py` and restart:
-
-```python
-GRAPH_INTERVAL_S   = 2          # seconds between fine samples
-GRAPH_FINE_S       = 3600       # how far back the fine tier reaches (1h)
-GRAPH_COARSE_EVERY = 15         # fine samples per coarse point (15 x 2s = 30s)
-GRAPH_COARSE_S     = 24 * 3600  # how far back the coarse tier reaches (24h)
-```
-
-### Where the numbers come from
-
-| Measure | Source |
-|---|---|
-| CPU frequency | `psutil.cpu_freq()`, falling back to `/sys/devices/system/cpu/cpu*/cpufreq/`. This is the same kernel data `cpufreq-info` formats, so **cpufrequtils is not required**. |
-| CPU load | `psutil.cpu_percent()` |
-| CPU temperature | `psutil.sensors_temperatures()`, falling back to `/sys/class/thermal`, then the `sensors` command |
-| Users online | spectrumserver's own `/users` endpoint — the authoritative session list. Counting sockets with `ss` cannot see real client IPs behind proxy.py. |
-
-If a measure is unavailable on your machine, that panel says so rather than drawing a flat zero line. A reading that fails mid-run breaks the line, so a gap in the data never looks like a measured value.
-
-### Why four panels and not one graph
-
-GHz, percent, degrees and a head-count share no common scale. Drawing them on one plot needs several y-axes, and the crossings that produces are artefacts of the scaling rather than facts about the server. Four stacked panels on one time axis keep the comparison honest. Every panel is anchored at zero, so curve height stays proportional to the value.
-
-Colour is reserved for temperature, where amber and red mark the thresholds above. The other panels share one colour because each holds a single series that its own title already names.
-
-### Endpoint
-
-`GET /admin/api/graph-stats?since=<epoch>` (login required) returns the samples newer than `since`, so the page polls incrementally instead of re-downloading the whole buffer every tick.
-
 ---
 
 ## Thermal Guard
@@ -554,108 +376,6 @@ Colour is reserved for temperature, where amber and red mark the thresholds abov
 Stops the SDR server when the CPU gets dangerously hot, and starts it again once it has cooled. It is part of the panel — nothing extra to install — and appears as a **THERMAL GUARD** card on the Dashboard with its settings under **Settings**.
 
 It ships **inert**: the mode starts at `log`, so out of the box it only records what it *would* have done. Nothing touches your server until you change the mode.
-
-### It works with any start/stop method
-
-The guard never tries to work out what supervises your server. It acts through whatever scripts you set as **Default start script** and **Default stop script** in Settings, and while the CPU is over-temp it re-issues the stop on **every check** (every 2 s). Anything that brings the server back — the watchdog inside `start-*.sh`, a systemd unit, a cron job, a `tmux` session — is undone within a couple of seconds until the machine has cooled. That is the *lockout*.
-
-If no stop script is configured, it falls back to `SIGTERM` to the process named in `sdr_process_name`, then `SIGKILL` after a 10-second grace period.
-
-### Thresholds come from your own CPU
-
-Rather than a fixed number that is wrong on most hardware, the guard reads the critical trip point the kernel publishes for your CPU and works backwards from it:
-
-| Your CPU reports | warn | throttle | stop | resume |
-|---|---|---|---|---|
-| Intel, limit 100 °C | 88 | 92 | **95** | 75 |
-| AMD Ryzen, limit 95 °C | 83 | 87 | **90** | 70 |
-| Raspberry Pi, limit 85 °C | 73 | 77 | **80** | 60 |
-
-This matters: a fixed 95 °C would be near-normal on an Intel, but on a Ryzen — whose Tctl sits at 95 °C by design under boost — it would stop the server on a healthy machine, and on a Pi, which throttles at 80 °C, it would never fire at all. Any threshold can still be set by hand in Settings; leave a field blank for *auto*.
-
-To see what your machine looks like to the guard:
-
-```bash
-python3 thermal_guard.py --once
-```
-
-```
-sensor     : hwmon:coretemp
-temperature: 58.0 C
-crit       : 100.0 C
-mode       : log
-thresholds : warn 88.0  throttle 92.0  stop 95.0  resume 75.0 (C)
-cpufreq    : not writable — throttle stage disabled
-```
-
-### The four stages
-
-Stopping the server is the last resort, not the only tool:
-
-1. **warn** — logged, nothing else.
-2. **throttle** — lowers the CPU clock ceiling by 20 %. Needs a cpufreq driver *and* write access to `scaling_max_freq`, which normally means running as root; where that is unavailable (the usual case for an unprivileged panel, and on most VPS) the stage **disables itself** and the guard falls back to warn → stop. `./setup-cpufreq-perms.sh` grants that write access to a `cpufreq` group, so the stage works without running the panel as root — see [THERMAL_GUARD.md](THERMAL_GUARD.md#8-enabling-the-throttle-stage-without-root).
-3. **stop** — runs your stop script and holds the server down (see lockout above).
-4. **resume** — after the CPU has stayed below the resume temperature for `thermal_resume_s` (5 minutes by default), the clock ceiling is restored and, in `stop+restart` mode, your start script runs again.
-
-Each stage must be **held** for its sustain time — 30 s for warn and throttle, 60 s for stop — so a brief spike during a compile never trips it.
-
-Repeated trips are capped by `thermal_max_stops_hour` (2 by default). Once that is reached the *automatic restart* is disabled while the protection keeps working, so an overheating machine cannot flap between running and stopped.
-
-### Which sensors are used
-
-Only real CPU-die sensors: `coretemp` (Intel), `k10temp` / `zenpower` (AMD), `cpu_thermal` / `soc_thermal` (ARM, Raspberry Pi). The hottest reading on the chip is used, not the average.
-
-`acpitz` and unlabelled thermal zones are **deliberately ignored** — they often report a case or board temperature tens of degrees below the actual CPU, so a guard trusting them would never fire when it mattered. If your machine has no usable sensor (common on a VPS or inside a container) the card says `no trusted CPU sensor` and the guard stays inactive rather than pretending to protect you.
-
-### What it writes
-
-Everything goes to `crash.log`, i.e. the **CRASH** tab of the Log Viewer, one event per line:
-
-```
-[THERMAL] warn: 89.0C (warn=88.0 crit=100.0) sustained 31s
-[THERMAL] throttle: 93.0C sustained 30s — cpufreq max lowered 20%
-[THERMAL] STOPPED server: 96.0C sustained 62s (stop=95.0 crit=100.0) — Started stop-websdr.sh
-[THERMAL] lockout: process reappeared at 94.0C — re-stopped [3 time(s) so far]
-[THERMAL] recovered: 74.0C held below 75.0 — lockout cleared
-[THERMAL] auto-restart: Started start-rx888mk2.sh
-```
-
-The lockout line is rate-limited to one per minute, so a supervisor that keeps fighting the guard cannot flood the log.
-
-### Testing it before you trust it
-
-Set **TEST TEMPERATURE** in Settings to a value above your stop threshold. The guard treats it as a real reading, so the whole path — warn, throttle, stop, lockout, recover, restart — runs on demand. Clear the field to return to the real sensor.
-
-> Running this test with the mode set to `stop` really does stop the server and disconnect your listeners. Do it when nobody is on, or leave the mode at `log`, where the test shows what *would* have happened without touching anything.
-
-### Suggested way to adopt it
-
-1. Leave the mode at **`log`** for a week and carry on as normal.
-2. Read the CRASH tab after your heavy moments — a full rebuild, a hot afternoon. If nothing appears, your machine never came close.
-3. If the logged temperatures look right, set the mode to **`stop`** (or **`stop+restart`** to have it come back by itself).
-4. Prove it once with the test-temperature field, then leave it alone.
-
-### Recovering from a lockout
-
-**CLEAR LOCKOUT** on the Dashboard card clears the lockout and the rate limit. It does not disarm the guard: if the CPU is still too hot, the next check simply stops the server again. Use it after you have fixed the cooling.
-
-### Endpoint
-
-`GET /admin/api/thermal` (login required) returns the guard's full state — sensor, thresholds, stage, lockout, last event. `POST` with `{"action":"reset"}` does the same as the CLEAR LOCKOUT button.
-
-### Without the admin panel
-
-`thermal_guard.py` is stdlib-only and runs on its own, reading the same `admin_config.json`:
-
-```bash
-python3 thermal_guard.py --once              # print sensor, trip point and thresholds
-python3 thermal_guard.py                     # run as a service (log-only until armed)
-python3 thermal_guard.py --mode stop+restart # arm it without writing any config file
-python3 thermal_guard.py --config /path/to/other.json
-python3 thermal_guard.py --help
-```
-
-`--mode` overrides `thermal_mode` from the config file, so a machine with no panel can be armed straight from its systemd unit with no JSON at all.
 
 ---
 
@@ -717,11 +437,7 @@ Under BANDS & MODES, the **SCHEDULE** card has a row for every ticked band and m
 - The **AT ONCE** row counts the slots running in each hour. A red number is over **MAX SLOTS**, and **SAVE CONFIG** refuses until it is fixed. MAX SLOTS limits the slots running *at the same time*, not over the day, so a schedule lets more bands share the same CPU — 10, 12 and 15 m by day and 160 and 80 m at night, for example.
 - The dot before each row is green while that slot is decoding, amber while it opens for its next hour or closes, and grey while it sleeps or the daemon is stopped. The status card shows the slots scheduled now and the time of the next change.
 
-Each band's rows are grouped under a line, and the mode names have their own colours (FT8, FT4, JS8, WSPR), the same as the column headers of BANDS & MODES.
-
 A slot opens a little before its first hour — one decode window plus 10 seconds, so about 25 s for FT8 and JS8 and just over 2 minutes for WSPR — so that the first cycle of the hour is decoded; the cycle heard during that lead-in belongs to the hour before and is not reported. It closes a few seconds after its last hour, once the decode of that hour's last cycle has started. A tap that drops, because the receiver was restarted for example, is reopened after 30 seconds.
-
-Unticking a band in BANDS & MODES keeps its hours, so ticking it again brings its schedule back. Like every other setting on the tab, the schedule is saved with **SAVE CONFIG**.
 
 ### Starting automatically after a reboot or crash
 
@@ -739,29 +455,11 @@ Two different counts are shown, and they answer different questions.
 
 **The number beside each checkbox** in BANDS & MODES is that band+mode's **all-time** uploaded spots. These are kept in `autorun-totals.json` and survive restarts. **Amber with a dot in front** (`·123`) means that slot has decoded but not uploaded yet. That is normal between flushes — PSK Reporter uploads every 5 minutes and wsprnet every 2 — so FT8/FT4 counts sit amber for the first few minutes after a start. It also stays amber if that decoder's destination is switched off. A plain `0` with no dot means that slot is enabled but has decoded nothing yet — WSPR sits at zero for several minutes after a start, because it runs on a 2-minute cycle while FT8 is already counting in the hundreds. A slot the daemon has never run shows nothing at all. Hover any number for the uploads, the decodes and the time of the last upload.
 
-FT8 and FT4 share one PSK Reporter upload queue, so the daemon counts each spot against its own mode and band as it goes out; the split is not estimated from the totals afterwards.
-
 **Clearing the counters.** **FREE ALL SLOTS** unticks every band/mode, turns both destinations off, stops the daemon and **erases the all-time counters** — after it, no number is shown beside any checkbox. This is the only way to reset them, and it cannot be undone. The button stops the daemon and waits for it to exit before deleting `autorun-totals.json`, because the daemon rewrites that file on shutdown; deleting it under a live daemon would simply bring the numbers back.
 
 ### Resource requirements & limitations
 
 The daemon is deliberately lightweight and runs on low-resource hardware (a 4-core i5 is fine), but there are real limits to be aware of.
-
-**Autorun CPU pinning is config-aware and automatic.** The **autorun daemon** is always launched by the admin panel (`admin_server.py`), so its pin is set on every install without any configuration: it derives a `taskset` core range from the CPU count, reserving a few of the top cores for decoding, or runs unpinned on ≤ 4 cores.
-
-**spectrumserver pinning is up to your own start method.** How you launch spectrumserver varies between installs (SDR type, tooling, personal scripts), so this document does not assume any particular launcher. The admin panel does not start or pin spectrumserver — that is entirely down to whatever command or service you use to run it. If you want spectrumserver kept off the cores the autorun daemon uses, pin it yourself with `taskset` in your own launch command (see the override section below). If you don't, it simply runs unpinned and the OS scheduler balances it — correct and safe, you just lose the deliberate core separation.
-
-For reference, the autorun daemon reserves these top cores (so if you pin spectrumserver, keep it to the lower cores to avoid overlap):
-
-| Logical CPUs | autorun daemon uses | leave for spectrumserver |
-|---|---|---|
-| ≤ 4 | *unpinned* | *unpinned* |
-| 6 | `5` | `0-4` |
-| 8 | `6-7` | `0-5` |
-| 12 (e.g. 8P+4E hybrid) | `8-11` | `0-7` |
-| 16 | `12-15` | `0-11` |
-
-On a **4-core (or fewer)** machine there is nothing to segregate, so the autorun daemon also runs *unpinned* and shares all cores — correct and safe, but the SDR FFT and the decode bursts compete for the same cores.
 
 **Known limitations:**
 
@@ -771,56 +469,6 @@ On a **4-core (or fewer)** machine there is nothing to segregate, so the autorun
 4. **Pinning assumes Intel hybrid topology** (lower cores = faster P-cores). On AMD or CPUs with interleaved SMT numbering the auto split is still valid (no overlap, no crash) but "lower cores are faster" may not literally hold, and on a hyperthreaded 4C/8T part the top cores are SMT siblings — confined, not fully isolated. Where the auto range isn't ideal, use the **manual override** below.
 5. **Band coverage is limited by the receiver.** The RX888 config (`sps=60000000` → 30 MHz Nyquist) cannot reach 6 m and above; the band table is 160 m–10 m. Other SDRs cover whatever their tuned window allows.
 6. **Reporting cadence.** PSK Reporter flushes every 5 min, wsprnet every 2 min — "0 sent" in the first few minutes is normal, not a fault.
-
-### Manual CPU-pin override (advanced)
-
-The auto-derived core split is right for most machines, but you can force a specific pinning where it isn't (AMD CCX/CCD, ARM big.LITTLE, interleaved SMT). Two independent overrides, each accepting a `taskset -c` core list (`2-3`, `0,2,4`, `0-2,5`) or `none`/`off`/`unpinned` to disable pinning. An invalid value is ignored and the auto-derive runs — a typo can never stop a launch.
-
-**Autorun daemon** — `AUTORUN_CORES` env var, or a `"cores"` field in `autorun.json` (env wins). The `"cores"` field is preserved across admin-panel **Save**, so a hand-edit sticks. Two ways to set it:
-
-*Option A — `autorun.json` (persistent, recommended).* Add a `"cores"` line to the config at the repo root, then **Stop → Start** the daemon on the Spot Reporting tab:
-
-```jsonc
-// autorun.json
-{ "identity": { "callsign": "SV1BTL", "grid": "KM17VX" },
-  "reporting": { "pskreporter": true, "wsprnet": false },
-  "slots": [ /* … */ ],
-  "cores": "2-3" }          // or "none" to run unpinned
-```
-
-*Option B — environment variable (one-off).* The daemon is spawned by the admin panel, so the var must be in the **admin panel's** environment — set it and restart the panel (env wins over the `autorun.json` value):
-
-```bash
-# Method A — the var must be set on the process that starts:
-./manage_admin.sh stop && AUTORUN_CORES=2-3 ./manage_admin.sh start
-
-# Method B — systemd ignores a var set on the systemctl command line,
-# so put it in the unit instead:
-sudo systemctl set-environment AUTORUN_CORES=2-3
-sudo systemctl restart phantomsdr-admin
-```
-
-**spectrumserver** — pin it yourself by prepending `taskset -c <cores>` to whatever command you use to start the server. This works with any start method (a direct launch, an SDR pipeline, a service unit, etc.):
-
-```bash
-# pin the server to cores 0-3, direct launch:
-taskset -c 0-3 ./build/spectrumserver --config <your-config>.toml < <your-input>
-# or in an SDR pipeline:
-<your-sdr-source> | taskset -c 0-3 ./build/spectrumserver --config <your-config>.toml
-```
-
-> ⚠️ **Make it survive restarts.** An inline `taskset` only applies to that one launch. If something auto-restarts the server (a watchdog, a systemd service, a cron/`@reboot` entry, …), add the `taskset` prefix inside the script or unit that actually starts it — otherwise the restart drops the pin.
-
-**Verify the pin took** — print the running processes' actual CPU affinity:
-
-```bash
-taskset -cp "$(pgrep -f 'autorun/index.js')"   # autorun daemon
-taskset -cp "$(pgrep -x spectrumserver)"       # spectrumserver
-```
-
-**Accepted values (both overrides):** a `taskset -c` list (`2-3`, `0,2,4`, `0-2,5`), or `none`/`off`/`unpinned` for no pinning. Anything malformed is ignored and the auto-derive runs, so a typo can never block startup.
-
-> On a Raspberry Pi / any ≤4-core box you normally need neither — the auto path already runs both processes unpinned, which is the correct choice on a small, homogeneous CPU. The override is for larger non-Intel-hybrid machines.
 
 ### Files and endpoints
 
@@ -940,7 +588,7 @@ The script takes every answer from that file and asks only for your sudo passwor
 
 **PORTS**, under **🔑 UPDATE PASSWORD**, lists every port this station uses — the public port, https (443/80) when it is set up, each receiver's spectrumserver, the admin panel, statistics, RADE, DRM and the relay — read from `admin_config.json`, `station.conf` and `receivers.toml`, the same files `proxy.py` reads. A green ● means something listens on the port now, ○ that nothing does. Only the ports marked *open on the router* need forwarding; the others stay on this computer and are reached through the public port. Services that are not installed are left out.
 
-**SPECTRUMSERVER PORT (MAIN RECEIVER)** is `public_port`: the port the main receiver's spectrumserver listens on — 8901 behind `proxy.py`, or 9001 on a station set up with `configure-station.sh`. It is **not** the port listeners use; that one is shown read-only under the box as **Listener port (proxy)** (`proxy_port`), or as *none* on a station without a proxy, where the two are the same. **💾 SAVE SETTINGS** checks the number: the proxy's own port is refused, and a port that differs from the `[server] port` of the running receiver asks for confirmation first — with a wrong number `proxy.py` forwards listeners to a port where nothing answers, from its next restart on. To really move spectrumserver, set `[server] port` in the receiver's `.toml`, its line in `receivers.toml` and this box to the same number, then restart the receiver and the proxy.
+**SPECTRUMSERVER PORT (MAIN RECEIVER)** is `public_port`: the port the main receiver's spectrumserver listens on — 9001 behind `proxy.py` on a station set up by `install.sh`. It is **not** the port listeners use; that one is shown read-only under the box as **Listener port (proxy)** (`proxy_port`), or as *none* on a station without a proxy, where the two are the same. **💾 SAVE SETTINGS** checks the number: the proxy's own port is refused, and a port that differs from the `[server] port` of the running receiver asks for confirmation first — with a wrong number `proxy.py` forwards listeners to a port where nothing answers, from its next restart on. To really move spectrumserver, set `[server] port` in the receiver's `.toml`, its line in `receivers.toml` and this box to the same number, then restart the receiver and the proxy.
 
 **▶ START** and **■ STOP**, next to **DEFAULT START SCRIPT** and **DEFAULT STOP SCRIPT**, run the **saved** script at once, after a confirmation — both drop every listener. If you changed a selection, save first: the button refuses an unsaved one. The first seconds of the script's output appear under the buttons; the whole output of these scripts, and of the thermal guard's restarts, goes to `logs/admin-scripts.log`.
 
@@ -989,29 +637,6 @@ The **THEME** selector sits in the top bar of every page, between **ONLINE** and
 
 All themes use the same fonts and sizes; only colours and finish change. *On air* stays green and warnings amber and red in every theme, and the **Graphs** follow the theme too. **Auto** computes sunrise and sunset at the station's locator (`siteGridSquare` in Site Info) and switches by itself while the page is open; without a locator it takes 07:00–19:00 local time as day. The choice is kept per browser, so a PC and a phone can use different themes. The login page keeps the green look.
 
-### Endpoints (new pages)
-
-| Endpoint | Purpose |
-|---|---|
-| `GET /admin/api/health` | System Health card: receivers, disk, log folders, last crash.log entry, recent alerts |
-| `GET /admin/api/visitor-stats?days=N` | Visitor statistics for 1–31 days (cached one minute) |
-| `GET` / `POST /admin/api/alerts` | Read / save the alert settings (secrets come back as `********`) |
-| `POST /admin/api/alerts/test` | Save-then-send test; answers per channel |
-| `GET /admin/api/backup` | Download the settings zip |
-| `POST /admin/api/restore` | Restore a settings zip (multipart, field `file`) |
-| `POST /admin/api/run-default-script` | Run the saved default start or stop script (`{"which": "start"}` or `"stop"`) |
-| `GET /admin/api/https` | The https state, from `station.conf` |
-| `POST /admin/api/https/check` | Run `setup-https.sh --status` |
-| `POST /admin/api/https/precheck` | The checks before turning https on, and the commands to run |
-| `GET /admin/api/receivers-info` | Every receiver with its range, bandwidth and state |
-| `POST /admin/api/receivers-info/retune` | Change a receiver's settings (frequency, bandwidth, start frequency, mode, start volume, gain, button name) and restart it when needed |
-| `POST /admin/api/receivers-info/rename` | The name on a receiver's button (`{"id", "name"}`); nothing restarts |
-| `POST /admin/api/receivers-info/power` | Stop or start one receiver (`{"id", "action": "stop"}` or `"start"`) |
-| `POST /admin/api/receivers-info/delete` | Remove an extra receiver (`{"id", "confirm": <id>, "keep_copy"}`) |
-| `GET /admin/api/receivers-info/add-defaults` | Starting values for the Add form, and the USB receivers seen |
-| `POST /admin/api/receivers-info/add-plan` | Check the Add form and write `instances/.add-rx.env` |
-| `GET /admin/api/station-grid` | The Site Info locator, for the Auto theme |
-
 ---
 
 ## Troubleshooting
@@ -1034,7 +659,7 @@ All themes use the same fonts and sizes; only colours and finish change. *On air
 | Waterfall message not appearing | Confirm the proxy is running (`./manage_admin.sh status`) and the frontend is on a recent build that includes the overlay renderer |
 | Waterfall message lost after restart | Expected — message state is in-memory only; re-send it after restarting the admin panel |
 | Spot Reporting "Start" fails / daemon exits immediately | Check `autorun.log`. Usually the missing `autorun/node_modules` symlink (`ln -sfn ../frontend/node_modules autorun/node_modules`) or `taskset` not installed (`sudo apt install -y util-linux`). |
-| Spot Reporting: daemon runs but `decodes` stays 0 and `autorun.log` shows `504` / `tap closed 1006` | The audio tap can't reach spectrumserver. The daemon auto-detects the port from the **running** server's config; the `[autorun] tap backend: HOST:PORT` log line must match your `[server] port`. If it's wrong (or the server wasn't running at start), pin it in `autorun.json`: `"server": { "host": "127.0.0.1", "port": 9002 }`, then Stop→Start. |
+| Spot Reporting: daemon runs but `decodes` stays 0 and `autorun.log` shows `504` / `tap closed 1006` | The audio tap can't reach spectrumserver. The daemon auto-detects the port from the **running** server's config; the `[autorun] tap backend: HOST:PORT` log line must match your `[server] port`. If it's wrong (or the server wasn't running at start), pin it in `autorun.json`: `"server": { "host": "127.0.0.1", "port": 9001 }`, then Stop→Start. |
 | **SAVE CONFIG** refused: "N slots at once exceeds cap of M (UTC hour …)" | MAX SLOTS limits the slots running at the same time. Raise it, or take hours away in the SCHEDULE where the AT ONCE row is red. |
 | Spot Reporting did not start after a reboot | **Start automatically after a reboot or crash** must be ticked and saved, and a **STOP** holds until **START** (the status card says `ON, held by STOP`). The AUTORUN log shows every `[admin …] autostart:` line; the panel itself must be running (`sudo systemctl status phantomsdr-admin`). |
 | Spot Reporting shows "0 sent" | Normal for the first few minutes — PSK Reporter flushes every 5 min, wsprnet every 2 min. Confirm a destination is enabled and the daemon is running. |

@@ -1,6 +1,6 @@
 # Plusieurs récepteurs — Manuel du sysop
 
-> **Numéros de port.** Les exemples ci-dessous utilisent les ports d'une station configurée avant les questions de la station (8900, 8901, …). Sur une station configurée avec `configure-station.sh`, `proxy.py` occupe déjà le port public 9000 et le récepteur principal est sur 9001 ; donnez donc aux récepteurs suivants 9002, 9003, etc. Les questions de la station tiennent `receivers.toml` à jour : quand un port ou l'adresse change, `configure-station.sh` déplace le récepteur principal sur son nouveau port et écrit chaque lien sous la forme `<adresse>/?rx=<id>` — un lien sans `?rx=` garderait le visiteur sur le récepteur que retient le cookie `rx`. Ne donnez jamais à un récepteur le port public lui-même : le proxy se renverrait vers lui-même, il le refuse donc désormais.
+> **Numéros de port.** Les exemples ci-dessous utilisent les ports que propose `install.sh` : `proxy.py` sur le port public 9000, le récepteur principal sur 9001, les récepteurs suivants sur 9002, 9003, etc. Les questions de la station tiennent `receivers.toml` à jour : quand un port ou l'adresse change, `configure-station.sh` déplace le récepteur principal sur son nouveau port et écrit chaque lien sous la forme `<adresse>/?rx=<id>` — un lien sans `?rx=` garderait le visiteur sur le récepteur que retient le cookie `rx`. Ne donnez jamais à un récepteur le port public lui-même : le proxy se renverrait vers lui-même, il le refuse donc désormais.
 
 **Deux récepteurs ou plus sur un même ordinateur, avec un sélecteur de récepteur sur la page.**
 
@@ -34,14 +34,14 @@ Depuis la v5.0.0, un ordinateur PhantomSDR-Plus peut faire tourner plusieurs ré
 Chaque récepteur est un spectrumserver complet et indépendant, avec son propre SDR, sa propre configuration et son propre port interne. Ils ne partagent jamais d'échantillons, de réglages ni d'auditeurs. Ce qui les relie, c'est `proxy.py`, le proxy inverse qui sert déjà le panneau d'administration : il lit `receivers.toml` et envoie chaque requête à un récepteur.
 
 ```
-                         ┌──► :8900  spectrumserver  RX-888   (HF, le récepteur principal)
+                         ┌──► :9001  spectrumserver  RX-888   (HF, le récepteur principal)
 auditeurs ──► proxy.py ──┤
                          └──► 127.0.0.1:9002  spectrumserver  RTL-SDR  (2 m, instance "vhf")
 ```
 
 Le proxy décide d'après ces éléments, dans cet ordre :
 
-1. `?rx=<id>` dans l'adresse — `http://votre.hote:8899/?rx=vhf`. La page l'ajoute à chaque socket, requête et lien qu'elle ouvre, si bien qu'un onglet reste sur son récepteur.
+1. `?rx=<id>` dans l'adresse — `http://votre.hote:9000/?rx=vhf`. La page l'ajoute à chaque socket, requête et lien qu'elle ouvre, si bien qu'un onglet reste sur son récepteur.
 2. Le cookie `rx`, que le proxy pose chaque fois qu'une requête porte un `?rx=` valide.
 3. L'en-tête Host, si un récepteur cite ce nom dans `hostnames`.
 4. Sinon le récepteur par défaut.
@@ -52,18 +52,18 @@ Le **récepteur principal** est celui que l'on démarre comme d'habitude (`./sta
 
 ## 2. Deux façons de publier les récepteurs
 
-**A — le récepteur principal garde son propre port.** Le récepteur principal reste exactement où il était (par exemple `:8900`), ses auditeurs ne remarquent rien, et l'on atteint les autres récepteurs par le port du proxy (`proxy_port` dans `admin_config.json`, par exemple `:8899`) avec `?rx=`. Rien ne bouge et rien ne quitte l'antenne ; en contrepartie il y a deux ports publics.
+**A — le récepteur principal garde son propre port.** Le récepteur principal reste exactement où il était (par exemple `:9001`), ses auditeurs ne remarquent rien, et l'on atteint les autres récepteurs par le port du proxy (`proxy_port` dans `admin_config.json`, par exemple `:9000`) avec `?rx=`. Rien ne bouge et rien ne quitte l'antenne ; en contrepartie il y a deux ports publics.
 
 ```
-HF :  http://votre.hote:8900/
-2 m : http://votre.hote:8899/?rx=vhf
+HF :  http://votre.hote:9001/
+2 m : http://votre.hote:9000/?rx=vhf
 ```
 
 **B — un seul port public pour tout.** Le proxy prend le port public et le récepteur principal passe sur un port interne. Définissez `[front] port` dans `receivers.toml`, déplacez le `[server] port` du récepteur principal et mettez-y `host = "127.0.0.1"`, mettez le nouveau port interne dans `public_port` de `admin_config.json` et ajoutez `public_port = <le port public>` sous `[websdr]`, pour que l'annuaire continue d'annoncer le bon. Tout se trouve alors derrière un seul port ; le prix est une courte coupure pendant le déplacement.
 
 ```
-HF :  http://votre.hote:8900/
-2 m : http://votre.hote:8900/?rx=vhf
+HF :  http://votre.hote:9000/
+2 m : http://votre.hote:9000/?rx=vhf
 ```
 
 Le sélecteur de récepteur fonctionne de la même façon dans les deux cas. La disposition A est le début le plus sûr ; B peut suivre plus tard sans rien changer au second récepteur.
@@ -72,65 +72,7 @@ Le sélecteur de récepteur fonctionne de la même façon dans les deux cas. La 
 
 ## 3. Ajouter un second récepteur
 
-**`add-receiver.sh` effectue toutes les étapes ci-dessous** — lancez-le et répondez à ses questions ; il installe aussi le pilote (`setup-rtlsdr.sh` pour un RTL-SDR, le `setup-*.sh` correspondant pour les autres), choisit un port interne libre et nomme le récepteur d'après ce qu'il couvre. Les étapes sont détaillées ici pour que vous puissiez vérifier son travail ou le modifier plus tard.
-
-L'exemple ajoute un RTL-SDR Blog V4 pour le 2 m comme instance `vhf`, à côté d'un RX-888 qui garde le port 8900 (disposition A).
-
-**1. Le pilote.** Le RTL-SDR Blog V4 a besoin du pilote de RTL-SDR Blog plutôt que du paquet `rtl-sdr` de la distribution, et le pilote DVB-T du noyau doit libérer la clé. `install.sh` (option de récepteur 2, « RTL-SDR Blog V4 : oui ») fait les deux. Vérifiez avec `rtl_test -t`, qui doit afficher `RTL-SDR Blog V4 Detected`.
-
-**2. Le dossier de l'instance.** Tout ce qui appartient au récepteur se trouve dans `instances/vhf/`, jamais versionné et jamais écrasé par une mise à jour :
-
-```
-instances/vhf/
-├── config.toml          la configuration de son spectrumserver (obligatoire)
-├── instance.env         facultatif : paramètres du récepteur et cœurs de CPU
-├── markers.json         ses propres repères
-└── www/                 ses propres copies des fichiers de station de la page
-    ├── site_information.json
-    └── wf-message.json
-```
-
-spectrumserver tourne avec `instances/vhf/` comme répertoire de travail ; l'historique du chat, les repères, le FFTW wisdom et `logs/` sont donc aussi les siens.
-
-**3. `config.toml`.** Partez de `config-rtl.toml` et modifiez :
-
-```toml
-[server]
-port=9002                              # son propre port interne
-host="127.0.0.1"                       # joignable uniquement par le proxy
-html_root="www/"                       # ses quelques fichiers propres...
-html_fallback_root="../../frontend/dist/"   # ...et la page commune pour le reste
-
-[input]
-sps=2400000                            # identique à -s dans instance.env
-frequency=145000000                    # identique à -f dans instance.env
-
-[input.defaults]
-frequency=145500000
-modulation="FM"
-
-[kiwi_emulation]
-enabled = false                        # voir les pièges plus bas
-```
-
-`html_fallback_root` permet à l'instance de ne garder que ses propres `site_information.json` et `wf-message.json`, tandis que tout le reste — la page compilée elle-même — vient de `frontend/dist` ; une seule compilation du frontend atteint ainsi chaque récepteur. Une copie de `frontend/dist` faite de liens symboliques ne fonctionne pas : le serveur refuse les fichiers qui aboutissent hors de son propre dossier.
-
-**4. `instance.env`.** Lu par le script de démarrage après ses propres réglages :
-
-```bash
-RX_ARGS="-f 145000000 -s 2400000 -g 29.7 -"   # -f et -s identiques à config.toml
-SPECTRUM_CORES=8-11                           # hors des cœurs du récepteur principal
-```
-
-**5. Les informations de sa page.** Copiez `frontend/site_information.json` dans `instances/vhf/www/` et modifiez : `siteReceiver`, `siteAntenna`, `siteSDRBaseFrequency` et `siteSDRBandwidth` (ils décident quels boutons de bande apparaissent), ainsi que les clés décrites à la [section 6](#6-ce-que-voient-les-auditeurs).
-
-**6. Démarrez-le.**
-
-```bash
-INSTANCE=vhf ./start-rtl.sh
-```
-
-**7. Inscrivez-le dans `receivers.toml`** et redémarrez le proxy (`sudo systemctl restart phantomsdr-proxy`). Le second récepteur est maintenant à `http://votre.hote:8899/?rx=vhf`, et les deux pages affichent le sélecteur.
+**`add-receiver.sh` ajoute un récepteur** — lancez-le et répondez à ses questions ; il installe le pilote (`setup-rtlsdr.sh` pour un RTL-SDR, le `setup-*.sh` correspondant pour les autres), choisit un port interne libre, écrit le dossier de l'instance, sa configuration et sa ligne dans `receivers.toml`, et nomme le récepteur d'après ce qu'il couvre. La page **Receivers** du panneau d'administration fait la même chose avec ➕ ADD NEW RECEIVER.
 
 ---
 
@@ -140,15 +82,15 @@ Copiez `receivers.toml.example` en `receivers.toml`. Sans ce fichier, le proxy s
 
 ```toml
 # [front]
-# port = 8900        # disposition B seulement : le proxy écoute aussi sur ce port public
+# port = 9000        # disposition B seulement : le proxy écoute aussi sur ce port public
 
 [[receiver]]
 id       = "hf"
 name     = "HF 0-30 MHz (RX-888 MkII)"
-port     = 8900
+port     = 9001
 default  = true
 launcher = "start-rx888mk2.sh"
-url      = "http://votre.hote:8900/"
+url      = "http://votre.hote:9000/"
 
 [[receiver]]
 id       = "vhf"
@@ -156,7 +98,7 @@ name     = "2 m (RTL-SDR Blog V4)"
 port     = 9002
 launcher = "start-rtl.sh"
 instance = "vhf"
-url      = "http://votre.hote:8899/?rx=vhf"
+url      = "http://votre.hote:9000/?rx=vhf"
 ```
 
 | Clé | Signification |
@@ -211,11 +153,11 @@ Les clés de `site_information.json` concernées :
 | Clé | Signification |
 |---|---|
 | `siteReceiverId` | Le récepteur auquel appartient cette page (son `id`) ; à omettre sur le récepteur principal |
-| `siteReceiversList` | Où le sélecteur lit la liste, p. ex. `http://votre.hote:8899/receivers.json` ; nécessaire sur un récepteur dont la page n'est pas servie par le proxy |
+| `siteReceiversList` | Où le sélecteur lit la liste, p. ex. `http://votre.hote:9000/receivers.json` ; nécessaire sur un récepteur dont la page n'est pas servie par le proxy |
 | `siteReceiverURL` | Vers où pointe le nom de *Receiver* dans *Open Additional Info* |
 | `siteAntennaURL` | Vers où pointe le nom de *Antenna* ; `""` affiche le nom sans lien |
 
-**Quand le sélecteur reste caché.** Le sélecteur n'affiche qu'une liste qui cite l'hôte sous lequel la page a été ouverte. Ouverte par l'adresse du réseau local (`http://192.168.1.10:8900/`), il reste caché ; ouverte en `http://votre.hote:8900/`, il apparaît. C'est voulu : une station qui a copié le `site_information.json` d'une autre sans le modifier n'affiche jamais les récepteurs de celle-ci comme les siens.
+**Quand le sélecteur reste caché.** Le sélecteur n'affiche qu'une liste qui cite l'hôte sous lequel la page a été ouverte. Ouverte par l'adresse du réseau local (`http://192.168.1.10:9000/`), il reste caché ; ouverte en `http://votre.hote:9000/`, il apparaît. C'est voulu : une station qui a copié le `site_information.json` d'une autre sans le modifier n'affiche jamais les récepteurs de celle-ci comme les siens.
 
 ---
 
@@ -230,11 +172,6 @@ Pour un RTL-SDR, `add-receiver.sh` écrit un étalonnage de départ : un gain fi
 ---
 
 ## 8. Sécurité
-
-Placer le proxy devant les auditeurs a fermé deux failles, toutes deux corrigées dans la v5.0.0 :
-
-- **L'expulsion du sysop à travers le proxy.** spectrumserver n'accepte `/~~kick` que depuis son propre ordinateur, et pour lui chaque requête relayée par le proxy vient de son propre ordinateur. Quiconque atteignait le port du proxy pouvait donc déconnecter et bannir n'importe quel auditeur. Le proxy ne répond désormais à `/~~kick` que pour les clients du même ordinateur. Il en va de même pour `/~~users` (la liste des utilisateurs avec les adresses IP) et `/~~unban`, ajoutés en 5.3.0 ; spectrumserver refuse en outre ces deux-là quand la requête porte `X-Forwarded-For`, comme tout ce que relaie le proxy.
-- **Adresses de client falsifiées.** spectrumserver croyait l'en-tête `X-Forwarded-For` de n'importe qui ; un visiteur pouvait donc se dire `127.0.0.1` et passer outre les limites par adresse. L'en-tête n'est désormais cru que s'il vient d'un proxy local, et le proxy supprime toute copie envoyée par un client avant d'ajouter la sienne.
 
 Liez chaque récepteur joint par le proxy à `127.0.0.1` (`[server] host`), afin que son port ne puisse pas servir à contourner le proxy. Les limites par adresse de [Limites de connexion](CONNECTION_LIMITS.md) s'appliquent par récepteur.
 
@@ -255,7 +192,7 @@ Le logiciel ne fixe aucune limite ; le matériel, si. Les récepteurs à bande �
 
 - **Deux clés du même modèle ont le même numéro de série.** Chaque RTL-SDR Blog V4 indique `00000001`. Donnez à chacune le sien avec `rtl_eeprom -s <série>` (une seule clé branchée à la fois) et nommez-le dans `instance.env` (`RX_ARGS="-d <série> …"`), sinon après un redémarrage les clés peuvent échanger leurs récepteurs.
 - **Les clients Kiwi ne peuvent pas choisir de récepteur.** Un client KiwiSDR appelle une simple adresse et un port ; à travers le proxy il aboutit toujours au récepteur par défaut. Laissez `[kiwi_emulation]` désactivé sur les autres.
-- **Les cookies valent par hôte, pas par port.** Un visiteur qui a utilisé le second récepteur sur `:8899` emporte aussi `rx=vhf` vers `:8900`. C'est pourquoi une page décide quel récepteur elle est d'après `siteReceiverId`, jamais d'après le cookie.
+- **Les cookies valent par hôte, pas par port.** Un visiteur qui a utilisé le second récepteur sur `:9000` emporte aussi `rx=vhf` vers `:9001`. C'est pourquoi une page décide quel récepteur elle est d'après `siteReceiverId`, jamais d'après le cookie.
 - **Les entrées d'annuaire.** Donnez à chaque récepteur son propre nom dans `[websdr]`, et sur un récepteur derrière le proxy mettez `[websdr] public_port` au port qu'utilisent les auditeurs, sinon l'entrée annonce le port interne.
 - **Une compilation du frontend affiche brièvement « Not Found ».** `frontend/dist` est recompilé sur place ; pendant quelques secondes de compilation, la page manque sur chaque récepteur.
 - **Rien ne démarre les récepteurs au démarrage de l'ordinateur**, à moins que vous ne le prévoyiez. Après un redémarrage, `./start-all.sh` les ramène tous.

@@ -1,6 +1,6 @@
 # RADE v1 Digitalsprache für PhantomSDR-Plus
 
-> **Auf einer mit den Stationsfragen (`configure-station.sh`) eingerichteten Station** lauscht der Sidecar nur im Rechner, auf `PORT_RADE` (9012), und die Seite erreicht ihn als `/rade` auf dem öffentlichen Port über `proxy.py` — Port 8074 weiter unten wird dann weder benutzt noch weitergeleitet. Auf einer Station, die vor dem Assistenten eingerichtet wurde, gilt alles Folgende wie beschrieben.
+> **Port 9012.** Auf einer mit `install.sh` eingerichteten Station lauscht der Sidecar nur innerhalb des Rechners, auf `PORT_RADE` (9012), und die Seite erreicht ihn als `/rade` auf dem öffentlichen Port 9000 über `proxy.py`; am Router muss also nichts geöffnet werden.
 
 **RADE** (Radio AutoencoDEr) ist FreeDVs führende Betriebsart für digitale Sprache auf Kurzwelle. Sie nutzt einen Hybrid aus maschinellem Lernen und DSP (den neuronalen FARGAN-Vocoder) und liefert hochwertige Sprache über Kurzwelle bei Signal-Rausch-Abständen bis hinunter zu −2 dB, in nur 1500 Hz HF-Bandbreite — schmaler als ein SSB-Signal.
 
@@ -17,9 +17,7 @@ cd ~/PhantomSDR-Plus
 
 Das ist die gesamte Installation. Das Skript installiert die Systempakete über den Paketmanager der Maschine (apt, pacman, dnf oder zypper), weicht für Module, die eine Distribution nicht mitbringt, auf pip aus, aktualisiert `websockets`, wenn die Distributionsversion älter als die vom Sidecar benötigte 11.0 ist, klont und baut radae, prüft die Modellgewichte, baut das Frontend neu und startet den Sidecar. Unter Ubuntu 22.04 übergibt es für Sie an `install_rade_ubuntu22.sh`. `./install.sh` bietet an, es im Rahmen der normalen PhantomSDR-Plus-Installation auszuführen — auf einer frischen Maschine ist RADE also bereits vorhanden. Außerdem baut es FreeDVs rade_c für RADE V2 (beta); schlägt dieser Schritt fehl, wird RADE V1 trotzdem installiert.
 
-**Dieses Dokument erklärt, wie RADE funktioniert und wie man es betreibt — es ist nicht die Installationsanleitung.** Wenn Sie die Installation von Hand durchführen müssen, auf einem System, das das Skript nicht abdeckt, oder um einen einzelnen Schritt zu reparieren, folgen Sie der unten verlinkten Anleitung; nur dort sind die Schritte niedergeschrieben. Alles hier — die Architektur, die gepatchten Dateien, der Port, die Nutzung von RADE im Browser, die Umgebungsvariablen, die Fehlerbehebung und die Messung der Gleichzeitigkeit — gilt für jede Installation, gleich wie sie zustande kam.
-
-- **[Manuelle Installation unter Linux](RADE_General_INSTALL_MANUAL_LINUX.md)** - der Weg von Hand, Schritt für Schritt, für Ubuntu, Debian, Fedora, Arch und Raspberry Pi OS
+**Dieses Dokument erklärt, wie RADE funktioniert und wie man es betreibt.** Die Installation erledigt immer `./install_rade.sh` (oder `./install.sh`, das sie anbietet).
 
 ---
 
@@ -31,18 +29,13 @@ Das ist die gesamte Installation. Das Skript installiert die Systempakete über 
 4. [RADEL gegenüber RADEU](#radel-gegenüber-radeu)
    - [RADE V2 (beta) — RADE2](#rade-v2-beta--rade2)
 5. [Voraussetzungen](#voraussetzungen)
-6. [Installation von Hand](#installation-von-hand)
-7. [Die gepatchten Dateien ausbringen](#die-gepatchten-dateien-ausbringen)
-8. [Steuerung des Sidecars](#steuerung-des-sidecars)
-9. [Port 8074](#port-8074)
-10. [RADE im Browser nutzen](#rade-im-browser-nutzen)
-11. [Überprüfung und Fehlersuche](#überprüfung-und-fehlersuche)
-12. [Umgebungsvariablen](#umgebungsvariablen)
-13. [Geänderte Dateien](#geänderte-dateien)
-14. [Zusammenfassung des Signalflusses](#zusammenfassung-des-signalflusses)
-15. [Fehlerbehebung](#fehlerbehebung)
-16. [Gleichzeitigkeit auf eigener Hardware messen](#gleichzeitigkeit-auf-eigener-hardware-messen)
-17. [RADE v1 aktualisieren](#rade-v1-aktualisieren)
+6. [Steuerung des Sidecars](#steuerung-des-sidecars)
+7. [Port 9012](#port-9012)
+8. [RADE im Browser nutzen](#rade-im-browser-nutzen)
+9. [Überprüfung und Fehlersuche](#überprüfung-und-fehlersuche)
+10. [Umgebungsvariablen](#umgebungsvariablen)
+11. [Fehlerbehebung](#fehlerbehebung)
+12. [RADE v1 aktualisieren](#rade-v1-aktualisieren)
 
 ---
 
@@ -79,10 +72,10 @@ Der C++-Server (`spectrumserver.cpp`) wird überhaupt nicht verändert.
 │       │  raw SSB PCM @ audioOutputSps ◄─────────────┘             │
 │       │  (tapped before mute gate, zero-padded to complex f32)     │
 │       │                                                            │
-│       │  binary WebSocket ──► ws://host:8074                       │
+│       │  binary WebSocket ──► ws://host:9000/rade                       │
 │       ▼                                                            │
 ├────────────────────────────────────────────────────────────────────┤
-│  rade_helper.py  (port 8074)                                       │
+│  rade_helper.py  (port 9012)                                       │
 │                                                                    │
 │  resample to 8000 Hz if needed                                     │
 │  zero-pad real f32 → complex f32 pairs                             │
@@ -127,24 +120,12 @@ RADE v1 wird stets über SSB übertragen. Konventionell gilt:
 
 V2 wird auf dem Server von FreeDVs C-Portierung **rade_c** dekodiert (`radae_rx --v2` und sein eigenes `lpcnet_demo`), gebaut in einem eigenen Ordner `~/rade_c`, sodass die V1-Installation in `~/radae` nie berührt wird. `./install_rade.sh` lädt und baut es (Schritt „rade_c (RADE V2, beta)“); schlägt dieser Schritt fehl, warnt es nur, und RADE V1 wird trotzdem installiert. `rade_helper.py` verwendet rade_c ab der nächsten RADE2-Verbindung — ein Neustart ist nicht nötig — und ohne es meldet RADE2 dem Hörer „RADE V2 is not installed on this station yet“. Eine V2-Dekodierung kostet etwa 1 % eines CPU-Kerns pro Hörer (V1: etwa 70–80 %).
 
-rade_c von Hand bauen (unter Ubuntu 22.04 zuerst `sudo apt-get install autoconf automake libtool`):
-
-```bash
-cd ~
-git clone https://github.com/freedv/rade_c.git
-cd rade_c
-cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
-cmake --build build -j4
-```
-
 **Auf Sendung**
 
 - Bis auf etwa **±30 Hz** genau auf die Frequenz der Station abstimmen. Weiter daneben zeigt V2 noch „Synced“, aber die Sprache ist unverständlich.
 - Jeder Durchgang beginnt **2–3 s verspätet**: Während V2 einrastet, hält es das Signal fest und spielt dann den Anfang des Durchgangs.
 - Unterhalb von etwa **−2 dB SNR** wird der V2-Ton stummgeschaltet und das Panel zeigt „Searching for signal…“ — außer die letzten 2 Sekunden sehen nach echtem V2 aus (der Decoder sieht sein Signal die meiste Zeit und seine Frequenzschätzung bleibt ruhig); dann spielt er bis etwa **−6 dB**. Auf belebten LSB-Telefoniefrequenzen, in USB gehört (40 m), kann V2 auf gewöhnliche Stimmen einrasten und unverständlichen Ton spielen; diese wirken nie ruhig und bleiben daher stumm. `RADE_V2_MIN_SNR` und `RADE_V2_WEAK_SNR` legen die beiden Schwellen fest.
 - Zwischen den Durchgängen kehrt das Panel zu „Searching for signal…“ zurück.
-
-**Was der Sidecar für V2 tut.** Der Empfängerton wird in einem durchgehenden Strom auf 8 kHz umgetastet — in einzelnen Stücken verlor V2 immer wieder die Synchronisation; er wird auf einen Pegel gebracht, bei dem der Decoder arbeitet — beim niedrigen Empfängerpegel dekodierte V2 nur die ersten Sekunden jedes Durchgangs; und die dekodierte Sprache wird auf −16 dBFS ausgeglichen (`RADE_V2_TARGET_DB`), weil sie nur so laut ist wie das Mikrofon der sendenden Station. RADE V1 läuft jetzt durch dieselbe durchgehende Umtastung und dekodiert dadurch schwächere und schwundbehaftete Signale besser als zuvor.
 
 **Wenn FreeDV 3.0 erscheint**, `./install_rade.sh` erneut ausführen — oder `git pull` in `~/rade_c` und `cmake --build build` —, dann verwenden neue RADE2-Verbindungen die neue Version.
 
@@ -165,66 +146,6 @@ cmake --build build -j4
 | matplotlib | beliebig | von `radae_rxe.py` beim Import benötigt |
 | numpy | 1.23+ | erforderlich; ermöglicht auch Resampling |
 | scipy | beliebig | optional, ermöglicht genaues Resampling |
-
----
-
-## Installation von Hand
-
-`./install_rade.sh` erledigt die gesamte Installation. Wenn Sie es selbst tun wollen — auf einem System, das das Skript nicht abdeckt, oder um einen Schritt zu reparieren — steht das Verfahren in der **[RADE v1 — Anleitung zur manuellen Installation](RADE_General_INSTALL_MANUAL_LINUX.md)**, und nur dort. Sie deckt Ubuntu, Debian, Fedora, Arch und Raspberry Pi OS in einem Durchgang ab:
-
-| | |
-|---|---|
-| Schritt 1 | Systempakete und die Prüfung auf Node.js 22+ |
-| Schritt 2 | Python-Pakete, einschließlich der PEP-668-Option und des CPU-only-torch-Wheels |
-| Schritt 3 | Das radae-Repository klonen und bauen, `lpcnet_demo` und die Modellgewichte prüfen |
-| Schritt 4 | Die Dekodierkette offline überprüfen, bevor sie an den Browser angeschlossen wird |
-| Schritt 5 | Das PhantomSDR-Plus-Frontend bauen |
-| Schritt 6 | Steuerung des Sidecars |
-| Schritt 7 | Port 8074 öffnen |
-| Schritte 8–10 | Server starten, RADE überprüfen, im Browser nutzen |
-
-Der Rest dieses Dokuments setzt das als erledigt voraus.
-
----
-
-## Die gepatchten Dateien ausbringen
-
-Kopieren Sie die folgenden Dateien aus dem Patch-Satz in Ihr PhantomSDR-Plus-Repository.
-
-### Neue Datei — in das Wurzelverzeichnis des Repositories legen, neben das von Ihnen genutzte Startskript:
-
-```
-rade_helper.py
-```
-
-### Gepatchte Frontend-Dateien — nach `frontend/src/` legen:
-
-```
-audio.js
-App.svelte
-```
-
-### Was die Patches bewirken
-
-**`audio.js`** — 5 Änderungen:
-- Konstruktor: 5 neue RADE-Zustandsfelder (`decodeRADE`, `_radeSideband`, `_radeSocket`, `_radeCallback`, `_radeReady`, `_radeNextTime`)
-- Speichern des PCM vor der Anhebung: `pcmArrayPreBoost` wird vor der 300-fachen FLAC-Anhebung gesichert, damit RADE die ursprüngliche Amplitude erhält (die Anhebung würde `radae_rxe.py` übersteuern)
-- `playAudio()`: RADE-PCM-Abgriff mit dem Audio vor der Anhebung, vor Stumm-/Rauschsperre
-- `playAudio()`: Wächter `if (this.decodeRADE) return` — unterdrückt die rohe SSB-Wiedergabe, während die von RADE dekodierte Sprache läuft
-- Neue Methoden: `setRADEDecoding()`, `setRADECallback()`, `_radePlayPCM()` mit lückenloser, geplanter Wiedergabe über die Uhr `_radeNextTime` (spielt mit **16000 Hz** — der Ausgaberate von `lpcnet_demo`)
-
-**Jede Svelte-Variante** — 6 Änderungen:
-- `demodulationDefaults`: RADEL `{type:'LSB', offsets:[2200,-700]}`, RADEU `{type:'USB', offsets:[-700,2200]}` — der Durchlassbereich beginnt 700 Hz vom Träger und ist 1500 Hz breit
-- Zustandsvariablen: `radeEnabled`, `radeConnected`, `radeSynced`, `radeSnr`, `_radeDeactivate()`
-- `_radeDeactivate()`: stoppt den Decoder und **stellt die Standardbetriebsart des Bandes** aus `bands-config.js` wieder her — identisches Verhalten zum Abschalten von FAX, NAVTEX, FSK
-- `_deactivateAll()`: RADE-Aufräumzeile
-- `activateSelectedDecoder()`: Zweige `radel` und `radeu`
-- Decoder-Auswahlmenü: zwei neue `<option>`-Einträge
-- Statusfeld: Verbindungspunkt, Sync-/SNR-Status, Fehlerbanner
-
-### Startskripte
-
-Die Startskripte des Empfängers (`start-rx888mk2.sh`, `start-airspyhf.sh`, `start-rtl.sh`, `start-rsp1a.sh`, `start-fobos-hf.sh`, `start-fobos.sh`, `start-hackrf.sh`) starten das Sidecar selbst, sobald der Server läuft, und `stop-websdr.sh` stoppt es zusammen mit dem Server. `rade.sh` bleibt für den eigenständigen Betrieb des Sidecars — siehe [Steuerung des Sidecars](#steuerung-des-sidecars).
 
 ---
 
@@ -255,18 +176,14 @@ tail -f ~/PhantomSDR-Plus/rade.log
 
 ---
 
-## Port 8074
+## Port 9012
 
-Das Sidecar lauscht auf TCP-Port **8074**, und der Browser verbindet sich direkt damit; der Port muss also von außen erreichbar sein. Wie man ihn öffnet — ufw, firewalld, iptables, die NAT-Regel im Router und der Nginx-Proxy für den Fall, dass ein Provider den Port ganz sperrt — steht in [Schritt 7 der manuellen Anleitung](RADE_General_INSTALL_MANUAL_LINUX.md).
-
-Zwei Dinge sind es wert, hier wiederholt zu werden, weil sie die meiste Zeit kosten:
+Der Sidecar lauscht auf TCP-Port **9012**, nur innerhalb des Rechners. Der Browser erreicht ihn über `proxy.py` als `/rade` auf dem öffentlichen Port 9000; am Router und in einer Firewall muss also kein weiterer Port geöffnet werden.
 
 ```bash
 # Is the sidecar listening?
-ss -tlnp | grep 8074
+ss -tlnp | grep 9012
 ```
-
-> **Warnung vor NAT-Hairpin:** Ein Test mit `curl` vom Server auf seinen eigenen öffentlichen Hostnamen liefert häufig `Connection refused`, auch wenn der Port offen ist — viele Router leiten den Verkehr nicht zurück. Testen Sie immer von einer Maschine außerhalb, oder nutzen Sie **https://portchecker.co**.
 
 ---
 
@@ -297,7 +214,7 @@ Eine Taste **RADE-v2U** steht an denselben drei Stellen vor RADE-v1L und RADE-v1
 
 | Anzeige | Bedeutung |
 |---|---|
-| 🔴 Rot — „Connecting to sidecar…" | Port 8074 nicht erreichbar oder Sidecar läuft nicht |
+| 🔴 Rot — „Connecting to sidecar…" | Port 9012 nicht erreichbar oder Sidecar läuft nicht |
 | 🟡 Gelb — „Searching for signal…" | Sidecar verbunden, noch kein RADE-Rahmen erkannt |
 | 🟢 Grün — „Synced · SNR x.x dB" | Dekodierung läuft — Sprache ist zu hören |
 
@@ -313,7 +230,7 @@ Betriebsart und Durchlassbereich kehren automatisch zum korrekten Standard für 
 
 ```bash
 ps aux | grep rade_helper | grep -v grep
-ss -tlnp | grep 8074
+ss -tlnp | grep 9012
 ```
 
 ### Aktivität live beobachten
@@ -329,32 +246,17 @@ Wenn sich ein Browser verbindet:
 [RADE] x.x.x.x:XXXXX spawning pipeline (torch_threads=1)
 ```
 
-### Schneller WebSocket-Rauchtest
-
-```bash
-python3 - << 'EOF'
-import asyncio, websockets, json
-
-async def test():
-    async with websockets.connect('ws://localhost:8074') as ws:
-        await ws.send(json.dumps({'type': 'init', 'sps': 8000, 'sideband': 'LSB'}))
-        print(await ws.recv())   # expect: {"type": "status", "connected": true}
-
-asyncio.run(test())
-EOF
-```
-
 ### Browserkonsole (F12)
 
 ```
-[RADE] ▶ ENABLED LSB @ 12000 Hz → helper ws://localhost:8074
+[RADE] ▶ ENABLED LSB @ 12000 Hz → helper ws://localhost:9000/rade
 ```
 Gut — der WebSocket ist offen. Der Hz-Wert entspricht dem `audioOutputSps` Ihres Servers (typischerweise 8000–12000 Hz).
 
 ```
 [RADE] sidecar socket error
 ```
-Port 8074 ist nicht erreichbar — prüfen Sie Firewall und NAT-Regel des Routers.
+Der Sidecar ist nicht erreichbar — prüfen Sie, ob er läuft (`ss -tlnp | grep 9012`) und ob `proxy.py` läuft.
 
 ---
 
@@ -362,7 +264,7 @@ Port 8074 ist nicht erreichbar — prüfen Sie Firewall und NAT-Regel des Router
 
 | Variable | Standard | Beschreibung |
 |---|---|---|
-| `RADE_HELPER_PORT` | `8074` | TCP-Port, auf dem der Sidecar lauscht |
+| `RADE_HELPER_PORT` | `9012` | TCP-Port, auf dem der Sidecar lauscht |
 | `RADE_HELPER_HOST` | `0.0.0.0` | Bindeadresse (`127.0.0.1` hinter einem Proxy) |
 | `RADAE_DIR` | `~/radae` | Wurzel des radae-Repositories |
 | `RADE_MODEL` | `RADAE_DIR/model19_check3/checkpoints/checkpoint_epoch_100.pth` | Modellgewichte |
@@ -380,61 +282,6 @@ Port 8074 ist nicht erreichbar — prüfen Sie Firewall und NAT-Regel des Router
 
 ---
 
-## Geänderte Dateien
-
-| Datei | Art | Anmerkungen |
-|---|---|---|
-| `rade_helper.py` | **Neu** | Python-Sidecar: WebSocket-Server + Dekodierkette aus zwei Prozessen |
-| `frontend/src/audio.js` | Geändert | 4 Patches |
-| `frontend/src/App.svelte` | Geändert | 6 Patches |
-| `rade.sh` | **Neu** | Steuerskript für das RADE-Sidecar im eigenständigen Betrieb (start/stop/restart/status) |
-| `start-rx888mk2.sh` | Geändert | startet, überwacht und meldet das Sidecar; ebenso `start-airspyhf.sh`, `start-rtl.sh`, `start-rsp1a.sh`, `start-fobos-hf.sh`, `start-fobos.sh`, `start-hackrf.sh` |
-| `stop-websdr.sh` | Geändert | stoppt das Sidecar zusammen mit dem Server |
-| `spectrumserver.cpp` | **Unverändert** | Keine C++-Änderungen erforderlich |
-
----
-
-## Zusammenfassung des Signalflusses
-
-```
-Antenna → RX-888 MK2 → PhantomSDR-Plus C++ server
-                              │
-                    FFT + DDC + SSB demodulation
-                    (USB or LSB — set by RADEL/RADEU)
-                              │
-                    Opus/FLAC encode → WebSocket → Browser
-                              │
-                         audio.js decode()
-                              │
-                         playAudio(pcmArray)
-                              │
-               ┌──────────────┴────────────────────────────┐
-               │  rawPcm tap (before mute gate)             │
-               │  real f32 → zero-padded complex f32 pairs  │
-               └──────────────┬────────────────────────────┘
-                              │ WebSocket binary → ws://host:8074
-                              ▼
-                       rade_helper.py
-                              │ resample to 8000 Hz if needed
-                              │ stdin pipe
-                              ▼
-          radae_rxe.py  --model_name model19_check3/.../checkpoint_epoch_100.pth
-          (PyTorch FARGAN neural vocoder, auxdata ON by default)
-                              │ stdout pipe (vocoder features f32)
-                              ▼
-          lpcnet_demo  -fargan-synthesis  -  -
-                              │ stdout: s16 PCM @ 16000 Hz
-                              │ sidecar converts s16 → f32
-                              │ WebSocket binary frames → browser
-                              ▼
-                  audio.js  _radePlayPCM()
-                  AudioContext.createBuffer(16000 Hz)
-                              │
-                           Speaker 🔊
-```
-
----
-
 ## Fehlerbehebung
 
 ### Rotes Banner — „Sidecar not reachable"
@@ -445,50 +292,6 @@ ps aux | grep rade_helper | grep -v grep
 
 # Start it manually for testing
 python3 ~/PhantomSDR-Plus/rade_helper.py &
-
-# Check port is open externally — use portchecker.co NOT curl from the server
-# (curl from the server uses NAT loopback and gives false "Connection refused")
-```
-
----
-
-### Port 8074 auf portchecker.co trotz iptables-Regel geschlossen
-
-Möglicherweise filtert der Provider den Port, oder die NAT-Regel des Routers fehlt. Möglichkeiten:
-
-1. Einen anderen Port versuchen: `RADE_HELPER_PORT=8080 python3 rade_helper.py`
-2. Über Ihren bestehenden öffentlichen Port per Nginx proxen (siehe [Schritt 7 der manuellen Anleitung](RADE_General_INSTALL_MANUAL_LINUX.md))
-
----
-
-### `radae_rxe.py: error: unrecognized arguments: model_path`
-
-Der Modellpfad muss mit `--model_name` übergeben werden, nicht als Positionsargument:
-
-```bash
-# WRONG — positional argument
-python3 radae_rxe.py model19_check3/checkpoints/checkpoint_epoch_100.pth
-
-# CORRECT — named argument
-python3 radae_rxe.py --model_name model19_check3/checkpoints/checkpoint_epoch_100.pth
-```
-
----
-
-### `ModuleNotFoundError: No module named 'matplotlib'`
-
-```bash
-pip3 install matplotlib
-```
-
-`radae_rxe.py` importiert matplotlib bedingungslos am Dateianfang.
-
----
-
-### `ModuleNotFoundError: No module named 'torch'`
-
-```bash
-pip3 install torch
 ```
 
 ---
@@ -505,41 +308,12 @@ ls src/lpcnet_demo     # should exist now
 
 ---
 
-### Fehler `size mismatch` in `inference.sh`
-
-`model19_check3` benötigt `--auxdata`, wenn mit `inference.sh` kodiert wird:
-
-```bash
-./inference.sh model19_check3/checkpoints/checkpoint_epoch_100.pth \
-    wav/brian_g8sez.wav /dev/null \
-    --rate_Fs --pilots --pilot_eq --eq_ls --cp 0.004 \
-    --write_rx rx.f32 --auxdata    # ← required for model19_check3
-```
-
-Hinweis: Beim **Dekodieren** mit `radae_rxe.py` ist `--auxdata` der Standard — übergeben Sie es dort nicht.
-
----
-
 ### Gelbe Anzeige — „Searching for signal" — rastet nie ein
 
 - Bestätigen Sie das richtige Seitenband: RADEL für ≤ 10 MHz, RADEU für > 10 MHz
 - Prüfen Sie auf [qso.freedv.org](https://qso.freedv.org), ob gerade eine Station sendet
 - RADE v1 nutzt 30 Träger in 1500 Hz Bandbreite — es erscheint als kompakte Gruppe im Wasserfall
 - Rechnen Sie mit bis zu 1,5 Sekunden für das Einrasten
-
----
-
-### `underrun!!!` von aplay beim Kettentest (Schritt 3)
-
-Nur beim Offline-Test mit Dateien zu erwarten. `radae_rxe.py` verarbeitet langsamer als die Datei-Ein-/Ausgabe, wodurch der Audiopuffer leerläuft. Beim Live-Empfang tritt das nicht auf, weil der Browser den Ton in Echtzeit liefert.
-
----
-
-### `ConnectionClosedError: received 1011 (internal error)`
-
-Der Sidecar hat die WebSocket-Verbindung angenommen, ist aber intern abgestürzt, bevor er antworten konnte. Ursache ist eine inkompatible Version von `rade_helper.py` — eine ältere Version versuchte, einen asyncio-`StreamReader` als Standardeingabe eines Unterprozesses zu übergeben, was still fehlschlägt und mit Fehler 1011 schließt.
-
-**Abhilfe:** Ersetzen Sie `rade_helper.py` durch die aktuelle Version aus dem Patch-Satz. Die aktuelle Version nutzt `os.pipe()` für die Interprozess-Pipe und ist mit websockets 10.x bis 16.x+ kompatibel.
 
 ---
 
@@ -568,183 +342,11 @@ RADE_TORCH_THREADS=2 ./start-rx888mk2.sh     # or your receiver's launcher
 
 Auf einem i5-12450H (12 Threads), auf dem spectrumserver ~42 % und rx888_stream ~11 % belegen, haben Sie rund **1000 % Reserve** — genug für **20 und mehr gleichzeitige** RADE-Nutzer, bevor die CPU zum Problem wird.
 
-> **Die obige Tabelle unterstellt, dass die CPU-Kosten linear mit der Nutzerzahl wachsen. Die Messung sagt etwas anderes.** Ein Lauf von `rade_loadtest.py` auf demselben i5-12450H zeigte bis etwa 24 Zuhörern eine CPU-Last je Zuhörer deutlich unter dieser Tabelle, darüber einen steilen Anstieg, wobei die Maschine bei **32 Zuhörern durch die Package-Temperatur** gestoppt wurde — nicht durch die CPU und nicht durch die Bandbreite. Behandeln Sie diese Zahlen nur als groben Anhaltspunkt für kleine Nutzerzahlen und messen Sie Ihre eigene Maschine: siehe [Gleichzeitigkeit auf eigener Hardware messen](#gleichzeitigkeit-auf-eigener-hardware-messen). Beachten Sie, dass der Lasttest die Kette mit Rauschen statt einem echten RADE-Signal speist; die absolute CPU-Last bei echtem Verkehr kann daher abweichen — verlässlich ist die *Form* der Kurve.
-
----
-
-## Gleichzeitigkeit auf eigener Hardware messen
-
-Die obigen Zahlen stammen von einer bestimmten Maschine. `rade_loadtest.py` (im Repository-Wurzelverzeichnis) misst dasselbe auf **Ihrer** — es fährt synthetische RADE-Zuhörer in Stufen gegen den Sidecar hoch und meldet die letzte Zuhörerzahl, die Ihre Maschine gehalten hat, bevor etwas nachgab.
-
-Nach jeder Stufe lässt es die Maschine zur Ruhe kommen und erfasst dann Package-Temperatur, Gesamt-CPU, verfügbaren Arbeitsspeicher, Swap und die summierte RSS aller `radae_rxe.py`- und `lpcnet_demo`-Prozesse. Es stoppt beim ersten **Knick** — je nachdem, welche Grenze zuerst überschritten wird — und gibt die letzte stabile Zahl aus.
-
-### Voraussetzungen
-
-```bash
-sudo apt install python3-websockets python3-psutil
-```
-
-Führen Sie es **auf dem SDR-Host** aus (es liest lokale Sensoren und den Prozessspeicher), während spectrumserver und der RADE-Sidecar bereits laufen:
-
-```bash
-cd ~/PhantomSDR-Plus
-python3 rade_loadtest.py
-```
-
-Strg-C baut jederzeit alle Verbindungen sauber ab.
-
-### Vor dem ersten Lauf
-
-Öffnen Sie die Datei und prüfen Sie die beiden Blöcke am Anfang:
-
-- **`CONFIG`** — `WS_URL` steht standardmäßig auf `ws://127.0.0.1:8074`; ändern Sie es, wenn Sie den Sidecar von seinem Standardport weggelegt haben. `RADE_SPS` (12000) und `RADE_SIDEBAND` (`USB`) sollten dem entsprechen, was Ihr Frontend meldet.
-- **`handshake_messages()`** — der einzelne gesendete `init`-Rahmen muss zur RADE-Initialisierung in `frontend/src/audio.js` passen. Ist dieser Handshake auseinandergelaufen, scheitert jede Zuhörerverbindung und der Test endet sofort mit Verbindungsfehlern.
-
-### Knickschwellen
-
-Stellen Sie diese in `CONFIG` nach Bedarf ein — sie sind bewusst konservativ:
-
-| Schwelle | Standard | Stoppt, wenn |
-|---|---|---|
-| `TEMP_KNEE_C` | `85.0` | Die Package-Temperatur diese Obergrenze erreicht |
-| `MIN_AVAIL_MB` | `800` | Der verfügbare Arbeitsspeicher darunter fällt |
-| `SWAP_GROWTH_MB` | `50` | Der Swap über den beim Start genommenen Ausgangswert wächst |
-| `FAIL_LIMIT` | `3` | So viele Zuhörer in einer Stufe keine Verbindung aufbauen |
-| `MAX_LISTENERS` | `60` | Harter Stopp, auch wenn nie ein Knick erreicht wird |
-
-Die Form des Hochfahrens steuern `STEP` (je Stufe hinzugefügte Zuhörer, Standard 2), `SETTLE_S` (25 s Beruhigung vor der Messung — dadurch kann sich Wärme aufbauen) und `SAMPLE_S` (5 s CPU-Mittelungsfenster). Ein vollständiger Lauf bis zur Standardgrenze von 60 Zuhörern dauert daher rund 15 Minuten.
-
-### Die Ergebnisse lesen
-
-Jede Stufe gibt eine Zeile aus und hängt eine Zeile an `rade_loadtest.csv` an:
-
-| Spalte | Bedeutung |
-|---|---|
-| `listeners` | In dieser Stufe verbundene synthetische Zuhörer |
-| `connect_fails` | Zuhörer, die keine Verbindung aufbauen oder halten konnten |
-| `pkg_c` | Package-Temperatur, Median aus 5 Messungen (spitzenresistent) |
-| `cpu_pct` | CPU-Prozent des **Gesamtsystems**, nicht pro Zuhörer |
-| `avail_mb` | Verfügbarer Arbeitsspeicher |
-| `swap_mb` | Genutzter Swap |
-| `dec_rss_mb` | Summierte RSS aller Decoder-Prozesse |
-| `dec_procs` | Anzahl der Decoder-Prozesse — erwarten Sie **2 je Zuhörer** (`radae_rxe.py` + `lpcnet_demo`) |
-
-#### Ein gemessener Lauf
-
-Auf dem oben genannten i5-12450H endete ein vollständiger Lauf so:
-
-```
-KNEE at n=32: temp 91.0°C ≥ 85.0
-Last stable concurrency: 30 RADE listeners
-```
-
-**Die Wärme war die bindende Einschränkung**, und zwar deutlich. Am Knick standen noch 7004 MB Arbeitsspeicher zur Verfügung — 6,2 GB oberhalb der `MIN_AVAIL_MB`-Grenze — und in jeder Stufe gab es null Verbindungsfehler.
-
-Zwei Spalten lohnen genaues Lesen:
-
-**`dec_rss_mb` überschätzt die tatsächlichen Speicherkosten.** Sie wächst sehr gleichmäßig um 295 MB je Zuhörer (292, 294, 294 … 295 über alle 16 Stufen), doch der *verfügbare* Arbeitsspeicher sinkt nur um etwa **202 MB je Zuhörer**. Die beiden Prozesse hinter jedem Zuhörer teilen sich Bibliotheksseiten, und die RSS zählt diese Seiten je Prozess einmal. Extrapoliert man die Steigung von `avail_mb`, käme der Speicherknick bei etwa **63 Zuhörern** — jenseits des harten Stopps bei 60 Zuhörern, auf dieser Maschine kann er also nie auslösen. Dimensionieren Sie den Speicher nach `avail_mb`, nicht nach `dec_rss_mb`.
-
-**`cpu_pct` ist flach — und dann nicht mehr.** Sie liegt bis 24 Zuhörer bei ~5,3 % der gesamten Maschine und wird dann überlinear:
-
-| Zuhörer | 24 | 26 | 28 | 30 | 32 |
-|---|---|---|---|---|---|
-| `cpu_pct` | 6,7 % | 18,4 % | 30,1 % | 49,6 % | 65,2 % |
-
-Das ist ein 10-facher Anstieg der CPU-Last, während die Zuhörerzahl um ein Drittel wächst. Der Wendepunkt reproduziert sich über Läufe hinweg an derselben Stelle, betrachten Sie ihn also als Eigenschaft der Maschine und nicht als Rauschen — die CPU-Kosten je Zuhörer liegen unter dem Wendepunkt bei rund 3,4 % eines Kerns und darüber bei etwa 20 %. Extrapolieren Sie keine CPU-Zahl je Nutzer, die bei geringer Zuhörerzahl gemessen wurde.
-
-> **Der Test hat keinen CPU-Knick.** Die vier Grenzwerte sind Temperatur, verfügbarer Arbeitsspeicher, Swap-Wachstum und Verbindungsfehler — die CPU wird erfasst, beendet den Lauf aber nie. Im obigen Lauf erreichte die CPU 65 % und wäre weiter gestiegen, hätte nicht zuerst die Temperatur ausgelöst. Wenn Ihnen eine CPU-Obergrenze wichtig ist, beobachten Sie die Spalte selbst oder ergänzen Sie eine Schwelle.
-
-> **Was das belegt und was nicht.** Jeder synthetische Zuhörer streamt zufälliges Rauschen geringer Amplitude, kein echtes RADE-Signal. Das genügt, damit die gesamte Dekodierkette läuft und Ressourcen verbraucht — die Ressourcenzahlen sind also aussagekräftig. Über die Dekodier*qualität* oder die Tonkontinuität unter Last sagt der Test jedoch nichts. Bestätigen Sie das mit echten Zuhörern an einem echten Signal.
-
-### Wenn Kerne vor dem Knick sättigen
-
-RADE bindet je Instanz einen Thread fest, sodass einzelne Kerne ~90 °C erreichen können, während die Gesamt-CPU noch untätig wirkt. `rade_helper.py` verteilt die Ketten reihum über die Kerne, um dem entgegenzuwirken. Zeigt ein Lauf frühe thermische Knicke, erweitern Sie die Kernzuteilung je Client:
-
-```bash
-RADE_CORES_PER_CLIENT=3 ./rade.sh restart
-```
-
-Keine Dateiänderung nötig — das ist eine Umgebungsvariable (siehe [Umgebungsvariablen](#umgebungsvariablen)); `RADE_PIN_CORES=0` deaktiviert das Pinning vollständig.
-
 ---
 
 ## RADE v1 aktualisieren
 
-Die Integration in PhantomSDR-Plus (`rade_helper.py`, Frontend-Patches) ist nur eine Brücke — die gesamte RADE-Dekodierlogik liegt im Repository `radae`. Aktualisierungen sind daher fast immer ein einfaches `git pull` plus Neubau, ohne Änderungen an PhantomSDR-Plus selbst.
-
-### Standardaktualisierung (neuer Code, gleiches Modell)
-
-```bash
-# 1. Pull latest radae code
-cd ~/radae
-git pull
-
-# 2. Rebuild lpcnet_demo (in case C code changed)
-cd build
-cmake ..
-make -j$(nproc)
-
-# 3. Restart the sidecar — no server restart needed
-cd ~/PhantomSDR-Plus
-./rade.sh restart
-```
-
-Das ist alles. Kein Frontend-Neubau, kein Serverneustart, keine Dateiänderungen.
-
-### Nur neue Modellgewichte
-
-Wird ein neuer Checkpoint veröffentlicht (z. B. `model20`) ohne Codeänderungen, richten Sie den Sidecar über die Umgebungsvariable auf die neuen Gewichte aus — ohne Datei zu bearbeiten:
-
-```bash
-# One-off: start with new model
-RADE_MODEL=~/radae/model20/checkpoints/checkpoint_epoch_100.pth ./rade.sh start
-
-# Or permanently — add to your shell profile (~/.bashrc):
-export RADE_MODEL=~/radae/model20/checkpoints/checkpoint_epoch_100.pth
-```
-
-### Was welche Änderung erfordert
-
-| Was sich in radae geändert hat | Erforderliche Maßnahme |
-|---|---|
-| Neue Modellgewichte (neue `.pth`-Datei) | `RADE_MODEL` setzen, `./rade.sh restart` |
-| Codeänderung in `radae_rxe.py` | `git pull`, `./rade.sh restart` |
-| C-Code von `lpcnet_demo` geändert | `git pull`, neu bauen, `./rade.sh restart` |
-| `radae_rxe.py` umbenannt oder verschoben | Pfad `RADAE_RX` in `rade_helper.py` anpassen (eine Zeile) |
-| Argument `--model_name` umbenannt | `radae_cmd` in `rade_helper.py` anpassen (eine Zeile) |
-| Neue Ausgabeabtastrate (≠ 16000 Hz) | `SPS_OUT` in `rade_helper.py` + `createBuffer()` in `audio.js` anpassen |
-| RADE v2 nutzt eine andere Binärdatei | `RADAE_RX` in `rade_helper.py` anpassen (eine Zeile) |
-
-### Prüfen, ob die Aktualisierung gegriffen hat
-
-Bestätigen Sie nach dem Neustart, dass der neue Code läuft:
-
-```bash
-# Check sidecar picked up new radae_rxe.py
-./rade.sh status
-
-# Tail log to see startup lines
-tail -20 ~/PhantomSDR-Plus/rade.log
-```
-
-Das Protokoll sollte den erwarteten Modellpfad zeigen:
-```
-[RADE] model : /home/sv1btl/radae/model19_check3/checkpoints/checkpoint_epoch_100.pth
-```
-
-### Auf dem Laufenden bleiben
-
-Abonnieren Sie die Releases-Seite des radae-Repositories, um über neue Modelle und Codeaktualisierungen benachrichtigt zu werden:
-
-```
-https://github.com/drowe67/radae/releases
-```
-
-Im FreeDV-Blog finden Sie Ankündigungen zu neuen RADE-Wellenformen und -Modellen:
-
-```
-https://freedv.org/blog/
-```
+**Um RADE zu aktualisieren, führen Sie `./install_rade.sh` erneut aus.** Es holt die neuesten Stände von radae und rade_c, baut sie neu und startet den Sidecar neu; der Empfänger selbst braucht keinen Neustart.
 
 ---
 

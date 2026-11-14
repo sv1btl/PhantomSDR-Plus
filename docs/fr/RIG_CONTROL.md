@@ -114,16 +114,6 @@ Avec **Hamlib**, les mêmes réglages sont transmis à `rigctld`. Les bits de st
 
 Le sens se change aussi depuis le menu **Rig** en cours de connexion.
 
-### Comment on empêche les deux côtés de se battre
-
-Chaque valeur écrite par l'application réapparaît un instant plus tard comme un changement de l'autre côté. Pris au pied de la lettre, le poste et le récepteur se courraient après sans fin. L'application l'évite de trois façons :
-
-- La page du récepteur applique un changement immédiatement ; elle est donc relue juste après l'écriture, et cette lecture devient le nouveau point de départ.
-- Un poste applique un changement un peu plus tard ; chaque valeur envoyée est donc mémorisée. Quand le poste renvoie cette valeur, elle est reconnue comme une écriture de l'application et non comme une main sur le bouton.
-- Une valeur que le poste refuse — la FM large sur un poste HF, par exemple — est envoyée **deux fois** puis laissée tranquille jusqu'à ce que le côté source change, au lieu d'être répétée plusieurs fois par seconde.
-
-Réaccorder la page du récepteur peut lui faire choisir le mode par défaut de la bande (LSB sous 10 MHz, par exemple). Quand c'est le poste qui mène, l'application remet aussitôt le mode du poste, si bien qu'un poste en USB sur 40 m garde le récepteur en USB.
-
 ### Quelle fenêtre de récepteur
 
 **Receiver window** choisit quelle station suit le poste :
@@ -217,8 +207,6 @@ Il faut une liaison qui signale l'état d'émission — tous les pilotes intégr
 | **Mute receiver while transmitting** | Oui / non |
 | Ligne d'état | *Not connected*, *Connecting...*, *Connected: nom*, ou la dernière erreur |
 
-L'affichage de fréquence en direct se trouve dans la fenêtre Rig control et non dans le menu, qui sinon se refermerait à chaque changement.
-
 ---
 
 ## Linux
@@ -276,8 +264,6 @@ Les navigateurs qui demandent l'autorisation avant qu'une page web n'accède au 
 | **Pas d'écho** | Un changement venu du poste ne lui est jamais renvoyé, et un rapport du mode ou du filtre précédent du poste qui arrive juste après un changement sur la page est ignoré |
 | **Coupure du son en émission** | Toujours active, même avec CAT Sync désactivé : la page se tait pendant que le poste émet. Déplacer le curseur de volume pendant l'émission la laisse muette ; en réception, le son revient au niveau actuel du curseur |
 | **Non géré** | Split, VFO B, RIT/XIT et décalages de transverter. Seul le VFO A du premier récepteur est suivi |
-
-Le mode et la largeur de filtre passent par les commandes propres au TCI (`modulation`, `rx_filter_band`), donc ExpertSDR, AetherSDR et Thetis devraient les suivre aussi ; seul le pont Hamlib a été essayé. Pour un décalage de transverter, utilisez plutôt Desktop PhantomSDR+. N'utilisez pas les deux en même temps sur le même poste — deux contrôleurs se disputeraient le cadran.
 
 ### Avec quels transceivers cela fonctionne
 
@@ -403,99 +389,6 @@ Options supplémentaires, seulement si nécessaire :
 - **Un réglage que Hamlib propose pour ce poste :** `rigctl -m <modèle> -L` les liste ; fixez-en un avec `-C nom=valeur`, par ex. `-C post_write_delay=10` pour une interface lente.
 - **Un poste qui passe en émission ou redémarre à l'ouverture du port :** certains câbles CAT utilisent DTR ou RTS pour le PTT ; ajoutez `-C dtr_state=OFF -C rts_state=OFF`.
 
-#### Exemple : Yaesu FT-991A
-
-Non essayé avec un vrai FT-991A — il suit les réglages de Hamlib pour ce poste ; la vérification `rigctl … f` indique aussitôt si cela fonctionne.
-
-Sur le poste, réglez **CAT RATE** (menu 031) sur `38400`. Le numéro de modèle Hamlib des FT-991 et FT-991A est `1035`.
-
-Le câble USB du FT-991A crée **deux** ports série. Le CAT est sur le port **Enhanced** :
-
-- **Linux :** `ls /dev/serial/by-id/` affiche deux lignes pour le poste ; celle qui se termine par `-if00-port0` est l'Enhanced, en général `/dev/ttyUSB0`.
-- **Windows :** le Gestionnaire de périphériques affiche *Silicon Labs Dual CP2105 USB to UART Bridge: Enhanced COM Port (COM5)* et un *Standard COM Port* ; utilisez le numéro de l'Enhanced.
-
-**Linux :**
-```bash
-rigctl -m 1035 -r /dev/ttyUSB0 -s 38400 f
-cd ~/PhantomSDR-Plus/tci-bridge
-node tci-rigctld.mjs --rigctl rigctl -m 1035 -r /dev/ttyUSB0 -s 38400
-```
-
-**Windows :**
-```bat
-C:\hamlib\bin\rigctl.exe -m 1035 -r COM5 -s 38400 f
-cd C:\tci-bridge
-node tci-rigctld.mjs --rigctl C:\hamlib\bin\rigctl.exe -m 1035 -r COM5 -s 38400
-```
-
-Si la vérification n'affiche rien d'utile, la cause habituelle est le port Standard au lieu de l'Enhanced, ou un CAT RATE différent de `-s`.
-
-#### Exemple : Kenwood TS-590SG
-
-Non essayé avec un vrai TS-590SG — il suit les réglages de Hamlib pour ce poste ; la vérification `rigctl … f` indique aussitôt si cela fonctionne.
-
-Dans le menu du poste, réglez la vitesse du port **USB** sur `115200` (le numéro de menu figure dans le manuel du TS-590SG). Le numéro de modèle Hamlib est `2037` ; l'ancien TS-590S est `2031`. Sous Windows, installez d'abord le pilote de port COM virtuel de Kenwood pour le port USB.
-
-Le câble USB crée **un** port série :
-
-- **Linux :** la ligne du poste dans `ls /dev/serial/by-id/`, en général `/dev/ttyUSB0`.
-- **Windows :** Gestionnaire de périphériques → Ports (COM et LPT), par exemple `COM6`.
-
-**Linux :**
-```bash
-rigctl -m 2037 -r /dev/ttyUSB0 -s 115200 f
-cd ~/PhantomSDR-Plus/tci-bridge
-node tci-rigctld.mjs --rigctl rigctl -m 2037 -r /dev/ttyUSB0 -s 115200
-```
-
-**Windows :**
-```bat
-C:\hamlib\bin\rigctl.exe -m 2037 -r COM6 -s 115200 f
-cd C:\tci-bridge
-node tci-rigctld.mjs --rigctl C:\hamlib\bin\rigctl.exe -m 2037 -r COM6 -s 115200
-```
-
-Si la vérification échoue, la cause habituelle est une vitesse USB différente de `-s`, ou un câble branché sur la prise RS-232 (COM) du poste alors que `-r` désigne le port USB.
-
-#### Autres exemples
-
-Aucun n'a été essayé sur du matériel réel. Chaque ligne donne les options à placer après `rigctl` pour la vérification et après `--rigctl rigctl` pour le pont ; réglez la même vitesse dans le menu du poste. Le port Linux est le port habituel — confirmez-le avec `ls /dev/serial/by-id/`. Sous Windows, remplacez le port par le numéro COM du Gestionnaire de périphériques et `rigctl` par `C:\hamlib\bin\rigctl.exe`.
-
-| Poste | Menu du poste | Options (Linux) | Remarques |
-|---|---|---|---|
-| Icom IC-705 (USB) | CI-V USB Baud Rate `19200` | `-m 3085 -r /dev/ttyACM0 -s 19200` | Deux ports apparaissent ; le CI-V est le premier (`ttyACM0`) |
-| Icom IC-7100 (USB) | CI-V USB Baud Rate `19200` | `-m 3070 -r /dev/ttyUSB0 -s 19200` | La vitesse maximale de Hamlib pour ce poste est 19200 |
-| Icom IC-7610 | CI-V USB Baud Rate `115200` | `-m 3078 -r /dev/ttyUSB0 -s 115200` | |
-| Icom IC-9700 | CI-V USB Baud Rate `38400` | `-m 3081 -r /dev/ttyUSB0 -s 38400` | |
-| Yaesu FTDX101D / FTDX101MP | CAT RATE `38400` | `-m 1040 -r /dev/ttyUSB0 -s 38400` | `-m 1044` pour le FTDX101MP. Deux ports ; utilisez l'Enhanced |
-| Yaesu FTDX10 | CAT RATE `38400` | `-m 1042 -r /dev/ttyUSB0 -s 38400` | Deux ports ; utilisez l'Enhanced, comme sur le FT-991A |
-| Yaesu FT-710 | CAT RATE `38400` | `-m 1049 -r /dev/ttyUSB0 -s 38400` | Deux ports ; utilisez l'Enhanced, comme sur le FT-991A |
-| Yaesu FT-891 | CAT RATE `38400` | `-m 1036 -r /dev/ttyUSB0 -s 38400` | Deux ports ; utilisez l'Enhanced, comme sur le FT-991A |
-| Yaesu FT-450D | CAT RATE `38400` | `-m 1046 -r /dev/ttyUSB0 -s 38400` | Prise RS-232 : utilisez un adaptateur USB-série |
-| Yaesu FT-817 / FT-818 | CAT RATE `38400` | `-m 1020 -r /dev/ttyUSB0 -s 38400` | `-m 1041` pour le FT-818. Demande un câble CAT sur la prise ACC |
-| Yaesu FT-857 / FT-897 | CAT RATE `38400` | `-m 1022 -r /dev/ttyUSB0 -s 38400` | `-m 1023` pour le FT-897. Demande un câble CAT |
-| Kenwood TS-890S (USB) | Vitesse USB `115200` | `-m 2041 -r /dev/ttyUSB0 -s 115200` | |
-| Kenwood TS-990S (USB) | Vitesse USB `115200` | `-m 2039 -r /dev/ttyUSB0 -s 115200` | |
-| Kenwood TS-590SG / TS-590S (USB) | Vitesse USB `115200` | `-m 2037 -r /dev/ttyUSB0 -s 115200` | Exemple détaillé ci-dessus |
-| Kenwood TS-480 | Vitesse du port COM `57600` | `-m 2028 -r /dev/ttyUSB0 -s 57600` | Prise RS-232 : utilisez un adaptateur USB-série |
-| Kenwood TS-2000 | Vitesse du port COM `57600` | `-m 2014 -r /dev/ttyUSB0 -s 57600` | Prise RS-232 ; la vitesse maximale de Hamlib pour ce poste est 57600 |
-| Elecraft K4 (USB) | Vitesse RS232 `115200` | `-m 2047 -r /dev/ttyUSB0 -s 115200` | |
-| Elecraft K3 / K3S | Vitesse RS232 `38400` | `-m 2029 -r /dev/ttyUSB0 -s 38400` | K3S : USB ; K3 : port série ou câble KUSB |
-| Elecraft KX3 | Vitesse RS232 `38400` | `-m 2045 -r /dev/ttyUSB0 -s 38400` | Câble KXUSB |
-| Elecraft KX2 | Vitesse RS232 `38400` | `-m 2044 -r /dev/ttyUSB0 -s 38400` | Câble KXUSB |
-| Xiegu G90 | Vitesse CI-V `19200` | `-m 3088 -r /dev/ttyUSB0 -s 19200` | Hamlib utilise l'adresse CI-V par défaut du G90 |
-| Xiegu X6100 | Vitesse CI-V `19200` | `-m 3087 -r /dev/ttyUSB0 -s 19200` | La vitesse maximale de Hamlib pour ce poste est 19200 |
-| Lab599 TX-500 | — | `-m 2050 -r /dev/ttyUSB0 -s 9600` | Hamlib utilise uniquement 9600 |
-| ELAD FDM-DUO | — | `-m 33001 -r /dev/ttyUSB0 -s 115200` | |
-| QRP Labs QDX | — | `-m 2052 -r /dev/ttyACM0 -s 9600` | Un port série USB ; la vitesse ne compte pas mais doit être indiquée |
-
-Commande Linux complète pour l'IC-705, pour montrer comment lire une ligne :
-
-```bash
-rigctl -m 3085 -r /dev/ttyACM0 -s 19200 f
-node tci-rigctld.mjs --rigctl rigctl -m 3085 -r /dev/ttyACM0 -s 19200
-```
-
 #### Postes pilotés par un autre logiciel
 
 Certains postes sont déjà pilotés par un logiciel capable de faire le travail — parfois sans aucun pont. Aucune de ces voies n'a été essayée.
@@ -547,36 +440,6 @@ Sans `--rigctl`, le pont cherche `rigctld` sur `127.0.0.1:4532` et affiche `rigc
 Rien à configurer. Le pilotage du transceiver passe par une petite interface JavaScript que chaque page PhantomSDR-Plus possède déjà ; il ne demande ni réglage serveur, ni port ouvert, ni droit d'administration. Les fonctions de filtre et de coupure du son sont arrivées avec la version 4.1.0 — après l'avoir appliquée, recompilez le frontend (`./recompile.sh`, option 2) ; inutile d'arrêter le récepteur. Les récepteurs KiwiSDR, WebSDR et UberSDR n'ont besoin de rien non plus : l'application utilise les commandes que leurs pages possèdent déjà.
 
 Le bouton **TCI-CAT** est arrivé lui aussi avec la 4.1.0, là encore une simple recompilation du frontend. Il n'ouvre aucun port sur le récepteur : la connexion va du navigateur de chaque auditeur vers son propre ordinateur. Le pont Hamlib, `tci-bridge/tci-rigctld.mjs`, est destiné aux auditeurs, chez eux ; le récepteur ne l'utilise pas. Le navigateur n'ouvre cette connexion qu'après que l'auditeur a ouvert **TCI-CAT** ou activé **CAT Sync** (mémorisé par navigateur) ; en https, les visiteurs qui ne s'en servent jamais ne voient donc aucune demande d'accès au réseau local.
-
----
-
-## Pour les développeurs : l'interface de la page
-
-Desktop PhantomSDR+ comme le CATsync Tool utilisent ces fonctions, que chaque page PhantomSDR-Plus place sur `window` une fois chargée (les pages KiwiSDR, WebSDR et UberSDR sont pilotées par leurs propres commandes, différentes) :
-
-| Fonction | Renvoie / fait |
-|---|---|
-| `catsync_ready` | `true` dès que les fonctions ci-dessous sont installées |
-| `catsync_getFrequency()` | Fréquence d'accord, Hz |
-| `catsync_setFrequency(hz)` | S'accorde sur `hz` |
-| `catsync_getMode()` | `USB`, `LSB`, `CW`, `CW-L`, `AM`, `QUAM`, `FM`, `WBFM`, `RADEU`, `RADEL` |
-| `catsync_setMode(mode)` | Règle le mode ; ramène la bande passante à la valeur par défaut du mode |
-| `catsync_getBandwidth()` | Largeur totale de la bande passante, Hz |
-| `catsync_setBandwidth(hz)` | Règle la largeur — s'élargit vers le haut en USB, vers le bas en LSB, également des deux côtés sinon. À appeler **après** `catsync_setMode` |
-| `catsync_getMute()` | `true` si le son est coupé |
-| `catsync_setMute(on)` | Coupe ou rétablit le son, via le bouton muet de la page |
-
-Les quatre dernières sont arrivées avec la 4.1.0 ; testez donc avant de les appeler :
-
-```js
-if (window.catsync_ready) {
-  window.catsync_setFrequency(7074000)
-  window.catsync_setMode('USB')
-  if (typeof window.catsync_setBandwidth === 'function') window.catsync_setBandwidth(2400)
-}
-```
-
-Régler la fréquence réaccorde l'audio : n'appelez un setter que lorsque la valeur a réellement changé — un setter appelé en boucle avec la même valeur s'entend. Les anciens points d'entrée de style KiwiSDR/WebSDR (`setfreq`, `set_mode`, `freqset_complete`) restent disponibles pour les outils qui les attendent.
 
 ---
 

@@ -7,25 +7,16 @@ Ovaj sveobuhvatni vodič vodi vas kroz instalaciju i konfiguraciju PhantomSDR-Pl
 ## Sadržaj
 
 1. [Sistemski zahtjevi](#sistemski-zahtjevi)
-2. [Priprema prije instalacije](#priprema-prije-instalacije)
-3. [Instalacija PhantomSDR-Plusa](#instalacija-phantomsdr-plusa) — skripta i [što radi](#što-instalacijska-skripta-radi)
-4. [Autorun Spot Reporter (FT8/FT4/WSPR)](#autorun-spot-reporter-ft8ft4wspr)
-5. [Emulacija KiwiSDR klijenata (neobavezno)](#emulacija-kiwisdr-klijenata-neobavezno)
-6. [Konfiguracija](#konfiguracija)
-7. [Postavljanje ovisno o SDR uređaju](#postavljanje-ovisno-o-sdr-uređaju)
-8. [Testiranje i provjera](#testiranje-i-provjera)
-9. [Postavljanje automatskog pokretanja](#postavljanje-automatskog-pokretanja)
-10. [Toplinska zaštita procesora](#toplinska-zaštita-procesora)
-11. [Rješavanje problema](#rješavanje-problema)
+2. [Instalacija PhantomSDR-Plusa](#instalacija-phantomsdr-plusa) — skripta i [što radi](#što-instalacijska-skripta-radi)
+3. [Autorun Spot Reporter (FT8/FT4/WSPR)](#autorun-spot-reporter-ft8ft4wspr)
+4. [Emulacija KiwiSDR klijenata (neobavezno)](#emulacija-kiwisdr-klijenata-neobavezno)
+5. [Konfiguracija](#konfiguracija)
+6. [Postavljanje ovisno o SDR uređaju](#postavljanje-ovisno-o-sdr-uređaju)
+7. [Testiranje i provjera](#testiranje-i-provjera)
+8. [Postavljanje automatskog pokretanja](#postavljanje-automatskog-pokretanja)
+9. [Toplinska zaštita procesora](#toplinska-zaštita-procesora)
+10. [Rješavanje problema](#rješavanje-problema)
 
-**Samo kao referenca — instalacijska skripta sve ovo već obavlja umjesto vas.**
-Pročitajte ove odjeljke ako ste na distribuciji koju nijedna skripta ne pokriva ili ako trebate ručno popraviti pojedini korak:
-
-- [Instalacija ovisnosti](#instalacija-ovisnosti)
-- [Instalacija Node.js-a i npm-a](#instalacija-nodejs-a-i-npm-a)
-- [Instalacija OpenCL-a](#instalacija-opencl-a-neobavezno-ali-preporučeno)
-- [Ručno građenje](#ručno-građenje-referenca)
-- [Instalacija audiokodeka Opus](#instalacija-audiokodeka-opus)
 ---
 
 ## Sistemski zahtjevi
@@ -62,304 +53,6 @@ Pročitajte ove odjeljke ako ste na distribuciji koju nijedna skripta ne pokriva
 - Pohrana: NVMe SSD
 - GPU: namjenski GPU s podrškom za OpenCL/CUDA
 - Mreža: 1 Gbit/s ili bolja
-
----
-
-## Priprema prije instalacije
-
-### 1. Ažurirajte sustav
-
-```bash
-# Ubuntu/Debian
-sudo apt update
-sudo apt upgrade -y
-sudo reboot
-
-# Fedora
-sudo dnf update -y
-sudo reboot
-```
-
-### 2. Provjerite verziju Ubuntua
-
-```bash
-lsb_release -a
-```
-
-**Očekivani ispis trebao bi pokazati:** Ubuntu 24.04 LTS
-
-### 3. Provjerite slobodan prostor na disku
-
-```bash
-df -h
-```
-
-Pobrinite se da u svom osobnom direktoriju imate najmanje 10 GB slobodno.
-
-### 4. Provjerite podatke o procesoru
-
-```bash
-lscpu
-```
-
-Zabilježite broj jezgri/dretvi radi optimizacije konfiguracije.
-
----
-
-## Instalacija ovisnosti
-
-> [!IMPORTANT]
-> **Za normalnu instalaciju ovaj odjeljak vam ne treba.** `./install.sh` — ili instalacijska skripta vaše distribucije — sve to obavlja umjesto vas; vidi [Što instalacijska skripta radi](#što-instalacijska-skripta-radi). Ovo je referenca za ručno postavljanje, za distribuciju koju nijedna skripta ne pokriva ili za ručni popravak pojedinog dijela.
-
-
-### Ubuntu 24.04 LTS
-
-```bash
-sudo apt install -y \
-  build-essential \
-  cmake \
-  pkg-config \
-  meson \
-  libfftw3-dev \
-  libwebsocketpp-dev \
-  libflac++-dev \
-  zlib1g-dev \
-  libzstd-dev \
-  libboost-all-dev \
-  libopus-dev \
-  libliquid-dev \
-  git \
-  psmisc \
-  wget \
-  curl
-```
-
-### Fedora
-
-```bash
-sudo dnf install -y \
-  g++ \
-  meson \
-  cmake \
-  fftw3-devel \
-  websocketpp-devel \
-  flac-devel \
-  zlib-devel \
-  boost-devel \
-  libzstd-devel \
-  opus-devel \
-  liquid-dsp-devel \
-  git \
-  psmisc \
-  wget \
-  curl
-```
-
-### Provjerite instalaciju
-
-```bash
-# Check if key dependencies are installed
-pkg-config --modversion fftw3
-cmake --version
-meson --version
-```
-
----
-
-## Instalacija Node.js-a i npm-a
-
-> [!IMPORTANT]
-> **Za normalnu instalaciju ovaj odjeljak vam ne treba.** `./install.sh` — ili instalacijska skripta vaše distribucije — sve to obavlja umjesto vas; vidi [Što instalacijska skripta radi](#što-instalacijska-skripta-radi). Ovo je referenca za ručno postavljanje, za distribuciju koju nijedna skripta ne pokriva ili za ručni popravak pojedinog dijela.
-
-
-PhantomSDR-Plus zahtijeva Node.js za izgradnju sučelja. Za instalaciju ćemo koristiti NVM (Node Version Manager).
-
-### 1. Instalirajte NVM
-
-```bash
-curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.4/install.sh | bash
-```
-
-### 2. Učitajte NVM
-
-**VAŽNO:** zatvorite i ponovno otvorite terminal ili pokrenite:
-
-```bash
-export NVM_DIR="$HOME/.nvm"
-[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
-```
-
-### 3. Provjerite instalaciju NVM-a
-
-```bash
-nvm --version
-```
-
-Očekivani ispis: `0.40.4` ili slično
-
-### 4. Instalirajte Node.js
-
-```bash
-# Install Node.js 22 - the version every install script requires
-nvm install 22
-
-# Make it the default, so systemd units and cron see it too
-nvm alias default 22
-
-# Verify installation
-node --version
-npm --version
-```
-
-### 5. Neobavezno: instalirajte dodatne verzije Nodea
-
-```bash
-# Install latest version
-nvm install node
-
-# Install specific version (if needed)
-nvm install 22.22.3
-
-# List installed versions
-nvm list
-
-# Use specific version
-nvm use 22
-```
-
----
-
-## Instalacija OpenCL-a (neobavezno, ali preporučeno)
-
-> [!IMPORTANT]
-> **Za normalnu instalaciju ovaj odjeljak vam ne treba.** `./install.sh` — ili instalacijska skripta vaše distribucije — sve to obavlja umjesto vas; vidi [Što instalacijska skripta radi](#što-instalacijska-skripta-radi). Ovo je referenca za ručno postavljanje, za distribuciju koju nijedna skripta ne pokriva ili za ručni popravak pojedinog dijela.
-
-
-OpenCL dramatično poboljšava performanse prebacivanjem FFT izračuna na GPU. Ovaj odjeljak pokriva integriranu Intel grafiku. Za AMD/NVIDIA GPU pogledajte dokumentaciju proizvođača.
-
-### Intel procesor s integriranom grafikom
-
-#### 1. Instalirajte osnovne OpenCL komponente
-
-```bash
-sudo apt install -y \
-  build-essential \
-  cmake \
-  pkg-config \
-  meson \
-  libfftw3-dev \
-  libwebsocketpp-dev \
-  libflac++-dev \
-  zlib1g-dev \
-  libzstd-dev \
-  libboost-all-dev \
-  libopus-dev \
-  libliquid-dev \
-  libclfft-dev \
-  ocl-icd-opencl-dev \
-  clinfo
-```
-
-#### 2. Preuzmite Intel Compute Runtime
-
-```bash
-mkdir -p ~/neo
-cd ~/neo
-
-wget https://github.com/intel/compute-runtime/releases/download/19.07.12410/intel-gmmlib_18.4.1_amd64.deb
-wget https://github.com/intel/compute-runtime/releases/download/19.07.12410/intel-igc-core_18.50.1270_amd64.deb
-wget https://github.com/intel/compute-runtime/releases/download/19.07.12410/intel-igc-opencl_18.50.1270_amd64.deb
-wget https://github.com/intel/compute-runtime/releases/download/19.07.12410/intel-opencl_19.07.12410_amd64.deb
-wget https://github.com/intel/compute-runtime/releases/download/19.07.12410/intel-ocloc_19.07.12410_amd64.deb
-```
-
-#### 3. Instalirajte Intel OpenCL Runtime
-
-```bash
-sudo dpkg -i *.deb
-```
-
-Ako se pojave pogreške ovisnosti:
-
-```bash
-sudo apt --fix-broken install
-```
-
-#### 4. Instalirajte OpenCL ICD učitavač
-
-```bash
-sudo apt update
-sudo apt install intel-opencl-icd
-```
-
-Ako se pojave pogreške:
-
-```bash
-sudo apt --fix-broken install
-sudo apt install intel-opencl-icd
-```
-
-#### 5. Provjerite instalaciju OpenCL-a
-
-```bash
-sudo clinfo
-```
-
-Trebali biste vidjeti podatke o svojoj OpenCL platformi i uređajima. Potražite:
-- Broj platformi: 1 (ili više)
-- Naziv platforme: Intel(R) OpenCL (ili slično)
-- Vrstu uređaja: GPU ili CPU
-
-#### 6. Ponovno pokrenite računalo
-
-```bash
-sudo reboot
-```
-
-### OpenCL na AMD GPU-u
-
-Za AMD GPU instalirajte ROCm:
-
-```bash
-# Add ROCm repository
-wget -q -O - https://repo.radeon.com/rocm/rocm.gpg.key | sudo apt-key add -
-echo 'deb [arch=amd64] https://repo.radeon.com/rocm/apt/debian/ ubuntu main' | sudo tee /etc/apt/sources.list.d/rocm.list
-
-# Install ROCm
-sudo apt update
-sudo apt install rocm-opencl rocm-clinfo
-
-# Add user to video group
-sudo usermod -a -G video $USER
-
-# Reboot
-sudo reboot
-
-# Verify
-clinfo
-```
-
-### OpenCL na NVIDIA GPU-u
-
-Za NVIDIA GPU instalirajte CUDA-u:
-
-```bash
-# Install NVIDIA drivers
-sudo apt install nvidia-driver-525
-
-# Install CUDA toolkit
-wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64/cuda-keyring_1.0-1_all.deb
-sudo dpkg -i cuda-keyring_1.0-1_all.deb
-sudo apt update
-sudo apt install cuda
-
-# Reboot
-sudo reboot
-
-# Verify
-nvidia-smi
-clinfo
-```
 
 ---
 
@@ -442,8 +135,6 @@ bash configure-station.sh --show   # prikaži trenutne odgovore
 
 Na već instaliranoj stanici čarobnjak zatim prenosi promjenu svugdje gdje treba — nove portove u `admin_config.json` i u uslugu statistike, novi prijemnik u pokretanje pri podizanju sustava — i jednom pita treba li ponovno izgraditi stranicu i ponovno pokrenuti ono što radi. Promjena porta je dakle ova jedna naredba, uz prosljeđivanje na usmjerniku ako se javni port promijenio. Javni port mora biti 1024 ili veći, jer proxy ne radi kao root: da bi stanica bila dostupna na portu 80, ovdje zadržite 9000 i na usmjerniku proslijedite vanjski port 80 na njega.
 
-Stanica instalirana prije nego što je čarobnjak postojao zadržava svoje portove: pokrenut ondje, čarobnjak predlaže portove koje ta stanica već koristi.
-
 ### Što instalacijska skripta radi
 
 Ništa ne treba ručno pripremati — nema popisa ovisnosti za lijepljenje, nema Node.js-a za preuzimanje, nema paketa OpenCL za traženje. Računajte s dvadesetak minuta do znatno više od sat vremena, ovisno o računalu i o tome instalira li se RADE (njegovo preuzimanje je dugi dio).
@@ -510,96 +201,6 @@ Pri postavljanju administratorske ploče instalater nudi i dvije systemd jedinic
 
 Svaki je dodatak obična skripta koju možete pokrenuti i zasebno, kad god želite — `./setup_admin.sh` ([priručnik](ADMIN_PANEL_SETUP.md)), `./install_rade.sh` ([priručnik](RADE_README.md)), `./setup-drm.sh` ([DRM dekoder](DECODERS.md#13-drm)), `./install-stats-server.sh` ([priručnik](sdr-stats/README.md)), `./setup-rx888-udev.sh` i skripte prijamnika `./setup-rsp1a.sh`, `./setup-fobos.sh`, `./setup-airspyhf.sh` i `./setup-hackrf.sh` — upravo njih poziva instalacijska skripta.
 
-### Ručno građenje (referenca)
-
-> [!IMPORTANT]
-> **Za normalnu instalaciju ovaj odjeljak vam ne treba.** `./install.sh` — ili instalacijska skripta vaše distribucije — sve to obavlja umjesto vas; vidi [Što instalacijska skripta radi](#što-instalacijska-skripta-radi). Ovo je referenca za ručno postavljanje, za distribuciju koju nijedna skripta ne pokriva ili za ručni popravak pojedinog dijela.
-
-Ako ikad budete morali graditi bez instalacijske skripte — distribucija koju skripte ne pokrivaju ili popravak nedovršenog builda:
-
-#### Izgradnja backenda
-
-```bash
-# Clean any previous builds, Configure build with optimization, Compile
-rm -rf build
-meson setup build --buildtype=release --optimization=3
-meson compile -C build
-
-# Verify binary was created
-ls -lh build/spectrumserver
-```
-
-#### Izgradnja frontenda
-
-```bash
-cd frontend
-
-# Install dependencies, Fix any vulnerabilities, Build the frontend
-npm install
-npm audit fix
-npm run build
-
-# Return to project root
-cd ..
-```
-
-### Provjerite instalaciju
-
-```bash
-# Check if binary exists
-ls -lh build/spectrumserver
-
-# Check if frontend was built
-ls -lh frontend/dist/
-
-# List important files
-ls -lh *.sh *.toml
-```
-
----
-
-## Instalacija audiokodeka Opus
-
-> [!IMPORTANT]
-> **Za normalnu instalaciju ovaj odjeljak vam ne treba.** `./install.sh` — ili instalacijska skripta vaše distribucije — sve to obavlja umjesto vas; vidi [Što instalacijska skripta radi](#što-instalacijska-skripta-radi). Ovo je referenca za ručno postavljanje, za distribuciju koju nijedna skripta ne pokriva ili za ručni popravak pojedinog dijela.
-
-
-Opus daje bolju kvalitetu zvuka i manju latenciju od FLAC-a.
-
-### 1. Instalirajte sistemsku biblioteku libopus
-
-```bash
-sudo apt-get update
-sudo apt-get install -y libopus0 libopus-dev
-```
-
-### 2. Instalirajte Opus dekoder za sučelje
-
-```bash
-cd PhantomSDR-Plus/frontend
-
-# Install npm dependencies if not already done, Install Opus WASM decoder, Fix any vulnerabilities, Rebuild frontend
-npm install
-npm install @wasm-audio-decoders/opus-ml
-npm audit fix
-npm run build
-
-# Return to project root
-cd ..
-```
-
-### 3. Provjerite instalaciju Opusa
-
-```bash
-# Check if Opus system library is installed
-pkg-config --modversion opus
-
-# Check if Opus npm package is installed
-cd frontend
-npm list @wasm-audio-decoders/opus-ml
-cd ..
-```
-
 ---
 
 ## Autorun Spot Reporter (FT8/FT4/WSPR)
@@ -615,7 +216,7 @@ Upravlja se u cijelosti s kartice **administratorska ploča → „Spot Reportin
 
 | Preduvjet | Napomene |
 |-----------|----------|
-| **Node.js 22+** | Isto radno okruženje koje već treba izgradnja sučelja — instalira se u [koraku Node.js](#instalacija-nodejs-a-i-npm-a). |
+| **Node.js 22+** | Isto radno okruženje koje već treba izgradnja sučelja — instalira se u koraku Node.js. |
 | **npm paketi `ws` + `cbor-x`** | Razrješavaju se preko `autorun/node_modules`, simboličke poveznice na `node_modules` sučelja (oba su paketa navedena u `frontend/package.json`). |
 | **`util-linux`** (`taskset`) | Gumb „Start" u administraciji veže daemon uz E-jezgre pomoću naredbe `taskset`. Prisutan je u gotovo svakoj distribuciji; instalacijske skripte dodaju ga izričito. |
 | **Pozivni znak + lokator** | Čitaju se iz `frontend/site_information.json` (`siteSysop` / `siteGridSquare`), osim ako se ne promijene na administratorskoj kartici. Spotovi se šalju pod tim pozivnim znakom. PSK Reporter i WSPRnet dobivaju samo lokator od 4 ili 6 znakova — dulji (KM17VX69JA) skraćuje se na svoj kvadrat (KM17VX). |
@@ -626,41 +227,6 @@ Upravlja se u cijelosti s kartice **administratorska ploča → „Spot Reportin
 
 `install.sh` (i inačice po distribucijama: `install_arch.sh`, `install_fedora.sh`, `install_opensuse.sh`) obavljaju sve umjesto vas: instaliraju Node.js 22 i `util-linux`, pokreću `npm install` za sučelje i zatim automatski stvaraju simboličku poveznicu `autorun/node_modules`. Nisu potrebni dodatni koraci — značajka je spremna čim `install.sh` završi.
 
-### Ručna instalacija
-
-> [!NOTE]
-> Instalacijska skripta to već radi umjesto vas: stvara simbolički link i instalira `util-linux`. Korake u nastavku koristite samo za ručni popravak.
-
-Ako ste instalirali ručno (opcija B), sami stvorite simboličku poveznicu nakon `npm install` za sučelje kako bi daemon mogao razriješiti svoje ovisnosti:
-
-```bash
-cd ~/PhantomSDR-Plus
-
-# 1. Frontend deps must be installed first (ws + cbor-x live there)
-cd frontend && npm install && cd ..
-
-# 2. Link the autorun daemon to the frontend's node_modules
-ln -sfn ../frontend/node_modules autorun/node_modules
-
-# 3. Ensure taskset is available (Debian/Ubuntu shown; use your package manager)
-sudo apt install -y util-linux
-```
-
-> **Napomena:** `autorun/node_modules` git zanemaruje, pa ga svježi `git clone` nikad ne sadrži — poveznicu treba (ponovno) stvoriti nakon svakog čistog preuzimanja. Instalacijske skripte to rade umjesto vas; gornja naredba odnosi se samo na ručna postavljanja.
-
-### Provjera
-
-```bash
-# The symlink should point at ../frontend/node_modules
-ls -l autorun/node_modules
-
-# ws + cbor-x must resolve
-ls -d frontend/node_modules/ws frontend/node_modules/cbor-x
-
-# taskset must be on PATH
-command -v taskset
-```
-
 Zatim otvorite administratorsku ploču, idite na karticu **Spot Reporting**, postavite svoj identitet, označite pojaseve/načine rada za dekodiranje, uključite odredišta i pritisnite **Start**. Oznaka „📶 REPORTING" pojavljuje se na glavnom slapu dok je prijavljivanje aktivno. (PSK Reporter šalje skupno svakih 5 minuta, a wsprnet svake 2 minute, pa svježe pokrenut daemon prvih nekoliko minuta pokazuje „0 sent" — to je normalno.) Ista kartica određuje UTC sate u kojima radi svaki pojas i način te može sama pokrenuti daemon nakon ponovnog pokretanja ili rušenja — vidi [Spot Reporting](ADMIN_PANEL_SETUP.md#spot-reporting-autorun-ft8ft4js8wspr).
 
 Zatim se prikazuju dva različita brojača koja je lako zamijeniti. Pločice **SPOTS UPLOADED PER DECODER** broje samo trenutačni rad, pa ih Stop/Start vraća na nulu; broj uz svaki potvrdni okvir pojasa/načina rada je **ukupan** zbroj tog mjesta od početka, spremljen u `autorun-totals.json` pa preživljava ponovna pokretanja. Oboje opisuje [vodič za administratorsku ploču](ADMIN_PANEL_SETUP.md), kao i stranicu **Grafikoni**, koja crta frekvenciju procesora, opterećenje, temperaturu i broj korisnika u rasponu od 15 minuta do 24 sata.
@@ -669,7 +235,7 @@ Zatim se prikazuju dva različita brojača koja je lako zamijeniti. Pločice **S
 
 > **Port poslužitelja otkriva se automatski.** Daemon se spaja izravno na `[server] port` samog spectrumservera (petlja + token, zaobilazeći proxy). Taj port čita iz konfiguracijske datoteke s kojom je pokrenut spectrumserver koji radi, pa funkcionira na bilo kojem portu bez konfiguracije — redak `[autorun] tap backend: …` u `autorun.log` pokazuje što je razriješio. Ako vaš poslužitelj nije radio kada je daemon pokrenut ili imate neobičnu postavu, zadajte ga u `autorun.json`:
 > ```json
-> "server": { "host": "127.0.0.1", "port": 9002 }
+> "server": { "host": "127.0.0.1", "port": 9001 }
 > ```
 > Pogrešan port očituje se kao `504` / `tap closed 1006` u `autorun.log`, uz `decodes` zaglavljen na 0.
 
@@ -714,7 +280,7 @@ nano config-rtl.toml
 
 ```toml
 [server]
-port = 9002                      # Web interface port (or everything else)
+port = 9001                      # Web interface port (or everything else)
 html_root = "frontend/dist/"     # Frontend location
 otherusers = 1                   # Show other users (1=yes, 0=no)
 iq = true                        # Offer the IQ mode to listeners (true/false)
@@ -781,7 +347,7 @@ Uredite sljedeća polja:
   "siteReceiver": "Your SDR model",
   "siteAntenna": "Antenna description",
   "siteNote": "Additional information",
-  "siteIP": "http://your.domain.com:9002",
+  "siteIP": "http://your.domain.com:9000",
   "siteSDRBaseFrequency": 0,
   "siteSDRBandwidth": 2048000,
   "siteRegion": 1,
@@ -833,19 +399,7 @@ Parametri unutar `RX_ARGS`:
 
 ### RTL-SDR
 
-#### Instalirajte RTL-SDR alate
-
-```bash
-sudo apt install -y rtl-sdr
-```
-
-#### Testirajte RTL-SDR
-
-```bash
-rtl_test
-```
-
-Pritisnite Ctrl+C za prekid. Trebali biste vidjeti podatke o frekvenciji uzorkovanja.
+Instalacijske skripte instaliraju upravljački program umjesto vas, sa `./setup-rtlsdr.sh` (`RTL_V4=y` za RTL-SDR Blog V4).
 
 #### Uredite konfiguraciju
 
@@ -899,8 +453,8 @@ Zatvoreni SDRplay API (`driver=sdrplay`, sa SoapySDRPlay i uslugom `sdrplay`) i 
 
 Fobos šalje **samo jednu granu odjednom**, pa ima dvije skripte za pokretanje koje dijele zaključavanje watchdoga kao svaka `start-*.sh` — pokretanje jedne zaustavlja drugu:
 
-- **`start-fobos-hf.sh`** — ulazi HF1/HF2 u izravnom uzorkovanju, 0-25 MHz, na portu 9003. U tom načinu rada nema lokalnog oscilatora: ADC neprestano digitalizira 0-25 MHz (`-f 0` je namjerno, a upozorenje *Failed to set center freq* iz rx_sdr je očekivano). `rx_sdr` daje CF32 na 50 Msps; mali pretvarač `cf32_to_real` (gradi ga `setup-fobos.sh` iz `cf32_to_real.c`) zadržava kanal I i skalira ga na s16, pa `config-fobos-hf.toml` koristi `signal="real"` i `format="s16"`.
-- **`start-fobos.sh`** — RF grana, 25-6000 MHz, IQ, na portu 9002. Odaberite prozor prije prvog pokretanja: `-f` (središte) i `-s` (brzina uzorkovanja) u retku `RX_ARGS` moraju odgovarati `frequency=` i `sps=` u `config-fobos.toml`. Isporučene vrijednosti (97 MHz, 20 Msps) samo su polazište za provjeru da radi.
+- **`start-fobos-hf.sh`** — ulazi HF1/HF2 u izravnom uzorkovanju, 0-25 MHz, na portu 9001. U tom načinu rada nema lokalnog oscilatora: ADC neprestano digitalizira 0-25 MHz (`-f 0` je namjerno, a upozorenje *Failed to set center freq* iz rx_sdr je očekivano). `rx_sdr` daje CF32 na 50 Msps; mali pretvarač `cf32_to_real` (gradi ga `setup-fobos.sh` iz `cf32_to_real.c`) zadržava kanal I i skalira ga na s16, pa `config-fobos-hf.toml` koristi `signal="real"` i `format="s16"`.
+- **`start-fobos.sh`** — RF grana, 25-6000 MHz, IQ, na portu 9001. Odaberite prozor prije prvog pokretanja: `-f` (središte) i `-s` (brzina uzorkovanja) u retku `RX_ARGS` moraju odgovarati `frequency=` i `sps=` u `config-fobos.toml`. Isporučene vrijednosti (97 MHz, 20 Msps) samo su polazište za provjeru da radi.
 
 > [!IMPORTANT]
 > `config-fobos-hf.toml` dolazi s `accelerator="opencl"`: tok od 50 Msps kroz FFT od 1M binova težak je kao 60 Msps RX888, a na CPU-u gubi uzorke i grije računalo. Na računalu bez OpenCL uređaja `spectrumserver` se s tom postavkom ne pokreće — ondje postavite `accelerator="none"`.
@@ -913,21 +467,7 @@ SoapyFobosSDR za izgradnju treba zaglavlja i od libfobos i od libfobos-sdr-agile
 
 ### RX888 MK2
 
-#### Instalirajte RX888 alate
-
-```bash
-# Install rx_tools
-git clone https://github.com/rxseger/rx_tools.git
-cd rx_tools
-mkdir build && cd build
-cmake ..
-make -j4
-sudo make install
-sudo ldconfig
-
-# Install RX888 firmware and support
-# Follow manufacturer instructions
-```
+Instalacijska skripta gradi `rx888_stream` i instalira njegova udev pravila umjesto vas.
 
 #### Pokretanje rx888_stream bez sudo (udev pravila)
 
@@ -1002,7 +542,7 @@ Potražite:
 
 Otvorite preglednik na:
 ```
-http://localhost:9002
+http://localhost:9000
 ```
 
 (Zamijenite broj porta svojim konfiguriranim portom)
@@ -1018,7 +558,7 @@ http://localhost:9002
 
 S drugog računala u svojoj mreži:
 ```
-http://YOUR_SERVER_IP:9002
+http://YOUR_SERVER_IP:9000
 ```
 
 ### 6. Provjerite potrošnju resursa
@@ -1058,96 +598,6 @@ bash setup-autostart.sh --remove       # više ne pokretati pri podizanju
 Instalira `phantomsdr-receiver.service`, koji pri podizanju sustava pokreće vašu skriptu, a pri gašenju `stop-websdr.sh`, s grupom `plugdev`, tako da se USB prijemnik otvara i kad nitko nije prijavljen. Ostatak ovog poglavlja pokazuje isto ručno.
 
 
-### Pomoću systemd (preporučeno)
-
-#### 1. Stvorite datoteku usluge
-
-```bash
-sudo nano /etc/systemd/system/phantomsdr.service
-```
-
-Dodajte sljedeći sadržaj (prilagodite putanje i korisnika):
-
-```ini
-[Unit]
-Description=PhantomSDR-Plus WebSDR Server
-After=network.target
-
-[Service]
-Type=simple
-User=youruser
-WorkingDirectory=/home/youruser/PhantomSDR-Plus
-# Run the watchdog in the FOREGROUND (note the --watchdog flag) so systemd can
-# track it. Do NOT use the plain "./start-rtl.sh" here — that form detaches into
-# the background and exits, which systemd would treat as the service stopping.
-ExecStart=/home/youruser/PhantomSDR-Plus/start-rtl.sh --watchdog
-ExecStop=/home/youruser/PhantomSDR-Plus/stop-websdr.sh
-Restart=always
-RestartSec=10
-
-[Install]
-WantedBy=multi-user.target
-```
-
-> Proces `--watchdog` već sam ponovno pokreće prijamnik i `spectrumserver`; `Restart=always` tek je sigurnosna mreža za rijedak slučaj da sam watchdog završi. Budući da ovdje systemd nadzire poslužitelj, umjesto ručnog pokretanja skripti možete koristiti `systemctl start/stop/restart` i `journalctl -u phantomsdr -f`.
-
-#### 2. Omogućite i pokrenite uslugu
-
-```bash
-# Reload systemd
-sudo systemctl daemon-reload
-
-# Enable service to start on boot
-sudo systemctl enable phantomsdr.service
-
-# Start service now
-sudo systemctl start phantomsdr.service
-
-# Check status
-sudo systemctl status phantomsdr.service
-```
-
-#### 3. Upravljanje uslugom
-
-```bash
-# Start
-sudo systemctl start phantomsdr
-
-# Stop
-sudo systemctl stop phantomsdr
-
-# Restart
-sudo systemctl restart phantomsdr
-
-# View logs
-sudo journalctl -u phantomsdr -f
-```
-
-### Pomoću Screena (alternativa)
-
-> Obično nepotrebno: `./start-rtl.sh` već se odvaja u pozadinu (putem `setsid`) i nastavlja raditi nakon odjave, s vlastitim watchdogom. Screen je koristan samo ako izričito želite interaktivnu sesiju za pokretanje inačice u prednjem planu `./start-rtl.sh --watchdog`.
-
-#### 1. Instalirajte Screen
-
-```bash
-sudo apt install -y screen
-```
-
-#### 2. Pokrenite u Screen sesiji
-
-```bash
-screen -S phantomsdr
-./start-rtl.sh
-```
-
-Pritisnite Ctrl+A, zatim D za odvajanje.
-
-#### 3. Vratite se u sesiju
-
-```bash
-screen -r phantomsdr
-```
-
 ---
 
 ## Toplinska zaštita procesora
@@ -1157,100 +607,6 @@ screen -r phantomsdr
 PhantomSDR-Plus donosi čuvara koji zaustavlja poslužitelj ako procesor dosegne opasnu temperaturu i pokreće ga ponovno kad se ohladi. Pragove izvodi iz kritičnog praga koji objavljuje vaš vlastiti procesor, pa nema ničega za računati, i radi s bilo kojim načinom pokretanja/zaustavljanja.
 
 **Ako koristite administratorsku ploču, već ga imate** — radi unutar ploče i podešava se na njezinoj stranici Postavke. Vidi [vodič za administratorsku ploču](ADMIN_PANEL_SETUP.md#thermal-guard). Ostatak ovog odjeljka odnosi se na instalacije **bez** ploče.
-
-### 1. Provjerite što čuvar vidi na vašem stroju
-
-```bash
-cd ~/PhantomSDR-Plus
-python3 thermal_guard.py --once
-```
-
-```
-sensor     : hwmon:coretemp
-temperature: 58.0 C
-crit       : 100.0 C
-mode       : log
-thresholds : warn 88.0  throttle 92.0  stop 95.0  resume 75.0 (C)
-cpufreq    : not writable — throttle stage disabled
-```
-
-Koriste se samo pravi senzori na procesoru (`coretemp`, `k10temp`, `zenpower`, `cpu_thermal`); `acpitz` i neoznačene toplinske zone namjerno se zanemaruju jer često prijavljuju temperaturu kućišta ili ploče desetke stupnjeva nižu od procesora. Ako ispiše `sensor : NONE`, taj se stroj ne može zaštititi — često na VPS-u ili unutar kontejnera — i čuvar će ostati neaktivan umjesto da se pretvara.
-
-Ništa se ne mora instalirati: `thermal_guard.py` koristi samo Pythonovu standardnu biblioteku.
-
-### 2. Podesite ga
-
-Čuvar čita `admin_config.json` uz `thermal_guard.py`. Napravite ga ako ga nemate — bez ploče ga nećete imati. Najmanja korisna datoteka:
-
-```json
-{
-  "sdr_process_name": "spectrumserver",
-  "stop_script":  "stop-websdr.sh",
-  "start_script": "start-rx888mk2.sh",
-  "thermal_mode": "stop+restart"
-}
-```
-
-- `thermal_mode` — `log` (samo zapisuje, zadano), `throttle`, `stop` ili `stop+restart`. **To je ono što morate postaviti**, jer se čuvar isporučuje neaktivan: ostavljen takav, samo zapisuje što bi *učinio*. Možete ga zadati i u naredbenom retku kao `--mode stop+restart`, što nadjačava datoteku — ako vam odgovaraju sve ostale zadane vrijednosti, konfiguracijska datoteka uopće vam ne treba.
-- `stop_script` / `start_script` — kako zaustavlja i pokreće vaš poslužitelj. Bez skripte za zaustavljanje pribjegava `SIGTERM`-u, pa nakon 10 sekundi `SIGKILL`-u nad `sdr_process_name`. Bez skripte za pokretanje zaustavlja, ali nikad ne pokreće ponovno.
-- Pragovi i vremena mogu se postaviti i ovdje, s istim nazivima ključeva koje koristi ploča — cijela je tablica u [vodiču za administratorsku ploču](ADMIN_PANEL_SETUP.md#thermal-guard).
-
-> **Ako vaš SDR poslužitelj nadzire systemd**, neka `stop_script` pokazuje na malu skriptu koja izvodi `systemctl stop vasa-jedinica`, umjesto da čuvar signalizira proces izravno. Čuvar će pobijediti u svakom slučaju — dok je procesor prevruć, ponavlja zaustavljanje svake 2 sekunde, pa je sve što oživi poslužitelj poništeno — ali čisto zaustavljanje bolje je od borbe svake dvije sekunde.
-
-### 3. Pokrenite ga kao uslugu
-
-Repozitorij sadrži gotovu jedinicu, `thermal-guard.service`. U njoj uredite `User=` i dvije putanje, a zatim:
-
-```bash
-sudo cp thermal-guard.service /etc/systemd/system/
-sudo systemctl daemon-reload
-sudo systemctl enable --now thermal-guard
-systemctl status thermal-guard
-```
-
-`User=` mora biti račun kojem je dopušteno pokretati vaše skripte za pokretanje/zaustavljanje — obično isti korisnik koji pokreće SDR poslužitelj. **Čuvar koji radi kao korisnik koji ne može zaustaviti poslužitelj ostavlja vas nezaštićenima, a izgleda kao da vas štiti.**
-
-Da čuvara naoružate iz jedinice umjesto iz konfiguracijske datoteke, dodajte `--mode` u `ExecStart`:
-
-```ini
-ExecStart=/usr/bin/python3 -u /home/sysop/PhantomSDR-Plus/thermal_guard.py --mode stop+restart
-```
-
-Bez systemd-a:
-
-```bash
-cd ~/PhantomSDR-Plus
-nohup python3 -u thermal_guard.py --mode stop+restart >> thermal.log 2>&1 &
-```
-
-`python3 thermal_guard.py --help` navodi sve opcije, uključujući `--config` za konfiguracijsku datoteku koja nije uz skriptu.
-
-### 4. Promatrajte pa vjerujte
-
-Sve što čuvar učini zapisuje se u `crash.log` u direktoriju PhantomSDR-Plus, jedan događaj po retku:
-
-```
-[THERMAL] warn: 89.0C (warn=88.0 crit=100.0) sustained 31s
-[THERMAL] STOPPED server: 96.0C sustained 62s (stop=95.0 crit=100.0) — Started stop-websdr.sh
-[THERMAL] lockout: process reappeared at 94.0C — re-stopped [3 time(s) so far]
-[THERMAL] recovered: 74.0C held below 75.0 — lockout cleared
-```
-
-```bash
-grep THERMAL crash.log
-```
-
-Ostavite `thermal_mode` na `"log"` tjedan dana i pročitajte tu datoteku nakon teških trenutaka — potpune ponovne izgradnje, vrućeg poslijepodneva. Ako se ništa ne pojavi, vaš stroj nikada nije ni prišao. Zatim postavite način na `stop`.
-
-Prije nego se pouzdate u njega, dokažite cijeli put jednom lažnim očitanjem iznad svojeg praga zaustavljanja:
-
-```json
-"thermal_test_temp": 97
-```
-
-Čuvar ga tretira kao stvarnog, pa se warn → stop → zaključavanje → oporavak → ponovno pokretanje odvijaju na zahtjev. Uklonite redak (ili ga postavite na `null`) za povratak na stvarni senzor. S načinom `stop` ovo doista zaustavlja poslužitelj i odspaja vaše slušatelje, pa to učinite kad nikoga nema — ili testirajte u načinu `log`, gdje se vidi što bi se *dogodilo*, bez diranja ičega.
-
----
 
 ## Rješavanje problema
 
@@ -1333,22 +689,13 @@ error during build:
 
 `vite-plugin-top-level-await` traži `@swc/core` `^1.12.14`, pa čisti `npm install` razriješi na 1.16.0, čiji `printSync()` odbija sintaksno stablo koje mu dodatak predaje. To nema veze s vašom distribucijom — svaki instalacijski program sada pribada verziju koja radi, kao i `frontend/package.json`. Stroj postavljen prije tog pribadanja nastavlja raditi dok se njegov `node_modules` ne obriše, zbog čega se ovo pri ponovnoj instalaciji pojavi niotkuda.
 
-Ako starije preuzimanje popravljate ručno:
-
-```bash
-cd frontend
-npm pkg set 'overrides.@swc/core=1.15.33'
-npm install
-./build-all.sh
-```
-
 ### Pogreške pri izvođenju
 
 #### Port je već zauzet
 
 ```bash
 # Find process using port
-sudo lsof -i :9002
+sudo lsof -i :9000
 
 # Kill process
 sudo kill -9 <PID>
@@ -1370,17 +717,6 @@ Za **RX-888 MkII** to samo po sebi nije dovoljno — uređaj Cypress FX3 traži 
 ./setup-rx888-udev.sh
 ```
 
-#### Problemi sa zvukom
-
-```bash
-# Try different codec
-# Edit config file and change:
-audio_compression = "flac"  # or "opus"
-
-# Rebuild
-cd frontend && npm run build && cd ..
-```
-
 ### Problemi s OpenCL-om
 
 #### clinfo ne prikazuje uređaje
@@ -1395,18 +731,6 @@ ls /etc/OpenCL/vendors/
 # Reinstall drivers (Intel example)
 sudo apt remove --purge intel-opencl-icd
 sudo apt install intel-opencl-icd
-```
-
-#### Performanse se nisu poboljšale
-
-```bash
-# Verify OpenCL is enabled in config
-accelerator = "opencl"
-
-# Try different device
-# Add to config file:
-[input.opencl]
-device_id = 0  # Try 0, 1, 2, etc.
 ```
 
 ### Mrežni problemi
@@ -1427,19 +751,6 @@ sudo firewall-cmd --add-port=9000/tcp
 ```
 
 Na Fedori i openSUSE-u vatrozid je firewalld, a ne ufw, i uključen je prema zadanim postavkama. `setup_admin.sh` ondje sam otvara javni port proxyja (i u ufw-u, ako ste ga uključili); na stanici instaliranoj ranije jednom pokrenite `./setup_admin.sh --firewall` ili upotrijebite gornje retke `firewall-cmd`. Ako se administratorska ploča ili proxy na tim sustavima ne vrate nakon ponovnog pokretanja, uobičajeni je uzrok SELinux: pokrenite `./setup_admin.sh --selinux` (vidi tablicu za rješavanje problema u ADMIN_PANEL_SETUP.md).
-
-#### Velika latencija
-
-```bash
-# Reduce waterfall size in config
-waterfall_size = 512
-
-# Increase buffer size
-buffer_size = 16384
-
-# Use Opus instead of FLAC
-audio_compression = "opus"
-```
 
 ### Problemi sa SDR uređajem
 
@@ -1493,39 +804,6 @@ id | grep plugdev                          # log out and back in if missing
 ```
 
 Ako upravljačkog programa nema na popisu, ponovno pokrenite `./setup-fobos.sh` ili `./setup-airspyhf.sh`: zaustavlja se i navodi razlog ako izgradnja ili provjera SoapySDR-a ne uspije.
-
----
-
-## Optimizacija performansi
-
-### Optimizacija procesora
-
-```toml
-# Adjust thread counts based on CPU cores
-[server]
-threads = 4  # Set to number of cores
-
-[input]
-fft_threads = 4  # Set to number of cores
-```
-
-### Optimizacija memorije
-
-```toml
-# Reduce memory usage
-[input]
-waterfall_size = 512  # Lower value = less memory
-fft_size = 65536      # Lower value = less memory
-```
-
-### Optimizacija mreže
-
-```toml
-# Optimize for limited bandwidth
-[input]
-audio_compression = "opus"  # More efficient than FLAC
-waterfall_compression = "zstd"  # Efficient compression
-```
 
 ---
 
@@ -1601,8 +879,6 @@ Arhiva sadrži samo datoteke koje je to pokretanje zamijenilo, svaku na putanji 
 
 Svaka arhiva nosi i vlastiti `restore.sh`, za slučaj da je problem sam `update.sh`: raspakirajte arhivu i dajte mu direktorij svoje instalacije, na primjer `./restore.sh /home/pi/PhantomSDR-Plus`. Tijekom vraćanja `update.sh` radi iz kopije izvan stabla, jer je obično i sam jedna od datoteka koje se vraćaju.
 
-Sigurnosne kopije od prije 23. rujna 2026. nalaze se u skrivenoj mapi `.update-backups/<vremenska oznaka>/`; vraćaju se na isti način i ubrajaju se u tri koje se čuvaju.
-
 ### Ostale mogućnosti
 
 ```bash
@@ -1655,128 +931,6 @@ chmod +x *.sh
 Prvo sigurnosno pohranite svoju konfiguraciju — `config-*.toml`,
 `frontend/site_information.json`, `admin_config.json` i `markers.json` — jer paket datoteka ne
 može razlikovati vaše izmjene od onih iz izdanja. Upravo taj problem `update.sh` rješava.
-
----
-
-## Sigurnosna kopija i vraćanje
-
-### Datoteke koje treba sigurnosno kopirati
-
-- Konfiguracijske datoteke: `*.toml`
-- Podaci o lokaciji: `frontend/site_information.json`
-- Oznake: `markers.json`
-- Vlastite skripte: `start-*.sh`, `stop-*.sh`
-- Povijest razgovora: `chat_history.txt`
-- Pozadinska slika: `frontend/src/assets/background.jpg`
-
-### Naredba za sigurnosnu kopiju
-
-```bash
-cd ~/PhantomSDR-Plus
-tar -czf phantomsdr-backup-$(date +%Y%m%d).tar.gz \
-  *.toml \
-  *.sh \
-  markers.json \
-  chat_history.txt \
-  frontend/site_information.json \
-  frontend/src/assets/background.jpg
-```
-
-### Naredba za vraćanje
-
-```bash
-tar -xzf phantomsdr-backup-YYYYMMDD.tar.gz
-```
-
----
-
-## Sigurnosna razmatranja
-
-### Konfiguracija vatrozida
-
-```bash
-# Allow only necessary ports
-sudo ufw allow 9000/tcp
-sudo ufw enable
-
-# Fedora / openSUSE (firewalld)
-sudo firewall-cmd --permanent --add-port=9000/tcp
-sudo firewall-cmd --add-port=9000/tcp
-```
-
-### Obratni proxy (neobavezno)
-
-Razmislite o korištenju nginxa ili Apachea kao obratnog proxyja za:
-- SSL/TLS enkripciju
-- pridruživanje naziva domene
-- raspodjelu opterećenja
-- kontrolu pristupa
-
-### Ograničenja korisnika
-
-Uredite `config.toml`:
-```toml
-[server]
-max_users = 100  # Limit concurrent users
-```
-
----
-
-## Kako doći do pomoći
-
-### Izvori
-
-- **Dokumentacija**: ovaj vodič, README.md, USER_GUIDE.md
-- **GitHub Issues**: https://github.com/sv1btl/PhantomSDR-Plus/issues
-- **Demonstracija uživo**: http://phantomsdr.no-ip.org:8900/
-
-### Prijava problema
-
-Kada prijavljujete problem, navedite:
-1. operacijski sustav i verziju
-2. model SDR uređaja
-3. sadržaj konfiguracijske datoteke
-4. poruke o pogreškama
-5. potrošnju sistemskih resursa (CPU, RAM, GPU)
-
-### Podrška zajednice
-
-- Prije otvaranja novih, provjerite postojeće GitHub issue prijave
-- Navedite detaljne podatke o svojoj postavi
-- Priložite zapise i poruke o pogreškama
-- Budite strpljivi i pristojni
-
----
-
-## Dodatak A: potpuni popis ovisnosti
-
-### Popis paketa za Ubuntu 24.04
-
-```
-build-essential
-cmake
-pkg-config
-meson
-libfftw3-dev
-libwebsocketpp-dev
-libflac++-dev
-zlib1g-dev
-libzstd-dev
-libboost-all-dev
-libopus-dev
-libliquid-dev
-git
-util-linux (taskset — for the autorun spot reporter)
-psmisc
-wget
-curl
-rtl-sdr (for RTL-SDR)
-airspy (for Airspy)
-hackrf (for HackRF)
-libclfft-dev (for OpenCL)
-ocl-icd-opencl-dev (for OpenCL)
-clinfo (for OpenCL)
-```
 
 ---
 
@@ -1853,7 +1007,5 @@ modulation = "WBFM"
 ```
 
 ---
-
-**Instalacija je gotova! Sada biste trebali imati potpuno funkcionalan PhantomSDR-Plus poslužitelj.**
 
 **73 de SV1BTL, 9A7AOF, F1NSK & SV2AMK**

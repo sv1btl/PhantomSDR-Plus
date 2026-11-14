@@ -7,24 +7,15 @@ This comprehensive guide will walk you through installing and configuring Phanto
 ## Table of Contents
 
 1. [System Requirements](#system-requirements)
-2. [Pre-Installation Preparation](#pre-installation-preparation)
-3. [Installing PhantomSDR-Plus](#installing-phantomsdr-plus) — the installer, and [what it does](#what-the-installer-does)
-4. [Autorun Spot Reporter (FT8/FT4/WSPR)](#autorun-spot-reporter-ft8ft4wspr)
-5. [KiwiSDR Client Emulation (optional)](#kiwisdr-client-emulation-optional)
-6. [Configuration](#configuration)
-7. [SDR Device-Specific Setup](#sdr-device-specific-setup)
-8. [Testing and Verification](#testing-and-verification)
-9. [Setting Up Autostart](#setting-up-autostart)
-10. [CPU Thermal Protection](#cpu-thermal-protection)
-11. [Troubleshooting](#troubleshooting)
-
-**Reference only — the installer already does all of this for you.** Read these sections when you are on a distribution none of the installers covers, or when you need to repair one piece by hand:
-
-- [Installing Dependencies](#installing-dependencies)
-- [Installing Node.js and npm](#installing-nodejs-and-npm)
-- [Installing OpenCL](#installing-opencl-optional-but-recommended)
-- [Building by hand](#building-by-hand-reference)
-- [Installing Opus Audio Codec](#installing-opus-audio-codec)
+2. [Installing PhantomSDR-Plus](#installing-phantomsdr-plus) — the installer, and [what it does](#what-the-installer-does)
+3. [Autorun Spot Reporter (FT8/FT4/WSPR)](#autorun-spot-reporter-ft8ft4wspr)
+4. [KiwiSDR Client Emulation (optional)](#kiwisdr-client-emulation-optional)
+5. [Configuration](#configuration)
+6. [SDR Device-Specific Setup](#sdr-device-specific-setup)
+7. [Testing and Verification](#testing-and-verification)
+8. [Setting Up Autostart](#setting-up-autostart)
+9. [CPU Thermal Protection](#cpu-thermal-protection)
+10. [Troubleshooting](#troubleshooting)
 
 ---
 
@@ -62,304 +53,6 @@ This comprehensive guide will walk you through installing and configuring Phanto
 - Storage: NVMe SSD
 - GPU: Dedicated GPU with OpenCL/CUDA support
 - Network: 1 Gbps or better
-
----
-
-## Pre-Installation Preparation
-
-### 1. Update Your System
-
-```bash
-# Ubuntu/Debian
-sudo apt update
-sudo apt upgrade -y
-sudo reboot
-
-# Fedora
-sudo dnf update -y
-sudo reboot
-```
-
-### 2. Verify Ubuntu Version
-
-```bash
-lsb_release -a
-```
-
-**Expected output should show:** Ubuntu 24.04 LTS
-
-### 3. Check Available Disk Space
-
-```bash
-df -h
-```
-
-Ensure you have at least 10 GB free in your home directory.
-
-### 4. Check CPU Information
-
-```bash
-lscpu
-```
-
-Note the number of cores/threads for configuration optimization.
-
----
-
-## Installing Dependencies
-
-> [!IMPORTANT]
-> **You do not need this section for a normal installation.** `./install.sh` — or the installer for your distribution — does all of it for you; see [What the installer does](#what-the-installer-does). What follows is a reference for a manual setup, for a distribution none of the installers covers, or for repairing one piece by hand.
-
-
-### Ubuntu 24.04 LTS
-
-```bash
-sudo apt install -y \
-  build-essential \
-  cmake \
-  pkg-config \
-  meson \
-  libfftw3-dev \
-  libwebsocketpp-dev \
-  libflac++-dev \
-  zlib1g-dev \
-  libzstd-dev \
-  libboost-all-dev \
-  libopus-dev \
-  libliquid-dev \
-  git \
-  psmisc \
-  wget \
-  curl
-```
-
-### Fedora
-
-```bash
-sudo dnf install -y \
-  g++ \
-  meson \
-  cmake \
-  fftw3-devel \
-  websocketpp-devel \
-  flac-devel \
-  zlib-devel \
-  boost-devel \
-  libzstd-devel \
-  opus-devel \
-  liquid-dsp-devel \
-  git \
-  psmisc \
-  wget \
-  curl
-```
-
-### Verify Installation
-
-```bash
-# Check if key dependencies are installed
-pkg-config --modversion fftw3
-cmake --version
-meson --version
-```
-
----
-
-## Installing Node.js and npm
-
-> [!IMPORTANT]
-> **You do not need this section for a normal installation.** `./install.sh` — or the installer for your distribution — does all of it for you; see [What the installer does](#what-the-installer-does). What follows is a reference for a manual setup, for a distribution none of the installers covers, or for repairing one piece by hand.
-
-
-PhantomSDR-Plus requires Node.js for building the frontend. We'll use NVM (Node Version Manager) for installation.
-
-### 1. Install NVM
-
-```bash
-curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.4/install.sh | bash
-```
-
-### 2. Load NVM
-
-**IMPORTANT:** Close and reopen your terminal, or run:
-
-```bash
-export NVM_DIR="$HOME/.nvm"
-[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
-```
-
-### 3. Verify NVM Installation
-
-```bash
-nvm --version
-```
-
-Expected output: `0.40.4` or similar
-
-### 4. Install Node.js
-
-```bash
-# Install Node.js 22 - the version every install script requires
-nvm install 22
-
-# Make it the default, so systemd units and cron see it too
-nvm alias default 22
-
-# Verify installation
-node --version
-npm --version
-```
-
-### 5. Optional: Install Additional Node Versions
-
-```bash
-# Install latest version
-nvm install node
-
-# Install specific version (if needed)
-nvm install 22.22.3
-
-# List installed versions
-nvm list
-
-# Use specific version
-nvm use 22
-```
-
----
-
-## Installing OpenCL (Optional but Recommended)
-
-> [!IMPORTANT]
-> **You do not need this section for a normal installation.** `./install.sh` — or the installer for your distribution — does all of it for you; see [What the installer does](#what-the-installer-does). What follows is a reference for a manual setup, for a distribution none of the installers covers, or for repairing one piece by hand.
-
-
-OpenCL dramatically improves performance by offloading FFT calculations to the GPU. This section covers Intel integrated graphics. For AMD/NVIDIA GPUs, refer to manufacturer documentation.
-
-### Intel CPU with Integrated Graphics
-
-#### 1. Install Base OpenCL Components
-
-```bash
-sudo apt install -y \
-  build-essential \
-  cmake \
-  pkg-config \
-  meson \
-  libfftw3-dev \
-  libwebsocketpp-dev \
-  libflac++-dev \
-  zlib1g-dev \
-  libzstd-dev \
-  libboost-all-dev \
-  libopus-dev \
-  libliquid-dev \
-  libclfft-dev \
-  ocl-icd-opencl-dev \
-  clinfo
-```
-
-#### 2. Download Intel Compute Runtime
-
-```bash
-mkdir -p ~/neo
-cd ~/neo
-
-wget https://github.com/intel/compute-runtime/releases/download/19.07.12410/intel-gmmlib_18.4.1_amd64.deb
-wget https://github.com/intel/compute-runtime/releases/download/19.07.12410/intel-igc-core_18.50.1270_amd64.deb
-wget https://github.com/intel/compute-runtime/releases/download/19.07.12410/intel-igc-opencl_18.50.1270_amd64.deb
-wget https://github.com/intel/compute-runtime/releases/download/19.07.12410/intel-opencl_19.07.12410_amd64.deb
-wget https://github.com/intel/compute-runtime/releases/download/19.07.12410/intel-ocloc_19.07.12410_amd64.deb
-```
-
-#### 3. Install Intel OpenCL Runtime
-
-```bash
-sudo dpkg -i *.deb
-```
-
-If dependency errors occur:
-
-```bash
-sudo apt --fix-broken install
-```
-
-#### 4. Install OpenCL ICD Loader
-
-```bash
-sudo apt update
-sudo apt install intel-opencl-icd
-```
-
-If errors occur:
-
-```bash
-sudo apt --fix-broken install
-sudo apt install intel-opencl-icd
-```
-
-#### 5. Verify OpenCL Installation
-
-```bash
-sudo clinfo
-```
-
-You should see information about your OpenCL platform and devices. Look for:
-- Number of platforms: 1 (or more)
-- Platform name: Intel(R) OpenCL (or similar)
-- Device type: GPU or CPU
-
-#### 6. Reboot
-
-```bash
-sudo reboot
-```
-
-### AMD GPU OpenCL
-
-For AMD GPUs, install ROCm:
-
-```bash
-# Add ROCm repository
-wget -q -O - https://repo.radeon.com/rocm/rocm.gpg.key | sudo apt-key add -
-echo 'deb [arch=amd64] https://repo.radeon.com/rocm/apt/debian/ ubuntu main' | sudo tee /etc/apt/sources.list.d/rocm.list
-
-# Install ROCm
-sudo apt update
-sudo apt install rocm-opencl rocm-clinfo
-
-# Add user to video group
-sudo usermod -a -G video $USER
-
-# Reboot
-sudo reboot
-
-# Verify
-clinfo
-```
-
-### NVIDIA GPU OpenCL
-
-For NVIDIA GPUs, install CUDA:
-
-```bash
-# Install NVIDIA drivers
-sudo apt install nvidia-driver-525
-
-# Install CUDA toolkit
-wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64/cuda-keyring_1.0-1_all.deb
-sudo dpkg -i cuda-keyring_1.0-1_all.deb
-sudo apt update
-sudo apt install cuda
-
-# Reboot
-sudo reboot
-
-# Verify
-nvidia-smi
-clinfo
-```
 
 ---
 
@@ -442,8 +135,6 @@ bash configure-station.sh --show   # print the current answers
 
 On an installed station the wizard then carries the change everywhere it is needed — new ports into `admin_config.json` and the statistics service, a new receiver into start at boot — and asks once whether to rebuild the page and restart what runs. Changing a port is therefore this one command, plus the forwarding on your router if the public port moved. The public port must be 1024 or more, because the proxy does not run as root: to be reached on port 80, keep 9000 here and forward the router's outside port 80 to it.
 
-A station installed before the wizard existed keeps its own ports: run there, the wizard offers the ports that station already uses.
-
 ### What the installer does
 
 Nothing has to be prepared by hand first — no dependency list to paste, no Node.js to fetch, no OpenCL packages to hunt down. Allow anywhere from about twenty minutes to well over an hour, depending on the machine and on whether RADE is installed (its download is the long part).
@@ -506,99 +197,9 @@ PHANTOM_NONINTERACTIVE=1 PHANTOM_SDR=1 \
 
 After a reboot the RX888 udev rules and any OpenCL driver are fully in effect; the installer tells you when a reboot or a re-login is needed.
 
-When it sets up the admin panel, the installer offers to install the two systemd units as well, and **strongly recommends** accepting: the CPU over-temperature guard runs inside the panel, so without them a reboot or a crash leaves the machine unprotected. The offer is skipped automatically where systemd is not running (containers, WSL1, OpenRC) — see the [Admin Panel guide](ADMIN_PANEL_SETUP.md#step-3--start--stop--restart).
+When it sets up the admin panel, the installer offers to install the two systemd units as well, and **strongly recommends** accepting: the CPU over-temperature guard runs inside the panel, so without them a reboot or a crash leaves the machine unprotected. The offer is skipped automatically where systemd is not running (containers, WSL1, OpenRC) — see the [Admin Panel guide](ADMIN_PANEL_SETUP.md#step-2--start--stop--restart).
 
 Each extra is a normal script you can also run on its own at any time — `./setup_admin.sh` ([manual](ADMIN_PANEL_SETUP.md)), `./install_rade.sh` ([manual](RADE_README.md)), `./setup-drm.sh` ([manual](DECODERS.md#13-drm)), `./install-stats-server.sh` ([manual](sdr-stats/README.md)), `./setup-rx888-udev.sh` and the receiver scripts `./setup-rsp1a.sh`, `./setup-fobos.sh`, `./setup-airspyhf.sh` and `./setup-hackrf.sh` — they are exactly what the installer calls.
-
-### Building by hand (reference)
-
-> [!IMPORTANT]
-> **You do not need this section for a normal installation.** `./install.sh` — or the installer for your distribution — does all of it for you; see [What the installer does](#what-the-installer-does). What follows is a reference for a manual setup, for a distribution none of the installers covers, or for repairing one piece by hand.
-
-Should you ever have to build without the installer — a distribution none of the scripts covers, or repairing a half-finished build:
-
-#### Build the Backend
-
-```bash
-# Clean any previous builds, Configure build with optimization, Compile
-rm -rf build
-meson setup build --buildtype=release --optimization=3
-meson compile -C build
-
-# Verify binary was created
-ls -lh build/spectrumserver
-```
-
-#### Build the Frontend
-
-```bash
-cd frontend
-
-# Install dependencies, Fix any vulnerabilities, Build the frontend
-npm install
-npm audit fix
-npm run build
-
-# Return to project root
-cd ..
-```
-
-### Verify Installation
-
-```bash
-# Check if binary exists
-ls -lh build/spectrumserver
-
-# Check if frontend was built
-ls -lh frontend/dist/
-
-# List important files
-ls -lh *.sh *.toml
-```
-
----
-
-## Installing Opus Audio Codec
-
-> [!IMPORTANT]
-> **You do not need this section for a normal installation.** `./install.sh` — or the installer for your distribution — does all of it for you; see [What the installer does](#what-the-installer-does). What follows is a reference for a manual setup, for a distribution none of the installers covers, or for repairing one piece by hand.
-
-
-Opus provides better audio quality and lower latency compared to FLAC.
-
-### 1. Install libopus System Library
-
-```bash
-sudo apt-get update
-sudo apt-get install -y libopus0 libopus-dev
-```
-
-### 2. Install Opus Decoder for Frontend
-
-```bash
-cd PhantomSDR-Plus/frontend
-
-# Install npm dependencies if not already done, Install Opus WASM decoder, Fix any vulnerabilities, Rebuild frontend
-npm install
-npm install @wasm-audio-decoders/opus-ml
-npm audit fix
-npm run build
-
-# Return to project root
-cd ..
-```
-
-### 3. Verify Opus Installation
-
-```bash
-# Check if Opus system library is installed
-pkg-config --modversion opus
-
-# Check if Opus npm package is installed
-cd frontend
-npm list @wasm-audio-decoders/opus-ml
-cd ..
-```
 
 ---
 
@@ -615,7 +216,7 @@ It is controlled entirely from the **admin panel → "Spot Reporting"** tab, and
 
 | Requirement | Notes |
 |-------------|-------|
-| **Node.js 22+** | Same runtime the frontend build already needs — installed in the [Node.js step](#installing-nodejs-and-npm). |
+| **Node.js 22+** | Same runtime the frontend build already needs — installed in the Node.js step. |
 | **`ws` + `cbor-x` npm packages** | Resolved through `autorun/node_modules`, a symlink to the frontend's `node_modules` (both packages are declared in `frontend/package.json`). |
 | **`util-linux`** (`taskset`) | The admin "Start" button pins the daemon to the E-cores with `taskset`. Present on virtually every distro; the installers add it explicitly. |
 | **Callsign + grid** | Read from `frontend/site_information.json` (`siteSysop` / `siteGridSquare`) unless overridden in the admin tab. Spots are uploaded under this callsign. PSK Reporter and WSPRnet get a 4- or 6-character locator only — a longer one (KM17VX69JA) is cut to its square (KM17VX). |
@@ -626,41 +227,6 @@ It is controlled entirely from the **admin panel → "Spot Reporting"** tab, and
 
 `install.sh` (and the per-distro variants: `install_arch.sh`, `install_fedora.sh`, `install_opensuse.sh`) handle everything for you: they install Node.js 22 and `util-linux`, run the frontend `npm install`, and then create the `autorun/node_modules` symlink automatically. No extra steps are required — the feature is ready as soon as `install.sh` finishes.
 
-### Manual installation
-
-> [!NOTE]
-> The installer already does this for you: it creates the symlink and installs `util-linux`. Use the steps below only to repair an installation by hand.
-
-If you installed manually (Option B), create the symlink yourself after the frontend `npm install` so the daemon can resolve its dependencies:
-
-```bash
-cd ~/PhantomSDR-Plus
-
-# 1. Frontend deps must be installed first (ws + cbor-x live there)
-cd frontend && npm install && cd ..
-
-# 2. Link the autorun daemon to the frontend's node_modules
-ln -sfn ../frontend/node_modules autorun/node_modules
-
-# 3. Ensure taskset is available (Debian/Ubuntu shown; use your package manager)
-sudo apt install -y util-linux
-```
-
-> **Note:** `autorun/node_modules` is git-ignored, so a fresh `git clone` never contains it — the symlink must be (re)created after every clean checkout. The installers do this for you; the command above is only for manual setups.
-
-### Verifying
-
-```bash
-# The symlink should point at ../frontend/node_modules
-ls -l autorun/node_modules
-
-# ws + cbor-x must resolve
-ls -d frontend/node_modules/ws frontend/node_modules/cbor-x
-
-# taskset must be on PATH
-command -v taskset
-```
-
 Then open the admin panel, go to the **Spot Reporting** tab, set your identity, tick the bands/modes to decode, enable the destination(s), and press **Start**. A "📶 REPORTING" badge appears on the main waterfall whenever reporting is active. (PSK Reporter uploads batch every 5 minutes and wsprnet every 2 minutes, so a freshly started daemon shows "0 sent" for the first few minutes — that is normal.) The same tab sets the UTC hours each band and mode runs, and can start the daemon by itself after a reboot or crash — see [Spot Reporting](ADMIN_PANEL_SETUP.md#spot-reporting-autorun-ft8ft4js8wspr).
 
 Two different counters are then shown, and it is easy to mistake one for the other. The **SPOTS UPLOADED PER DECODER** tiles count only the current run, so Stop/Start resets them to zero; the number beside each band/mode checkbox is that slot's **all-time** total, kept in `autorun-totals.json` so it survives restarts. See the [Admin Panel guide](ADMIN_PANEL_SETUP.md) for both, and for the **Graphs** page that plots CPU frequency, load, temperature and users online over the last 15 minutes to 24 hours.
@@ -669,7 +235,7 @@ Two different counters are then shown, and it is easy to mistake one for the oth
 
 > **Server port is auto-detected.** The daemon taps spectrumserver's own `[server] port` directly (loopback + token, bypassing the proxy). It reads that port from the config file the running spectrumserver was launched with, so it works on any port with no configuration — the `[autorun] tap backend: …` line in `autorun.log` shows what it resolved. If your server wasn't running when the daemon started, or you use an unusual setup, pin it in `autorun.json`:
 > ```json
-> "server": { "host": "127.0.0.1", "port": 9002 }
+> "server": { "host": "127.0.0.1", "port": 9001 }
 > ```
 > A wrong port shows up as `504` / `tap closed 1006` in `autorun.log` with `decodes` stuck at 0.
 
@@ -714,7 +280,7 @@ nano config-rtl.toml
 
 ```toml
 [server]
-port = 9002                      # Web interface port (or everything else)
+port = 9001                      # Web interface port (or everything else)
 html_root = "frontend/dist/"     # Frontend location
 otherusers = 1                   # Show other users (1=yes, 0=no)
 iq = true                        # Offer the IQ mode to listeners (true/false)
@@ -781,7 +347,7 @@ Edit the following fields:
   "siteReceiver": "Your SDR model",
   "siteAntenna": "Antenna description",
   "siteNote": "Additional information",
-  "siteIP": "http://your.domain.com:9002",
+  "siteIP": "http://your.domain.com:9000",
   "siteSDRBaseFrequency": 0,
   "siteSDRBandwidth": 2048000,
   "siteRegion": 1,
@@ -833,19 +399,7 @@ Parameters inside `RX_ARGS`:
 
 ### RTL-SDR
 
-#### Install RTL-SDR Tools
-
-```bash
-sudo apt install -y rtl-sdr
-```
-
-#### Test RTL-SDR
-
-```bash
-rtl_test
-```
-
-Press Ctrl+C to stop. You should see sample rate information.
+The installers install the driver for you, with `./setup-rtlsdr.sh` (`RTL_V4=y` for an RTL-SDR Blog V4).
 
 #### Edit Configuration
 
@@ -899,8 +453,8 @@ SDRplay's own closed API (`driver=sdrplay`, with SoapySDRPlay and the `sdrplay` 
 
 The Fobos streams **one path at a time**, so it has two launchers that share the watchdog lock like every `start-*.sh` — starting one stops the other:
 
-- **`start-fobos-hf.sh`** — the HF1/HF2 inputs in direct sampling, 0-25 MHz, on port 9003. There is no local oscillator in this mode: the ADC digitises 0-25 MHz all the time (`-f 0` is intentional, and rx_sdr's *Failed to set center freq* warning is expected). `rx_sdr` delivers CF32 at 50 Msps; the small converter `cf32_to_real` (built by `setup-fobos.sh` from `cf32_to_real.c`) keeps the I channel and scales it to s16, so `config-fobos-hf.toml` uses `signal="real"` and `format="s16"`.
-- **`start-fobos.sh`** — the RF path, 25-6000 MHz, IQ, on port 9002. Choose the window before the first start: `-f` (centre) and `-s` (sample rate) in the `RX_ARGS` line must match `frequency=` and `sps=` in `config-fobos.toml`. The shipped values (97 MHz, 20 Msps) are only a starting point to check that it runs.
+- **`start-fobos-hf.sh`** — the HF1/HF2 inputs in direct sampling, 0-25 MHz, on port 9001. There is no local oscillator in this mode: the ADC digitises 0-25 MHz all the time (`-f 0` is intentional, and rx_sdr's *Failed to set center freq* warning is expected). `rx_sdr` delivers CF32 at 50 Msps; the small converter `cf32_to_real` (built by `setup-fobos.sh` from `cf32_to_real.c`) keeps the I channel and scales it to s16, so `config-fobos-hf.toml` uses `signal="real"` and `format="s16"`.
+- **`start-fobos.sh`** — the RF path, 25-6000 MHz, IQ, on port 9001. Choose the window before the first start: `-f` (centre) and `-s` (sample rate) in the `RX_ARGS` line must match `frequency=` and `sps=` in `config-fobos.toml`. The shipped values (97 MHz, 20 Msps) are only a starting point to check that it runs.
 
 > [!IMPORTANT]
 > `config-fobos-hf.toml` ships with `accelerator="opencl"`: a 50 Msps stream through a 1M-bin FFT is as heavy as the RX888's 60 Msps, and on the CPU it drops samples and heats the machine. On a machine with no OpenCL device `spectrumserver` will not start with that setting — set `accelerator="none"` there.
@@ -913,21 +467,7 @@ SoapyFobosSDR needs the headers of both libfobos and libfobos-sdr-agile to build
 
 ### RX888 MK2
 
-#### Install RX888 Tools
-
-```bash
-# Install rx_tools
-git clone https://github.com/rxseger/rx_tools.git
-cd rx_tools
-mkdir build && cd build
-cmake ..
-make -j4
-sudo make install
-sudo ldconfig
-
-# Install RX888 firmware and support
-# Follow manufacturer instructions
-```
+The installer builds `rx888_stream` and installs its udev rules for you.
 
 #### Run rx888_stream Without sudo (udev rules)
 
@@ -1002,7 +542,7 @@ Look for:
 
 Open your browser to:
 ```
-http://localhost:9002
+http://localhost:9000
 ```
 
 (Replace port number with your configured port)
@@ -1018,7 +558,7 @@ http://localhost:9002
 
 From another computer on your network:
 ```
-http://YOUR_SERVER_IP:9002
+http://YOUR_SERVER_IP:9000
 ```
 
 ### 6. Check Resource Usage
@@ -1058,96 +598,6 @@ bash setup-autostart.sh --remove       # stop starting at boot
 It installs `phantomsdr-receiver.service`, which runs your start script at boot and `stop-websdr.sh` at shutdown, with the `plugdev` group, so the USB receiver opens without anyone logged in. The rest of this chapter shows the same by hand.
 
 
-### Using systemd (Recommended)
-
-#### 1. Create Service File
-
-```bash
-sudo nano /etc/systemd/system/phantomsdr.service
-```
-
-Add the following content (adjust paths and user):
-
-```ini
-[Unit]
-Description=PhantomSDR-Plus WebSDR Server
-After=network.target
-
-[Service]
-Type=simple
-User=youruser
-WorkingDirectory=/home/youruser/PhantomSDR-Plus
-# Run the watchdog in the FOREGROUND (note the --watchdog flag) so systemd can
-# track it. Do NOT use the plain "./start-rtl.sh" here — that form detaches into
-# the background and exits, which systemd would treat as the service stopping.
-ExecStart=/home/youruser/PhantomSDR-Plus/start-rtl.sh --watchdog
-ExecStop=/home/youruser/PhantomSDR-Plus/stop-websdr.sh
-Restart=always
-RestartSec=10
-
-[Install]
-WantedBy=multi-user.target
-```
-
-> The `--watchdog` process already auto-restarts the receiver/`spectrumserver` on its own; `Restart=always` is just a backstop for the rare case the watchdog itself exits. Because systemd supervises the server here, you can use `systemctl start/stop/restart` and `journalctl -u phantomsdr -f` in place of running the scripts by hand.
-
-#### 2. Enable and Start Service
-
-```bash
-# Reload systemd
-sudo systemctl daemon-reload
-
-# Enable service to start on boot
-sudo systemctl enable phantomsdr.service
-
-# Start service now
-sudo systemctl start phantomsdr.service
-
-# Check status
-sudo systemctl status phantomsdr.service
-```
-
-#### 3. Manage Service
-
-```bash
-# Start
-sudo systemctl start phantomsdr
-
-# Stop
-sudo systemctl stop phantomsdr
-
-# Restart
-sudo systemctl restart phantomsdr
-
-# View logs
-sudo journalctl -u phantomsdr -f
-```
-
-### Using Screen (Alternative)
-
-> Usually unnecessary: `./start-rtl.sh` already detaches into the background (via `setsid`) and keeps running after you log out, with its own watchdog. Screen is only handy if you specifically want an interactive session to run the foreground `./start-rtl.sh --watchdog` form.
-
-#### 1. Install Screen
-
-```bash
-sudo apt install -y screen
-```
-
-#### 2. Start in Screen Session
-
-```bash
-screen -S phantomsdr
-./start-rtl.sh
-```
-
-Press Ctrl+A, then D to detach.
-
-#### 3. Reattach to Session
-
-```bash
-screen -r phantomsdr
-```
-
 ---
 
 ## CPU Thermal Protection
@@ -1157,100 +607,6 @@ screen -r phantomsdr
 PhantomSDR-Plus ships a guard that stops the server if the CPU reaches a dangerous temperature and starts it again once it has cooled. It derives its thresholds from the critical trip point your own CPU publishes, so there is nothing to calculate, and it works whatever start/stop method you use.
 
 **If you run the admin panel, you already have it** — it runs inside the panel and is configured on its Settings page. See the [Admin Panel guide](ADMIN_PANEL_SETUP.md#thermal-guard). The rest of this section is for installations **without** the panel.
-
-### 1. Check what the guard sees on your machine
-
-```bash
-cd ~/PhantomSDR-Plus
-python3 thermal_guard.py --once
-```
-
-```
-sensor     : hwmon:coretemp
-temperature: 58.0 C
-crit       : 100.0 C
-mode       : log
-thresholds : warn 88.0  throttle 92.0  stop 95.0  resume 75.0 (C)
-cpufreq    : not writable — throttle stage disabled
-```
-
-Only real CPU-die sensors are used (`coretemp`, `k10temp`, `zenpower`, `cpu_thermal`); `acpitz` and unlabelled thermal zones are ignored on purpose, because they often report a case or board temperature tens of degrees below the CPU. If this prints `sensor : NONE`, that machine cannot be protected — common on a VPS or inside a container — and the guard will stay inactive rather than pretend.
-
-Nothing needs to be installed for this: `thermal_guard.py` uses only the Python standard library.
-
-### 2. Configure it
-
-The guard reads `admin_config.json` next to `thermal_guard.py`. Create it if you do not have one — with no panel installed you will not. The minimum useful file:
-
-```json
-{
-  "sdr_process_name": "spectrumserver",
-  "stop_script":  "stop-websdr.sh",
-  "start_script": "start-rx888mk2.sh",
-  "thermal_mode": "stop+restart"
-}
-```
-
-- `thermal_mode` — `log` (record only, the default), `throttle`, `stop`, or `stop+restart`. **This is the one you must set**, because the guard ships inert: left alone it only writes what it *would* have done. You can also pass it on the command line as `--mode stop+restart`, which overrides the file — so if you are happy with every other default you need no config file at all.
-- `stop_script` / `start_script` — how the guard stops and starts your server. Without a stop script it falls back to `SIGTERM`, then `SIGKILL` after 10 seconds, on `sdr_process_name`. Without a start script it stops but never restarts.
-- Thresholds and timings can be set here too, with the same key names the panel uses — the full table is in the [Admin Panel guide](ADMIN_PANEL_SETUP.md#thermal-guard).
-
-> **If systemd supervises your SDR server**, point `stop_script` at a small wrapper that runs `systemctl stop your-unit` rather than letting the guard signal the process directly. The guard will win either way — while the CPU is too hot it re-issues the stop every 2 seconds, so anything that revives the server is undone — but a clean stop beats a fight every two seconds.
-
-### 3. Run it as a service
-
-The repository includes a ready-made unit, `thermal-guard.service`. Edit `User=` and the two paths in it, then:
-
-```bash
-sudo cp thermal-guard.service /etc/systemd/system/
-sudo systemctl daemon-reload
-sudo systemctl enable --now thermal-guard
-systemctl status thermal-guard
-```
-
-`User=` must be an account allowed to run your start/stop scripts — normally the same user that runs the SDR server. **A guard running as a user that cannot stop the server leaves you unprotected while looking protected.**
-
-To arm the guard from the unit instead of the config file, add `--mode` to `ExecStart`:
-
-```ini
-ExecStart=/usr/bin/python3 -u /home/sysop/PhantomSDR-Plus/thermal_guard.py --mode stop+restart
-```
-
-To run it without systemd:
-
-```bash
-cd ~/PhantomSDR-Plus
-nohup python3 -u thermal_guard.py --mode stop+restart >> thermal.log 2>&1 &
-```
-
-`python3 thermal_guard.py --help` lists every option, including `--config` for a config file somewhere other than beside the script.
-
-### 4. Watch it, then trust it
-
-Everything the guard does is written to `crash.log` in the PhantomSDR-Plus directory, one event per line:
-
-```
-[THERMAL] warn: 89.0C (warn=88.0 crit=100.0) sustained 31s
-[THERMAL] STOPPED server: 96.0C sustained 62s (stop=95.0 crit=100.0) — Started stop-websdr.sh
-[THERMAL] lockout: process reappeared at 94.0C — re-stopped [3 time(s) so far]
-[THERMAL] recovered: 74.0C held below 75.0 — lockout cleared
-```
-
-```bash
-grep THERMAL crash.log
-```
-
-Leave `thermal_mode` at `"log"` for a week first and read that file after your heavy moments — a full rebuild, a hot afternoon. If nothing appears, your machine never came close. Then set the mode to `stop`.
-
-Before relying on it, prove the whole path once by adding a fake reading above your stop threshold:
-
-```json
-"thermal_test_temp": 97
-```
-
-The guard treats it as real, so warn → stop → lockout → recover → restart all run on demand. Remove the line (or set it to `null`) to return to the real sensor. With the mode at `stop` this really does stop the server and disconnect your listeners, so do it when nobody is on — or run the test at `log`, where it shows what *would* have happened without touching anything.
-
----
 
 ## Troubleshooting
 
@@ -1335,22 +691,13 @@ error during build:
 
 `vite-plugin-top-level-await` asks for `@swc/core` `^1.12.14`, so a fresh `npm install` resolves 1.16.0, whose `printSync()` rejects the syntax tree the plugin gives it. It has nothing to do with your distribution — every installer now pins the working version, and so does `frontend/package.json`. A machine installed before that pin was added keeps working until its `node_modules` is deleted, which is why this appears out of nowhere on a reinstall.
 
-If you are repairing an older checkout by hand:
-
-```bash
-cd frontend
-npm pkg set 'overrides.@swc/core=1.15.33'
-npm install
-./build-all.sh
-```
-
 ### Runtime Errors
 
 #### Port Already in Use
 
 ```bash
 # Find process using port
-sudo lsof -i :9002
+sudo lsof -i :9000
 
 # Kill process
 sudo kill -9 <PID>
@@ -1372,17 +719,6 @@ For an **RX-888 MkII** this isn't enough on its own — the Cypress FX3 device a
 ./setup-rx888-udev.sh
 ```
 
-#### Audio Issues
-
-```bash
-# Try different codec
-# Edit config file and change:
-audio_compression = "flac"  # or "opus"
-
-# Rebuild
-cd frontend && npm run build && cd ..
-```
-
 ### OpenCL Issues
 
 #### clinfo Shows No Devices
@@ -1397,18 +733,6 @@ ls /etc/OpenCL/vendors/
 # Reinstall drivers (Intel example)
 sudo apt remove --purge intel-opencl-icd
 sudo apt install intel-opencl-icd
-```
-
-#### Performance Not Improved
-
-```bash
-# Verify OpenCL is enabled in config
-accelerator = "opencl"
-
-# Try different device
-# Add to config file:
-[input.opencl]
-device_id = 0  # Try 0, 1, 2, etc.
 ```
 
 ### Network Issues
@@ -1429,19 +753,6 @@ sudo firewall-cmd --add-port=9000/tcp
 ```
 
 On Fedora and openSUSE the firewall is firewalld, not ufw, and it is on by default. `setup_admin.sh` opens the public proxy port there by itself (and in ufw, if you switched it on); on a station installed before, run `./setup_admin.sh --firewall` once, or use the `firewall-cmd` lines above. If the admin panel or the proxy does not come back after a reboot on these systems, SELinux is the usual cause: run `./setup_admin.sh --selinux` (see the troubleshooting table in ADMIN_PANEL_SETUP.md).
-
-#### High Latency
-
-```bash
-# Reduce waterfall size in config
-waterfall_size = 512
-
-# Increase buffer size
-buffer_size = 16384
-
-# Use Opus instead of FLAC
-audio_compression = "opus"
-```
 
 ### SDR Device Issues
 
@@ -1495,39 +806,6 @@ id | grep plugdev                          # log out and back in if missing
 ```
 
 If the driver is missing from the list, re-run `./setup-fobos.sh` or `./setup-airspyhf.sh`: it stops with the reason if the build or the SoapySDR check fails.
-
----
-
-## Performance Optimization
-
-### CPU Optimization
-
-```toml
-# Adjust thread counts based on CPU cores
-[server]
-threads = 4  # Set to number of cores
-
-[input]
-fft_threads = 4  # Set to number of cores
-```
-
-### Memory Optimization
-
-```toml
-# Reduce memory usage
-[input]
-waterfall_size = 512  # Lower value = less memory
-fft_size = 65536      # Lower value = less memory
-```
-
-### Network Optimization
-
-```toml
-# Optimize for limited bandwidth
-[input]
-audio_compression = "opus"  # More efficient than FLAC
-waterfall_compression = "zstd"  # Efficient compression
-```
 
 ---
 
@@ -1602,8 +880,6 @@ The archive holds only the files that run replaced, each at the path it has in y
 
 Each archive also carries its own `restore.sh`, for the case where `update.sh` itself is the problem: unpack the archive and give it your installation directory, for example `./restore.sh /home/pi/PhantomSDR-Plus`. While restoring, `update.sh` runs from a copy outside the tree, because it is usually one of the files being put back.
 
-Backups made before 23 September 2026 sit in the hidden folder `.update-backups/<timestamp>/`; they can still be restored the same way and count towards the three that are kept.
-
 ### Other options
 
 ```bash
@@ -1656,128 +932,6 @@ chmod +x *.sh
 Back up your configuration first — `config-*.toml`, `frontend/site_information.json`,
 `admin_config.json` and `markers.json` — because a file drop cannot tell your edits from the
 release's. That is exactly the problem `update.sh` exists to solve.
-
----
-
-## Backup and Restore
-
-### Files to Backup
-
-- Configuration files: `*.toml`
-- Site information: `frontend/site_information.json`
-- Markers: `markers.json`
-- Custom scripts: `start-*.sh`, `stop-*.sh`
-- Chat history: `chat_history.txt`
-- Background image: `frontend/src/assets/background.jpg`
-
-### Backup Command
-
-```bash
-cd ~/PhantomSDR-Plus
-tar -czf phantomsdr-backup-$(date +%Y%m%d).tar.gz \
-  *.toml \
-  *.sh \
-  markers.json \
-  chat_history.txt \
-  frontend/site_information.json \
-  frontend/src/assets/background.jpg
-```
-
-### Restore Command
-
-```bash
-tar -xzf phantomsdr-backup-YYYYMMDD.tar.gz
-```
-
----
-
-## Security Considerations
-
-### Firewall Configuration
-
-```bash
-# Allow only necessary ports
-sudo ufw allow 9000/tcp
-sudo ufw enable
-
-# Fedora / openSUSE (firewalld)
-sudo firewall-cmd --permanent --add-port=9000/tcp
-sudo firewall-cmd --add-port=9000/tcp
-```
-
-### Reverse Proxy (Optional)
-
-Consider using nginx or Apache as a reverse proxy for:
-- SSL/TLS encryption
-- Domain name mapping
-- Load balancing
-- Access control
-
-### User Limits
-
-Edit `config.toml`:
-```toml
-[server]
-max_users = 100  # Limit concurrent users
-```
-
----
-
-## Getting Help
-
-### Resources
-
-- **Documentation**: This guide, README.md, USER_GUIDE.md
-- **GitHub Issues**: https://github.com/sv1btl/PhantomSDR-Plus/issues
-- **Live Demo**: http://phantomsdr.no-ip.org:8900/
-
-### Reporting Issues
-
-When reporting issues, include:
-1. Operating system and version
-2. SDR device model
-3. Configuration file contents
-4. Error messages
-5. System resource usage (CPU, RAM, GPU)
-
-### Community Support
-
-- Check existing GitHub issues before creating new ones
-- Provide detailed information about your setup
-- Include logs and error messages
-- Be patient and respectful
-
----
-
-## Appendix A: Complete Dependency List
-
-### Ubuntu 24.04 Package List
-
-```
-build-essential
-cmake
-pkg-config
-meson
-libfftw3-dev
-libwebsocketpp-dev
-libflac++-dev
-zlib1g-dev
-libzstd-dev
-libboost-all-dev
-libopus-dev
-libliquid-dev
-git
-util-linux (taskset — for the autorun spot reporter)
-psmisc
-wget
-curl
-rtl-sdr (for RTL-SDR)
-airspy (for Airspy)
-hackrf (for HackRF)
-libclfft-dev (for OpenCL)
-ocl-icd-opencl-dev (for OpenCL)
-clinfo (for OpenCL)
-```
 
 ---
 
@@ -1854,7 +1008,5 @@ modulation = "WBFM"
 ```
 
 ---
-
-**Installation complete! You should now have a fully functional PhantomSDR-Plus server.**
 
 **73 de SV1BTL, 9A7AOF, F1NSK & SV2AMK**

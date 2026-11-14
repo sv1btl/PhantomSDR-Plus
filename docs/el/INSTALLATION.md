@@ -7,25 +7,16 @@
 ## Πίνακας περιεχομένων
 
 1. [Απαιτήσεις συστήματος](#απαιτήσεις-συστήματος)
-2. [Προετοιμασία πριν την εγκατάσταση](#προετοιμασία-πριν-την-εγκατάσταση)
-3. [Εγκατάσταση του PhantomSDR-Plus](#εγκατάσταση-του-phantomsdr-plus) — το script και [τι κάνει](#τι-κάνει-το-πρόγραμμα-εγκατάστασης)
-4. [Autorun Spot Reporter (FT8/FT4/WSPR)](#autorun-spot-reporter-ft8ft4wspr)
-5. [Εξομοίωση πελατών KiwiSDR (προαιρετικό)](#εξομοίωση-πελατών-kiwisdr-προαιρετικό)
-6. [Ρυθμίσεις](#ρυθμίσεις)
-7. [Ρύθμιση ανά συσκευή SDR](#ρύθμιση-ανά-συσκευή-sdr)
-8. [Δοκιμή και επαλήθευση](#δοκιμή-και-επαλήθευση)
-9. [Ρύθμιση αυτόματης εκκίνησης](#ρύθμιση-αυτόματης-εκκίνησης)
-10. [Θερμική προστασία CPU](#θερμική-προστασία-cpu)
-11. [Αντιμετώπιση προβλημάτων](#αντιμετώπιση-προβλημάτων)
+2. [Εγκατάσταση του PhantomSDR-Plus](#εγκατάσταση-του-phantomsdr-plus) — το script και [τι κάνει](#τι-κάνει-το-πρόγραμμα-εγκατάστασης)
+3. [Autorun Spot Reporter (FT8/FT4/WSPR)](#autorun-spot-reporter-ft8ft4wspr)
+4. [Εξομοίωση πελατών KiwiSDR (προαιρετικό)](#εξομοίωση-πελατών-kiwisdr-προαιρετικό)
+5. [Ρυθμίσεις](#ρυθμίσεις)
+6. [Ρύθμιση ανά συσκευή SDR](#ρύθμιση-ανά-συσκευή-sdr)
+7. [Δοκιμή και επαλήθευση](#δοκιμή-και-επαλήθευση)
+8. [Ρύθμιση αυτόματης εκκίνησης](#ρύθμιση-αυτόματης-εκκίνησης)
+9. [Θερμική προστασία CPU](#θερμική-προστασία-cpu)
+10. [Αντιμετώπιση προβλημάτων](#αντιμετώπιση-προβλημάτων)
 
-**Μόνο για αναφορά — το πρόγραμμα εγκατάστασης τα κάνει ήδη όλα αυτά για εσάς.**
-Διαβάστε αυτές τις ενότητες αν βρίσκεστε σε διανομή που δεν καλύπτει κανένα από τα scripts, ή αν χρειάζεται να επισκευάσετε ένα βήμα με το χέρι:
-
-- [Εγκατάσταση εξαρτήσεων](#εγκατάσταση-εξαρτήσεων)
-- [Εγκατάσταση Node.js και npm](#εγκατάσταση-nodejs-και-npm)
-- [Εγκατάσταση OpenCL](#εγκατάσταση-opencl-προαιρετικό-αλλά-συνιστώμενο)
-- [Χειροκίνητο build](#χειροκίνητο-build-αναφορά)
-- [Εγκατάσταση του κωδικοποιητή ήχου Opus](#εγκατάσταση-του-κωδικοποιητή-ήχου-opus)
 ---
 
 ## Απαιτήσεις συστήματος
@@ -62,304 +53,6 @@
 - Αποθηκευτικός χώρος: NVMe SSD
 - GPU: αποκλειστική GPU με υποστήριξη OpenCL/CUDA
 - Δίκτυο: 1 Gbps ή καλύτερο
-
----
-
-## Προετοιμασία πριν την εγκατάσταση
-
-### 1. Ενημερώστε το σύστημά σας
-
-```bash
-# Ubuntu/Debian
-sudo apt update
-sudo apt upgrade -y
-sudo reboot
-
-# Fedora
-sudo dnf update -y
-sudo reboot
-```
-
-### 2. Επαληθεύστε την έκδοση του Ubuntu
-
-```bash
-lsb_release -a
-```
-
-**Η αναμενόμενη έξοδος πρέπει να δείχνει:** Ubuntu 24.04 LTS
-
-### 3. Ελέγξτε τον διαθέσιμο χώρο στον δίσκο
-
-```bash
-df -h
-```
-
-Βεβαιωθείτε ότι έχετε τουλάχιστον 10 GB ελεύθερα στον προσωπικό σας κατάλογο.
-
-### 4. Ελέγξτε τις πληροφορίες της CPU
-
-```bash
-lscpu
-```
-
-Σημειώστε τον αριθμό των πυρήνων/νημάτων για τη βελτιστοποίηση των ρυθμίσεων.
-
----
-
-## Εγκατάσταση εξαρτήσεων
-
-> [!IMPORTANT]
-> **Δεν χρειάζεστε αυτή την ενότητα για μια κανονική εγκατάσταση.** Το `./install.sh` — ή το script της διανομής σας — τα κάνει όλα αυτά για εσάς· δείτε [Τι κάνει το πρόγραμμα εγκατάστασης](#τι-κάνει-το-πρόγραμμα-εγκατάστασης). Όσα ακολουθούν είναι αναφορά για χειροκίνητη εγκατάσταση, για διανομή που δεν καλύπτει κανένα script, ή για την επισκευή ενός βήματος με το χέρι.
-
-
-### Ubuntu 24.04 LTS
-
-```bash
-sudo apt install -y \
-  build-essential \
-  cmake \
-  pkg-config \
-  meson \
-  libfftw3-dev \
-  libwebsocketpp-dev \
-  libflac++-dev \
-  zlib1g-dev \
-  libzstd-dev \
-  libboost-all-dev \
-  libopus-dev \
-  libliquid-dev \
-  git \
-  psmisc \
-  wget \
-  curl
-```
-
-### Fedora
-
-```bash
-sudo dnf install -y \
-  g++ \
-  meson \
-  cmake \
-  fftw3-devel \
-  websocketpp-devel \
-  flac-devel \
-  zlib-devel \
-  boost-devel \
-  libzstd-devel \
-  opus-devel \
-  liquid-dsp-devel \
-  git \
-  psmisc \
-  wget \
-  curl
-```
-
-### Επαληθεύστε την εγκατάσταση
-
-```bash
-# Check if key dependencies are installed
-pkg-config --modversion fftw3
-cmake --version
-meson --version
-```
-
----
-
-## Εγκατάσταση Node.js και npm
-
-> [!IMPORTANT]
-> **Δεν χρειάζεστε αυτή την ενότητα για μια κανονική εγκατάσταση.** Το `./install.sh` — ή το script της διανομής σας — τα κάνει όλα αυτά για εσάς· δείτε [Τι κάνει το πρόγραμμα εγκατάστασης](#τι-κάνει-το-πρόγραμμα-εγκατάστασης). Όσα ακολουθούν είναι αναφορά για χειροκίνητη εγκατάσταση, για διανομή που δεν καλύπτει κανένα script, ή για την επισκευή ενός βήματος με το χέρι.
-
-
-Το PhantomSDR-Plus απαιτεί Node.js για τη μεταγλώττιση του frontend. Θα χρησιμοποιήσουμε το NVM (Node Version Manager) για την εγκατάσταση.
-
-### 1. Εγκαταστήστε το NVM
-
-```bash
-curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.4/install.sh | bash
-```
-
-### 2. Φορτώστε το NVM
-
-**ΣΗΜΑΝΤΙΚΟ:** κλείστε και ανοίξτε ξανά το τερματικό σας ή εκτελέστε:
-
-```bash
-export NVM_DIR="$HOME/.nvm"
-[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
-```
-
-### 3. Επαληθεύστε την εγκατάσταση του NVM
-
-```bash
-nvm --version
-```
-
-Αναμενόμενη έξοδος: `0.40.4` ή παρόμοια
-
-### 4. Εγκαταστήστε το Node.js
-
-```bash
-# Install Node.js 22 - the version every install script requires
-nvm install 22
-
-# Make it the default, so systemd units and cron see it too
-nvm alias default 22
-
-# Verify installation
-node --version
-npm --version
-```
-
-### 5. Προαιρετικά: εγκαταστήστε επιπλέον εκδόσεις του Node
-
-```bash
-# Install latest version
-nvm install node
-
-# Install specific version (if needed)
-nvm install 22.22.3
-
-# List installed versions
-nvm list
-
-# Use specific version
-nvm use 22
-```
-
----
-
-## Εγκατάσταση OpenCL (προαιρετικό αλλά συνιστώμενο)
-
-> [!IMPORTANT]
-> **Δεν χρειάζεστε αυτή την ενότητα για μια κανονική εγκατάσταση.** Το `./install.sh` — ή το script της διανομής σας — τα κάνει όλα αυτά για εσάς· δείτε [Τι κάνει το πρόγραμμα εγκατάστασης](#τι-κάνει-το-πρόγραμμα-εγκατάστασης). Όσα ακολουθούν είναι αναφορά για χειροκίνητη εγκατάσταση, για διανομή που δεν καλύπτει κανένα script, ή για την επισκευή ενός βήματος με το χέρι.
-
-
-Το OpenCL βελτιώνει δραματικά τις επιδόσεις μεταφέροντας τους υπολογισμούς FFT στην GPU. Η ενότητα αυτή καλύπτει τα ενσωματωμένα γραφικά Intel. Για GPU AMD/NVIDIA ανατρέξτε στην τεκμηρίωση του κατασκευαστή.
-
-### CPU Intel με ενσωματωμένα γραφικά
-
-#### 1. Εγκαταστήστε τα βασικά στοιχεία OpenCL
-
-```bash
-sudo apt install -y \
-  build-essential \
-  cmake \
-  pkg-config \
-  meson \
-  libfftw3-dev \
-  libwebsocketpp-dev \
-  libflac++-dev \
-  zlib1g-dev \
-  libzstd-dev \
-  libboost-all-dev \
-  libopus-dev \
-  libliquid-dev \
-  libclfft-dev \
-  ocl-icd-opencl-dev \
-  clinfo
-```
-
-#### 2. Κατεβάστε το Intel Compute Runtime
-
-```bash
-mkdir -p ~/neo
-cd ~/neo
-
-wget https://github.com/intel/compute-runtime/releases/download/19.07.12410/intel-gmmlib_18.4.1_amd64.deb
-wget https://github.com/intel/compute-runtime/releases/download/19.07.12410/intel-igc-core_18.50.1270_amd64.deb
-wget https://github.com/intel/compute-runtime/releases/download/19.07.12410/intel-igc-opencl_18.50.1270_amd64.deb
-wget https://github.com/intel/compute-runtime/releases/download/19.07.12410/intel-opencl_19.07.12410_amd64.deb
-wget https://github.com/intel/compute-runtime/releases/download/19.07.12410/intel-ocloc_19.07.12410_amd64.deb
-```
-
-#### 3. Εγκαταστήστε το Intel OpenCL Runtime
-
-```bash
-sudo dpkg -i *.deb
-```
-
-Αν προκύψουν σφάλματα εξαρτήσεων:
-
-```bash
-sudo apt --fix-broken install
-```
-
-#### 4. Εγκαταστήστε τον φορτωτή OpenCL ICD
-
-```bash
-sudo apt update
-sudo apt install intel-opencl-icd
-```
-
-Αν προκύψουν σφάλματα:
-
-```bash
-sudo apt --fix-broken install
-sudo apt install intel-opencl-icd
-```
-
-#### 5. Επαληθεύστε την εγκατάσταση του OpenCL
-
-```bash
-sudo clinfo
-```
-
-Θα πρέπει να δείτε πληροφορίες για την πλατφόρμα και τις συσκευές OpenCL. Αναζητήστε:
-- Αριθμό πλατφορμών: 1 (ή περισσότερες)
-- Όνομα πλατφόρμας: Intel(R) OpenCL (ή παρόμοιο)
-- Τύπο συσκευής: GPU ή CPU
-
-#### 6. Επανεκκινήστε
-
-```bash
-sudo reboot
-```
-
-### OpenCL σε GPU AMD
-
-Για GPU AMD, εγκαταστήστε το ROCm:
-
-```bash
-# Add ROCm repository
-wget -q -O - https://repo.radeon.com/rocm/rocm.gpg.key | sudo apt-key add -
-echo 'deb [arch=amd64] https://repo.radeon.com/rocm/apt/debian/ ubuntu main' | sudo tee /etc/apt/sources.list.d/rocm.list
-
-# Install ROCm
-sudo apt update
-sudo apt install rocm-opencl rocm-clinfo
-
-# Add user to video group
-sudo usermod -a -G video $USER
-
-# Reboot
-sudo reboot
-
-# Verify
-clinfo
-```
-
-### OpenCL σε GPU NVIDIA
-
-Για GPU NVIDIA, εγκαταστήστε το CUDA:
-
-```bash
-# Install NVIDIA drivers
-sudo apt install nvidia-driver-525
-
-# Install CUDA toolkit
-wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64/cuda-keyring_1.0-1_all.deb
-sudo dpkg -i cuda-keyring_1.0-1_all.deb
-sudo apt update
-sudo apt install cuda
-
-# Reboot
-sudo reboot
-
-# Verify
-nvidia-smi
-clinfo
-```
 
 ---
 
@@ -442,8 +135,6 @@ bash configure-station.sh --show   # δείχνει τις τρέχουσες α
 
 Σε σταθμό που είναι ήδη εγκατεστημένος, ο οδηγός μεταφέρει μετά την αλλαγή όπου χρειάζεται — νέες θύρες στο `admin_config.json` και στην υπηρεσία στατιστικών, νέο δέκτη στην εκκίνηση με το boot — και ρωτά μία φορά αν θα ξαναφτιάξει τη σελίδα και θα επανεκκινήσει ό,τι τρέχει. Η αλλαγή θύρας είναι λοιπόν αυτή η μία εντολή, συν την προώθηση στο router σας αν άλλαξε η δημόσια θύρα. Η δημόσια θύρα πρέπει να είναι 1024 ή μεγαλύτερη, γιατί το proxy δεν τρέχει ως root: για να είστε προσβάσιμοι στη θύρα 80, κρατήστε εδώ τη 9000 και προωθήστε την εξωτερική θύρα 80 του router σε αυτήν.
 
-Ένας σταθμός που εγκαταστάθηκε πριν υπάρξει ο οδηγός κρατά τις δικές του θύρες: αν τρέξει εκεί, ο οδηγός προτείνει τις θύρες που ο σταθμός ήδη χρησιμοποιεί.
-
 ### Τι κάνει το πρόγραμμα εγκατάστασης
 
 Δεν χρειάζεται καμία προετοιμασία με το χέρι — καμία λίστα εξαρτήσεων για επικόλληση, κανένα Node.js για κατέβασμα, κανένα πακέτο OpenCL για αναζήτηση. Υπολογίστε από είκοσι λεπτά περίπου έως πάνω από μία ώρα, ανάλογα με τον υπολογιστή και με το αν εγκαθίσταται το RADE (η λήψη του είναι το μεγάλο κομμάτι).
@@ -510,96 +201,6 @@ PHANTOM_NONINTERACTIVE=1 PHANTOM_SDR=1 \
 
 Κάθε extra είναι ένα κανονικό script που μπορείτε να τρέξετε και μόνο του, οποτεδήποτε — `./setup_admin.sh` ([οδηγός](ADMIN_PANEL_SETUP.md)), `./install_rade.sh` ([οδηγός](RADE_README.md)), `./setup-drm.sh` ([αποκωδικοποιητής DRM](DECODERS.md#13-drm)), `./install-stats-server.sh` ([οδηγός](sdr-stats/README.md)), `./setup-rx888-udev.sh` και τα scripts των δεκτών `./setup-rsp1a.sh`, `./setup-fobos.sh`, `./setup-airspyhf.sh` και `./setup-hackrf.sh` — αυτά ακριβώς καλεί το πρόγραμμα εγκατάστασης.
 
-### Χειροκίνητο build (αναφορά)
-
-> [!IMPORTANT]
-> **Δεν χρειάζεστε αυτή την ενότητα για μια κανονική εγκατάσταση.** Το `./install.sh` — ή το script της διανομής σας — τα κάνει όλα αυτά για εσάς· δείτε [Τι κάνει το πρόγραμμα εγκατάστασης](#τι-κάνει-το-πρόγραμμα-εγκατάστασης). Όσα ακολουθούν είναι αναφορά για χειροκίνητη εγκατάσταση, για διανομή που δεν καλύπτει κανένα script, ή για την επισκευή ενός βήματος με το χέρι.
-
-Αν ποτέ χρειαστεί να χτίσετε χωρίς το script εγκατάστασης — σε διανομή που δεν καλύπτεται, ή για να επισκευάσετε ένα μισοτελειωμένο build:
-
-#### Μεταγλώττιση του backend
-
-```bash
-# Clean any previous builds, Configure build with optimization, Compile
-rm -rf build
-meson setup build --buildtype=release --optimization=3
-meson compile -C build
-
-# Verify binary was created
-ls -lh build/spectrumserver
-```
-
-#### Μεταγλώττιση του frontend
-
-```bash
-cd frontend
-
-# Install dependencies, Fix any vulnerabilities, Build the frontend
-npm install
-npm audit fix
-npm run build
-
-# Return to project root
-cd ..
-```
-
-### Επαληθεύστε την εγκατάσταση
-
-```bash
-# Check if binary exists
-ls -lh build/spectrumserver
-
-# Check if frontend was built
-ls -lh frontend/dist/
-
-# List important files
-ls -lh *.sh *.toml
-```
-
----
-
-## Εγκατάσταση του κωδικοποιητή ήχου Opus
-
-> [!IMPORTANT]
-> **Δεν χρειάζεστε αυτή την ενότητα για μια κανονική εγκατάσταση.** Το `./install.sh` — ή το script της διανομής σας — τα κάνει όλα αυτά για εσάς· δείτε [Τι κάνει το πρόγραμμα εγκατάστασης](#τι-κάνει-το-πρόγραμμα-εγκατάστασης). Όσα ακολουθούν είναι αναφορά για χειροκίνητη εγκατάσταση, για διανομή που δεν καλύπτει κανένα script, ή για την επισκευή ενός βήματος με το χέρι.
-
-
-Ο Opus προσφέρει καλύτερη ποιότητα ήχου και μικρότερη καθυστέρηση σε σχέση με το FLAC.
-
-### 1. Εγκαταστήστε τη βιβλιοθήκη συστήματος libopus
-
-```bash
-sudo apt-get update
-sudo apt-get install -y libopus0 libopus-dev
-```
-
-### 2. Εγκαταστήστε τον αποκωδικοποιητή Opus για το frontend
-
-```bash
-cd PhantomSDR-Plus/frontend
-
-# Install npm dependencies if not already done, Install Opus WASM decoder, Fix any vulnerabilities, Rebuild frontend
-npm install
-npm install @wasm-audio-decoders/opus-ml
-npm audit fix
-npm run build
-
-# Return to project root
-cd ..
-```
-
-### 3. Επαληθεύστε την εγκατάσταση του Opus
-
-```bash
-# Check if Opus system library is installed
-pkg-config --modversion opus
-
-# Check if Opus npm package is installed
-cd frontend
-npm list @wasm-audio-decoders/opus-ml
-cd ..
-```
-
 ---
 
 ## Autorun Spot Reporter (FT8/FT4/WSPR)
@@ -615,7 +216,7 @@ cd ..
 
 | Προϋπόθεση | Σημειώσεις |
 |------------|------------|
-| **Node.js 22+** | Το ίδιο περιβάλλον εκτέλεσης που ήδη χρειάζεται η μεταγλώττιση του frontend — εγκαθίσταται στο [βήμα του Node.js](#εγκατάσταση-nodejs-και-npm). |
+| **Node.js 22+** | Το ίδιο περιβάλλον εκτέλεσης που ήδη χρειάζεται η μεταγλώττιση του frontend — εγκαθίσταται στο βήμα του Node.js. |
 | **Πακέτα npm `ws` + `cbor-x`** | Επιλύονται μέσω του `autorun/node_modules`, ενός συμβολικού συνδέσμου προς το `node_modules` του frontend (και τα δύο πακέτα δηλώνονται στο `frontend/package.json`). |
 | **`util-linux`** (`taskset`) | Το κουμπί «Start» της διαχείρισης καρφιτσώνει τον δαίμονα στους E-cores με `taskset`. Υπάρχει σχεδόν σε κάθε διανομή· τα προγράμματα εγκατάστασης το προσθέτουν ρητά. |
 | **Διακριτικό + locator** | Διαβάζονται από το `frontend/site_information.json` (`siteSysop` / `siteGridSquare`), εκτός αν αντικατασταθούν στην καρτέλα διαχείρισης. Τα spot ανεβαίνουν με αυτό το διακριτικό. Το PSK Reporter και το WSPRnet παίρνουν μόνο locator 4 ή 6 χαρακτήρων — ένας μεγαλύτερος (KM17VX69JA) κόβεται στο τετράγωνό του (KM17VX). |
@@ -626,41 +227,6 @@ cd ..
 
 Το `install.sh` (και οι παραλλαγές ανά διανομή: `install_arch.sh`, `install_fedora.sh`, `install_opensuse.sh`) κάνουν τα πάντα για εσάς: εγκαθιστούν Node.js 22 και `util-linux`, εκτελούν το `npm install` του frontend και έπειτα δημιουργούν αυτόματα τον συμβολικό σύνδεσμο `autorun/node_modules`. Δεν απαιτούνται επιπλέον βήματα — η δυνατότητα είναι έτοιμη μόλις ολοκληρωθεί το `install.sh`.
 
-### Χειροκίνητη εγκατάσταση
-
-> [!NOTE]
-> Το πρόγραμμα εγκατάστασης το κάνει ήδη αυτό για εσάς: δημιουργεί το symlink και εγκαθιστά το `util-linux`. Χρησιμοποιήστε τα παρακάτω βήματα μόνο για επισκευή με το χέρι.
-
-Αν κάνατε χειροκίνητη εγκατάσταση (επιλογή Β), δημιουργήστε μόνοι σας τον συμβολικό σύνδεσμο μετά το `npm install` του frontend, ώστε ο δαίμονας να μπορεί να επιλύσει τις εξαρτήσεις του:
-
-```bash
-cd ~/PhantomSDR-Plus
-
-# 1. Frontend deps must be installed first (ws + cbor-x live there)
-cd frontend && npm install && cd ..
-
-# 2. Link the autorun daemon to the frontend's node_modules
-ln -sfn ../frontend/node_modules autorun/node_modules
-
-# 3. Ensure taskset is available (Debian/Ubuntu shown; use your package manager)
-sudo apt install -y util-linux
-```
-
-> **Σημείωση:** το `autorun/node_modules` αγνοείται από το git, οπότε ένα καθαρό `git clone` δεν το περιέχει ποτέ — ο σύνδεσμος πρέπει να (ξανα)δημιουργείται μετά από κάθε καθαρή λήψη. Τα προγράμματα εγκατάστασης το κάνουν για εσάς· η παραπάνω εντολή αφορά μόνο τις χειροκίνητες εγκαταστάσεις.
-
-### Επαλήθευση
-
-```bash
-# The symlink should point at ../frontend/node_modules
-ls -l autorun/node_modules
-
-# ws + cbor-x must resolve
-ls -d frontend/node_modules/ws frontend/node_modules/cbor-x
-
-# taskset must be on PATH
-command -v taskset
-```
-
 Έπειτα ανοίξτε τον πίνακα διαχείρισης, πηγαίνετε στην καρτέλα **Spot Reporting**, ορίστε τα στοιχεία σας, επιλέξτε τις μπάντες/τρόπους προς αποκωδικοποίηση, ενεργοποιήστε τους προορισμούς και πατήστε **Start**. Ένα σήμα «📶 REPORTING» εμφανίζεται στον κύριο καταρράκτη όσο οι αναφορές είναι ενεργές. (Το PSK Reporter ανεβάζει ομαδικά κάθε 5 λεπτά και το wsprnet κάθε 2 λεπτά, οπότε ένας δαίμονας που μόλις ξεκίνησε δείχνει «0 sent» για τα πρώτα λεπτά — είναι φυσιολογικό.) Η ίδια καρτέλα ορίζει τις ώρες UTC που τρέχει κάθε μπάντα και τρόπος, και μπορεί να ξεκινά τον δαίμονα μόνη της μετά από επανεκκίνηση ή κατάρρευση — δείτε [Spot Reporting](ADMIN_PANEL_SETUP.md#spot-reporting-autorun-ft8ft4js8wspr).
 
 Στη συνέχεια εμφανίζονται δύο διαφορετικοί μετρητές, που εύκολα μπερδεύονται μεταξύ τους. Τα πλακίδια **SPOTS UPLOADED PER DECODER** μετρούν μόνο την τρέχουσα εκτέλεση, οπότε το Stop/Start τα μηδενίζει· ο αριθμός δίπλα σε κάθε πλαίσιο ελέγχου μπάντας/τρόπου είναι το **συνολικό** άθροισμα από την αρχή, αποθηκευμένο στο `autorun-totals.json` ώστε να επιβιώνει των επανεκκινήσεων. Δείτε τον [οδηγό του πίνακα διαχείρισης](ADMIN_PANEL_SETUP.md) και για τα δύο, καθώς και για τη σελίδα **Γραφήματα**, που σχεδιάζει συχνότητα CPU, φόρτο, θερμοκρασία και συνδεδεμένους χρήστες από 15 λεπτά έως 24 ώρες.
@@ -669,7 +235,7 @@ command -v taskset
 
 > **Η θύρα του διακομιστή εντοπίζεται αυτόματα.** Ο δαίμονας συνδέεται απευθείας στη `[server] port` του ίδιου του spectrumserver (loopback + διακριτικό, παρακάμπτοντας τον διαμεσολαβητή). Διαβάζει τη θύρα αυτή από το αρχείο ρυθμίσεων με το οποίο ξεκίνησε ο τρέχων spectrumserver, οπότε λειτουργεί σε οποιαδήποτε θύρα χωρίς ρύθμιση — η γραμμή `[autorun] tap backend: …` στο `autorun.log` δείχνει τι εντόπισε. Αν ο διακομιστής σας δεν εκτελούνταν όταν ξεκίνησε ο δαίμονας ή αν έχετε ασυνήθιστη διάταξη, καθορίστε την στο `autorun.json`:
 > ```json
-> "server": { "host": "127.0.0.1", "port": 9002 }
+> "server": { "host": "127.0.0.1", "port": 9001 }
 > ```
 > Λανθασμένη θύρα εμφανίζεται ως `504` / `tap closed 1006` στο `autorun.log` με τα `decodes` κολλημένα στο 0.
 
@@ -714,7 +280,7 @@ nano config-rtl.toml
 
 ```toml
 [server]
-port = 9002                      # Web interface port (or everything else)
+port = 9001                      # Web interface port (or everything else)
 html_root = "frontend/dist/"     # Frontend location
 otherusers = 1                   # Show other users (1=yes, 0=no)
 iq = true                        # Offer the IQ mode to listeners (true/false)
@@ -781,7 +347,7 @@ nano frontend/site_information.json
   "siteReceiver": "Your SDR model",
   "siteAntenna": "Antenna description",
   "siteNote": "Additional information",
-  "siteIP": "http://your.domain.com:9002",
+  "siteIP": "http://your.domain.com:9000",
   "siteSDRBaseFrequency": 0,
   "siteSDRBandwidth": 2048000,
   "siteRegion": 1,
@@ -833,19 +399,7 @@ RX_ARGS="${RX_ARGS:--f 145000000 -s 2048000 -}"   # receiver args (edit these)
 
 ### RTL-SDR
 
-#### Εγκαταστήστε τα εργαλεία RTL-SDR
-
-```bash
-sudo apt install -y rtl-sdr
-```
-
-#### Δοκιμάστε το RTL-SDR
-
-```bash
-rtl_test
-```
-
-Πατήστε Ctrl+C για διακοπή. Θα πρέπει να δείτε πληροφορίες για τον ρυθμό δειγματοληψίας.
+Τα σενάρια εγκατάστασης εγκαθιστούν τον οδηγό για εσάς, με το `./setup-rtlsdr.sh` (`RTL_V4=y` για RTL-SDR Blog V4).
 
 #### Επεξεργαστείτε τις ρυθμίσεις
 
@@ -899,8 +453,8 @@ SoapySDRUtil --find="driver=airspyhf"    # Airspy HF+
 
 Ο Fobos στέλνει **έναν κλάδο κάθε φορά**, γι' αυτό έχει δύο scripts εκκίνησης που μοιράζονται το κλείδωμα του watchdog όπως κάθε `start-*.sh` — η εκκίνηση του ενός σταματά το άλλο:
 
-- **`start-fobos-hf.sh`** — οι είσοδοι HF1/HF2 με άμεση δειγματοληψία, 0-25 MHz, στη θύρα 9003. Σε αυτή τη λειτουργία δεν υπάρχει τοπικός ταλαντωτής: ο ADC ψηφιοποιεί συνεχώς 0-25 MHz (το `-f 0` είναι σκόπιμο, και η προειδοποίηση *Failed to set center freq* του rx_sdr είναι αναμενόμενη). Το `rx_sdr` δίνει CF32 στα 50 Msps· ο μικρός μετατροπέας `cf32_to_real` (τον χτίζει το `setup-fobos.sh` από το `cf32_to_real.c`) κρατά το κανάλι I και το κλιμακώνει σε s16, γι' αυτό το `config-fobos-hf.toml` έχει `signal="real"` και `format="s16"`.
-- **`start-fobos.sh`** — ο κλάδος RF, 25-6000 MHz, IQ, στη θύρα 9002. Διαλέξτε το παράθυρο πριν την πρώτη εκκίνηση: τα `-f` (κέντρο) και `-s` (ρυθμός δειγματοληψίας) στη γραμμή `RX_ARGS` πρέπει να ταιριάζουν με τα `frequency=` και `sps=` του `config-fobos.toml`. Οι τιμές που έρχονται (97 MHz, 20 Msps) είναι μόνο αφετηρία για να δείτε ότι τρέχει.
+- **`start-fobos-hf.sh`** — οι είσοδοι HF1/HF2 με άμεση δειγματοληψία, 0-25 MHz, στη θύρα 9001. Σε αυτή τη λειτουργία δεν υπάρχει τοπικός ταλαντωτής: ο ADC ψηφιοποιεί συνεχώς 0-25 MHz (το `-f 0` είναι σκόπιμο, και η προειδοποίηση *Failed to set center freq* του rx_sdr είναι αναμενόμενη). Το `rx_sdr` δίνει CF32 στα 50 Msps· ο μικρός μετατροπέας `cf32_to_real` (τον χτίζει το `setup-fobos.sh` από το `cf32_to_real.c`) κρατά το κανάλι I και το κλιμακώνει σε s16, γι' αυτό το `config-fobos-hf.toml` έχει `signal="real"` και `format="s16"`.
+- **`start-fobos.sh`** — ο κλάδος RF, 25-6000 MHz, IQ, στη θύρα 9001. Διαλέξτε το παράθυρο πριν την πρώτη εκκίνηση: τα `-f` (κέντρο) και `-s` (ρυθμός δειγματοληψίας) στη γραμμή `RX_ARGS` πρέπει να ταιριάζουν με τα `frequency=` και `sps=` του `config-fobos.toml`. Οι τιμές που έρχονται (97 MHz, 20 Msps) είναι μόνο αφετηρία για να δείτε ότι τρέχει.
 
 > [!IMPORTANT]
 > Το `config-fobos-hf.toml` έρχεται με `accelerator="opencl"`: μια ροή 50 Msps μέσα από FFT 1M bins είναι τόσο βαριά όσο τα 60 Msps του RX888, και στη CPU χάνονται δείγματα και το μηχάνημα ζεσταίνεται. Σε μηχάνημα χωρίς συσκευή OpenCL το `spectrumserver` δεν ξεκινά με αυτή τη ρύθμιση — βάλτε εκεί `accelerator="none"`.
@@ -913,21 +467,7 @@ SoapySDRUtil --find="driver=airspyhf"    # Airspy HF+
 
 ### RX888 MK2
 
-#### Εγκαταστήστε τα εργαλεία RX888
-
-```bash
-# Install rx_tools
-git clone https://github.com/rxseger/rx_tools.git
-cd rx_tools
-mkdir build && cd build
-cmake ..
-make -j4
-sudo make install
-sudo ldconfig
-
-# Install RX888 firmware and support
-# Follow manufacturer instructions
-```
+Το σενάριο εγκατάστασης χτίζει το `rx888_stream` και εγκαθιστά τους κανόνες udev του για εσάς.
 
 #### Εκτέλεση του rx888_stream χωρίς sudo (κανόνες udev)
 
@@ -1002,7 +542,7 @@ tail -f logwebsdr.txt
 
 Ανοίξτε τον περιηγητή σας στο:
 ```
-http://localhost:9002
+http://localhost:9000
 ```
 
 (Αντικαταστήστε τον αριθμό θύρας με τη δική σας ρυθμισμένη θύρα)
@@ -1018,7 +558,7 @@ http://localhost:9002
 
 Από άλλον υπολογιστή στο δίκτυό σας:
 ```
-http://YOUR_SERVER_IP:9002
+http://YOUR_SERVER_IP:9000
 ```
 
 ### 6. Ελέγξτε τη χρήση πόρων
@@ -1058,96 +598,6 @@ bash setup-autostart.sh --remove       # να μην ξεκινά πια με τ
 Εγκαθιστά το `phantomsdr-receiver.service`, που τρέχει το start script σας στο boot και το `stop-websdr.sh` στον τερματισμό, με την ομάδα `plugdev`, ώστε ο δέκτης USB να ανοίγει χωρίς να έχει συνδεθεί κανείς. Το υπόλοιπο κεφάλαιο δείχνει το ίδιο με το χέρι.
 
 
-### Με systemd (συνιστάται)
-
-#### 1. Δημιουργήστε το αρχείο υπηρεσίας
-
-```bash
-sudo nano /etc/systemd/system/phantomsdr.service
-```
-
-Προσθέστε το ακόλουθο περιεχόμενο (προσαρμόστε διαδρομές και χρήστη):
-
-```ini
-[Unit]
-Description=PhantomSDR-Plus WebSDR Server
-After=network.target
-
-[Service]
-Type=simple
-User=youruser
-WorkingDirectory=/home/youruser/PhantomSDR-Plus
-# Run the watchdog in the FOREGROUND (note the --watchdog flag) so systemd can
-# track it. Do NOT use the plain "./start-rtl.sh" here — that form detaches into
-# the background and exits, which systemd would treat as the service stopping.
-ExecStart=/home/youruser/PhantomSDR-Plus/start-rtl.sh --watchdog
-ExecStop=/home/youruser/PhantomSDR-Plus/stop-websdr.sh
-Restart=always
-RestartSec=10
-
-[Install]
-WantedBy=multi-user.target
-```
-
-> Η διεργασία `--watchdog` ήδη επανεκκινεί μόνη της τον δέκτη και τον `spectrumserver`· το `Restart=always` είναι απλώς δίχτυ ασφαλείας για τη σπάνια περίπτωση που τερματιστεί ο ίδιος ο watchdog. Επειδή εδώ ο διακομιστής εποπτεύεται από το systemd, μπορείτε να χρησιμοποιείτε `systemctl start/stop/restart` και `journalctl -u phantomsdr -f` αντί να εκτελείτε τα σενάρια με το χέρι.
-
-#### 2. Ενεργοποιήστε και εκκινήστε την υπηρεσία
-
-```bash
-# Reload systemd
-sudo systemctl daemon-reload
-
-# Enable service to start on boot
-sudo systemctl enable phantomsdr.service
-
-# Start service now
-sudo systemctl start phantomsdr.service
-
-# Check status
-sudo systemctl status phantomsdr.service
-```
-
-#### 3. Διαχειριστείτε την υπηρεσία
-
-```bash
-# Start
-sudo systemctl start phantomsdr
-
-# Stop
-sudo systemctl stop phantomsdr
-
-# Restart
-sudo systemctl restart phantomsdr
-
-# View logs
-sudo journalctl -u phantomsdr -f
-```
-
-### Με Screen (εναλλακτικά)
-
-> Συνήθως περιττό: το `./start-rtl.sh` ήδη αποσυνδέεται στο παρασκήνιο (μέσω `setsid`) και συνεχίζει να εκτελείται μετά την αποσύνδεσή σας, με δικό του watchdog. Το Screen είναι χρήσιμο μόνο αν θέλετε συγκεκριμένα διαδραστική συνεδρία για την εκτέλεση της μορφής προσκηνίου `./start-rtl.sh --watchdog`.
-
-#### 1. Εγκαταστήστε το Screen
-
-```bash
-sudo apt install -y screen
-```
-
-#### 2. Εκκινήστε σε συνεδρία Screen
-
-```bash
-screen -S phantomsdr
-./start-rtl.sh
-```
-
-Πατήστε Ctrl+A και έπειτα D για αποσύνδεση.
-
-#### 3. Επανασυνδεθείτε στη συνεδρία
-
-```bash
-screen -r phantomsdr
-```
-
 ---
 
 ## Θερμική προστασία CPU
@@ -1157,100 +607,6 @@ screen -r phantomsdr
 Το PhantomSDR-Plus περιλαμβάνει μια προστασία που σταματά τον διακομιστή αν η CPU φτάσει σε επικίνδυνη θερμοκρασία και τον ξεκινά ξανά μόλις κρυώσει. Τα όριά της προκύπτουν από το κρίσιμο όριο που δημοσιεύει η ίδια σας η CPU, οπότε δεν έχετε τίποτα να υπολογίσετε, και λειτουργεί με όποιον τρόπο εκκίνησης/διακοπής κι αν χρησιμοποιείτε.
 
 **Αν χρησιμοποιείτε τον πίνακα διαχείρισης, την έχετε ήδη** — τρέχει μέσα στον πίνακα και ρυθμίζεται από τη σελίδα «Ρυθμίσεις». Δείτε τον [οδηγό του πίνακα διαχείρισης](ADMIN_PANEL_SETUP.md#thermal-guard). Η υπόλοιπη ενότητα αφορά εγκαταστάσεις **χωρίς** τον πίνακα.
-
-### 1. Δείτε τι βλέπει η προστασία στο μηχάνημά σας
-
-```bash
-cd ~/PhantomSDR-Plus
-python3 thermal_guard.py --once
-```
-
-```
-sensor     : hwmon:coretemp
-temperature: 58.0 C
-crit       : 100.0 C
-mode       : log
-thresholds : warn 88.0  throttle 92.0  stop 95.0  resume 75.0 (C)
-cpufreq    : not writable — throttle stage disabled
-```
-
-Χρησιμοποιούνται μόνο πραγματικοί αισθητήρες της CPU (`coretemp`, `k10temp`, `zenpower`, `cpu_thermal`)· οι `acpitz` και οι μη επισημασμένες θερμικές ζώνες αγνοούνται σκόπιμα, γιατί συχνά αναφέρουν θερμοκρασία κουτιού ή πλακέτας δεκάδες βαθμούς κάτω από τη CPU. Αν εμφανιστεί `sensor : NONE`, το μηχάνημα δεν μπορεί να προστατευθεί — συνηθισμένο σε VPS ή μέσα σε container — και η προστασία μένει ανενεργή αντί να προσποιείται.
-
-Δεν χρειάζεται να εγκαταστήσετε τίποτα: το `thermal_guard.py` χρησιμοποιεί μόνο τη standard library της Python.
-
-### 2. Ρυθμίστε την
-
-Η προστασία διαβάζει το `admin_config.json` δίπλα στο `thermal_guard.py`. Δημιουργήστε το αν δεν έχετε — χωρίς τον πίνακα δεν θα έχετε. Το ελάχιστο χρήσιμο αρχείο:
-
-```json
-{
-  "sdr_process_name": "spectrumserver",
-  "stop_script":  "stop-websdr.sh",
-  "start_script": "start-rx888mk2.sh",
-  "thermal_mode": "stop+restart"
-}
-```
-
-- `thermal_mode` — `log` (μόνο καταγραφή, η προεπιλογή), `throttle`, `stop` ή `stop+restart`. **Αυτό είναι που πρέπει οπωσδήποτε να ορίσετε**, γιατί η προστασία έρχεται αδρανής: αν την αφήσετε ως έχει, μόνο γράφει τι *θα* έκανε. Μπορείτε επίσης να το δώσετε στη γραμμή εντολών ως `--mode stop+restart`, που υπερισχύει του αρχείου — αν σας βολεύουν όλες οι υπόλοιπες προεπιλογές, δεν χρειάζεστε καθόλου αρχείο ρυθμίσεων.
-- `stop_script` / `start_script` — πώς σταματά και ξεκινά τον διακομιστή σας. Χωρίς σενάριο διακοπής καταφεύγει σε `SIGTERM` και μετά από 10 δευτερόλεπτα σε `SIGKILL` προς το `sdr_process_name`. Χωρίς σενάριο εκκίνησης σταματά αλλά δεν επανεκκινεί ποτέ.
-- Τα όρια και οι χρόνοι μπορούν επίσης να μπουν εδώ, με τα ίδια ονόματα κλειδιών που χρησιμοποιεί ο πίνακας — ο πλήρης πίνακας βρίσκεται στον [οδηγό του πίνακα διαχείρισης](ADMIN_PANEL_SETUP.md#thermal-guard).
-
-> **Αν τον διακομιστή SDR τον επιβλέπει το systemd**, βάλτε το `stop_script` να δείχνει σε ένα μικρό σενάριο που εκτελεί `systemctl stop τη-μονάδα-σας`, αντί να αφήσετε την προστασία να στείλει σήμα απευθείας στη διεργασία. Η προστασία θα κερδίσει έτσι κι αλλιώς — όσο η CPU είναι πολύ ζεστή επαναλαμβάνει τη διακοπή κάθε 2 δευτερόλεπτα, οπότε ό,τι επαναφέρει τον διακομιστή αναιρείται — αλλά μια καθαρή διακοπή είναι προτιμότερη από μια διαμάχη κάθε δύο δευτερόλεπτα.
-
-### 3. Τρέξτε την ως υπηρεσία
-
-Το αποθετήριο περιλαμβάνει έτοιμη μονάδα, το `thermal-guard.service`. Αλλάξτε μέσα το `User=` και τις δύο διαδρομές και μετά:
-
-```bash
-sudo cp thermal-guard.service /etc/systemd/system/
-sudo systemctl daemon-reload
-sudo systemctl enable --now thermal-guard
-systemctl status thermal-guard
-```
-
-Το `User=` πρέπει να είναι λογαριασμός που επιτρέπεται να εκτελεί τα σενάρια εκκίνησης/διακοπής σας — κανονικά ο ίδιος χρήστης που τρέχει τον διακομιστή SDR. **Μια προστασία που τρέχει ως χρήστης που δεν μπορεί να σταματήσει τον διακομιστή σας αφήνει απροστάτευτους, ενώ δείχνει ότι σας προστατεύει.**
-
-Για να οπλίσετε την προστασία από τη μονάδα αντί για το αρχείο ρυθμίσεων, προσθέστε το `--mode` στο `ExecStart`:
-
-```ini
-ExecStart=/usr/bin/python3 -u /home/sysop/PhantomSDR-Plus/thermal_guard.py --mode stop+restart
-```
-
-Χωρίς systemd:
-
-```bash
-cd ~/PhantomSDR-Plus
-nohup python3 -u thermal_guard.py --mode stop+restart >> thermal.log 2>&1 &
-```
-
-Το `python3 thermal_guard.py --help` δείχνει όλες τις επιλογές, μαζί με το `--config` για αρχείο ρυθμίσεων αλλού και όχι δίπλα στο σενάριο.
-
-### 4. Παρακολουθήστε την και μετά εμπιστευτείτε την
-
-Ό,τι κάνει η προστασία γράφεται στο `crash.log` μέσα στον φάκελο PhantomSDR-Plus, ένα συμβάν ανά γραμμή:
-
-```
-[THERMAL] warn: 89.0C (warn=88.0 crit=100.0) sustained 31s
-[THERMAL] STOPPED server: 96.0C sustained 62s (stop=95.0 crit=100.0) — Started stop-websdr.sh
-[THERMAL] lockout: process reappeared at 94.0C — re-stopped [3 time(s) so far]
-[THERMAL] recovered: 74.0C held below 75.0 — lockout cleared
-```
-
-```bash
-grep THERMAL crash.log
-```
-
-Αφήστε πρώτα το `thermal_mode` στο `"log"` για μια εβδομάδα και διαβάστε το αρχείο μετά τις βαριές σας στιγμές — μια πλήρη μεταγλώττιση, ένα ζεστό απόγευμα. Αν δεν εμφανιστεί τίποτα, το μηχάνημά σας δεν πλησίασε ποτέ. Μετά βάλτε τη λειτουργία σε `stop`.
-
-Πριν βασιστείτε σε αυτήν, επιβεβαιώστε όλη τη διαδρομή μία φορά με μια πλασματική ένδειξη πάνω από το όριο διακοπής σας:
-
-```json
-"thermal_test_temp": 97
-```
-
-Η προστασία τη θεωρεί πραγματική, οπότε τρέχουν κατά παραγγελία τα warn → stop → κλείδωμα → επάνοδος → επανεκκίνηση. Αφαιρέστε τη γραμμή (ή βάλτε την σε `null`) για να επιστρέψετε στον πραγματικό αισθητήρα. Με τη λειτουργία στο `stop` ο διακομιστής όντως σταματά και οι ακροατές σας αποσυνδέονται, οπότε κάντε το όταν δεν υπάρχει κόσμος — ή δοκιμάστε στο `log`, όπου φαίνεται τι *θα* γινόταν χωρίς να αγγίξετε τίποτα.
-
----
 
 ## Αντιμετώπιση προβλημάτων
 
@@ -1335,22 +691,13 @@ error during build:
 
 Το `vite-plugin-top-level-await` ζητά `@swc/core` `^1.12.14`, οπότε μια καθαρή `npm install` καταλήγει στην 1.16.0, της οποίας η `printSync()` απορρίπτει το συντακτικό δέντρο που της δίνει το πρόσθετο. Δεν έχει καμία σχέση με τη διανομή σας — κάθε πρόγραμμα εγκατάστασης πλέον καρφώνει την έκδοση που δουλεύει, όπως και το `frontend/package.json`. Ένα μηχάνημα που εγκαταστάθηκε πριν προστεθεί αυτό το κάρφωμα συνεχίζει να δουλεύει μέχρι να διαγραφεί ο κατάλογος `node_modules` του — γι' αυτό εμφανίζεται από το πουθενά σε μια επανεγκατάσταση.
 
-Αν επιδιορθώνετε παλαιότερο αντίγραφο με το χέρι:
-
-```bash
-cd frontend
-npm pkg set 'overrides.@swc/core=1.15.33'
-npm install
-./build-all.sh
-```
-
 ### Σφάλματα εκτέλεσης
 
 #### Η θύρα χρησιμοποιείται ήδη
 
 ```bash
 # Find process using port
-sudo lsof -i :9002
+sudo lsof -i :9000
 
 # Kill process
 sudo kill -9 <PID>
@@ -1372,17 +719,6 @@ newgrp plugdev
 ./setup-rx888-udev.sh
 ```
 
-#### Προβλήματα ήχου
-
-```bash
-# Try different codec
-# Edit config file and change:
-audio_compression = "flac"  # or "opus"
-
-# Rebuild
-cd frontend && npm run build && cd ..
-```
-
 ### Προβλήματα OpenCL
 
 #### Το clinfo δεν δείχνει συσκευές
@@ -1397,18 +733,6 @@ ls /etc/OpenCL/vendors/
 # Reinstall drivers (Intel example)
 sudo apt remove --purge intel-opencl-icd
 sudo apt install intel-opencl-icd
-```
-
-#### Δεν βελτιώθηκαν οι επιδόσεις
-
-```bash
-# Verify OpenCL is enabled in config
-accelerator = "opencl"
-
-# Try different device
-# Add to config file:
-[input.opencl]
-device_id = 0  # Try 0, 1, 2, etc.
 ```
 
 ### Προβλήματα δικτύου
@@ -1429,19 +753,6 @@ sudo firewall-cmd --add-port=9000/tcp
 ```
 
 Στο Fedora και στο openSUSE το τείχος προστασίας είναι το firewalld, όχι το ufw, και είναι ενεργό εξ ορισμού. Το `setup_admin.sh` ανοίγει εκεί μόνο του τη δημόσια θύρα του διαμεσολαβητή (και στο ufw, αν το έχετε ενεργοποιήσει)· σε σταθμό που εγκαταστάθηκε νωρίτερα, εκτελέστε μία φορά `./setup_admin.sh --firewall` ή χρησιμοποιήστε τις γραμμές `firewall-cmd` παραπάνω. Αν ο πίνακας διαχείρισης ή ο διαμεσολαβητής δεν επανέρχεται μετά από επανεκκίνηση σε αυτά τα συστήματα, η συνήθης αιτία είναι το SELinux: εκτελέστε `./setup_admin.sh --selinux` (δείτε τον πίνακα αντιμετώπισης προβλημάτων στο ADMIN_PANEL_SETUP.md).
-
-#### Υψηλή καθυστέρηση
-
-```bash
-# Reduce waterfall size in config
-waterfall_size = 512
-
-# Increase buffer size
-buffer_size = 16384
-
-# Use Opus instead of FLAC
-audio_compression = "opus"
-```
 
 ### Προβλήματα συσκευής SDR
 
@@ -1495,39 +806,6 @@ id | grep plugdev                          # log out and back in if missing
 ```
 
 Αν ο driver λείπει από τη λίστα, ξανατρέξτε το `./setup-fobos.sh` ή το `./setup-airspyhf.sh`: σταματά με την αιτία αν αποτύχει το χτίσιμο ή ο έλεγχος του SoapySDR.
-
----
-
-## Βελτιστοποίηση επιδόσεων
-
-### Βελτιστοποίηση CPU
-
-```toml
-# Adjust thread counts based on CPU cores
-[server]
-threads = 4  # Set to number of cores
-
-[input]
-fft_threads = 4  # Set to number of cores
-```
-
-### Βελτιστοποίηση μνήμης
-
-```toml
-# Reduce memory usage
-[input]
-waterfall_size = 512  # Lower value = less memory
-fft_size = 65536      # Lower value = less memory
-```
-
-### Βελτιστοποίηση δικτύου
-
-```toml
-# Optimize for limited bandwidth
-[input]
-audio_compression = "opus"  # More efficient than FLAC
-waterfall_compression = "zstd"  # Efficient compression
-```
 
 ---
 
@@ -1603,8 +881,6 @@ update-backups/phantomsdr-backup-20260923-164530.zip
 
 Κάθε αρχείο περιέχει επίσης το δικό του `restore.sh`, για την περίπτωση που το ίδιο το `update.sh` είναι το πρόβλημα: αποσυμπιέστε το αρχείο και δώστε του τον φάκελο της εγκατάστασής σας, για παράδειγμα `./restore.sh /home/pi/PhantomSDR-Plus`. Κατά την επαναφορά το `update.sh` τρέχει από αντίγραφο έξω από το δέντρο, επειδή συνήθως είναι κι αυτό ένα από τα αρχεία που επαναφέρονται.
 
-Τα αντίγραφα ασφαλείας από πριν τις 23 Σεπτεμβρίου 2026 βρίσκονται στον κρυφό φάκελο `.update-backups/<χρονοσήμανση>/`· επαναφέρονται με τον ίδιο τρόπο και μετρούν στα τρία που κρατιούνται.
-
 ### Άλλες επιλογές
 
 ```bash
@@ -1657,128 +933,6 @@ chmod +x *.sh
 Κρατήστε πρώτα αντίγραφο της διαμόρφωσής σας — `config-*.toml`,
 `frontend/site_information.json`, `admin_config.json` και `markers.json` — γιατί ένα πακέτο
 αρχείων δεν μπορεί να ξεχωρίσει τις δικές σας αλλαγές από εκείνες της έκδοσης. Ακριβώς αυτό το πρόβλημα λύνει το `update.sh`.
-
----
-
-## Αντίγραφα ασφαλείας και επαναφορά
-
-### Αρχεία προς αντιγραφή
-
-- Αρχεία ρυθμίσεων: `*.toml`
-- Πληροφορίες σταθμού: `frontend/site_information.json`
-- Δείκτες: `markers.json`
-- Προσαρμοσμένα σενάρια: `start-*.sh`, `stop-*.sh`
-- Ιστορικό συνομιλίας: `chat_history.txt`
-- Εικόνα φόντου: `frontend/src/assets/background.jpg`
-
-### Εντολή αντιγραφής
-
-```bash
-cd ~/PhantomSDR-Plus
-tar -czf phantomsdr-backup-$(date +%Y%m%d).tar.gz \
-  *.toml \
-  *.sh \
-  markers.json \
-  chat_history.txt \
-  frontend/site_information.json \
-  frontend/src/assets/background.jpg
-```
-
-### Εντολή επαναφοράς
-
-```bash
-tar -xzf phantomsdr-backup-YYYYMMDD.tar.gz
-```
-
----
-
-## Θέματα ασφάλειας
-
-### Ρύθμιση τείχους προστασίας
-
-```bash
-# Allow only necessary ports
-sudo ufw allow 9000/tcp
-sudo ufw enable
-
-# Fedora / openSUSE (firewalld)
-sudo firewall-cmd --permanent --add-port=9000/tcp
-sudo firewall-cmd --add-port=9000/tcp
-```
-
-### Αντίστροφος διαμεσολαβητής (προαιρετικά)
-
-Εξετάστε τη χρήση nginx ή Apache ως αντίστροφου διαμεσολαβητή για:
-- κρυπτογράφηση SSL/TLS
-- αντιστοίχιση ονόματος τομέα
-- εξισορρόπηση φορτίου
-- έλεγχο πρόσβασης
-
-### Όρια χρηστών
-
-Επεξεργαστείτε το `config.toml`:
-```toml
-[server]
-max_users = 100  # Limit concurrent users
-```
-
----
-
-## Λήψη βοήθειας
-
-### Πόροι
-
-- **Τεκμηρίωση**: αυτός ο οδηγός, README.md, USER_GUIDE.md
-- **GitHub Issues**: https://github.com/sv1btl/PhantomSDR-Plus/issues
-- **Ζωντανή επίδειξη**: http://phantomsdr.no-ip.org:8900/
-
-### Αναφορά προβλημάτων
-
-Όταν αναφέρετε προβλήματα, περιλάβετε:
-1. Λειτουργικό σύστημα και έκδοση
-2. Μοντέλο συσκευής SDR
-3. Περιεχόμενο του αρχείου ρυθμίσεων
-4. Μηνύματα σφάλματος
-5. Χρήση πόρων συστήματος (CPU, RAM, GPU)
-
-### Υποστήριξη από την κοινότητα
-
-- Ελέγξτε τα υπάρχοντα GitHub issues πριν δημιουργήσετε νέα
-- Δώστε αναλυτικές πληροφορίες για την εγκατάστασή σας
-- Συμπεριλάβετε αρχεία καταγραφής και μηνύματα σφάλματος
-- Δείξτε υπομονή και σεβασμό
-
----
-
-## Παράρτημα Α: πλήρης κατάλογος εξαρτήσεων
-
-### Κατάλογος πακέτων Ubuntu 24.04
-
-```
-build-essential
-cmake
-pkg-config
-meson
-libfftw3-dev
-libwebsocketpp-dev
-libflac++-dev
-zlib1g-dev
-libzstd-dev
-libboost-all-dev
-libopus-dev
-libliquid-dev
-git
-util-linux (taskset — for the autorun spot reporter)
-psmisc
-wget
-curl
-rtl-sdr (for RTL-SDR)
-airspy (for Airspy)
-hackrf (for HackRF)
-libclfft-dev (for OpenCL)
-ocl-icd-opencl-dev (for OpenCL)
-clinfo (for OpenCL)
-```
 
 ---
 
@@ -1855,7 +1009,5 @@ modulation = "WBFM"
 ```
 
 ---
-
-**Η εγκατάσταση ολοκληρώθηκε! Θα πρέπει τώρα να έχετε πλήρως λειτουργικό διακομιστή PhantomSDR-Plus.**
 
 **73 de SV1BTL, 9A7AOF, F1NSK & SV2AMK**

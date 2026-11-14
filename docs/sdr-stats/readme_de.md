@@ -63,52 +63,9 @@ Drücken Sie die Eingabetaste für die Standardeinstellung oder geben Sie einen 
 ##### 3. **Port-Konfiguration** (Verbessert!)
 ```
 Port Configuration:
-  Default port: 3001
+  Default port: 9011
   Common alternatives: 8080, 5000, 8888
-Enter port number [3001]: 
-```
-
-Das Skript validiert Ihren Port:
-- ✅ Prüft, ob es sich um eine gültige Zahl handelt
-- ✅ Warnt, wenn Port < 1024 (erfordert Root-Rechte)
-- ✅ Validiert den Bereich (1-65535)
-- ✅ Prüft, ob der Port bereits verwendet wird
-- ✅ Zeigt an, welcher Prozess ihn belegt
-- ✅ Ermöglicht die Wahl eines anderen Ports
-
-**Beispielszenarien:**
-
-**Standardport verwenden:**
-```
-Enter port number [3001]: ↵
-✓ Port 3001 selected
-```
-
-**Benutzerdefinierten Port wählen:**
-```
-Enter port number [3001]: 8080
-✓ Port 8080 selected
-```
-
-**Port bereits belegt:**
-```
-Enter port number [3001]: 3001
-⚠ Port 3001 is currently in use
-Process using port 3001:
-node    12345 user   20u  IPv6 123456  TCP *:3001 (LISTEN)
-Choose a different port? (y/n): y
-Enter port number [3001]: 3002
-✓ Port 3002 selected
-```
-
-**Ungültiger Port:**
-```
-Enter port number [3001]: abc
-✗ Port must be a number
-Enter port number [3001]: 99999
-✗ Port must be between 1 and 65535
-Enter port number [3001]: 3001
-✓ Port 3001 selected
+Enter port number [9011]: 
 ```
 
 ##### 4. **Serveradresse**
@@ -123,9 +80,9 @@ Geben Sie die öffentliche Domain oder IP-Adresse Ihres Servers ein.
 ```
 Please confirm your settings:
   Installation directory: /home/user/sdr-stats-server
-  Port: 3001
+  Port: 9011
   Server address: Your_site_IP
-  Stats URL will be: http://Your_site_IP:3001
+  Stats URL will be: /stats on the public port 9000
 Continue with these settings? (y/n): y
 ```
 
@@ -140,27 +97,31 @@ Empfohlen: Wählen Sie **y**, damit der Server beim Booten automatisch startet.
 
 Das Skript zeigt eine Zusammenfassung an:
 ```
-╔════════════════════════════════════════════════╗
-║          Installation Complete! ✓              ║
-║          Open the port in the router!          ║
-╚════════════════════════════════════════════════╝
-
 Configuration Summary:
   Installation: /home/user/sdr-stats-server
-  Port: 3001
-  Server: Your_site_IP
-  API URL: http://Your_site_IP:3001/api/system-stats
+  Port: 9011
+  API URL: http://localhost:9011/api/system-stats (inside this computer)
+
+Next steps:
+
+Nothing to edit: configure-station.sh already pointed the receiver page
+at /stats, which the proxy on port 9000 carries to this
+server. No extra port has to be opened on the router.
+
+╔════════════════════════════════════════════════╗
+║          Installation Complete! ✓              ║
+╚════════════════════════════════════════════════╝
 ```
 
 ---
 
 ## Konfigurieren Sie Ihre PhantomSDR-Anwendung
 
-Nachdem das Skript abgeschlossen ist, müssen Sie Ihre Svelte-Anwendung aktualisieren.
+Auf einer mit `install.sh` eingerichteten Station ist hier nichts zu tun: Die Stationsfragen haben `siteStats` bereits als `/stats` eingetragen, und `proxy.py` leitet es über den öffentlichen Port 9000 weiter; am Router wird also kein weiterer Port geöffnet.
 
-### Schritt 1: `site_information.json` aktualisieren
+### `site_information.json`
 
-Da `site_information.json` bereits während der ersten Einrichtung bearbeitet wurde, müssen Sie nur die neue `siteStats`-Zeile mit Ihrem Port hinzufügen:
+Die Zeile in `site_information.json` sieht so aus:
 
 ```json
 {
@@ -174,108 +135,13 @@ Da `site_information.json` bereits während der ersten Einrichtung bearbeitet wu
 	"siteReceiver": "Receiver model",
 	"siteAntenna": "Receiving Antenna.",
 	"siteNote": "This is a bright new open-source WebSDR project, under active development.",
-	"siteIP": "http://Your_site_IP:port",
-  "siteStats": "http://Your_site_IP:3001",  ← DIESE ZEILE HINZUFÜGEN (Ihren Port verwenden)
+	"siteIP": "http://Your_site_IP:9000",
+  "siteStats": "/stats",
   "siteSDRBaseFrequency": 0,
   "siteSDRBandwidth": 30000000,
   "siteRegion": 1,
   "siteChatEnabled": true
 }
-```
-
-**Hinweis:** Verwenden Sie den Port, den Sie während der Installation ausgewählt haben!
-
-### Schritt 2: `App.svelte` aktualisieren (die neueste GitHub-Version enthält die aktualisierte Datei bereits)
-
-Nehmen Sie diese **4 Änderungen** an Ihrer App.svelte-Datei vor:
-
-#### Änderung 1: Sicherstellen, dass `siteStats` deklariert ist (etwa Zeile 50)
-
-```javascript
-import {
-  siteSysop,
-  siteSysopEmailAddress,
-  siteInformation,
-  siteGridSquare,
-  siteCity,
-  siteHardware,
-  siteSoftware,
-  siteReceiver,
-  siteAntenna,
-  siteNote,
-  siteIP,
-  siteStats,  // ← DIESE ZEILE HINZUFÜGEN
-  siteSDRBaseFrequency,
-  siteSDRBandwidth,
-  siteRegion,
-  siteChatEnabled,
-} from "../site_information.json";
-```
-
-#### Änderung 2: systemStats-Objekt aktualisieren (etwa Zeile 530)
-
-```javascript
-let systemStats = {
-  cpu: { usage: 0, cores: 0, temperature: null, frequency: null, topProcesses: [] },  // ← topProcesses: [] HINZUFÜGEN
-  memory: { used: 0, total: 0, percent: 0 }
-};
-```
-
-#### Änderung 3: Fetch-URL aktualisieren (etwa Zeile 541)
-
-```javascript
-async function fetchSystemStats() {
-  try {
-    const response = await fetch(`${siteStats}/api/system-stats`);  // ← DIESE ZEILE ÄNDERN
-    if (response.ok) {
-      systemStats = await response.json();
-    } else {
-      console.error('Failed to fetch system stats:', response.statusText);
-    }
-  } catch (error) {
-    console.error('Error fetching system stats:', error);
-  }
-}
-```
-
-#### Änderung 4: Anzeige der Top-Prozesse hinzufügen (im CPU-Abschnitt, etwa Zeile 3838)
-
-Fügen Sie diesen Code nach dem Temperaturabschnitt hinzu:
-
-```svelte
-{#if systemStats.cpu.frequency}
-<div style="display: flex; justify-content: space-between; margin-bottom: 0.25rem;">
-  <span>Frequency:</span>
-  <span style="color: #4ade80;">{systemStats.cpu.frequency.current} GHz{#if systemStats.cpu.frequency.max} <span style="opacity: 0.7;">(max {systemStats.cpu.frequency.max})</span>{/if}</span>
-</div>
-{/if}
-
-{#if systemStats.cpu.temperature !== null}
-<div style="display: flex; justify-content: space-between; margin-bottom: 0.25rem;">
-  <span>Temperature:</span>
-  <span style="color: {systemStats.cpu.temperature > 70 ? '#fbbf24' : '#4ade80'};">{systemStats.cpu.temperature}°C</span>
-</div>
-{/if}
-
-<!-- DIESEN GESAMTEN ABSCHNITT HINZUFÜGEN: -->
-{#if systemStats.cpu.topProcesses && systemStats.cpu.topProcesses.length > 0}
-<div style="margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid rgba(255,255,255,0.1);">
-  <h4 style="margin: 0 0 0.5rem 0; font-size: 0.85rem; color: rgba(0, 225, 255, 0.8);">Top Processes:</h4>
-  {#each systemStats.cpu.topProcesses as process}
-  <div style="display: flex; justify-content: space-between; margin-bottom: 0.25rem; font-size: 0.85rem;">
-    <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 70%;">{process.name}</span>
-    <span style="color: {process.cpu > 50 ? '#ef4444' : process.cpu > 25 ? '#fbbf24' : '#4ade80'};">{process.cpu}%</span>
-  </div>
-  {/each}
-</div>
-{/if}
-```
-
-### Schritt 3: Anwendung neu kompilieren
-
-```bash
-cd /path/to/your/phantomsdr-app
-npm ./recompile.sh
 ```
 
 ---
@@ -285,7 +151,7 @@ npm ./recompile.sh
 ### Test 1: API-Endpunkt prüfen
 
 ```bash
-curl http://localhost:3001/api/system-stats
+curl http://localhost:9011/api/system-stats
 ```
 
 Erwartete Ausgabe (JSON):
@@ -373,116 +239,9 @@ sudo rm /etc/systemd/system/sdr-stats.service
 
 ---
 
-## Manuelle Installation (Option 2)
-
-
-> [!IMPORTANT]
-> **Für eine normale Installation brauchen Sie diesen Abschnitt nicht.** `install-stats-server.sh` erledigt all das für Sie und wird vom Hauptinstallationsskript standardmäßig ausgeführt. Folgen Sie ihm nur für eine manuelle Einrichtung oder um einen Teil von Hand zu reparieren.
-
-**⚠️ Warnung:** Bei der manuellen Installation werden möglicherweise veraltete Dateien verwendet. Das **automatisierte Skript wird dringend empfohlen**, da es:
-- Die neueste Version mit verbesserter Temperaturerkennung installiert
-- lm-sensors automatisch installiert und konfiguriert
-- Alle Abhängigkeiten automatisch verwaltet
-
-Wenn Sie dennoch die manuelle Installation bevorzugen:
-
-### 1. Node.js installieren
-```bash
-# Any distribution - nvm needs no root and no apt source.
-# NOT NodeSource: deb.nodesource.com now answers HTTP 403 on every path.
-curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.4/install.sh | bash
-export NVM_DIR="$HOME/.nvm"
-[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
-nvm install 22 && nvm use 22 && nvm alias default 22
-```
-
-### 2. lm-sensors installieren (Erforderlich für Intel/AMD-Temperatur)
-```bash
-sudo apt-get update
-sudo apt-get install -y lm-sensors
-sudo sensors-detect --auto
-```
-
-### 3. Verzeichnis erstellen
-```bash
-mkdir ~/sdr-stats-server
-cd ~/sdr-stats-server
-```
-
-### 4. Neueste Dateien herunterladen
-
-**Wichtig:** Die Server-Dateien liegen nicht mehr als Kopien im Repository - das Installationsskript erzeugt sie.
-
-Führen Sie stattdessen das automatisierte Skript einmal aus, um die neuesten Dateien zu generieren, und kopieren Sie sie dann:
-```bash
-# Run the automated script from the repository root
-cd ~/PhantomSDR-Plus
-./install-stats-server.sh
-# When prompted, use a temporary port like 9999
-# After installation completes, copy the generated files
-cp ~/sdr-stats-server/system-stats-server.js ~/your-manual-install-dir/
-cp ~/sdr-stats-server/package.json ~/your-manual-install-dir/
-```
-
-**ODER** erstellen Sie die Dateien manuell mit dem neuesten Code aus dem Installationsskript.
-
-### 5. Port bearbeiten (falls erforderlich)
-```bash
-nano ~/sdr-stats-server/system-stats-server.js
-```
-
-Ändern Sie Zeile 6:
-```javascript
-const PORT = process.env.PORT || 3001;  // Change this number
-```
-
-### 6. Abhängigkeiten installieren
-```bash
-npm install
-```
-
-### 7. Testlauf
-```bash
-npm start
-```
-
-### 8. Dienst einrichten (Optional)
-
-Folgen Sie der systemd-Dienst-Einrichtung aus dem Abschnitt zur automatisierten Installation.
-
 ## Den Port nach der Installation ändern
 
-Wenn Sie den Port nach der Installation ändern müssen:
-
-### Schritt 1: Die Serverdatei bearbeiten
-
-```bash
-nano ~/sdr-stats-server/system-stats-server.js
-```
-
-Ändern Sie Zeile 6:
-```javascript
-const PORT = process.env.PORT || 3001;  // Change this number
-```
-
-### Schritt 2: site_information.json aktualisieren
-
-```json
-"siteStats": "http://Your_site_IP:NEW_PORT"
-```
-
-### Schritt 3: Den Dienst neu starten
-
-```bash
-sudo systemctl restart sdr-stats.service
-```
-
-### Schritt 4: Ihre Svelte-App neu erstellen
-
-```bash
-cd /path/to/phantomsdr-app
-npm run build
-```
+Führen Sie `bash configure-station.sh` erneut aus und geben Sie der Statistik einen neuen Port. Das Skript verschiebt die Einstellung des Dienstes und den Proxy mit; die Seite verwendet weiterhin `/stats`, sonst ändert sich also nichts, und am Router wird nichts geöffnet.
 
 ---
 
@@ -492,14 +251,14 @@ npm run build
 
 **Fehler:**
 ```
-Error: listen EADDRINUSE: address already in use :::3001
+Error: listen EADDRINUSE: address already in use :::9011
 ```
 
 **Lösung:**
 
 1. Finden Sie heraus, was den Port verwendet:
 ```bash
-sudo lsof -i :3001
+sudo lsof -i :9011
 ```
 
 2. Stoppen Sie diesen Prozess:
@@ -555,13 +314,13 @@ sudo systemctl restart sdr-stats.service
 1. Überprüfen Sie die Browser-Konsole (F12) auf Fehler
 2. Überprüfen Sie, ob die API erreichbar ist:
 ```bash
-curl http://localhost:3001/api/system-stats
+curl http://localhost:9011/api/system-stats
 ```
 3. Überprüfen Sie, ob der Dienst läuft:
 ```bash
 sudo systemctl status sdr-stats.service
 ```
-4. Überprüfen Sie, ob `siteStats` in `site_information.json` mit Ihrer Serveradresse und Ihrem Port übereinstimmt
+4. Überprüfen Sie, ob `siteStats` in `site_information.json` `/stats` lautet und ob `proxy.py` läuft
 5. Überprüfen Sie auf CORS-Fehler – stellen Sie sicher, dass der Server Ihre Domain zulässt
 
 ### Problem: Temperatur zeigt null an
@@ -589,33 +348,6 @@ sensors
 - Nicht-Linux-Systemen
 
 Das ist normal – der Rest der Statistiken funktioniert trotzdem!
-
-### Problem: Statistikwerte stimmen nicht mit `top` überein
-
-**Ursache:** Der CPU-Abtastzeitraum war in älteren Versionen zu kurz
-
-**Lösung:** Die aktuelle Version verwendet eine 1-Sekunden-Abtastung für genaue Messwerte. Wenn Sie eine alte Installation haben:
-
-1. Aktualisieren Sie die Serverdatei:
-```bash
-nano ~/sdr-stats-server/system-stats-server.js
-```
-
-2. Suchen Sie Zeile 18 und ändern Sie:
-```javascript
-}, 100);  // Old value
-```
-in:
-```javascript
-}, 1000);  // New value (1 second)
-```
-
-3. Neu starten:
-```bash
-sudo systemctl restart sdr-stats.service
-```
-
-Oder führen Sie einfach das Installationsskript erneut aus, um die neueste Version zu erhalten.
 
 ### Problem: Node.js nicht gefunden
 
@@ -668,47 +400,6 @@ Nach Installation und Konfiguration zeigt das Statistik-Modalfenster Folgendes a
 ---
 
 
-## Temperaturerkennung
-
-Der Statistikserver verwendet eine fortschrittliche Temperaturerkennung mit mehreren Methoden:
-
-### ✅ **Unterstützte Systeme:**
-- **Intel-Prozessoren**: Liest von coretemp-Sensoren über lm-sensors
-- **AMD-Prozessoren**: Liest von k10temp-Sensoren (Tdie/Tctl)
-- **ARM-Prozessoren**: Liest von thermischen Zonen (Raspberry Pi usw.)
-
-### 📋 **Anforderungen:**
-- **Intel/AMD**: Erfordert das Paket `lm-sensors` (wird vom Skript automatisch installiert)
-- **ARM/Raspberry Pi**: Funktioniert sofort, keine zusätzlichen Pakete erforderlich
-
-### 🔧 **Installationspriorität:**
-1. Versucht den Befehl `sensors` für die Package-/Core-Temperatur (Intel/AMD)
-2. Greift auf das direkte Lesen von coretemp zurück (Intel)
-3. Greift auf thermal_zone0 zurück (ARM/Raspberry Pi)
-
-Wenn die Temperatur `null` anzeigt, installieren Sie lm-sensors:
-```bash
-sudo apt-get install lm-sensors
-sudo sensors-detect --auto
-sudo systemctl restart sdr-stats.service
-```
-
----
-
-## Funktionsübersicht
-
-✅ **Echtzeitüberwachung** - Live-Systemstatistiken von Ihrem Server
-✅ **CPU-Metriken** - Auslastung, Kerne, Temperatur, Top-Prozesse
-✅ **Speicherverfolgung** - Belegt, gesamt und Prozent
-✅ **Automatische Aktualisierungen** - Aktualisiert alle 5 Sekunden
-✅ **Farbcodiert** - Visuelle Indikatoren für Warnungen
-✅ **Ressourcenschonend** - Minimaler Ressourcenverbrauch
-✅ **Einfache Installation** - Das automatisierte Skript erledigt alles
-✅ **Port-Validierung** - Intelligente Portauswahl mit Konflikterkennung
-✅ **Dienstverwaltung** - Automatischer Start beim Booten
-
----
-
 ## Sicherheitshinweise
 
 - Der Statistikserver akzeptiert Verbindungen von jeder Herkunft (CORS: *)
@@ -720,22 +411,6 @@ sudo systemctl restart sdr-stats.service
 ---
 
 ## Support & Ressourcen
-
-### Enthaltene Dateien:
-In diesem Verzeichnis (das Installationsskript selbst liegt im Wurzelverzeichnis als `PhantomSDR-Plus/install-stats-server.sh` - es gibt immer nur eine Kopie):
-- `package.json` - Abhängigkeiten, identisch mit dem, was das Skript schreibt
-- Dieses Dokument, auch auf de, el, es, fr, hr und ru verfügbar
-
-Vom Installationsskript in `~/sdr-stats-server/` erzeugt:
-- `system-stats-server.js` - Backend-Server, mit dem gewählten Port erzeugt
-- `package.json` - Abhängigkeiten
-- `node_modules/` - von `npm install` installiert
-
-### Hilfe erhalten:
-- Sehen Sie sich den obigen Abschnitt zur Fehlerbehebung an
-- Überprüfen Sie die Dienstprotokolle: `sudo journalctl -u sdr-stats.service -n 50`
-- Testen Sie die API manuell: `curl http://localhost:3001/api/system-stats`
-- Überprüfen Sie die Konfigurationsdateien
 
 ### Statistikserver deinstallieren:
 - Löschen Sie den Ordner /sdr-stats-server
@@ -788,12 +463,6 @@ sudo rm /etc/systemd/system/sdr-stats.service"`
 
 ---
 
-**Autor:** Erstellt für PhantomSDR-Plus
-**Version:** 1.1 (Verbesserte CPU-Temperaturerkennung für Intel/AMD) **Aktualisiert:** Januar 2026
-**Lizenz:** MIT
-
----
-
 ## Kurzreferenz der Befehle
 
 ```bash
@@ -810,11 +479,11 @@ sudo systemctl status sdr-stats.service     # Status
 sudo journalctl -u sdr-stats.service -f     # Logs
 
 # Testing
-curl http://localhost:3001/api/system-stats # Test API
-curl http://localhost:3001/api/health       # Health check
+curl http://localhost:9011/api/system-stats # Test API
+curl http://localhost:9011/api/health       # Health check
 
 # Troubleshooting
-sudo lsof -i :3001                          # Check port
+sudo lsof -i :9011                          # Check port
 whoami                                      # Check username
 node --version                              # Check Node.js
 ```

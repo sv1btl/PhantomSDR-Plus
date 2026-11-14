@@ -72,8 +72,6 @@ Si más adelante cambia el nombre DNS con `bash configure-station.sh`, Caddy pas
 | 9000 | proxy.py — http, como antes | sí |
 | 9014 | proxy.py — donde Caddy entrega a los visitantes | no — dentro del ordenador |
 
-Caddy llega al proxy por un puerto propio porque, visto desde el proxy, todo visitante que pasa por Caddy parecería venir del propio ordenador, y a una petición del propio ordenador se le concede confianza: puede desconectar oyentes y no cuenta para los límites por IP. En el puerto 9014 el proxy toma de Caddy la dirección real del visitante y nunca trata a un visitante como local, de modo que la lista de oyentes, los límites por IP y el kick del sysop funcionan exactamente igual que por http, y nadie puede expulsar a un oyente por https.
-
 ---
 
 ## Qué cambia para los oyentes

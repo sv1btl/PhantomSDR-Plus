@@ -24,14 +24,14 @@ Alle Befehle, die ein Sysop zum Betrieb einer PhantomSDR-Plus-Station braucht, n
 | Befehl | Was er tut | Siehe |
 |---|---|---|
 | `./setup-rx888-udev.sh` | Installiert die udev-Regeln des RX888, damit er ohne sudo läuft. | [Installationsanleitung](INSTALLATION.md#rx888_stream-ohne-sudo-ausführen-udev-regeln) |
-| `./setup-rtlsdr.sh` | Installiert den RTL-SDR-Treiber; fragt, ob der Stick ein Blog V4 ist. | [Installationsanleitung](INSTALLATION.md#mehrere-empfänger-auf-einem-rechner) |
-| `RTL_V4=y ./setup-rtlsdr.sh` | Installiert den RTL-SDR-Blog-V4-Treiber ohne Rückfrage. | [Installationsanleitung](INSTALLATION.md#mehrere-empfänger-auf-einem-rechner) |
+| `./setup-rtlsdr.sh` | Installiert den RTL-SDR-Treiber; fragt, ob der Stick ein Blog V4 ist. | [Installationsanleitung](INSTALLATION.md#rtl-sdr) |
+| `RTL_V4=y ./setup-rtlsdr.sh` | Installiert den RTL-SDR-Blog-V4-Treiber ohne Rückfrage. | [Installationsanleitung](INSTALLATION.md#rtl-sdr) |
 | `./setup-rsp1a.sh` | Installiert die offene Treiberkette für den SDRplay RSP1A. | [Installationsanleitung](INSTALLATION.md#empfänger-über-soapysdr-rsp1a-fobos-airspy-hf) |
 | `./setup-airspyhf.sh` | Installiert die Treiberkette des Airspy HF+. | [Installationsanleitung](INSTALLATION.md#empfänger-über-soapysdr-rsp1a-fobos-airspy-hf) |
 | `./setup-fobos.sh` | Installiert die Treiberkette des RigExpert Fobos. | [Installationsanleitung](INSTALLATION.md#empfänger-über-soapysdr-rsp1a-fobos-airspy-hf) |
 | `./setup-hackrf.sh` | Installiert das hackrf-Paket und seine udev-Regel. | [Installationsanleitung](INSTALLATION.md#hackrf-one) |
 | `./setup-drm.sh` | Baut den DRM-Decoder (ubersdr-drm mit fdk-aac 2.0.3) nach `drm/bin/`. | [Decoder](DECODERS.md#das-panel-lesen) |
-| `rtl_test` | Prüft, ob ein RTL-SDR-Stick erkannt wird. | [Installationsanleitung](INSTALLATION.md#rtl-sdr-testen) |
+| `rtl_test` | Prüft, ob ein RTL-SDR-Stick erkannt wird. | [Installationsanleitung](INSTALLATION.md#rtl-sdr-nicht-gefunden) |
 | `SoapySDRUtil --find="driver=soapyMiri"` | Prüft, ob der RSP1A erkannt wird (`driver=fobos`, `driver=airspyhf` für die anderen). | [Installationsanleitung](INSTALLATION.md#empfänger-über-soapysdr-rsp1a-fobos-airspy-hf) |
 | `SoapySDRUtil --info` | Listet die installierten SoapySDR-Treiber. | [Installationsanleitung](INSTALLATION.md#fobos-oder-airspy-hf-nicht-gefunden) |
 
@@ -48,7 +48,7 @@ Alle Befehle, die ein Sysop zum Betrieb einer PhantomSDR-Plus-Station braucht, n
 | `./start-fobos-hf.sh` | Dasselbe für einen Fobos, HF-Direktabtastung (0–25 MHz). | [README](README.md#grundlegender-betrieb) |
 | `./start-all.sh` | Startet alle in `receivers.toml` eingetragenen Empfänger. | [Mehrere Empfänger](MULTI_RECEIVER.md#5-starten-und-stoppen) |
 | `./start-rx888mk2.sh -q` | Jedes Startskript mit `-q`: zwei Zeilen Ausgabe statt des Live-Logs. | [README](README.md#grundlegender-betrieb) |
-| `INSTANCE=vhf ./start-rtl.sh` | Startet einen zweiten Empfänger, eingerichtet in `instances/vhf/`. | [Mehrere Empfänger](MULTI_RECEIVER.md#3-einen-zweiten-empfänger-hinzufügen) |
+| `INSTANCE=vhf ./start-rtl.sh` | Startet einen zweiten Empfänger, eingerichtet in `instances/vhf/`. | [Mehrere Empfänger](MULTI_RECEIVER.md#5-starten-und-stoppen) |
 | `SPECTRUM_CORES=0-3 ./start-rx888mk2.sh` | Bindet den Server an diese CPU-Kerne (`none` = keine Bindung). | [README](README.md#grundlegender-betrieb) |
 | `RADE_ENABLED=0 ./start-rx888mk2.sh` | Startet ohne den RADE-Sidecar. | [RADE README](RADE_README.md#steuerung-des-sidecars) |
 | `DRM_ENABLED=0 ./start-rx888mk2.sh` | Startet ohne den DRM-Helfer. | [Decoder](DECODERS.md#das-panel-lesen) |
@@ -72,12 +72,9 @@ Alle Befehle, die ein Sysop zum Betrieb einer PhantomSDR-Plus-Station braucht, n
 | Befehl | Was er tut | Siehe |
 |---|---|---|
 | `./recompile.sh` | Baut Server und/oder Webseite neu; fragt, was gebaut werden soll. | [Installationsanleitung](INSTALLATION.md#von-hand-aktualisieren) |
-| `./recompile.sh --backend` | Baut nur den Server neu. | [Installationsanleitung](INSTALLATION.md#von-hand-aktualisieren) |
-| `./recompile.sh --frontend` | Baut nur die Webseite neu (Desktop und /mobile). | [Admin-Panel einrichten](ADMIN_PANEL_SETUP.md#sicherung--wiederherstellung-der-stationseinstellungen) |
+| `./recompile.sh --backend` | Baut nur den Server neu. | [Projektstruktur](PROJECT_STRUCTURE.md#wenn-sie-backend-code-ändern-src) |
+| `./recompile.sh --frontend` | Baut nur die Webseite neu (Desktop und /mobile). | [Projektstruktur](PROJECT_STRUCTURE.md#wenn-sie-frontend-code-ändern-frontendsrc) |
 | `./recompile.sh --both` | Baut beides neu. | [Installationsanleitung](INSTALLATION.md#von-hand-aktualisieren) |
-| `cd frontend && ./build-all.sh` | Baut die Desktop-Seite und /mobile. | [Varianten bearbeiten](EDITING_VARIANTS.md#6-nach-dem-bearbeiten--neu-bauen) |
-| `cd frontend && ./build-default.sh` | Baut nur die Desktop-Seite. | [Varianten bearbeiten](EDITING_VARIANTS.md#6-nach-dem-bearbeiten--neu-bauen) |
-| `cd frontend && ./build-mobile.sh` | Baut nur /mobile. | [Varianten bearbeiten](EDITING_VARIANTS.md#6-nach-dem-bearbeiten--neu-bauen) |
 | `bash update.sh` | Meldet, was eine neue Version ändern würde, und fragt, ob aktualisiert werden soll. | [Installationsanleitung](INSTALLATION.md#aufruf) |
 | `./update.sh --check` | Nur Bericht, keine Fragen (für cron; Exit-Code 10 = Update verfügbar). | [Installationsanleitung](INSTALLATION.md#weitere-optionen) |
 | `./update.sh --apply` | Aktualisiert und fragt bei Dateien, die Sie selbst bearbeitet haben. | [Installationsanleitung](INSTALLATION.md#weitere-optionen) |
@@ -98,18 +95,18 @@ Alle Befehle, die ein Sysop zum Betrieb einer PhantomSDR-Plus-Station braucht, n
 | `./waterfall.sh` | Ändert den Standard-Minimalpegel des Wasserfalls; zeigt den aktuellen Wert und fragt. | [README](README.md#wasserfall-untergrenze--waterfallsh) |
 | `./waterfall.sh -v -15` | Setzt ihn ohne Rückfrage auf −15 dB (`-y` überspringt auch die Bestätigungen). | [README](README.md#wasserfall-untergrenze--waterfallsh) |
 | `./waterfall.sh -s` | Zeigt nur die aktuellen Werte. | [README](README.md#wasserfall-untergrenze--waterfallsh) |
-| `./smeter_theme.sh` | Wählt das Standard-Design des S-Meters aus einem Menü. | [Varianten bearbeiten](EDITING_VARIANTS.md#die-drei-skalenbilder--und-smeter_themesh) |
-| `./smeter_theme.sh vintage` | Setzt dieses Design sofort und bietet dann das Neubauen an. | [Varianten bearbeiten](EDITING_VARIANTS.md#die-drei-skalenbilder--und-smeter_themesh) |
-| `./smeter_theme.sh dark --build` | Setzt es und baut ohne Rückfrage neu (`--no-build` überspringt das Bauen). | [Varianten bearbeiten](EDITING_VARIANTS.md#die-drei-skalenbilder--und-smeter_themesh) |
-| `./smeter_theme.sh amber --no-reset` | Gilt nur für neue Besucher; bestehende behalten ihres. | [Varianten bearbeiten](EDITING_VARIANTS.md#die-drei-skalenbilder--und-smeter_themesh) |
+| `./smeter_theme.sh` | Wählt das Standard-Design des S-Meters aus einem Menü. | [Projektstruktur](PROJECT_STRUCTURE.md#start-stopp--und-wartungsskripte) |
+| `./smeter_theme.sh vintage` | Setzt dieses Design sofort und bietet dann das Neubauen an. | [Projektstruktur](PROJECT_STRUCTURE.md#start-stopp--und-wartungsskripte) |
+| `./smeter_theme.sh dark --build` | Setzt es und baut ohne Rückfrage neu (`--no-build` überspringt das Bauen). | [Projektstruktur](PROJECT_STRUCTURE.md#start-stopp--und-wartungsskripte) |
+| `./smeter_theme.sh amber --no-reset` | Gilt nur für neue Besucher; bestehende behalten ihres. | [Projektstruktur](PROJECT_STRUCTURE.md#start-stopp--und-wartungsskripte) |
 
 ## Admin-Panel und Proxy
 
 | Befehl | Was er tut | Siehe |
 |---|---|---|
-| `./setup_admin.sh` | Interaktive Einrichtung des Admin-Panels: Ports, Skripte, Thermal Guard, systemd-Units. | [Admin-Panel einrichten](ADMIN_PANEL_SETUP.md#schritt-2--das-einrichtungsskript-ausführen) |
-| `./setup_admin.sh --sudoers` | Installiert nur die sudoers-Regel, damit die beiden Units ohne Passwort neu starten. | [Admin-Panel einrichten](ADMIN_PANEL_SETUP.md#schritt-2--das-einrichtungsskript-ausführen) |
-| `./setup_admin.sh --proxy-only` | Installiert nur den Proxy auf dem öffentlichen Port, für eine Station ohne Panel. | [Admin-Panel einrichten](ADMIN_PANEL_SETUP.md#schritt-2--das-einrichtungsskript-ausführen) |
+| `./setup_admin.sh` | Interaktive Einrichtung des Admin-Panels: Ports, Skripte, Thermal Guard, systemd-Units. | [Admin-Panel einrichten](ADMIN_PANEL_SETUP.md#schritt-1--das-einrichtungsskript-ausführen) |
+| `./setup_admin.sh --sudoers` | Installiert nur die sudoers-Regel, damit die beiden Units ohne Passwort neu starten. | [Admin-Panel einrichten](ADMIN_PANEL_SETUP.md#schritt-1--das-einrichtungsskript-ausführen) |
+| `./setup_admin.sh --proxy-only` | Installiert nur den Proxy auf dem öffentlichen Port, für eine Station ohne Panel. | [Admin-Panel einrichten](ADMIN_PANEL_SETUP.md#schritt-1--das-einrichtungsskript-ausführen) |
 | `./manage_admin.sh start` | Startet Panel und Proxy (wenn sie nicht unter systemd laufen). | [Admin-Panel einrichten](ADMIN_PANEL_SETUP.md#methode-a--manage_adminsh-kein-root-nichts-zu-installieren) |
 | `./manage_admin.sh stop` | Stoppt beide. | [Admin-Panel einrichten](ADMIN_PANEL_SETUP.md#methode-a--manage_adminsh-kein-root-nichts-zu-installieren) |
 | `./manage_admin.sh status` | Zeigt, ob sie laufen, mit ihren PIDs. | [Admin-Panel einrichten](ADMIN_PANEL_SETUP.md#methode-a--manage_adminsh-kein-root-nichts-zu-installieren) |
@@ -118,7 +115,6 @@ Alle Befehle, die ein Sysop zum Betrieb einer PhantomSDR-Plus-Station braucht, n
 | `sudo systemctl disable --now phantomsdr-admin` | Stoppt das Panel und startet es beim Booten nicht mehr. | [Admin-Panel einrichten](ADMIN_PANEL_SETUP.md#methode-b--systemd-units-start-beim-booten-neustart-nach-absturz) |
 | `systemctl status phantomsdr-admin` | Zeigt den Zustand des Panels (ohne sudo). | [Admin-Panel einrichten](ADMIN_PANEL_SETUP.md#methode-b--systemd-units-start-beim-booten-neustart-nach-absturz) |
 | `sudo journalctl -u phantomsdr-admin -f` | Verfolgt das Log des Panels. | [Admin-Panel einrichten](ADMIN_PANEL_SETUP.md#methode-b--systemd-units-start-beim-booten-neustart-nach-absturz) |
-| `AUTORUN_CORES=2-3 ./manage_admin.sh start` | Bindet den Autorun-Decoder-Daemon an diese CPU-Kerne. | [Admin-Panel einrichten](ADMIN_PANEL_SETUP.md#manuelles-überschreiben-des-cpu-pinnings-fortgeschritten) |
 | `sudo cp logrotate/phantomsdr /etc/logrotate.d/phantomsdr` | Installiert die Log-Rotation für Panel-, Proxy- und Autorun-Log. | [Admin-Panel einrichten](ADMIN_PANEL_SETUP.md#proxylog-und-adminlog-rotieren) |
 | `sudo logrotate -d /etc/logrotate.d/phantomsdr` | Probelauf der Log-Rotation. | [Admin-Panel einrichten](ADMIN_PANEL_SETUP.md#proxylog-und-adminlog-rotieren) |
 
@@ -137,12 +133,12 @@ Alle Befehle, die ein Sysop zum Betrieb einer PhantomSDR-Plus-Station braucht, n
 
 | Befehl | Was er tut | Siehe |
 |---|---|---|
-| `./setup-firewall.sh --show` | Zeigt die Kernel-Regeln für Verbindungslimits; ändert nichts. | [Verbindungslimits](CONNECTION_LIMITS.md#5-der-kernel-schutz) |
-| `sudo ./setup-firewall.sh --check` | Prüft die Regeln gegen Ihren Kernel. | [Verbindungslimits](CONNECTION_LIMITS.md#5-der-kernel-schutz) |
-| `sudo ./setup-firewall.sh --apply` | Lädt die Regeln, mit automatischem Rückgängigmachen nach 60 Sekunden. | [Verbindungslimits](CONNECTION_LIMITS.md#5-der-kernel-schutz) |
-| `sudo ./setup-firewall.sh --persist` | Lädt die Regeln bei jedem Booten. | [Verbindungslimits](CONNECTION_LIMITS.md#5-der-kernel-schutz) |
-| `sudo ./setup-firewall.sh --status` | Zeigt die Paketzähler jeder Regel. | [Verbindungslimits](CONNECTION_LIMITS.md#5-der-kernel-schutz) |
-| `sudo ./setup-firewall.sh --remove` | Entfernt alle Regeln. | [Verbindungslimits](CONNECTION_LIMITS.md#5-der-kernel-schutz) |
+| `./setup-firewall.sh --show` | Zeigt die Kernel-Regeln für Verbindungslimits; ändert nichts. | [Verbindungslimits](CONNECTION_LIMITS.md#4-der-kernel-schutz) |
+| `sudo ./setup-firewall.sh --check` | Prüft die Regeln gegen Ihren Kernel. | [Verbindungslimits](CONNECTION_LIMITS.md#4-der-kernel-schutz) |
+| `sudo ./setup-firewall.sh --apply` | Lädt die Regeln, mit automatischem Rückgängigmachen nach 60 Sekunden. | [Verbindungslimits](CONNECTION_LIMITS.md#4-der-kernel-schutz) |
+| `sudo ./setup-firewall.sh --persist` | Lädt die Regeln bei jedem Booten. | [Verbindungslimits](CONNECTION_LIMITS.md#4-der-kernel-schutz) |
+| `sudo ./setup-firewall.sh --status` | Zeigt die Paketzähler jeder Regel. | [Verbindungslimits](CONNECTION_LIMITS.md#4-der-kernel-schutz) |
+| `sudo ./setup-firewall.sh --remove` | Entfernt alle Regeln. | [Verbindungslimits](CONNECTION_LIMITS.md#4-der-kernel-schutz) |
 | `sudo ufw allow 9000/tcp` | Öffnet den öffentlichen Port in der ufw-Firewall. | [Installationsanleitung](INSTALLATION.md#kein-zugriff-von-anderen-geräten) |
 | `bash setup-https.sh` | Schaltet HTTPS mit einem kostenlosen Let's-Encrypt-Zertifikat ein; HTTP funktioniert weiter. | [Sicherer Zugang (HTTPS)](HTTPS.md#auf-einer-laufenden-station) |
 | `bash setup-https.sh --lan` | HTTPS nur im lokalen Netz (Browser warnen wegen des Zertifikats). | [Sicherer Zugang (HTTPS)](HTTPS.md#nur-im-lokalen-netz----lan) |
@@ -156,16 +152,15 @@ Alle Befehle, die ein Sysop zum Betrieb einer PhantomSDR-Plus-Station braucht, n
 | `./install-stats-server.sh` | Installiert den Statistikserver (CPU, Temperatur, Benutzer). | [Statistikserver](../sdr-stats/readme_de.md#schritt-1-das-skript-ausführen) |
 | `sudo systemctl restart sdr-stats.service` | Startet ihn neu (`start`, `stop`, `status` ebenso). | [Statistikserver](../sdr-stats/readme_de.md#dienstverwaltung) |
 | `sudo journalctl -u sdr-stats.service -f` | Verfolgt sein Log. | [Statistikserver](../sdr-stats/readme_de.md#dienstverwaltung) |
-| `curl http://localhost:3001/api/system-stats` | Prüft, ob er antwortet. | [Statistikserver](../sdr-stats/readme_de.md#test-1-api-endpunkt-prüfen) |
+| `curl http://localhost:9011/api/system-stats` | Prüft, ob er antwortet. | [Statistikserver](../sdr-stats/readme_de.md#test-1-api-endpunkt-prüfen) |
 | `./install_rade.sh` | Installiert den RADE-/FreeDV-Sidecar (`install_rade_ubuntu22.sh` unter Ubuntu 22.04). | [RADE README](RADE_README.md#installation--der-kurze-weg) |
 | `cd ~/rade_c && git pull && cmake --build build` | Aktualisiert rade_c, den Decoder für RADE V2 (beta); neue RADE2-Verbindungen verwenden die neue Version. | [RADE README](RADE_README.md#rade-v2-beta--rade2) |
 | `./rade.sh start` | Startet den RADE-Sidecar mit seinem Watchdog. | [RADE README](RADE_README.md#steuerung-des-sidecars) |
 | `./rade.sh stop` | Stoppt ihn, seinen Watchdog und seine Decoder-Prozesse. | [RADE README](RADE_README.md#steuerung-des-sidecars) |
 | `./rade.sh restart` | Stoppt und startet ihn sauber. | [RADE README](RADE_README.md#steuerung-des-sidecars) |
 | `./rade.sh status` | Zeigt, ob er läuft. | [RADE README](RADE_README.md#steuerung-des-sidecars) |
-| `RADE_CORES_PER_CLIENT=3 ./rade.sh restart` | Startet ihn neu und gibt jedem Hörer drei CPU-Kerne. | [RADE README](RADE_README.md#wenn-kerne-vor-dem-knick-sättigen) |
+| `RADE_CORES_PER_CLIENT=3 ./rade.sh restart` | Startet ihn neu und gibt jedem Hörer drei CPU-Kerne. | [RADE README](RADE_README.md#steuerung-des-sidecars) |
 | `tail -f rade.log` | Verfolgt das RADE-Log. | [RADE README](RADE_README.md#steuerung-des-sidecars) |
-| `python3 rade_loadtest.py` | Misst, wie viele RADE-Hörer dieser Rechner tragen kann. | [RADE README](RADE_README.md#voraussetzungen-1) |
 | `./kiwi_install.sh` | Installiert die KiwiSDR-Client-Emulation (für Kiwi-Programme wie AetherSDR). | [KiwiSDR-Client-Emulation](Aether_config.md#2-die-brücke-installieren) |
 | `./setup_websdr_relay.sh` | Installiert das Relay, mit dem der Diversity-Empfang einen WebSDR als zweiten Empfänger nutzt. | [Empfangsdiversität](RECEIVE_DIVERSITY.md#das-relay-installieren) |
 
@@ -175,17 +170,17 @@ Alle Befehle, die ein Sysop zum Betrieb einer PhantomSDR-Plus-Station braucht, n
 |---|---|---|
 | `sudo usermod -aG dialout $USER` | Gibt Ihrem Benutzer Zugriff auf die serielle Schnittstelle des Geräts (danach neu anmelden). | [Transceiver-Steuerung](RIG_CONTROL.md#linux) |
 | `rigctl -m 3073 -r /dev/ttyUSB0 -s 115200 f` | Liest die Frequenz des Geräts über Hamlib — prüft die CAT-Verbindung (Modell, Port, Geschwindigkeit für Ihr Gerät). | [Transceiver-Steuerung](RIG_CONTROL.md#beispiel-icom-ic-7300) |
-| `cd tci-bridge && node tci-rigctld.mjs` | Betreibt die Brücke an einem bereits laufenden `rigctld`. | [Transceiver-Steuerung](RIG_CONTROL.md#beispiel-yaesu-ft-991a) |
-| `node tci-rigctld.mjs --rigctl rigctl -m 3073 -r /dev/ttyUSB0 -s 115200` | Betreibt die Brücke und steuert das Gerät direkt über `rigctl` (der Weg unter Windows). | [Transceiver-Steuerung](RIG_CONTROL.md#beispiel-yaesu-ft-991a) |
+| `cd tci-bridge && node tci-rigctld.mjs` | Betreibt die Brücke an einem bereits laufenden `rigctld`. | [Transceiver-Steuerung](RIG_CONTROL.md#das-funkgerät-teilen-der-rigctld-weg) |
+| `node tci-rigctld.mjs --rigctl rigctl -m 3073 -r /dev/ttyUSB0 -s 115200` | Betreibt die Brücke und steuert das Gerät direkt über `rigctl` (der Weg unter Windows). | [Transceiver-Steuerung](RIG_CONTROL.md#beispiel-icom-ic-7300) |
 
 ## Prüfen und Fehlersuche
 
 | Befehl | Was er tut | Siehe |
 |---|---|---|
 | `ss -tlnp` | Listet die lauschenden Ports und die Programme dahinter. | [Admin-Panel einrichten](ADMIN_PANEL_SETUP.md#nützliche-manuelle-befehle) |
-| `sudo lsof -i :9002` | Zeigt, welches Programm einen Port belegt. | [Installationsanleitung](INSTALLATION.md#port-bereits-belegt) |
+| `sudo lsof -i :9000` | Zeigt, welches Programm einen Port belegt. | [Installationsanleitung](INSTALLATION.md#port-bereits-belegt) |
 | `pkill -f admin_server.py` | Beendet ein von Hand gestartetes Panel (`proxy.py` ebenso). | [Admin-Panel einrichten](ADMIN_PANEL_SETUP.md#nützliche-manuelle-befehle) |
-| `sudo fuser -k 3000/tcp` | Gibt einen von einem hängenden Programm belegten Port frei. | [Admin-Panel einrichten](ADMIN_PANEL_SETUP.md#nützliche-manuelle-befehle) |
+| `sudo fuser -k 9010/tcp` | Gibt einen von einem hängenden Programm belegten Port frei. | [Admin-Panel einrichten](ADMIN_PANEL_SETUP.md#nützliche-manuelle-befehle) |
 | `lsusb` | Listet die USB-Geräte — wird der Empfänger erkannt? | [Installationsanleitung](INSTALLATION.md#rtl-sdr-nicht-gefunden) |
 | `sudo timedatectl set-ntp true` | Hält die Uhr synchron — die FT8/FT4/WSPR-Decoder brauchen das. | [Installationsanleitung](INSTALLATION.md#meson-setup-bricht-mit-clock-skew-detected-ab) |
 
@@ -193,6 +188,4 @@ Alle Befehle, die ein Sysop zum Betrieb einer PhantomSDR-Plus-Station braucht, n
 
 | Skript | Was es tut | Siehe |
 |---|---|---|
-| `start-*.sh --watchdog` | Der Watchdog, den ein Startskript für sich selbst startet. | [Installationsanleitung](INSTALLATION.md#1-service-datei-anlegen) |
-| `setup-sdr-common.sh` | Gemeinsame Hilfsfunktionen, die die Treiber-Installer `setup-*.sh` einbinden. | [Projektstruktur](PROJECT_STRUCTURE.md#verzeichnisbaum) |
-| `go.sh`, `xgo.sh`, `check-go.sh`, `kill.sh`, `_relaunch.sh` | Die ältere Startkette, für bestehende Stationen behalten; die `start-*.sh`-Skripte ersetzen sie. | [Projektstruktur](PROJECT_STRUCTURE.md#verzeichnisbaum) |
+| `setup-sdr-common.sh` | Gemeinsame Hilfsfunktionen, die die Treiber-Installer `setup-*.sh` einbinden. | [Installationsanleitung](INSTALLATION.md#empfänger-über-soapysdr-rsp1a-fobos-airspy-hf) |

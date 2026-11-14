@@ -24,14 +24,14 @@
 | Εντολή | Τι κάνει | Βλ. |
 |---|---|---|
 | `./setup-rx888-udev.sh` | Εγκαθιστά τους κανόνες udev του RX888 ώστε να τρέχει χωρίς sudo. | [Οδηγός εγκατάστασης](INSTALLATION.md#εκτέλεση-του-rx888_stream-χωρίς-sudo-κανόνες-udev) |
-| `./setup-rtlsdr.sh` | Εγκαθιστά τον οδηγό RTL-SDR· ρωτά αν το stick είναι Blog V4. | [Οδηγός εγκατάστασης](INSTALLATION.md#πολλοί-δέκτες-σε-έναν-υπολογιστή) |
-| `RTL_V4=y ./setup-rtlsdr.sh` | Εγκαθιστά τον οδηγό RTL-SDR Blog V4 χωρίς ερώτηση. | [Οδηγός εγκατάστασης](INSTALLATION.md#πολλοί-δέκτες-σε-έναν-υπολογιστή) |
+| `./setup-rtlsdr.sh` | Εγκαθιστά τον οδηγό RTL-SDR· ρωτά αν το stick είναι Blog V4. | [Οδηγός εγκατάστασης](INSTALLATION.md#rtl-sdr) |
+| `RTL_V4=y ./setup-rtlsdr.sh` | Εγκαθιστά τον οδηγό RTL-SDR Blog V4 χωρίς ερώτηση. | [Οδηγός εγκατάστασης](INSTALLATION.md#rtl-sdr) |
 | `./setup-rsp1a.sh` | Εγκαθιστά την ανοιχτή αλυσίδα οδηγών για το SDRplay RSP1A. | [Οδηγός εγκατάστασης](INSTALLATION.md#δέκτες-μέσω-soapysdr-rsp1a-fobos-airspy-hf) |
 | `./setup-airspyhf.sh` | Εγκαθιστά την αλυσίδα οδηγών του Airspy HF+. | [Οδηγός εγκατάστασης](INSTALLATION.md#δέκτες-μέσω-soapysdr-rsp1a-fobos-airspy-hf) |
 | `./setup-fobos.sh` | Εγκαθιστά την αλυσίδα οδηγών του RigExpert Fobos. | [Οδηγός εγκατάστασης](INSTALLATION.md#δέκτες-μέσω-soapysdr-rsp1a-fobos-airspy-hf) |
 | `./setup-hackrf.sh` | Εγκαθιστά το πακέτο hackrf και τον κανόνα udev του. | [Οδηγός εγκατάστασης](INSTALLATION.md#hackrf-one) |
 | `./setup-drm.sh` | Χτίζει τον αποκωδικοποιητή DRM (ubersdr-drm με fdk-aac 2.0.3) στο `drm/bin/`. | [Αποκωδικοποιητές](DECODERS.md#ανάγνωση-του-πίνακα) |
-| `rtl_test` | Ελέγχει ότι το RTL-SDR αναγνωρίζεται. | [Οδηγός εγκατάστασης](INSTALLATION.md#δοκιμάστε-το-rtl-sdr) |
+| `rtl_test` | Ελέγχει ότι το RTL-SDR αναγνωρίζεται. | [Οδηγός εγκατάστασης](INSTALLATION.md#δεν-βρέθηκε-το-rtl-sdr) |
 | `SoapySDRUtil --find="driver=soapyMiri"` | Ελέγχει ότι το RSP1A αναγνωρίζεται (`driver=fobos`, `driver=airspyhf` για τα άλλα). | [Οδηγός εγκατάστασης](INSTALLATION.md#δέκτες-μέσω-soapysdr-rsp1a-fobos-airspy-hf) |
 | `SoapySDRUtil --info` | Εμφανίζει τους οδηγούς SoapySDR που είναι εγκατεστημένοι. | [Οδηγός εγκατάστασης](INSTALLATION.md#δεν-βρέθηκε-ο-fobos-ή-ο-airspy-hf) |
 
@@ -48,7 +48,7 @@
 | `./start-fobos-hf.sh` | Το ίδιο για Fobos, άμεση δειγματοληψία HF (0–25 MHz). | [README](README.md#βασική-λειτουργία) |
 | `./start-all.sh` | Ξεκινά όλους τους δέκτες του `receivers.toml`. | [Πολλοί δέκτες](MULTI_RECEIVER.md#5-εκκίνηση-και-διακοπή) |
 | `./start-rx888mk2.sh -q` | Κάθε script εκκίνησης με `-q`: δύο γραμμές έξοδο αντί για το ζωντανό log. | [README](README.md#βασική-λειτουργία) |
-| `INSTANCE=vhf ./start-rtl.sh` | Ξεκινά δεύτερο δέκτη, ρυθμισμένο στο `instances/vhf/`. | [Πολλοί δέκτες](MULTI_RECEIVER.md#3-προσθήκη-δεύτερου-δέκτη) |
+| `INSTANCE=vhf ./start-rtl.sh` | Ξεκινά δεύτερο δέκτη, ρυθμισμένο στο `instances/vhf/`. | [Πολλοί δέκτες](MULTI_RECEIVER.md#5-εκκίνηση-και-διακοπή) |
 | `SPECTRUM_CORES=0-3 ./start-rx888mk2.sh` | Δεσμεύει τον server σε αυτούς τους πυρήνες CPU (`none` = χωρίς δέσμευση). | [README](README.md#βασική-λειτουργία) |
 | `RADE_ENABLED=0 ./start-rx888mk2.sh` | Ξεκινά χωρίς το RADE sidecar. | [RADE README](RADE_README.md#έλεγχος-του-sidecar) |
 | `DRM_ENABLED=0 ./start-rx888mk2.sh` | Ξεκινά χωρίς τον βοηθό DRM. | [Αποκωδικοποιητές](DECODERS.md#ανάγνωση-του-πίνακα) |
@@ -72,12 +72,9 @@
 | Εντολή | Τι κάνει | Βλ. |
 |---|---|---|
 | `./recompile.sh` | Ξαναχτίζει τον server ή/και τη σελίδα· ρωτά τι να χτίσει. | [Οδηγός εγκατάστασης](INSTALLATION.md#ενημέρωση-με-το-χέρι) |
-| `./recompile.sh --backend` | Ξαναχτίζει μόνο τον server. | [Οδηγός εγκατάστασης](INSTALLATION.md#ενημέρωση-με-το-χέρι) |
-| `./recompile.sh --frontend` | Ξαναχτίζει μόνο τη σελίδα (desktop και /mobile). | [Πίνακας διαχείρισης](ADMIN_PANEL_SETUP.md#αντίγραφο--επαναφορά-των-ρυθμίσεων-του-σταθμού) |
+| `./recompile.sh --backend` | Ξαναχτίζει μόνο τον server. | [Δομή του έργου](PROJECT_STRUCTURE.md#όταν-τροποποιείτε-κώδικα-του-backend-src) |
+| `./recompile.sh --frontend` | Ξαναχτίζει μόνο τη σελίδα (desktop και /mobile). | [Δομή του έργου](PROJECT_STRUCTURE.md#όταν-τροποποιείτε-κώδικα-του-frontend-frontendsrc) |
 | `./recompile.sh --both` | Ξαναχτίζει και τα δύο. | [Οδηγός εγκατάστασης](INSTALLATION.md#ενημέρωση-με-το-χέρι) |
-| `cd frontend && ./build-all.sh` | Χτίζει τη σελίδα desktop και το /mobile. | [Επεξεργασία παραλλαγών](EDITING_VARIANTS.md#6-μετά-την-επεξεργασία--ανακατασκευή) |
-| `cd frontend && ./build-default.sh` | Χτίζει μόνο τη σελίδα desktop. | [Επεξεργασία παραλλαγών](EDITING_VARIANTS.md#6-μετά-την-επεξεργασία--ανακατασκευή) |
-| `cd frontend && ./build-mobile.sh` | Χτίζει μόνο το /mobile. | [Επεξεργασία παραλλαγών](EDITING_VARIANTS.md#6-μετά-την-επεξεργασία--ανακατασκευή) |
 | `bash update.sh` | Αναφέρει τι θα άλλαζε μια νέα έκδοση και ρωτά αν θα γίνει η ενημέρωση. | [Οδηγός εγκατάστασης](INSTALLATION.md#εκτέλεση) |
 | `./update.sh --check` | Μόνο αναφορά, χωρίς ερωτήσεις (για cron· κωδικός εξόδου 10 = υπάρχει ενημέρωση). | [Οδηγός εγκατάστασης](INSTALLATION.md#άλλες-επιλογές) |
 | `./update.sh --apply` | Ενημερώνει, ρωτώντας για τα αρχεία που επεξεργαστήκατε εσείς. | [Οδηγός εγκατάστασης](INSTALLATION.md#άλλες-επιλογές) |
@@ -98,18 +95,18 @@
 | `./waterfall.sh` | Αλλάζει το προεπιλεγμένο ελάχιστο επίπεδο του waterfall· δείχνει την τρέχουσα τιμή και ρωτά. | [README](README.md#κατώτατο-όριο-καταρράκτη--waterfallsh) |
 | `./waterfall.sh -v -15` | Το ορίζει στα −15 dB χωρίς ερώτηση (το `-y` παραλείπει και τις επιβεβαιώσεις). | [README](README.md#κατώτατο-όριο-καταρράκτη--waterfallsh) |
 | `./waterfall.sh -s` | Δείχνει μόνο τις τρέχουσες τιμές. | [README](README.md#κατώτατο-όριο-καταρράκτη--waterfallsh) |
-| `./smeter_theme.sh` | Επιλέγει το προεπιλεγμένο θέμα του S-meter από μενού. | [Επεξεργασία παραλλαγών](EDITING_VARIANTS.md#οι-τρεις-όψεις-του-οργάνου--και-το-smeter_themesh) |
-| `./smeter_theme.sh vintage` | Ορίζει αμέσως αυτό το θέμα και προτείνει την επαναμεταγλώττιση. | [Επεξεργασία παραλλαγών](EDITING_VARIANTS.md#οι-τρεις-όψεις-του-οργάνου--και-το-smeter_themesh) |
-| `./smeter_theme.sh dark --build` | Το ορίζει και ξαναχτίζει χωρίς ερώτηση (το `--no-build` παραλείπει τη μεταγλώττιση). | [Επεξεργασία παραλλαγών](EDITING_VARIANTS.md#οι-τρεις-όψεις-του-οργάνου--και-το-smeter_themesh) |
-| `./smeter_theme.sh amber --no-reset` | Ισχύει μόνο για νέους επισκέπτες· οι υπάρχοντες κρατούν το δικό τους. | [Επεξεργασία παραλλαγών](EDITING_VARIANTS.md#οι-τρεις-όψεις-του-οργάνου--και-το-smeter_themesh) |
+| `./smeter_theme.sh` | Επιλέγει το προεπιλεγμένο θέμα του S-meter από μενού. | [Δομή του έργου](PROJECT_STRUCTURE.md#σενάρια-εκκίνησηςδιακοπής-και-συντήρησης) |
+| `./smeter_theme.sh vintage` | Ορίζει αμέσως αυτό το θέμα και προτείνει την επαναμεταγλώττιση. | [Δομή του έργου](PROJECT_STRUCTURE.md#σενάρια-εκκίνησηςδιακοπής-και-συντήρησης) |
+| `./smeter_theme.sh dark --build` | Το ορίζει και ξαναχτίζει χωρίς ερώτηση (το `--no-build` παραλείπει τη μεταγλώττιση). | [Δομή του έργου](PROJECT_STRUCTURE.md#σενάρια-εκκίνησηςδιακοπής-και-συντήρησης) |
+| `./smeter_theme.sh amber --no-reset` | Ισχύει μόνο για νέους επισκέπτες· οι υπάρχοντες κρατούν το δικό τους. | [Δομή του έργου](PROJECT_STRUCTURE.md#σενάρια-εκκίνησηςδιακοπής-και-συντήρησης) |
 
 ## Πίνακας διαχείρισης και proxy
 
 | Εντολή | Τι κάνει | Βλ. |
 |---|---|---|
-| `./setup_admin.sh` | Διαδραστική ρύθμιση του πίνακα διαχείρισης: θύρες, scripts, thermal guard, μονάδες systemd. | [Πίνακας διαχείρισης](ADMIN_PANEL_SETUP.md#βήμα-2--εκτελέστε-το-σενάριο-ρύθμισης) |
-| `./setup_admin.sh --sudoers` | Εγκαθιστά μόνο τον κανόνα sudoers, ώστε οι δύο μονάδες να επανεκκινούν χωρίς κωδικό. | [Πίνακας διαχείρισης](ADMIN_PANEL_SETUP.md#βήμα-2--εκτελέστε-το-σενάριο-ρύθμισης) |
-| `./setup_admin.sh --proxy-only` | Εγκαθιστά μόνο το proxy στη δημόσια θύρα, για σταθμό χωρίς πίνακα. | [Πίνακας διαχείρισης](ADMIN_PANEL_SETUP.md#βήμα-2--εκτελέστε-το-σενάριο-ρύθμισης) |
+| `./setup_admin.sh` | Διαδραστική ρύθμιση του πίνακα διαχείρισης: θύρες, scripts, thermal guard, μονάδες systemd. | [Πίνακας διαχείρισης](ADMIN_PANEL_SETUP.md#βήμα-1--εκτελέστε-το-σενάριο-ρύθμισης) |
+| `./setup_admin.sh --sudoers` | Εγκαθιστά μόνο τον κανόνα sudoers, ώστε οι δύο μονάδες να επανεκκινούν χωρίς κωδικό. | [Πίνακας διαχείρισης](ADMIN_PANEL_SETUP.md#βήμα-1--εκτελέστε-το-σενάριο-ρύθμισης) |
+| `./setup_admin.sh --proxy-only` | Εγκαθιστά μόνο το proxy στη δημόσια θύρα, για σταθμό χωρίς πίνακα. | [Πίνακας διαχείρισης](ADMIN_PANEL_SETUP.md#βήμα-1--εκτελέστε-το-σενάριο-ρύθμισης) |
 | `./manage_admin.sh start` | Ξεκινά τον πίνακα και το proxy (όταν δεν τρέχουν υπό systemd). | [Πίνακας διαχείρισης](ADMIN_PANEL_SETUP.md#μέθοδος-α--manage_adminsh-χωρίς-root-χωρίς-εγκατάσταση) |
 | `./manage_admin.sh stop` | Σταματά και τα δύο. | [Πίνακας διαχείρισης](ADMIN_PANEL_SETUP.md#μέθοδος-α--manage_adminsh-χωρίς-root-χωρίς-εγκατάσταση) |
 | `./manage_admin.sh status` | Δείχνει αν τρέχουν, με τα PID τους. | [Πίνακας διαχείρισης](ADMIN_PANEL_SETUP.md#μέθοδος-α--manage_adminsh-χωρίς-root-χωρίς-εγκατάσταση) |
@@ -118,7 +115,6 @@
 | `sudo systemctl disable --now phantomsdr-admin` | Σταματά τον πίνακα και δεν τον ξεκινά πια με το boot. | [Πίνακας διαχείρισης](ADMIN_PANEL_SETUP.md#μέθοδος-β--μονάδες-systemd-εκκίνηση-με-το-boot-επανεκκίνηση-μετά-από-κατάρρευση) |
 | `systemctl status phantomsdr-admin` | Δείχνει την κατάσταση του πίνακα (χωρίς sudo). | [Πίνακας διαχείρισης](ADMIN_PANEL_SETUP.md#μέθοδος-β--μονάδες-systemd-εκκίνηση-με-το-boot-επανεκκίνηση-μετά-από-κατάρρευση) |
 | `sudo journalctl -u phantomsdr-admin -f` | Παρακολουθεί το log του πίνακα. | [Πίνακας διαχείρισης](ADMIN_PANEL_SETUP.md#μέθοδος-β--μονάδες-systemd-εκκίνηση-με-το-boot-επανεκκίνηση-μετά-από-κατάρρευση) |
-| `AUTORUN_CORES=2-3 ./manage_admin.sh start` | Δεσμεύει τον δαίμονα αποκωδικοποίησης autorun σε αυτούς τους πυρήνες CPU. | [Πίνακας διαχείρισης](ADMIN_PANEL_SETUP.md#χειροκίνητη-αντικατάσταση-καρφιτσώματος-cpu-προχωρημένα) |
 | `sudo cp logrotate/phantomsdr /etc/logrotate.d/phantomsdr` | Εγκαθιστά την περιστροφή των logs του πίνακα, του proxy και του autorun. | [Πίνακας διαχείρισης](ADMIN_PANEL_SETUP.md#περιστροφή-των-proxylog-και-adminlog) |
 | `sudo logrotate -d /etc/logrotate.d/phantomsdr` | Δοκιμαστική εκτέλεση της περιστροφής των logs. | [Πίνακας διαχείρισης](ADMIN_PANEL_SETUP.md#περιστροφή-των-proxylog-και-adminlog) |
 
@@ -137,12 +133,12 @@
 
 | Εντολή | Τι κάνει | Βλ. |
 |---|---|---|
-| `./setup-firewall.sh --show` | Εμφανίζει τους κανόνες ορίων σύνδεσης του πυρήνα· δεν αλλάζει τίποτα. | [Όρια συνδέσεων](CONNECTION_LIMITS.md#5-η-προστασία-στον-πυρήνα) |
-| `sudo ./setup-firewall.sh --check` | Ελέγχει τους κανόνες έναντι του πυρήνα σας. | [Όρια συνδέσεων](CONNECTION_LIMITS.md#5-η-προστασία-στον-πυρήνα) |
-| `sudo ./setup-firewall.sh --apply` | Φορτώνει τους κανόνες, με αυτόματη αναίρεση σε 60 δευτερόλεπτα. | [Όρια συνδέσεων](CONNECTION_LIMITS.md#5-η-προστασία-στον-πυρήνα) |
-| `sudo ./setup-firewall.sh --persist` | Φορτώνει ξανά τους κανόνες σε κάθε boot. | [Όρια συνδέσεων](CONNECTION_LIMITS.md#5-η-προστασία-στον-πυρήνα) |
-| `sudo ./setup-firewall.sh --status` | Δείχνει τους μετρητές πακέτων κάθε κανόνα. | [Όρια συνδέσεων](CONNECTION_LIMITS.md#5-η-προστασία-στον-πυρήνα) |
-| `sudo ./setup-firewall.sh --remove` | Αφαιρεί όλους τους κανόνες. | [Όρια συνδέσεων](CONNECTION_LIMITS.md#5-η-προστασία-στον-πυρήνα) |
+| `./setup-firewall.sh --show` | Εμφανίζει τους κανόνες ορίων σύνδεσης του πυρήνα· δεν αλλάζει τίποτα. | [Όρια συνδέσεων](CONNECTION_LIMITS.md#4-η-προστασία-στον-πυρήνα) |
+| `sudo ./setup-firewall.sh --check` | Ελέγχει τους κανόνες έναντι του πυρήνα σας. | [Όρια συνδέσεων](CONNECTION_LIMITS.md#4-η-προστασία-στον-πυρήνα) |
+| `sudo ./setup-firewall.sh --apply` | Φορτώνει τους κανόνες, με αυτόματη αναίρεση σε 60 δευτερόλεπτα. | [Όρια συνδέσεων](CONNECTION_LIMITS.md#4-η-προστασία-στον-πυρήνα) |
+| `sudo ./setup-firewall.sh --persist` | Φορτώνει ξανά τους κανόνες σε κάθε boot. | [Όρια συνδέσεων](CONNECTION_LIMITS.md#4-η-προστασία-στον-πυρήνα) |
+| `sudo ./setup-firewall.sh --status` | Δείχνει τους μετρητές πακέτων κάθε κανόνα. | [Όρια συνδέσεων](CONNECTION_LIMITS.md#4-η-προστασία-στον-πυρήνα) |
+| `sudo ./setup-firewall.sh --remove` | Αφαιρεί όλους τους κανόνες. | [Όρια συνδέσεων](CONNECTION_LIMITS.md#4-η-προστασία-στον-πυρήνα) |
 | `sudo ufw allow 9000/tcp` | Ανοίγει τη δημόσια θύρα στο firewall ufw. | [Οδηγός εγκατάστασης](INSTALLATION.md#δεν-υπάρχει-πρόσβαση-από-άλλες-συσκευές) |
 | `bash setup-https.sh` | Ενεργοποιεί HTTPS με δωρεάν πιστοποιητικό Let's Encrypt· το HTTP συνεχίζει να λειτουργεί. | [Ασφαλής πρόσβαση (HTTPS)](HTTPS.md#σε-σταθμό-που-ήδη-λειτουργεί) |
 | `bash setup-https.sh --lan` | HTTPS μόνο μέσα στο τοπικό δίκτυο (οι browsers προειδοποιούν για το πιστοποιητικό). | [Ασφαλής πρόσβαση (HTTPS)](HTTPS.md#μόνο-για-το-τοπικό-δίκτυο----lan) |
@@ -156,16 +152,15 @@
 | `./install-stats-server.sh` | Εγκαθιστά τον διακομιστή στατιστικών (CPU, θερμοκρασία, χρήστες). | [Διακομιστής στατιστικών](../sdr-stats/readme_el.md#βήμα-1-εκτελέστε-το-σενάριο) |
 | `sudo systemctl restart sdr-stats.service` | Τον επανεκκινεί (ομοίως `start`, `stop`, `status`). | [Διακομιστής στατιστικών](../sdr-stats/readme_el.md#διαχείριση-υπηρεσίας) |
 | `sudo journalctl -u sdr-stats.service -f` | Παρακολουθεί το log του. | [Διακομιστής στατιστικών](../sdr-stats/readme_el.md#διαχείριση-υπηρεσίας) |
-| `curl http://localhost:3001/api/system-stats` | Ελέγχει ότι απαντά. | [Διακομιστής στατιστικών](../sdr-stats/readme_el.md#δοκιμή-1-έλεγχος-του-σημείου-πρόσβασης-api) |
+| `curl http://localhost:9011/api/system-stats` | Ελέγχει ότι απαντά. | [Διακομιστής στατιστικών](../sdr-stats/readme_el.md#δοκιμή-1-έλεγχος-του-σημείου-πρόσβασης-api) |
 | `./install_rade.sh` | Εγκαθιστά το RADE / FreeDV sidecar (`install_rade_ubuntu22.sh` σε Ubuntu 22.04). | [RADE README](RADE_README.md#η-εγκατάσταση--ο-σύντομος-δρόμος) |
 | `cd ~/rade_c && git pull && cmake --build build` | Ενημερώνει το rade_c, τον αποκωδικοποιητή RADE V2 (beta)· οι νέες συνδέσεις RADE2 χρησιμοποιούν τη νέα έκδοση. | [RADE README](RADE_README.md#rade-v2-beta--rade2) |
 | `./rade.sh start` | Ξεκινά το RADE sidecar με τον επιτηρητή του. | [RADE README](RADE_README.md#έλεγχος-του-sidecar) |
 | `./rade.sh stop` | Το σταματά, μαζί με τον επιτηρητή και τις διεργασίες αποκωδικοποίησης. | [RADE README](RADE_README.md#έλεγχος-του-sidecar) |
 | `./rade.sh restart` | Το σταματά και το ξεκινά καθαρά. | [RADE README](RADE_README.md#έλεγχος-του-sidecar) |
 | `./rade.sh status` | Δείχνει αν τρέχει. | [RADE README](RADE_README.md#έλεγχος-του-sidecar) |
-| `RADE_CORES_PER_CLIENT=3 ./rade.sh restart` | Το επανεκκινεί δίνοντας τρεις πυρήνες CPU σε κάθε ακροατή. | [RADE README](RADE_README.md#αν-οι-πυρήνες-κορεστούν-πριν-το-γόνατο) |
+| `RADE_CORES_PER_CLIENT=3 ./rade.sh restart` | Το επανεκκινεί δίνοντας τρεις πυρήνες CPU σε κάθε ακροατή. | [RADE README](RADE_README.md#έλεγχος-του-sidecar) |
 | `tail -f rade.log` | Παρακολουθεί το log του RADE. | [RADE README](RADE_README.md#έλεγχος-του-sidecar) |
-| `python3 rade_loadtest.py` | Μετρά πόσους ακροατές RADE αντέχει αυτό το μηχάνημα. | [RADE README](RADE_README.md#προϋποθέσεις-1) |
 | `./kiwi_install.sh` | Εγκαθιστά την εξομοίωση πελάτη KiwiSDR (για εφαρμογές Kiwi όπως το AetherSDR). | [Εξομοίωση πελάτη KiwiSDR](Aether_config.md#2-εγκατάσταση-της-γέφυρας) |
 | `./setup_websdr_relay.sh` | Εγκαθιστά το relay που επιτρέπει στη διαφορική λήψη να χρησιμοποιεί ένα WebSDR ως δεύτερο δέκτη. | [Διαφορική λήψη](RECEIVE_DIVERSITY.md#εγκατάσταση-του-relay) |
 
@@ -175,17 +170,17 @@
 |---|---|---|
 | `sudo usermod -aG dialout $USER` | Δίνει στον χρήστη σας πρόσβαση στη σειριακή θύρα του πομποδέκτη (κάντε ξανά login μετά). | [Έλεγχος πομποδέκτη](RIG_CONTROL.md#linux) |
 | `rigctl -m 3073 -r /dev/ttyUSB0 -s 115200 f` | Διαβάζει τη συχνότητα του πομποδέκτη μέσω Hamlib — ελέγχει τη σύνδεση CAT (μοντέλο, θύρα, ταχύτητα για τον δικό σας). | [Έλεγχος πομποδέκτη](RIG_CONTROL.md#παράδειγμα-icom-ic-7300) |
-| `cd tci-bridge && node tci-rigctld.mjs` | Τρέχει τη γέφυρα πάνω σε `rigctld` που ήδη τρέχει. | [Έλεγχος πομποδέκτη](RIG_CONTROL.md#παράδειγμα-yaesu-ft-991a) |
-| `node tci-rigctld.mjs --rigctl rigctl -m 3073 -r /dev/ttyUSB0 -s 115200` | Τρέχει τη γέφυρα οδηγώντας τον πομποδέκτη απευθείας μέσω `rigctl` (ο τρόπος για Windows). | [Έλεγχος πομποδέκτη](RIG_CONTROL.md#παράδειγμα-yaesu-ft-991a) |
+| `cd tci-bridge && node tci-rigctld.mjs` | Τρέχει τη γέφυρα πάνω σε `rigctld` που ήδη τρέχει. | [Έλεγχος πομποδέκτη](RIG_CONTROL.md#κοινή-χρήση-του-πομποδέκτη-ο-τρόπος-rigctld) |
+| `node tci-rigctld.mjs --rigctl rigctl -m 3073 -r /dev/ttyUSB0 -s 115200` | Τρέχει τη γέφυρα οδηγώντας τον πομποδέκτη απευθείας μέσω `rigctl` (ο τρόπος για Windows). | [Έλεγχος πομποδέκτη](RIG_CONTROL.md#παράδειγμα-icom-ic-7300) |
 
 ## Έλεγχοι και αντιμετώπιση προβλημάτων
 
 | Εντολή | Τι κάνει | Βλ. |
 |---|---|---|
 | `ss -tlnp` | Εμφανίζει τις θύρες σε ακρόαση και τα προγράμματα πίσω τους. | [Πίνακας διαχείρισης](ADMIN_PANEL_SETUP.md#χρήσιμες-χειροκίνητες-εντολές) |
-| `sudo lsof -i :9002` | Δείχνει ποιο πρόγραμμα κρατά μια θύρα. | [Οδηγός εγκατάστασης](INSTALLATION.md#η-θύρα-χρησιμοποιείται-ήδη) |
+| `sudo lsof -i :9000` | Δείχνει ποιο πρόγραμμα κρατά μια θύρα. | [Οδηγός εγκατάστασης](INSTALLATION.md#η-θύρα-χρησιμοποιείται-ήδη) |
 | `pkill -f admin_server.py` | Τερματίζει πίνακα που ξεκίνησε με το χέρι (ομοίως το `proxy.py`). | [Πίνακας διαχείρισης](ADMIN_PANEL_SETUP.md#χρήσιμες-χειροκίνητες-εντολές) |
-| `sudo fuser -k 3000/tcp` | Ελευθερώνει θύρα που κρατά ένα κολλημένο πρόγραμμα. | [Πίνακας διαχείρισης](ADMIN_PANEL_SETUP.md#χρήσιμες-χειροκίνητες-εντολές) |
+| `sudo fuser -k 9010/tcp` | Ελευθερώνει θύρα που κρατά ένα κολλημένο πρόγραμμα. | [Πίνακας διαχείρισης](ADMIN_PANEL_SETUP.md#χρήσιμες-χειροκίνητες-εντολές) |
 | `lsusb` | Εμφανίζει τις συσκευές USB — φαίνεται ο δέκτης; | [Οδηγός εγκατάστασης](INSTALLATION.md#δεν-βρέθηκε-το-rtl-sdr) |
 | `sudo timedatectl set-ntp true` | Κρατά το ρολόι συγχρονισμένο — το χρειάζονται οι αποκωδικοποιητές FT8/FT4/WSPR. | [Οδηγός εγκατάστασης](INSTALLATION.md#το-meson-setup-σταματά-με-clock-skew-detected) |
 
@@ -193,6 +188,4 @@
 
 | Script | Τι κάνει | Βλ. |
 |---|---|---|
-| `start-*.sh --watchdog` | Ο επιτηρητής που ξεκινά για τον εαυτό του ένα script εκκίνησης. | [Οδηγός εγκατάστασης](INSTALLATION.md#1-δημιουργήστε-το-αρχείο-υπηρεσίας) |
-| `setup-sdr-common.sh` | Κοινές βοηθητικές συναρτήσεις που φορτώνουν τα scripts οδηγών `setup-*.sh`. | [Δομή του έργου](PROJECT_STRUCTURE.md#δέντρο-καταλόγων) |
-| `go.sh`, `xgo.sh`, `check-go.sh`, `kill.sh`, `_relaunch.sh` | Η παλαιότερη αλυσίδα εκκίνησης, κρατημένη για υπάρχοντες σταθμούς· τα `start-*.sh` την αντικαθιστούν. | [Δομή του έργου](PROJECT_STRUCTURE.md#δέντρο-καταλόγων) |
+| `setup-sdr-common.sh` | Κοινές βοηθητικές συναρτήσεις που φορτώνουν τα scripts οδηγών `setup-*.sh`. | [Οδηγός εγκατάστασης](INSTALLATION.md#δέκτες-μέσω-soapysdr-rsp1a-fobos-airspy-hf) |

@@ -19,7 +19,6 @@ Since v4.1.0 PhantomSDR-Plus can also answer the **KiwiSDR protocol**, so softwa
 7. [The S-meter](#7-the-s-meter)
 8. [Waterfall and spectrum](#8-waterfall-and-spectrum)
 9. [If something looks wrong](#9-if-something-looks-wrong)
-10. [How far this has been verified](#10-how-far-this-has-been-verified)
 
 ---
 
@@ -39,8 +38,6 @@ Retuning is supported for a **real** input (`signal = "real"` in your `.toml`). 
 
 ## 2. Installing the bridge
 
-The bridge is a set of patches to the backend sources plus one new header, `src/kiwi_bridge.h`. There are two ways to get them in.
-
 **With the installer.** `install.sh` (and `install_arch.sh`, `install_fedora.sh`, `install_opensuse.sh`) have a step of their own for it — step 17, *Kiwi client emulation*. It is offered, not forced: answer `n` and nothing is patched. For an unattended run, `PHANTOM_KIWI=y|n` decides it, and the default is yes.
 
 **On a tree that is already installed**, run the installer script that ships in the repository root:
@@ -51,13 +48,7 @@ cd ~/PhantomSDR-Plus
 ./recompile.sh          # choose [1] Backend only
 ```
 
-`kiwi_install.sh` backs every file it touches up into `backup_kiwi_bridge_<timestamp>/` first, and applies each patch by exact text match — if an anchor is not where it expects it (a locally modified tree, a different version), it stops there and then, names the file, and leaves that file untouched. It is idempotent: run it on a tree that already has the bridge and it reports each patch as already applied and changes nothing.
-
 > **If you have just applied an update archive that already contains the bridge, you do not need to run it.** The patched sources are in the drop; `kiwi_install.sh` would only tell you every patch is already in place.
-
-The files it patches are `src/client.h`, `src/signal.cpp`, `src/waterfall.cpp`, `src/spectrumserver.h`, `src/spectrumserver.cpp`, `src/websocket.cpp` and `src/http.cpp`, and it copies `kiwi_bridge.h` into `src/`.
-
-> **It installs the bridge; it does not upgrade one.** If a patch ever *fails* on a tree where the bridge already works, the source has moved ahead of the script and it is the script that needs updating — not your tree.
 
 ---
 
@@ -106,8 +97,6 @@ wf_fps_max    = 28      # frames/s. 23 is the protocol maximum.
 
 > **Every key here is read at startup.** Changing any of them is a **restart**, not a rebuild — `./stop-websdr.sh` then your start script. You never need to recompile to retune these.
 
-Integer and decimal forms are both accepted: `28` and `28.0` are read identically. Only a key that is genuinely absent falls back to its default.
-
 ---
 
 ## 5. Connecting a client
@@ -140,10 +129,6 @@ audio_gain = 55.0       # dB, Kiwi clients only. 0 = untouched.
 
 **Start around 55–60 dB.** 55 dB is not arithmetic: it is where a Kiwi client and the PhantomSDR web page were measured level with each other, listening to a strong local signal on 729 kHz. In practice a little more is often preferred — this receiver settled on 60 — so pick it by ear.
 
-You cannot break the audio with it. A **look-ahead peak limiter** sits between the gain and the 16-bit clamp: every sample is delayed by 4 ms while the gain is worked out from audio that has not been sent yet, so a loud passage arrives to a gain that has already come down for it, and peaks fold instead of being flattened. Driven to 60 and even 70 dB — far past the headroom the raw gain has — not one sample in a quarter of a million was clipped. Below the limiter's threshold the gain is exactly 1.0, so a receiver that is not driving the audio hard gets the samples untouched.
-
-What a too-high value costs is loudness, not damage. Above about 60 dB the extra gain is simply limited away: measured here, the level rose about 1 dB from 55 to 60 and hardly moved from 60 to 70. Past that point you are buying compression rather than volume.
-
 None of this touches the web page, and none of it moves the S-meter — that is derived from the demodulator's power, not from the audio samples, so turning the volume up cannot make the meter lie.
 
 ---
@@ -160,10 +145,6 @@ enabled       = true
 smeter_offset = 5.0     # replaces input.analog_smeter_offset for Kiwi clients only
 ```
 
-> **Compare the two meters on the same filter, or not at all.** The reading comes from the power in the passband, so a wider filter collects more noise and reads higher — on a quiet band the same frequency measured 5.6 dB stronger at 9 kHz wide than at 2.4 kHz. A Kiwi client with a 6 kHz filter against a web page on 2.4 kHz will disagree by several dB no matter how either is calibrated. Match the mode and the bandwidth first.
-
-> **This is the page's scale, not a physical one.** The web meter expands its range for readability, so 10 dB of real signal change is displayed as about 11. Matching it means Kiwi clients agree with your receiver and differ from a genuine KiwiSDR by an amount that grows with signal strength. That is the right trade when your own page is the reference everyone compares against; if you would rather the bridge stayed physically honest, this is the section to change.
-
 ---
 
 ## 8. Waterfall and spectrum
@@ -178,15 +159,11 @@ enabled = true
 wf_cal  = 0.0           # dB, Kiwi clients only
 ```
 
-> **`wf_cal` is not a calibration.** `0` is the value at which the spectrum agrees with your S-meter, and that is what to leave it at if you want the numbers to mean something. It exists because how *strong* a spectrum should look is a matter of taste and of what your client does with the range — this project's receiver runs `-10` simply because that is what looks right in AetherSDR. One value moves the spectrum and the waterfall together: they are the same bytes on the wire, and the Kiwi protocol cannot scale them apart. If you want them to differ, that has to come from the client's own display controls.
-
 To check the scale, compare the waterfall summed over the passband against the S-meter on a **quiet** frequency. On a carrier an SSB passband excludes the carrier itself and the two are not comparable.
 
 ### The frame rate — `wf_fps_max`
 
 A Kiwi client asks for the fastest waterfall it can have (`SET wf_speed=4`) and paces its scroll — and its spectrum averaging — on the rate the server says it will deliver. If the two disagree the display looks sluggish even though nothing is actually late.
-
-The receiver produces `2 × sps / fft_size` spectra per second. Kiwi clients are served from every one of them and thinned to the rate they asked for; the web page keeps its own slower cadence and is unaffected.
 
 ```toml
 [kiwi_emulation]
@@ -201,14 +178,6 @@ wf_fps_max = 23         # frames per second
 | absent (default 23) | 23.0 fps |
 | `28` | 28.0 fps |
 | `40` | 28.6 fps — the receiver's own ceiling wins |
-
-`SET wf_speed` from the client is honoured as well: `0` off, `1` = 1 fps, `2` a quarter of the maximum, `3` a half, `4` the maximum. A client on a thin link can therefore ask for less.
-
-> **Whether raising it helps is the client's decision, not the server's.** A client that draws each frame as it arrives gives you a smoother scroll; a client that paces itself at the 23 it expects will simply queue the extra frames, and the latency will grow. Try it, and if the waterfall feels laggier rather than smoother, put it back to `23`.
-
-### What sets the rest of the delay
-
-If you are chasing latency, most of it is not in the bridge. The analysis window is `fft_size / sps` wide — 70 ms on a 4194304-point FFT at 60 Msps — and a sample also waits up to half of that for the hop to fill. Halving `fft_size` halves both and doubles the frame rate, but it also halves your frequency resolution, which is what the narrowband decoders (WSPR, FT8, CW) live on. On most receivers that is a poor trade for a few tens of milliseconds. It is a configuration decision in `[input]`, not something the bridge can do anything about.
 
 ---
 
@@ -227,16 +196,6 @@ Every command a Kiwi client sends is written to **`/tmp/kiwi_retune.log`** — t
 | A changed setting had no effect | these keys are read at startup — restart the receiver |
 
 > **AGC is client-side.** `SET agc=` from a Kiwi client is accepted and ignored — the audio arrives with PhantomSDR's own AGC applied, and the client's AGC controls act on what it receives.
-
----
-
-## 10. How far this has been verified
-
-The wire format has been checked against a live receiver and read line by line against the source of both clients it targets — AetherSDR's `KiwiSdrProtocol.cpp` and kiwiclient's `kiwi/client.py`. Frame layout and size, sequence numbers, byte order, the S-meter scale, retuning and the waterfall all agree. The bridge has also been **confirmed working with the AetherSDR desktop application** itself, by the maintainer, against this receiver.
-
-Measured on that receiver, with a test client on the live sockets: retuning lands in 35–50 ms, audio runs at real time with no drift, and the waterfall delivers the configured rate with no stalls or dropped frames.
-
-If something does look wrong on your own installation, `/tmp/kiwi_retune.log` is the place to look first, and a report either way is welcome.
 
 ---
 

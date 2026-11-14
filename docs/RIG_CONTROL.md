@@ -114,16 +114,6 @@ For **Hamlib** the same settings are passed on to `rigctld`. Stop bits there has
 
 The direction can also be changed from the **Rig** menu while connected.
 
-### How the two sides are kept from fighting
-
-Every value the app writes shows up a moment later as a change on the other side. If that were taken at face value, the rig and the receiver would chase each other for ever. The app avoids it in three ways:
-
-- The receiver page applies a change at once, so it is read back straight after writing, and that reading becomes the new starting point.
-- A rig applies a change a little later, so each value sent to it is remembered. When the rig reports that value, it is recognised as the app's own write rather than a hand on the dial.
-- A value the rig refuses — wide FM on an HF rig, for example — is sent **twice** and then left alone until the source side changes, instead of being repeated several times a second.
-
-Retuning the receiver page can make it choose its band's default mode (LSB below 10 MHz, for instance). When the rig is leading, the app puts the rig's own mode back straight away, so a rig in USB on 40 m keeps the receiver in USB.
-
 ### Which receiver window
 
 **Receiver window** chooses which station follows the rig:
@@ -217,8 +207,6 @@ It needs a rig connection that reports transmit state — all the built-in drive
 | **Mute receiver while transmitting** | On / off |
 | Status line | *Not connected*, *Connecting...*, *Connected: rig name*, or the last error |
 
-The live frequency readout is in the Rig control window rather than in the menu, which would close itself every time it changed.
-
 ---
 
 ## Linux
@@ -276,8 +264,6 @@ Browsers that ask before a web page may reach your local network — recent Chro
 | **No echo** | A change that came from the rig is never sent back to it, and a report of the rig's previous mode or filter that arrives just after the page changed it is ignored |
 | **Mute on transmit** | Always on, even with CAT Sync off: the page falls silent while the rig transmits. Moving the volume slider during transmit keeps it silent; on receive the sound returns at the slider's current level |
 | **Not handled** | Split, VFO B, RIT/XIT and transverter offsets. Only VFO A of the first receiver is followed |
-
-Mode and filter width travel as TCI's own commands (`modulation`, `rx_filter_band`), so ExpertSDR, AetherSDR and Thetis should follow them too; only the Hamlib bridge has been tried. For a transverter offset, use Desktop PhantomSDR+ instead. Do not use both on the same rig at once — two controllers fight over the dial.
 
 ### Which transceivers it works with
 
@@ -403,99 +389,6 @@ Extra options, only when needed:
 - **A setting Hamlib offers for that rig:** `rigctl -m <model> -L` lists them; set one with `-C name=value`, e.g. `-C post_write_delay=10` for a slow interface.
 - **A rig that keys up or resets when the port opens:** some CAT cables use DTR or RTS for PTT; add `-C dtr_state=OFF -C rts_state=OFF`.
 
-#### Example: Yaesu FT-991A
-
-Not tried on a real FT-991A — it follows Hamlib's settings for the rig; the `rigctl … f` check tells you at once whether it works.
-
-On the radio, set **CAT RATE** (menu 031) to `38400`. Hamlib's model number for the FT-991 and FT-991A is `1035`.
-
-The FT-991A's USB cable creates **two** serial ports. CAT is on the **Enhanced** one:
-
-- **Linux:** `ls /dev/serial/by-id/` shows two lines for the radio; the one ending in `-if00-port0` is Enhanced, usually `/dev/ttyUSB0`.
-- **Windows:** Device Manager shows *Silicon Labs Dual CP2105 USB to UART Bridge: Enhanced COM Port (COM5)* and a *Standard COM Port*; use the Enhanced one's number.
-
-**Linux:**
-```bash
-rigctl -m 1035 -r /dev/ttyUSB0 -s 38400 f
-cd ~/PhantomSDR-Plus/tci-bridge
-node tci-rigctld.mjs --rigctl rigctl -m 1035 -r /dev/ttyUSB0 -s 38400
-```
-
-**Windows:**
-```bat
-C:\hamlib\bin\rigctl.exe -m 1035 -r COM5 -s 38400 f
-cd C:\tci-bridge
-node tci-rigctld.mjs --rigctl C:\hamlib\bin\rigctl.exe -m 1035 -r COM5 -s 38400
-```
-
-If the check prints nothing useful, the usual cause is the Standard port instead of the Enhanced one, or a CAT RATE that differs from `-s`.
-
-#### Example: Kenwood TS-590SG
-
-Not tried on a real TS-590SG — it follows Hamlib's settings for the rig; the `rigctl … f` check tells you at once whether it works.
-
-In the radio's menu, set the baud rate of the **USB** port to `115200` (the menu number is in the TS-590SG manual). Hamlib's model number is `2037`; the older TS-590S is `2031`. On Windows, install Kenwood's virtual COM port driver for the USB port first.
-
-The USB cable creates **one** serial port:
-
-- **Linux:** the radio's line in `ls /dev/serial/by-id/`, usually `/dev/ttyUSB0`.
-- **Windows:** Device Manager → Ports (COM & LPT), for example `COM6`.
-
-**Linux:**
-```bash
-rigctl -m 2037 -r /dev/ttyUSB0 -s 115200 f
-cd ~/PhantomSDR-Plus/tci-bridge
-node tci-rigctld.mjs --rigctl rigctl -m 2037 -r /dev/ttyUSB0 -s 115200
-```
-
-**Windows:**
-```bat
-C:\hamlib\bin\rigctl.exe -m 2037 -r COM6 -s 115200 f
-cd C:\tci-bridge
-node tci-rigctld.mjs --rigctl C:\hamlib\bin\rigctl.exe -m 2037 -r COM6 -s 115200
-```
-
-If the check fails, the usual cause is a USB baud rate that differs from `-s`, or a cable in the rig's RS-232 (COM) socket while `-r` names the USB port.
-
-#### More examples
-
-None of these has been tried on real hardware. Each row gives the options to put after `rigctl` for the check and after `--rigctl rigctl` for the bridge; set the rig's menu to the same speed. The Linux port is the usual one — confirm it with `ls /dev/serial/by-id/`. On Windows, replace the port with the COM number from Device Manager and `rigctl` with `C:\hamlib\bin\rigctl.exe`.
-
-| Rig | Rig's menu | Options (Linux) | Notes |
-|---|---|---|---|
-| Icom IC-705 (USB) | CI-V USB Baud Rate `19200` | `-m 3085 -r /dev/ttyACM0 -s 19200` | Two ports appear; CI-V is the first (`ttyACM0`) |
-| Icom IC-7100 (USB) | CI-V USB Baud Rate `19200` | `-m 3070 -r /dev/ttyUSB0 -s 19200` | Hamlib's highest speed for this rig is 19200 |
-| Icom IC-7610 | CI-V USB Baud Rate `115200` | `-m 3078 -r /dev/ttyUSB0 -s 115200` | |
-| Icom IC-9700 | CI-V USB Baud Rate `38400` | `-m 3081 -r /dev/ttyUSB0 -s 38400` | |
-| Yaesu FTDX101D / FTDX101MP | CAT RATE `38400` | `-m 1040 -r /dev/ttyUSB0 -s 38400` | `-m 1044` for the FTDX101MP. Two ports; use Enhanced |
-| Yaesu FTDX10 | CAT RATE `38400` | `-m 1042 -r /dev/ttyUSB0 -s 38400` | Two ports; use Enhanced, as on the FT-991A |
-| Yaesu FT-710 | CAT RATE `38400` | `-m 1049 -r /dev/ttyUSB0 -s 38400` | Two ports; use Enhanced, as on the FT-991A |
-| Yaesu FT-891 | CAT RATE `38400` | `-m 1036 -r /dev/ttyUSB0 -s 38400` | Two ports; use Enhanced, as on the FT-991A |
-| Yaesu FT-450D | CAT RATE `38400` | `-m 1046 -r /dev/ttyUSB0 -s 38400` | RS-232 socket: use a USB-serial adapter |
-| Yaesu FT-817 / FT-818 | CAT RATE `38400` | `-m 1020 -r /dev/ttyUSB0 -s 38400` | `-m 1041` for the FT-818. Needs a CAT cable on the ACC socket |
-| Yaesu FT-857 / FT-897 | CAT RATE `38400` | `-m 1022 -r /dev/ttyUSB0 -s 38400` | `-m 1023` for the FT-897. Needs a CAT cable |
-| Kenwood TS-890S (USB) | USB baud rate `115200` | `-m 2041 -r /dev/ttyUSB0 -s 115200` | |
-| Kenwood TS-990S (USB) | USB baud rate `115200` | `-m 2039 -r /dev/ttyUSB0 -s 115200` | |
-| Kenwood TS-590SG / TS-590S (USB) | USB baud rate `115200` | `-m 2037 -r /dev/ttyUSB0 -s 115200` | Worked example above |
-| Kenwood TS-480 | COM port baud rate `57600` | `-m 2028 -r /dev/ttyUSB0 -s 57600` | RS-232 socket: use a USB-serial adapter |
-| Kenwood TS-2000 | COM port baud rate `57600` | `-m 2014 -r /dev/ttyUSB0 -s 57600` | RS-232 socket; Hamlib's highest speed for this rig is 57600 |
-| Elecraft K4 (USB) | RS232 speed `115200` | `-m 2047 -r /dev/ttyUSB0 -s 115200` | |
-| Elecraft K3 / K3S | RS232 speed `38400` | `-m 2029 -r /dev/ttyUSB0 -s 38400` | K3S: USB; K3: serial port or KUSB cable |
-| Elecraft KX3 | RS232 speed `38400` | `-m 2045 -r /dev/ttyUSB0 -s 38400` | KXUSB cable |
-| Elecraft KX2 | RS232 speed `38400` | `-m 2044 -r /dev/ttyUSB0 -s 38400` | KXUSB cable |
-| Xiegu G90 | CI-V baud rate `19200` | `-m 3088 -r /dev/ttyUSB0 -s 19200` | Hamlib uses the G90's default CI-V address |
-| Xiegu X6100 | CI-V baud rate `19200` | `-m 3087 -r /dev/ttyUSB0 -s 19200` | Hamlib's highest speed for this rig is 19200 |
-| Lab599 TX-500 | — | `-m 2050 -r /dev/ttyUSB0 -s 9600` | Hamlib uses 9600 only |
-| ELAD FDM-DUO | — | `-m 33001 -r /dev/ttyUSB0 -s 115200` | |
-| QRP Labs QDX | — | `-m 2052 -r /dev/ttyACM0 -s 9600` | A USB serial port; the speed does not matter but must be given |
-
-Complete Linux command for the IC-705, as an example of reading a row:
-
-```bash
-rigctl -m 3085 -r /dev/ttyACM0 -s 19200 f
-node tci-rigctld.mjs --rigctl rigctl -m 3085 -r /dev/ttyACM0 -s 19200
-```
-
 #### Rigs run by other software
 
 Some radios are already run by a program that can do the job — sometimes with no bridge at all. None of these has been tried.
@@ -547,36 +440,6 @@ Without `--rigctl` the bridge looks for `rigctld` at `127.0.0.1:4532` and prints
 Nothing to configure. Rig control uses a small JavaScript interface every PhantomSDR-Plus page already carries; it involves no server setting, no open port and no admin permission. The filter and mute functions came with version 4.1.0 — after applying it, rebuild the frontend (`./recompile.sh`, option 2); the receiver does not need to be stopped. KiwiSDR, WebSDR and UberSDR receivers need nothing either: the app uses the controls their pages already have.
 
 The **TCI-CAT** button came with 4.1.0 too, again a frontend rebuild only. It opens no port on the receiver: the connection runs from each listener's browser to their own computer. The Hamlib bridge, `tci-bridge/tci-rigctld.mjs`, is for listeners to run at home; the receiver does not use it. The browser opens that connection only after the listener opens **TCI-CAT** or turns **CAT Sync** on (remembered per browser), so over https visitors who never use it see no local-network permission prompt.
-
----
-
-## For developers: the page interface
-
-Both Desktop PhantomSDR+ and the CATsync Tool use these functions, which every PhantomSDR-Plus page puts on `window` once it has loaded (KiwiSDR, WebSDR and UberSDR pages are driven through their own, different controls):
-
-| Function | Returns / does |
-|---|---|
-| `catsync_ready` | `true` once the functions below are installed |
-| `catsync_getFrequency()` | Tuned frequency, Hz |
-| `catsync_setFrequency(hz)` | Tune to `hz` |
-| `catsync_getMode()` | `USB`, `LSB`, `CW`, `CW-L`, `AM`, `QUAM`, `FM`, `WBFM`, `RADEU`, `RADEL` |
-| `catsync_setMode(mode)` | Set the mode; resets the passband to the mode's default |
-| `catsync_getBandwidth()` | Whole passband width, Hz |
-| `catsync_setBandwidth(hz)` | Set the width — grows upwards in USB, downwards in LSB, evenly otherwise. Call it **after** `catsync_setMode` |
-| `catsync_getMute()` | `true` when muted |
-| `catsync_setMute(on)` | Mute or unmute, through the page's mute button |
-
-The last four arrived with 4.1.0, so test before calling:
-
-```js
-if (window.catsync_ready) {
-  window.catsync_setFrequency(7074000)
-  window.catsync_setMode('USB')
-  if (typeof window.catsync_setBandwidth === 'function') window.catsync_setBandwidth(2400)
-}
-```
-
-Setting the frequency retunes audio, so call a setter only when the value has actually changed — polling a setter with the same value is audible. The older KiwiSDR/WebSDR-style entry points (`setfreq`, `set_mode`, `freqset_complete`) are still there for tools that expect them.
 
 ---
 

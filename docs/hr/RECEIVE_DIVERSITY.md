@@ -12,8 +12,6 @@ Drugi prijamnik može biti još jedan PhantomSDR-Plus, KiwiSDR, UberSDR ili WebS
 
 Diverziti ovdje znači **odabir**: u svakom trenutku slušate jednu ili drugu lokaciju, uz kratko preklapanje pri promjeni. Nije riječ o faznom nizu i dva se signala ne zbrajaju.
 
-To je namjeran izbor, a razlog je fizika, ne softver. Dva prijamnika udaljena stotinama kilometara čuju isti prijenos preko različitih ionosferskih putova. Dva zvučna vala stižu s nepovezanom fazom i malo drugačijim Dopplerom, pa njihovo zbrajanje zvuči šuplje i češljasto filtrirano — poznati „phasey" učinak. Pravo koherentno spajanje traži dva prijamnika na **zajedničkom taktu**, poravnata do uzorka; dva neovisna prijamnika preko interneta to nikada ne mogu pružiti.
-
 Dobitak je stoga **kontinuitet, a ne jačina signala**:
 
 - Na stabilnom putu gdje je jedan prijamnik jednostavno bolji, čut ćete njega i nećete dobiti ništa. To je normalno.
@@ -40,7 +38,7 @@ To je cijela postava. Na drugom prijamniku nema se što podesiti niti postoji za
 
 | Drugi prijamnik | Što upisati | Napomene |
 |---|---|---|
-| PhantomSDR+ | `host:8900` | Uobičajeni port prijamnika |
+| PhantomSDR+ | `host:9000` | Uobičajeni port prijamnika |
 | KiwiSDR | `host:8073` | Vlastiti port KiwiSDR-a |
 | UberSDR | `host` | Njegov **uobičajeni web port**, ne 8073 |
 | WebSDR | `host:8901` | Vlastiti port stanice. Traži relej — vidi niže |
@@ -76,8 +74,6 @@ Spremljeni popis pripada jednom pregledniku, pa mobitel počinje s praznim kolik
 
 WebSDR — softver Pieter-Tjerka de Boera, PA3FWM, koji radi u Twenteu i na više stotina drugih lokacija — može poslužiti kao drugi prijamnik, ali ne izravno iz preglednika.
 
-Razlog je namjerna provjera na njihovoj strani. WebSDR odbija audio vezu ako zaglavlje `Origin` ne imenuje njegovu vlastitu stranicu, a `Origin` je *zabranjeno ime zaglavlja*: preglednik ga postavlja prema stranici na kojoj jeste i nijedna skripta ga ne smije mijenjati. Zaobilaznice na strani klijenta nema, niti bi je smjelo biti.
-
 Zato vezu uspostavlja mali program na vašem poslužitelju, `websdr_relay.py`. Vaš preglednik razgovara s relejem, a relej s WebSDR-om.
 
 ### Instalacija releja
@@ -91,7 +87,7 @@ cd ~/PhantomSDR-Plus
 
 Na stanici postavljenoj pitanjima stanice (`configure-station.sh`) prepoznaje da stanica stoji iza proxyja: relej tada sluša samo na ovom računalu i doseže se kao `/relay` na vašoj javnoj adresi, pa ne traži port. Na starijoj stanici traži ga. U oba slučaja preuzima vaš pozivni znak i adresu stanice iz `frontend/site_information.json` te nudi instalaciju systemd usluge kako bi se relej pokretao pri podizanju sustava. Postavke su u `websdr_relay.json` i mogu se promijeniti bilo kada. Odgovor da na pitanje o releju u `bash configure-station.sh` također ga instalira i pokreće.
 
-**Port na ruteru.** Iza proxyja nema ga potrebe otvarati: stranica dolazi do releja kao `/relay` preko adrese koju slušatelji ionako koriste, jednako preko http-a i https-a. Samo starija stanica, postavljena prije pitanja stanice, pokreće relej na vlastitom portu; preglednici slušatelja tada se spajaju izravno na njega, pa taj port treba proslijediti na ruteru, inače WebSDR diverziti radi samo iz vaše vlastite mreže. Ostala tri tipa prijamnika relej ne trebaju — osim sa stranice poslužene preko https-a, gdje on prenosi i PhantomSDR+ i KiwiSDR partnere samo na http-u (vidi gore).
+**Port na ruteru.** Iza proxyja nema ga potrebe otvarati: stranica dolazi do releja kao `/relay` preko adrese koju slušatelji ionako koriste, jednako preko http-a i https-a. Ostala tri tipa prijamnika relej ne trebaju — osim sa stranice poslužene preko https-a, gdje on prenosi i PhantomSDR+ i KiwiSDR partnere samo na http-u (vidi gore).
 
 Ako je administracijska ploča instalirana, njezina nadzorna ploča prikazuje karticu **WebSDR Diversity Relay** sa stanjem, portom te brojem sesija i stanicama prema kojima idu. Iznad nje kartica **Receive Diversity** navodi svakog slušatelja koji vaš prijemnik kombinira s drugim — bilo koje vrste, ne samo WebSDR — s prijemnikom, njegovim imenom i gradom, frekvencijom i načinom rada te vrstom i adresom partnera.
 
@@ -103,9 +99,6 @@ Relej se na tuđe prijamnike spaja s vašeg poslužitelja, a ne s adrese svakog 
 - **`User-Agent` koji imenuje vašu stanicu i njezina operatora**, kako bi operator koji to ne želi znao točno kome pisati. Ispunite ga pošteno.
 - **Prosljeđuju se samo naredbe ugađanja.** Veza se ne može koristiti za slanje bilo čega drugog.
 - **Privatne, loopback i carrier-NAT adrese se odbijaju**, tako da posjetitelj ne može usmjeriti relej na nešto unutar vašeg računala ili lokalne mreže.
-
-> [!IMPORTANT]
-> Provjera `Origin` postoji jer autori WebSDR-a nisu htjeli da se njihovim prijamnicima upravlja s tuđih stranica. Korištenje releja promišljena je odluka, a ne njihov propust. Ostavite ograničenje gdje jest, držite User-Agent poštenim i prestanite ako vas operator zamoli.
 
 ### Što je kod WebSDR-a drugačije
 
@@ -147,19 +140,11 @@ Obojena točka dodaje koju lokaciju zapravo slušate — zelena vaš prijamnik, 
 
 To je normalno. Dva se toka poravnavaju koreliranjem njihovih **zvučnih ovojnica**, a za to treba prozor zvuka. Traženje ide u dva koraka: usko traženje od ±1,5 sekunde može krenuti čim se prikupi oko 9 sekundi zvuka, a druga, neovisna mjera pet sekundi kasnije mora se **složiti** s prvom prije nego se poravnanje prihvati. Kad su dvije postaje vremenski razmaknutije od toga — sekunda ili dvije dodatnog međuspremanja negdje na putu — na oko 14 sekundi preuzima puno traženje od ±4 sekunde, a potvrda stiže na 19.
 
-Taj korak potvrde je važan. Kad dvije lokacije blijede u protufazi — nikad istodobno ne nose signal — jedna jedina korelacija spremno se zaključa na uvjerljivo, ali posve pogrešno kašnjenje, što zvuči kao jeka. Zahtjev za dvjema neovisnim mjerama koje se slažu to odbacuje.
-
-Još nešto mora biti točno prije nego zaključavanje izdrži: brzine uzorkovanja dvaju prijamnika. Dva prijamnika znače dva takta i dva lanca decimacije, pa im zvučni tokovi **ne** stižu posve istom brzinom čak ni kad oba prijavljuju 12 kHz — razlika od 2% je uobičajena, dakle 240 uzoraka klizanja u sekundi, daleko više od tolerancije poravnanja. Zato se udaljeni tok neprekidno preuzorkuje na brzinu vašeg prijamnika. Taj se omjer mjeri **brojanjem uzoraka**, a ne koreliranjem, pa mu ne treba vlastito zaključavanje i utvrđen je u prvih nekoliko sekundi — prije nego uopće krene prvo traženje poravnanja. Slab ili isprekidan signal može tražiti dva ili tri pokušaja, pa 30 sekundi nije razlog za brigu; minuta bez ičega jest.
-
-Dok traženje traje, diverziti ga ne čeka. Dva se toka uparuju prema trenutku dolaska njihova zvuka — ili prema posljednjem pronađenom kašnjenju — a bolja se lokacija bira po SNR-u kao i inače; korekcija brzine, izjednačavanje razine i SNR trim i dalje djeluju. Tako prolazi i stanica koju čuje **samo** udaljeni prijemnik: slučaj u kojem diverziti najviše pomaže i u kojem poravnanje uopće nije moguće. Ploča tada prikazuje `Ready (unaligned)`, a redak **aligned** `by arrival, searching`. Dok obje lokacije čuju stanicu, ali još nisu poravnane, prebacivanje može ponoviti ili preskočiti do stvarnog kašnjenja među njima, obično manje od 1,5 s; čim se traženje zaključa, prelazi na točno kašnjenje.
-
 ---
 
 ## Remote SNR trim
 
 Ovaj klizač pristrano usmjerava izbor između dviju lokacija. Dodaje se izmjerenom SNR-u udaljenog prijamnika prije usporedbe — pozitivno pogoduje udaljenom, negativno vašem. Ne mijenja **ništa drugo**: ni razinu zvuka ni spajanje, samo koja lokacija pobjeđuje.
-
-Postoji jer dvije vrijednosti SNR-a nisu uvijek usporedive. Obje se mjere jednako — kao raspon percentila zvuka — ali prijamnik čiji kodek podiže vlastiti prag šuma pokazuje manje nego što zaslužuje. KiwiSDR primjenjuje snažno pojačanje i limiter, što sažima raspon; kodek s gubicima postavlja prag šuma ispod kojeg signal nikad ne siđe.
 
 **Kako ga podesiti:**
 
@@ -220,4 +205,4 @@ Postavka djeluje odmah i pamti se u vašem pregledniku.
 - **Samo dva prijamnika.**
 - **Mono.** Ako je vaš prijamnik u stereo načinu poput C-QUAM-a, zvuk prolazi nepromijenjen i diverziti se ne uključuje.
 - **Poravnanje treba signal.** Ispod otprilike 10 dB SNR-a na jednoj od dviju lokacija očekujte da ostane na `searching`.
-- **WebSDR traži relej** na vašem vlastitom poslužitelju i proslijeđen port. Ostala tri tipa prijamnika ne trebaju ni jedno ni drugo.
+- **WebSDR traži relej** na vašem vlastitom poslužitelju; proxy ga prenosi na javnom portu, pa se na routeru ništa više ne otvara. Ostala tri tipa prijamnika ga ne trebaju.

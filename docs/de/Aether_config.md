@@ -19,7 +19,6 @@ Seit v4.1.0 kann PhantomSDR-Plus auch das **KiwiSDR-Protokoll** beantworten, sod
 7. [Das S-Meter](#7-das-s-meter)
 8. [Wasserfall und Spektrum](#8-wasserfall-und-spektrum)
 9. [Wenn etwas nicht stimmt](#9-wenn-etwas-nicht-stimmt)
-10. [Wie weit das geprüft wurde](#10-wie-weit-das-geprüft-wurde)
 
 ---
 
@@ -39,8 +38,6 @@ Das Abstimmen wird für einen **reellen** Eingang unterstützt (`signal = "real"
 
 ## 2. Die Brücke installieren
 
-Die Brücke besteht aus Patches für die Backend-Quellen plus einer neuen Header-Datei, `src/kiwi_bridge.h`. Es gibt zwei Wege, sie einzuspielen.
-
 **Mit dem Installationsprogramm.** `install.sh` (sowie `install_arch.sh`, `install_fedora.sh`, `install_opensuse.sh`) haben einen eigenen Schritt dafür — Schritt 17, *Kiwi client emulation*. Er wird angeboten, nicht erzwungen: Antworten Sie `n`, und es wird nichts gepatcht. Für einen unbeaufsichtigten Lauf entscheidet `PHANTOM_KIWI=y|n`; die Vorgabe ist ja.
 
 **Auf einem bereits installierten Baum** führen Sie das Skript aus, das im Wurzelverzeichnis mitgeliefert wird:
@@ -51,13 +48,7 @@ cd ~/PhantomSDR-Plus
 ./recompile.sh          # [1] Nur Backend wählen
 ```
 
-`kiwi_install.sh` sichert jede Datei, die es anfasst, zuerst nach `backup_kiwi_bridge_<zeitstempel>/` und wendet jeden Patch über einen exakten Textvergleich an — findet es einen Anker nicht dort, wo es ihn erwartet (lokal veränderter Baum, andere Version), hält es sofort an, nennt die Datei und lässt sie unangetastet. Es ist idempotent: Auf einem Baum, der die Brücke bereits hat, meldet es jeden Patch als bereits angewendet und ändert nichts.
-
 > **Wenn Sie gerade ein Update-Archiv eingespielt haben, das die Brücke bereits enthält, brauchen Sie es nicht auszuführen.** Die gepatchten Quellen liegen im Archiv; `kiwi_install.sh` würde Ihnen nur sagen, dass jeder Patch schon vorhanden ist.
-
-Gepatcht werden `src/client.h`, `src/signal.cpp`, `src/waterfall.cpp`, `src/spectrumserver.h`, `src/spectrumserver.cpp`, `src/websocket.cpp` und `src/http.cpp`; `kiwi_bridge.h` wird nach `src/` kopiert.
-
-> **Es installiert die Brücke, es aktualisiert sie nicht.** Schlägt ein Patch auf einem Baum *fehl*, auf dem die Brücke bereits funktioniert, ist die Quelle dem Skript vorausgeeilt — dann muss das Skript nachgezogen werden, nicht Ihr Baum.
 
 ---
 
@@ -106,8 +97,6 @@ wf_fps_max    = 28      # Bilder/s. 23 ist das Protokollmaximum.
 
 > **Jeder dieser Schlüssel wird beim Start gelesen.** Eine Änderung ist ein **Neustart**, keine Neuübersetzung — `./stop-websdr.sh`, dann Ihr Startskript. Zum Nachstellen dieser Werte müssen Sie nie neu kompilieren.
 
-Ganzzahlige und dezimale Schreibweise werden gleichermaßen akzeptiert: `28` und `28.0` werden identisch gelesen. Nur ein wirklich fehlender Schlüssel fällt auf seine Vorgabe zurück.
-
 ---
 
 ## 5. Einen Client verbinden
@@ -140,10 +129,6 @@ audio_gain = 55.0       # dB, nur Kiwi-Clients. 0 = unverändert.
 
 **Beginnen Sie bei etwa 55–60 dB.** 55 dB ist kein Rechenergebnis: Dort wurden ein Kiwi-Client und die PhantomSDR-Webseite auf gleichem Pegel gemessen, an einem starken Ortssender auf 729 kHz. In der Praxis wird oft etwas mehr bevorzugt — dieser Empfänger blieb bei 60 — wählen Sie es also nach Gehör.
 
-Kaputtmachen können Sie das Audio damit nicht. Ein **vorausschauender Spitzenbegrenzer** sitzt zwischen der Verstärkung und der 16-Bit-Begrenzung: Jedes Sample wird um 4 ms verzögert, während die Verstärkung aus Audio berechnet wird, das noch nicht gesendet wurde. Eine laute Passage trifft also auf eine Verstärkung, die bereits für sie heruntergegangen ist, und Spitzen falten sich, statt abgeflacht zu werden. Bei 60 und selbst 70 dB — weit jenseits des Spielraums der reinen Verstärkung — wurde nicht ein Sample von einer Viertelmillion beschnitten. Unterhalb der Schwelle des Begrenzers ist die Verstärkung exakt 1,0; ein Empfänger, der das Audio nicht hart fährt, bekommt die Samples also unangetastet.
-
-Ein zu hoher Wert kostet Lautstärke, nicht Qualität. Oberhalb von etwa 60 dB wird die zusätzliche Verstärkung schlicht weggeregelt: Gemessen stieg der Pegel von 55 auf 60 um etwa 1 dB und bewegte sich von 60 auf 70 kaum noch. Darüber hinaus kaufen Sie Kompression statt Lautstärke.
-
 Nichts davon berührt die Webseite, und nichts davon bewegt das S-Meter — das kommt aus der Leistung des Demodulators, nicht aus den Audiosamples. Lauter drehen kann das Meter also nicht zum Lügen bringen.
 
 ---
@@ -160,10 +145,6 @@ enabled       = true
 smeter_offset = 5.0     # ersetzt input.analog_smeter_offset, nur für Kiwi-Clients
 ```
 
-> **Vergleichen Sie die beiden Anzeigen mit demselben Filter — oder gar nicht.** Der Wert kommt aus der Leistung im Durchlassbereich, ein breiteres Filter sammelt also mehr Rauschen und zeigt mehr an: Auf einem ruhigen Band maß dieselbe Frequenz bei 9 kHz Bandbreite 5,6 dB stärker als bei 2,4 kHz. Ein Kiwi-Client mit 6-kHz-Filter gegen eine Webseite mit 2,4 kHz weicht um mehrere dB ab, wie auch immer beide kalibriert sind. Gleichen Sie zuerst Betriebsart und Bandbreite an.
-
-> **Das ist die Skala der Seite, keine physikalische.** Das Web-Meter spreizt seinen Bereich der Lesbarkeit halber, sodass 10 dB tatsächlicher Signaländerung als etwa 11 angezeigt werden. Sie nachzubilden heißt, dass Kiwi-Clients mit Ihrem Empfänger übereinstimmen und von einem echten KiwiSDR um einen mit der Signalstärke wachsenden Betrag abweichen. Das ist der richtige Kompromiss, wenn Ihre eigene Seite die Referenz ist, an der alle messen; soll die Brücke lieber physikalisch ehrlich bleiben, ist dies der Abschnitt, den Sie ändern.
-
 ---
 
 ## 8. Wasserfall und Spektrum
@@ -178,15 +159,11 @@ enabled = true
 wf_cal  = 0.0           # dB, nur Kiwi-Clients
 ```
 
-> **`wf_cal` ist keine Kalibrierung.** `0` ist der Wert, bei dem das Spektrum mit Ihrem S-Meter übereinstimmt, und dabei sollten Sie es belassen, wenn die Zahlen etwas bedeuten sollen. Es existiert, weil es Geschmackssache ist — und eine Frage dessen, was Ihr Client mit dem Bereich anstellt —, wie *stark* ein Spektrum aussehen soll: Der Empfänger dieses Projekts läuft mit `-10`, schlicht weil das in AetherSDR richtig aussieht. Ein Wert bewegt Spektrum und Wasserfall gemeinsam: Es sind dieselben Bytes auf der Leitung, und das Kiwi-Protokoll kann sie nicht getrennt skalieren. Sollen sie sich unterscheiden, muss das aus den Anzeigereglern des Clients kommen.
-
 Zur Prüfung der Skala vergleichen Sie den über den Durchlassbereich summierten Wasserfall mit dem S-Meter auf einer **ruhigen** Frequenz. Auf einem Träger schließt ein SSB-Durchlassbereich den Träger selbst aus, und die beiden sind nicht vergleichbar.
 
 ### Die Bildrate — `wf_fps_max`
 
 Ein Kiwi-Client fordert den schnellsten Wasserfall an, den er haben kann (`SET wf_speed=4`), und richtet sein Scrollen — und seine Spektrumsmittelung — nach der Rate, die der Server zu liefern verspricht. Weichen die beiden voneinander ab, wirkt die Anzeige träge, obwohl nichts tatsächlich zu spät kommt.
-
-Der Empfänger erzeugt `2 × sps / fft_size` Spektren pro Sekunde. Kiwi-Clients werden aus jedem einzelnen davon bedient und auf die angeforderte Rate ausgedünnt; die Webseite behält ihren eigenen, langsameren Takt und bleibt unberührt.
 
 ```toml
 [kiwi_emulation]
@@ -201,14 +178,6 @@ wf_fps_max = 23         # Bilder pro Sekunde
 | fehlt (Vorgabe 23) | 23,0 fps |
 | `28` | 28,0 fps |
 | `40` | 28,6 fps — die Eigengrenze des Empfängers gewinnt |
-
-Auch `SET wf_speed` vom Client wird beachtet: `0` aus, `1` = 1 fps, `2` ein Viertel des Maximums, `3` die Hälfte, `4` das Maximum. Ein Client an einer dünnen Leitung kann also weniger anfordern.
-
-> **Ob ein Heraufsetzen hilft, entscheidet der Client, nicht der Server.** Ein Client, der jedes Bild beim Eintreffen zeichnet, gibt Ihnen ein flüssigeres Scrollen; ein Client, der sich auf die erwarteten 23 taktet, stellt die zusätzlichen Bilder schlicht in die Warteschlange, und die Verzögerung wächst. Probieren Sie es aus, und wenn der Wasserfall träger statt flüssiger wirkt, stellen Sie wieder auf `23`.
-
-### Was die übrige Verzögerung bestimmt
-
-Wer der Latenz nachgeht: Das meiste davon steckt nicht in der Brücke. Das Analysefenster ist `fft_size / sps` breit — 70 ms bei einer 4194304-Punkt-FFT und 60 MS/s — und ein Sample wartet zusätzlich bis zur Hälfte davon, bis der Vorschub voll ist. `fft_size` zu halbieren halbiert beides und verdoppelt die Bildrate, halbiert aber auch Ihre Frequenzauflösung, von der die Schmalband-Decoder (WSPR, FT8, CW) leben. Auf den meisten Empfängern ist das ein schlechter Tausch für einige zehn Millisekunden. Es ist eine Entscheidung in `[input]` und nichts, woran die Brücke etwas ändern könnte.
 
 ---
 
@@ -227,16 +196,6 @@ Jeder Befehl, den ein Kiwi-Client sendet, wird nach **`/tmp/kiwi_retune.log`** g
 | Eine geänderte Einstellung wirkt nicht | diese Schlüssel werden beim Start gelesen — Empfänger neu starten |
 
 > **Die AGC liegt beim Client.** `SET agc=` von einem Kiwi-Client wird angenommen und ignoriert — das Audio kommt mit der AGC von PhantomSDR an, und die AGC-Regler des Clients wirken auf das, was er empfängt.
-
----
-
-## 10. Wie weit das geprüft wurde
-
-Das Leitungsformat wurde gegen einen laufenden Empfänger geprüft und Zeile für Zeile gegen den Quelltext der beiden Clients gelesen, auf die es zielt — AetherSDRs `KiwiSdrProtocol.cpp` und kiwiclients `kiwi/client.py`. Rahmenaufbau und -größe, Sequenznummern, Bytereihenfolge, die S-Meter-Skala, das Abstimmen und der Wasserfall stimmen überein. Die Brücke wurde außerdem **mit der AetherSDR-Desktop-Anwendung selbst als funktionierend bestätigt**, durch den Betreuer, gegen diesen Empfänger.
-
-An diesem Empfänger gemessen, mit einem Testclient an den laufenden Sockets: Das Abstimmen greift in 35–50 ms, das Audio läuft in Echtzeit ohne Drift, und der Wasserfall liefert die eingestellte Rate ohne Stocken und ohne verlorene Bilder.
-
-Sollte auf Ihrer eigenen Installation doch etwas falsch aussehen, ist `/tmp/kiwi_retune.log` die erste Anlaufstelle — und eine Rückmeldung ist in jedem Fall willkommen.
 
 ---
 

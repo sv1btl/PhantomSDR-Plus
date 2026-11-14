@@ -72,8 +72,6 @@ Das Admin-Panel zeigt dasselbe unter **Einstellungen → HTTPS**: **🔍 CHECK**
 | 9000 | proxy.py — http, wie bisher | ja |
 | 9014 | proxy.py — hier übergibt Caddy die Besucher | nein — im Rechner |
 
-Caddy erreicht den Proxy über einen eigenen Port, weil aus Sicht des Proxys sonst jeder Besucher, der über Caddy kommt, vom Rechner selbst käme — und einer Anfrage vom Rechner selbst wird vertraut: Sie darf Hörer trennen und zählt nicht für die Pro-IP-Grenzen. Auf Port 9014 übernimmt der Proxy die echte Adresse des Besuchers von Caddy und hält einen Besucher nie für lokal; Hörerliste, Pro-IP-Grenzen und der Kick des Sysops funktionieren deshalb genau wie über http, und niemand kann über https einen Hörer kicken.
-
 ---
 
 ## Was sich für die Hörer ändert

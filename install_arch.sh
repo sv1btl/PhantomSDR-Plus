@@ -125,15 +125,47 @@ clean_stale_subprojects() {
         [ -d "$d" ] || continue          # unexpanded glob when there are none
         name="$(basename "$d")"
         case "$name" in
-            packagecache) continue ;;
+            # Not subprojects: meson's download cache, and the overlay files a
+            # wrap's patch_directory copies into its checkout. packagefiles/
+            # has no build file at its top, so the test below would delete it
+            # and meson would then stop with "patch directory does not exist",
+            # leaving websocketpp cloned but without its meson.build.
+            packagecache|packagefiles) continue ;;
         esac
-        # A subproject is usable if it has something meson can build from.
-        if [ -f "$d/CMakeLists.txt" ] || [ -f "$d/meson.build" ]; then
-            continue
-        fi
+        subproject_usable "${d%/}" && continue
         yellow "   Removing incomplete subproject: $d (meson will re-fetch it)"
         rm -rf "$d"
     done
+}
+
+# The .wrap whose "directory =" (or own name) is this subproject directory, or
+# nothing. Always returns 0 so it is safe in an assignment under set -e.
+wrap_for_dir() {
+    local w
+    for w in subprojects/*.wrap; do
+        [ -f "$w" ] || continue
+        if [ "$(wrap_directory "$w")" = "$1" ]; then
+            printf '%s\n' "$w"
+            return 0
+        fi
+    done
+    return 0
+}
+
+# A subproject directory is usable when meson can build from it. A wrap with an
+# overlay (patch_directory / patch_filename) supplies the meson.build itself, so
+# for those only meson.build counts: websocketpp's own checkout has a
+# CMakeLists.txt, and a clone whose overlay never arrived passes that test while
+# meson stops with "Subproject exists but has no meson.build file".
+subproject_usable() {
+    local dir="$1" wrap
+    wrap="$(wrap_for_dir "$(basename "$dir")")"
+    if [ -n "$wrap" ] \
+       && grep -Eq '^[[:space:]]*patch_(directory|filename)[[:space:]]*=' "$wrap"; then
+        [ -f "$dir/meson.build" ]
+        return
+    fi
+    [ -f "$dir/CMakeLists.txt" ] || [ -f "$dir/meson.build" ]
 }
 
 # ------------------------------------------------------------------------------
@@ -227,7 +259,7 @@ check_subproject_network() {
         wrap="subprojects/${name}.wrap"
         if [ -f "$wrap" ]; then
             dir="subprojects/$(wrap_directory "$wrap")"
-            if [ -f "$dir/CMakeLists.txt" ] || [ -f "$dir/meson.build" ]; then
+            if subproject_usable "$dir"; then
                 continue                      # present and usable
             fi
             missing+=("$name")                # absent, but the wrap can fetch it

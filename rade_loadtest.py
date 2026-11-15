@@ -180,7 +180,7 @@ async def main():
             row = {"listeners": n, "connect_fails": fails, **m}
             rows.append(row)
             if w is None:
-                w = csv.DictWriter(f, fieldnames=list(row.keys())); w.writeheader()
+                w = csv.DictWriter(f, fieldnames=list(row.keys()), lineterminator="\n"); w.writeheader()
             w.writerow(row); f.flush()
 
             print(f"n={n:>3}  pkg={m['pkg_c']:>5}°C  cpu={m['cpu_pct']:>5}%  "

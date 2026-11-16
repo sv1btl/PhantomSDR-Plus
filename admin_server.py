@@ -4719,6 +4719,7 @@ async function loadHttpsCard() {
   const i = _httpsInfo;
   if (i.mode === 'y') st.innerHTML = 'https is <b>on</b> — https://' + _esc(i.host || '?') + '/';
   else if (i.mode === 'lan') st.innerHTML = 'https is <b>on</b> for the local network only';
+  else if (i.mode === 'external') st.innerHTML = 'https is <b>on</b> through your own reverse proxy — https://' + _esc(i.host || '?') + '/';
   else st.innerHTML = 'https is <b>off</b> — this station is http only';
   btn.textContent = i.https ? '🔍 CHECK' : '🔒 SET UP HTTPS';
   btn.disabled = false;
@@ -5873,7 +5874,7 @@ def api_https():
     sc = _station_conf()
     mode = (sc or {}).get("STATION_HTTPS", "n") or "n"
     return jsonify({"station_conf": sc is not None, "mode": mode,
-                    "https": mode in ("y", "lan"),
+                    "https": mode in ("y", "lan", "external"),
                     "host": (sc or {}).get("STATION_PUBLIC_HOST", "")})
 
 
@@ -5891,8 +5892,12 @@ def api_https_check():
         out = re.sub(r"\x1b\[[0-9;]*m", "", (r.stdout or "") + (r.stderr or "")).strip()
     except subprocess.TimeoutExpired:
         return jsonify({"ok": False, "output": "setup-https.sh --status took longer than 20 s"})
-    # A named station is fine when its certificate answers; a LAN one when Caddy runs.
-    ok = r.returncode == 0 and "running" in out and ("✔" in out or "local network" in out) and "!" not in out
+    # A named station is fine when its certificate answers; a LAN one when Caddy runs;
+    # one behind the sysop's own proxy when every check through it passed.
+    if "external (your own reverse proxy)" in out:
+        ok = r.returncode == 0 and "✔" in out and "!" not in out
+    else:
+        ok = r.returncode == 0 and "running" in out and ("✔" in out or "local network" in out) and "!" not in out
     return jsonify({"ok": ok, "output": out})
 
 
@@ -7776,6 +7781,10 @@ def _station_ports():
     add(front, "Second public port — proxy.py ([front] in receivers.toml)",
         "an older public address, kept for listeners and directories", True)
     https = (sc.get("STATION_HTTPS") or "n").lower()
+    if https == "external":
+        add(sc_port("PORT_TLS"), "https front — proxy.py, for your own reverse proxy",
+            "your proxy forwards https://" + (sc.get("STATION_PUBLIC_HOST") or "?") + "/ here; accepted from "
+            + (sc.get("STATION_PROXY_FROM") or "127.0.0.1") + " only")
     if https in ("y", "lan"):
         add(443, "https — Caddy",
             "the station's https:// address" + (" (local network only)" if https == "lan" else ""),

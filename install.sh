@@ -3122,6 +3122,10 @@ if [ "$USE_STATION" = true ] && [ "$(station_value STATION_HTTPS)" = y ]; then
         component "https" "NOT set up — run: bash setup-https.sh"
     fi
 fi
+# https through the sysop's own reverse proxy: nothing to install, only to tell.
+if [ "$USE_STATION" = true ] && [ "$(station_value STATION_HTTPS)" = external ]; then
+    component "https" "your own reverse proxy → port $(station_value PORT_TLS) (bash configure-station.sh --proxy-guide)"
+fi
 echo ""
 
 step "Starting the receiver" "no input needed"
@@ -3292,6 +3296,10 @@ if [ "$USE_STATION" = true ]; then
     [ -n "$ST_HOST" ] && echo "🌍 From the internet:  http://${ST_HOST}:${ST_PORT}/"
     [ -n "$ST_HOST" ] && [ "$(station_value STATION_HTTPS)" = y ] \
         && echo "🔒 and over https:     https://${ST_HOST}/      (forward 443 and 80 as well)"
+    if [ -n "$ST_HOST" ] && [ "$(station_value STATION_HTTPS)" = external ]; then
+        echo "🔒 and over https:     https://${ST_HOST}/      (through your own reverse proxy)"
+        bash "$PHANTOM_DIR/configure-station.sh" --proxy-guide
+    fi
     echo ""
     yellow "   Forward TCP port ${ST_PORT} on your router to ${ST_LAN} — it is the"
     yellow "   only port listeners need. RADE, DRM, statistics and the relay share it."

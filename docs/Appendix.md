@@ -142,8 +142,9 @@ Every command a sysop uses to run a PhantomSDR-Plus station, grouped by task, ea
 | `sudo ufw allow 9000/tcp` | Opens the public port in the ufw firewall. | [Installation Guide](INSTALLATION.md#cant-access-from-other-devices) |
 | `bash setup-https.sh` | Turns on HTTPS with a free Let's Encrypt certificate; HTTP keeps working. | [Secure Access (HTTPS)](HTTPS.md#on-a-station-that-already-runs) |
 | `bash setup-https.sh --lan` | HTTPS inside the local network only (browsers warn about the certificate). | [Secure Access (HTTPS)](HTTPS.md#the-local-network-only----lan) |
-| `bash setup-https.sh --status` | Shows whether HTTPS is on and the certificate answers. | [Secure Access (HTTPS)](HTTPS.md#checking-and-turning-it-off) |
+| `bash setup-https.sh --status` | Shows whether HTTPS is on and the certificate answers; behind your own proxy, the page, a WebSocket and the page's addresses through it. | [Secure Access (HTTPS)](HTTPS.md#checking-and-turning-it-off) |
 | `bash setup-https.sh --remove` | Turns HTTPS off; plain HTTP stays as it is. | [Secure Access (HTTPS)](HTTPS.md#checking-and-turning-it-off) |
+| `bash configure-station.sh --proxy-guide` | Prints what your own reverse proxy needs: port, WebSocket, header, sample blocks. | [Secure Access (HTTPS)](HTTPS.md#your-own-reverse-proxy) |
 
 ## Optional services
 

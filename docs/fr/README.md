@@ -305,7 +305,7 @@ Les fenêtres dBm / dBµV / SNR / NF des **deux** instruments lisent la valeur c
 - **[THERMAL_GUARD.md](THERMAL_GUARD.md)** - Manuel du sysop pour la protection contre la surchauffe du processeur : les quatre modes et ce qu'il faut faire pour chacun
 - **[CONNECTION_LIMITS.md](CONNECTION_LIMITS.md)** - Manuel du sysop pour les limites de connexion : protéger un récepteur public contre les afflux de connexions
 - **[MULTI_RECEIVER.md](MULTI_RECEIVER.md)** - Manuel du sysop pour plusieurs récepteurs sur un ordinateur : instances, `receivers.toml`, le sélecteur de récepteur et `start-all.sh`
-- **[HTTPS.md](HTTPS.md)** - Accès sécurisé : servir le récepteur en https:// avec Caddy et un certificat Let's Encrypt gratuit, `setup-https.sh`, le mode réseau local, et un nginx ou Apache déjà en place
+- **[HTTPS.md](HTTPS.md)** - Accès sécurisé : servir le récepteur en https:// avec Caddy et un certificat Let's Encrypt gratuit, `setup-https.sh`, le mode réseau local, et votre propre reverse proxy (nginx, Nginx Proxy Manager, Apache, Traefik)
 - **[PROJECT_STRUCTURE.md](PROJECT_STRUCTURE.md)** – structure des répertoires et organisation du code
 - **[EDITING_VARIANTS.md](https://github.com/sv1btl/PhantomSDR-Plus/blob/main/docs/fr/EDITING_VARIANTS.md)** – comment modifier les variantes du frontend (S-mètre et disposition) et les reconstruire
 

@@ -142,8 +142,9 @@ Sve naredbe koje sysop koristi za rad PhantomSDR-Plus stanice, grupirane po zada
 | `sudo ufw allow 9000/tcp` | Otvara javni port u ufw vatrozidu. | [Vodič za instalaciju](INSTALLATION.md#nema-pristupa-s-drugih-uređaja) |
 | `bash setup-https.sh` | Uključuje HTTPS s besplatnim Let's Encrypt certifikatom; HTTP i dalje radi. | [Siguran pristup (HTTPS)](HTTPS.md#na-stanici-koja-već-radi) |
 | `bash setup-https.sh --lan` | HTTPS samo unutar lokalne mreže (preglednici upozoravaju na certifikat). | [Siguran pristup (HTTPS)](HTTPS.md#samo-u-lokalnoj-mreži----lan) |
-| `bash setup-https.sh --status` | Pokazuje je li HTTPS uključen i odgovara li certifikat. | [Siguran pristup (HTTPS)](HTTPS.md#provjera-i-isključivanje) |
+| `bash setup-https.sh --status` | Pokazuje je li HTTPS uključen i odgovara li certifikat; iza vlastitog proxyja stranicu, WebSocket i adrese stranice kroz njega. | [Siguran pristup (HTTPS)](HTTPS.md#provjera-i-isključivanje) |
 | `bash setup-https.sh --remove` | Isključuje HTTPS; obični HTTP ostaje kakav jest. | [Siguran pristup (HTTPS)](HTTPS.md#provjera-i-isključivanje) |
+| `bash configure-station.sh --proxy-guide` | Ispisuje što treba vaš vlastiti reverse proxy: port, WebSocket, zaglavlje, primjeri blokova. | [Siguran pristup (HTTPS)](HTTPS.md#vaš-vlastiti-reverse-proxy) |
 
 ## Dodatne usluge
 

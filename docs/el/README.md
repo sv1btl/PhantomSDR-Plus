@@ -306,7 +306,7 @@ segments = round((value + 100) x 35 / 100) + DIGITAL_BAR_TRIM
 - **[THERMAL_GUARD.md](THERMAL_GUARD.md)** – εγχειρίδιο διαχειριστή για την προστασία υπερθέρμανσης της CPU: οι τέσσερις λειτουργίες και τι πρέπει να κάνετε σε καθεμία
 - **[CONNECTION_LIMITS.md](CONNECTION_LIMITS.md)** – εγχειρίδιο διαχειριστή για τα όρια συνδέσεων: προστασία ενός δημόσιου δέκτη από πλημμύρα συνδέσεων
 - **[MULTI_RECEIVER.md](MULTI_RECEIVER.md)** – εγχειρίδιο διαχειριστή για πολλούς δέκτες σε έναν υπολογιστή: instances, `receivers.toml`, η επιλογή δέκτη και το `start-all.sh`
-- **[HTTPS.md](HTTPS.md)** - Ασφαλής πρόσβαση: ο δέκτης μέσω https:// με τον Caddy και δωρεάν πιστοποιητικό Let's Encrypt, το `setup-https.sh`, η λειτουργία τοπικού δικτύου, και υπάρχων nginx ή Apache
+- **[HTTPS.md](HTTPS.md)** - Ασφαλής πρόσβαση: ο δέκτης μέσω https:// με τον Caddy και δωρεάν πιστοποιητικό Let's Encrypt, το `setup-https.sh`, η λειτουργία τοπικού δικτύου, και δικός σας reverse proxy (nginx, Nginx Proxy Manager, Apache, Traefik)
 - **[PROJECT_STRUCTURE.md](PROJECT_STRUCTURE.md)** – δομή καταλόγων και οργάνωση του κώδικα
 - **[EDITING_VARIANTS.md](https://github.com/sv1btl/PhantomSDR-Plus/blob/main/docs/el/EDITING_VARIANTS.md)** – πώς να επεξεργαστείτε τις παραλλαγές του frontend (S-meter και διάταξη) και να τις ξαναχτίσετε
 

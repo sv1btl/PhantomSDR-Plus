@@ -2,7 +2,7 @@
 
 Eine PhantomSDR-Plus-Station kann über **https://** ebenso wie über http:// erreichbar sein. Der Browser zeigt dann das Schloss, die Verbindung ist verschlüsselt, und Browser erlauben der Seite ihren besseren Audioweg (das AudioWorklet), den sie reinen http-Seiten verweigern. Die http-Adresse funktioniert genau wie bisher weiter, Seite an Seite.
 
-Das übernimmt **Caddy**, ein kleiner Webserver, der vor dem Empfänger auf Port 443 sitzt. Caddy holt für den DNS-Namen Ihrer Station ein kostenloses Zertifikat von **Let's Encrypt** und erneuert es selbstständig alle paar Monate, ohne dass Sie etwas tun müssen.
+Das übernimmt **Caddy**, ein kleiner Webserver, der vor dem Empfänger auf Port 443 sitzt. Caddy holt für den DNS-Namen Ihrer Station ein kostenloses Zertifikat von **Let's Encrypt** und erneuert es selbstständig alle paar Monate, ohne dass Sie etwas tun müssen. Betreiben Sie bereits einen eigenen Reverse Proxy, der das Zertifikat hält (nginx, Nginx Proxy Manager, Apache, Traefik …), arbeitet PhantomSDR-Plus stattdessen dahinter — siehe unten *Ihr eigener Reverse Proxy*.
 
 ---
 
@@ -20,10 +20,15 @@ Das übernimmt **Caddy**, ein kleiner Webserver, der vor dem Empfänger auf Port
 
 ### Bei der Installation
 
-Bei den Stationsfragen, in der Gruppe **Internet**, mit Ja antworten auf:
+Bei den Stationsfragen, in der Gruppe **Internet**, bei der https-Frage **2** wählen:
 
 ```
-  Also serve the receiver over https://? [y/N]: y
+    1  no https
+    2  https through Caddy, set up here: a free Let's Encrypt certificate,
+       renewed by itself; needs a DNS name above and ports 443 and 80 open
+    3  my own reverse proxy (nginx, Nginx Proxy Manager, Apache, Caddy,
+       Traefik …) already serves https:// and forwards to this receiver
+  https? [1]: 2
 ```
 
 Der Installer installiert Caddy, holt das Zertifikat und zeigt am Ende beide Adressen.
@@ -35,7 +40,7 @@ cd ~/PhantomSDR-Plus
 bash setup-https.sh
 ```
 
-Es liest Ihren DNS-Namen aus `station.conf`, installiert Caddy (aus Ihrer Distribution; unter Ubuntu 22.04 aus Caddys eigenem Repository), richtet ihn auf den Empfänger aus, baut die Seite neu, damit sie ihre https-Adresse verlinkt, startet den Proxy neu und wartet auf das Zertifikat. Ein Ja auf die https-Frage in `bash configure-station.sh` bewirkt genau dasselbe.
+Es liest Ihren DNS-Namen aus `station.conf`, installiert Caddy (aus Ihrer Distribution; unter Ubuntu 22.04 aus Caddys eigenem Repository), richtet ihn auf den Empfänger aus, baut die Seite neu, damit sie ihre https-Adresse verlinkt, startet den Proxy neu und wartet auf das Zertifikat. Die Wahl **2** bei der https-Frage von `bash configure-station.sh` bewirkt genau dasselbe.
 
 Am Ende:
 
@@ -112,14 +117,42 @@ Caddy stellt dann ein eigenes Zertifikat für die lokale Adresse und den Namen d
 
 ---
 
-## Auf diesem Rechner läuft schon ein Webserver
+## Ihr eigener Reverse Proxy
 
-Belegen nginx, Apache oder eine andere Caddy-Einrichtung bereits Port 443 oder 80, übernimmt `setup-https.sh` ihn nicht: Es hält an und zeigt, was Sie stattdessen in Ihren Server eintragen. Für nginx, im `server { … }`-Block Ihrer https-Seite:
+Betreiben Sie bereits einen Reverse Proxy, der https:// für Ihre Domains anbietet — nginx, Nginx Proxy Manager, Apache, Caddy, Traefik —, arbeitet PhantomSDR-Plus dahinter, und es wird kein Caddy installiert. Wählen Sie bei der https-Frage **3**:
+
+```bash
+bash configure-station.sh        # https-Frage: 3
+```
+
+Der Assistent fragt dann, von wo Ihr Proxy verbindet:
+
+| Ihr Proxy läuft | Antwort |
+|---|---|
+| auf diesem Rechner | `127.0.0.1` |
+| auf einem anderen Rechner | dessen Adresse, z. B. `192.168.1.20` |
+| in Docker auf diesem Rechner (z. B. Nginx Proxy Manager) | `172.16.0.0/12` |
+
+Mehrere Adressen werden durch Leerzeichen getrennt. Die Antwort wird als `STATION_PROXY_FROM` in `station.conf` gespeichert, neben `STATION_HTTPS="external"`, und bleibt bei Updates und späteren Läufen des Assistenten erhalten. Die Seite verlinkt dann ihre https-Adresse, das Diversity-Relay ist standardmäßig an, und der Assistent endet mit allem, was Ihr Proxy braucht. Jederzeit erneut anzeigen:
+
+```bash
+bash configure-station.sh --proxy-guide
+```
+
+Kurz gefasst:
+
+- **Eine Site, ein Port.** Leiten Sie `https://ihr.name/` — vollständig — an `http://<dieser Rechner>:9014/` weiter. Die Seite, `/admin`, `/stats`, `/rade`, `/drm` und `/relay` kommen alle über diese eine Adresse.
+- **WebSockets an.** Audio, Wasserfall und Chat sind WebSockets: Der Proxy muss `Upgrade` und `Connection` durchreichen und Verbindungen erlauben, die einen Tag offen bleiben. Im Nginx Proxy Manager **Websockets Support** ankreuzen.
+- **Die Adresse des Besuchers** in `X-Forwarded-For` (die meisten Proxys setzen sie von selbst). Port 9014 glaubt diesem Header nur von den angegebenen Adressen; jede andere Adresse bekommt **403**, so kann sich niemand als jemand anderes ausgeben.
+- **Intern lassen** 9001–9015: nie im Router weiterleiten. Leiten Sie 443 (und 80, falls Ihr Proxy sein Zertifikat darüber holt) an Ihren Proxy weiter, und lassen Sie 9000 für http:// ebenfalls weitergeleitet — websdr.org, sdr-list und reine http-Diversity-Partner nutzen ihn.
+
+Für nginx, im `server { … }`-Block Ihrer https-Seite (läuft der Proxy auf einem anderen Rechner, statt `127.0.0.1` die Adresse dieses Rechners eintragen):
 
 ```nginx
 location / {
     proxy_pass http://127.0.0.1:9014;
     proxy_http_version 1.1;
+    proxy_set_header Host $host;
     proxy_set_header Upgrade $http_upgrade;
     proxy_set_header Connection "upgrade";
     proxy_set_header X-Forwarded-For $remote_addr;
@@ -127,18 +160,24 @@ location / {
 }
 ```
 
-Für Apache (mit `mod_proxy`, `mod_proxy_http` und `mod_proxy_wstunnel`):
+Für Apache 2.4.47 oder neuer (mit `mod_proxy`, `mod_proxy_http` und `mod_proxy_wstunnel`):
 
 ```apache
-ProxyPass        / http://127.0.0.1:9014/ upgrade=websocket
+ProxyPass        / http://127.0.0.1:9014/ upgrade=websocket timeout=86400
 ProxyPassReverse / http://127.0.0.1:9014/
 ```
 
-Markieren Sie die Station dann in `station.conf` als https, damit der Proxy Port 9014 öffnet und die Seite ihre https-Adresse verlinkt — der Assistent meldet noch einmal, dass der Port belegt ist, das ist zu erwarten:
+Caddy: `ihr.name { reverse_proxy 127.0.0.1:9014 }`. Traefik: ein Service mit der URL `http://127.0.0.1:9014`; WebSockets gehen von selbst durch.
+
+Dann vom Empfängerrechner aus prüfen:
 
 ```bash
-STATION_HTTPS=y bash configure-station.sh
+bash setup-https.sh --status
 ```
+
+Es prüft, dass Port 9014 lauscht, dass `https://ihr.name/` antwortet, dass ein WebSocket durch Ihren Proxy kommt und dass die Einstellungen der Seite keine http://-Adresse der Station enthalten (eine https-Seite kann sie nicht laden: Mixed Content). **🔍 CHECK** im Admin-Panel zeigt dasselbe.
+
+Findet `bash setup-https.sh` einen anderen Webserver auf Port 443 oder 80, übernimmt es ihn nicht: Es hält an und verweist hierher.
 
 ---
 
@@ -152,4 +191,7 @@ STATION_HTTPS=y bash configure-station.sh
 | Caddys Log zeigt `Invalid response … /.well-known/acme-challenge/…` (ein 502 oder die Seite des Empfängers) oder `Timeout during connect` | Der Router leitet 80 oder 443 woandershin — oft auf den öffentlichen Port des Empfängers. Die Regeln müssen lauten: TCP 80 → dieser Computer, Port **80**, und TCP 443 → dieser Computer, Port **443**; die Fernverwaltung des Routers auf diesen Ports abschalten. Danach `sudo systemctl restart caddy`, damit Caddy sofort neu versucht. |
 | https geht zu Hause, aber nicht von außen | Der Router leitet 443 an einen anderen Rechner oder gar nicht weiter. |
 | Hörerliste oder Benutzer-Panel über https leer | Einmal `bash configure-station.sh` ausführen und den Neubau bejahen: Die Seite muss ihre https-Adresse kennen. |
-| `Port 443 is already used by another web server` | Siehe oben *Auf diesem Rechner läuft schon ein Webserver*. |
+| `Port 443 is already used by another web server` | Siehe oben *Ihr eigener Reverse Proxy*. |
+| Hinter eigenem Proxy: Die Seite lädt, aber kein Ton und kein Wasserfall | Der Proxy reicht keine WebSockets durch. nginx: die Zeilen `Upgrade` und `Connection`; Nginx Proxy Manager: **Websockets Support**. `bash setup-https.sh --status` testet es. |
+| Hinter eigenem Proxy: `forbidden: not the station's https front` | Ihr Proxy verbindet von einer Adresse, die nicht in `STATION_PROXY_FROM` steht — Docker nutzt eigene Netze (`172.16.0.0/12`). `bash configure-station.sh` ausführen und sie ergänzen. |
+| Hinter eigenem Proxy: Alle Hörer haben dieselbe Adresse, oder der vierte wird abgewiesen | Der Proxy leitet an 9000 statt an 9014 weiter oder sendet kein `X-Forwarded-For`. |

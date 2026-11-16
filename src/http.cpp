@@ -788,6 +788,15 @@ void broadcast_server::on_http(connection_hdl hdl) {
         const auto qpos = path_only.find('?');
         if (qpos != std::string::npos) path_only = path_only.substr(0, qpos);
 
+        // A request relayed by a proxy on this machine (proxy.py, or a sysop's
+        // own nginx pointed at this port) has a loopback TCP peer too; any
+        // client-identity header gives it away, and it is refused.
+        auto relayed = [&]() {
+            return !con->get_request_header("X-Forwarded-For").empty() ||
+                   !con->get_request_header("X-Real-IP").empty() ||
+                   !con->get_request_header("Forwarded").empty();
+        };
+
         // ── /~~users — /users WITH the IP addresses, for the admin panel ────
         // The public /users carries none, as on a WebSDR. Same loopback rule
         // as /~~kick, and a request relayed by proxy.py (which always adds
@@ -799,8 +808,7 @@ void broadcast_server::on_http(connection_hdl hdl) {
                 normalize_client_ip(con->get_remote_endpoint());
             con->append_header("Content-Type", "application/json");
             con->append_header("Cache-Control", "no-store");
-            if (!is_loopback_ip(peer) ||
-                !con->get_request_header("X-Forwarded-For").empty()) {
+            if (!is_loopback_ip(peer) || relayed()) {
                 con->set_status(websocketpp::http::status_code::forbidden);
                 con->set_body("{\"ok\":false,\"msg\":\"forbidden\"}");
                 return;
@@ -821,7 +829,7 @@ void broadcast_server::on_http(connection_hdl hdl) {
                 normalize_client_ip(con->get_remote_endpoint());
             con->append_header("Content-Type", "application/json");
             con->append_header("Cache-Control", "no-store");
-            if (!is_loopback_ip(peer)) {
+            if (!is_loopback_ip(peer) || relayed()) {
                 con->set_status(websocketpp::http::status_code::forbidden);
                 con->set_body("{\"ok\":false,\"msg\":\"forbidden\"}");
                 return;

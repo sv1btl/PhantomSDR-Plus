@@ -305,7 +305,7 @@ The dBm / dBµV / SNR / NF windows in **both** meters read the analog-calibrated
 - **[THERMAL_GUARD.md](THERMAL_GUARD.md)** - Sysop manual for the CPU over-temperature guard: the four modes and what to do with each
 - **[CONNECTION_LIMITS.md](CONNECTION_LIMITS.md)** - Sysop manual for connection limits: protecting a public receiver from connection floods
 - **[MULTI_RECEIVER.md](MULTI_RECEIVER.md)** - Sysop manual for running several receivers on one computer: instances, `receivers.toml`, the receiver picker and `start-all.sh`
-- **[HTTPS.md](HTTPS.md)** - Secure access: serving the receiver over https:// with Caddy and a free Let's Encrypt certificate, `setup-https.sh`, the local-network mode, and an existing nginx or Apache
+- **[HTTPS.md](HTTPS.md)** - Secure access: serving the receiver over https:// with Caddy and a free Let's Encrypt certificate, `setup-https.sh`, the local-network mode, and your own reverse proxy (nginx, Nginx Proxy Manager, Apache, Traefik)
 - **[PROJECT_STRUCTURE.md](PROJECT_STRUCTURE.md)** - Directory structure and code organization
 - **[EDITING_VARIANTS.md](https://github.com/sv1btl/PhantomSDR-Plus/blob/main/docs/EDITING_VARIANTS.md)** - How to edit the frontend variants (S-meter and layout) and rebuild them
 

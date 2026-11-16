@@ -142,8 +142,9 @@ Toutes les commandes qu'un sysop utilise pour faire fonctionner une station Phan
 | `sudo ufw allow 9000/tcp` | Ouvre le port public dans le pare-feu ufw. | [Guide d'installation](INSTALLATION.md#impossible-daccéder-depuis-dautres-appareils) |
 | `bash setup-https.sh` | Active HTTPS avec un certificat Let's Encrypt gratuit ; HTTP continue de fonctionner. | [Accès sécurisé (HTTPS)](HTTPS.md#sur-une-station-qui-tourne-déjà) |
 | `bash setup-https.sh --lan` | HTTPS dans le réseau local seulement (les navigateurs avertissent sur le certificat). | [Accès sécurisé (HTTPS)](HTTPS.md#réseau-local-uniquement----lan) |
-| `bash setup-https.sh --status` | Indique si HTTPS est actif et si le certificat répond. | [Accès sécurisé (HTTPS)](HTTPS.md#vérifier-et-désactiver) |
+| `bash setup-https.sh --status` | Indique si HTTPS est actif et si le certificat répond ; derrière votre propre proxy, la page, un WebSocket et les adresses de la page à travers lui. | [Accès sécurisé (HTTPS)](HTTPS.md#vérifier-et-désactiver) |
 | `bash setup-https.sh --remove` | Désactive HTTPS ; le HTTP simple reste inchangé. | [Accès sécurisé (HTTPS)](HTTPS.md#vérifier-et-désactiver) |
+| `bash configure-station.sh --proxy-guide` | Affiche ce dont votre propre reverse proxy a besoin : port, WebSocket, en-tête, blocs d'exemple. | [Accès sécurisé (HTTPS)](HTTPS.md#votre-propre-reverse-proxy) |
 
 ## Services optionnels
 

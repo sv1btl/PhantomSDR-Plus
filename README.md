@@ -47,7 +47,7 @@ PhantomSDR-Plus is licensed under the GPL v3 with the [additional terms](ADDITIO
 We also provide a wide range of additional **features**:
 
 * A new `install.sh` installation procedure that simplifies the initial server setup, starting with a station wizard (`configure-station.sh`): the receiver, band, station and ports are asked once and kept in `station.conf`, every config is written from it, and new stations publish a single public port (9000, `proxy.py`).
-* **https:// alongside http://** — `setup-https.sh` puts Caddy with a self-renewing Let's Encrypt certificate on port 443, while the http address keeps serving websdr.org, Kiwi clients and http-only partners.
+* **https:// alongside http://** — `setup-https.sh` puts Caddy with a self-renewing Let's Encrypt certificate on port 443, while the http address keeps serving websdr.org, Kiwi clients and http-only partners; a station behind the sysop's own reverse proxy (nginx, Nginx Proxy Manager, Apache, Traefik) gets its guide and checks instead.
 * A `recompile.sh` script for quickly rebuilding the backend, the frontend, or both.
 * An `update.sh` tool that updates the receiver with one command, keeping your configs, markers, logs and edited scripts untouched; each update's backup is one dated archive in `update-backups/`, restorable with `./update.sh --restore LAST`; `./update.sh --from` takes the new version from a folder, `.tar.gz` or `.zip` for a station without GitHub, and each release carries the fingerprint of every published file, so only real local edits are asked about.
 * Installers that stop a running receiver first, frame every step with its own verdict, and spell out the default of each question.
@@ -198,7 +198,7 @@ There is no `chmod` step and no terminal to restart: a copy downloaded as a ZIP 
 | 9000 | the receiver page — `proxy.py`, which also carries `/admin`, `/rade`, `/stats` and `/relay` | **yes, only this one** |
 | 9001 / 9010 / 9011 / 9012 / 9013 | spectrumserver / admin panel / statistics / RADE / WebSDR relay | no — inside the computer |
 
-**https:// as well** — padlock, encryption, and the browsers' better audio path — is one more station question, or later `bash setup-https.sh`. It needs a DNS name (a free dynamic-DNS name is fine) and ports 443 and 80 forwarded; Caddy obtains and renews a Let's Encrypt certificate by itself, and the http address keeps working. See **[Secure Access (HTTPS)](docs/HTTPS.md)**.
+**https:// as well** — padlock, encryption, and the browsers' better audio path — is one more station question, or later `bash setup-https.sh`. It needs a DNS name (a free dynamic-DNS name is fine) and ports 443 and 80 forwarded; Caddy obtains and renews a Let's Encrypt certificate by itself, and the http address keeps working. Already running your own reverse proxy? Choose it at the same question instead, and the wizard prints what that proxy needs. See **[Secure Access (HTTPS)](docs/HTTPS.md)**.
 
 > **Already running PhantomSDR-Plus? Do not install it again.** Fetch the updater once and run it. It shows what would change and then asks before writing anything; your `.toml` configuration, markers, admin password, frequency list and chat history are never touched, and nothing on your station moves to the new ports: <br />
 > ```
@@ -762,7 +762,7 @@ For detailed information about installation, usage, and the project structure, p
   - Reading the logs and counters
 
 - **[Several Receivers](docs/MULTI_RECEIVER.md)** - full sysop manual for running two or more receivers on one computer
-- **[Secure Access (HTTPS)](docs/HTTPS.md)** - serving the receiver over https:// with Caddy and a free Let's Encrypt certificate: `setup-https.sh`, the local-network mode, and an existing nginx or Apache
+- **[Secure Access (HTTPS)](docs/HTTPS.md)** - serving the receiver over https:// with Caddy and a free Let's Encrypt certificate: `setup-https.sh`, the local-network mode, and your own reverse proxy (nginx, Nginx Proxy Manager, Apache, Traefik)
   - How the proxy picks a receiver, and the two ways to publish them
   - Adding a second receiver, step by step (an RTL-SDR for 2 m as the example)
   - `receivers.toml`, `start-all.sh` and the instance folders

@@ -594,7 +594,7 @@ El script toma cada respuesta de ese archivo y solo pide su contraseña de sudo 
 
 **HTTPS** muestra si la estación se sirve por https.
 
-- En una estación con https, **🔍 CHECK** ejecuta `setup-https.sh --status`: ¿funciona Caddy y responde el certificado?
+- En una estación con https, **🔍 CHECK** ejecuta `setup-https.sh --status`: ¿funciona Caddy y responde el certificado? Detrás de su propio proxy inverso comprueba en cambio la página, un WebSocket y las direcciones de la página a través de él.
 - En una estación solo http, **🔒 SET UP HTTPS** comprueba lo que puede — `station.conf`, que su nombre DNS se resuelve (una dirección IP no puede obtener certificado), si los puertos 443 y 80 están libres o ya son de Caddy —, le recuerda reenviar TCP 443 y 80 en el router, y da las dos líneas para un terminal, cada una con **📋 COPY**. Allí `setup-https.sh` pide su contraseña de sudo: el panel de administración nunca ejecuta nada como root. Recargue la página al terminar, y el botón pasa a ser **CHECK**. Vea [Acceso seguro — https://](HTTPS.md).
 
 ---

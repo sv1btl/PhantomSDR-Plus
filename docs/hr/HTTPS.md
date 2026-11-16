@@ -2,7 +2,7 @@
 
 Stanica PhantomSDR-Plus može biti dostupna preko **https://** jednako kao preko http://. Preglednik tada prikazuje lokot, veza je šifrirana, a preglednici stranici dopuštaju svoj bolji put zvuka (AudioWorklet), koji uskraćuju običnim http stranicama. Adresa http i dalje radi točno kao prije, jedna uz drugu.
 
-To obavlja **Caddy**, mali web-poslužitelj postavljen ispred prijemnika na portu 443. Caddy od **Let's Encrypta** dobiva besplatan certifikat za DNS ime vaše stanice i sam ga obnavlja, svakih nekoliko mjeseci, a da vi ništa ne morate raditi.
+To obavlja **Caddy**, mali web-poslužitelj postavljen ispred prijemnika na portu 443. Caddy od **Let's Encrypta** dobiva besplatan certifikat za DNS ime vaše stanice i sam ga obnavlja, svakih nekoliko mjeseci, a da vi ništa ne morate raditi. Ako već imate vlastiti reverse proxy koji drži certifikat (nginx, Nginx Proxy Manager, Apache, Traefik …), PhantomSDR-Plus radi iza njega — vidi dolje *Vaš vlastiti reverse proxy*.
 
 ---
 
@@ -20,10 +20,15 @@ To obavlja **Caddy**, mali web-poslužitelj postavljen ispred prijemnika na port
 
 ### Pri instalaciji
 
-Među pitanjima o stanici, u skupini **Internet**, odgovorite da na:
+Među pitanjima o stanici, u skupini **Internet**, odaberite **2** na https pitanju:
 
 ```
-  Also serve the receiver over https://? [y/N]: y
+    1  no https
+    2  https through Caddy, set up here: a free Let's Encrypt certificate,
+       renewed by itself; needs a DNS name above and ports 443 and 80 open
+    3  my own reverse proxy (nginx, Nginx Proxy Manager, Apache, Caddy,
+       Traefik …) already serves https:// and forwards to this receiver
+  https? [1]: 2
 ```
 
 Instalacijski program instalira Caddy, dobiva certifikat i na kraju prikazuje obje adrese.
@@ -35,7 +40,7 @@ cd ~/PhantomSDR-Plus
 bash setup-https.sh
 ```
 
-Čita vaše DNS ime iz `station.conf`, instalira Caddy (iz vaše distribucije; na Ubuntu 22.04 iz Caddyjeva vlastitog repozitorija), usmjerava ga na prijemnik, ponovno gradi stranicu kako bi upućivala na svoju https adresu, ponovno pokreće proxy i čeka certifikat. Odgovor da na https pitanje u `bash configure-station.sh` radi točno isto.
+Čita vaše DNS ime iz `station.conf`, instalira Caddy (iz vaše distribucije; na Ubuntu 22.04 iz Caddyjeva vlastitog repozitorija), usmjerava ga na prijemnik, ponovno gradi stranicu kako bi upućivala na svoju https adresu, ponovno pokreće proxy i čeka certifikat. Izbor **2** na https pitanju u `bash configure-station.sh` radi točno isto.
 
 Kad završi:
 
@@ -112,14 +117,42 @@ Caddy tada izdaje vlastiti certifikat za lokalnu adresu i ime računala. Pregled
 
 ---
 
-## Na ovom računalu već radi web-poslužitelj
+## Vaš vlastiti reverse proxy
 
-Ako nginx, Apache ili druga Caddy postavka već koristi port 443 ili 80, `setup-https.sh` ga ne preuzima: zaustavlja se i ispisuje što dodati vašem poslužitelju. Za nginx, unutar bloka `server { … }` vašeg https sitea:
+Ako već imate reverse proxy koji poslužuje https:// za vaše domene — nginx, Nginx Proxy Manager, Apache, Caddy, Traefik — PhantomSDR-Plus radi iza njega i Caddy se ne instalira. Na https pitanju odaberite **3**:
+
+```bash
+bash configure-station.sh        # https pitanje: 3
+```
+
+Čarobnjak zatim pita odakle se vaš proxy spaja:
+
+| Vaš proxy radi | Odgovor |
+|---|---|
+| na ovom računalu | `127.0.0.1` |
+| na drugom računalu | njegova adresa, npr. `192.168.1.20` |
+| u Dockeru na ovom računalu (npr. Nginx Proxy Manager) | `172.16.0.0/12` |
+
+Više adresa odvaja se razmacima. Odgovor se sprema kao `STATION_PROXY_FROM` u `station.conf`, uz `STATION_HTTPS="external"`, i ostaje sačuvan kroz ažuriranja i kasnija pokretanja čarobnjaka. Stranica tada povezuje svoju https adresu, diversity relej je uključen prema zadanim postavkama, a čarobnjak završava sa svime što vaš proxy treba. Ispisuje to ponovno u bilo kojem trenutku:
+
+```bash
+bash configure-station.sh --proxy-guide
+```
+
+Ukratko:
+
+- **Jedna stranica, jedan port.** Proslijedite `https://vase.ime/` — cijelu — na `http://<ovo računalo>:9014/`. Stranica, `/admin`, `/stats`, `/rade`, `/drm` i `/relay` svi idu kroz tu jednu adresu.
+- **WebSocketi uključeni.** Zvuk, waterfall i chat su WebSocketi: proxy mora propuštati `Upgrade` i `Connection` i dopustiti veze koje ostaju otvorene jedan dan. U Nginx Proxy Manageru označite **Websockets Support**.
+- **Adresa posjetitelja** u `X-Forwarded-For` (većina proxyja je dodaje sama). Port 9014 vjeruje tom zaglavlju samo s adresa koje ste naveli; svaka druga adresa dobiva **403**, pa se nitko ne može predstaviti kao netko drugi.
+- **Ostaju interni** 9001–9015: nikad ih ne prosljeđujte na routeru. Proslijedite 443 (i 80, ako vaš proxy preko njega dohvaća certifikat) na svoj proxy, a ostavite proslijeđen i 9000 za http:// — koriste ga websdr.org, sdr-list i diversity partneri koji imaju samo http.
+
+Za nginx, unutar bloka `server { … }` vaše https stranice (s proxyjem na drugom računalu, umjesto `127.0.0.1` upišite adresu ovog računala):
 
 ```nginx
 location / {
     proxy_pass http://127.0.0.1:9014;
     proxy_http_version 1.1;
+    proxy_set_header Host $host;
     proxy_set_header Upgrade $http_upgrade;
     proxy_set_header Connection "upgrade";
     proxy_set_header X-Forwarded-For $remote_addr;
@@ -127,18 +160,24 @@ location / {
 }
 ```
 
-Za Apache (s `mod_proxy`, `mod_proxy_http` i `mod_proxy_wstunnel`):
+Za Apache 2.4.47 ili noviji (s `mod_proxy`, `mod_proxy_http` i `mod_proxy_wstunnel`):
 
 ```apache
-ProxyPass        / http://127.0.0.1:9014/ upgrade=websocket
+ProxyPass        / http://127.0.0.1:9014/ upgrade=websocket timeout=86400
 ProxyPassReverse / http://127.0.0.1:9014/
 ```
 
-Zatim označite stanicu kao https u `station.conf`, kako bi proxy otvorio port 9014 i stranica upućivala na svoju https adresu — čarobnjak će još jednom reći da je port zauzet, što je očekivano:
+Caddy: `vase.ime { reverse_proxy 127.0.0.1:9014 }`. Traefik: servis s URL-om `http://127.0.0.1:9014`; WebSocketi prolaze sami.
+
+Zatim provjerite s računala prijemnika:
 
 ```bash
-STATION_HTTPS=y bash configure-station.sh
+bash setup-https.sh --status
 ```
+
+Provjerava da port 9014 sluša, da `https://vase.ime/` odgovara, da WebSocket prolazi kroz vaš proxy i da postavke stranice ne sadrže http:// adresu stanice (https stranica je ne može učitati: mixed content). **🔍 CHECK** u admin panelu pokazuje isto.
+
+Ako `bash setup-https.sh` nađe drugi web-poslužitelj na portu 443 ili 80, ne preuzima ga: zaustavlja se i upućuje ovamo.
 
 ---
 
@@ -152,4 +191,7 @@ STATION_HTTPS=y bash configure-station.sh
 | Caddyjev log prikazuje `Invalid response … /.well-known/acme-challenge/…` (502 ili stranicu prijemnika) ili `Timeout during connect` | Router šalje 80 ili 443 negdje drugdje — često na javni port prijemnika. Pravila moraju biti TCP 80 → ovo računalo, port **80**, i TCP 443 → ovo računalo, port **443**; isključite udaljeno upravljanje samog routera na tim portovima. Zatim `sudo systemctl restart caddy` da odmah pokuša ponovno. |
 | https radi kod kuće, ali ne izvana | Usmjernik prosljeđuje 443 na drugo računalo, ili nikamo. |
 | Popis slušatelja ili ploča korisnika prazni su preko https-a | Jednom pokrenite `bash configure-station.sh` i potvrdite ponovnu izgradnju: stranica mora znati svoju https adresu. |
-| `Port 443 is already used by another web server` | Vidi gore *Na ovom računalu već radi web-poslužitelj*. |
+| `Port 443 is already used by another web server` | Vidi gore *Vaš vlastiti reverse proxy*. |
+| Iza vlastitog proxyja: stranica se učita, ali nema zvuka ni waterfalla | Proxy ne propušta WebSockete. nginx: retci `Upgrade` i `Connection`; Nginx Proxy Manager: **Websockets Support**. `bash setup-https.sh --status` to testira. |
+| Iza vlastitog proxyja: `forbidden: not the station's https front` | Vaš proxy se spaja s adrese koje nema u `STATION_PROXY_FROM` — Docker koristi vlastite mreže (`172.16.0.0/12`). Pokrenite `bash configure-station.sh` i dodajte je. |
+| Iza vlastitog proxyja: svi slušatelji imaju istu adresu, ili se četvrti odbija | Proxy prosljeđuje na 9000 umjesto na 9014, ili ne šalje `X-Forwarded-For`. |

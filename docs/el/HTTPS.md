@@ -2,7 +2,7 @@
 
 Ένας σταθμός PhantomSDR-Plus μπορεί να είναι προσβάσιμος μέσω **https://** εκτός από το http://. Ο browser δείχνει τότε το λουκέτο, η σύνδεση είναι κρυπτογραφημένη, και οι browsers επιτρέπουν στη σελίδα τον καλύτερο δρόμο ήχου τους (το AudioWorklet), που τον στερούν από τις απλές σελίδες http. Η διεύθυνση http συνεχίζει να λειτουργεί ακριβώς όπως πριν, δίπλα-δίπλα.
 
-Αυτό το κάνει ο **Caddy**, ένας μικρός web server που μπαίνει μπροστά από τον δέκτη στη θύρα 443. Ο Caddy παίρνει δωρεάν πιστοποιητικό από το **Let's Encrypt** για το όνομα DNS του σταθμού σας και το ανανεώνει μόνος του, κάθε δυο-τρεις μήνες, χωρίς να χρειάζεται να κάνετε τίποτα.
+Αυτό το κάνει ο **Caddy**, ένας μικρός web server που μπαίνει μπροστά από τον δέκτη στη θύρα 443. Ο Caddy παίρνει δωρεάν πιστοποιητικό από το **Let's Encrypt** για το όνομα DNS του σταθμού σας και το ανανεώνει μόνος του, κάθε δυο-τρεις μήνες, χωρίς να χρειάζεται να κάνετε τίποτα. Αν έχετε ήδη δικό σας reverse proxy που κρατά το πιστοποιητικό (nginx, Nginx Proxy Manager, Apache, Traefik …), το PhantomSDR-Plus δουλεύει πίσω από αυτόν — δείτε παρακάτω το *Δικός σας reverse proxy*.
 
 ---
 
@@ -20,10 +20,15 @@
 
 ### Κατά την εγκατάσταση
 
-Στις ερωτήσεις του σταθμού, στην ομάδα **Internet**, απαντήστε ναι στο:
+Στις ερωτήσεις του σταθμού, στην ομάδα **Internet**, επιλέξτε **2** στην ερώτηση https:
 
 ```
-  Also serve the receiver over https://? [y/N]: y
+    1  no https
+    2  https through Caddy, set up here: a free Let's Encrypt certificate,
+       renewed by itself; needs a DNS name above and ports 443 and 80 open
+    3  my own reverse proxy (nginx, Nginx Proxy Manager, Apache, Caddy,
+       Traefik …) already serves https:// and forwards to this receiver
+  https? [1]: 2
 ```
 
 Το πρόγραμμα εγκατάστασης εγκαθιστά τον Caddy, παίρνει το πιστοποιητικό και στο τέλος δείχνει και τις δύο διευθύνσεις.
@@ -35,7 +40,7 @@ cd ~/PhantomSDR-Plus
 bash setup-https.sh
 ```
 
-Διαβάζει το όνομα DNS από το `station.conf`, εγκαθιστά τον Caddy (από τη διανομή σας· στο Ubuntu 22.04 από το αποθετήριο του ίδιου του Caddy), τον κατευθύνει στον δέκτη, ξαναφτιάχνει τη σελίδα ώστε να δείχνει τη διεύθυνση https, επανεκκινεί το proxy και περιμένει το πιστοποιητικό. Το ναι στην ερώτηση https του `bash configure-station.sh` κάνει ακριβώς το ίδιο.
+Διαβάζει το όνομα DNS από το `station.conf`, εγκαθιστά τον Caddy (από τη διανομή σας· στο Ubuntu 22.04 από το αποθετήριο του ίδιου του Caddy), τον κατευθύνει στον δέκτη, ξαναφτιάχνει τη σελίδα ώστε να δείχνει τη διεύθυνση https, επανεκκινεί το proxy και περιμένει το πιστοποιητικό. Η επιλογή **2** στην ερώτηση https του `bash configure-station.sh` κάνει ακριβώς το ίδιο.
 
 Όταν τελειώσει:
 
@@ -112,14 +117,42 @@ bash setup-https.sh --lan
 
 ---
 
-## Τρέχει ήδη web server σε αυτόν τον υπολογιστή
+## Δικός σας reverse proxy
 
-Αν nginx, Apache ή άλλη ρύθμιση Caddy χρησιμοποιεί ήδη τη θύρα 443 ή 80, το `setup-https.sh` δεν την παίρνει: σταματά και τυπώνει τι να προσθέσετε στον δικό σας server. Για nginx, μέσα στο μπλοκ `server { … }` του https site σας:
+Αν έχετε ήδη reverse proxy που σερβίρει https:// για τα domains σας — nginx, Nginx Proxy Manager, Apache, Caddy, Traefik — το PhantomSDR-Plus δουλεύει πίσω του, και δεν εγκαθίσταται Caddy. Επιλέξτε **3** στην ερώτηση https:
+
+```bash
+bash configure-station.sh        # ερώτηση https: 3
+```
+
+Ο οδηγός ρωτά τότε από πού συνδέεται ο proxy σας:
+
+| Ο proxy σας τρέχει | Απάντηση |
+|---|---|
+| σε αυτόν τον υπολογιστή | `127.0.0.1` |
+| σε άλλον υπολογιστή | τη διεύθυνσή του, π.χ. `192.168.1.20` |
+| σε Docker σε αυτόν τον υπολογιστή (π.χ. Nginx Proxy Manager) | `172.16.0.0/12` |
+
+Περισσότερες διευθύνσεις χωρίζονται με κενά. Η απάντηση αποθηκεύεται ως `STATION_PROXY_FROM` στο `station.conf`, δίπλα στο `STATION_HTTPS="external"`, και διατηρείται στις ενημερώσεις και στις επόμενες εκτελέσεις του οδηγού. Η σελίδα δείχνει τότε τη διεύθυνση https, το diversity relay είναι ενεργό από προεπιλογή, και ο οδηγός τελειώνει με όλα όσα χρειάζεται ο proxy σας. Τα ξανατυπώνει οποτεδήποτε:
+
+```bash
+bash configure-station.sh --proxy-guide
+```
+
+Με λίγα λόγια:
+
+- **Ένα site, μία θύρα.** Προωθήστε το `https://to.onoma.sas/` — ολόκληρο — στο `http://<αυτός ο υπολογιστής>:9014/`. Η σελίδα, το `/admin`, το `/stats`, το `/rade`, το `/drm` και το `/relay` περνούν όλα από αυτή τη μία διεύθυνση.
+- **WebSockets ενεργά.** Ήχος, waterfall και chat είναι WebSockets: ο proxy πρέπει να περνά τα `Upgrade` και `Connection` και να επιτρέπει συνδέσεις που μένουν ανοιχτές μια μέρα. Στο Nginx Proxy Manager τσεκάρετε το **Websockets Support**.
+- **Η διεύθυνση του επισκέπτη** στο `X-Forwarded-For` (οι περισσότεροι proxies την προσθέτουν μόνοι τους). Η θύρα 9014 πιστεύει αυτή την κεφαλίδα μόνο από τις διευθύνσεις που δώσατε· κάθε άλλη διεύθυνση παίρνει **403**, ώστε κανείς να μην μπορεί να παρουσιαστεί ως άλλος.
+- **Μένουν εσωτερικές** οι 9001–9015: ποτέ προώθηση στο router. Προωθήστε τη 443 (και την 80, αν ο proxy σας παίρνει το πιστοποιητικό του από εκεί) στον proxy σας, και κρατήστε προωθημένη και τη 9000 για το http:// — τη χρησιμοποιούν το websdr.org, το sdr-list και οι διασυνδεδεμένοι σταθμοί diversity που έχουν μόνο http.
+
+Για nginx, μέσα στο μπλοκ `server { … }` του https site σας (με τον proxy σε άλλον υπολογιστή, γράψτε τη διεύθυνση αυτού του υπολογιστή αντί για `127.0.0.1`):
 
 ```nginx
 location / {
     proxy_pass http://127.0.0.1:9014;
     proxy_http_version 1.1;
+    proxy_set_header Host $host;
     proxy_set_header Upgrade $http_upgrade;
     proxy_set_header Connection "upgrade";
     proxy_set_header X-Forwarded-For $remote_addr;
@@ -127,18 +160,24 @@ location / {
 }
 ```
 
-Για Apache (με `mod_proxy`, `mod_proxy_http` και `mod_proxy_wstunnel`):
+Για Apache 2.4.47 ή νεότερο (με `mod_proxy`, `mod_proxy_http` και `mod_proxy_wstunnel`):
 
 ```apache
-ProxyPass        / http://127.0.0.1:9014/ upgrade=websocket
+ProxyPass        / http://127.0.0.1:9014/ upgrade=websocket timeout=86400
 ProxyPassReverse / http://127.0.0.1:9014/
 ```
 
-Μετά σημειώστε τον σταθμό ως https στο `station.conf`, ώστε το proxy να ανοίξει τη θύρα 9014 και η σελίδα να δείχνει τη διεύθυνση https — ο οδηγός θα πει άλλη μια φορά ότι η θύρα είναι πιασμένη, κάτι αναμενόμενο:
+Caddy: `to.onoma.sas { reverse_proxy 127.0.0.1:9014 }`. Traefik: ένα service με URL `http://127.0.0.1:9014`· τα WebSockets περνούν μόνα τους.
+
+Μετά ελέγξτε το από τον υπολογιστή του δέκτη:
 
 ```bash
-STATION_HTTPS=y bash configure-station.sh
+bash setup-https.sh --status
 ```
+
+Ελέγχει ότι η θύρα 9014 ακούει, ότι το `https://to.onoma.sas/` απαντά, ότι ένα WebSocket περνά από τον proxy σας, και ότι οι ρυθμίσεις της σελίδας δεν περιέχουν διεύθυνση http:// του σταθμού (μια σελίδα https δεν μπορεί να τη φορτώσει: mixed content). Το **🔍 CHECK** του admin panel δείχνει το ίδιο.
+
+Αν το `bash setup-https.sh` βρει άλλον web server στη θύρα 443 ή 80, δεν τον αναλαμβάνει: σταματά και παραπέμπει εδώ.
 
 ---
 
@@ -152,4 +191,7 @@ STATION_HTTPS=y bash configure-station.sh
 | Το log του Caddy δείχνει `Invalid response … /.well-known/acme-challenge/…` (ένα 502 ή τη σελίδα του δέκτη) ή `Timeout during connect` | Ο router στέλνει την 80 ή την 443 αλλού — συχνά στη δημόσια θύρα του δέκτη. Οι κανόνες πρέπει να είναι TCP 80 → αυτός ο υπολογιστής, θύρα **80**, και TCP 443 → αυτός ο υπολογιστής, θύρα **443**· απενεργοποιήστε την απομακρυσμένη διαχείριση του ίδιου του router σε αυτές τις θύρες. Μετά `sudo systemctl restart caddy` για να ξαναδοκιμάσει αμέσως. |
 | Το https λειτουργεί στο σπίτι αλλά όχι απ' έξω | Το router προωθεί την 443 σε άλλον υπολογιστή, ή καθόλου. |
 | Η λίστα ακροατών ή το panel χρηστών είναι κενά μέσω https | Τρέξτε μία φορά `bash configure-station.sh` και απαντήστε ναι στη μεταγλώττιση: η σελίδα πρέπει να ξέρει τη διεύθυνση https της. |
-| `Port 443 is already used by another web server` | Δείτε παραπάνω το *Τρέχει ήδη web server σε αυτόν τον υπολογιστή*. |
+| `Port 443 is already used by another web server` | Δείτε παραπάνω το *Δικός σας reverse proxy*. |
+| Πίσω από δικό σας proxy: η σελίδα φορτώνει, αλλά χωρίς ήχο και χωρίς waterfall | Ο proxy δεν περνά WebSockets. nginx: οι γραμμές `Upgrade` και `Connection`· Nginx Proxy Manager: **Websockets Support**. Το `bash setup-https.sh --status` το ελέγχει. |
+| Πίσω από δικό σας proxy: `forbidden: not the station's https front` | Ο proxy σας συνδέεται από διεύθυνση που δεν είναι στο `STATION_PROXY_FROM` — το Docker χρησιμοποιεί δικά του δίκτυα (`172.16.0.0/12`). Τρέξτε `bash configure-station.sh` και προσθέστε τη. |
+| Πίσω από δικό σας proxy: όλοι οι ακροατές έχουν την ίδια διεύθυνση, ή ο τέταρτος απορρίπτεται | Ο proxy προωθεί στη 9000 αντί για τη 9014, ή δεν στέλνει `X-Forwarded-For`. |

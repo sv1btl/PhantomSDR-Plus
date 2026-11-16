@@ -20,6 +20,15 @@
 #                                    Caddy's own certificate (browsers warn)
 #    bash setup-https.sh --status    is it on, and does the certificate answer?
 #    bash setup-https.sh --remove    turn it off again (http stays as it is)
+#    bash setup-https.sh --caddy-off only take this station's site out of Caddy
+#                                    (the wizard uses it when you switch to
+#                                    your own reverse proxy)
+#
+#  Your own reverse proxy (nginx, Nginx Proxy Manager, Apache, Traefik …)
+#  instead of Caddy: answer 3 at the https question of configure-station.sh
+#  (STATION_HTTPS=external); --status then checks the page, the WebSocket and
+#  the page's own addresses through it, and
+#  bash configure-station.sh --proxy-guide prints what that proxy needs.
 #
 #  Needs: a station set up with configure-station.sh (an older station: run
 #  bash configure-station.sh once — it keeps your ports), a DNS name pointing
@@ -59,6 +68,7 @@ case "${1:-}" in
     --lan)      MODE="lan" ;;
     --status)   MODE="status" ;;
     --remove)   MODE="remove" ;;
+    --caddy-off) MODE="caddy-off" ;;
     -h|--help)  sed -n '2,/^# ─\{20,\}$/p' "$0" | sed '1d;$d;s/^# \{0,2\}//'; exit 0 ;;
     *)          die "unknown option $1 — try --help" ;;
 esac
@@ -85,6 +95,55 @@ probe() {   # probe <name> [-k]
         --resolve "$1:443:127.0.0.1" "https://$1/" 2>/dev/null
 }
 
+# ── --status, your own reverse proxy ─────────────────────────────────────────
+# Nothing here is ours to look at but the outcome: the page and a WebSocket
+# through the public https:// name, and no http:// address of this station
+# left in the page's settings (an https page cannot load it: mixed content).
+if [ "$MODE" = status ] && [ "${STATION_HTTPS:-n}" = external ]; then
+    say "https in station.conf : external (your own reverse proxy)"
+    say "accepted from         : ${STATION_PROXY_FROM:-127.0.0.1} on port ${PORT_TLS:-?}"
+    if [ -n "${PORT_TLS:-}" ] && ss -ltnH "sport = :$PORT_TLS" 2>/dev/null | grep -q .; then
+        ok "proxy.py listens on port $PORT_TLS for your proxy"
+    else
+        warn "nothing listens on port ${PORT_TLS:-?} — restart the proxy: sudo systemctl restart phantomsdr-proxy"
+    fi
+    if [ -z "$HOST" ]; then
+        warn "station.conf has no public address — set it with: bash configure-station.sh"
+    else
+        code="$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 "https://$HOST/" 2>/dev/null)"
+        if [ "$code" = 200 ]; then
+            ok "https://$HOST/ answers with a valid certificate"
+            # 101 = the upgrade went all the way through; curl then waits, hence the time limit
+            code="$(curl -s -o /dev/null -w '%{http_code}' --max-time 4 --http1.1 \
+                    -H 'Connection: Upgrade' -H 'Upgrade: websocket' -H 'Sec-WebSocket-Version: 13' \
+                    -H 'Sec-WebSocket-Key: cGhhbnRvbXNkcnBsdXMxMg==' "https://$HOST/events" 2>/dev/null)"
+            if [ "$code" = 101 ]; then
+                ok "WebSockets pass through your proxy (audio, waterfall, chat)"
+            else
+                warn "a WebSocket does not pass through your proxy (HTTP ${code:-none}): it has to forward"
+                say  "    Upgrade and Connection — nginx: proxy_set_header Upgrade/Connection;"
+                say  "    Nginx Proxy Manager: tick \"Websockets Support\"."
+            fi
+        else
+            warn "https://$HOST/ does not answer from this computer (HTTP ${code:-none})."
+            say  "    Check your proxy and its certificate — or, when this computer cannot reach its own"
+            say  "    public address (no hairpin NAT on the router), open the page from outside."
+        fi
+    fi
+    SI="$PHANTOMDIR/frontend/site_information.json"
+    if [ -f "$SI" ] && [ -n "$HOST" ] && grep -q -i "http://$HOST[:/\"]" "$SI"; then
+        warn "frontend/site_information.json still names http://$HOST — mixed content on the https page."
+        say  "    Run: bash configure-station.sh (ENTER through) — it writes https://$HOST and rebuilds the page."
+    elif [ -f "$SI" ]; then
+        ok "the page's own addresses use https://"
+    fi
+    if command -v systemctl >/dev/null 2>&1 && ! systemctl is-active --quiet phantomsdr-websdr-relay 2>/dev/null; then
+        say "note: the diversity relay is not running. From an https:// page most diversity"
+        say "      partners (plain http) need it: bash setup_websdr_relay.sh --service"
+    fi
+    exit 0
+fi
+
 # ── --status ─────────────────────────────────────────────────────────────────
 if [ "$MODE" = status ]; then
     say "https in station.conf : ${STATION_HTTPS:-n}"
@@ -99,8 +158,8 @@ if [ "$MODE" = status ]; then
     exit 0
 fi
 
-# ── --remove ─────────────────────────────────────────────────────────────────
-if [ "$MODE" = remove ]; then
+# ── --remove (and --caddy-off: the same without touching station.conf) ──────
+if [ "$MODE" = remove ] || [ "$MODE" = caddy-off ]; then
     if [ -f "$SNIPPET" ]; then
         $SUDO rm -f "$SNIPPET" && ok "removed $SNIPPET"
     fi
@@ -114,9 +173,21 @@ if [ "$MODE" = remove ]; then
     elif caddy_active; then
         $SUDO systemctl reload caddy >/dev/null 2>&1 && ok "Caddy reloaded without this station"
     fi
+    if [ "$MODE" = caddy-off ]; then
+        ok "this station's site is out of Caddy"
+        exit 0
+    fi
     wizard n
     ok "https is off — the receiver is on http://${HOST:-your-address}:${PORT_PUBLIC:-9000}/ as before"
     exit 0
+fi
+
+# Your own reverse proxy serves https already: Caddy would fight it for 443.
+if [ "${STATION_HTTPS:-n}" = external ]; then
+    die "this station uses your own reverse proxy (STATION_HTTPS=external), so Caddy is not set up.
+     What that proxy needs: bash configure-station.sh --proxy-guide
+     Check it:             bash setup-https.sh --status
+     Caddy instead:        STATION_HTTPS=y bash configure-station.sh"
 fi
 
 # ── turning it on ────────────────────────────────────────────────────────────
@@ -162,8 +233,9 @@ for port in 443 80; do
         say "        proxy_read_timeout 1d;"
         say "    }"
         say ""
-        say "  then turn https on in station.conf without Caddy:"
-        say "    STATION_HTTPS=y bash configure-station.sh"
+        say "  then tell the station it is behind your own proxy (no Caddy):"
+        say "    STATION_HTTPS=external bash configure-station.sh"
+        say "  bash configure-station.sh --proxy-guide prints the same for Apache, NPM, Traefik."
         exit 1
     fi
 done

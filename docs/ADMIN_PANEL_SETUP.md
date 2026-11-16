@@ -594,7 +594,7 @@ The script takes every answer from that file and asks only for your sudo passwor
 
 **HTTPS** shows whether the station is served over https.
 
-- On an https station, **🔍 CHECK** runs `setup-https.sh --status`: is Caddy running, and does the certificate answer?
+- On an https station, **🔍 CHECK** runs `setup-https.sh --status`: is Caddy running, and does the certificate answer? Behind your own reverse proxy it checks the page, a WebSocket and the page's addresses through it instead.
 - On an http-only station, **🔒 SET UP HTTPS** checks what it can — `station.conf`, that your DNS name resolves (an IP address cannot get a certificate), whether ports 443 and 80 are free or already Caddy's — reminds you to forward TCP 443 and 80 on the router, and gives the two lines to run in a terminal, each with **📋 COPY**. `setup-https.sh` asks for your sudo password there: the admin panel never runs anything as root. Reload the page when it has finished, and the button becomes **CHECK**. See [Secure Access — https://](HTTPS.md).
 
 ---

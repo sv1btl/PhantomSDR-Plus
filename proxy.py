@@ -32,6 +32,7 @@ Run:  python3 proxy.py            (foreground)
 """
 
 import asyncio
+import ipaddress
 import logging
 import re
 import sys
@@ -77,7 +78,24 @@ def _read_station_conf(path: Path) -> dict:
     return out
 
 
+def _read_station_text(path: Path, key: str) -> str:
+    """One text value from station.conf (KEY="value" or KEY=value)."""
+    try:
+        lines = path.read_text().splitlines()
+    except OSError:
+        return ""
+    for line in lines:
+        m = re.match(r'\s*' + key + r'=(?:"([^"]*)"|\'([^\']*)\'|([^\s#]*))', line)
+        if m:
+            return next((g for g in m.groups() if g is not None), "").strip()
+    return ""
+
+
 _cfg = _read_station_conf(Path(__file__).parent / "station.conf")
+# STATION_PROXY_FROM: where the https front connects from (configure-station.sh
+# writes it for STATION_HTTPS=external). admin_config.json may set tls_trusted.
+_cfg["tls_trusted"] = _read_station_text(Path(__file__).parent / "station.conf",
+                                         "STATION_PROXY_FROM")
 _cfg_path = Path(__file__).parent / "admin_config.json"
 try:
     with open(_cfg_path) as _f:
@@ -400,17 +418,97 @@ _CLIENT_ID_HEADERS = frozenset(("x-forwarded-for", "x-forwarded-host",
 
 # ── The https front ───────────────────────────────────────────────────────────
 # setup-https.sh puts Caddy on port 443 and points it at tls_port, a second
-# listener of this proxy on loopback only. Everything arriving there comes from
-# Caddy, so request.remote is 127.0.0.1 for every visitor — which this proxy
+# listener of this proxy (or the sysop's own reverse proxy does, see
+# TLS_TRUSTED below). Everything arriving there comes from that front, so
+# request.remote is the front's address — 127.0.0.1 for Caddy — for every visitor — which this proxy
 # (and spectrumserver behind it) would otherwise take for "this computer":
 # allowed to kick, exempt from the per-IP limits. On that listener the visitor
 # is the address Caddy reports in X-Forwarded-For (the last entry, the one
 # Caddy itself appended), and the request is never local.
 TLS_PORT = int(_cfg.get("tls_port") or 0)
 
+# The https front is Caddy (setup-https.sh) or the sysop's own reverse proxy
+# (STATION_HTTPS=external). Its addresses come from STATION_PROXY_FROM, a list
+# of addresses or networks (127.0.0.1, 192.168.1.20, 172.16.0.0/12 for Docker);
+# empty means this computer only. While every entry is loopback the listener
+# stays on 127.0.0.1; otherwise it listens on every address, and a peer outside
+# the list is refused before anything else, because the front's X-Forwarded-For
+# is believed: anyone else could claim any address there.
+def _parse_trusted(text: str) -> list:
+    nets = []
+    for item in re.split(r"[\s,;]+", text or ""):
+        if not item:
+            continue
+        try:
+            nets.append(ipaddress.ip_network(item, strict=False))
+        except ValueError:
+            print(f"[WARN] STATION_PROXY_FROM: '{item}' is not an address or network — ignored",
+                  file=sys.stderr)
+    return nets or [ipaddress.ip_network("127.0.0.1/32"), ipaddress.ip_network("::1/128")]
+
+
+TLS_TRUSTED = _parse_trusted(str(_cfg.get("tls_trusted") or ""))
+TLS_LOOPBACK_ONLY = all(n.is_loopback for n in TLS_TRUSTED)
+TLS_BIND = "127.0.0.1" if TLS_LOOPBACK_ONLY else None     # None = every address
+
+
+def _front_trusted(request: web.Request) -> bool:
+    try:
+        ip = ipaddress.ip_address(_norm_ip(request.remote or ""))
+    except ValueError:
+        return False
+    if getattr(ip, "ipv4_mapped", None):
+        ip = ip.ipv4_mapped
+    return any(ip.version == n.version and ip in n for n in TLS_TRUSTED)
+
 
 def _via_tls(request: web.Request) -> bool:
     return bool(TLS_PORT) and _local_port(request) == TLS_PORT
+
+
+# ── A reverse proxy of the sysop's own on the public port ─────────────────────
+# A sysop who runs nginx / Apache / NPM on this computer and points it at the
+# public port (instead of tls_port) makes every internet visitor arrive here
+# from 127.0.0.1. Taken at face value that is "this computer": the visitor
+# could reach /~~kick, /~~users and /~~unban, and would be exempt from the
+# per-IP limits. A loopback peer that sends a client-identity header is such a
+# proxy, never the sysop's own tools (the admin panel, autorun taps and the
+# relay send none), so it is not local, and the visitor is the address that
+# proxy reports. Only a process on this computer can be a loopback peer, so
+# believing its header hands nothing to the internet.
+_PROXY_ID_HEADERS = _CLIENT_ID_HEADERS   # any of them marks a relaying proxy
+
+
+def _forwarded_by_proxy(request: web.Request) -> str:
+    """The last address a client-identity header names ("" if none)."""
+    fwd = request.headers.get("X-Forwarded-For", "")
+    if fwd.strip():
+        return fwd.split(",")[-1].strip()
+    real = request.headers.get("X-Real-IP", "").strip()
+    if real:
+        return real
+    # RFC 7239: Forwarded: for=192.0.2.1;proto=https, for="[2001:db8::1]:4711"
+    std = request.headers.get("Forwarded", "")
+    for part in reversed(std.split(",")):
+        for kv in part.split(";"):
+            k, _, v = kv.strip().partition("=")
+            if k.lower() == "for" and v:
+                v = v.strip('"')
+                if v.startswith("["):
+                    return v[1:v.find("]")] if "]" in v else v[1:]
+                if v.count(":") == 1:
+                    v = v.split(":")[0]      # IPv4 with a port
+                return v
+    return ""
+
+
+def _proxied_loopback(request: web.Request) -> bool:
+    """A loopback peer on the public port that relays someone else."""
+    if _via_tls(request):
+        return False
+    if _norm_ip(request.remote) not in ("127.0.0.1", "::1"):
+        return False
+    return any(k.lower() in _PROXY_ID_HEADERS for k in request.headers.keys())
 
 
 def _client(request: web.Request) -> str:
@@ -419,11 +517,15 @@ def _client(request: web.Request) -> str:
         fwd = request.headers.get("X-Forwarded-For", "")
         last = fwd.split(",")[-1].strip() if fwd else ""
         return last or "0.0.0.0"
+    if _proxied_loopback(request):
+        # Never 127.0.0.1 here: spectrumserver would take that for loopback.
+        ip = _norm_ip(_forwarded_by_proxy(request))
+        return ip if ip and ip not in ("127.0.0.1", "::1") else "0.0.0.0"
     return request.remote or ""
 
 
 def _is_local(request: web.Request) -> bool:
-    if _via_tls(request):
+    if _via_tls(request) or _proxied_loopback(request):
         return False
     return _norm_ip(request.remote) in ("127.0.0.1", "::1")
 
@@ -610,6 +712,8 @@ async def proxy_websocket(request: web.Request, upstream: str,
 
 
 async def handle(request: web.Request) -> web.StreamResponse:
+    if _via_tls(request) and not _front_trusted(request):
+        return web.Response(status=403, text="forbidden: not the station's https front\n")
     if request.path == "/__proxy_control/kick":
         return await handle_kick(request)
     # spectrumserver's /~~kick is allowed for a loopback TCP peer — and to it,
@@ -775,7 +879,7 @@ async def main():
         await web.TCPSite(runner, LISTEN_HOST, FRONT_PORT).start()
     if TLS_PORT:
         # loopback only: nothing but the https front may reach it
-        await web.TCPSite(runner, "127.0.0.1", TLS_PORT).start()
+        await web.TCPSite(runner, TLS_BIND, TLS_PORT).start()
 
     print(f"╔══════════════════════════════════════════════════════╗")
     print(f"║  PhantomSDR-Plus Reverse Proxy                       ║")
@@ -786,7 +890,8 @@ async def main():
     for prefix, upstream in SIDE_SERVICES.items():
         print(f"  {prefix + '/*':<9} → {upstream}")
     if TLS_PORT:
-        print(f"  https front (Caddy) → 127.0.0.1:{TLS_PORT}, visitors by X-Forwarded-For")
+        print(f"  https front → {TLS_BIND or '*'}:{TLS_PORT}, visitors by X-Forwarded-For,"
+              f" front from {', '.join(str(n) for n in TLS_TRUSTED)}")
     if RECEIVERS:
         if FRONT_PORT and FRONT_PORT != LISTEN_PORT:
             print(f"  also listening on :{FRONT_PORT} (receivers.toml [front])")

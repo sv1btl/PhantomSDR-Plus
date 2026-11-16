@@ -27,6 +27,8 @@
 #    bash configure-station.sh --ask      ask and save station.conf only
 #    bash configure-station.sh --apply    write the files from station.conf only
 #    bash configure-station.sh --show     print the current answers
+#    bash configure-station.sh --proxy-guide   what your own reverse proxy
+#                                         needs (https through it: STATION_HTTPS=external)
 #
 #  Run it again at any time: the previous answers are the defaults, so ENTER
 #  through everything keeps them. On an installed station it then carries a
@@ -70,6 +72,7 @@ case "${1:-}" in
     --ask)    MODE="ask" ;;
     --apply)  MODE="apply" ;;
     --show)   MODE="show" ;;
+    --proxy-guide) MODE="proxy-guide" ;;
     -h|--help)
         n=0
         while IFS= read -r line; do
@@ -110,7 +113,7 @@ VARS=(STATION_RECEIVER STATION_LAUNCHER STATION_CONFIG STATION_RTL_V4
       STATION_PUBLIC_HOST STATION_SDR_LIST STATION_WEBSDR_ORG
       PORT_PUBLIC PORT_SDR PORT_ADMIN PORT_STATS PORT_RADE PORT_RELAY PORT_DRM
       STATION_ADMIN STATION_RADE STATION_DRM STATION_STATS STATION_RELAY STATION_AUTOSTART
-      STATION_ACCELERATOR STATION_HTTPS PORT_TLS)
+      STATION_ACCELERATOR STATION_HTTPS PORT_TLS STATION_PROXY_FROM)
 declare -A FROM_ENV=()
 for v in "${VARS[@]}"; do
     [ -n "${!v+x}" ] && FROM_ENV[$v]="${!v}"
@@ -123,6 +126,7 @@ SAVED_RECEIVER="${STATION_RECEIVER:-}"      # before the environment overrides i
 SAVED_LAUNCHER="${STATION_LAUNCHER:-}"
 SAVED_HTTPS="${STATION_HTTPS:-n}"
 SAVED_TLS="${PORT_TLS:-}"
+SAVED_PROXY_FROM="${STATION_PROXY_FROM:-}"
 SAVED_HOST="${STATION_PUBLIC_HOST:-}"
 # The ports this station runs on now, to tell afterwards whether they moved.
 SAVED_PORTS=""
@@ -136,6 +140,81 @@ if [ "$MODE" = "show" ]; then
     while IFS= read -r line; do
         [[ $line =~ ^[[:space:]]*(#|$) ]] || printf '%s\n' "$line"
     done < "$STATION_CONF"
+    exit 0
+fi
+
+# ── https through the sysop's own reverse proxy (STATION_HTTPS=external) ─────
+# Everything that proxy has to be told, with ready blocks for the usual ones.
+# It forwards to PORT_TLS, the proxy.py listener that believes X-Forwarded-For
+# from the addresses in STATION_PROXY_FROM only.
+proxy_only_loopback() {   # 0 when every STATION_PROXY_FROM entry is this computer
+    local a
+    for a in ${STATION_PROXY_FROM:-127.0.0.1}; do
+        a="${a%%/*}"
+        [[ $a == 127.* || $a == ::1 ]] || return 1
+    done
+    return 0
+}
+proxy_from_valid() {      # 0 when every entry looks like an address or network
+    local a
+    [ -n "${STATION_PROXY_FROM// /}" ] || return 1
+    for a in $STATION_PROXY_FROM; do
+        [[ $a =~ ^[0-9A-Fa-f:.]+(/[0-9]{1,3})?$ ]] || return 1
+    done
+    return 0
+}
+proxy_guide() {
+    local host="${STATION_PUBLIC_HOST:-sdr.example.com}" here port="${PORT_TLS:-9014}"
+    STATION_PROXY_FROM="${STATION_PROXY_FROM:-127.0.0.1}"
+    if proxy_only_loopback; then
+        here=127.0.0.1
+    else
+        here="$(hostname -I 2>/dev/null | awk '{print $1}')"; here="${here:-this-computer}"
+    fi
+    say ""
+    say "${B}Your own reverse proxy — what it needs${N}"
+    printf '  %-16s %s\n' \
+        "Public address" "https://$host/  (your proxy holds the certificate)" \
+        "Forward to" "http://$here:$port/ — everything, one site: the page, /admin, /stats, /rade, /drm, /relay" \
+        "WebSocket" "required (audio, waterfall, chat); allow idle connections of a day" \
+        "Header" "X-Forwarded-For with the visitor's address (most proxies add it by themselves)" \
+        "Accepted from" "$STATION_PROXY_FROM — any other address gets 403 on port $port" \
+        "Keep internal" "${PORT_SDR:-} ${PORT_ADMIN:-} ${PORT_STATS:-} ${PORT_RADE:-} ${PORT_DRM:-} ${PORT_RELAY:-} $port — never forward these on the router" \
+        "Router" "443 (and 80, for the proxy's certificate) to your proxy" \
+        "" "keep ${PORT_PUBLIC:-9000} forwarded too for http:// (websdr.org, sdr-list, http diversity partners)"
+    say ""
+    say "  nginx (inside the server block of $host):"
+    say "    location / {"
+    say "        proxy_pass http://$here:$port;"
+    say "        proxy_http_version 1.1;"
+    say "        proxy_set_header Host \$host;"
+    say "        proxy_set_header Upgrade \$http_upgrade;"
+    say "        proxy_set_header Connection \"upgrade\";"
+    say "        proxy_set_header X-Forwarded-For \$remote_addr;"
+    say "        proxy_read_timeout 1d;"
+    say "    }"
+    say "  Nginx Proxy Manager: Forward Hostname/IP $here, Forward Port $port, scheme http,"
+    say "    tick \"Websockets Support\"; SSL tab: your certificate, Force SSL."
+    say "  Caddy:    $host { reverse_proxy $here:$port }"
+    say "  Apache 2.4.47+ (mod_proxy, mod_proxy_http, mod_proxy_wstunnel):"
+    say "    ProxyPass        / http://$here:$port/ upgrade=websocket timeout=86400"
+    say "    ProxyPassReverse / http://$here:$port/"
+    say "  Traefik:  a service with url http://$here:$port (WebSockets pass by themselves)."
+    if ! proxy_only_loopback && command -v firewall-cmd >/dev/null 2>&1 \
+       && firewall-cmd --state >/dev/null 2>&1; then
+        say ""
+        warn "firewalld runs here: let your proxy reach port $port, e.g."
+        say "    sudo firewall-cmd --permanent --add-rich-rule='rule family=ipv4 source address=${STATION_PROXY_FROM%% *} port port=$port protocol=tcp accept'"
+        say "    sudo firewall-cmd --reload"
+    fi
+    say ""
+    say "  Then check it from here:  bash setup-https.sh --status"
+}
+if [ "$MODE" = "proxy-guide" ]; then
+    [ -f "$STATION_CONF" ] || die "no station.conf yet — run: bash configure-station.sh"
+    [ "${STATION_HTTPS:-n}" = external ] \
+        || warn "station.conf has STATION_HTTPS=${STATION_HTTPS:-n}, not external — to use your own proxy: STATION_HTTPS=external bash configure-station.sh"
+    proxy_guide
     exit 0
 fi
 
@@ -396,10 +475,16 @@ save_conf() {
         echo "PORT_DRM=$PORT_DRM"
         echo "PORT_RELAY=$PORT_RELAY"
         echo ""
-        echo "# https:// through Caddy on port 443 (setup-https.sh): y, lan or n"
+        echo "# https://: y (Caddy on 443, setup-https.sh), lan, external (your own"
+        echo "# reverse proxy: bash configure-station.sh --proxy-guide) or n"
         echo "STATION_HTTPS=$(q "${STATION_HTTPS:-n}")"
         if [ "${STATION_HTTPS:-n}" != n ]; then
-            echo "PORT_TLS=$PORT_TLS          # loopback port Caddy hands visitors to"
+            echo "PORT_TLS=$PORT_TLS          # port the https front hands visitors to"
+            if [ "${STATION_HTTPS:-n}" = external ]; then
+                echo "# where your reverse proxy connects from: addresses or networks,"
+                echo "# e.g. \"127.0.0.1\", \"192.168.1.20\", \"172.16.0.0/12\" (Docker)"
+                echo "STATION_PROXY_FROM=$(q "${STATION_PROXY_FROM:-127.0.0.1}")"
+            fi
         else
             echo "# PORT_TLS=$PORT_TLS"
         fi
@@ -570,16 +655,46 @@ ask_everything() {
     fi
     # https needs a certificate, and Let's Encrypt issues one for a name, not
     # for a bare IP address. "lan" (setup-https.sh --lan) is kept as it is.
+    # "external": the sysop's own reverse proxy holds the certificate and
+    # forwards to PORT_TLS; nothing is installed for it here.
     if [ "${STATION_HTTPS:-}" != "lan" ]; then
-        say "  https:// as well as http:// — a free certificate from Let's Encrypt,"
-        say "  renewed by itself. Needs a DNS name above, and ports 443 and 80 open"
-        say "  on the router. The http:// address keeps working."
-        ask_yn STATION_HTTPS "Also serve the receiver over https://?" n
+        say "  https:// as well as http:// — the http:// address keeps working in every case."
+        say "    1  no https"
+        say "    2  https through Caddy, set up here: a free Let's Encrypt certificate,"
+        say "       renewed by itself; needs a DNS name above and ports 443 and 80 open"
+        say "    3  my own reverse proxy (nginx, Nginx Proxy Manager, Apache, Caddy,"
+        say "       Traefik …) already serves https:// and forwards to this receiver"
+        local https_n=1
+        case "${STATION_HTTPS:-n}" in y) https_n=2 ;; external) https_n=3 ;; esac
+        if [ -n "${FROM_ENV[STATION_HTTPS]+x}" ]; then
+            HTTPS_CHOICE=$https_n
+            say "  https → ${STATION_HTTPS}"
+        else
+            ask_menu HTTPS_CHOICE "https?" "$https_n" 3
+        fi
+        case "$HTTPS_CHOICE" in 2) STATION_HTTPS=y ;; 3) STATION_HTTPS=external ;; *) STATION_HTTPS=n ;; esac
         if [ "$STATION_HTTPS" = y ] && { [ -z "$STATION_PUBLIC_HOST" ] \
              || [[ $STATION_PUBLIC_HOST =~ ^[0-9.]+$ ]] || [[ $STATION_PUBLIC_HOST == *:* ]]; }; then
             warn "https needs a DNS name (e.g. myname.ddns.net), not an IP address — left off."
             say "    Get a free name from a dynamic-DNS service, then: bash setup-https.sh"
             STATION_HTTPS=n
+        fi
+        if [ "$STATION_HTTPS" = external ] && [ -z "$STATION_PUBLIC_HOST" ]; then
+            warn "your proxy's https:// name goes in \"Public address\" above — left off."
+            STATION_HTTPS=n
+        fi
+        if [ "$STATION_HTTPS" = external ]; then
+            say "  Where does your proxy connect from? 127.0.0.1 when it runs on this"
+            say "  computer; its address when it runs on another one (192.168.1.20);"
+            say "  172.16.0.0/12 when it runs in Docker here. Several: separated by spaces."
+            while true; do
+                ask STATION_PROXY_FROM "Proxy address(es)" "127.0.0.1"
+                STATION_PROXY_FROM="$(printf '%s' "$STATION_PROXY_FROM" | tr ',;' '  ' | xargs)"
+                proxy_from_valid && break
+                warn "\"$STATION_PROXY_FROM\" is not a list of addresses or networks."
+                if [ "$PHANTOM_NONINTERACTIVE" = "1" ]; then STATION_PROXY_FROM=127.0.0.1; break; fi
+                STATION_PROXY_FROM=""
+            done
         fi
     fi
 
@@ -699,7 +814,9 @@ show_ports() {
     printf '    %-6s %s\n' "$PORT_RADE"  "RADE decoder   (reached as /rade)"
     printf '    %-6s %s\n' "$PORT_DRM"   "DRM decoder    (reached as /drm)"
     printf '    %-6s %s\n' "$PORT_RELAY" "WebSDR relay   (reached as /relay)"
-    if [ "${STATION_HTTPS:-n}" != n ]; then
+    if [ "${STATION_HTTPS:-n}" = external ]; then
+        printf '    %-6s %s\n' "$PORT_TLS" "https front    (your reverse proxy forwards to it)"
+    elif [ "${STATION_HTTPS:-n}" != n ]; then
         printf '    %-6s %s\n' "$PORT_TLS" "https front    (Caddy on 443 hands visitors to it)"
         printf '    %-6s %s\n' "443, 80" "https, and the certificate check — forward these too"
     fi
@@ -728,7 +845,12 @@ summary() {
         "Station" "${STATION_CALLSIGN:-—}  ${STATION_LOCATOR}  ${STATION_CITY}" \
         "Address" "${STATION_PUBLIC_HOST:-(not set)}:$PORT_PUBLIC" \
         "Listings" "sdr-list.xyz: $STATION_SDR_LIST   websdr.org: $STATION_WEBSDR_ORG" \
-        "https" "$( [ "${STATION_HTTPS:-n}" = y ] && echo "yes — https://$STATION_PUBLIC_HOST/" || { [ "${STATION_HTTPS:-n}" = lan ] && echo "local network only" || echo no; } )" \
+        "https" "$(case "${STATION_HTTPS:-n}" in
+                       y) echo "yes — https://$STATION_PUBLIC_HOST/" ;;
+                       lan) echo "local network only" ;;
+                       external) echo "your own proxy — https://$STATION_PUBLIC_HOST/ → port $PORT_TLS, from $STATION_PROXY_FROM" ;;
+                       *) echo no ;;
+                   esac)" \
         "Extras" "admin: $STATION_ADMIN  RADE: $STATION_RADE  DRM: $STATION_DRM  stats: $STATION_STATS  relay: $STATION_RELAY  autostart: $STATION_AUTOSTART"
 }
 
@@ -886,8 +1008,9 @@ elif s is not None:
 write(cfg, "\n".join(lines) + "\n")
 
 # The page embeds {siteIP}/users.html; an http frame inside an https page is
-# blocked, so with https on, siteIP is the https address.
-site_ip = ((f"https://{host}" if E.get("STATION_HTTPS") == "y" else f"http://{host}:{port_public}")
+# blocked, so with https on (Caddy or the sysop's own proxy), siteIP is the
+# https address.
+site_ip = ((f"https://{host}" if E.get("STATION_HTTPS") in ("y", "external") else f"http://{host}:{port_public}")
            if host else "")
 
 # Names this station is known by: now, before, and in the links of the
@@ -1113,7 +1236,8 @@ carry_ports() {
     # https on/off or its loopback port: the proxy has to open or close that
     # listener, so it needs the restart even when no page file changed.
     if [ "${STATION_HTTPS:-n}" != "$SAVED_HTTPS" ] \
-       || { [ "${STATION_HTTPS:-n}" != n ] && [ "${PORT_TLS:-}" != "$SAVED_TLS" ]; }; then
+       || { [ "${STATION_HTTPS:-n}" != n ] && [ "${PORT_TLS:-}" != "$SAVED_TLS" ]; } \
+       || { [ "${STATION_HTTPS:-n}" = external ] && [ "${STATION_PROXY_FROM:-}" != "$SAVED_PROXY_FROM" ]; }; then
         PORTS_MOVED=y
     fi
     if [ "$PORTS_MOVED" = y ] && [ -f "$PHANTOMDIR/admin_config.json" ]; then
@@ -1241,6 +1365,10 @@ case "$MODE" in
                     case "${STATION_HTTPS:-n}" in
                         y)   bash "$PHANTOMDIR/setup-https.sh" ;;
                         lan) bash "$PHANTOMDIR/setup-https.sh" --lan ;;
+                        # your own proxy instead of ours: only our Caddy site goes
+                        external) case "$SAVED_HTTPS" in
+                                      y|lan) bash "$PHANTOMDIR/setup-https.sh" --caddy-off ;;
+                                  esac ;;
                         *)   bash "$PHANTOMDIR/setup-https.sh" --remove ;;
                     esac
                 fi
@@ -1248,3 +1376,8 @@ case "$MODE" in
         fi
         ;;
 esac
+
+# Your own reverse proxy: end with what it has to be told.
+if [ "$MODE" = all ] && [ "${STATION_HTTPS:-n}" = external ] && [ -z "${PHANTOM_FROM_HTTPS:-}" ]; then
+    proxy_guide
+fi

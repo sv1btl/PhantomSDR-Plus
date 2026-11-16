@@ -305,7 +305,7 @@ Prozori dBm / dBµV / SNR / NF u **oba** instrumenta čitaju analogno umjerenu v
 - **[THERMAL_GUARD.md](THERMAL_GUARD.md)** - Priručnik za sysopa o zaštiti od pregrijavanja procesora: četiri načina rada i što učiniti u svakome
 - **[CONNECTION_LIMITS.md](CONNECTION_LIMITS.md)** - Priručnik za sysopa o ograničenjima veza: zaštita javnog prijemnika od poplave veza
 - **[MULTI_RECEIVER.md](MULTI_RECEIVER.md)** - Priručnik za sysopa o više prijemnika na jednom računalu: instance, `receivers.toml`, izbornik prijemnika i `start-all.sh`
-- **[HTTPS.md](HTTPS.md)** - Siguran pristup: prijemnik preko https:// s Caddyjem i besplatnim Let's Encrypt certifikatom, `setup-https.sh`, način rada za lokalnu mrežu te postojeći nginx ili Apache
+- **[HTTPS.md](HTTPS.md)** - Siguran pristup: prijemnik preko https:// s Caddyjem i besplatnim Let's Encrypt certifikatom, `setup-https.sh`, način rada za lokalnu mrežu te vlastiti reverse proxy (nginx, Nginx Proxy Manager, Apache, Traefik)
 - **[PROJECT_STRUCTURE.md](PROJECT_STRUCTURE.md)** – struktura direktorija i organizacija koda
 - **[EDITING_VARIANTS.md](https://github.com/sv1btl/PhantomSDR-Plus/blob/main/docs/hr/EDITING_VARIANTS.md)** – kako uređivati varijante frontenda (S-metar i raspored) i ponovno ih izgraditi
 

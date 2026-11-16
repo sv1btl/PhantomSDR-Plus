@@ -594,7 +594,7 @@ Skripta uzima svaki odgovor iz te datoteke i traži samo vašu sudo lozinku (tre
 
 **HTTPS** pokazuje radi li stanica preko https-a.
 
-- Na https stanici **🔍 CHECK** pokreće `setup-https.sh --status`: radi li Caddy i odgovara li certifikat?
+- Na https stanici **🔍 CHECK** pokreće `setup-https.sh --status`: radi li Caddy i odgovara li certifikat? Iza vašeg vlastitog reverse proxyja umjesto toga provjerava stranicu, WebSocket i adrese stranice kroz njega.
 - Na stanici samo s http-om **🔒 SET UP HTTPS** provjerava što može — `station.conf`, razrješava li se vaše DNS ime (IP adresa ne može dobiti certifikat), jesu li portovi 443 i 80 slobodni ili već Caddyjevi —, podsjeća vas da na routeru proslijedite TCP 443 i 80, i daje dva retka za terminal, svaki s **📋 COPY**. Tamo `setup-https.sh` traži vašu sudo lozinku: administratorska ploča nikad ništa ne pokreće kao root. Kad završi, ponovno učitajte stranicu i gumb postaje **CHECK**. Vidi [Siguran pristup — https://](HTTPS.md).
 
 ---

@@ -305,7 +305,7 @@ segments = round((value + 100) x 35 / 100) + DIGITAL_BAR_TRIM
 - **[THERMAL_GUARD.md](THERMAL_GUARD.md)** - Руководство сисопа по защите от перегрева процессора: четыре режима и что делать в каждом
 - **[CONNECTION_LIMITS.md](CONNECTION_LIMITS.md)** - Руководство сисопа по ограничениям подключений: защита публичного приёмника от лавины подключений
 - **[MULTI_RECEIVER.md](MULTI_RECEIVER.md)** - Руководство сисопа по нескольким приёмникам на одном компьютере: экземпляры, `receivers.toml`, выбор приёмника и `start-all.sh`
-- **[HTTPS.md](HTTPS.md)** - Безопасный доступ: приёмник по https:// с Caddy и бесплатным сертификатом Let's Encrypt, `setup-https.sh`, режим локальной сети и уже работающий nginx или Apache
+- **[HTTPS.md](HTTPS.md)** - Безопасный доступ: приёмник по https:// с Caddy и бесплатным сертификатом Let's Encrypt, `setup-https.sh`, режим локальной сети и собственный обратный прокси (nginx, Nginx Proxy Manager, Apache, Traefik)
 - **[PROJECT_STRUCTURE.md](PROJECT_STRUCTURE.md)** — структура каталогов и организация кода
 - **[EDITING_VARIANTS.md](https://github.com/sv1btl/PhantomSDR-Plus/blob/main/docs/ru/EDITING_VARIANTS.md)** — как редактировать варианты фронтенда (S-метр и компоновка) и пересобирать их
 

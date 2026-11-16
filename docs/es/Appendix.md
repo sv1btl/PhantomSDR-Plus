@@ -142,8 +142,9 @@ Todos los comandos que un sysop usa para operar una estación PhantomSDR-Plus, a
 | `sudo ufw allow 9000/tcp` | Abre el puerto público en el cortafuegos ufw. | [Guía de instalación](INSTALLATION.md#no-se-puede-acceder-desde-otros-dispositivos) |
 | `bash setup-https.sh` | Activa HTTPS con un certificado gratuito de Let's Encrypt; HTTP sigue funcionando. | [Acceso seguro (HTTPS)](HTTPS.md#en-una-estación-que-ya-funciona) |
 | `bash setup-https.sh --lan` | HTTPS solo dentro de la red local (los navegadores avisan del certificado). | [Acceso seguro (HTTPS)](HTTPS.md#solo-en-la-red-local----lan) |
-| `bash setup-https.sh --status` | Muestra si HTTPS está activo y si el certificado responde. | [Acceso seguro (HTTPS)](HTTPS.md#comprobar-y-desactivar) |
+| `bash setup-https.sh --status` | Muestra si HTTPS está activo y si el certificado responde; detrás de su propio proxy, la página, un WebSocket y las direcciones de la página a través de él. | [Acceso seguro (HTTPS)](HTTPS.md#comprobar-y-desactivar) |
 | `bash setup-https.sh --remove` | Desactiva HTTPS; el HTTP normal queda como está. | [Acceso seguro (HTTPS)](HTTPS.md#comprobar-y-desactivar) |
+| `bash configure-station.sh --proxy-guide` | Muestra lo que necesita su propio proxy inverso: puerto, WebSocket, cabecera, bloques de ejemplo. | [Acceso seguro (HTTPS)](HTTPS.md#su-propio-proxy-inverso) |
 
 ## Servicios opcionales
 

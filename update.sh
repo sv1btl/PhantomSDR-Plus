@@ -167,6 +167,8 @@ confirm() {
 # ------------------------------------------------------------------------------
 usage() { awk 'NR > 2 && /^# ─/ { exit } NR > 2 { sub(/^# ?/, ""); print }' "$SCRIPT_PATH"; }
 
+# Kept as given, for the re-exec from a copy below.
+ORIG_ARGS=("$@")
 while [ $# -gt 0 ]; do
     case "$1" in
         --apply)          MODE="apply"; shift ;;
@@ -455,7 +457,14 @@ fi
 # --restore needs this exactly as much as --apply, and used to run before it:
 # update.sh is an ordinary Tier C file, so an update backs it up like any other,
 # and putting that backup back rewrites the very script doing the putting back.
-if { [ "$MODE" = "apply" ] || [ "$MODE" = "restore" ]; } \
+#
+# So does a plain run: it reports and then asks "Update these files now?", and a
+# yes turns it into an update in the same process. Without the copy, an update
+# that brought a new update.sh died right after "Applying" with "syntax error
+# near unexpected token" — every file written, but no backup, no manifest, no
+# rebuild offer and nothing that had been stopped started again (2026-11-21).
+if { [ "$MODE" = "apply" ] || [ "$MODE" = "restore" ] \
+     || { [ "$MODE" = "check" ] && [ "$ASK_TO_APPLY" = true ]; }; } \
    && [ -z "${PHANTOM_UPDATE_REEXEC:-}" ]; then
     SELF_COPY="$(mktemp "${TMPDIR:-/tmp}/phantom-update-XXXXXX.sh")"
     cat "$SCRIPT_PATH" > "$SELF_COPY"
@@ -465,16 +474,9 @@ if { [ "$MODE" = "apply" ] || [ "$MODE" = "restore" ]; } \
     # child cannot see our locals: the path of the copy to delete has to be
     # handed over in the environment, or every run leaves one behind in /tmp.
     export PHANTOM_UPDATE_SELF_COPY="$SELF_COPY"
-    # Rebuild the argument list; the flags are all we need to carry over.
-    if [ "$MODE" = "restore" ]; then
-        args=(--restore "$RESTORE_ARG")
-    else
-        args=(--apply --ref "$REF")
-        if [ "$ASSUME_YES" = true ]; then args+=(--yes);   fi
-        if [ "$PRUNE"      = true ]; then args+=(--prune); fi
-    fi
-    if [ "$VERBOSE" = true ]; then args+=(--verbose); fi
-    exec "$SELF_COPY" "${args[@]}"
+    # The arguments exactly as given. Rebuilding them from the parsed flags
+    # once dropped --from, so "--apply --from FILE" fetched GitHub instead.
+    exec "$SELF_COPY" ${ORIG_ARGS[@]+"${ORIG_ARGS[@]}"}
 fi
 SELF_COPY="${PHANTOM_UPDATE_SELF_COPY:-}"
 trap '[ -n "${SELF_COPY:-}" ] && rm -f "$SELF_COPY"' EXIT

@@ -123,6 +123,7 @@ Each `start-*.sh` below is a **self-contained launcher + watchdog + logger**: it
 | `admin_server.py` | The admin panel itself. Besides the management pages it runs the **Graphs** sampler: a background thread takes CPU frequency, load, temperature and users online every 2 seconds and keeps them in memory only — 1 hour at full resolution plus 24 hours of 30-second averages. Nothing is written to disk, so the history is lost on restart. |
 | `admin_config.json` | Admin panel settings (password hash, ports, options, thermal guard thresholds) |
 | `proxy.py` | The public port. Serves the page and carries `/admin` to the panel and — on a station set up with the wizard — `/rade`, `/stats` and `/relay` to the services behind it, so only one port is forwarded. Reads its ports from `admin_config.json`, or from `station.conf` when there is no panel (`setup_admin.sh --proxy-only`) |
+| `asn_db.py` | Network (ASN / ISP) bans: looks addresses up in the iptoasn.com table in `asn-db/` and keeps the rules in `asn_bans.json`. Used by `proxy.py` (refuses at connect time) and `admin_server.py` (rules, Users list, the 20-second sweep) |
 | `thermal_guard.py` | CPU over-temperature guard. Stops the server when the CPU gets too hot and restarts it once cool, deriving its thresholds from the critical trip point your own CPU publishes instead of a fixed number. It never identifies what supervises the server — while over-temp it re-issues the stop every 2 s, so a watchdog, systemd unit or cron job that revives it is undone until the machine cools. Stdlib-only; imported by `admin_server.py` (ticked from the Graphs sampler) and also runnable standalone for installations without the panel. Defaults to log-only, so it acts on nothing until enabled — see the [Thermal Guard manual](THERMAL_GUARD.md) |
 | `autorun/` | The spot-reporting daemon — see [Autorun Spot Reporter](INSTALLATION.md#autorun-spot-reporter-ft8ft4wspr) |
 | `autorun.json` | Which bands/modes to decode and in which UTC hours, identity, destinations and autostart |
@@ -192,7 +193,7 @@ The web-based user interface built with Svelte and Vite.
 - Layout structure
 - Component orchestration
 - **Decoders button row** — one button per decoder, on the main panel directly under the Modes; press to start the decoder and open its window, press again to stop. It replaced the former Bandwidth row. RADE-v2U/RADE-v1L/RADE-v1U live in `lib/ModesSelector.svelte` instead, beside the Modes and inside the Modes and Bands pop-ups.
-- **Version line** — "PhantomSDR+ | v5.5.0 original from github.com/sv1btl/PhantomSDR-Plus", with the address as a link; the same line is on the /mobile page. The version number and the address live in `lib/version.js`; the line is an author attribution covered by `ADDITIONAL_TERMS.md`.
+- **Version line** — "PhantomSDR+ | v6.0.0 original from github.com/sv1btl/PhantomSDR-Plus", with the address as a link; the same line is on the /mobile page. The version number and the address live in `lib/version.js`; the line is an author attribution covered by `ADDITIONAL_TERMS.md`.
 
 #### 2. Waterfall Display (`waterfall.js` + `lib/`)
 - Canvas-based spectrum and waterfall rendering and colormaps in `waterfall.js` (plain JS, not a component); the **Auto Adj.** brightness/contrast remap is `lib/wfAutoLevel.js`
@@ -232,7 +233,7 @@ Each of the heavy mode decoders runs in its own Web Worker so that decoding neve
 | SSTV | `sstv.js` | `sstv.worker.js` | `sstvWorkerProxy.js` |
 | HF FAX | `fax.js` | `fax.worker.js` | `faxWorkerProxy.js` |
 | NAVTEX + FLDIGI (ALE 2G HAM, FSK/RTTY, PSK31/63/125, QPSK, Olivia, Contestia, PSK Browser, Olivia Browser, RTTY Browser, MFSK Browser, FST4W, MFSK, MSK144, DominoEX, THOR, THROB, Hellschreiber, MT63, Packet/APRS) + SERVICES (Maritime FSK / SITOR, Weather RTTY, ALE 2G) | `fsk.js`, `psk31.js`, `olivia.js`, `mfsk.js`, `ifk.js`, `throb.js`, `hell.js`, `mt63.js`, `fldigiFec.js`, `ax25.js`, `ale.js`, `fst4w.js`, `msk144.js`, `pskBrowser.js`, `oliviaBrowser.js`, `rttyBrowser.js`, `mfskBrowser.js` | `fsk.worker.js` | `fskWorkerProxy.js` |
-| SERVICES (DSC, Time Signals, HF Selcall) | `dsc.js`, `timesig.js` | `services.worker.js` | `servicesWorkerProxy.js` |
+| SERVICES (DSC, Time Signals, HF Selcall, AQC-ALE, SITOR-A/ARQ-E/ARQ-E3, STANAG 4285, MIL-STD-188-110A, 3G ALE) | `dsc.js`, `timesig.js`, `ale.js`, `krypto500/*.js` | `services.worker.js` | `servicesWorkerProxy.js` |
 | CW, CW Browser | `cwDecoder.js`, `cwBrowser.js` | `cw.worker.js` | `cwWorkerProxy.js` |
 
 #### 4b. Receive Diversity (`diversity.js`)
@@ -279,6 +280,7 @@ Each of the heavy mode decoders runs in its own Web Worker so that decoding neve
 - The public `/users`, `users.json` and the `/logs/users_*.jsonl` that `stats.html` reads carry no IP address: the log copy has an opaque `visitor` code instead (keyed hash, key in `logs/.visitor_salt`); the files on disk keep the addresses. The admin panel reads `/~~users`, answered only to a loopback peer without `X-Forwarded-For`
 - The running decoder goes the same way: `App.svelte` sends `{"cmd":"decoder","name":"FT8"}` (empty when none) whenever it changes, and `audio.js` sends it again on a new socket. The server keeps a short label (letters, digits, space, `-+/`, at most 12) and gives it as `decoder` in `/users` and in each `users_*.jsonl` line; a change is logged like a retune, so `stats.html` (Decoder Popularity) and the admin Visitors page can count it
 - The admin panel's 8/16/24-hour bans live in `admin_bans.json` (never distributed) and are re-sent to every receiver once a minute; `/~~unban` lifts one
+- Network bans (AS number or ISP name, until removed): `asn_db.py` looks each address up in the iptoasn.com table in `asn-db/` and reads the rules from `asn_bans.json` (neither is distributed); `proxy.py` refuses a match at connect time, and the admin panel disconnects matching listeners already connected every 20 seconds
 
 #### 5. State Management (`stores/`)
 - Reactive data stores

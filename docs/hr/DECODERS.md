@@ -44,7 +44,7 @@ Padajući izbornik nije jedini put. Glavna ploča ima red gumba **Decoders** —
 | **FT4** | FT4 | **FLDIGI** | ALE 2G HAM, RTTY, PSK31·63·125, QPSK, Olivia, Contestia, FST4W, MFSK, MSK144, DominoEX, THOR, THROB, Hellschreiber, MT63, Packet, APRS |
 | **FT2** | FT2 | **NAVTEX** | NAVTEX |
 | **CW** | CW | **FAX** | HF FAX / WEFAX |
-| **JS8** | JS8 | **SERVICES** | HFDL (zrakoplovi), Pomorski FSK / SITOR, Meteorološki RTTY, Mornarički RTTY (PBB), DSC (brodovi), Time Signals (vremenski signali), HF Selcall, ALE 2G |
+| **JS8** | JS8 | **SERVICES** | HFDL (zrakoplovi), Pomorski FSK / SITOR, Meteorološki RTTY, Mornarički RTTY (PBB), DSC (brodovi), Time Signals (vremenski signali), HF Selcall, ALE 2G, AQC-ALE, SITOR-A / ARQ-E / ARQ-E3, STANAG 4285, MIL-STD-188-110A, 3G ALE |
 | **WSPR** | WSPR | **DRM** | DRM — digitalno emitiranje |
 
 Pritisak na gumb odrađuje cijeli slijed odjednom: odabire dekoder, uključuje dekoder (ON) i dovodi njegov prozor na zaslon. Gumb je plav dok njegov dekoder radi. **Ponovni pritisak na isti gumb isključuje dekoder** — njegov se prozor zatvara s njim.
@@ -426,7 +426,7 @@ Kliknite **Clear** da izbrišete popis spotova.
 2. Ploča **HF FAX / WEFAX Receiver** pojavljuje se ispod.
 3. **Odaberite postaju** iz padajućeg izbornika Station. Dostupno je više od 20 postaja koje pokrivaju Europu, Aziju, Oceaniju i Ameriku (npr. DDH3/DDK3 Njemačka, SVJ4/GR Grčka, JMH Japan, NMG SAD New Orleans). Tu je i CBM Punta Arenas (Čile). Rasporedi prate NOAA-in svjetski raspored radiofaksa (izdanje od 7. ožujka 2025.); Charleville (VMC, Australija) uključuje svoje dodatne emisije samo na 11030 kHz.
 4. Ako postaja emitira na više frekvencija, odaberite željenu iz podizbornika **Frequency**.
-5. Kliknite **▶ Tune** da automatski ugodite slap na tu postaju.
+5. Kliknite **▶ Tune** da automatski ugodite slap na tu postaju. Slap se centrira na frekvenciju postaje, širine oko 50 kHz, a Auto Adj. je uključen dok radi HF FAX (isključuje se kad se dekoder zaustavi).
 6. Način rada automatski se postavlja na **USB**.
 
 ### Raspored emitiranja
@@ -482,7 +482,7 @@ Na dnu slike dva pokazatelja tona prikazuju:
 1. Uključite dekoder i iz padajućeg izbornika odaberite **NAVTEX**. Ili jednostavno pritisnite gumb **NAVTEX**. Prijamnik automatski prelazi na **USB**.
 2. Pojavljuje se ploča **NAVTEX Receiver**.
 3. Odaberite željeni kanal iz izbornika **Station** (npr. `International — 518 kHz`).
-4. Kliknite **⇒ Tune & Set IF** da automatski ugodite slap i suzite propusni pojas na ispravan audioprozor. Način rada automatski se postavlja na **USB**. Prikazana frekvencija postavlja se 500 Hz ispod središta kanala, pa se NAVTEX signal pojavljuje na 500 Hz u zvuku. Prikaz frekvencije ipak pokazuje **518.000**: dok je uključen HF FAX, NAVTEX ili prozor FLDIGI, prikazuje frekvenciju samog signala (frekvenciju ugađanja plus audio središte dekodera — 1900 Hz za FAX, 500 Hz za NAVTEX, središte ploče za FLDIGI), a frekvencija tada upisana uzima se kao frekvencija signala.
+4. Slap se centrira na kanal, širine oko 50 kHz, a Auto Adj. je uključen dok radi NAVTEX (isključuje se kad se dekoder zaustavi). Kliknite **⇒ Tune & Set IF** da automatski ugodite slap i suzite propusni pojas na ispravan audioprozor. Način rada automatski se postavlja na **USB**. Prikazana frekvencija postavlja se 500 Hz ispod središta kanala, pa se NAVTEX signal pojavljuje na 500 Hz u zvuku. Prikaz frekvencije ipak pokazuje **518.000**: dok je uključen HF FAX, NAVTEX ili prozor FLDIGI, prikazuje frekvenciju samog signala (frekvenciju ugađanja plus audio središte dekodera — 1900 Hz za FAX, 500 Hz za NAVTEX, središte ploče za FLDIGI), a frekvencija tada upisana uzima se kao frekvencija signala.
 
 ### Raspored emitiranja
 
@@ -757,7 +757,7 @@ Prepoznati način rada pojavljuje se i zelenom bojom uz naslov **SSTV**, a broja
 
 ## 12. SERVICES
 
-**SERVICES** (gumb se prije zvao **HFDL**) jedan je prozor za uslužne službe. Popis **Service** gore lijevo u prozoru bira što se dekodira: **HFDL** (zrakoplovi), **Maritime FSK / SITOR**, **Weather RTTY**, **Naval RTTY (PBB CARB)**, **DSC** (brodovi), **Time Signals** (vremenski signali), **HF Selcall** i **ALE 2G (MIL-STD-188-141)**. Vaš preglednik pamti izbor. Radi jedna služba u isto vrijeme; svaka postavlja način rada i filtar koji joj treba, ima vlastiti popis frekvencija s **⇒ Tune & Set IF** i dekodira u vašem pregledniku, pa prijemnik ništa ne košta. Svaka služba ima **💾 Save** (tekstna datoteka) i **Clear**, a prozor Users pokazuje koju službu slušatelj koristi. Amaterski ALE kanali nalaze se u prozoru FLDIGI, kao ALE 2G HAM (poglavlje 10).
+**SERVICES** je jedan prozor za uslužne službe; popis **Service** gore lijevo bira jednu: **HFDL**, **Maritime FSK / SITOR**, **Weather RTTY**, **Naval RTTY (PBB CARB)**, **DSC**, **Time Signals**, **HF Selcall**, **ALE 2G**, **AQC-ALE**, **FSK modes (SITOR-A, ARQ-E, ARQ-E3)**, **STANAG 4285**, **MIL-STD-188-110A serial** i **3G ALE**. Radi jedna po jedna; sama postavlja način rada i filtar, ima vlastiti popis frekvencija s **⇒ Tune & Set IF**, **💾 Save** i **Clear** te dekodira u vašem pregledniku, pa prijemnik ništa ne košta. Frekvencija ugođena s popisa dolazi u središte slapa, širine oko 50 kHz, a Auto Adj. je uključen dok radi SERVICES (isključuje se kad se zaustavi). Prozor Users pokazuje koju službu slušatelj koristi. Amaterski ALE kanali su u prozoru FLDIGI (poglavlje 10).
 
 ### HFDL — poruke zrakoplova
 
@@ -811,8 +811,6 @@ Svaki poziv prikazuje vrijeme, frekvenciju, kategoriju u boji (**DISTRESS** crve
 
 ### Vremenski signali (Time Signals)
 
-Dekodira datum i vrijeme koje šalju dugovalne i kratkovalne postaje točnog vremena te pokazuje koliko je kasno oznaka minute stigla na vašu stranicu.
-
 1. Odaberite **Time Signals** u popisu **Service**, postaju i njezinu frekvenciju pa kliknite **⇒ Tune & Set IF**. Skala ide 1 kHz ispod nosioca, u USB-u, s filtrom od 700–1300 Hz.
 2. Pričekajte. Cijela minuta mora stići čista prije nego što se vrijeme može prikazati: jedna do dvije minute uz dobar signal. Sekunde popunjavaju niz od 60 polja kako pristižu.
 
@@ -835,7 +833,21 @@ Soundingi, pozivi i poruke KV mreža državnih službi, vojske i službi: 51 mre
 1. Odaberite **ALE 2G (MIL-STD-188-141)** u popisu **Service**, mrežu i jedan od njezinih kanala, i kliknite **⇒ Tune & Set IF**. Frekvencija s popisa je frekvencija skale; prijamnik prelazi na USB, ili LSB za tako označene mreže, s filtrom od 500–2750 Hz.
 2. Pričekajte. Soundingi dolaze svakih pola sata ili sat, pozivi samo kad je potrebna veza.
 
-To su javni popisi i mogu biti zastarjeli. Prozor Users prikazuje *ALE* za slušatelja koji ga koristi.
+### AQC-ALE
+
+AQC-ALE (MIL-STD-188-141B, dodatak A) je oblik brzog poziva ALE 2G: isti modem s 8 tonova, sa zbijenim šesteroznakovnim adresama i podatkovnim poljima. Svaki redak je poziv, odgovor, uspostavljena veza, sondiranje ili inlink transakcija, s vrstom prometa, izvješćem o šumu i kvalitetom veze koje stanice razmjenjuju; prikazuju se i obični ALE 2G pozivi na kanalu. Popis sadrži mrežu specijalnih operacija američkog ratnog zrakoplovstva, prijavljenu kako sondira u AQC-u. Ugađajte točno: signal pomaknut oko 60 Hz ne čita se.
+
+### FSK načini: SITOR-A, ARQ-E i ARQ-E3
+
+Tri sinkrona teleprinterska sustava koja ponavljaju ono što nije primljeno: **SITOR-A** (100 Bd, CCIR 476, blokovi od tri znaka; ponavljanja se odbacuju), **ARQ-E** (ITA2 s paritetom, svaki 4. ili 8. znak invertiran) i **ARQ-E3** (ITA3). U panelu odaberite **System**, **Baud**, **Shift** i **Centre**; polaritet i takt znakova pronalaze se sami. Popis sadrži SITOR-A frekvencije egipatskog ministarstva vanjskih poslova; za ARQ-E i ARQ-E3 nema novijih javnih zapisa.
+
+### STANAG 4285 i MIL-STD-188-110A
+
+Standardni podatkovni modemi NATO-a i vojske: 8-PSK s 2400 simbola/s na 1800 Hz, puna 3 kHz širine (filtar se postavlja na 150–3450 Hz). **MIL-STD-188-110A** navodi brzinu (75–4800 bps) i interleaver u preambuli, pa se čita od početka emisije. **STANAG 4285** ne navodi: nakon zaključavanja na okvire dekoder isprobava svaku brzinu i interleaver i zadržava onaj koji dekodira (dugi interleaver treba oko 10 s) — u eteru je francuska mornarica na 12857 kHz izašla kao *600 bps long interleave*. Tekst poslan kao znakovi prikazuje se kao tekst, ostalo kao hex; većina prometa je šifrirana ili STANAG 5066. **S/N**, **Offset** i **Trying** pokazuju kvalitetu signala, pogrešku ugađanja i postavke koje se još isprobavaju.
+
+### 3G ALE
+
+3G ALE (MIL-STD-188-141B, dodatak C) uspostavlja veze kratkim PSK naletima (BW0, 0,6 s). Svaki redak je jedan PDU — poziv, rukovanje, obavijest, emitiranje, poziv skeniranja ili vrijeme — s njegovim poljima; prikazuju se samo oni s ispravnim kontrolnim zbrojem. 3G adrese su brojevi (grupa.član). Prometni naleti (BW1–BW4) ne dekodiraju se.
 
 ---
 

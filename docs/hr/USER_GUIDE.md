@@ -458,7 +458,7 @@ Klizač **Zoom** ima 20 koraka, prikazanih kao ×1 do ×20 (korak, a ne uvećanj
 
 ### Auto Adj. (slap)
 
-Prekidač **Auto Adj.** među kontrolama slapa sam podešava svjetlinu i kontrast slapa. Mjeri razinu šuma preko cijelog vidljivog raspona i pretvara je u jednoliku, tamnu pozadinu — i ondje gdje se šum razlikuje od jednog dijela raspona do drugog — a sve iznad nje razvlači, tako da se slabi signali ističu, a najjači dosežu gornje boje. Radi jednako sa svakom paletom boja, a mijenja se samo slap: krivulja spektra zadržava svoju stvarnu dB ljestvicu. Dok je uključen, klizači Min i Max su zaključani i prikazuju izmjerenu razinu šuma i vrh; isključivanjem se vraćaju na postavke opsega.
+Prekidač **Auto Adj.** među kontrolama slapa sam podešava svjetlinu i kontrast slapa. Mjeri razinu šuma preko cijelog vidljivog raspona i pretvara je u jednoliku, tamnu pozadinu — i ondje gdje se šum razlikuje od jednog dijela raspona do drugog — a sve iznad nje razvlači, tako da se slabi signali ističu, a najjači dosežu gornje boje. Radi jednako sa svakom paletom boja. Prati ga i krivulja spektra iznad slapa, kao i 3D prikaz; njezine su visine tada prilagođene razine, a ne dB, pa je njezina dB ljestvica skrivena dok je Auto Adj. uključen. Dok je uključen, klizači Min i Max su zaključani i prikazuju izmjerenu razinu šuma i vrh; isključivanjem se vraćaju na postavke opsega. SERVICES, HF FAX i NAVTEX uključuju Auto Adj. kad se pokrenu, a isključuju ga kad se zaustave ili kad se odabere drugi dekoder; u međuvremenu prekidač i dalje radi ručno.
 
 ### 3D spektar
 
@@ -486,14 +486,16 @@ Gumb **📊 Show** u odjeljku Spectrogram otvara audio analizator ispod slapa; *
 
 Vaš primopredajnik i stranica prijemnika mogu ostati na istoj frekvenciji: okrenite gumb za ugađanje na uređaju i slap ga slijedi, ili kliknite signal na slapu i uređaj se ugodi na njega. To se odnosi samo na *vašu* sesiju slušanja; nitko drugi na prijemniku to ne primjećuje.
 
-**S aplikacijom Desktop PhantomSDR+ (4.0 ili novija).** Desktop aplikacija ima izbornik **Rig**. *Rig → Rig control...* otvara prozor u kojem birate svoj uređaj i način povezivanja, a sam izbornik uključuje i isključuje sinkronizaciju. Sinkronizira frekvenciju, način rada i širinu filtra, u jednom ili oba smjera, i može utišati prijemnik dok odašiljete. Osim PhantomSDR-Plusa na isti način upravlja i prijemnicima **KiwiSDR, PA3FWM WebSDR i UberSDR**. Do uređaja dolazi na jedan od četiri načina:
+**S aplikacijom Desktop PhantomSDR+ (4.0 ili novija).** Desktop aplikacija ima izbornik **Rig**. *Rig → Rig control...* otvara prozor u kojem birate svoj uređaj i način povezivanja, a sam izbornik uključuje i isključuje sinkronizaciju. Sinkronizira frekvenciju, način rada i širinu filtra, u jednom ili oba smjera, i može utišati prijemnik dok odašiljete. Osim PhantomSDR-Plusa na isti način upravlja i prijemnicima **KiwiSDR, PA3FWM WebSDR i UberSDR**. Do uređaja dolazi na jedan od četiri načina: Inačica 6.0 dodaje vodopad i S-metar samog uređaja na vrh prozora prijemnika (*Rig → Show rig waterfall and S-meter*) i vezu **Icom LAN / WiFi**, na primjer IC-705 preko WiFi-ja.
 
 - **Ugrađeni upravljači** — bez drugog softvera: Icom (CI-V), Yaesu (novi CAT i FT-817/857/897), Kenwood, Elecraft, FlexRadio SmartSDR CAT, QRP Labs i ostali uređaji kompatibilni s Kenwoodom.
 - **Hamlib** — svaki uređaj koji Hamlib poznaje, više od 300, odabran s popisa s pretraživanjem. Instalacijski programi za Windows sadrže Hamlib; na Linuxu instalirajte `libhamlib-utils`.
 - **rigctld na mreži** — `rigctld` koji je već pokrenut.
 - **flrig** — za uređaj koji flrig već dijeli s fldigijem, WSJT-X-om ili dnevnikom veza.
 
-Aplikacija, njezini instalacijski programi i cijeli priručnik nalaze se na [Desktop PhantomSDR+ (Dropbox)](https://www.dropbox.com/scl/fo/kjwj96zg3kj7dgq4fjef9/APnA3c9hhv4hk3YMGIGjH7s?rlkey=jfiwklly63kv73poalx631pk3&st=m37uvaym&dl=0).
+Aplikacija, njezini instalacijski programi i cijeli priručnik nalaze se na [Desktop PhantomSDR+](https://phantomsdr.psychomed.gr/desktop.html).
+
+**Na samoj stranici prijamnika.** Gumb **TCI-CAT** (**CAT** u sažetom rasporedu) otvara CAT prozor. **TCI** se spaja na ExpertSDR, AetherSDR ili Thetis na vašem računalu, ili na bilo koji Hamlib uređaj preko priloženog mosta; **Direct USB** razgovara s uređajem izravno preko USB kabela, bez drugog softvera, u Chromeu, Edgeu, Operi ili Firefoxu 151+ na https:// stranici, a može ga i uključiti i isključiti. **CAT Sync**, **Split** i **Mute on TX** stoje u jednom retku: Split ostavlja uređaj gdje jest dok ugađate stranicu, a Mute on TX utišava stranicu dok odašiljete. S Icomom koji šalje svoj spektroskop (IC-7300 i drugi), prekidač **Rig scope** prikazuje ga kao traku vodopada ispod vodopada prijamnika, na istim frekvencijama.
 
 **S web preglednikom.** [CATsync Tool for WebSDRs](https://catsyncsdr.wordpress.com/) (Windows) povezuje uređaj sa stranicom prijemnika otvorenom u vašem pregledniku. Sinkronizira frekvenciju i način rada.
 
@@ -636,6 +638,8 @@ U polju chata, i kad god klizač, popis ili tekstno polje ima fokus tipkovnice, 
 **Miš na prikazu frekvencije**: postavite pokazivač iznad znamenke; kotačić prema gore ili lijevi klik je povećava, kotačić prema dolje ili desni klik je smanjuje, svaki put za mjesnu vrijednost znamenke (devet znamenki, od 100 MHz do 1 Hz). Između znamenki kotačić se pomiče korakom ugađanja pojasa (1 kHz osim ako plan pojasa kaže drukčije); držite **Shift** za 1 kHz, **Alt** za 10 kHz. Klik bilo gdje drugdje u crnom okviru frekvencije / S-metra otvara numeričku tipkovnicu (Način 2 u *Ugađanje na frekvenciju*).
 
 **Kotačić miša iznad slapa**: zumira. Držite **Ctrl** (ili **Cmd**) odnosno **Shift** za ugađanje umjesto zumiranja, a **Shift + Ctrl** zajedno za poravnanje na najbliži cijeli kHz.
+
+**Escape** zatvara otvoreni skočni prozor — Modes, Bands, IF Filters, TCI-CAT, Equalizer, Compressor, Bookmarks, Users, Statistics i ostale — jednako kao njegov ✕, i kad je kursor u nekom njegovom polju. Ako su otvorena dva, prvo se zatvara gornji.
 
 > Prečaca Page Up / Page Down nema.
 

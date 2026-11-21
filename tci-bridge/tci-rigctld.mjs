@@ -32,9 +32,10 @@
 // widths are never changed. Reference widths, FIL1,FIL2,FIL3:
 //   USB/LSB 2700,2400,1800 (change with --filters)   CW 1200,500,250
 //   AM 9000,6000,3000   FM 15000,10000,7000   RTTY 2400,500,250
-// On automatically for -m 3073 (IC-7300). For another Icom rig give --filters
-// (and --civ with its CI-V address in hex when it is not 94); --filters off
-// sends widths through Hamlib as for any other rig.
+// On automatically for -m 3073 (IC-7300, CI-V 94h) and -m 3094 (IC-7300MK2,
+// CI-V B6h; needs a Hamlib that knows the MK2). For another Icom rig give
+// --filters (and --civ with its CI-V address in hex when it is not 94);
+// --filters off sends widths through Hamlib as for any other rig.
 //      node tci-rigctld.mjs --filters 2700,2400,1800 --rigctl rigctl -m 3073 ...
 //      node tci-rigctld.mjs --filters 3000,2400,1800 --civ A4 --rigctl rigctl -m 3085 ...
 //
@@ -107,11 +108,12 @@ if (filtersArg !== null && filtersArg.toLowerCase() !== "off") {
     process.exit(1);
   }
   icomFilters = { ssb: w };
-} else if (filtersArg === null && model === "3073") {
+} else if (filtersArg === null && (model === "3073" || model === "3094")) {
   icomFilters = { ssb: [2700, 2400, 1800] };
 }
-// The rig's CI-V address: --civ (hex), rigctl's -c (decimal), else 94h.
-let civAddress = 0x94;
+// The rig's CI-V address: --civ (hex), rigctl's -c (decimal), else the
+// model's default (B6h for the IC-7300MK2, 94h otherwise).
+let civAddress = model === "3094" ? 0xb6 : 0x94;
 if (civArg) civAddress = parseInt(civArg, 16);
 else if (rigctlArgs.indexOf("-c") >= 0) civAddress = parseInt(rigctlArgs[rigctlArgs.indexOf("-c") + 1], 10);
 if (!(civAddress > 0 && civAddress < 0x100)) {

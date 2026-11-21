@@ -118,16 +118,16 @@ RADE v1 uvijek se prenosi putem SSB-a. Prema konvenciji:
 | **RADE-v2U** (RADE2) | RADE V2 (beta) | USB na svakom pojasu | 1040–1930 Hz |
 | **RADE-v1L** / **RADE-v1U** (RADEL / RADEU) | RADE V1 | LSB / USB | 700–2200 Hz |
 
-V2 se dekodira na poslužitelju FreeDV-ovim prijenosom u C, **rade_c** (`radae_rx --v2` i njegov vlastiti `lpcnet_demo`), izgrađenim u vlastitoj mapi `~/rade_c`, tako da se V1 instalacija u `~/radae` nikada ne dira. `./install_rade.sh` ga preuzima i gradi (korak „rade_c (RADE V2, beta)”); ako taj korak ne uspije, samo upozorava, a RADE V1 se svejedno instalira. `rade_helper.py` koristi rade_c od sljedeće RADE2 veze — ponovno pokretanje nije potrebno — a bez njega RADE2 slušatelju javlja „RADE V2 is not installed on this station yet”. Dekodiranje V2 stoji oko 1 % jedne CPU jezgre po slušatelju (V1: oko 70–80 %).
+V2 se dekodira na poslužitelju FreeDV-ovim prijenosom u C, **rade_c** (`rade_rx_iq --v2` i njegov vlastiti `lpcnet_demo`), izgrađenim u vlastitoj mapi `~/rade_c`, tako da se V1 instalacija u `~/radae` nikada ne dira. `./install_rade.sh` ga preuzima i gradi (korak „rade_c (RADE V2, beta)”); ako taj korak ne uspije, samo upozorava, a RADE V1 se svejedno instalira. `rade_helper.py` koristi rade_c od sljedeće RADE2 veze — ponovno pokretanje nije potrebno — a bez njega RADE2 slušatelju javlja „RADE V2 is not installed on this station yet”. Dekodiranje V2 stoji oko 1 % jedne CPU jezgre po slušatelju (V1: oko 70–80 %).
 
 **U eteru**
 
-- Ugodite se do oko **±30 Hz** od frekvencije postaje. Dalje od toga V2 i dalje pokazuje „Synced”, ali je govor nerazumljiv.
+- Ugodite unutar otprilike **±30 Hz** od frekvencije stanice. Jedan nosilac dalje (oko 30–90 Hz) V2 se ne zaključava; ploča piše *V2 signal ~62 Hz off — tune up* (ili *down*) s gumbom **▲ Tune up 62 Hz** / **▼ Tune down 62 Hz** koji pomiče frekvenciju, a /mobile pokazuje isto u svojem retku stanja RADE. Uputa se pojavljuje samo kad je dekoder javlja postojano oko 2 sekunde — nikad za RADE V1 i ne na običnom govoru. Treba rade_c od 17. studenoga 2026. ili noviji.
 - Svako javljanje počinje **2–3 s kasnije**: dok se V2 zaključava, zadržava signal i zatim reproducira početak javljanja.
 - Ispod oko **−2 dB SNR-a** zvuk V2 se utišava, a ploča piše „Searching for signal…” — osim ako zadnje 2 sekunde izgledaju kao pravi V2 (dekoder većinu vremena vidi svoj signal, a njegova procjena frekvencije ostaje mirna); tada svira do oko **−6 dB**. Na zauzetim LSB fonijskim frekvencijama slušanima u USB-u (40 m) V2 se može zaključati na obične glasove i puštati nerazumljiv zvuk; oni nikad ne izgledaju mirno pa ostaju utišani. `RADE_V2_MIN_SNR` i `RADE_V2_WEAK_SNR` određuju oba praga.
 - Između javljanja ploča se vraća na „Searching for signal…”.
 
-**Kad izađe FreeDV 3.0**, ponovno pokrenite `./install_rade.sh` — ili `git pull` u `~/rade_c` i `cmake --build build` — i nove RADE2 veze tada koriste novu verziju.
+**Kad izađe FreeDV 3.0**, ponovno pokrenite `./install_rade.sh` — ili `git pull` u `~/rade_c` i `cmake --build build` — i nove RADE2 veze tada koriste novu verziju. Iste dvije naredbe donose ispravke rade_c-a i prije toga: ažuriranje od 17. studenoga 2026. dodalo je uputu za ugađanje i sprječava da se V2 zaključa na stanicu pomaknutu za jedan nosilac.
 
 ---
 
@@ -216,6 +216,7 @@ Gumb **RADE-v2U** stoji ispred RADE-v1L i RADE-v1U na ista tri mjesta (i gumb RA
 |---|---|
 | 🔴 Crveno — „Connecting to sidecar…" | Port 9012 nedostupan ili sidecar ne radi |
 | 🟡 Žuto — „Searching for signal…" | Sidecar spojen, RADE okvir još nije otkriven |
+| 🟡 Žuto — „V2 signal ~62 Hz off — tune up / down” | Samo RADE V2: stanica V2 pomaknuta za jedan nosilac; gumb **▲ / ▼ 62 Hz** ispravlja ugađanje |
 | 🟢 Zeleno — „Synced · SNR x.x dB" | Dekodiranje — govor se reproducira |
 
 ### Kada isključite dekoder
@@ -274,7 +275,7 @@ Sidecar nije dostupan — provjerite radi li (`ss -tlnp | grep 9012`) i radi li 
 | `RADE_PIN_CORES` | `1` | Veže svaki lanac dekodiranja uz vlastiti skup jezgri; `0` isključuje vezanje |
 | `RADE_CORES_PER_CLIENT` | `2` | Jezgri dodijeljenih po klijentu kada je vezanje uključeno |
 | `RADE_C_DIR` | `~/rade_c` | Korijen rade_c (RADE V2) |
-| `RADE_C_RX` | `RADE_C_DIR/build/src/radae_rx` | Prijamni program rade_c |
+| `RADE_C_RX` | `RADE_C_DIR/build/src/rade_rx_iq` (`radae_rx`) | Prijamni program rade_c |
 | `RADE_C_LPCNET` | `RADE_C_DIR/build/src/lpcnet_demo` | Vlastiti lpcnet_demo rade_c-a |
 | `RADE_V2_MIN_SNR` | `-2` | Ispod ovog SNR-a (dB) zvuk V2 se utišava |
 | `RADE_V2_WEAK_SNR` | `-6` | Do ovog SNR-a (dB) V2 i dalje svira dok signal izgleda kao pravi V2; postavite ga na `RADE_V2_MIN_SNR` ili više da to isključite |
@@ -314,6 +315,7 @@ ls src/lpcnet_demo     # should exist now
 - Provjerite na [qso.freedv.org](https://qso.freedv.org) odašilje li neka postaja u tom trenutku
 - RADE v1 koristi 30 nosilaca u 1500 Hz širine — u slapu se pojavljuje kao zbijena skupina
 - Predvidite do 1,5 sekunde za uspostavu
+- RADE2: ako ploča piše *V2 signal ~62 Hz off*, pritisnite njezin gumb **▲ / ▼ 62 Hz** (ili se pomaknite za oko 62 Hz)
 
 ---
 

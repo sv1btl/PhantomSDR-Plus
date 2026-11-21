@@ -343,7 +343,7 @@ Uredite sljedeća polja:
   "siteCity": "Your City, Country",
   "siteInformation": "https://github.com/sv1btl/PhantomSDR-Plus",
   "siteHardware": "Computer specifications",
-  "siteSoftware": "PhantomSDR-Plus v5.5.0",
+  "siteSoftware": "PhantomSDR-Plus v6.0.0",
   "siteReceiver": "Your SDR model",
   "siteAntenna": "Antenna description",
   "siteNote": "Additional information",
@@ -858,6 +858,8 @@ Svaka verzija donosi `update-known.txt`, otisak svake verzije svake datoteke koj
 
 Ništa se nikad ne briše: datoteke koje su nestale iz repozitorija se prijavljuju, a uklanjaju se samo ako to zatražite s `--prune`. Izvođenje koje ništa ne zapisuje završava s `0` kad je sve ažurno i s `10` kad čeka ažuriranje, pa vas cron zadatak s `bash update.sh --check` može obavijestiti kad ima posla.
 
+Izvješće završava jednim retkom o RADE V2 dekoderu u `~/rade_c`, koji `update.sh` ne ažurira sam: up to date ili *FreeDV has a newer decoder — run ./install_rade.sh*. Nakon ažuriranja, ili pokretanja koje nema što raditi, `update.sh` također zabilježi koju verziju s GitHuba postaja sada ima, kako bi vam Dashboard administratorske ploče (SYSTEM HEALTH → UPDATES) javio kad postoji nešto novije.
+
 ### Poništavanje ažuriranja
 
 ```bash
@@ -885,7 +887,7 @@ Svaka arhiva nosi i vlastiti `restore.sh`, za slučaj da je problem sam `update.
 ./update.sh --apply --yes     # nikada ne pita; svaka vaša izmijenjena datoteka OSTAJE
 ./update.sh --check           # samo izvješće, nikad pitanje — za cron (10 = čeka ažuriranje)
 ./update.sh --from FILE|DIR   # nova verzija iz .zip/.tar.gz ili mape — bez mreže
-./update.sh --ref v5.5.0      # oznaka, grana ili commit umjesto trenutnog stabla
+./update.sh --ref v6.0.0      # oznaka, grana ili commit umjesto trenutnog stabla
 ./update.sh --list-excludes   # ispisuje pravila "ne diraj" kako vrijede ovdje
 ./update.sh --verbose         # nabraja sve datoteke, ne samo prvih 40
 ```

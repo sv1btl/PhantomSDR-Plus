@@ -118,16 +118,16 @@ RADE v1 wird stets über SSB übertragen. Konventionell gilt:
 | **RADE-v2U** (RADE2) | RADE V2 (beta) | USB auf jedem Band | 1040–1930 Hz |
 | **RADE-v1L** / **RADE-v1U** (RADEL / RADEU) | RADE V1 | LSB / USB | 700–2200 Hz |
 
-V2 wird auf dem Server von FreeDVs C-Portierung **rade_c** dekodiert (`radae_rx --v2` und sein eigenes `lpcnet_demo`), gebaut in einem eigenen Ordner `~/rade_c`, sodass die V1-Installation in `~/radae` nie berührt wird. `./install_rade.sh` lädt und baut es (Schritt „rade_c (RADE V2, beta)“); schlägt dieser Schritt fehl, warnt es nur, und RADE V1 wird trotzdem installiert. `rade_helper.py` verwendet rade_c ab der nächsten RADE2-Verbindung — ein Neustart ist nicht nötig — und ohne es meldet RADE2 dem Hörer „RADE V2 is not installed on this station yet“. Eine V2-Dekodierung kostet etwa 1 % eines CPU-Kerns pro Hörer (V1: etwa 70–80 %).
+V2 wird auf dem Server von FreeDVs C-Portierung **rade_c** dekodiert (`rade_rx_iq --v2` und sein eigenes `lpcnet_demo`), gebaut in einem eigenen Ordner `~/rade_c`, sodass die V1-Installation in `~/radae` nie berührt wird. `./install_rade.sh` lädt und baut es (Schritt „rade_c (RADE V2, beta)“); schlägt dieser Schritt fehl, warnt es nur, und RADE V1 wird trotzdem installiert. `rade_helper.py` verwendet rade_c ab der nächsten RADE2-Verbindung — ein Neustart ist nicht nötig — und ohne es meldet RADE2 dem Hörer „RADE V2 is not installed on this station yet“. Eine V2-Dekodierung kostet etwa 1 % eines CPU-Kerns pro Hörer (V1: etwa 70–80 %).
 
 **Auf Sendung**
 
-- Bis auf etwa **±30 Hz** genau auf die Frequenz der Station abstimmen. Weiter daneben zeigt V2 noch „Synced“, aber die Sprache ist unverständlich.
+- Bis auf etwa **±30 Hz** an die Frequenz der Station abstimmen. Um einen Träger daneben (etwa 30–90 Hz) rastet V2 nicht ein; das Panel zeigt *V2 signal ~62 Hz off — tune up* (oder *down*) mit einer Schaltfläche **▲ Tune up 62 Hz** / **▼ Tune down 62 Hz**, die die Skala verstellt, und /mobile zeigt dasselbe in seiner RADE-Statuszeile. Der Hinweis erscheint nur, wenn der Decoder ihn etwa 2 Sekunden lang stetig meldet — nie bei RADE V1 und nicht bei gewöhnlicher Sprache. Er braucht rade_c vom 17. November 2026 oder neuer.
 - Jeder Durchgang beginnt **2–3 s verspätet**: Während V2 einrastet, hält es das Signal fest und spielt dann den Anfang des Durchgangs.
 - Unterhalb von etwa **−2 dB SNR** wird der V2-Ton stummgeschaltet und das Panel zeigt „Searching for signal…“ — außer die letzten 2 Sekunden sehen nach echtem V2 aus (der Decoder sieht sein Signal die meiste Zeit und seine Frequenzschätzung bleibt ruhig); dann spielt er bis etwa **−6 dB**. Auf belebten LSB-Telefoniefrequenzen, in USB gehört (40 m), kann V2 auf gewöhnliche Stimmen einrasten und unverständlichen Ton spielen; diese wirken nie ruhig und bleiben daher stumm. `RADE_V2_MIN_SNR` und `RADE_V2_WEAK_SNR` legen die beiden Schwellen fest.
 - Zwischen den Durchgängen kehrt das Panel zu „Searching for signal…“ zurück.
 
-**Wenn FreeDV 3.0 erscheint**, `./install_rade.sh` erneut ausführen — oder `git pull` in `~/rade_c` und `cmake --build build` —, dann verwenden neue RADE2-Verbindungen die neue Version.
+**Wenn FreeDV 3.0 erscheint**, `./install_rade.sh` erneut ausführen — oder `git pull` in `~/rade_c` und `cmake --build build` —, dann verwenden neue RADE2-Verbindungen die neue Version. Dieselben zwei Befehle holen schon vorher die Korrekturen von rade_c: Das Update vom 17. November 2026 brachte den Abstimmhinweis und verhindert, dass V2 auf einer um einen Träger verstimmten Station einrastet.
 
 ---
 
@@ -216,6 +216,7 @@ Eine Taste **RADE-v2U** steht an denselben drei Stellen vor RADE-v1L und RADE-v1
 |---|---|
 | 🔴 Rot — „Connecting to sidecar…" | Port 9012 nicht erreichbar oder Sidecar läuft nicht |
 | 🟡 Gelb — „Searching for signal…" | Sidecar verbunden, noch kein RADE-Rahmen erkannt |
+| 🟡 Gelb — „V2 signal ~62 Hz off — tune up / down“ | Nur RADE V2: eine V2-Station, um einen Träger verstimmt; die Schaltfläche **▲ / ▼ 62 Hz** stimmt nach |
 | 🟢 Grün — „Synced · SNR x.x dB" | Dekodierung läuft — Sprache ist zu hören |
 
 ### Wenn Sie den Decoder abschalten
@@ -274,7 +275,7 @@ Der Sidecar ist nicht erreichbar — prüfen Sie, ob er läuft (`ss -tlnp | grep
 | `RADE_PIN_CORES` | `1` | Bindet jede Dekodierkette an einen eigenen Kernsatz; `0` deaktiviert das Pinning |
 | `RADE_CORES_PER_CLIENT` | `2` | Zugewiesene Kerne pro Client, wenn Pinning aktiv ist |
 | `RADE_C_DIR` | `~/rade_c` | Wurzel von rade_c (RADE V2) |
-| `RADE_C_RX` | `RADE_C_DIR/build/src/radae_rx` | Empfangsprogramm von rade_c |
+| `RADE_C_RX` | `RADE_C_DIR/build/src/rade_rx_iq` (`radae_rx`) | Empfangsprogramm von rade_c |
 | `RADE_C_LPCNET` | `RADE_C_DIR/build/src/lpcnet_demo` | Das eigene lpcnet_demo von rade_c |
 | `RADE_V2_MIN_SNR` | `-2` | Unter diesem SNR (dB) wird der V2-Ton stummgeschaltet |
 | `RADE_V2_WEAK_SNR` | `-6` | Bis zu diesem SNR (dB) spielt V2 weiter, solange das Signal nach echtem V2 aussieht; auf `RADE_V2_MIN_SNR` oder höher setzen, um das abzuschalten |
@@ -314,6 +315,7 @@ ls src/lpcnet_demo     # should exist now
 - Prüfen Sie auf [qso.freedv.org](https://qso.freedv.org), ob gerade eine Station sendet
 - RADE v1 nutzt 30 Träger in 1500 Hz Bandbreite — es erscheint als kompakte Gruppe im Wasserfall
 - Rechnen Sie mit bis zu 1,5 Sekunden für das Einrasten
+- RADE2: Zeigt das Panel *V2 signal ~62 Hz off*, dessen Schaltfläche **▲ / ▼ 62 Hz** drücken (oder um etwa 62 Hz nachstimmen)
 
 ---
 

@@ -343,7 +343,7 @@ Modifiez les champs suivants :
   "siteCity": "Your City, Country",
   "siteInformation": "https://github.com/sv1btl/PhantomSDR-Plus",
   "siteHardware": "Computer specifications",
-  "siteSoftware": "PhantomSDR-Plus v5.5.0",
+  "siteSoftware": "PhantomSDR-Plus v6.0.0",
   "siteReceiver": "Your SDR model",
   "siteAntenna": "Antenna description",
   "siteNote": "Additional information",
@@ -861,6 +861,8 @@ Chaque version apporte `update-known.txt`, l'empreinte de chaque version de chaq
 
 Rien n'est jamais supprimé : les fichiers disparus du dépôt sont signalés, et retirés seulement si vous le demandez avec `--prune`. Une exécution qui n'écrit rien se termine avec `0` si tout est à jour et `10` si une mise à jour attend ; une tâche cron lançant `bash update.sh --check` peut donc vous prévenir quand il y a quelque chose à faire.
 
+Le rapport se termine par une ligne sur le décodeur RADE V2 dans `~/rade_c`, que `update.sh` ne met pas à jour lui-même : up to date, ou *FreeDV has a newer decoder — run ./install_rade.sh*. Après une mise à jour, ou un passage qui ne trouve rien à faire, `update.sh` note aussi quelle version GitHub la station a désormais, afin que le tableau de bord du panneau d'administration (SYSTEM HEALTH → UPDATES) vous signale quand il y a du nouveau.
+
 ### Annuler une mise à jour
 
 ```bash
@@ -888,7 +890,7 @@ Chaque archive contient aussi son propre `restore.sh`, pour le cas où `update.s
 ./update.sh --apply --yes     # ne demande jamais rien ; tout fichier modifié est CONSERVÉ
 ./update.sh --check           # rapport seul, jamais de question — pour cron (10 = mise à jour en attente)
 ./update.sh --from FILE|DIR   # la nouvelle version depuis un .zip/.tar.gz ou un dossier — sans réseau
-./update.sh --ref v5.5.0      # une étiquette, une branche ou un commit précis
+./update.sh --ref v6.0.0      # une étiquette, une branche ou un commit précis
 ./update.sh --list-excludes   # affiche les règles « ne pas toucher » telles qu'appliquées ici
 ./update.sh --verbose         # liste tous les fichiers, pas seulement les 40 premiers
 ```

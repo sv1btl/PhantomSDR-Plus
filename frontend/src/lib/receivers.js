@@ -51,6 +51,18 @@ export async function loadReceivers () {
   )
   if (!sameOrigin && !namesThisHost) return null
 
+  // A receiver behind this page's own proxy (?rx= in its url) is opened on
+  // the address this page was opened on, not on the public address the list
+  // names: a listener on the LAN or on localhost stays there, and Desktop
+  // PhantomSDR+ - which keeps a window on its own station's address - can
+  // follow the switch to 2 m instead of blocking it as another site.
+  if (sameOrigin) {
+    for (const r of receivers) {
+      const u = new URL(r.url)
+      if (u.searchParams.has('rx')) r.url = new URL(u.pathname + u.search + u.hash, location.origin).href
+    }
+  }
+
   const own = String(siteInfo.siteReceiverId || '')
   const current =
     (own && receivers.some((r) => r.id === own) && own) ||

@@ -2959,7 +2959,7 @@ if [ "$RADE_INSTALLED" = true ]; then
     echo ""
     green "✅ RADE / FreeDV:"
     echo "   • radae built in ~/radae, sidecar started with ./rade.sh"
-    if [ -x "$HOME/rade_c/build/src/radae_rx" ]; then
+    if [ -x "$HOME/rade_c/build/src/rade_rx_iq" ] || [ -x "$HOME/rade_c/build/src/radae_rx" ]; then
         echo "   • RADE V2 (beta): rade_c built in ~/rade_c"
     else
         echo "   • RADE V2 (beta) not built — the RADE2 button says so; V1 works as before"

@@ -41,6 +41,7 @@ Compatible with websockets 10.x through 16.x+.
 from __future__ import annotations
 
 import asyncio
+import collections
 import json
 import os
 import struct
@@ -73,7 +74,11 @@ USE_AUXDATA   = os.environ.get("RADE_AUXDATA", "1") != "0"
 # install above is never touched. A client asks for it with "version": 2 in
 # its init frame; without rade_c that client gets an error and V1 is unaffected.
 RADE_C_DIR    = Path(os.environ.get("RADE_C_DIR", Path.home() / "rade_c")).expanduser()
-RADE_C_RX     = os.environ.get("RADE_C_RX", str(RADE_C_DIR / "build" / "src" / "radae_rx"))
+# rade_c renamed its receiver radae_rx -> rade_rx_iq on 2026-11-20 (rade_c #37)
+# and keeps the old name only as an alias "for now"; take the new one when it
+# is there so a rade_c built either side of the rename works.
+_RADE_C_BIN   = RADE_C_DIR / "build" / "src"
+RADE_C_RX     = os.environ.get("RADE_C_RX", str(_RADE_C_BIN / "rade_rx_iq") if (_RADE_C_BIN / "rade_rx_iq").exists() else str(_RADE_C_BIN / "radae_rx"))
 RADE_C_LPCNET = os.environ.get("RADE_C_LPCNET", str(RADE_C_DIR / "build" / "src" / "lpcnet_demo"))
 # V2 (beta) false-locks on busy LSB phone traffic heard on USB: on 40 m it sat
 # in "sync" 65 % of the time at -12..-1 dB and played garbled speech, where V1
@@ -170,6 +175,28 @@ class _StreamResampler:
         self.hist = x[keep_from:]
         self.pos = nxt - keep_from
         return y.tobytes()
+
+
+# V2 tuning hint: rade_c's per-line "mistune" (+1 / -1 / 0) over the last
+# ~2 s (V2 prints ~25 lines a second). A direction needs 80 % of a window that
+# is at least half full; otherwise there is nothing to say. 80 % (2026-11-17
+# bench): no hint on any of 9 recordings without V2 (60 % gave ~1 s of "down"
+# on 40 m SSB phone), real mistuned V2 still hinted 89-95 % of the time and
+# never the wrong way.
+MISTUNE_WINDOW = 50
+
+
+def _mistune_hint(window) -> int:
+    n = len(window)
+    if n < MISTUNE_WINDOW // 2:
+        return 0
+    up = sum(1 for v in window if v > 0)
+    down = sum(1 for v in window if v < 0)
+    if up >= 0.8 * n:
+        return 1
+    if down >= 0.8 * n:
+        return -1
+    return 0
 
 
 class _V2Mute:
@@ -335,7 +362,7 @@ async def handle_client(websocket):
 
     # Validate paths
     if version == 2:
-        needed = [("rade_c radae_rx", RADE_C_RX), ("rade_c lpcnet_demo", RADE_C_LPCNET)]
+        needed = [("rade_c receiver", RADE_C_RX), ("rade_c lpcnet_demo", RADE_C_LPCNET)]
     else:
         needed = [("radae_rxe.py", RADAE_RX), ("model", RADE_MODEL), ("lpcnet_demo", LPCNET_DEMO)]
     for label, path in needed:
@@ -455,6 +482,14 @@ async def handle_client(websocket):
         changes or every 10th line. Every V2 line updates the audio mute: a V2
         "sync" that _V2Mute keeps closed is reported as not synced ("weak") and
         its audio dropped.
+
+        rade_c (since be66f39, PR #31) ends each V2 line with "mistune: N":
+        +1 / -1 when a V2 signal is there but one carrier (31..94 Hz) too high
+        / too low in the audio, which V2 refuses to sync on. V2 frames carry
+        "mistune": the majority of the last ~2 s of lines (+1 = tune the dial
+        up ~62 Hz on USB, -1 = down, 0 = nothing to say), so one odd line does
+        not make the page's hint flicker. Older rade_c builds print no field
+        and the value stays 0.
         """
         import re
         if version == 2:
@@ -465,6 +500,9 @@ async def handle_client(websocket):
             state_re = re.compile(r'state:\s*(\w+)')
         last_state = None
         n_lines    = 0
+        mistune_re = re.compile(r'mistune:\s*(-?\d+)')
+        mistunes   = collections.deque(maxlen=MISTUNE_WINDOW)
+        hint       = 0
         try:
             while True:
                 line = await proc_radae.stderr.readline()
@@ -478,7 +516,10 @@ async def handle_client(websocket):
                     snr_now = float(ss.group(1)) if ss else -99.0
                     v2_gate["open"] = v2_mute.update(sm.group(1), int(sm.group(2)), float(sm.group(3)), snr_now)
                     n_lines += 1
-                    key = 'sync' if v2_gate["open"] else 'nosync'
+                    mm = mistune_re.search(text)
+                    mistunes.append(int(mm.group(1)) if mm else 0)
+                    hint = _mistune_hint(mistunes)
+                    key = ('sync' if v2_gate["open"] else 'nosync', hint)
                     if key == last_state and n_lines % 10:
                         continue
                     last_state = key
@@ -488,12 +529,15 @@ async def handle_client(websocket):
                     snr    = float(ss.group(1)) if ss else 0.0
                     if version == 2 and synced and not v2_gate["open"]:
                         synced, state = False, "weak"
-                    await _send_json(websocket, {
+                    frame = {
                         "type":   "snr",
                         "synced": synced,
                         "snr":    round(snr, 1),
                         "state":  state,
-                    })
+                    }
+                    if version == 2:
+                        frame["mistune"] = 0 if synced else hint
+                    await _send_json(websocket, frame)
         except asyncio.CancelledError:
             pass
         except Exception as exc:

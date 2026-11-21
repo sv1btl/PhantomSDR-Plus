@@ -184,7 +184,34 @@ if (typeof window !== "undefined") {
 const FOCUSABLE =
   'button:not([disabled]), [href], input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
+// Escape closes the top-most open pop-up (Modes, Bands, IF Filters, TCI-CAT,
+// Equalizer, Compressor, Bookmarks …) the way its own ✕ does: the header
+// button whose aria-label starts with "Close" — not one found by its title,
+// because e.g. the CAT window's Disconnect has a title "Close the rig's
+// port…". Without such a button, the dark backdrop around the panel (which
+// closes it on a click) is clicked instead. One pop-up per key press.
+const openDialogs = [];
+let escListening = false;
+
+function closeTopDialog(e) {
+  if (e.key !== "Escape" || !openDialogs.length) return;
+  const node = openDialogs[openDialogs.length - 1];
+  if (!node.isConnected) return;
+  const btn = node.querySelector('button[aria-label^="Close"]');
+  const backdrop = node.parentElement;
+  if (btn) btn.click();
+  else if (backdrop && /\bfixed\b/.test(backdrop.className)) backdrop.click();
+  else return;
+  e.preventDefault();
+  e.stopImmediatePropagation();
+}
+
 export function srDialog(node) {
+  openDialogs.push(node);
+  if (!escListening && typeof window !== "undefined") {
+    window.addEventListener("keydown", closeTopDialog, true);
+    escListening = true;
+  }
   if (!node.hasAttribute("role")) node.setAttribute("role", "dialog");
   if (!node.hasAttribute("aria-label") && !node.hasAttribute("aria-labelledby")) {
     const h = node.querySelector("h1, h2, h3");
@@ -200,6 +227,8 @@ export function srDialog(node) {
   }
   return {
     destroy() {
+      const i = openDialogs.lastIndexOf(node);
+      if (i >= 0) openDialogs.splice(i, 1);
       if (viaKeyboard && back && back.isConnected && typeof back.focus === "function")
         back.focus({ preventScroll: true });
     },

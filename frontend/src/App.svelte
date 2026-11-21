@@ -82,6 +82,7 @@
   import { ALE_NETS } from "./lib/aleNets.js";
   import SelcallPanel from "./lib/SelcallPanel.svelte";
   import ServiceSelect from "./lib/ServiceSelect.svelte";
+  import Krypto500Panel from "./lib/Krypto500Panel.svelte";
   import DrmPanel from "./lib/DrmPanel.svelte";
   // Sub-mode lists and squelch defaults of the fldigi-family modems (MFSK,
   // DominoEX, THOR, THROB, Hell, MT63). fsk.js is in this bundle already.
@@ -227,6 +228,17 @@
   import QrssPanel from "./lib/QrssPanel.svelte";
   import VideoAreaSelector from "./lib/VideoAreaSelector.svelte";
   import { connectCatSyncAny, buildDefaultSources } from "./lib/catsync.js";
+  import CatUsbPanel from "./lib/CatUsbPanel.svelte";
+  import RigScopeStrip from "./lib/RigScopeStrip.svelte";
+  import {
+    findRigPreset,
+    civHex,
+    loadUsbSettings,
+    saveUsbSettings,
+    webSerialAvailable,
+    rigScope,
+    rigMeterOnly,
+  } from "./lib/rig/presets.js";
   import {
     parseChatLine,
     replyMarker,
@@ -241,9 +253,9 @@
   const CW_PITCH_HZ = 600;
 
   // ── CAT sync over TCI (transceiver <-> PhantomSDR) ──────────────────────
-  // Muting the audio while the rig transmits (PTT) is always on, there is no
-  // switch for it. Frequency tracking is a single toggle: either both ways
-  // (rig <-> Phantom) or nothing.
+  // Muting the audio while the rig transmits (PTT) is the "Mute on TX" switch
+  // (catMuteOnTx, on by default, shown while a rig is connected). Frequency
+  // tracking is a single toggle: either both ways (rig <-> Phantom) or nothing.
   let showCatPopup = false;
   let catSyncEnabled = false;
   let catConnected = false;
@@ -251,6 +263,18 @@
   // True while the rig transmits: the page is silent, and the volume slider
   // only takes effect again on receive.
   let catTxMuted = false;
+  // The rig's own TX state as last reported, whether or not it muted us.
+  let catRigTx = false;
+  let catMuteOnTx = true;
+  try {
+    catMuteOnTx = localStorage.getItem("catMuteOnTx") !== "false";
+  } catch (e) {}
+  // Split: PhantomSDR's tuning does not move the rig (the rig still moves
+  // PhantomSDR). Off (default): the rig is locked on PhantomSDR.
+  let catSplit = false;
+  try {
+    catSplit = localStorage.getItem("catSplit") === "true";
+  } catch (e) {}
   let catSyncHandle = null;
   // The TCI links are opened only once this browser has asked for them (popup
   // opened or CAT Sync on, remembered in localStorage). Opening ws://localhost
@@ -263,6 +287,49 @@
   // True while a frequency change is being applied BECAUSE the rig moved, so
   // that frequency is not echoed straight back to the rig.
   let catApplyingRemoteFreq = false;
+  // Where the rig is reached: "tci" (ExpertSDR, AetherSDR, Thetis or the
+  // Hamlib bridge, ./lib/catsync.js) or "usb" (Direct USB: the page itself
+  // talks to the rig over Web Serial, ./lib/rig/serialRig.js, loaded only
+  // when chosen). Both drive the same callbacks (catRigCallbacks).
+  let catSource = "tci";
+  try {
+    if (localStorage.getItem("catSource") === "usb") catSource = "usb";
+  } catch (e) {}
+  // Web Serial exists only on a secure page (https, or http://localhost) in
+  // Chrome, Edge, Opera and Firefox 151+ on the desktop.
+  const catUsbAvailable = webSerialAvailable();
+  const catUsbWhyNot =
+    typeof window !== "undefined" && !window.isSecureContext
+      ? "Direct USB needs this receiver on https (this page is plain http). Use TCI with the bridge, or Desktop PhantomSDR+."
+      : "Direct USB needs Chrome, Edge, Opera or Firefox 151+ on a desktop computer. Use TCI with the bridge, or Desktop PhantomSDR+.";
+  let catUsb = loadUsbSettings();
+  let catUsbState = "closed";
+  let catUsbMessage = "";
+  // Rig scope (Direct USB, Icom CI-V 27 00): the rig's own spectrum as a
+  // waterfall strip under the receiver's (lib/RigScopeStrip.svelte). The
+  // switch moves the baud rate to the rig's proper one (rigScope().baud) and
+  // puts the old one back if the rig does not answer there.
+  let catRigScope = false;
+  try {
+    catRigScope = localStorage.getItem("catRigScope") === "true";
+  } catch (e) {}
+  let catScopeMessage = "";
+  let catScopeBaudTrial = null; // { from, to } while a baud change is tried
+  let rigScopeStrip;
+  $: catScopePreset = findRigPreset(catUsb.preset);
+  $: catScopeInfo = rigScope(catScopePreset);
+  // Yaesu new-CAT rigs and Icoms without a scope stream: the strip shows
+  // their S-meter only, and the switch leaves the baud rate alone.
+  $: catMeterOnly = rigMeterOnly(catScopePreset);
+  // Why no waterfall, for those rigs: only the FT-710's can be shown at all,
+  // and only by Desktop PhantomSDR+ (it reads the rig's FTDI FT4222 chip).
+  $: catMeterNote = !catMeterOnly
+    ? null
+    : catScopePreset && catScopePreset.id === "yaesu-ft710"
+      ? { text: "No waterfall here: the FT-710 sends its scope through a separate chip in the USB cable, which a browser cannot open. Desktop PhantomSDR+ shows it.", link: true }
+      : catScopePreset && catScopePreset.protocol === "icom"
+        ? { text: "No waterfall: this rig does not send its scope over CI-V, so only the S-meter can be shown.", link: false }
+        : { text: "No waterfall: Yaesu rigs do not send their scope over CAT, so only the S-meter can be shown.", link: false };
   // Last frequency sent to the rig from a waterfall click/drag.
   let catLastSentHz = null;
   // The rig's frequency and mode as last reported over TCI.
@@ -283,8 +350,10 @@
   // (a button, the band plan, a decoder, a bookmark) arrives here through
   // handleDemodulationChange.
   function catSendModeToRig() {
-    if (!catSyncEnabled || catApplyingRemoteFreq || !catSyncHandle) return;
-    const tci = CAT_TCI_MODES[demodulation];
+    if (!catSyncEnabled || catSplit || catApplyingRemoteFreq || !catSyncHandle) return;
+    // TCI has no CW-L; the USB drivers do (Hamlib's CWR).
+    const tci =
+      catSource === "usb" && demodulation === "CW-L" ? "cw-l" : CAT_TCI_MODES[demodulation];
     if (!tci) return;
     // The rig is already there, or it was just asked to go there.
     if (catRigMode && catsyncModeFromTool(catRigMode) === catsyncModeFromTool(tci)) return;
@@ -303,7 +372,7 @@
   let catFilterTimer = null;
   let catPendingWidth = null;
   function catSendFilterToRig() {
-    if (!catSyncEnabled || !catSyncHandle || !audio || !audio.getAudioRange) return;
+    if (!catSyncEnabled || catSplit || !catSyncHandle || !audio || !audio.getAudioRange) return;
     const [l, m, r] = audio.getAudioRange().map(FFTOffsetToFrequency);
     const lo = Math.round(l - m);
     const hi = Math.round(r - m);
@@ -376,6 +445,23 @@
       localStorage.setItem("catSyncEnabled", JSON.stringify(catSyncEnabled));
     } catch (e) {}
     if (catSyncEnabled) wantCatLink();
+    if (!catSyncEnabled) return;
+    // Direct USB: CAT Sync on opens a known port that is not open - never
+    // opened yet, after Disconnect, a lost link or an error. Not after Power
+    // off (the rig is off; Power on is the button for that) and not without
+    // a chosen port.
+    if (
+      catSource === "usb" && catSyncHandle &&
+      ["ready", "closed", "lost", "error"].includes(catUsbState)
+    ) {
+      catSyncHandle.reconnect();
+    }
+    // Already connected: the rig leads, as at connect. Its last report came
+    // while CAT Sync was off and was only remembered, so apply it now.
+    if (catConnected && catRigHz) {
+      catApplyRigToPage(catRigHz, catRigMode, true, true);
+      if (catRigWidth) catApplyRigFilter(catRigWidth);
+    }
   }
 
   // A new host means reconnecting: close the old links before opening new ones.
@@ -395,15 +481,278 @@
   // listener never has to know which one their software uses; the one that
   // answers is shown in catActiveSourceLabel.
   function startCatSync() {
+    if (catSource === "usb" && catUsbAvailable) return startCatUsb();
     const catConnectedByPort = {};
     return connectCatSyncAny(buildDefaultSources(catHost), {
+      ...catRigCallbacks(),
+      onStatus: (state, detail, sourceConfig) => {
+        catConnectedByPort[sourceConfig.port] = state === "connecté";
+        const activePorts = Object.entries(catConnectedByPort)
+          .filter(([, connected]) => connected)
+          .map(([port]) => port);
+        catConnected = activePorts.length > 0;
+        catActiveSourceLabel = activePorts.length
+          ? `TCI (port ${activePorts.join(", ")})`
+          : null;
+      },
+    });
+  }
+
+  // Direct USB. The drivers load on first use, so the handle is a stand-in
+  // until they arrive; a port chosen meanwhile is handed over on arrival.
+  // The rig's port opens at once only with CAT Sync on - opening the window
+  // alone must not take it from WSJT-X or a logger.
+  function startCatUsb() {
+    let real = null;
+    let gone = false;
+    let waitingPort = null;
+    catUsbState = "connecting";
+    catUsbMessage = "Loading the rig drivers…";
+    const loaded = import("./lib/rig/serialRig.js")
+      .then(({ connectRigSerial }) => {
+        if (gone) return;
+        real = connectRigSerial(
+          () => catUsb,
+          {
+            ...catRigCallbacks(),
+            onStatus: (state, message) => {
+              catUsbState = state;
+              catUsbMessage = message;
+              if (catScopeBaudTrial && state === "connected") catScopeBaudTrial = null;
+              if (catScopeBaudTrial && state === "error") {
+                // The rig did not answer at the scope's baud rate: back to the
+                // rate that worked, scope off, and say what to set on the rig.
+                const t = catScopeBaudTrial;
+                catScopeBaudTrial = null;
+                catUsb = { ...catUsb, baudRate: t.from };
+                saveUsbSettings(catUsb);
+                catRigScope = false;
+                try {
+                  localStorage.setItem("catRigScope", "false");
+                } catch (e) {}
+                catScopeMessage = `The rig did not answer at ${t.to} baud, so ${t.from} is back. For the scope, set the rig's CI-V USB Baud Rate to Auto or ${t.to}.`;
+                if (real) {
+                  real.setScope(false);
+                  real.reconnect();
+                }
+              }
+              catConnected = state === "connected";
+              catActiveSourceLabel = catConnected ? `USB — ${message}` : null;
+              if (!catConnected) {
+                catRigHz = null;
+                catRigMode = null;
+              }
+            },
+            onPortChosen: (info) => {
+              catUsb = { ...catUsb, portInfo: info };
+              saveUsbSettings(catUsb);
+            },
+            onScope: (line) => {
+              if (rigScopeStrip) rigScopeStrip.addLine(line);
+            },
+            // The rig's own S-meter (Icom 15 02), shown inside the scope strip.
+            onSmeter: (raw, tx) => {
+              if (rigScopeStrip) rigScopeStrip.setMeter(raw, tx);
+            },
+            onScopeError: (message) => {
+              catScopeMessage = message;
+            },
+            // The rig did not answer at the set speed but did at another one
+            // (serialRig.js BAUD_SEARCH): keep that one.
+            onBaudFound: (baud, tried) => {
+              catUsb = { ...catUsb, baudRate: baud };
+              saveUsbSettings(catUsb);
+              if (catScopeBaudTrial) {
+                const want = catScopeBaudTrial.to;
+                catScopeBaudTrial = null;
+                catScopeMessage = `The rig answers only at ${baud} baud, so its scope runs slowly. For a fluent scope, set the rig's CI-V USB Baud Rate to ${want} (an IC-7300 on Auto may stay on the speed it first heard).`;
+              } else {
+                catScopeMessage = "";
+                catUsbMessage =
+                  baud > tried
+                    ? `Connected at ${baud} baud, the rig's fastest speed`
+                    : `Found the rig at ${baud} baud (not ${tried})`;
+              }
+            },
+          },
+          { autoOpen: catSyncEnabled },
+        );
+        if (catRigScope && (catScopeInfo || catMeterOnly)) real.setScope(true);
+        if (waitingPort) real.usePort(waitingPort);
+      })
+      .catch(() => {
+        catUsbState = "error";
+        catUsbMessage = "Could not load the rig drivers";
+      });
+    return {
+      close() {
+        gone = true;
+        if (real) real.close();
+      },
+      usePort(port) {
+        if (real) real.usePort(port);
+        else waitingPort = port;
+      },
+      reconnect() {
+        if (real) real.reconnect();
+      },
+      disconnect() {
+        if (real) real.disconnect();
+      },
+      powerOn() {
+        loaded.then(() => real && real.powerOn());
+      },
+      powerOff() {
+        loaded.then(() => real && real.powerOff());
+      },
+      setScope(on) {
+        loaded.then(() => real && real.setScope(on));
+      },
+      sendFreqToRig: (hz) => !!real && real.sendFreqToRig(hz),
+      sendModeToRig: (mode) => !!real && real.sendModeToRig(mode),
+      sendFilterToRig: (lo, hi) => !!real && real.sendFilterToRig(lo, hi),
+    };
+  }
+
+  function setCatSource(source) {
+    if (source === catSource) return;
+    if (source === "usb" && !catUsbAvailable) return;
+    catSource = source;
+    try {
+      localStorage.setItem("catSource", source);
+    } catch (e) {}
+    if (catSyncHandle) catSyncHandle.close();
+    catSyncHandle = null;
+    catConnected = false;
+    catActiveSourceLabel = null;
+    catRigHz = null;
+    catRigMode = null;
+    catSyncHandle = startCatSync();
+  }
+
+  // requestPort() wants the click itself, so nothing may be awaited before it.
+  async function catUsbChoosePort() {
+    if (!catUsbAvailable) return;
+    let port;
+    try {
+      port = await navigator.serial.requestPort();
+    } catch (e) {
+      return; // chooser cancelled
+    }
+    if (!catSyncHandle) catSyncHandle = startCatSync();
+    catSyncHandle.usePort(port);
+  }
+
+  function catUsbConnect() {
+    if (!catSyncHandle) catSyncHandle = startCatSync();
+    catSyncHandle.reconnect();
+  }
+
+  function catUsbDisconnect() {
+    if (catSyncHandle && catSyncHandle.disconnect) catSyncHandle.disconnect();
+  }
+
+  // Power on works with CAT Sync off too: the listener asked for the rig.
+  function catUsbPowerOn() {
+    if (!catSyncHandle) catSyncHandle = startCatSync();
+    catSyncHandle.powerOn();
+  }
+
+  function catUsbPowerOff() {
+    if (catSyncHandle && catSyncHandle.powerOff) catSyncHandle.powerOff();
+  }
+
+  // A new rig fills in its defaults; any change is remembered.
+  function catUsbSettingsChanged(presetChanged) {
+    if (presetChanged) {
+      const p = findRigPreset(catUsb.preset);
+      if (p) {
+        // With the scope on, a scope rig gets its scope baud rate straight away.
+        const sc = rigScope(p);
+        catUsb.baudRate = catRigScope && sc ? sc.baud : p.defaults.baudRate;
+        catUsb.stopBits = p.defaults.stopBits;
+        if (p.defaults.civAddress != null) catUsb.civAddress = civHex(p.defaults.civAddress);
+      }
+    }
+    catUsb = { ...catUsb, baudRate: Number(catUsb.baudRate) };
+    saveUsbSettings(catUsb);
+  }
+
+  // Silent while the rig transmits, when "Mute on TX" is on. Also called when
+  // the switch moves, so turning it off mid-transmission brings the audio back.
+  function catApplyTxMute() {
+    const want = catRigTx && catMuteOnTx;
+    if (want === catTxMuted) return;
+    catTxMuted = want;
+    if (!audio) return;
+    if (want) audio.setGain(0);
+    else handleVolumeChange(); // the slider as it is now
+  }
+
+  // A link that drops mid-transmission must not leave the page silent.
+  $: if (!catConnected && catRigTx) {
+    catRigTx = false;
+    catApplyTxMute();
+  }
+
+  // Rig scope switch. The scope needs the rig's proper baud rate (115200 on
+  // these Icoms): switching on moves catUsb.baudRate there and reconnects;
+  // onStatus above puts the old rate back if the rig does not answer.
+  function persistCatRigScope() {
+    try {
+      localStorage.setItem("catRigScope", String(catRigScope));
+    } catch (e) {}
+    catScopeMessage = "";
+    if (!catSyncHandle || !catSyncHandle.setScope) return;
+    const on = catRigScope && (!!catScopeInfo || catMeterOnly);
+    if (on && catScopeInfo && Number(catUsb.baudRate) !== catScopeInfo.baud) {
+      catScopeBaudTrial = { from: Number(catUsb.baudRate), to: catScopeInfo.baud };
+      catUsb = { ...catUsb, baudRate: catScopeInfo.baud };
+      saveUsbSettings(catUsb);
+      catScopeMessage = `Baud rate set to ${catScopeInfo.baud} for the scope.`;
+      catSyncHandle.setScope(true);
+      catSyncHandle.reconnect();
+      return;
+    }
+    catSyncHandle.setScope(on);
+  }
+
+  // A click on the rig's scope strip tunes there, like a typed frequency
+  // (the rig follows with CAT Sync on and Split off).
+  function catScopeTune(hz) {
+    if (!(hz > 0) || !frequencyInputComponent) return;
+    frequencyInputComponent.setFrequency(hz);
+    handleFrequencyChange({ detail: hz });
+  }
+
+  // Split off again = locked: the rig is brought to PhantomSDR's frequency,
+  // mode and filter at once, then follows it as before.
+  function persistCatSplit() {
+    try {
+      localStorage.setItem("catSplit", String(catSplit));
+    } catch (e) {}
+    if (!catSplit && catSyncEnabled && catSyncHandle && catConnected) {
+      const hz = Math.round(frequencyInputComponent.getFrequency());
+      if (hz > 0 && catSyncHandle.sendFreqToRig(hz)) catLastSentHz = hz;
+      catSendModeToRig();
+      catLastSentWidth = null;
+      catSendFilterToRig();
+    }
+  }
+
+  function persistCatMuteOnTx() {
+    try {
+      localStorage.setItem("catMuteOnTx", String(catMuteOnTx));
+    } catch (e) {}
+    catApplyTxMute();
+  }
+
+  // The rig's reports, the same for TCI and Direct USB.
+  function catRigCallbacks() {
+    return {
       onPtt: (isTx) => {
-        catTxMuted = isTx;
-        if (isTx) {
-          audio.setGain(0); // always mute on TX -- no switch
-        } else {
-          handleVolumeChange(); // the slider as it is now
-        }
+        catRigTx = isTx;
+        catApplyTxMute();
       },
       onVfo: (freqHz, mode) => {
         // The rig moved on its own, so the next click must be sent even if it
@@ -416,6 +765,49 @@
         catRigHz = freqHz;
         catRigMode = mode;
         if (!catSyncEnabled) return;
+        catApplyRigToPage(freqHz, mode, freqChanged, modeChanged);
+      },
+      onFilter: (low, high) => {
+        const width = Math.round(high - low);
+        // Remembered with CAT Sync off too, so switching it on can apply it.
+        if (width > 0) catRigWidth = width;
+        if (!catSyncEnabled) return;
+        catApplyRigFilter(width);
+      },
+    };
+  }
+
+  // The rig's last report, also while CAT Sync is off (see onVfo/onFilter).
+  let catRigWidth = null;
+
+  // The rig's frequency and mode onto the page (CAT Sync on).
+  // The rig went outside this receiver (an IC-705 or IC-7100 turned from HF
+  // to 2 m): when another receiver of this station covers its frequency, open
+  // that receiver's page there, in the rig's mode. The rig link is closed
+  // first so the USB port is free for the new page, which finds CAT Sync and
+  // the connection remembered (same address: lib/receivers.js), reconnects
+  // by itself and lets the rig lead. True when the switch is under way.
+  function catFollowRigToReceiver(freqHz, mode) {
+    if (!receiverPicker || switchingReceiver || !audio || !(audio.totalBandwidth > 0)) return false;
+    const lo = audio.baseFreq;
+    if (freqHz >= lo && freqHz < lo + audio.totalBandwidth) return false;
+    const r = receiverFor(freqHz, receiverPicker.receivers, receiverPicker.current, receiverSpans);
+    if (!r) return false;
+    switchingReceiver = true;
+    const url = receiverTuneUrl(r, freqHz, catsyncModeFromTool(mode) || "", "view");
+    try {
+      if (catSyncHandle) catSyncHandle.close();
+    } catch (e) {}
+    catSyncHandle = null;
+    // Web Serial closes the port asynchronously; give it a moment.
+    setTimeout(() => {
+      window.location.href = url;
+    }, catSource === "usb" ? 700 : 0);
+    return true;
+  }
+
+  function catApplyRigToPage(freqHz, mode, freqChanged, modeChanged) {
+        if (freqChanged && catFollowRigToReceiver(freqHz, mode)) return;
         catApplyingRemoteFreq = true;
         try {
           // The rig only moves the dial: no band zoom or brightness, and the
@@ -441,10 +833,11 @@
         } finally {
           catApplyingRemoteFreq = false;
         }
-      },
-      onFilter: (low, high) => {
-        const width = Math.round(high - low);
-        if (!catSyncEnabled || !(width > 0) || !audio || !audio.getAudioRange) return;
+  }
+
+  // The rig's filter width onto the page's passband (CAT Sync on).
+  function catApplyRigFilter(width) {
+        if (!(width > 0) || !audio || !audio.getAudioRange) return;
         // The listener has just changed the passband or the mode: a report
         // now is the rig's filter from before, still on the way.
         const recent = Math.max(catLastSentWidthAt, catLastSentModeAt);
@@ -459,18 +852,6 @@
         } finally {
           catApplyingRemoteFreq = false;
         }
-      },
-      onStatus: (state, detail, sourceConfig) => {
-        catConnectedByPort[sourceConfig.port] = state === "connecté";
-        const activePorts = Object.entries(catConnectedByPort)
-          .filter(([, connected]) => connected)
-          .map(([port]) => port);
-        catConnected = activePorts.length > 0;
-        catActiveSourceLabel = activePorts.length
-          ? `TCI (port ${activePorts.join(", ")})`
-          : null;
-      },
-    });
   }
 
   let isRecording = false;
@@ -3057,11 +3438,11 @@
     demodulation = "USB";
     handleDemodulationChange(null, true);
     _faxUpdateParams();
-    // Framed as "To Band" frames it: band edges, brightness/contrast, step.
-    // By the listed frequency, not the dial: the dial sits below it by the
-    // tone offset, which can drop it into the band underneath (10100.8 kHz
-    // would land at the right edge of 9900-10100 instead of in 30 m).
-    applyBandSettingsForFrequency(Math.round(freqKhz * 1000));
+    // Centred on the listed frequency at a medium zoom (_servicesFrame), with
+    // the band's brightness/contrast/step. By the listed frequency, not the
+    // dial: the dial sits below it by the tone offset, which can drop it into
+    // the band underneath (10100.8 kHz would land in 9900-10100, not 30 m).
+    _servicesFrame(Math.round(freqKhz * 1000));
   }
 
   function faxToggleAutoAlign() {
@@ -3536,6 +3917,19 @@
   let radeConnected = false;
   let radeSynced = false;
   let radeSnr = null;
+  // RADE V2 tuning hint from the helper (rade_c's mistune): +1 = the signal is
+  // one carrier (~62 Hz) too high, tune up; -1 = tune down; 0 = nothing to say.
+  // Held off for a moment after a click so stale reports do not invite a
+  // second click.
+  const RADE_CARRIER_STEP_HZ = 62;
+  let radeMistune = 0;
+  let radeMistuneHoldUntil = 0;
+  function radeTuneByHint() {
+    if (!radeMistune) return;
+    tuneByStep(radeMistune * RADE_CARRIER_STEP_HZ);
+    radeMistune = 0;
+    radeMistuneHoldUntil = Date.now() + 3000;
+  }
   let radeReporterOpen = false;
   // What the helper said when it refused (e.g. "RADE V2 is not installed…");
   // empty when the helper simply could not be reached.
@@ -3571,6 +3965,7 @@
     radeConnected = false;
     radeSynced = false;
     radeSnr = null;
+    radeMistune = 0;
     audio.setRADEDecoding(false);
     audio.setRADECallback(null);
     demodulation = _bandDefaultMode();
@@ -3681,11 +4076,11 @@
     demodulation = "USB";
     handleDemodulationChange(null, true);
     _navtexNarrowFilter(hz);
-    // Framed as "To Band" frames it: band edges, brightness/contrast, step.
-    // By the listed frequency, not the dial: the dial sits below it by the
-    // tone offset, which can drop it into the band underneath (10100.8 kHz
-    // would land at the right edge of 9900-10100 instead of in 30 m).
-    applyBandSettingsForFrequency(Math.round(st.freqKhz * 1000));
+    // Centred on the listed frequency at a medium zoom (_servicesFrame), with
+    // the band's brightness/contrast/step. By the listed frequency, not the
+    // dial: the dial sits below it by the tone offset, which can drop it into
+    // the band underneath (10100.8 kHz would land in 9900-10100, not 30 m).
+    _servicesFrame(Math.round(st.freqKhz * 1000));
     if (typeof updateLink === "function") updateLink();
   }
 
@@ -3773,8 +4168,7 @@
     }
     audio.setHFDLDial(hz);
     audio.resetHFDL();
-    // Framed as "To Band" frames it: band edges, brightness/contrast, step.
-    applyBandSettingsForFrequency(hz);
+    _servicesFrame(hz);
     _modeIdApplyReceiverDefaults("hfdl");
   }
 
@@ -3793,7 +4187,22 @@
     { key: "time", label: "Time Signals", report: "TIME", title: "DCF77, MSF, RWM, WWV/WWVH: decoded date and time" },
     { key: "selcall", label: "HF Selcall", report: "SELCALL", title: "CCIR 493-4 Selcall (Codan, Barrett …): who calls whom" },
     { key: "ale", label: "ALE 2G (MIL-STD-188-141)", report: "ALE", title: "ALE 2G (MIL-STD-188-141): government, military, MARS and utility networks" },
+    // Utility modems and ALE variants (krypto500/*.js, services.worker.js):
+    // own implementations from the published standards
+    { key: "k5aqc", label: "AQC-ALE", report: "AQC-ALE", title: "AQC-ALE (MIL-STD-188-141B Appendix A.5.8): quick-call ALE with packed addresses" },
+    { key: "k5fsk", label: "FSK modes (SITOR-A, ARQ-E, ARQ-E3)", report: "ARQ-FSK", title: "Synchronous ARQ teleprinter systems: SITOR-A, ARQ-E, ARQ-E3" },
+    { key: "k5s4285", label: "STANAG 4285", report: "STANAG4285", title: "STANAG 4285: NATO 2400 Bd PSK modem, 75-3600 bps" },
+    { key: "k5m110a", label: "MIL-STD-188-110A serial", report: "MS110A", title: "MIL-STD-188-110A serial-tone PSK modem, 75-4800 bps" },
+    { key: "k5ale3g", label: "3G ALE (MIL-STD-188-141B)", report: "3G-ALE", title: "3G ALE (MIL-STD-188-141B Appendix C): BW0 link-setup PDUs" },
   ];
+  // A frequency clicked in a SERVICES, FAX or NAVTEX list: the band's brightness, contrast
+  // and step as "To Band" sets them, but the view centred on the signal at a
+  // medium zoom (SERVICES_VIEW_HALF_HZ either side) instead of the whole band.
+  const SERVICES_VIEW_HALF_HZ = 25000;
+  function _servicesFrame(signalHz) {
+    applyBandSettingsForFrequency(signalHz);
+    _frameAround(signalHz, SERVICES_VIEW_HALF_HZ);
+  }
   // Time Signals: the station chosen in its panel (remembered per browser).
   let timeStation = (() => {
     try { return localStorage.getItem("servicesTimeStation") || "dcf77"; } catch (_) { return "dcf77"; }
@@ -3855,7 +4264,12 @@
         if (gen !== _decoderGen) return;
       }
       _hfdlGateOff(true);   // the server noise gate would chop the FSK bursts
-      audio.setServicesDecoding(name, name === "time" ? { station: timeStation } : { centerHz: 1700 });
+      let opts = name === "time" ? { station: timeStation } : { centerHz: 1700 };
+      if (name === "k5fsk") {
+        // the FSK-mode settings the Krypto500 panel remembers
+        try { opts = { ...opts, ...JSON.parse(localStorage.getItem("k5fskOpts") || "{}") }; } catch (_) {}
+      }
+      audio.setServicesDecoding(name, opts);
       _modeIdApplyReceiverDefaults(name);
     });
   }
@@ -3898,7 +4312,7 @@
       console.warn("[TIME] tune error", e);
     }
     if (audio && audio.resetServices) audio.resetServices();
-    applyBandSettingsForFrequency(hz);
+    _servicesFrame(Math.round(Number(khz) * 1000));
     _modeIdApplyReceiverDefaults("time");
   }
 
@@ -3912,8 +4326,22 @@
       console.warn("[SELCALL] tune error", e);
     }
     if (audio && audio.resetServices) audio.resetServices();
-    applyBandSettingsForFrequency(hz);
+    _servicesFrame(Math.round(Number(khz) * 1000));
     _modeIdApplyReceiverDefaults("selcall");
+  }
+
+  /** Krypto500 group: the listed frequencies are USB dial frequencies. */
+  function k5Tune(khz) {
+    const hz = Math.round(Number(khz) * 1000);
+    if (!(hz > 0)) return;
+    try {
+      tuneToUserFrequency(hz, "USB");
+    } catch (e) {
+      console.warn("[K5] tune error", e);
+    }
+    if (audio && audio.resetServices) audio.resetServices();
+    _servicesFrame(Math.round(Number(khz) * 1000));
+    _modeIdApplyReceiverDefaults(serviceMode);
   }
 
   /** Tune to a DSC frequency (kHz): the carrier is 1.7 kHz above the USB dial. */
@@ -3926,7 +4354,7 @@
       console.warn("[DSC] tune error", e);
     }
     if (audio && audio.resetServices) audio.resetServices();
-    applyBandSettingsForFrequency(hz);
+    _servicesFrame(Math.round(Number(khz) * 1000));
     _modeIdApplyReceiverDefaults("dsc");
   }
 
@@ -4416,7 +4844,8 @@
     } catch (e) {
       console.warn("[ALE] tune error", e);
     }
-    applyBandSettingsForFrequency(hz);
+    if (fskInServices) _servicesFrame(hz);
+    else applyBandSettingsForFrequency(hz);
   }
 
   /**
@@ -5286,7 +5715,8 @@
     // By the listed frequency, not the dial: the dial sits below it by the
     // tone offset, which can drop it into the band underneath (10100.8 kHz
     // would land at the right edge of 9900-10100 instead of in 30 m).
-    applyBandSettingsForFrequency(Math.round(khz * 1000));
+    if (fskInServices) _servicesFrame(Math.round(khz * 1000));
+    else applyBandSettingsForFrequency(Math.round(khz * 1000));
   }
 
   _applyFskVariantDefaults(fskVariant);
@@ -6537,6 +6967,10 @@
           radeSnr = event.snr;
           radeSynced = radeSynced;
           radeSnr = radeSnr;
+          radeMistune =
+            radeVersion === 2 && !event.synced && Date.now() >= radeMistuneHoldUntil
+              ? Math.sign(Number(event.mistune) || 0)
+              : 0;
         } else if (event.type === "error") {
           radeConnected = false;
           radeConnected = radeConnected;
@@ -6594,6 +7028,21 @@
     });
   }
 
+  // SERVICES, FAX and NAVTEX run with the waterfall's Auto Adjust on: it is
+  // switched on when one of them starts and off when it stops (Off, or a
+  // decoder outside the three). Only the change in and out acts, so the Auto
+  // Adj. button can still be used by hand while one of them is running, and
+  // moving between the three leaves it as it is.
+  const WF_AUTO_DECODERS = ["services", "hffax", "navtex"];
+  let _wfAutoDecoderActive = false;
+  function _wfAutoForDecoder(active) {
+    if (active === _wfAutoDecoderActive) return;
+    _wfAutoDecoderActive = active;
+    if (!waterfall) return;
+    if (active !== autoAdjustEnabled) handleAutoAdjust();
+  }
+  $: _wfAutoForDecoder(decoderOn && WF_AUTO_DECODERS.includes(selectedDecoder));
+
   // ── Mode identifier ────────────────────────────────────────────────────────
   //
   // Suggests which decoder to reach for.  Off by default and torn down when
@@ -6649,6 +7098,12 @@
     time: { mode: "USB", passband: [700, 1300] },
     // mode null: keep USB or LSB (a few ALE nets are LSB); the passband mirrors.
     ale: { mode: null, passband: [500, 2750] },
+    // Krypto500 group: 2400-Bd PSK needs the whole 3 kHz, FSK a little less
+    k5aqc: { mode: "USB", passband: [500, 2750] },
+    k5fsk: { mode: "USB", passband: [300, 3100] },
+    k5s4285: { mode: "USB", passband: [150, 3450] },
+    k5m110a: { mode: "USB", passband: [150, 3450] },
+    k5ale3g: { mode: "USB", passband: [150, 3450] },
     drm: { mode: "DRM", passband: [-5000, 5000] },
     hffax: { mode: "USB", passband: [800, 2700] },
     sstv: { mode: null, passband: [900, 2600] },
@@ -7024,7 +7479,7 @@
 
     // CAT sync over TCI, Phantom -> rig: a waterfall click or passband drag
     // moves the rig too. A drag fires this on every move, so skip repeats.
-    if (catSyncEnabled && !catApplyingRemoteFreq && catSyncHandle) {
+    if (catSyncEnabled && !catSplit && !catApplyingRemoteFreq && catSyncHandle) {
       const hz = Math.round(m);
       if (hz !== catLastSentHz && catSyncHandle.sendFreqToRig(hz)) {
         catLastSentHz = hz;
@@ -7038,7 +7493,7 @@
 
     // CAT sync, Phantom -> rig (TCI): only when "CAT Sync" is switched on, and
     // only when this change did not come from the rig itself (no echo).
-    if (catSyncEnabled && !catApplyingRemoteFreq && catSyncHandle) {
+    if (catSyncEnabled && !catSplit && !catApplyingRemoteFreq && catSyncHandle) {
       catSyncHandle.sendFreqToRig(frequencyHz);
     }
     const audioRange = audio.getAudioRange();
@@ -9246,6 +9701,11 @@
       if (_decoderOwnsReceiver()) return;
       // A frequency from the rig over TCI keeps the rig's mode, not the band's.
       if (catApplyingRemoteFreq) return;
+      // So does one from the CATsync Tool: crossing a band-plan edge (CW below
+      // 7.040 MHz, AM from 7.201) used to flip the page to CW or AM before
+      // __catsync_setfreq_impl put the old mode back, and with the Tool's
+      // timing such a flip could stick or swallow a mode click.
+      if (catsyncRemote) return;
       SetMode(mode);
     });
 
@@ -10102,6 +10562,14 @@
     if (dir === "left") applyIFEdges(m - v, m, m);
     else if (dir === "right") applyIFEdges(m, m, m + v);
     else applyIFEdges(m - v / 2, m, m + v / 2); // symmetric: value = total width
+  }
+
+  // SSB audio report: "ESSB / hi-fi" on widens the IF filter to 4.0 kHz (as
+  // the 4.0 kHz IF Filter button does); off puts the mode's default back.
+  function handleEssbHifi(on) {
+    if (!audio || !audio.getAudioRange) return;
+    if (on) handleSetStaticBandwidth(4000, false);
+    else resetIFFilter();
   }
 
   // Reset the passband to the current mode's default offsets
@@ -11237,7 +11705,7 @@
                     <ul style="font-size: 0.91rem; text-align: left;">
                     <b>Setup &amp; Configuration:</b>
                       <img
-                        src="https://img.shields.io/badge/version-5.5.0-cyan?logo=github"
+                        src="https://img.shields.io/badge/version-6.0.0-cyan?logo=github"
                         alt="Version"
                         class="inline-block align-middle ml-2"
                       />
@@ -11923,6 +12391,19 @@ Shift + Ctrl + Wheel = snap to .00 KHz"
                       {/each}
                     {/if}
 
+                    {#if catRigScope && catConnected && catSource === "usb" && (catScopeInfo || catMeterOnly)}
+                      <!-- The listener's own transceiver's scope (Direct USB), aligned
+                           to the waterfall above (lib/RigScopeStrip.svelte). -->
+                      <RigScopeStrip
+                        bind:this={rigScopeStrip}
+                        label={catScopePreset ? catScopePreset.model : "Rig"}
+                        refEl={waterfallCanvas}
+                        onTune={catScopeTune}
+                        meterOnly={!catScopeInfo}
+                        note={catMeterNote}
+                      />
+                    {/if}
+
                     <!-- Spectrogram Display -->
                     <div
                       class="mt-2 w-full"
@@ -11964,6 +12445,7 @@ Shift + Ctrl + Wheel = snap to .00 KHz"
                         enabled={spectrogramEnabled}
                         bind:ltas={spectroLtas}
                         bind:ltasRef={spectroLtasRef}
+                        on:essb={(e) => handleEssbHifi(e.detail)}
                       />
                       <AmFmReport
                         spectro={spectrogramComponent}
@@ -13537,7 +14019,7 @@ Slider: share of denoised audio, the rest is the original"
                             on:click={toggleCatPopup}
                             title={catConnected
                               ? `CAT control active — ${catActiveSourceLabel}`
-                              : "CAT control via TCI (ExpertSDR, AetherSDR, Thetis)"}
+                              : "CAT control via TCI (ExpertSDR, AetherSDR, Thetis)\nor a transceiver connected by USB (Direct USB)"}
                           >
                             <span
                               class="mr-1 {catConnected
@@ -13561,7 +14043,7 @@ Slider: share of denoised audio, the rest is the original"
                                   class="flex justify-between items-center mb-4"
                                 >
                                   <h2 class="text-base font-bold text-white">
-                                    CAT control via TCI
+                                    {catSource === "usb" ? "CAT control via USB" : "CAT control via TCI"}
                                   </h2>
                                   <button title="Close CAT control" aria-label="Close CAT control"
                                     class="text-gray-400 hover:text-white"
@@ -13585,6 +14067,55 @@ Slider: share of denoised audio, the rest is the original"
                                 </div>
                                 <!-- Content Starts -->
                                 <div class="flex flex-col gap-4">
+                                  <div
+                                    class="flex items-center justify-center gap-4 text-xs text-gray-300"
+                                    role="radiogroup"
+                                    aria-label="CAT connection"
+                                  >
+                                    <span class="text-gray-400">Connection:</span>
+                                    <label class="flex items-center gap-1" title="TCI: ExpertSDR, AetherSDR, Thetis, or the Hamlib bridge tci-rigctld.mjs">
+                                      <input
+                                        type="radio"
+                                        name="cat-source"
+                                        checked={catSource === "tci"}
+                                        on:change={() => setCatSource("tci")}
+                                      /> TCI
+                                    </label>
+                                    <label
+                                      class="flex items-center gap-1 {catUsbAvailable ? '' : 'opacity-50'}"
+                                      title={catUsbAvailable
+                                        ? "Direct USB: this page talks to your rig over its USB cable, no other software"
+                                        : catUsbWhyNot}
+                                    >
+                                      <input
+                                        type="radio"
+                                        name="cat-source"
+                                        disabled={!catUsbAvailable}
+                                        checked={catSource === "usb" && catUsbAvailable}
+                                        on:change={() => setCatSource("usb")}
+                                      /> Direct USB
+                                    </label>
+                                  </div>
+                                  {#if catSource === "usb" && catUsbAvailable}
+                                  <p class="text-xs text-gray-400 text-center">
+                                    Icom, Yaesu, Kenwood, Elecraft and compatibles,
+                                    straight over the rig's USB cable.
+                                  </p>
+                                  <CatUsbPanel
+                                    bind:settings={catUsb}
+                                    state={catUsbState}
+                                    message={catUsbMessage}
+                                    onChoose={catUsbChoosePort}
+                                    onConnect={catUsbConnect}
+                                    onDisconnect={catUsbDisconnect}
+                                    onChange={catUsbSettingsChanged}
+                                    onPowerOn={catUsbPowerOn}
+                                    onPowerOff={catUsbPowerOff}
+                                  />
+                                  {:else}
+                                  {#if !catUsbAvailable}
+                                  <p class="text-[11px] text-gray-500 text-center">{catUsbWhyNot}</p>
+                                  {/if}
                                   <p class="text-xs text-gray-400 text-center">
                                     ExpertSDR, AetherSDR, Thetis — TCI ports
                                     50001 / 40001 are searched automatically.
@@ -13617,22 +14148,6 @@ Slider: share of denoised audio, the rest is the original"
                                     class="flex items-center justify-center gap-4 flex-wrap"
                                   >
                                     <div class="flex items-center gap-2">
-                                      <span class="text-sm text-gray-300"
-                                        >CAT Sync</span
-                                      >
-                                      <label
-                                        class="toggle-switch"
-                                        title="Turns frequency tracking (rig <-> PhantomSDR) on or off. Audio is always muted while the rig transmits."
-                                      >
-                                        <input
-                                          type="checkbox"
-                                          bind:checked={catSyncEnabled}
-                                          on:change={persistCatSyncPreference}
-                                        />
-                                        <span class="toggle-slider"></span>
-                                      </label>
-                                    </div>
-                                    <div class="flex items-center gap-2">
                                       <span class="text-xs text-gray-400"
                                         >Host:</span
                                       >
@@ -13645,6 +14160,88 @@ Slider: share of denoised audio, the rest is the original"
                                       />
                                     </div>
                                   </div>
+                                  {/if}
+                                  <!-- The CAT switches, one line: CAT Sync always; Split and
+                                       Mute on TX while a rig is connected. -->
+                                  <div class="flex items-center justify-center gap-x-5 gap-y-2 flex-wrap">
+                                    <div class="flex items-center gap-2">
+                                      <span class="text-sm text-gray-300">CAT Sync</span>
+                                      <label
+                                        class="toggle-switch"
+                                        title="Turns frequency tracking (rig <-> PhantomSDR) on or off. Muting while the rig transmits is the separate Mute on TX switch."
+                                      >
+                                        <input
+                                          type="checkbox"
+                                          aria-label="CAT Sync"
+                                          bind:checked={catSyncEnabled}
+                                          on:change={persistCatSyncPreference}
+                                        />
+                                        <span class="toggle-slider"></span>
+                                      </label>
+                                    </div>
+                                    {#if catConnected}
+                                    <div class="flex items-center gap-2 {catSyncEnabled ? '' : 'opacity-50'}">
+                                      <span class="text-sm text-gray-300">Split</span>
+                                      <label
+                                        class="toggle-switch"
+                                        title="Split on: tuning PhantomSDR leaves the rig where it is (the rig still moves PhantomSDR). Split off: the rig is locked on PhantomSDR and follows it."
+                                      >
+                                        <input
+                                          type="checkbox"
+                                          aria-label="Split"
+                                          disabled={!catSyncEnabled}
+                                          bind:checked={catSplit}
+                                          on:change={persistCatSplit}
+                                        />
+                                        <span class="toggle-slider"></span>
+                                      </label>
+                                    </div>
+                                    <div class="flex items-center gap-2">
+                                      <span class="text-sm text-gray-300">Mute on TX</span>
+                                      <label
+                                        class="toggle-switch"
+                                        title="Silence this page while your rig transmits, so you do not hear the receiver (or yourself) on the air. Off: the receiver keeps playing during TX."
+                                      >
+                                        <input
+                                          type="checkbox"
+                                          aria-label="Mute on TX"
+                                          bind:checked={catMuteOnTx}
+                                          on:change={persistCatMuteOnTx}
+                                        />
+                                        <span class="toggle-slider"></span>
+                                      </label>
+                                      {#if catRigTx}
+                                        <span class="text-xs font-bold text-red-400">TX</span>
+                                      {/if}
+                                    </div>
+                                    {#if catSource === "usb" && (catScopeInfo || catMeterOnly)}
+                                    <div class="flex items-center gap-2">
+                                      <span class="text-sm text-gray-300">{catScopeInfo ? "Rig scope" : "Rig S-meter"}</span>
+                                      <label
+                                        class="toggle-switch"
+                                        title={catScopeInfo ? `Show your transceiver's own scope as a waterfall under the receiver's, on the same frequencies. Sets the baud rate to ${catScopeInfo.baud}, which the scope needs.` : "Show your transceiver's own S-meter under the receiver's waterfall (read over CAT while shown). This rig's waterfall cannot be shown here."}
+                                      >
+                                        <input
+                                          type="checkbox"
+                                          aria-label={catScopeInfo ? "Rig scope" : "Rig S-meter"}
+                                          bind:checked={catRigScope}
+                                          on:change={persistCatRigScope}
+                                        />
+                                        <span class="toggle-slider"></span>
+                                      </label>
+                                    </div>
+                                    {/if}
+                                    {#if catSource === "usb" && catMeterNote}
+                                      <p class="text-xs text-center text-amber-300" role="note">
+                                        {catMeterNote.text}
+                                        {#if catMeterNote.link}<a href="https://phantomsdr.psychomed.gr/desktop.html" target="_blank" rel="noopener" class="underline">Get Desktop PhantomSDR+</a>{/if}
+                                      </p>
+                                    {/if}
+                                    {/if}
+                                  </div>
+                                  {#if catScopeMessage}
+                                    <p class="text-xs text-center text-amber-300" role="status">{catScopeMessage}</p>
+                                  {/if}
                                 </div>
                                 <!-- Content Ends -->
                               </div>
@@ -15046,6 +15643,12 @@ Slider: share of denoised audio, the rest is the original"
                     <SelcallPanel {audio} dialKhz={hfdlDialKhz} onTune={selcallTune}>
                       <ServiceSelect slot="service" services={SERVICES} value={serviceMode} on:change={(e) => changeService(e.detail)} />
                     </SelcallPanel>
+                  {:else if decoderOn && selectedDecoder === "services" && serviceMode.startsWith("k5")}
+                    {#key serviceMode}
+                    <Krypto500Panel {audio} service={serviceMode} dialKhz={hfdlDialKhz} onTune={k5Tune}>
+                      <ServiceSelect slot="service" services={SERVICES} value={serviceMode} on:change={(e) => changeService(e.detail)} />
+                    </Krypto500Panel>
+                    {/key}
                   {/if}
 
                   <!-- ── DRM Panel ─────────────────────────────────────────── -->
@@ -15096,6 +15699,8 @@ Slider: share of denoised audio, the rest is the original"
                               Synced{radeSnr !== null
                                 ? " · SNR " + radeSnr.toFixed(1) + " dB"
                                 : ""}
+                            {:else if radeMistune}
+                              V2 signal ~{RADE_CARRIER_STEP_HZ} Hz off — tune {radeMistune > 0 ? "up" : "down"}
                             {:else}
                               Searching for signal…
                             {/if}
@@ -15119,6 +15724,15 @@ Slider: share of denoised audio, the rest is the original"
                         >
                           {radeSynced ? "Frame Sync" : "Acquiring…"}
                         </span>
+                        {#if radeConnected && !radeSynced && radeMistune}
+                          <button
+                            class="px-2 py-0.5 rounded font-semibold bg-amber-700 text-amber-100 hover:bg-amber-600"
+                            on:click={radeTuneByHint}
+                            title="The decoder hears a RADE V2 signal one carrier ({RADE_CARRIER_STEP_HZ} Hz) {radeMistune > 0 ? 'above' : 'below'} where it should be. Click to move the dial {radeMistune > 0 ? 'up' : 'down'} {RADE_CARRIER_STEP_HZ} Hz."
+                          >
+                            {radeMistune > 0 ? "▲ Tune up" : "▼ Tune down"} {RADE_CARRIER_STEP_HZ} Hz
+                          </button>
+                        {/if}
                         <span class="text-gray-500 font-mono"
                           >{radeVersion === 2 ? "800 Hz BW · FARGAN vocoder" : "1500 Hz BW · FARGAN vocoder"}</span
                         >
@@ -16603,6 +17217,7 @@ Slider: share of denoised audio, the rest is the original"
                           <label class="toggle-switch">
                             <input aria-label="Waterfall auto adjust"
                               type="checkbox"
+                              checked={autoAdjustEnabled}
                               on:change={() => handleAutoAdjust()}
                             />
                             <span class="toggle-slider"></span>
@@ -17561,6 +18176,19 @@ Slider: share of denoised audio, the rest is the original"
                       {/each}
                     {/if}
 
+                    {#if catRigScope && catConnected && catSource === "usb" && (catScopeInfo || catMeterOnly)}
+                      <!-- The listener's own transceiver's scope (Direct USB), aligned
+                           to the waterfall above (lib/RigScopeStrip.svelte). -->
+                      <RigScopeStrip
+                        bind:this={rigScopeStrip}
+                        label={catScopePreset ? catScopePreset.model : "Rig"}
+                        refEl={waterfallCanvas}
+                        onTune={catScopeTune}
+                        meterOnly={!catScopeInfo}
+                        note={catMeterNote}
+                      />
+                    {/if}
+
                     <!-- Spectrogram Display -->
                     <div
                       class="mt-2 w-full"
@@ -17602,6 +18230,7 @@ Slider: share of denoised audio, the rest is the original"
                         enabled={spectrogramEnabled}
                         bind:ltas={spectroLtas}
                         bind:ltasRef={spectroLtasRef}
+                        on:essb={(e) => handleEssbHifi(e.detail)}
                       />
                       <AmFmReport
                         spectro={spectrogramComponent}
@@ -18396,7 +19025,7 @@ Slider: share of denoised audio, the rest is the original"
                             on:click={toggleCatPopup}
                             title={catConnected
                               ? `CAT control active — ${catActiveSourceLabel}`
-                              : "CAT control via TCI (ExpertSDR, AetherSDR, Thetis)"}
+                              : "CAT control via TCI (ExpertSDR, AetherSDR, Thetis)\nor a transceiver connected by USB (Direct USB)"}
                           >
                             <span
                               class="mr-1 {catConnected
@@ -18420,7 +19049,7 @@ Slider: share of denoised audio, the rest is the original"
                                   class="flex justify-between items-center mb-4"
                                 >
                                   <h2 class="text-base font-bold text-white">
-                                    CAT control via TCI
+                                    {catSource === "usb" ? "CAT control via USB" : "CAT control via TCI"}
                                   </h2>
                                   <button title="Close CAT control" aria-label="Close CAT control"
                                     class="text-gray-400 hover:text-white"
@@ -18444,6 +19073,55 @@ Slider: share of denoised audio, the rest is the original"
                                 </div>
                                 <!-- Content Starts -->
                                 <div class="flex flex-col gap-4">
+                                  <div
+                                    class="flex items-center justify-center gap-4 text-xs text-gray-300"
+                                    role="radiogroup"
+                                    aria-label="CAT connection"
+                                  >
+                                    <span class="text-gray-400">Connection:</span>
+                                    <label class="flex items-center gap-1" title="TCI: ExpertSDR, AetherSDR, Thetis, or the Hamlib bridge tci-rigctld.mjs">
+                                      <input
+                                        type="radio"
+                                        name="cat-source"
+                                        checked={catSource === "tci"}
+                                        on:change={() => setCatSource("tci")}
+                                      /> TCI
+                                    </label>
+                                    <label
+                                      class="flex items-center gap-1 {catUsbAvailable ? '' : 'opacity-50'}"
+                                      title={catUsbAvailable
+                                        ? "Direct USB: this page talks to your rig over its USB cable, no other software"
+                                        : catUsbWhyNot}
+                                    >
+                                      <input
+                                        type="radio"
+                                        name="cat-source"
+                                        disabled={!catUsbAvailable}
+                                        checked={catSource === "usb" && catUsbAvailable}
+                                        on:change={() => setCatSource("usb")}
+                                      /> Direct USB
+                                    </label>
+                                  </div>
+                                  {#if catSource === "usb" && catUsbAvailable}
+                                  <p class="text-xs text-gray-400 text-center">
+                                    Icom, Yaesu, Kenwood, Elecraft and compatibles,
+                                    straight over the rig's USB cable.
+                                  </p>
+                                  <CatUsbPanel
+                                    bind:settings={catUsb}
+                                    state={catUsbState}
+                                    message={catUsbMessage}
+                                    onChoose={catUsbChoosePort}
+                                    onConnect={catUsbConnect}
+                                    onDisconnect={catUsbDisconnect}
+                                    onChange={catUsbSettingsChanged}
+                                    onPowerOn={catUsbPowerOn}
+                                    onPowerOff={catUsbPowerOff}
+                                  />
+                                  {:else}
+                                  {#if !catUsbAvailable}
+                                  <p class="text-[11px] text-gray-500 text-center">{catUsbWhyNot}</p>
+                                  {/if}
                                   <p class="text-xs text-gray-400 text-center">
                                     ExpertSDR, AetherSDR, Thetis — TCI ports
                                     50001 / 40001 are searched automatically.
@@ -18476,22 +19154,6 @@ Slider: share of denoised audio, the rest is the original"
                                     class="flex items-center justify-center gap-4 flex-wrap"
                                   >
                                     <div class="flex items-center gap-2">
-                                      <span class="text-sm text-gray-300"
-                                        >CAT Sync</span
-                                      >
-                                      <label
-                                        class="toggle-switch"
-                                        title="Turns frequency tracking (rig <-> PhantomSDR) on or off. Audio is always muted while the rig transmits."
-                                      >
-                                        <input
-                                          type="checkbox"
-                                          bind:checked={catSyncEnabled}
-                                          on:change={persistCatSyncPreference}
-                                        />
-                                        <span class="toggle-slider"></span>
-                                      </label>
-                                    </div>
-                                    <div class="flex items-center gap-2">
                                       <span class="text-xs text-gray-400"
                                         >Host:</span
                                       >
@@ -18504,6 +19166,88 @@ Slider: share of denoised audio, the rest is the original"
                                       />
                                     </div>
                                   </div>
+                                  {/if}
+                                  <!-- The CAT switches, one line: CAT Sync always; Split and
+                                       Mute on TX while a rig is connected. -->
+                                  <div class="flex items-center justify-center gap-x-5 gap-y-2 flex-wrap">
+                                    <div class="flex items-center gap-2">
+                                      <span class="text-sm text-gray-300">CAT Sync</span>
+                                      <label
+                                        class="toggle-switch"
+                                        title="Turns frequency tracking (rig <-> PhantomSDR) on or off. Muting while the rig transmits is the separate Mute on TX switch."
+                                      >
+                                        <input
+                                          type="checkbox"
+                                          aria-label="CAT Sync"
+                                          bind:checked={catSyncEnabled}
+                                          on:change={persistCatSyncPreference}
+                                        />
+                                        <span class="toggle-slider"></span>
+                                      </label>
+                                    </div>
+                                    {#if catConnected}
+                                    <div class="flex items-center gap-2 {catSyncEnabled ? '' : 'opacity-50'}">
+                                      <span class="text-sm text-gray-300">Split</span>
+                                      <label
+                                        class="toggle-switch"
+                                        title="Split on: tuning PhantomSDR leaves the rig where it is (the rig still moves PhantomSDR). Split off: the rig is locked on PhantomSDR and follows it."
+                                      >
+                                        <input
+                                          type="checkbox"
+                                          aria-label="Split"
+                                          disabled={!catSyncEnabled}
+                                          bind:checked={catSplit}
+                                          on:change={persistCatSplit}
+                                        />
+                                        <span class="toggle-slider"></span>
+                                      </label>
+                                    </div>
+                                    <div class="flex items-center gap-2">
+                                      <span class="text-sm text-gray-300">Mute on TX</span>
+                                      <label
+                                        class="toggle-switch"
+                                        title="Silence this page while your rig transmits, so you do not hear the receiver (or yourself) on the air. Off: the receiver keeps playing during TX."
+                                      >
+                                        <input
+                                          type="checkbox"
+                                          aria-label="Mute on TX"
+                                          bind:checked={catMuteOnTx}
+                                          on:change={persistCatMuteOnTx}
+                                        />
+                                        <span class="toggle-slider"></span>
+                                      </label>
+                                      {#if catRigTx}
+                                        <span class="text-xs font-bold text-red-400">TX</span>
+                                      {/if}
+                                    </div>
+                                    {#if catSource === "usb" && (catScopeInfo || catMeterOnly)}
+                                    <div class="flex items-center gap-2">
+                                      <span class="text-sm text-gray-300">{catScopeInfo ? "Rig scope" : "Rig S-meter"}</span>
+                                      <label
+                                        class="toggle-switch"
+                                        title={catScopeInfo ? `Show your transceiver's own scope as a waterfall under the receiver's, on the same frequencies. Sets the baud rate to ${catScopeInfo.baud}, which the scope needs.` : "Show your transceiver's own S-meter under the receiver's waterfall (read over CAT while shown). This rig's waterfall cannot be shown here."}
+                                      >
+                                        <input
+                                          type="checkbox"
+                                          aria-label={catScopeInfo ? "Rig scope" : "Rig S-meter"}
+                                          bind:checked={catRigScope}
+                                          on:change={persistCatRigScope}
+                                        />
+                                        <span class="toggle-slider"></span>
+                                      </label>
+                                    </div>
+                                    {/if}
+                                    {#if catSource === "usb" && catMeterNote}
+                                      <p class="text-xs text-center text-amber-300" role="note">
+                                        {catMeterNote.text}
+                                        {#if catMeterNote.link}<a href="https://phantomsdr.psychomed.gr/desktop.html" target="_blank" rel="noopener" class="underline">Get Desktop PhantomSDR+</a>{/if}
+                                      </p>
+                                    {/if}
+                                    {/if}
+                                  </div>
+                                  {#if catScopeMessage}
+                                    <p class="text-xs text-center text-amber-300" role="status">{catScopeMessage}</p>
+                                  {/if}
                                 </div>
                                 <!-- Content Ends -->
                               </div>
@@ -20363,6 +21107,12 @@ Slider: share of denoised audio, the rest is the original"
                     <SelcallPanel {audio} dialKhz={hfdlDialKhz} onTune={selcallTune}>
                       <ServiceSelect slot="service" services={SERVICES} value={serviceMode} on:change={(e) => changeService(e.detail)} />
                     </SelcallPanel>
+                  {:else if decoderOn && selectedDecoder === "services" && serviceMode.startsWith("k5")}
+                    {#key serviceMode}
+                    <Krypto500Panel {audio} service={serviceMode} dialKhz={hfdlDialKhz} onTune={k5Tune}>
+                      <ServiceSelect slot="service" services={SERVICES} value={serviceMode} on:change={(e) => changeService(e.detail)} />
+                    </Krypto500Panel>
+                    {/key}
                   {/if}
 
                   <!-- ── DRM Panel ─────────────────────────────────────────── -->
@@ -20413,6 +21163,8 @@ Slider: share of denoised audio, the rest is the original"
                               Synced{radeSnr !== null
                                 ? " · SNR " + radeSnr.toFixed(1) + " dB"
                                 : ""}
+                            {:else if radeMistune}
+                              V2 signal ~{RADE_CARRIER_STEP_HZ} Hz off — tune {radeMistune > 0 ? "up" : "down"}
                             {:else}
                               Searching for signal…
                             {/if}
@@ -20436,6 +21188,15 @@ Slider: share of denoised audio, the rest is the original"
                         >
                           {radeSynced ? "Frame Sync" : "Acquiring…"}
                         </span>
+                        {#if radeConnected && !radeSynced && radeMistune}
+                          <button
+                            class="px-2 py-0.5 rounded font-semibold bg-amber-700 text-amber-100 hover:bg-amber-600"
+                            on:click={radeTuneByHint}
+                            title="The decoder hears a RADE V2 signal one carrier ({RADE_CARRIER_STEP_HZ} Hz) {radeMistune > 0 ? 'above' : 'below'} where it should be. Click to move the dial {radeMistune > 0 ? 'up' : 'down'} {RADE_CARRIER_STEP_HZ} Hz."
+                          >
+                            {radeMistune > 0 ? "▲ Tune up" : "▼ Tune down"} {RADE_CARRIER_STEP_HZ} Hz
+                          </button>
+                        {/if}
                         <span class="text-gray-500 font-mono"
                           >{radeVersion === 2 ? "800 Hz BW · FARGAN vocoder" : "1500 Hz BW · FARGAN vocoder"}</span
                         >

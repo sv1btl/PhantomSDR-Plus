@@ -458,7 +458,7 @@ El deslizador **Zoom** tiene 20 pasos, mostrados como ×1 a ×20 (el paso, no un
 
 ### Auto Adj. (cascada)
 
-El interruptor **Auto Adj.** de los controles de la cascada ajusta por usted el brillo y el contraste de la cascada. Mide el ruido de fondo en todo el tramo visible y lo convierte en un fondo oscuro y uniforme —también donde el ruido difiere de una parte del tramo a otra— y estira todo lo que queda por encima, de modo que las señales débiles destacan y las más fuertes llegan a los colores superiores. Funciona igual con cualquier mapa de color, y solo cambia la cascada: la traza del espectro conserva su escala real en dB. Mientras está activo, los controles Min y Max quedan bloqueados y muestran el ruido de fondo y el pico medidos; al desactivarlo vuelven a los ajustes de la banda.
+El interruptor **Auto Adj.** de los controles de la cascada ajusta por usted el brillo y el contraste de la cascada. Mide el ruido de fondo en todo el tramo visible y lo convierte en un fondo oscuro y uniforme —también donde el ruido difiere de una parte del tramo a otra— y estira todo lo que queda por encima, de modo que las señales débiles destacan y las más fuertes llegan a los colores superiores. Funciona igual con cualquier mapa de color. La traza del espectro sobre la cascada también lo sigue, como la vista 3D; sus alturas son entonces los niveles ajustados y no dB, por lo que su escala en dB se oculta mientras Auto Adj. está activo. Mientras está activo, los controles Min y Max quedan bloqueados y muestran el ruido de fondo y el pico medidos; al desactivarlo vuelven a los ajustes de la banda. SERVICES, HF FAX y NAVTEX activan Auto Adj. al arrancar y lo desactivan al detenerse o al elegir otro decodificador; mientras tanto el interruptor sigue funcionando a mano.
 
 ### Espectro 3D
 
@@ -486,14 +486,16 @@ El botón **📊 Show** de la sección Spectrogram abre el analizador de audio b
 
 Su propio transceptor y la página del receptor pueden mantenerse en la misma frecuencia: gire el dial del equipo y la cascada lo sigue, o haga clic en una señal de la cascada y el equipo se sintoniza en ella. Solo afecta a *su* sesión de escucha; nadie más en el receptor lo nota.
 
-**Con Desktop PhantomSDR+ (4.0 o posterior).** La aplicación de escritorio tiene un menú **Rig**. *Rig → Rig control...* abre una ventana donde elige su equipo y la forma de conectarlo, y el propio menú activa y desactiva la sincronización. Sincroniza frecuencia, modo y ancho de filtro, en un sentido o en ambos, y puede silenciar el receptor mientras transmite. Además de PhantomSDR-Plus maneja del mismo modo receptores **KiwiSDR, PA3FWM WebSDR y UberSDR**. Llega al equipo de una de estas cuatro formas:
+**Con Desktop PhantomSDR+ (4.0 o posterior).** La aplicación de escritorio tiene un menú **Rig**. *Rig → Rig control...* abre una ventana donde elige su equipo y la forma de conectarlo, y el propio menú activa y desactiva la sincronización. Sincroniza frecuencia, modo y ancho de filtro, en un sentido o en ambos, y puede silenciar el receptor mientras transmite. Además de PhantomSDR-Plus maneja del mismo modo receptores **KiwiSDR, PA3FWM WebSDR y UberSDR**. Llega al equipo de una de estas cuatro formas: La versión 6.0 añade la cascada y el S-meter del propio equipo en la parte superior de la ventana del receptor (*Rig → Show rig waterfall and S-meter*) y una conexión **Icom LAN / WiFi**, por ejemplo un IC-705 por WiFi.
 
 - **Integrado** — sin otro software: Icom (CI-V), Yaesu (CAT nuevo y FT-817/857/897), Kenwood, Elecraft, FlexRadio SmartSDR CAT, QRP Labs y otros equipos compatibles con Kenwood.
 - **Hamlib** — cualquier equipo que conozca Hamlib, más de 300, elegido de una lista con búsqueda. Los instaladores de Windows incluyen Hamlib; en Linux instale `libhamlib-utils`.
 - **rigctld en la red** — un `rigctld` que ya está en marcha.
 - **flrig** — para un equipo que flrig ya comparte con fldigi, WSJT-X o un programa de registro.
 
-La aplicación, sus instaladores y su manual completo están en [Desktop PhantomSDR+ (Dropbox)](https://www.dropbox.com/scl/fo/kjwj96zg3kj7dgq4fjef9/APnA3c9hhv4hk3YMGIGjH7s?rlkey=jfiwklly63kv73poalx631pk3&st=m37uvaym&dl=0).
+La aplicación, sus instaladores y su manual completo están en [Desktop PhantomSDR+](https://phantomsdr.psychomed.gr/desktop.html).
+
+**En la propia página del receptor.** El botón **TCI-CAT** (**CAT** en la disposición compacta) abre la ventana CAT. **TCI** conecta con ExpertSDR, AetherSDR o Thetis en su ordenador, o con cualquier equipo Hamlib mediante el puente incluido; **Direct USB** habla con el equipo directamente por su cable USB, sin otro software, en Chrome, Edge, Opera o Firefox 151+ en una página https://, y también puede encenderlo y apagarlo. **CAT Sync**, **Split** y **Mute on TX** están en una sola línea: Split deja el equipo donde está mientras sintoniza la página, y Mute on TX silencia la página mientras transmite. Con un Icom que envía su espectroscopio (IC-7300 y otros), un interruptor **Rig scope** lo muestra como franja de cascada bajo la del receptor, en las mismas frecuencias.
 
 **Con un navegador web.** La [CATsync Tool for WebSDRs](https://catsyncsdr.wordpress.com/) (Windows) acopla un equipo a la página del receptor abierta en su navegador. Sincroniza frecuencia y modo.
 
@@ -636,6 +638,8 @@ En el cuadro del chat, y siempre que un deslizador, una lista o un campo de text
 **Ratón sobre el indicador de frecuencia**: sitúe el puntero sobre un dígito; rueda hacia arriba o clic izquierdo lo sube, rueda hacia abajo o clic derecho lo baja, cada vez según el valor posicional del dígito (nueve dígitos, de 100 MHz a 1 Hz). Entre los dígitos, la rueda avanza con el paso de sintonía de la banda (1 kHz salvo que el plan de bandas indique otro); mantenga **Shift** para 1 kHz y **Alt** para 10 kHz. Un clic en cualquier otro punto del recuadro negro de frecuencia / S-meter abre el teclado numérico (Método 2 en *Sintonizar una frecuencia*).
 
 **Rueda del ratón sobre la cascada**: hace zoom. Mantenga **Ctrl** (o **Cmd**) o **Shift** para sintonizar en lugar de ampliar, y **Shift + Ctrl** juntos para ajustar al kHz entero más cercano.
+
+**Escape** cierra la ventana emergente abierta — Modes, Bands, IF Filters, TCI-CAT, Equalizer, Compressor, Bookmarks, Users, Statistics y las demás — igual que su ✕, también con el cursor en uno de sus campos. Con dos abiertas, se cierra primero la de encima.
 
 > No hay atajos de Página arriba / Página abajo.
 

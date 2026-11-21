@@ -459,7 +459,7 @@ Der **Zoom**-Regler hat 20 Stufen, angezeigt als ×1 bis ×20 (die Stufe, keine 
 
 ### Auto Adj. (Wasserfall)
 
-Der Schalter **Auto Adj.** unter den Wasserfall-Bedienelementen stellt Helligkeit und Kontrast des Wasserfalls selbst ein. Er misst das Grundrauschen über die sichtbare Spanne und macht daraus einen gleichmäßigen, dunklen Hintergrund – auch dort, wo das Rauschen in einem Teil der Spanne anders ist als im anderen – und spreizt alles darüber, sodass schwache Signale hervortreten und die stärksten die obersten Farben erreichen. Das funktioniert mit jeder Farbpalette gleich, und nur der Wasserfall ändert sich: Die Spektrumkurve behält ihre echte dB-Skala. Solange er eingeschaltet ist, sind die Regler Min und Max gesperrt und zeigen das gemessene Grundrauschen und die Spitze; beim Ausschalten kehren sie zu den Einstellungen des Bandes zurück.
+Der Schalter **Auto Adj.** unter den Wasserfall-Bedienelementen stellt Helligkeit und Kontrast des Wasserfalls selbst ein. Er misst das Grundrauschen über die sichtbare Spanne und macht daraus einen gleichmäßigen, dunklen Hintergrund – auch dort, wo das Rauschen in einem Teil der Spanne anders ist als im anderen – und spreizt alles darüber, sodass schwache Signale hervortreten und die stärksten die obersten Farben erreichen. Das funktioniert mit jeder Farbpalette gleich. Auch die Spektrumkurve über dem Wasserfall folgt ihm, wie die 3D-Ansicht; ihre Höhen sind dann die angepassten Pegel statt dB, deshalb ist ihre dB-Skala bei eingeschaltetem Auto Adj. ausgeblendet. Solange er eingeschaltet ist, sind die Regler Min und Max gesperrt und zeigen das gemessene Grundrauschen und die Spitze; beim Ausschalten kehren sie zu den Einstellungen des Bandes zurück. SERVICES, HF FAX und NAVTEX schalten Auto Adj. beim Start ein und beim Beenden oder bei der Wahl eines anderen Decoders wieder aus; dazwischen lässt sich der Schalter weiterhin von Hand bedienen.
 
 ### 3D-Spektrum
 
@@ -487,14 +487,16 @@ Die Schaltfläche **📊 Show** im Bereich Spectrogram öffnet den Audioanalysat
 
 Ihr eigener Transceiver und die Empfängerseite lassen sich auf derselben Frequenz halten: Drehen Sie am Abstimmknopf des Funkgeräts, folgt der Wasserfall – oder klicken Sie auf ein Signal im Wasserfall, und das Funkgerät stimmt darauf ab. Das betrifft nur *Ihre* eigene Hörsitzung; niemand sonst am Empfänger merkt etwas davon.
 
-**Mit Desktop PhantomSDR+ (ab 4.0).** Die Desktop-Anwendung hat ein Menü **Rig**. *Rig → Rig control...* öffnet ein Fenster, in dem Sie Ihr Funkgerät und den Verbindungsweg wählen; das Menü selbst schaltet die Synchronisierung ein und aus. Synchronisiert werden Frequenz, Betriebsart und Filterbreite, in eine Richtung oder in beide, und auf Wunsch wird der Empfänger während des Sendens stummgeschaltet. Neben PhantomSDR-Plus steuert sie auf dieselbe Weise auch Empfänger **KiwiSDR, PA3FWM WebSDR und UberSDR**. Das Funkgerät wird auf einem von vier Wegen erreicht:
+**Mit Desktop PhantomSDR+ (ab 4.0).** Die Desktop-Anwendung hat ein Menü **Rig**. *Rig → Rig control...* öffnet ein Fenster, in dem Sie Ihr Funkgerät und den Verbindungsweg wählen; das Menü selbst schaltet die Synchronisierung ein und aus. Synchronisiert werden Frequenz, Betriebsart und Filterbreite, in eine Richtung oder in beide, und auf Wunsch wird der Empfänger während des Sendens stummgeschaltet. Neben PhantomSDR-Plus steuert sie auf dieselbe Weise auch Empfänger **KiwiSDR, PA3FWM WebSDR und UberSDR**. Das Funkgerät wird auf einem von vier Wegen erreicht: Version 6.0 bringt Wasserfall und S-Meter des Funkgeräts am oberen Rand des Empfängerfensters (*Rig → Show rig waterfall and S-meter*) und eine Verbindung **Icom LAN / WiFi**, zum Beispiel für ein IC-705 über WLAN.
 
 - **Integriert** – ohne weitere Software: Icom (CI-V), Yaesu (neues CAT sowie FT-817/857/897), Kenwood, Elecraft, FlexRadio SmartSDR CAT, QRP Labs und andere Kenwood-kompatible Geräte.
 - **Hamlib** – jedes Funkgerät, das Hamlib kennt, mehr als 300, ausgewählt aus einer durchsuchbaren Liste. Die Windows-Installer enthalten Hamlib; unter Linux installieren Sie `libhamlib-utils`.
 - **rigctld im Netzwerk** – ein bereits laufender `rigctld`.
 - **flrig** – für ein Funkgerät, das flrig schon mit fldigi, WSJT-X oder einem Logbuch teilt.
 
-Die Anwendung, ihre Installer und das vollständige Handbuch finden Sie unter [Desktop PhantomSDR+ (Dropbox)](https://www.dropbox.com/scl/fo/kjwj96zg3kj7dgq4fjef9/APnA3c9hhv4hk3YMGIGjH7s?rlkey=jfiwklly63kv73poalx631pk3&st=m37uvaym&dl=0).
+Die Anwendung, ihre Installer und das vollständige Handbuch finden Sie unter [Desktop PhantomSDR+](https://phantomsdr.psychomed.gr/desktop.html).
+
+**Auf der Empfängerseite selbst.** Die Schaltfläche **TCI-CAT** (**CAT** im kompakten Layout) öffnet das CAT-Fenster. **TCI** verbindet mit ExpertSDR, AetherSDR oder Thetis auf Ihrem Computer oder über die mitgelieferte Brücke mit jedem Hamlib-Funkgerät; **Direct USB** spricht direkt über das USB-Kabel mit dem Funkgerät, ohne weitere Software, in Chrome, Edge, Opera oder Firefox 151+ auf einer https://-Seite, und kann das Funkgerät auch ein- und ausschalten. **CAT Sync**, **Split** und **Mute on TX** stehen in einer Zeile: Split lässt das Funkgerät, wo es ist, während Sie auf der Seite abstimmen, und Mute on TX schaltet die Seite stumm, während Sie senden. Bei einem Icom, der sein Skop sendet (IC-7300 und andere), zeigt ein Schalter **Rig scope** dieses Skop als Wasserfallstreifen unter dem des Empfängers, auf denselben Frequenzen.
 
 **Mit einem Webbrowser.** Das [CATsync Tool for WebSDRs](https://catsyncsdr.wordpress.com/) (Windows) koppelt ein Funkgerät an die im Browser geöffnete Empfängerseite. Es synchronisiert Frequenz und Betriebsart.
 
@@ -637,6 +639,8 @@ Im Chatfeld, und immer wenn ein Regler, eine Liste oder ein Textfeld den Tastatu
 **Maus auf der Frequenzanzeige**: Zeigen Sie auf eine Ziffer; Rad nach oben oder Linksklick erhöht sie, Rad nach unten oder Rechtsklick verringert sie, jeweils um den Stellenwert der Ziffer (neun Ziffern, 100 MHz bis 1 Hz). Zwischen den Ziffern schrittet das Rad mit der Abstimmschrittweite des Bandes (1 kHz, sofern der Bandplan nichts anderes vorgibt); **Shift** für 1 kHz, **Alt** für 10 kHz. Ein Klick an eine andere Stelle des schwarzen Frequenz-/S-Meter-Kastens öffnet den Ziffernblock (Methode 2 unter *Auf eine Frequenz abstimmen*).
 
 **Mausrad über dem Wasserfall**: zoomt. Mit **Ctrl** (oder **Cmd**) bzw. **Shift** wird stattdessen abgestimmt, mit **Shift + Ctrl** auf volle kHz gerundet.
+
+**Escape** schließt das offene Pop-up-Fenster — Modes, Bands, IF Filters, TCI-CAT, Equalizer, Compressor, Bookmarks, Users, Statistics und die anderen — genau wie sein ✕, auch wenn der Cursor in einem seiner Felder steht. Sind zwei offen, schließt sich zuerst das obere.
 
 > Page-Up- / Page-Down-Kürzel gibt es nicht.
 

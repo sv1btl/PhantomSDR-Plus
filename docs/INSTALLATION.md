@@ -343,7 +343,7 @@ Edit the following fields:
   "siteCity": "Your City, Country",
   "siteInformation": "https://github.com/sv1btl/PhantomSDR-Plus",
   "siteHardware": "Computer specifications",
-  "siteSoftware": "PhantomSDR-Plus v5.5.0",
+  "siteSoftware": "PhantomSDR-Plus v6.0.0",
   "siteReceiver": "Your SDR model",
   "siteAntenna": "Antenna description",
   "siteNote": "Additional information",
@@ -859,6 +859,8 @@ Each release carries `update-known.txt`, the fingerprint of every version of eve
 
 Nothing is ever deleted: files that have gone from the repository are reported, and removed only if you ask with `--prune`. The exit status of a run that writes nothing is `0` when you are up to date and `10` when an update is waiting, so a cron job running `bash update.sh --check` can tell you when there is something to do.
 
+The report ends with one line about the RADE V2 decoder in `~/rade_c`, which `update.sh` does not update itself: up to date, or *FreeDV has a newer decoder — run ./install_rade.sh*. After an update, or a run that finds nothing to do, `update.sh` also notes which GitHub version the station now has, so the admin panel's Dashboard (SYSTEM HEALTH → UPDATES) can tell you when there is something newer.
+
 ### Undoing an update
 
 ```bash
@@ -886,7 +888,7 @@ Each archive also carries its own `restore.sh`, for the case where `update.sh` i
 ./update.sh --apply --yes     # never asks; every file you edited is KEPT
 ./update.sh --check           # report only, never ask — for cron (10 = update waiting)
 ./update.sh --from FILE|DIR   # the new version from a .zip/.tar.gz or a folder — no network
-./update.sh --ref v5.5.0      # a tag, branch or commit instead of the current tree
+./update.sh --ref v6.0.0      # a tag, branch or commit instead of the current tree
 ./update.sh --list-excludes   # print the never-touch rules as they resolve here
 ./update.sh --verbose         # list every file, not only the first 40
 ```

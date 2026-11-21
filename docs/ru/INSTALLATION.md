@@ -343,7 +343,7 @@ nano frontend/site_information.json
   "siteCity": "Your City, Country",
   "siteInformation": "https://github.com/sv1btl/PhantomSDR-Plus",
   "siteHardware": "Computer specifications",
-  "siteSoftware": "PhantomSDR-Plus v5.5.0",
+  "siteSoftware": "PhantomSDR-Plus v6.0.0",
   "siteReceiver": "Your SDR model",
   "siteAntenna": "Antenna description",
   "siteNote": "Additional information",
@@ -857,6 +857,8 @@ bash update.sh
 
 Ничего никогда не удаляется: файлы, исчезнувшие из репозитория, перечисляются и удаляются, только если вы попросите об этом через `--prune`. Запуск, который ничего не записывает, завершается с кодом `0`, если всё актуально, и `10`, если ждёт обновление, — так задание cron с `bash update.sh --check` может сообщить, когда есть что делать.
 
+Отчёт заканчивается одной строкой о декодере RADE V2 в `~/rade_c`, который `update.sh` сам не обновляет: up to date или *FreeDV has a newer decoder — run ./install_rade.sh*. После обновления или запуска, которому нечего делать, `update.sh` также записывает, какая версия с GitHub теперь стоит на станции, чтобы Dashboard панели администратора (SYSTEM HEALTH → UPDATES) сообщал, когда появится что-то новее.
+
 ### Отмена обновления
 
 ```bash
@@ -884,7 +886,7 @@ update-backups/phantomsdr-backup-20260923-164530.zip
 ./update.sh --apply --yes     # никогда не спрашивает; всё изменённое вами СОХРАНЯЕТСЯ
 ./update.sh --check           # только отчёт, без вопросов — для cron (10 = есть обновление)
 ./update.sh --from FILE|DIR   # новая версия из .zip/.tar.gz или папки — без сети
-./update.sh --ref v5.5.0      # метка, ветка или коммит вместо текущего дерева
+./update.sh --ref v6.0.0      # метка, ветка или коммит вместо текущего дерева
 ./update.sh --list-excludes   # печатает правила «не трогать» так, как они действуют здесь
 ./update.sh --verbose         # перечисляет все файлы, а не только первые 40
 ```

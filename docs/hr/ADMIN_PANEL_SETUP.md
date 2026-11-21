@@ -25,7 +25,7 @@ Obje usluge čitaju konfiguraciju iz `admin_config.json`, koju zapisuje `setup_a
 - **Oznake** — pregled i uređivanje frekvencijskih oznaka
 - **Povijest razgovora** — pregled zapisnika WebSDR razgovora, potpuno brisanje ili uklanjanje pojedinačnih poruka bez ponovnog pokretanja poslužitelja
 - **Poruka na slapu** — emitiranje trajne poruke svim spojenim korisnicima, vidljive u stvarnom vremenu na prikazu slapa
-- **Korisnici** — živi popis spojenih slušatelja s imenom ili pozivnim znakom, lokacijom i IP adresom, frekvencijom, načinom i trajanjem, gumbom ⚡ Kick i izbornikom ⛔ Ban ▾ (8, 16 ili 24 sata) te kartom njihovih položaja
+- **Korisnici** — živi popis spojenih slušatelja s imenom ili pozivnim znakom, lokacijom i IP adresom, frekvencijom, načinom i trajanjem, gumbom ⚡ Kick i izbornikom ⛔ Ban ▾ (8, 16 ili 24 sata), ⛔ zabranama cijelih mreža (AS broj ili ime pružatelja) te kartom njihovih položaja
 - **Brisanje poruka razgovora** — gumb 🗑 Delete koji odmah uklanja tu jednu poruku iz zapisnika
 - **Emitirane poruke na slapu** — omogućuje slanje trajnog tekstualnog natpisa na slap svakog spojenog korisnika
 - **Spot Reporting** — pokretanje/zaustavljanje autorun dekodera FT8/FT4/JS8/WSPR, odabir pojaseva/načina rada i prijava spotova na PSK Reporter / wsprnet (prema zadanom isključeno), s dva brojača: pločice po dekoderu za tekući rad i ukupan zbroj od početka uz svaki potvrdni okvir pojasa/načina rada Za svaki pojas i način rada mogu se odrediti UTC sati, a daemon se može sam pokrenuti nakon ponovnog pokretanja računala ili rušenja.
@@ -170,6 +170,8 @@ Pokraj načina rada stranica Users prikazuje dekoder koji slušatelj koristi na 
 Izbacivanje je trenutačno i precizno: poslužitelj se ne pokreće ponovno, ničiji se zvuk ne prekida, a izbačeni korisnik može se odmah ponovno spojiti (funkcija služi za uklanjanje problematičnih ili zaglavljenih veza; da nekoga zadržite vani, koristite zabranu ispod).
 
 **⛔ Ban ▾** otvara mali izbornik — **8**, **16** ili **24 sata** — a odabrano trajanje odspaja slušatelja sa svih prijemnika postaje i odbija tu adresu toliko dugo (24 sata najviše je što prijemnik prihvaća) (kod zatvaranja 4001, koji stranica ne pokušava ponovno). Zabrana se čuva u `admin_bans.json` pokraj ploče i jednom u minuti ponovno šalje svakom prijemniku, pa je ponovno pokretanje prijemnika ne ukida. Dok zabrane vrijede, popis **Banned** ispod tablice prikazuje svaku s imenom, adresom i vremenom isteka, a gumb **Unban** odmah je ukida. Svi iza iste internetske veze dijele adresu i zabranjeni su s njom.
+
+**Zabrana cijele mreže.** Neke smetnje dolaze od cijelog pružatelja, a ne od jedne adrese, primjerice od cloud ili VPN usluge koja mijenja adresu pri svakom spajanju. Ispod IP adrese svakog slušatelja stranica Korisnici prikazuje njegovu mrežu (`AS3329 …`), a **⛔ Ban ▾** nudi i **Whole network AS… (until removed)**. Kartica **Banned networks (ASN / ISP)** ispod tablice zabranjuje po **AS broju** (`AS12345`) ili po **ISP name contains** (svaka mreža čije ime sadrži tekst, npr. `hetzner`); dok tipkate, ispisuje mreže koje bi pravilo obuhvatilo, crveno kad ih je više od 20. Zabrana mreže vrijedi do **Remove**. `proxy.py` odbija zabranjenu mrežu prije nego što je prijemnik vidi (kod zatvaranja 4001), a svakih 20 sekundi ploča odspaja slušatelje iz te mreže koji su već bili spojeni ili su do prijemnika došli mimo proxyja (svaka takva adresa odbija se 10 minuta; to prestaje kad se pravilo ukloni). Mreže dolaze iz besplatne tablice iptoasn.com, koja se preuzima u `asn-db/` s prvom zabranom mreže i obnavlja svaki tjedan (**↻ Update table** preuzima je odmah); pravila se čuvaju u `asn_bans.json`. Bez tablice nitko se ne odbija, a ploča vam ne dopušta zabraniti mrežu iz koje ste prijavljeni.
 
 ---
 
@@ -493,6 +495,8 @@ Daemon je namjerno lagan i radi na hardveru skromnih resursa (četverojezgreni i
 Kartica na **Dashboardu**, osvježava se svakih 30 sekundi (ili s **↻ refresh**):
 
 - **Prijamnici** — svaki prijamnik stanice (onaj na `public_port` i svaki iz `receivers.toml`): zelena točka i *on air, up 15h 5m* kad odgovara, crveni **OFF THE AIR** kad ne odgovara.
+- **RADE** — RADE V1 i RADE V2 (beta): *ready to decode* kad RADE sidecar (`rade_helper.py`) radi i ta je verzija instalirana, **NOT RUNNING** kad sidecar ne radi. Ako je RADE V2 dekoder postaje stariji od FreeDV-ova ispravka za postaje oko 62 Hz pored frekvencije, redak V2 dodaje *decoder outdated — run ./install_rade.sh*: pokrenite ga, a zatim ponovno pokrenite prijamnik.
+- **Updates** — jednom dnevno ploča pita GitHub ima li PhantomSDR-Plus ili FreeDV-ov RADE V2 dekoder nešto novije od ove postaje, i prikazuje *update on GitHub (5 changes, latest 16 Nov) — run ./update.sh*, *newer version from FreeDV — run ./install_rade.sh, then restart the receiver* ili *up to date*. **↻ check now** pita odmah. Verziju postaje ploča zna iz `update.sh`, koji je zabilježi nakon svakog ažuriranja; postaja klonirana gitom i nikad ažurirana uspoređuje se preko gita, a svaka druga dobiva poruku da jednom pokrene `./update.sh`.
 - **Disk i mape zapisa** — slobodan prostor na disku instalacije (narančasto od 80 % zauzeća, crveno od 90 %), i veličina `logs/`, `logproxy/` i svake `instances/<id>/logs/`.
 - **Nedavna upozorenja** — ono što je nadzor upozorenja vidio od pokretanja ploče (vidi [Upozorenja](#upozorenja-e-pošta--telegram)), bez obzira je li poruka poslana.
 - **Posljednji unos u crash.log** — najnoviji neprazni `crash.log` svih prijamnika, s datumom i zadnjih 12 redaka.
@@ -607,7 +611,7 @@ Skripta uzima svaki odgovor iz te datoteke i traži samo vašu sudo lozinku (tre
 
 - svaki `*.toml` instalacije (konfiguracije prijamnika i `receivers.toml`) i `station.conf`
 - `frontend/site_information.json`, `frontend/src/bands-config.js`, `markers.json`
-- `autorun.json` (spot reporting), `websdr_relay.json`, `drm.json`, `admin_bans.json`
+- `autorun.json` (spot reporting), `websdr_relay.json`, `drm.json`, `admin_bans.json`, `asn_bans.json`
 - za svaki dodatni prijamnik: `instances/<id>/config.toml`, `instance.env`, `markers.json`
 
 i `BACKUP-INFO.json` s datumom, računalom i popisom datoteka. **Nije** uključeno: `admin_config.json` (administratorska lozinka, tajne upozorenja), zapisi i sam program.

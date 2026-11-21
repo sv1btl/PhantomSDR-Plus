@@ -28,6 +28,11 @@ from functools import wraps
 from pathlib import Path
 
 try:
+    import asn_db          # ASN / ISP bans (asn_db.py)
+except Exception:
+    asn_db = None
+
+try:
     import tomllib
 except ImportError:
     try:
@@ -1660,7 +1665,7 @@ html[data-theme=light]{color-scheme:light;}
     <div class="sidebar-logo">
       <div class="icon">📡</div>
       <div class="title">PHANTOM<span style="color:var(--amber)">SDR</span></div>
-      <div class="sub">ADMIN v5.5.0</div>
+      <div class="sub">ADMIN v6.0.0</div>
     </div>
     <div class="nav-section">
       <div class="nav-label">MAIN</div>
@@ -1805,6 +1810,8 @@ html[data-theme=light]{color-scheme:light;}
               <div id="hl-rx" style="font-size:.75rem;line-height:1.7;">Loading...</div>
               <div style="font-size:.65rem;color:var(--text3);margin:.6rem 0 .3rem;">RADE</div>
               <div id="hl-rade" style="font-size:.75rem;line-height:1.7;"></div>
+              <div style="font-size:.65rem;color:var(--text3);margin:.6rem 0 .3rem;">UPDATES <span style="cursor:pointer;margin-left:.4rem;" onclick="loadHealth(true)" title="Ask GitHub now instead of waiting for the daily check">↻ check now</span></div>
+              <div id="hl-upd" style="font-size:.75rem;line-height:1.7;"></div>
               <div style="font-size:.65rem;color:var(--text3);margin:.6rem 0 .3rem;">DISK &amp; LOG FOLDERS</div>
               <div id="hl-disk" style="font-size:.75rem;line-height:1.7;"></div>
             </div>
@@ -2645,6 +2652,29 @@ html[data-theme=light]{color-scheme:light;}
             <tbody id="bans-tbody"></tbody>
           </table>
         </div>
+        <div class="card" id="asn-card" style="margin-top:.8rem;overflow-x:auto;padding:0;">
+          <div class="card-header" style="padding:.6rem .9rem;margin:0;display:flex;align-items:center;gap:.6rem;">
+            <div class="dot"></div>BANNED NETWORKS (ASN / ISP)
+            <span style="font-size:.6rem;color:var(--text3);margin-left:auto;">until removed</span>
+          </div>
+          <div style="padding:.6rem .9rem;display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;">
+            <select id="asn-kind" onchange="asnPreview()">
+              <option value="asn">AS number</option>
+              <option value="isp">ISP name contains</option>
+            </select>
+            <input type="text" id="asn-value" placeholder="AS12345" style="width:13rem;" oninput="asnPreview()">
+            <input type="text" id="asn-note" placeholder="note (optional)" style="width:13rem;" maxlength="80">
+            <button class="btn btn-amber" onclick="asnAdd()">⛔ BAN NETWORK</button>
+          </div>
+          <div id="asn-preview" style="padding:0 .9rem .5rem;font-size:.68rem;color:var(--text3);"></div>
+          <table data-nostack style="width:100%;border-collapse:collapse;font-size:.75rem;">
+            <tbody id="asn-tbody"></tbody>
+          </table>
+          <div style="padding:.5rem .9rem;font-size:.62rem;color:var(--text3);display:flex;gap:.6rem;align-items:center;flex-wrap:wrap;">
+            <span id="asn-db-info">ASN table: …</span>
+            <button class="btn btn-blue" style="padding:.2rem .5rem;font-size:.6rem;" onclick="asnDbUpdate()">&#8635; UPDATE TABLE</button>
+          </div>
+        </div>
         <div class="card" style="margin-top:.8rem;padding:0;overflow:hidden;">
           <div class="card-header" style="padding:.6rem .9rem;margin:0;display:flex;align-items:center;gap:.6rem;">
             <div class="dot"></div>LISTENER MAP
@@ -2882,9 +2912,33 @@ function _fmtWhen(t) {
   return d.toLocaleDateString(undefined, {day: '2-digit', month: 'short'}) + ' ' +
          d.toLocaleTimeString(undefined, {hour: '2-digit', minute: '2-digit'});
 }
-async function loadHealth() {
+// UPDATES block: what GitHub has that this station does not (daily check).
+function _renderUpdates(u) {
+  const day = s => s ? new Date(s).toLocaleDateString(undefined, {day: 'numeric', month: 'short'}) : '';
+  const dot = c => '<span style="color:' + c + '">●</span> ';
+  const n = x => x.ahead + (x.ahead === 1 ? ' change' : ' changes') + (x.latest ? ', latest ' + day(x.latest) : '');
+  const p = u.phantom || {}, r = u.rade_c || {};
+  const ph = {
+    source: dot('var(--text3)') + 'PhantomSDR-Plus — this is the source tree, not compared with GitHub',
+    current: dot('var(--ok)') + 'PhantomSDR-Plus — up to date with GitHub',
+    behind: dot('var(--amber)') + 'PhantomSDR-Plus — <b style="color:var(--amber)">update on GitHub</b> (' + (p.ahead ? n(p) : '') + ') — run ./update.sh',
+    unknown: dot('var(--text3)') + 'PhantomSDR-Plus — run ./update.sh once; after that the panel can tell when GitHub has something newer',
+    error: dot('var(--text3)') + 'PhantomSDR-Plus — GitHub could not be reached',
+  }[p.state] || dot('var(--text3)') + 'PhantomSDR-Plus — not checked yet';
+  const rc = {
+    absent: dot('var(--text3)') + 'RADE V2 decoder — not installed (no ~/rade_c)',
+    current: dot('var(--ok)') + 'RADE V2 decoder — up to date with FreeDV',
+    behind: dot('var(--amber)') + 'RADE V2 decoder — <b style="color:var(--amber)">newer version from FreeDV</b> (' + (r.ahead ? n(r) : '') + ') — run ./install_rade.sh, then restart the receiver',
+    error: dot('var(--text3)') + 'RADE V2 decoder — GitHub could not be reached',
+  }[r.state] || dot('var(--text3)') + 'RADE V2 decoder — not checked yet';
+  const when = u.checked ? 'checked ' + _fmtWhen(u.checked) + ', once a day' : '';
+  document.getElementById('hl-upd').innerHTML = ph + '<br>' + rc +
+    '<br><span style="color:var(--text3);font-size:.65rem;">' + (u.running ? 'checking GitHub…' : when) + '</span>';
+  if (u.running) setTimeout(() => loadHealth(), 5000);
+}
+async function loadHealth(check) {
   let d;
-  try { d = await fetch('/admin/api/health').then(r => r.json()); } catch (e) { return; }
+  try { d = await fetch('/admin/api/health' + (check ? '?check=1' : '')).then(r => r.json()); } catch (e) { return; }
   if (!d || !d.ok) return;
   let allUp = true;
   document.getElementById('hl-rx').innerHTML = d.receivers.map(r => {
@@ -2898,8 +2952,10 @@ async function loadHealth() {
     const c = {ready: 'var(--ok)', starting: 'var(--amber)', missing: 'var(--text3)'}[r.state] || 'var(--red)';
     const txt = r.state === 'ready' ? 'ready to decode, up ' + _fmtDur(r.uptime_s)
               : r.state === 'off' ? '<b style="color:var(--red)">NOT RUNNING</b>' : escHtml(r.detail);
-    return '<span style="color:' + c + '">●</span> ' + escHtml(r.label) + ' — ' + txt;
+    const old = r.outdated ? ' · <b style="color:var(--amber)" title="This RADE V2 decoder is older than FreeDV’s fix for stations about 62 Hz off frequency (garbled sound, no tune up/down hint). ./install_rade.sh updates and rebuilds it; then restart the receiver.">decoder outdated — run ./install_rade.sh</b>' : '';
+    return '<span style="color:' + c + '">●</span> ' + escHtml(r.label) + ' — ' + txt + old;
   }).join('<br>');
+  _renderUpdates(d.updates || {});
   const dot = document.getElementById('hl-dot');
   dot.style.background = allUp ? 'var(--ok)' : 'var(--red)';
   dot.style.boxShadow = '0 0 6px ' + (allUp ? 'var(--ok)' : 'var(--red)');
@@ -5362,6 +5418,13 @@ async function loadUsers() {
         ipEl.textContent = u.ip.replace(/^::ffff:/, '');
         tdGeo.appendChild(ipEl);
       }
+      if (u.asn) {
+        var asEl = document.createElement('div');
+        asEl.style.cssText = 'color:var(--text3);font-size:.62rem;max-width:15rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;';
+        asEl.textContent = 'AS' + u.asn + ' ' + (u.as_name || '');
+        asEl.title = asEl.textContent;
+        tdGeo.appendChild(asEl);
+      }
       tr.appendChild(tdGeo);
       // Receiver (only with several receivers)
       if (multi) {
@@ -5403,9 +5466,11 @@ async function loadUsers() {
         bb.className = 'btn btn-amber';
         bb.style.cssText = 'padding:.25rem .6rem;font-size:.65rem;margin-left:.3rem;';
         bb.textContent = '⛔ BAN ▾';
-        bb.onclick = (function(ip, nm){ return function(){
-          openBanMenu(this, function(h){ banUser(ip, nm, h); });
-        }; })(rawIp, u.name || '');
+        bb.onclick = (function(ip, nm, asn, asName){ return function(){
+          var extra = asn ? [{label: 'Whole network AS' + asn + ' (until removed)',
+                              fn: function(){ asnBanFromUser(asn, asName, nm); }}] : [];
+          openBanMenu(this, function(h){ banUser(ip, nm, h); }, extra);
+        }; })(rawIp, u.name || '', u.asn || 0, u.as_name || '');
         tdK.appendChild(bb);
       }
       tdK.style.whiteSpace = 'nowrap';
@@ -5413,6 +5478,7 @@ async function loadUsers() {
       tbody.appendChild(tr);
     });
     loadBans();
+    loadAsnBans();
     var liveIds = new Set(users.map(function(u){ return u.id; }));
     Object.keys(_uConnTimes).forEach(function(id){
       if (!liveIds.has(id)) delete _uConnTimes[id];
@@ -5454,7 +5520,7 @@ function _banMenuOutside(e) {
   if (m && !m.contains(e.target)) closeBanMenu();
 }
 function _banMenuKey(e) { if (e.key === 'Escape') closeBanMenu(); }
-function openBanMenu(btn, onPick) {
+function openBanMenu(btn, onPick, extra) {
   var was = document.getElementById('ban-menu');
   closeBanMenu();
   if (was && was._btn === btn) return;          // second click closes it
@@ -5466,6 +5532,13 @@ function openBanMenu(btn, onPick) {
     var it = document.createElement('div');
     it.textContent = h + ' hours';
     it.onclick = function() { closeBanMenu(); onPick(h); };
+    m.appendChild(it);
+  });
+  (extra || []).forEach(function(x) {
+    var it = document.createElement('div');
+    it.textContent = x.label;
+    it.style.borderTop = '1px solid var(--border)';
+    it.onclick = function() { closeBanMenu(); x.fn(); };
     m.appendChild(it);
   });
   document.body.appendChild(m);
@@ -5553,6 +5626,141 @@ async function loadBans() {
       tbody.appendChild(tr);
     });
   } catch(e) { /* keep the last list */ }
+}
+
+// ── Banned networks (ASN / ISP) ──────────────────────────────────────────────
+// Network names come from the iptoasn.com table: always textContent.
+async function loadAsnBans() {
+  var tbody = document.getElementById('asn-tbody');
+  var info = document.getElementById('asn-db-info');
+  if (!tbody) return;
+  try {
+    var d = await fetch('/admin/api/asn-bans', {cache: 'no-store'}).then(function(r){ return r.json(); });
+    if (!d.ok) { if (info) info.textContent = d.msg || 'unavailable'; return; }
+    var db = d.db || {};
+    if (info) {
+      var t;
+      if (db.downloading) t = 'ASN table: downloading…';
+      else if (db.loading) t = 'ASN table: loading…';
+      else if (!db.present) t = 'ASN table: not downloaded yet — it is fetched with the first ban';
+      else t = 'ASN table: ' + (db.networks || 0).toLocaleString() + ' networks, ' +
+               new Date(db.file_time * 1000).toLocaleDateString() + ' (iptoasn.com, refreshed weekly)';
+      if (db.error) t += ' — last download failed: ' + db.error;
+      info.textContent = t;
+    }
+    var CL = 'padding:.38rem .6rem;border-bottom:1px solid var(--border);vertical-align:middle;';
+    tbody.innerHTML = '';
+    (d.rules || []).forEach(function(r) {
+      var tr = document.createElement('tr');
+      var tdL = document.createElement('td');
+      tdL.style.cssText = CL + 'color:var(--amber);font-weight:bold;white-space:nowrap;';
+      tdL.textContent = r.label;
+      tr.appendChild(tdL);
+      var tdN = document.createElement('td');
+      tdN.style.cssText = CL + 'color:var(--text2);';
+      if (r.kind === 'asn') tdN.textContent = r.name || '--';
+      else tdN.textContent = (r.networks == null ? '?' : r.networks) + ' network' + (r.networks === 1 ? '' : 's') + ' match';
+      var nEl = document.createElement('div');
+      nEl.style.cssText = 'color:var(--text3);font-size:.62rem;';
+      nEl.textContent = (r.note ? r.note + ' · ' : '') + 'since ' + new Date(r.added * 1000).toLocaleDateString();
+      tdN.appendChild(nEl);
+      tr.appendChild(tdN);
+      var tdB = document.createElement('td');
+      tdB.style.cssText = CL + 'text-align:right;';
+      var btn = document.createElement('button');
+      btn.className = 'btn btn-green';
+      btn.style.cssText = 'padding:.25rem .6rem;font-size:.65rem;';
+      btn.textContent = 'REMOVE';
+      btn.onclick = function(){ asnRemove(r.id, r.label); };
+      tdB.appendChild(btn);
+      tr.appendChild(tdB);
+      tbody.appendChild(tr);
+    });
+  } catch(e) { /* keep the last list */ }
+}
+
+var _asnPrevTimer = null;
+function asnPreview() {
+  var kind = document.getElementById('asn-kind').value;
+  var val = document.getElementById('asn-value');
+  val.placeholder = kind === 'asn' ? 'AS12345' : 'e.g. hetzner';
+  clearTimeout(_asnPrevTimer);
+  _asnPrevTimer = setTimeout(async function() {
+    var el = document.getElementById('asn-preview');
+    var q = val.value.trim();
+    el.textContent = '';
+    if (!q || (kind === 'isp' && q.length < 3)) return;
+    try {
+      var d = await fetch('/admin/api/asn-search?q=' + encodeURIComponent(kind === 'asn' && !/^as/i.test(q) ? 'AS' + q : q),
+                          {cache: 'no-store'}).then(function(r){ return r.json(); });
+      if (!d.ok) { el.textContent = d.msg || ''; return; }
+      if (!d.total) { el.textContent = 'No network matches.'; return; }
+      var head = document.createElement('div');
+      head.style.color = d.total > 20 ? 'var(--red)' : 'var(--text2)';
+      head.textContent = d.total + ' network' + (d.total === 1 ? '' : 's') + ' would be banned' +
+                         (d.total > 20 ? ' — check that this is what you mean' : '') + ':';
+      el.appendChild(head);
+      d.networks.forEach(function(n) {
+        var r = document.createElement('div');
+        r.textContent = 'AS' + n.asn + (n.cc ? ' [' + n.cc + '] ' : ' ') + n.name;
+        el.appendChild(r);
+      });
+      if (d.total > d.networks.length) {
+        var more = document.createElement('div');
+        more.textContent = '… and ' + (d.total - d.networks.length) + ' more';
+        el.appendChild(more);
+      }
+    } catch(e) {}
+  }, 300);
+}
+
+async function asnSend(kind, value, note) {
+  try {
+    var d = await fetch('/admin/api/asn-ban', {method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({kind: kind, value: value, note: note})}).then(function(r){ return r.json(); });
+    toast(d.msg || (d.ok ? 'Banned' : 'Ban failed'), d.ok ? 'ok' : 'err');
+    if (d.ok) setTimeout(loadUsers, 1800);
+    return d.ok;
+  } catch(e) { toast('Ban failed: ' + e.message, 'err'); return false; }
+  finally { loadAsnBans(); }
+}
+
+async function asnAdd() {
+  var kind = document.getElementById('asn-kind').value;
+  var val = document.getElementById('asn-value').value.trim();
+  var note = document.getElementById('asn-note').value.trim();
+  if (!val) { toast('Enter an AS number or an ISP name', 'err'); return; }
+  var what = kind === 'asn' ? (/^as/i.test(val) ? val.toUpperCase() : 'AS' + val) : 'every network whose name contains "' + val + '"';
+  if (!confirm('Ban ' + what + '? Every listener from it is disconnected and refused until you remove the ban.')) return;
+  if (await asnSend(kind, val, note)) {
+    document.getElementById('asn-value').value = '';
+    document.getElementById('asn-note').value = '';
+    document.getElementById('asn-preview').textContent = '';
+  }
+}
+
+function asnBanFromUser(asn, asName, name) {
+  if (!confirm('Ban the whole network AS' + asn + ' ' + asName + '?\\nEvery listener from it is disconnected and refused until you remove the ban.')) return;
+  asnSend('asn', asn, name ? 'from ' + name : '');
+}
+
+async function asnRemove(id, label) {
+  if (!confirm('Remove the ban on ' + label + '?')) return;
+  try {
+    var d = await fetch('/admin/api/asn-unban', {method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({id: id})}).then(function(r){ return r.json(); });
+    toast(d.msg || 'Removed', d.ok ? 'ok' : 'err');
+  } catch(e) { toast('Remove failed: ' + e.message, 'err'); }
+  loadAsnBans();
+}
+
+async function asnDbUpdate() {
+  try {
+    var d = await fetch('/admin/api/asn-db-update', {method: 'POST'}).then(function(r){ return r.json(); });
+    toast(d.msg, d.ok ? 'ok' : 'err');
+  } catch(e) { toast('Update failed: ' + e.message, 'err'); }
+  setTimeout(loadAsnBans, 1500);
+  setTimeout(loadAsnBans, 15000);
 }
 
 function toggleUsersAutoRefresh() {
@@ -8167,6 +8375,9 @@ def api_sdr_users():
             u["rx"] = label
             # Session ids are per server; keep them unique across receivers.
             u["id"] = "%d:%s" % (port, u.get("id", ""))
+            info = _asn_info(u.get("ip"))
+            if info:
+                u["asn"], u["as_name"] = info[0], info[2]
             users.append(u)
     if not seen:
         return jsonify({"ok": False, "users": [], "error": "; ".join(errors) or "no receiver"})
@@ -8485,6 +8696,206 @@ def api_unban():
             pass        # an older binary has no /~~unban; the ban then runs out
     return jsonify({"ok": True, "msg": "Unbanned %s" % ip})
 
+# ── ASN / ISP bans ────────────────────────────────────────────────────────────
+# A rule bans a whole network: an AS number, or text inside the network's name.
+# proxy.py refuses a match at connect time (asn_db.check); the sweep below
+# kicks listeners who were already on when a rule was added, and those who
+# reach a receiver without passing the proxy. The sweep's kick carries a
+# 10-minute refusal, renewed each time the address comes back, and lifted when
+# its rule is removed. Rules last until removed (asn_bans.json).
+ASN_SWEEP_S   = 20
+ASN_SWEEP_BAN = 600
+_asn_lock     = threading.Lock()
+_asn_swept    = {}          # ip -> (rule id, until epoch)
+_asn_dl       = {"running": False, "error": "", "at": 0}
+
+def _asn_info(ip):
+    t = asn_db.table() if asn_db else None
+    return t.lookup(ip) if t else None
+
+def _asn_sweep_once():
+    if asn_db is None:
+        return 0
+    rules = asn_db.load_rules()
+    if not rules or asn_db.table() is None:
+        return 0
+    kicked = 0
+    seen = set()
+    for port in _sdr_ports():
+        try:
+            d = _sdr_users_with_ip(port)
+        except Exception:
+            continue
+        for u in d.get("users", []):
+            ip = _valid_listener_ip(u.get("ip"))
+            if not ip or ip in seen:
+                continue
+            seen.add(ip)
+            rule = asn_db.match(_asn_info(ip), rules)
+            if not rule:
+                continue
+            info = _asn_info(ip)
+            _proxy_kick(ip)
+            _server_kick(ip, ASN_SWEEP_BAN)
+            with _asn_lock:
+                _asn_swept[ip] = (rule["id"], time.time() + ASN_SWEEP_BAN)
+            logging.info("network ban %s: kicked %s (AS%s %s)",
+                         asn_db.rule_label(rule), ip, info[0], info[2])
+            kicked += 1
+    now = time.time()
+    with _asn_lock:
+        for ip in [k for k, v in _asn_swept.items() if v[1] <= now]:
+            del _asn_swept[ip]
+    return kicked
+
+def _asn_refresh_due():
+    st = asn_db.db_status()
+    if not st["present"]:
+        return bool(asn_db.load_rules())      # fetched once there is a rule to apply
+    return time.time() - st["file_time"] > asn_db.DB_MAX_AGE
+
+def _asn_download():
+    with _asn_lock:
+        if _asn_dl["running"]:
+            return
+        _asn_dl["running"] = True
+    try:
+        rows = asn_db.download()
+        _asn_dl["error"] = ""
+        logging.info("ASN table updated: %d lines from %s", rows, asn_db.DB_URL)
+        asn_db.reload_if_changed(block=True)
+    except Exception as e:
+        _asn_dl["error"] = str(e)
+        logging.warning("ASN table download failed: %s", e)
+    finally:
+        _asn_dl["at"] = int(time.time())
+        _asn_dl["running"] = False
+
+def _asn_keeper():
+    last_try = 0
+    while True:
+        try:
+            asn_db.reload_if_changed()
+            # A failed download is tried again after an hour, not every pass.
+            if _asn_refresh_due() and time.time() - last_try > 3600:
+                last_try = time.time()
+                _asn_download()
+            _asn_sweep_once()
+        except Exception as e:
+            logging.warning("ASN keeper: %s", e)
+        time.sleep(ASN_SWEEP_S)
+
+def start_asn_keeper():
+    if asn_db is not None:
+        threading.Thread(target=_asn_keeper, name="asn-keeper", daemon=True).start()
+
+def _asn_unban_swept(rule_id):
+    import urllib.request, urllib.parse
+    with _asn_lock:
+        ips = [ip for ip, v in _asn_swept.items() if v[0] == rule_id]
+        for ip in ips:
+            del _asn_swept[ip]
+    with _bans_lock:
+        kept = _load_bans()                   # an address the sysop banned by IP stays banned
+    for ip in ips:
+        if ip in kept:
+            continue
+        q = urllib.parse.urlencode({"ip": ip})
+        for port in _sdr_ports():
+            try:
+                urllib.request.urlopen("http://127.0.0.1:%d/~~unban?%s" % (port, q),
+                                       timeout=5).read()
+            except Exception:
+                pass
+
+@app.route("/admin/api/asn-bans")
+@login_required
+def api_asn_bans():
+    if asn_db is None:
+        return jsonify({"ok": False, "msg": "asn_db.py is missing"})
+    t = asn_db.table()
+    rules = []
+    for r in asn_db.load_rules():
+        x = dict(r)
+        x["label"] = asn_db.rule_label(r)
+        if t is not None:
+            if r["kind"] == "asn":
+                n = asn_db.parse_asn(r["value"])
+                x["name"] = t.names.get(n, ("", ""))[1]
+                x["networks"] = 1 if n in t.names else 0
+            else:
+                x["networks"] = t.search(r["value"], limit=0)[1]
+        rules.append(x)
+    st = asn_db.db_status()
+    st.update(downloading=_asn_dl["running"], error=_asn_dl["error"])
+    return jsonify({"ok": True, "rules": rules, "db": st})
+
+@app.route("/admin/api/asn-search")
+@login_required
+def api_asn_search():
+    t = asn_db.table() if asn_db else None
+    if t is None:
+        return jsonify({"ok": False, "msg": "The ASN table is not loaded yet"})
+    nets, total = t.search(request.args.get("q", ""), limit=30)
+    return jsonify({"ok": True, "networks": nets, "total": total})
+
+@app.route("/admin/api/asn-ban", methods=["POST"])
+@login_required
+def api_asn_ban():
+    if asn_db is None:
+        return jsonify({"ok": False, "msg": "asn_db.py is missing"})
+    data = request.get_json(silent=True) or {}
+    kind = data.get("kind")
+    if kind not in ("asn", "isp"):
+        return jsonify({"ok": False, "msg": "Choose ASN or ISP name"})
+    try:
+        rule = asn_db.new_rule(kind, data.get("value"), data.get("note"))
+    except ValueError as e:
+        return jsonify({"ok": False, "msg": str(e)})
+    # The station's own network cannot be banned by mistake from here: every
+    # sysop who tests from home would lock themselves out.
+    own = _asn_info(request.headers.get("X-Forwarded-For", "").split(",")[-1].strip()
+                    or request.remote_addr)
+    if own and asn_db.match(own, [rule]):
+        return jsonify({"ok": False, "msg": "That would ban your own network (AS%s %s)"
+                        % (own[0], own[2])})
+    with _asn_lock:
+        rules = list(asn_db.load_rules())
+        key = (rule["kind"], str(rule["value"]).lower())
+        if any((r["kind"], str(r["value"]).lower()) == key for r in rules):
+            return jsonify({"ok": False, "msg": "%s is already banned" % asn_db.rule_label(rule)})
+        rules.append(rule)
+        asn_db.save_rules(rules)
+    threading.Thread(target=_asn_sweep_once, daemon=True).start()
+    msg = "Banned %s" % asn_db.rule_label(rule)
+    if asn_db.table() is None:
+        msg += " — the ASN table is being downloaded, the ban applies once it is in"
+        threading.Thread(target=_asn_download, daemon=True).start()
+    return jsonify({"ok": True, "msg": msg})
+
+@app.route("/admin/api/asn-unban", methods=["POST"])
+@login_required
+def api_asn_unban():
+    if asn_db is None:
+        return jsonify({"ok": False, "msg": "asn_db.py is missing"})
+    rid = str((request.get_json(silent=True) or {}).get("id") or "")
+    with _asn_lock:
+        rules = list(asn_db.load_rules())
+        gone = [r for r in rules if r.get("id") == rid]
+        if not gone:
+            return jsonify({"ok": False, "msg": "No such rule"})
+        asn_db.save_rules([r for r in rules if r.get("id") != rid])
+    threading.Thread(target=_asn_unban_swept, args=(rid,), daemon=True).start()
+    return jsonify({"ok": True, "msg": "Removed the ban on %s" % asn_db.rule_label(gone[0])})
+
+@app.route("/admin/api/asn-db-update", methods=["POST"])
+@login_required
+def api_asn_db_update():
+    if asn_db is None:
+        return jsonify({"ok": False, "msg": "asn_db.py is missing"})
+    threading.Thread(target=_asn_download, daemon=True).start()
+    return jsonify({"ok": True, "msg": "Downloading the ASN table from iptoasn.com…"})
+
 @app.route("/admin/api/kick", methods=["POST"])
 @login_required
 def api_kick():
@@ -8642,8 +9053,169 @@ def _receiver_answers(port):
         return False
 
 
+# ── Update check (Dashboard → SYSTEM HEALTH → UPDATES) ────────────────────────
+# Once a day the panel asks GitHub two small questions — no download:
+#  * PhantomSDR-Plus: how far is sv1btl/PhantomSDR-Plus main ahead of the
+#    commit this station last took? update.sh writes that commit into
+#    .update-state/github-commit when it applies an update or finds the tree
+#    up to date; a station still on its first `git clone` has it in .git.
+#  * RADE V2: how far is FreeDV's rade_c main ahead of ~/rade_c (a git clone
+#    made by install_rade.sh)?
+# The answer is kept in .update-state/github-check.json, so restarting the
+# panel does not ask again. A tree marked .update-source-of-truth is the one
+# the published version is made from: comparing it with GitHub means nothing.
+UPDATE_REPO = os.environ.get("UPDATE_REPO", "sv1btl/PhantomSDR-Plus")
+RADE_C_REPO = "freedv/rade_c"
+UPDATE_CHECK_EVERY = 24 * 3600
+UPDATE_CHECK_FILE = BASE_DIR / ".update-state" / "github-check.json"
+_update_lock = threading.Lock()
+_update_running = {"on": False, "forced_at": 0.0}
+
+
+def _github_compare(repo, base):
+    """(ahead_by, date of the newest commit on main or None) for base...main,
+    or None when GitHub does not know base or cannot be reached."""
+    import urllib.request
+    import urllib.error
+    url = "https://api.github.com/repos/%s/compare/%s...main" % (repo, base)
+    req = urllib.request.Request(url, headers={"Accept": "application/vnd.github+json",
+                                               "User-Agent": "PhantomSDR-Plus-admin"})
+    try:
+        with urllib.request.urlopen(req, timeout=10) as r:
+            d = json.loads(r.read().decode("utf-8"))
+    except Exception:
+        return None
+    ahead = int(d.get("ahead_by") or 0)
+    commits = d.get("commits") or []
+    latest = None
+    if commits:
+        latest = ((commits[-1].get("commit") or {}).get("committer") or {}).get("date")
+    return ahead, latest
+
+
+def _git_head(path):
+    try:
+        p = subprocess.run(["git", "-C", str(path), "rev-parse", "HEAD"],
+                           capture_output=True, text=True, timeout=5)
+        sha = p.stdout.strip()
+        return sha if p.returncode == 0 and len(sha) == 40 else None
+    except Exception:
+        return None
+
+
+def _rade_c_dir():
+    env = {}
+    if HAS_PSUTIL:
+        for p in psutil.process_iter(["cmdline"]):
+            try:
+                if any(a.endswith("rade_helper.py") for a in (p.info["cmdline"] or [])):
+                    env = p.environ()
+                    break
+            except Exception:
+                continue
+    return Path(env.get("RADE_C_DIR", Path.home() / "rade_c")).expanduser()
+
+
+def _run_update_check():
+    """Ask GitHub, store the answer. Runs in its own thread."""
+    now = int(time.time())
+    out = {"checked": now}
+    # PhantomSDR-Plus
+    if (BASE_DIR / ".update-source-of-truth").exists():
+        out["phantom"] = {"state": "source"}
+    else:
+        base = None
+        try:
+            base = (BASE_DIR / ".update-state" / "github-commit").read_text().strip() or None
+        except OSError:
+            base = _git_head(BASE_DIR) if (BASE_DIR / ".git").exists() else None
+        if not base:
+            out["phantom"] = {"state": "unknown"}
+        else:
+            r = _github_compare(UPDATE_REPO, base)
+            out["phantom"] = ({"state": "error"} if r is None else
+                              {"state": "behind" if r[0] else "current", "ahead": r[0], "latest": r[1]})
+    # RADE V2 decoder
+    rc = _rade_c_dir()
+    head = _git_head(rc) if (rc / ".git").exists() else None
+    if not head:
+        out["rade_c"] = {"state": "absent"}
+    else:
+        r = _github_compare(RADE_C_REPO, head)
+        out["rade_c"] = ({"state": "error"} if r is None else
+                         {"state": "behind" if r[0] else "current", "ahead": r[0], "latest": r[1]})
+    # A failed lookup keeps the last good answer for that line.
+    try:
+        old = json.loads(UPDATE_CHECK_FILE.read_text())
+    except Exception:
+        old = {}
+    for k in ("phantom", "rade_c"):
+        if out[k]["state"] == "error" and old.get(k, {}).get("state") in ("behind", "current"):
+            out[k] = dict(old[k], stale=True)
+    try:
+        UPDATE_CHECK_FILE.parent.mkdir(parents=True, exist_ok=True)
+        tmp = UPDATE_CHECK_FILE.with_suffix(".tmp")
+        tmp.write_text(json.dumps(out))
+        tmp.replace(UPDATE_CHECK_FILE)
+    except OSError:
+        pass
+    return out
+
+
+def _update_status(force=False):
+    """The last answer (or {} before the first one), starting a check in the
+    background when it is a day old, missing, or asked for (at most once a
+    minute). running: True while one is under way."""
+    try:
+        cur = json.loads(UPDATE_CHECK_FILE.read_text())
+    except Exception:
+        cur = {}
+    due = time.time() - cur.get("checked", 0) > UPDATE_CHECK_EVERY
+    if force and time.time() - _update_running["forced_at"] > 60:
+        _update_running["forced_at"] = time.time()
+        due = True
+    with _update_lock:
+        if due and not _update_running["on"]:
+            _update_running["on"] = True
+
+            def work():
+                try:
+                    _run_update_check()
+                finally:
+                    _update_running["on"] = False
+            threading.Thread(target=work, daemon=True).start()
+    return dict(cur, running=_update_running["on"])
+
+
+_rade_c_age_cache = {}
+
+
+def _rade_c_outdated(rx):
+    """True when this rade_c receiver predates FreeDV's wrong-carrier fix
+    (rade_c #31, 2026-11-16): without it V2 plays garbled sound for a station
+    about 62 Hz off, and the RADE panel's tune up/down hint never appears.
+    That change added the --no_wrong_k option, so its absence from --help
+    tells the two apart. None when it cannot be told. Cached per file and
+    modification time, so the Dashboard's polling runs the program only once
+    per rebuild."""
+    try:
+        key = (str(rx), rx.stat().st_mtime)
+    except OSError:
+        return None
+    if key not in _rade_c_age_cache:
+        try:
+            p = subprocess.run([str(rx), "--help"], capture_output=True, timeout=5)
+            text = (p.stdout + p.stderr).decode("utf-8", "replace")
+            _rade_c_age_cache[key] = ("--no_wrong_k" not in text) if "--v2" in text else None
+        except Exception:
+            _rade_c_age_cache[key] = None
+    return _rade_c_age_cache[key]
+
+
 def _rade_status():
     """[{key, label, state, detail, uptime_s}] for RADE V1 and V2 (beta).
+    A V2 entry whose rade_c predates the wrong-carrier fix also carries
+    outdated: True (see _rade_c_outdated); its state stays as it is.
 
     state: "ready" (helper listening and that version's files present),
     "starting" (helper running, port not open yet), "missing" (helper up but
@@ -8673,7 +9245,8 @@ def _rade_status():
         "v1": [radae / "radae_rxe.py",
                Path(env.get("RADE_MODEL", radae / "model19_check3" / "checkpoints" / "checkpoint_epoch_100.pth")),
                Path(env.get("LPCNET_DEMO", radae / "build" / "src" / "lpcnet_demo"))],
-        "v2": [Path(env.get("RADE_C_RX", rade_c / "build" / "src" / "radae_rx")),
+        # rade_rx_iq since rade_c #37 (2026-11-20); radae_rx is the old alias
+        "v2": [Path(env.get("RADE_C_RX", (rade_c / "build" / "src" / "rade_rx_iq") if (rade_c / "build" / "src" / "rade_rx_iq").exists() else rade_c / "build" / "src" / "radae_rx")),
                Path(env.get("RADE_C_LPCNET", rade_c / "build" / "src" / "lpcnet_demo"))],
     }
     port = int(env.get("RADE_HELPER_PORT", 8074) or 8074)
@@ -8696,7 +9269,10 @@ def _rade_status():
             state, detail = "missing", "not installed — " + missing[0] + " not found"
         else:
             state, detail = "ready", "ready on port %d" % port
-        out.append({"key": key, "label": label, "state": state, "detail": detail, "uptime_s": up})
+        entry = {"key": key, "label": label, "state": state, "detail": detail, "uptime_s": up}
+        if key == "v2" and not missing and _rade_c_outdated(need["v2"][0]):
+            entry["outdated"] = True
+        out.append(entry)
     return out
 
 
@@ -8964,7 +9540,7 @@ def api_alerts_test():
 # file it replaces is copied first to admin-backups/restore-<time>/.
 BACKUP_PATTERNS = (
     "*.toml", "station.conf", "markers.json", "autorun.json", "websdr_relay.json", "drm.json", "drm-heard.json",
-    "admin_bans.json", "frontend/site_information.json", "frontend/src/bands-config.js",
+    "admin_bans.json", "asn_bans.json", "frontend/site_information.json", "frontend/src/bands-config.js",
     "instances/*/config.toml", "instances/*/instance.env", "instances/*/markers.json",
 )
 BACKUP_MAX_BYTES = 10 * 1024 * 1024
@@ -9220,6 +9796,7 @@ def api_health():
     return jsonify({"ok": True,
                     "disk": {"total": du.total, "used": du.used, "free": du.free},
                     "folders": folders, "receivers": rx, "rade": _rade_status(),
+                    "updates": _update_status(force=request.args.get("check") == "1"),
                     "crash": newest, "events": events})
 
 
@@ -9237,7 +9814,7 @@ def api_health():
 _QUIET_PATHS = ("/admin/api/status", "/admin/api/thermal", "/admin/api/logs",
                 "/admin/api/logs/clear", "/admin/api/health",
                 "/admin/api/autorun/status", "/admin/api/users", "/admin/api/sdr-users",
-                "/admin/api/graph-stats", "/admin/api/chat", "/admin/api/bans",
+                "/admin/api/graph-stats", "/admin/api/chat", "/admin/api/bans", "/admin/api/asn-bans",
                 "/admin/api/websdr-relay", "/admin/api/drm",
                 # every open listener page polls these every few seconds; who
                 # listened is in the /audio and /waterfall lines and logs/users_*.jsonl
@@ -9302,6 +9879,7 @@ if __name__ == "__main__":
     # page opens onto existing history rather than an empty plot.
     start_graph_sampler()
     start_ban_keeper()
+    start_asn_keeper()
     start_alert_monitor()
     start_autorun_keeper()
     print(f"  Graphs    : sampling every {GRAPH_INTERVAL_S}s, "

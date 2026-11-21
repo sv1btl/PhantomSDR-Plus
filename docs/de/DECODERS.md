@@ -44,7 +44,7 @@ Das Dropdown-Menü ist nicht der einzige Weg. Das Hauptpanel enthält eine Taste
 | **FT4** | FT4 | **FLDIGI** | ALE 2G HAM, RTTY, PSK31·63·125, QPSK, Olivia, Contestia, FST4W, MFSK, MSK144, DominoEX, THOR, THROB, Hellschreiber, MT63, Packet, APRS |
 | **FT2** | FT2 | **NAVTEX** | NAVTEX |
 | **CW** | CW | **FAX** | HF FAX / WEFAX |
-| **JS8** | JS8 | **SERVICES** | HFDL (Flugzeuge), Maritimes FSK / SITOR, Wetter-RTTY, Marine-RTTY (PBB), DSC (Schiffe), Zeitzeichen, HF Selcall, ALE 2G |
+| **JS8** | JS8 | **SERVICES** | HFDL (Flugzeuge), Maritimes FSK / SITOR, Wetter-RTTY, Marine-RTTY (PBB), DSC (Schiffe), Zeitzeichen, HF Selcall, ALE 2G, AQC-ALE, SITOR-A / ARQ-E / ARQ-E3, STANAG 4285, MIL-STD-188-110A, 3G ALE |
 | **WSPR** | WSPR | **DRM** | DRM — digitaler Rundfunk |
 
 Ein Tastendruck erledigt den ganzen Ablauf: Er wählt den Decoder aus, schaltet den Decoder ON und holt sein Fenster in den sichtbaren Bereich. Die Taste leuchtet blau, solange ihr Decoder läuft. **Ein erneuter Druck auf dieselbe Taste schaltet den Decoder ab** — sein Fenster schließt sich mit.
@@ -426,7 +426,7 @@ Klicken Sie auf **Clear**, um die Spot-Liste zu löschen.
 2. Das Bedienfeld **HF FAX / WEFAX Receiver** erscheint darunter.
 3. **Wählen Sie eine Station** im Auswahlmenü Station. Über 20 Stationen stehen zur Verfügung und decken Europa, Asien, Ozeanien und Amerika ab (z. B. DDH3/DDK3 Deutschland, SVJ4/GR Griechenland, JMH Japan, NMG USA New Orleans). Auch CBM Punta Arenas (Chile) ist dabei. Die Sendepläne folgen dem weltweiten Radiofax-Plan der NOAA (Ausgabe vom 7. März 2025); Charleville (VMC, Australien) enthält seine zusätzlichen Sendungen, die nur auf 11030 kHz laufen.
 4. Sendet die Station auf mehreren Frequenzen, wählen Sie die gewünschte im Untermenü **Frequency**.
-5. Klicken Sie auf **▶ Tune**, um den Wasserfall automatisch auf diese Station abzustimmen.
+5. Klicken Sie auf **▶ Tune**, um den Wasserfall automatisch auf diese Station abzustimmen. Der Wasserfall wird auf die Frequenz der Station zentriert, etwa 50 kHz breit, und Auto Adj. ist eingeschaltet, solange HF FAX läuft (beim Beenden des Decoders geht es wieder aus).
 6. Die Betriebsart wird automatisch auf **USB** gesetzt.
 
 ### Sendeplan
@@ -482,7 +482,7 @@ Unter dem Bild zeigen zwei Tonanzeigen:
 1. Aktivieren Sie den Decoder und wählen Sie **NAVTEX** aus dem Menü. Oder drücken Sie einfach die Taste **NAVTEX**. Der Empfänger schaltet automatisch auf **USB**.
 2. Das Bedienfeld **NAVTEX Receiver** erscheint.
 3. Wählen Sie den gewünschten Kanal im Menü **Station** (z. B. `International — 518 kHz`).
-4. Klicken Sie auf **⇒ Tune & Set IF**, um den Wasserfall automatisch abzustimmen und den Durchlassbereich auf das richtige Audiofenster einzuengen. Die Betriebsart wird automatisch auf **USB** gesetzt. Die Anzeigefrequenz liegt 500 Hz unter der Kanalmitte, sodass das NAVTEX-Signal bei 500 Hz im Audio erscheint. Die Frequenzanzeige zeigt trotzdem **518.000**: Solange HF FAX, NAVTEX oder das FLDIGI-Fenster aktiv ist, zeigt sie die Frequenz des Signals selbst (die Abstimmfrequenz plus die Audiomitte des Decoders — 1900 Hz bei FAX, 500 Hz bei NAVTEX, die Mitte des Panels bei FLDIGI), und eine dann eingegebene Frequenz gilt als die des Signals.
+4. Der Wasserfall wird auf den Kanal zentriert, etwa 50 kHz breit, und Auto Adj. ist eingeschaltet, solange NAVTEX läuft (beim Beenden des Decoders geht es wieder aus). Klicken Sie auf **⇒ Tune & Set IF**, um den Wasserfall automatisch abzustimmen und den Durchlassbereich auf das richtige Audiofenster einzuengen. Die Betriebsart wird automatisch auf **USB** gesetzt. Die Anzeigefrequenz liegt 500 Hz unter der Kanalmitte, sodass das NAVTEX-Signal bei 500 Hz im Audio erscheint. Die Frequenzanzeige zeigt trotzdem **518.000**: Solange HF FAX, NAVTEX oder das FLDIGI-Fenster aktiv ist, zeigt sie die Frequenz des Signals selbst (die Abstimmfrequenz plus die Audiomitte des Decoders — 1900 Hz bei FAX, 500 Hz bei NAVTEX, die Mitte des Panels bei FLDIGI), und eine dann eingegebene Frequenz gilt als die des Signals.
 
 ### Sendeplan
 
@@ -757,7 +757,7 @@ Die erkannte Betriebsart erscheint außerdem grün neben dem Titel **SSTV**, und
 
 ## 12. SERVICES
 
-**SERVICES** (die Taste hieß früher **HFDL**) ist ein Fenster für die Gebrauchsfunkdienste. Die Liste **Service** oben links im Fenster wählt, was dekodiert wird: **HFDL** (Flugzeuge), **Maritime FSK / SITOR**, **Weather RTTY**, **Naval RTTY (PBB CARB)**, **DSC** (Schiffe), **Time Signals** (Zeitzeichen), **HF Selcall** und **ALE 2G (MIL-STD-188-141)**. Ihr Browser merkt sich die Wahl. Es läuft immer ein Dienst; jeder stellt die nötige Betriebsart und das Filter ein, hat eine eigene Frequenzliste mit **⇒ Tune & Set IF** und dekodiert in Ihrem Browser, sodass er den Empfänger nichts kostet. Jeder Dienst hat **💾 Save** (eine Textdatei) und **Clear**, und das Users-Fenster zeigt, welchen Dienst ein Hörer verwendet. Die Amateur-ALE-Kanäle sind im FLDIGI-Fenster, als ALE 2G HAM (Kapitel 10).
+**SERVICES** ist ein Fenster für die Gebrauchsfunkdienste; die Liste **Service** oben links wählt einen davon: **HFDL**, **Maritime FSK / SITOR**, **Weather RTTY**, **Naval RTTY (PBB CARB)**, **DSC**, **Time Signals**, **HF Selcall**, **ALE 2G**, **AQC-ALE**, **FSK modes (SITOR-A, ARQ-E, ARQ-E3)**, **STANAG 4285**, **MIL-STD-188-110A serial** und **3G ALE**. Es läuft immer einer; er stellt Betriebsart und Filter selbst ein, hat eine eigene Frequenzliste mit **⇒ Tune & Set IF**, **💾 Save** und **Clear** und dekodiert in Ihrem Browser, sodass er den Empfänger nichts kostet. Eine aus der Liste abgestimmte Frequenz rückt in die Mitte des Wasserfalls, etwa 50 kHz breit, und Auto Adj. ist eingeschaltet, solange SERVICES läuft (beim Beenden wieder aus). Das Users-Fenster zeigt, welchen Dienst ein Hörer verwendet. Die Amateur-ALE-Kanäle sind im FLDIGI-Fenster (Kapitel 10).
 
 ### HFDL — Flugzeugmeldungen
 
@@ -811,8 +811,6 @@ Jeder Ruf zeigt die Zeit, die Frequenz, seine Kategorie in Farbe (**DISTRESS** r
 
 ### Zeitzeichen (Time Signals)
 
-Dekodiert Datum und Uhrzeit der Lang- und Kurzwellen-Zeitzeichensender und zeigt, wie spät die Minutenmarke Ihre Seite erreicht hat.
-
 1. Wählen Sie **Time Signals** in der Liste **Service**, dann den Sender und seine Frequenz, und klicken Sie auf **⇒ Tune & Set IF**. Die Skala geht 1 kHz unter den Träger, in USB, mit einem Filter von 700–1300 Hz.
 2. Warten Sie. Eine ganze Minute muss sauber ankommen, bevor die Zeit angezeigt werden kann: ein bis zwei Minuten bei gutem Signal. Die Sekunden füllen beim Eintreffen eine Reihe von 60 Feldern.
 
@@ -835,7 +833,21 @@ Die Soundings, Rufe und Nachrichten von KW-Netzen der Behörden, des Militärs u
 1. Wählen Sie **ALE 2G (MIL-STD-188-141)** in der Liste **Service**, ein Netz und einen seiner Kanäle, und klicken Sie auf **⇒ Tune & Set IF**. Die gelistete Frequenz ist die Skala; der Empfänger geht auf USB, oder LSB bei den so gekennzeichneten Netzen, mit einem Filter von 500–2750 Hz.
 2. Warten Sie. Soundings kommen jede halbe oder ganze Stunde, Rufe nur, wenn eine Verbindung gebraucht wird.
 
-Es sind öffentliche Listen, die veraltet sein können. Das Users-Fenster zeigt *ALE* für einen Hörer, der es verwendet.
+### AQC-ALE
+
+AQC-ALE (MIL-STD-188-141B, Anhang A) ist die Schnellruf-Form von ALE 2G: dasselbe 8-Ton-Modem, mit gepackten sechsstelligen Adressen und Datenfeldern. Jede Zeile ist ein Anruf, eine Antwort, eine hergestellte Verbindung, ein Sounding oder eine Inlink-Transaktion, mit Verkehrsart, Rauschbericht und Verbindungsqualität, die die Stationen austauschen; gewöhnliche ALE-2G-Anrufe auf dem Kanal erscheinen ebenfalls. Die Liste enthält das Special-Operations-Netz der US Air Force, das in AQC sendend gemeldet wurde. Genau abstimmen: ein Signal etwa 60 Hz daneben wird nicht gelesen.
+
+### FSK-Verfahren: SITOR-A, ARQ-E und ARQ-E3
+
+Drei synchrone Fernschreibverfahren, die Nichtempfangenes wiederholen: **SITOR-A** (100 Bd, CCIR 476, Blöcke zu drei Zeichen; Wiederholungen werden verworfen), **ARQ-E** (ITA2 mit Parität, jedes 4. oder 8. Zeichen invertiert) und **ARQ-E3** (ITA3). **System**, **Baud**, **Shift** und **Centre** werden im Panel gewählt; Polarität und Zeichentakt findet der Decoder selbst. Die Liste enthält SITOR-A-Frequenzen des ägyptischen Außenministeriums; für ARQ-E und ARQ-E3 gibt es keine aktuellen öffentlichen Logs.
+
+### STANAG 4285 und MIL-STD-188-110A
+
+Die Standard-Datenmodems von NATO und Militär: 8-PSK mit 2400 Symbolen/s auf 1800 Hz, volle 3 kHz breit (das Filter wird auf 150–3450 Hz gesetzt). **MIL-STD-188-110A** nennt Rate (75–4800 bps) und Interleaver in der Präambel und wird daher ab dem Beginn einer Aussendung gelesen. **STANAG 4285** nennt sie nicht: Nach dem Einrasten auf die Rahmen probiert der Decoder jede Rate und jeden Interleaver und behält den, der dekodiert (ein langer Interleaver braucht etwa 10 s) — auf der Luft ergab die französische Marine auf 12857 kHz *600 bps long interleave*. Als Zeichen gesendeter Text erscheint als Text, alles andere als Hex; der meiste Verkehr ist verschlüsselt oder STANAG 5066. **S/N**, **Offset** und **Trying** zeigen Signalqualität, Abstimmfehler und die noch geprüften Einstellungen.
+
+### 3G ALE
+
+3G ALE (MIL-STD-188-141B, Anhang C) baut Verbindungen mit kurzen PSK-Bursts auf (BW0, 0,6 s). Jede Zeile ist eine PDU — Anruf, Handshake, Benachrichtigung, Broadcast, Scanning Call oder Zeit — mit ihren Feldern; nur solche mit stimmender Prüfsumme werden gezeigt. 3G-Adressen sind Zahlen (Gruppe.Mitglied). Verkehrsbursts (BW1–BW4) werden nicht dekodiert.
 
 ---
 

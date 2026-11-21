@@ -458,7 +458,7 @@ The **Zoom** slider has 20 steps, shown as ×1 to ×20 (the step, not a magnific
 
 ### Auto Adj. (waterfall)
 
-The **Auto Adj.** switch under Waterfall Controls sets the waterfall's brightness and contrast for you. It measures the noise floor across the visible span and turns it into an even, dark background — also where the noise differs from one part of the span to another — and stretches everything above it, so that weak signals stand out and the strongest reach the top colours. It works the same with every colour map, and only the waterfall changes: the spectrum trace keeps its true dB scale. While it is on, the Min and Max sliders are locked and show the measured noise floor and peak; switching it off returns them to the band's own settings.
+The **Auto Adj.** switch under Waterfall Controls sets the waterfall's brightness and contrast for you. It measures the noise floor across the visible span and turns it into an even, dark background — also where the noise differs from one part of the span to another — and stretches everything above it, so that weak signals stand out and the strongest reach the top colours. It works the same with every colour map. The spectrum trace above the waterfall follows it too, as the 3D view does; its heights are then the adjusted levels rather than dB, so its dB scale is hidden while Auto Adj. is on. While it is on, the Min and Max sliders are locked and show the measured noise floor and peak; switching it off returns them to the band's own settings. SERVICES, HF FAX and NAVTEX switch Auto Adj. on when they start and off when they stop or another decoder is chosen; meanwhile the switch still works by hand.
 
 ### 3D spectrum
 
@@ -486,14 +486,16 @@ The **📊 Show** button in the Spectrogram section opens the audio analyser und
 
 Your own transceiver and the receiver page can be kept on the same frequency: turn the rig's dial and the waterfall follows, or click a signal on the waterfall and the rig tunes to it. It only moves *your* listening session — nobody else on the receiver is affected.
 
-**With Desktop PhantomSDR+ (4.0 or later).** The desktop application has a **Rig** menu. *Rig → Rig control...* opens a window where you choose your rig and how to reach it, and the menu itself switches the sync on and off. It syncs frequency, mode and filter width, in either direction or both, and can mute the receiver while you transmit. Besides PhantomSDR-Plus it drives **KiwiSDR, PA3FWM WebSDR and UberSDR** receivers the same way. It reaches the rig in one of four ways:
+**With Desktop PhantomSDR+ (4.0 or later).** The desktop application has a **Rig** menu. *Rig → Rig control...* opens a window where you choose your rig and how to reach it, and the menu itself switches the sync on and off. It syncs frequency, mode and filter width, in either direction or both, and can mute the receiver while you transmit. Besides PhantomSDR-Plus it drives **KiwiSDR, PA3FWM WebSDR and UberSDR** receivers the same way. It reaches the rig in one of four ways: Version 6.0 adds the rig's own waterfall and S-meter across the top of the receiver window (*Rig → Show rig waterfall and S-meter*) and an **Icom LAN / WiFi** connection, for example an IC-705 over WiFi.
 
 - **Built-in** — no other software: Icom (CI-V), Yaesu (new CAT and the FT-817/857/897), Kenwood, Elecraft, FlexRadio SmartSDR CAT, QRP Labs and other Kenwood-compatible rigs.
 - **Hamlib** — every rig Hamlib knows, more than 300 of them, picked from a searchable list. The Windows installers include Hamlib; on Linux install `libhamlib-utils`.
 - **rigctld on the network** — a `rigctld` that is already running.
 - **flrig** — for a rig that flrig already shares with fldigi, WSJT-X or a logger.
 
-The application, its installers and its full manual are at [Desktop PhantomSDR+ (Dropbox)](https://www.dropbox.com/scl/fo/kjwj96zg3kj7dgq4fjef9/APnA3c9hhv4hk3YMGIGjH7s?rlkey=jfiwklly63kv73poalx631pk3&st=m37uvaym&dl=0).
+The application, its installers and its full manual are at [Desktop PhantomSDR+](https://phantomsdr.psychomed.gr/desktop.html).
+
+**On the receiver page itself.** The **TCI-CAT** button (**CAT** in the compact layout) opens the CAT window. **TCI** connects to ExpertSDR, AetherSDR or Thetis on your computer, or to any Hamlib rig through the included bridge; **Direct USB** talks to the rig straight over its USB cable, with no other software, in Chrome, Edge, Opera or Firefox 151+ on an https:// page, and can also switch the rig on and off. **CAT Sync**, **Split** and **Mute on TX** sit on one line: Split leaves the rig where it is while you tune the page, and Mute on TX silences the page while you transmit. With an Icom that sends its scope (IC-7300 and others), a **Rig scope** switch shows that scope as a waterfall strip under the receiver's, on the same frequencies.
 
 **With a web browser.** The [CATsync Tool for WebSDRs](https://catsyncsdr.wordpress.com/) (Windows) couples a rig to the receiver page open in your browser. It syncs frequency and mode.
 
@@ -636,6 +638,8 @@ In the chat box, and whenever a slider, a list or a text field has the keyboard 
 **Mouse on the frequency display**: hover a digit, then scroll up or left-click to raise it and scroll down or right-click to lower it, each time by the digit's own place value (nine digits, 100 MHz down to 1 Hz). Between the digits the wheel steps by the band's tuning step (1 kHz unless the band plan sets another); hold **Shift** for 1 kHz, **Alt** for 10 kHz. A click anywhere else in the black frequency / S-meter box opens the number pad (Method 2 under *Tuning to a Frequency*).
 
 **Mouse wheel over the waterfall**: zooms. Hold **Ctrl** (or **Cmd**) or **Shift** to tune instead of zooming, and **Shift + Ctrl** together to snap to the nearest whole kHz.
+
+**Escape** closes the open pop-up window — Modes, Bands, IF Filters, TCI-CAT, Equalizer, Compressor, Bookmarks, Users, Statistics and the others — just as its ✕ does, also while the cursor is in one of its fields. With two open, the top one closes first.
 
 > There are no Page Up / Page Down shortcuts.
 

@@ -16,7 +16,7 @@
 #    ./update.sh --check           report only, never ask (for cron)
 #    ./update.sh --apply           actually update, asking about your own edits
 #    ./update.sh --apply --yes     unattended; anything you edited is KEPT
-#    ./update.sh --ref v5.5.0      a tag, branch or commit instead of main
+#    ./update.sh --ref v6.0.0      a tag, branch or commit instead of main
 #    ./update.sh --from FILE|DIR   the new version from a .tar.gz / .zip or a
 #                                  folder (a USB stick, a download) — no network
 #    ./update.sh --apply --prune   also offer to delete files GitHub removed
@@ -638,6 +638,31 @@ trap cleanup EXIT
 # ------------------------------------------------------------------------------
 # Fetch
 # ------------------------------------------------------------------------------
+# The admin panel's Dashboard (SYSTEM HEALTH → UPDATES) asks GitHub once a day
+# how far main is ahead of the commit this station last took. That commit is
+# written here whenever the tree is brought up to date from GitHub.
+UP_COMMIT=""
+record_github_commit() {
+    [ -n "$UP_COMMIT" ] && [ "$IS_SOURCE" != true ] || return 0
+    mkdir -p "$STATE_DIR" && printf '%s\n' "$UP_COMMIT" > "$STATE_DIR/github-commit"
+}
+# One line about the RADE V2 decoder (~/rade_c, a git clone made by
+# install_rade.sh), which this script does not update itself.
+rade_c_report() {
+    local d="${RADE_C_DIR:-$HOME/rade_c}" head ahead
+    [ -d "$d/.git" ] && command -v git >/dev/null 2>&1 || return 0
+    head="$(git -C "$d" rev-parse HEAD 2>/dev/null)" || return 0
+    ahead="$(curl -fsS --connect-timeout 15 "https://api.github.com/repos/freedv/rade_c/compare/${head}...main" 2>/dev/null \
+        | python3 -c 'import json,sys; print(json.load(sys.stdin).get("ahead_by",""))' 2>/dev/null)"
+    case "$ahead" in
+        ''|*[!0-9]*) return 0 ;;
+        0) grey "  📻 RADE V2 decoder (~/rade_c) is up to date with FreeDV." ;;
+        *) echo ""
+           yellow "  📻 RADE V2: FreeDV has a newer decoder ($ahead change(s) since yours)."
+           yellow "     Run ./install_rade.sh, then restart the receiver." ;;
+    esac
+}
+
 TARBALL="$TMP/tree.tar.gz"
 UP="$TMP/upstream"
 mkdir -p "$UP"
@@ -662,7 +687,13 @@ if [ -n "${FROM:-}" ]; then
     green "ok"
     REF="local copy"
 else
-    URL="https://codeload.github.com/${REPO_SLUG}/tar.gz/${REF}"
+    # The exact commit behind REF, so what is compared is what gets recorded
+    # (see record_github_commit). Without it (no API answer) REF is fetched as
+    # before and nothing is recorded.
+    UP_COMMIT="$(curl -fsS --connect-timeout 15 -H 'Accept: application/vnd.github.sha' \
+        "https://api.github.com/repos/${REPO_SLUG}/commits/${REF}" 2>/dev/null)"
+    [[ "$UP_COMMIT" =~ ^[0-9a-f]{40}$ ]] || UP_COMMIT=""
+    URL="https://codeload.github.com/${REPO_SLUG}/tar.gz/${UP_COMMIT:-$REF}"
     printf '  ⬇  fetching %s ... ' "$REF"
     if ! curl -fsSL --retry 2 --connect-timeout 20 -o "$TARBALL" "$URL"; then
         echo ""
@@ -866,7 +897,9 @@ if [ "$PENDING" -eq 0 ] && { [ "$PRUNE" != true ] || [ ${#F_GONE[@]} -eq 0 ]; };
         green "  ✅ Everything in this tree is published at ${REPO_SLUG} @ ${REF}."
     else
         green "  ✅ This instance is already up to date with ${REF}."
+        record_github_commit
     fi
+    rade_c_report
     exit 0
 fi
 
@@ -886,6 +919,7 @@ if [ "$MODE" != "apply" ]; then
     else
         echo "     Nothing was written. To do it:  bash update.sh  (and answer y)"
     fi
+    rade_c_report
     exit 10
 fi
 
@@ -1142,6 +1176,7 @@ done
 mv "$MANIFEST.tmp" "$MANIFEST"
 printf '%s\n' "$REF" > "$STATE_DIR/last-ref"
 date -Is > "$STATE_DIR/last-run"
+record_github_commit
 
 if [ -n "$(find "$BACKUP_DIR" -type f -print -quit)" ]; then
     # Packed with the paths the files have in the instance, so the archive can
@@ -1276,5 +1311,6 @@ green "  ✅ Updated to ${REPO_SLUG} @ ${REF}."
 echo ""
 grey "     Undo:    ./update.sh --restore LAST"
 [ -f "${BACKUP_ARCHIVE:-}" ] && grey "     Backup:  update-backups/$(basename "$BACKUP_ARCHIVE")"
+rade_c_report
 echo ""
 exit 0

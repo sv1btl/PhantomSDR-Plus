@@ -343,7 +343,7 @@ nano frontend/site_information.json
   "siteCity": "Your City, Country",
   "siteInformation": "https://github.com/sv1btl/PhantomSDR-Plus",
   "siteHardware": "Computer specifications",
-  "siteSoftware": "PhantomSDR-Plus v5.5.0",
+  "siteSoftware": "PhantomSDR-Plus v6.0.0",
   "siteReceiver": "Your SDR model",
   "siteAntenna": "Antenna description",
   "siteNote": "Additional information",
@@ -860,6 +860,8 @@ bash update.sh
 
 Τίποτα δεν διαγράφεται ποτέ: αρχεία που έφυγαν από το αποθετήριο αναφέρονται, και αφαιρούνται μόνο αν το ζητήσετε με `--prune`. Μια εκτέλεση που δεν γράφει τίποτα επιστρέφει `0` όταν είστε ενημερωμένοι και `10` όταν περιμένει ενημέρωση, ώστε μια εργασία cron με `bash update.sh --check` να σας ειδοποιεί όταν υπάρχει κάτι να γίνει.
 
+Η αναφορά κλείνει με μία γραμμή για τον αποκωδικοποιητή RADE V2 στο `~/rade_c`, που το `update.sh` δεν τον ενημερώνει μόνο του: up to date, ή *FreeDV has a newer decoder — run ./install_rade.sh*. Μετά από μια ενημέρωση, ή ένα τρέξιμο που δεν βρίσκει τίποτα να κάνει, το `update.sh` σημειώνει επίσης ποια έκδοση του GitHub έχει πλέον ο σταθμός, ώστε το Dashboard του πίνακα διαχείρισης (SYSTEM HEALTH → UPDATES) να σας λέει πότε υπάρχει κάτι νεότερο.
+
 ### Αναίρεση μιας ενημέρωσης
 
 ```bash
@@ -887,7 +889,7 @@ update-backups/phantomsdr-backup-20260923-164530.zip
 ./update.sh --apply --yes     # δεν ρωτά ποτέ· ό,τι έχετε αλλάξει ΔΙΑΤΗΡΕΙΤΑΙ
 ./update.sh --check           # μόνο αναφορά, ποτέ ερώτηση — για cron (10 = υπάρχει ενημέρωση)
 ./update.sh --from FILE|DIR   # η νέα έκδοση από .zip/.tar.gz ή φάκελο — χωρίς δίκτυο
-./update.sh --ref v5.5.0      # ετικέτα, κλάδος ή commit αντί για το τρέχον δέντρο
+./update.sh --ref v6.0.0      # ετικέτα, κλάδος ή commit αντί για το τρέχον δέντρο
 ./update.sh --list-excludes   # τυπώνει τους κανόνες "μην αγγίζεις" όπως ισχύουν εδώ
 ./update.sh --verbose         # εμφανίζει όλα τα αρχεία, όχι μόνο τα πρώτα 40
 ```

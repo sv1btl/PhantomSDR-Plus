@@ -343,7 +343,7 @@ Bearbeiten Sie die folgenden Felder:
   "siteCity": "Your City, Country",
   "siteInformation": "https://github.com/sv1btl/PhantomSDR-Plus",
   "siteHardware": "Computer specifications",
-  "siteSoftware": "PhantomSDR-Plus v5.5.0",
+  "siteSoftware": "PhantomSDR-Plus v6.0.0",
   "siteReceiver": "Your SDR model",
   "siteAntenna": "Antenna description",
   "siteNote": "Additional information",
@@ -861,6 +861,8 @@ Jede Version bringt `update-known.txt` mit, den Fingerabdruck jeder jemals verö
 
 Gelöscht wird nie etwas: Dateien, die aus dem Repository verschwunden sind, werden gemeldet und nur entfernt, wenn Sie es mit `--prune` verlangen. Ein Lauf, der nichts schreibt, endet mit `0`, wenn alles aktuell ist, und mit `10`, wenn ein Update wartet — so kann ein Cron-Job mit `bash update.sh --check` Bescheid geben, wenn es etwas zu tun gibt.
 
+Der Bericht endet mit einer Zeile zum RADE-V2-Decoder in `~/rade_c`, den `update.sh` nicht selbst aktualisiert: up to date oder *FreeDV has a newer decoder — run ./install_rade.sh*. Nach einem Update oder einem Lauf, der nichts zu tun findet, notiert `update.sh` außerdem, welche GitHub-Version die Station jetzt hat, damit das Dashboard des Admin-Panels (SYSTEM HEALTH → UPDATES) meldet, wenn es etwas Neueres gibt.
+
 ### Ein Update rückgängig machen
 
 ```bash
@@ -888,7 +890,7 @@ Jedes Archiv enthält außerdem ein eigenes `restore.sh`, für den Fall, dass `u
 ./update.sh --apply --yes     # fragt nie; jede von Ihnen geänderte Datei BLEIBT
 ./update.sh --check           # nur Bericht, nie Fragen — für Cron (10 = Update wartet)
 ./update.sh --from FILE|DIR   # die neue Fassung aus .zip/.tar.gz oder einem Ordner — ohne Netz
-./update.sh --ref v5.5.0      # ein Tag, Branch oder Commit statt des aktuellen Standes
+./update.sh --ref v6.0.0      # ein Tag, Branch oder Commit statt des aktuellen Standes
 ./update.sh --list-excludes   # zeigt die Nie-anrühren-Regeln, wie sie hier gelten
 ./update.sh --verbose         # listet jede Datei, nicht nur die ersten 40
 ```

@@ -25,7 +25,7 @@ Les deux services lisent leur configuration dans `admin_config.json`, écrit par
 - **Marqueurs** — consultez et modifiez les marqueurs de fréquence
 - **Historique du chat** — consultez le journal du chat WebSDR, effacez-le entièrement ou supprimez des messages individuels sans redémarrer le serveur
 - **Message sur la cascade** — diffusez une bannière persistante à tous les utilisateurs connectés, visible en temps réel sur l'affichage en cascade
-- **Utilisateurs** — liste en direct des auditeurs connectés avec leur nom ou indicatif, leur localisation et leur adresse IP, la fréquence, le mode et la durée, un bouton ⚡ Kick et un menu ⛔ Ban ▾ (8, 16 ou 24 heures), et une carte de leur position
+- **Utilisateurs** — liste en direct des auditeurs connectés avec leur nom ou indicatif, leur localisation et leur adresse IP, la fréquence, le mode et la durée, un bouton ⚡ Kick et un menu ⛔ Ban ▾ (8, 16 ou 24 heures), ainsi que des ⛔ bannissements de réseaux entiers (numéro AS ou nom du fournisseur), et une carte de leur position
 - **Suppression de messages du chat** — bouton 🗑 Delete qui retire immédiatement ce seul message du journal
 - **Messages diffusés sur la cascade** — permet de pousser une bannière de texte persistante sur la cascade de chaque utilisateur connecté
 - **Spot Reporting** — démarrez/arrêtez le décodeur autorun FT8/FT4/JS8/WSPR, choisissez les bandes/modes et rapportez les spots à PSK Reporter / wsprnet (désactivé par défaut), avec deux compteurs : des tuiles par décodeur pour l'exécution en cours et un total depuis toujours à côté de chaque case bande/mode Chaque bande et chaque mode tournent aux heures UTC programmées, et le démon peut redémarrer seul après un redémarrage ou un plantage.
@@ -170,6 +170,8 @@ La page Users montre chaque auditeur actuellement connecté. Chaque ligne affich
 L'expulsion est instantanée et chirurgicale : le serveur ne redémarre pas, l'audio de personne d'autre n'est interrompu et l'utilisateur expulsé peut se reconnecter immédiatement (la fonction sert à retirer des connexions gênantes ou bloquées ; pour tenir quelqu'un à l'écart, utilisez le bannissement ci-dessous).
 
 **⛔ Ban ▾** ouvre un petit menu — **8**, **16** ou **24 heures** — et la durée choisie déconnecte l'auditeur de tous les récepteurs de la station et refuse cette adresse pendant ce temps (24 heures est le maximum qu'accepte le récepteur) (code de fermeture 4001, que la page ne retente pas). Le bannissement est conservé dans `admin_bans.json` à côté du panneau et renvoyé à chaque récepteur une fois par minute, si bien qu'un redémarrage de récepteur ne le lève pas. Tant que des bannissements sont en vigueur, une liste **Banned** sous le tableau montre chacun avec son nom, son adresse et son heure de fin, et un bouton **Unban** le lève aussitôt. Tous ceux qui se trouvent derrière la même connexion internet partagent l'adresse et sont bannis avec elle.
+
+**Bannir un réseau entier.** Certains ennuis viennent d'un fournisseur entier plutôt que d'une adresse, comme un service cloud ou VPN qui change d'adresse à chaque connexion. Sous l'adresse IP de chaque auditeur, la page Utilisateurs montre son réseau (`AS3329 …`), et **⛔ Ban ▾** propose aussi **Whole network AS… (until removed)**. La carte **Banned networks (ASN / ISP)** sous le tableau bannit par **numéro AS** (`AS12345`) ou par **ISP name contains** (tout réseau dont le nom contient le texte, p. ex. `hetzner`) ; pendant la saisie, elle liste les réseaux que la règle couvrirait, en rouge au-delà de 20. Un bannissement de réseau dure jusqu'à **Remove**. `proxy.py` refuse un réseau banni avant que le récepteur ne le voie (code de fermeture 4001), et toutes les 20 secondes le panneau déconnecte les auditeurs de ce réseau déjà connectés ou arrivés sur un récepteur sans passer par le proxy (chacune de ces adresses est refusée 10 minutes, levé quand la règle est retirée). Les réseaux viennent de la table libre d'iptoasn.com, téléchargée dans `asn-db/` avec le premier bannissement de réseau et renouvelée chaque semaine (**↻ Update table** la récupère tout de suite) ; les règles sont gardées dans `asn_bans.json`. Sans la table, personne n'est refusé, et le panneau ne vous laisse pas bannir le réseau depuis lequel vous êtes connecté.
 
 ---
 
@@ -493,6 +495,8 @@ Le démon est volontairement léger et fonctionne sur du matériel modeste (un i
 Une carte du **Dashboard**, rafraîchie toutes les 30 secondes (ou avec **↻ refresh**) :
 
 - **Récepteurs** — chaque récepteur de la station (celui de `public_port` et chaque récepteur de `receivers.toml`) : un point vert et *on air, up 15h 5m* quand il répond, un **OFF THE AIR** rouge sinon.
+- **RADE** — RADE V1 et RADE V2 (beta) : *ready to decode* quand le sidecar RADE (`rade_helper.py`) tourne et que la version est installée, **NOT RUNNING** quand le sidecar ne tourne pas. Si le décodeur RADE V2 de la station est antérieur au correctif de FreeDV pour les stations décalées d'environ 62 Hz, la ligne V2 ajoute *decoder outdated — run ./install_rade.sh* : lancez-le, puis redémarrez le récepteur.
+- **Updates** — une fois par jour, le panneau demande à GitHub si PhantomSDR-Plus ou le décodeur RADE V2 de FreeDV a quelque chose de plus récent que cette station, et affiche *update on GitHub (5 changes, latest 16 Nov) — run ./update.sh*, *newer version from FreeDV — run ./install_rade.sh, then restart the receiver* ou *up to date*. **↻ check now** demande tout de suite. Le panneau connaît la version de la station grâce à `update.sh`, qui la note après chaque mise à jour ; une station clonée avec git et jamais mise à jour est comparée via git, toute autre est invitée à lancer `./update.sh` une fois.
 - **Disque & dossiers de journaux** — l'espace libre sur le disque de l'installation (orange à partir de 80 % utilisé, rouge à partir de 90 %), et la taille de `logs/`, `logproxy/` et de chaque `instances/<id>/logs/`.
 - **Alertes récentes** — ce que la surveillance des alertes a vu depuis le démarrage du panneau (voir [Alertes](#alertes-e-mail--telegram)), qu'un message ait été envoyé ou non.
 - **Dernière entrée de crash.log** — le `crash.log` non vide le plus récent de tous les récepteurs, avec sa date et ses 12 dernières lignes.
@@ -607,7 +611,7 @@ Le script prend chaque réponse dans ce fichier et ne demande que votre mot de p
 
 - chaque `*.toml` de l'installation (configurations des récepteurs et `receivers.toml`) et `station.conf`
 - `frontend/site_information.json`, `frontend/src/bands-config.js`, `markers.json`
-- `autorun.json` (spot reporting), `websdr_relay.json`, `drm.json`, `admin_bans.json`
+- `autorun.json` (spot reporting), `websdr_relay.json`, `drm.json`, `admin_bans.json`, `asn_bans.json`
 - pour chaque récepteur supplémentaire : `instances/<id>/config.toml`, `instance.env`, `markers.json`
 
 et un `BACKUP-INFO.json` avec la date, l'ordinateur et la liste des fichiers. **Non** inclus : `admin_config.json` (mot de passe d'administration, secrets des alertes), les journaux et le programme lui-même.

@@ -19,7 +19,19 @@
    * Curve A can be stored to compare before / after a change, and a full
    * listening report (HTML with an audio clip) can be downloaded.
    */
-  import { onDestroy } from "svelte";
+  import { onDestroy, createEventDispatcher } from "svelte";
+
+  // "essb" (detail true/false): the ESSB / hi-fi reference was switched on or
+  // off. App.svelte widens the IF filter to 4.0 kHz and puts the mode's
+  // default back afterwards.
+  const dispatch = createEventDispatcher();
+  function chooseRef(k) {
+    const was = refKey === "essb";
+    refKey = k;
+    compute();
+    const now = refKey === "essb";
+    if (now !== was) dispatch("essb", now);
+  }
 
   export let spectro = null;          // Spectrogram component (sampleAudio)
   export let rfMeasure = null;        // (dialHz, mode) => RF measurement or null
@@ -379,7 +391,7 @@ ${img ? `<h2>Audio spectrum at the time of the report</h2><img alt="Audio spectr
       <div class="sr-seg" role="radiogroup" aria-label="Tonal reference">
         {#each Object.entries(REFS) as [k, r]}
           <button role="radio" aria-checked={refKey === k} class:on={refKey === k}
-            on:click={() => { refKey = k; compute(); }} title={r.tip}>{r.name}</button>
+            on:click={() => chooseRef(k)} title={r.tip}>{r.name}</button>
         {/each}
       </div>
       <span class="sr-refdesc">{REFS[refKey].desc}</span>

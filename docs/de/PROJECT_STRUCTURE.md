@@ -123,6 +123,7 @@ Jedes `start-*.sh` unten ist ein **eigenständiger Starter + Watchdog + Protokol
 | `admin_server.py` | Das Admin-Panel selbst. Neben den Verwaltungsseiten betreibt es den Sampler der Seite **Graphen**: ein Hintergrund-Thread erfasst alle 2 Sekunden CPU-Takt, Last, Temperatur und Nutzer online und hält sie nur im Speicher — 1 Stunde in voller Auflösung plus 24 Stunden als 30-Sekunden-Mittelwerte. Es wird nichts auf die Festplatte geschrieben, der Verlauf geht beim Neustart verloren. |
 | `admin_config.json` | Einstellungen des Admin-Panels (Passwort-Hash, Ports, Optionen, Schwellen des thermischen Schutzes) |
 | `proxy.py` | Der öffentliche Port. Liefert die Seite aus und reicht `/admin` an das Panel sowie — auf einer mit dem Assistenten eingerichteten Station — `/rade`, `/stats` und `/relay` an die Dienste dahinter weiter, sodass nur ein Port weitergeleitet wird. Liest seine Ports aus `admin_config.json` oder, ohne Panel, aus `station.conf` (`setup_admin.sh --proxy-only`) |
+| `asn_db.py` | Netzsperren (ASN / ISP): sucht Adressen in der iptoasn.com-Tabelle in `asn-db/` und hält die Regeln in `asn_bans.json`. Genutzt von `proxy.py` (weist beim Verbinden ab) und `admin_server.py` (Regeln, Nutzerliste, die Prüfung alle 20 Sekunden) |
 | `thermal_guard.py` | CPU-Überhitzungsschutz. Stoppt den Server, wenn die CPU zu heiß wird, und startet ihn wieder, sobald sie abgekühlt ist; die Schwellen leitet er aus dem kritischen Grenzwert ab, den Ihre eigene CPU veröffentlicht, statt aus einer festen Zahl. Er versucht nie zu erkennen, was den Server überwacht — solange es zu heiß ist, wiederholt er den Stopp alle 2 Sekunden, sodass ein Watchdog, eine systemd-Unit oder ein Cron-Job, der ihn wiederbelebt, rückgängig gemacht wird, bis die Maschine abkühlt. Nur Standardbibliothek; wird von `admin_server.py` importiert (getaktet vom Graphen-Sampler) und läuft für Installationen ohne Panel auch eigenständig. Standardmäßig nur Protokollmodus, handelt also erst nach Aktivierung — siehe [Admin-Panel]siehe das [Thermal-Guard-Handbuch](THERMAL_GUARD.md) |
 | `autorun/` | Der Spot-Reporting-Daemon — siehe [Autorun Spot Reporter](INSTALLATION.md#autorun-spot-reporter-ft8ft4wspr) |
 | `autorun.json` | Welche Bänder/Betriebsarten in welchen UTC-Stunden dekodiert werden, Identität, Ziele und Autostart |
@@ -192,7 +193,7 @@ Die mit Svelte und Vite erstellte webbasierte Benutzeroberfläche.
 - Layoutstruktur
 - Orchestrierung der Komponenten
 - **Decoder-Tastenreihe** — eine Taste je Decoder im Hauptpanel, direkt unter der Modus-Auswahl; ein Druck startet den Decoder und öffnet sein Fenster, ein erneuter Druck stoppt ihn. Sie hat die frühere Bandbreiten-Reihe ersetzt. RADE-v2U/RADE-v1L/RADE-v1U liegen stattdessen in `lib/ModesSelector.svelte`, neben der Modus-Auswahl und in den Pop-ups **Modes** und **Bands**.
-- **Versionszeile** — „PhantomSDR+ | v5.5.0 original from github.com/sv1btl/PhantomSDR-Plus“, die Adresse als Link; dieselbe Zeile steht auf der Seite /mobile. Versionsnummer und Adresse stehen in `lib/version.js`; die Zeile ist eine Urhebernennung nach `ADDITIONAL_TERMS.md`.
+- **Versionszeile** — „PhantomSDR+ | v6.0.0 original from github.com/sv1btl/PhantomSDR-Plus“, die Adresse als Link; dieselbe Zeile steht auf der Seite /mobile. Versionsnummer und Adresse stehen in `lib/version.js`; die Zeile ist eine Urhebernennung nach `ADDITIONAL_TERMS.md`.
 
 #### 2. Wasserfallanzeige (`waterfall.js` + `lib/`)
 - Canvas-basierte Darstellung von Spektrum und Wasserfall sowie Farbpaletten in `waterfall.js` (reines JS, keine Komponente); die Helligkeits-/Kontrast-Umrechnung von **Auto Adj.** ist `lib/wfAutoLevel.js`
@@ -233,7 +234,7 @@ Jeder der rechenintensiven Betriebsartendecoder läuft in einem eigenen Web Work
 | SSTV | `sstv.js` | `sstv.worker.js` | `sstvWorkerProxy.js` |
 | HF-FAX | `fax.js` | `fax.worker.js` | `faxWorkerProxy.js` |
 | NAVTEX + FLDIGI (ALE 2G HAM, FSK/RTTY, PSK31/63/125, QPSK, Olivia, Contestia, PSK Browser, Olivia Browser, RTTY Browser, MFSK Browser, FST4W, MFSK, MSK144, DominoEX, THOR, THROB, Hellschreiber, MT63, Packet/APRS) + SERVICES (Maritime FSK / SITOR, Weather RTTY, ALE 2G) | `fsk.js`, `psk31.js`, `olivia.js`, `mfsk.js`, `ifk.js`, `throb.js`, `hell.js`, `mt63.js`, `fldigiFec.js`, `ax25.js`, `ale.js`, `fst4w.js`, `msk144.js`, `pskBrowser.js`, `oliviaBrowser.js`, `rttyBrowser.js`, `mfskBrowser.js` | `fsk.worker.js` | `fskWorkerProxy.js` |
-| SERVICES (DSC, Time Signals, HF Selcall) | `dsc.js`, `timesig.js` | `services.worker.js` | `servicesWorkerProxy.js` |
+| SERVICES (DSC, Time Signals, HF Selcall, AQC-ALE, SITOR-A/ARQ-E/ARQ-E3, STANAG 4285, MIL-STD-188-110A, 3G ALE) | `dsc.js`, `timesig.js`, `ale.js`, `krypto500/*.js` | `services.worker.js` | `servicesWorkerProxy.js` |
 | CW, CW Browser | `cwDecoder.js`, `cwBrowser.js` | `cw.worker.js` | `cwWorkerProxy.js` |
 
 #### 4b. Empfangsdiversität (`diversity.js`)
@@ -280,6 +281,7 @@ Jeder der rechenintensiven Betriebsartendecoder läuft in einem eigenen Web Work
 - Das öffentliche `/users`, `users.json` und die `/logs/users_*.jsonl`, die `stats.html` liest, enthalten keine IP-Adresse: Die Log-Kopie trägt stattdessen einen undurchsichtigen `visitor`-Code (Hash mit Schlüssel, Schlüssel in `logs/.visitor_salt`); die Dateien auf der Platte behalten die Adressen. Das Admin-Panel liest `/~~users`, das nur einem Loopback-Peer ohne `X-Forwarded-For` antwortet
 - Der laufende Decoder geht denselben Weg: `App.svelte` sendet bei jeder Änderung `{"cmd":"decoder","name":"FT8"}` (leer, wenn keiner läuft), `audio.js` sendet ihn auf einem neuen Socket erneut. Der Server behält eine kurze Bezeichnung (Buchstaben, Ziffern, Leerzeichen, `-+/`, höchstens 12) und gibt sie als `decoder` in `/users` und in jeder Zeile von `users_*.jsonl` aus; ein Wechsel wird wie ein Umstimmen protokolliert, sodass `stats.html` (Decoder Popularity) und die Admin-Seite Visitors ihn zählen können
 - Die 8/16/24-Stunden-Sperren des Admin-Panels liegen in `admin_bans.json` (wird nie verteilt) und werden einmal pro Minute erneut an jeden Empfänger geschickt; `/~~unban` hebt eine auf
+- Netzsperren (AS-Nummer oder Providername, bis zum Entfernen): `asn_db.py` sucht jede Adresse in der iptoasn.com-Tabelle in `asn-db/` und liest die Regeln aus `asn_bans.json` (beides wird nie verteilt); `proxy.py` weist einen Treffer beim Verbinden ab, und das Admin-Panel trennt alle 20 Sekunden passende Hörer, die schon verbunden sind
 
 #### 5. Zustandsverwaltung (`stores/`)
 - Reaktive Datenspeicher

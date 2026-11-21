@@ -12,7 +12,7 @@ Zwei Wege, ein Funkgerät anzubinden, und eine Voraussetzung beim Empfänger:
 
 | Baustein | Was es ist | Synchronisiert |
 |---|---|---|
-| **[Desktop PhantomSDR+](https://www.dropbox.com/scl/fo/kjwj96zg3kj7dgq4fjef9/APnA3c9hhv4hk3YMGIGjH7s?rlkey=jfiwklly63kv73poalx631pk3&st=m37uvaym&dl=0) ab 4.0** | Die Desktop-Anwendung mit einem Menü **Rig**. Linux (PC und Raspberry Pi) und Windows. | Frequenz, Betriebsart, Filterbreite, Stummschaltung beim Senden — in eine Richtung oder in beide |
+| **[Desktop PhantomSDR+](https://phantomsdr.psychomed.gr/desktop.html) ab 4.0** | Die Desktop-Anwendung mit einem Menü **Rig**. Linux (PC und Raspberry Pi) und Windows. | Frequenz, Betriebsart, Filterbreite, Stummschaltung beim Senden — in eine Richtung oder in beide |
 | **[CATsync Tool for WebSDRs](https://catsyncsdr.wordpress.com/)** | Ein eigenständiges Windows-Programm, das ein Funkgerät an die Empfängerseite im Browser koppelt. | Frequenz und Betriebsart |
 | **TCI-CAT auf der Empfängerseite** | Eine Schaltfläche auf der PhantomSDR-Plus-Seite selbst, in jedem Browser. Spricht TCI mit ExpertSDR, AetherSDR oder Thetis, oder über eine kleine Brücke mit jedem Hamlib-Funkgerät. Nur auf PhantomSDR-Plus-Empfängern mit Version 4.1.0 oder neuer. | Frequenz, Betriebsart und Filterbreite in beide Richtungen; Stummschaltung beim Senden |
 | **Der Empfänger** | PhantomSDR-Plus, KiwiSDR, PA3FWM WebSDR oder UberSDR. Ein PhantomSDR-Plus-Empfänger braucht für Filterbreite und Stummschaltung **4.1.0** oder neuer. | Ein älterer PhantomSDR-Plus synchronisiert weiterhin Frequenz und Betriebsart |
@@ -63,6 +63,7 @@ Jede Einstellung wird gespeichert, sobald Sie sie ändern. Beim nächsten Mal ge
 | Auswahl | Verwenden, wenn | Benötigt |
 |---|---|---|
 | **Built-in** | Ihr Funkgerät in der Liste unten steht. | Sonst nichts |
+| **Icom LAN / WiFi** (Desktop 6.0) | Ihr Icom ist im Netzwerk: ein IC-705 über WLAN oder ein IC-7300MK2, IC-7610, IC-9700, IC-905, IC-R8600, IC-7760, IC-785x über den LAN-Anschluss. | IP-Adresse des Geräts, Network User ID und Passwort, *Network Control* auf ON |
 | **Hamlib (all rigs)** | Ihr Funkgerät etwas anderes ist — Hamlib kennt mehr als 300 Geräte. Die Anwendung startet Hamlibs `rigctld` für Sie auf einem privaten lokalen Port und beendet ihn beim Trennen. | Windows: nichts, Hamlib ist enthalten. Linux: `sudo apt install libhamlib-utils` |
 | **rigctld on network** | Bereits ein `rigctld` läuft, auf diesem oder einem anderen Rechner im Netzwerk. | Host und Port (Standard 4532) |
 | **flrig** | flrig das Funkgerät bereits für fldigi, WSJT-X oder ein Logbuch steuert. | Laufendes flrig mit seinem XML-RPC-Port (Standard 12345) |
@@ -73,7 +74,7 @@ Geschwindigkeit und CI-V-Adresse sind die Werkseinstellungen, die die Anwendung 
 
 | Familie | Geräte | Standardgeschwindigkeit | Hinweise |
 |---|---|---|---|
-| **Icom CI-V** | IC-7300, IC-7610, IC-705, IC-9700, IC-905, IC-7760, IC-7851, IC-7100, IC-7410, IC-9100, IC-7600, IC-7200, IC-7700, IC-7000, IC-7800, IC-756PROIII, IC-756PROII, IC-R8600 und jedes andere CI-V-Gerät | 19200 | CI-V-Adresse je Modell vorbelegt (IC-7300 `94`, IC-705 `A4`, IC-9700 `A2`, IC-7610 `98` …) |
+| **Icom CI-V** | IC-7300, IC-7300MK2, IC-7610, IC-705, IC-9700, IC-905, IC-7760, IC-7851, IC-7100, IC-7410, IC-9100, IC-7600, IC-7200, IC-7700, IC-7000, IC-7800, IC-756PROIII, IC-756PROII, IC-R8600 und jedes andere CI-V-Gerät | 19200 | CI-V-Adresse je Modell vorbelegt (IC-7300 `94`, IC-705 `A4`, IC-9700 `A2`, IC-7610 `98` …) |
 | | IC-746PRO, IC-718, IC-R75 | 9600 | |
 | **Xiegu** (CI-V) | G90, X6100 | 19200 | Adresse `70`; im Gerätemenü prüfen |
 | **Yaesu neues CAT** | FTDX101D/MP, FTDX10, FT-710, FT-991/A, FT-891, FTDX5000, FTDX3000, FTDX1200, FT-950, FT-2000, FT-450/450D | 38400 | |
@@ -82,6 +83,8 @@ Geschwindigkeit und CI-V-Adresse sind die Werkseinstellungen, die die Anwendung 
 | | TS-480, TS-2000, TS-870S | 57600 | |
 | **Elecraft** | K4, K3/K3S, KX3, KX2 | 38400 | Filterbreite wird synchronisiert |
 | **Kenwood-kompatibel** | FlexRadio SmartSDR CAT (virtueller Port), QRP Labs QMX/QMX+/QDX, (tr)uSDX, Lab599 Discovery TX-500, andere Kenwood-kompatible Geräte | 9600–38400 | |
+
+**Zuerst die höchste Geschwindigkeit (Desktop 6.0).** Ein Icom wird zuerst mit 115200 Baud verbunden, dann mit der im Fenster eingestellten Geschwindigkeit, dann mit 19200, 9600, 38400, 57600 und 4800; die Geschwindigkeit, die antwortet, wird behalten. Ein Gerät mit *CI-V USB Baud Rate* auf *Auto* behält die erste Geschwindigkeit nach dem Einschalten, und der Wasserfall des Funkgeräts braucht die schnelle. Auch Hamlib versucht zuerst 115200 für IC-7300, IC-7300MK2, IC-705, IC-9700, IC-905, IC-R8600, IC-7610 und IC-7760.
 
 Ein Gerät, das kompatibel sein müsste, aber mit einem integrierten Treiber nicht spricht, funktioniert meist mit **Hamlib**, das mit weit mehr Varianten zurechtkommt.
 
@@ -202,10 +205,28 @@ Es braucht eine Geräteverbindung, die den Sendezustand meldet — alle integrie
 |---|---|
 | **Rig control...** | Öffnet das Fenster Rig control |
 | **Connect / Disconnect** *Gerätename* | Startet oder beendet die Synchronisierung; bei Hamlib auch `rigctld` |
+| **Power on / Power off...** (Desktop 6.0) | Schaltet das Funkgerät über CAT ein und verbindet, oder (nach Rückfrage) schaltet es aus und gibt es frei. Nicht über flrig, nicht für Elecraft |
+| **Show rig waterfall and S-meter** (Desktop 6.0) | Zeigt oder verbirgt Wasserfall und S-Meter des Funkgeräts am oberen Rand des Empfängerfensters - angeboten, solange ein Funkgerät verbunden ist |
 | **Rig to receiver / Receiver to rig / Both directions** | Richtung der Synchronisierung |
 | **Sync filter width** | Ein / aus |
 | **Mute receiver while transmitting** | Ein / aus |
 | Statuszeile | *Not connected*, *Connecting...*, *Connected: Gerätename* oder der letzte Fehler |
+
+---
+
+## Wasserfall und S-Meter des Funkgeräts
+
+*Rig → Show rig waterfall and S-meter* (angeboten, solange ein Funkgerät verbunden ist) - oder die gleichnamige Schaltfläche im Fenster Rig control - legt einen Streifen über den oberen Rand des Empfängerfensters, über die Seite der Station. Die Seite rückt nach unten und behält ihr eigenes Layout.
+
+- **Der Wasserfall** ist das Spektrumskop Ihres Transceivers selbst, wie das Gerät es über CAT sendet: ein Icom IC-7300, IC-7300MK2, IC-705, IC-9700, IC-905, IC-R8600, IC-7610, IC-7760, über die Verbindung **Built-in** oder **Icom LAN / WiFi**. Über Hamlib oder flrig zeigt der Streifen nur das S-Meter, weil `rigctld` und flrig den Scope-Datenstrom nicht weitergeben können.
+- **Die Farben** sind die der Station: Bei einer PhantomSDR-Plus-Station nutzt der Streifen das in der Seite gewählte Farbschema und folgt ihm, wenn Sie es ändern. Andere Empfänger (UberSDR, KiwiSDR, WebSDR) bekommen das Standard-Farbschema von PhantomSDR, sodass der Streifen auf jeder Station gleich aussieht. Der Regler **Brightness** davor bestimmt, wie viel vom Band Farbe bekommt: links bleiben schwache Signale dunkel, rechts kommen sie hinzu und dann das Rauschen. Der Regler **Contrast** bestimmt, wie stark Signale aus dem Rauschen hervortreten; er wird gespeichert.
+- **Ein Klick** auf den Streifen stimmt das Funkgerät dorthin ab; der Empfänger folgt über die Synchronisation. Die rote Linie ist die Frequenz des Funkgeräts.
+- **▴ ▾** machen den Streifen niedriger oder höher, **✕** blendet ihn aus.
+- **Das S-Meter** ist das des Funkgeräts, gezeichnet wie das digitale S-Meter von PhantomSDR: cyanfarbene Segmente bis S9, rote darüber, auf der Skala S1 … +60 dB, mit dem Wert daneben; *TX* in Rot während des Sendens.
+
+Ein IC-7300 sendet selbst mit Scope-Geschwindigkeit FAST etwa 4 Durchläufe pro Sekunde über CI-V; das ist die Grenze des Geräts, und der Streifen läuft dazwischen flüssig. Das Scope braucht die schnelle CI-V-Geschwindigkeit: Stellen Sie *CI-V USB Baud Rate* am Gerät auf 115200 oder *Auto*.
+
+**Icom LAN / WiFi.** Am Funkgerät: ins Netzwerk bringen (IC-705: *MENU › SET › WLAN Set*), *Network Control* auf ON stellen und eine *Network User1 ID* mit *Password* vergeben (*Remote Settings*). In Rig control **Icom LAN / WiFi** wählen, das Modell auswählen und IP-Adresse, User ID und Passwort eingeben (verschlüsselt auf diesem Computer gespeichert). Das Gerät nimmt nur ein Fernsteuerprogramm gleichzeitig an, schließen Sie also vorher wfview oder RS-BA1.
 
 ---
 
@@ -223,7 +244,7 @@ sudo usermod -aG dialout $USER
 sudo apt install libhamlib-utils
 ```
 
-Das `.deb`-Paket von Desktop PhantomSDR+ empfiehlt es, daher bringt `sudo apt install ./phantomsdr-plus-desktop_4.0.0_amd64.deb` es mit; `dpkg -i` installiert empfohlene Pakete nicht. Die integrierten Treiber und flrig brauchen kein Hamlib.
+Das `.deb`-Paket von Desktop PhantomSDR+ empfiehlt es, daher bringt `sudo apt install ./phantomsdr-plus-desktop_6.0.0_amd64.deb` es mit; `dpkg -i` installiert empfohlene Pakete nicht. Die integrierten Treiber und flrig brauchen kein Hamlib.
 
 ## Windows
 
@@ -233,21 +254,26 @@ Hamlibs eigenes `rigctld.exe` ist im 64-Bit- und im 32-Bit-Installer enthalten. 
 
 ## TCI-CAT auf der Empfängerseite
 
-Eine PhantomSDR-Plus-Empfängerseite kann einem Transceiver auch **selbst** folgen, ohne Desktop-Anwendung: Der Browser spricht direkt mit einem **TCI**-Server auf Ihrem eigenen Computer. TCI ist das WebSocket-Steuerprotokoll von ExpertSDR2/ExpertSDR3 (SunSDR), AetherSDR (FlexRadio) und Thetis (Apache Labs ANAN, Hermes). Für ein Funkgerät ohne TCI lässt eine kleine, in PhantomSDR-Plus enthaltene Brücke jedes Hamlib-Funkgerät wie einen TCI-Server aussehen.
+Eine PhantomSDR-Plus-Empfängerseite kann einem Transceiver auch **selbst** folgen, ohne Desktop-Anwendung: Der Browser spricht direkt mit einem **TCI**-Server auf Ihrem eigenen Computer. TCI ist das WebSocket-Steuerprotokoll von ExpertSDR2/ExpertSDR3 (SunSDR), AetherSDR (FlexRadio) und Thetis (Apache Labs ANAN, Hermes). Für ein Funkgerät ohne TCI lässt eine kleine, in PhantomSDR-Plus enthaltene Brücke jedes Hamlib-Funkgerät wie einen TCI-Server aussehen. Seit 6.0.0 erreicht sie das Funkgerät auch ohne TCI-Software, direkt über sein USB-Kabel — siehe *Direct USB* weiter unten.
 
-Voraussetzung ist ein PhantomSDR-Plus-Empfänger mit **4.1.0 oder neuer**. KiwiSDR-, WebSDR- und UberSDR-Seiten haben diese Funktion nicht.
+Voraussetzung ist ein PhantomSDR-Plus-Empfänger mit **4.1.0 oder neuer**. KiwiSDR-, WebSDR- und UberSDR-Seiten haben diese Funktion nicht. Direct USB erfordert 6.0.0 oder neuer.
 
 ### Die Schaltfläche TCI-CAT
 
-Die Schaltfläche liegt in der Reihe mit **VFO**, **Modes**, **Bands** und **IF Filters** — **TCI-CAT** im breiten Layout, **CAT** im kompakten. Ihr Punkt ist **grün**, solange ein TCI-Server verbunden ist, sonst **grau**. Sie öffnet ein Fenster mit: Bis 4.2.0 hieß die Schaltfläche **QRG Sync**.
+Die Schaltfläche liegt in der Reihe mit **VFO**, **Modes**, **Bands** und **IF Filters** — **TCI-CAT** im breiten Layout, **CAT** im kompakten. Ihr Punkt ist **grün**, solange ein TCI-Server verbunden ist, sonst **grau**. Sie öffnet ein Fenster mit: Bis 4.2.0 hieß die Schaltfläche **QRG Sync**. Mit **Direct USB** lautet der Fenstertitel *CAT control via USB*. **CAT Sync**, **Split** und **Mute on TX** stehen unten in einer Zeile.
 
 | Element | Funktion |
 |---|---|
+| **Connection** | **TCI** — der hier beschriebene TCI-Server oder die Brücke — oder **Direct USB**, das Funkgerät direkt über sein USB-Kabel (siehe *Direct USB* unten) |
 | Status | *Active — TCI (port 50001)* bei bestehender Verbindung; *Inactive* mit ⏳ *Wait*, solange gesucht wird |
-| **CAT Sync** | Schaltet die Synchronisation von Frequenz, Betriebsart und Filter ein oder aus. Die Stummschaltung beim Senden wirkt in beiden Fällen |
+| **CAT Sync** | Schaltet die Synchronisation von Frequenz, Betriebsart und Filter ein oder aus. Wird es bei verbundenem Funkgerät eingeschaltet, springt die Seite sofort auf dessen Frequenz, Betriebsart und Filter |
 | **Host** | Der Computer mit dem TCI-Server: `localhost` für diesen Computer, sonst seine Adresse im lokalen Netz, z. B. `192.168.1.42`. Mit Enter oder einem Klick daneben wird neu verbunden |
+| **Split** | Sichtbar, solange ein Funkgerät verbunden ist. Ein: Abstimmen auf der Seite lässt das Funkgerät, wo es ist, das Funkgerät bewegt die Seite aber weiterhin. Aus (Standard): Das Funkgerät folgt der Seite und wird beim Ausschalten von Split sofort auf sie gesetzt |
+| **Mute on TX** | Sichtbar, solange ein Funkgerät verbunden ist. Ein (Standard): Die Seite verstummt, solange das Funkgerät sendet, mit einem roten **TX**-Hinweis; aus: Der Empfänger spielt weiter |
+| **Rig scope** | Direct USB mit einem Funkgerät, das sein Spektrumskop über CI-V sendet (IC-7300, IC-7300MK2, IC-705, IC-9700, IC-905, IC-R8600, IC-7610, IC-7760): das Skop des Funkgeräts als Wasserfallstreifen unter dem des Empfängers — siehe *Direct USB* unten |
+| **Rig S-meter** | Direct USB mit einem Gerät ohne Skop, das ein Browser lesen kann — ein Yaesu mit neuem CAT (FT-710, FT-991A, FTDX10, FTDX101, ...) oder ein Icom ohne Skop-Datenstrom (IC-7851, IC-7100, IC-7410, IC-9100, IC-7600, IC-7200, IC-7700, IC-7000, IC-7800, IC-756PROIII/II, IC-746PRO, IC-718, IC-R75, Xiegu G90/X6100): das S-Meter des Geräts unter dem Wasserfall des Empfängers, aber kein Wasserfall — siehe *Direct USB* unten |
 
-Mehr ist nicht zu wählen: Die Ports **50001** (ExpertSDR3, AetherSDR) und **40001** (ExpertSDR2, Thetis) werden gleichzeitig probiert und alle paar Sekunden wiederholt, sodass die Seite sich verbindet, sobald die Software läuft. **CAT Sync** und **Host** merkt sich der Browser.
+Mehr ist nicht zu wählen: Die Ports **50001** (ExpertSDR3, AetherSDR) und **40001** (ExpertSDR2, Thetis) werden gleichzeitig probiert und alle paar Sekunden wiederholt, sodass die Seite sich verbindet, sobald die Software läuft. **CAT Sync** und **Host** merkt sich der Browser. **Split** und **Mute on TX** merkt er sich ebenfalls.
 
 Browser, die fragen, bevor eine Webseite das lokale Netz erreichen darf — aktuelle Versionen von Chrome und Edge tun das — fragen einmal, beim ersten Verbindungsversuch. Erlauben Sie es, sonst bleibt der Punkt grau.
 
@@ -262,8 +288,8 @@ Browser, die fragen, bevor eine Webseite das lokale Netz erreichen darf — aktu
 | **Empfänger → Funkgerät: Betriebsart** | Jede Änderung der Betriebsart auf der Seite — eine Betriebsart-Taste, der Bandplan, ein Decoder, ein Lesezeichen — stellt die Betriebsart des Funkgeräts ein (USB, LSB, CW, AM, FM; RADE als USB oder LSB). Ein Funkgerät in einer Datenbetriebsart (USB-D) bleibt darin |
 | **Empfänger → Funkgerät: Filterbreite** | Die Tasten unter **IF Filters**, der IF-Schieberegler, das Ziehen des Durchlassbereichs und ein Betriebsartwechsel stellen den Filter des Funkgeräts ein; beim Ziehen wird nur die endgültige Breite gesendet. Bei Icom-Geräten wählt die Brücke stattdessen FIL1, FIL2 oder FIL3 — siehe [Icom-Filter](#icom-filter-fil1-fil2-fil3) |
 | **Kein Echo** | Eine Änderung, die vom Funkgerät kam, wird nie an das Funkgerät zurückgesendet, und eine Meldung der vorherigen Betriebsart oder des vorherigen Filters, die kurz nach einer Änderung auf der Seite eintrifft, wird ignoriert |
-| **Stummschaltung beim Senden** | Immer aktiv, auch mit CAT Sync aus: Die Seite verstummt, solange das Funkgerät sendet. Wird der Lautstärkeregler während des Sendens bewegt, bleibt sie stumm; beim Empfang kehrt der Ton mit der aktuellen Reglerstellung zurück |
-| **Nicht unterstützt** | Split, VFO B, RIT/XIT und Transverter-Versatz. Nur VFO A des ersten Empfängers wird verfolgt |
+| **Stummschaltung beim Senden** | Der Schalter **Mute on TX**, standardmäßig ein und auch mit CAT Sync aus wirksam: Die Seite verstummt, solange das Funkgerät sendet. Wird der Lautstärkeregler während des Sendens bewegt, bleibt sie stumm; beim Empfang kehrt der Ton mit der aktuellen Reglerstellung zurück |
+| **Nicht unterstützt** | VFO B, RIT/XIT und Transverter-Versatz; nur VFO A des ersten Empfängers wird verfolgt. **Split** verhindert nur, dass die Seite das Funkgerät bewegt |
 
 ### Mit welchen Transceivern es funktioniert
 
@@ -271,7 +297,49 @@ Browser, die fragen, bevor eine Webseite das lokale Netz erreichen darf — aktu
 |---|---|---|
 | SunSDR (ExpertSDR2/3), FlexRadio (AetherSDR), ANAN/Hermes (Thetis) | Ja | Direkt — den TCI-Server in der Software aktivieren. Mit diesen Programmen noch nicht ausprobiert; getestet gegen einen simulierten TCI-Server |
 | Ein Funkgerät mit CAT-Anschluss, das Hamlib unterstützt — die meisten von Icom, Yaesu, Kenwood, Elecraft, Xiegu, QRP Labs | Ja | Über die Hamlib-Brücke unten. Ausprobiert mit einem **Icom IC-7300** unter Linux und Windows; andere Treiber können sich bei Betriebsartnamen oder der PTT-Meldung unterscheiden |
+| Ein Funkgerät mit CAT-Anschluss über USB — Icom und Xiegu CI-V, Yaesu, Kenwood, Elecraft, FlexRadio SmartSDR CAT, QRP Labs, (tr)uSDX, Lab599 TX-500 | Ja | Mit **Direct USB** weiter unten, ohne weitere Software — in Chrome, Edge, Opera oder Firefox 151+ auf einer https://-Seite. Ausprobiert mit einem **Icom IC-7300** |
 | Ein Funkgerät ohne CAT-Anschluss oder eines, das Hamlib nicht unterstützt | Nein | Es gibt nichts, woraus die Frequenz gelesen werden kann |
+
+### Direct USB (ohne TCI-Software, ohne Brücke)
+
+Seit 6.0.0 hat das Fenster eine zweite Verbindung, **Direct USB**: Die Seite spricht selbst mit dem Transceiver über sein USB-Kabel, mit Web Serial des Browsers. Sonst läuft nichts auf Ihrem Computer — keine TCI-Software, kein Hamlib, keine Brücke.
+
+| Voraussetzung | |
+|---|---|
+| Browser | Chrome, Edge oder Opera, oder Firefox 151 oder neuer, auf einem Desktop-Computer. Safari und Smartphone-Browser haben kein Web Serial |
+| Adresse der Seite | `https://` oder `http://localhost` auf dem Stationscomputer. Unter einer einfachen `http://`-Adresse verbirgt der Browser Web Serial; **Direct USB** ist dann mit Begründung ausgegraut, und es bleiben TCI mit der Brücke oder Desktop PhantomSDR+ |
+| Das Funkgerät | Ein CAT-Anschluss über USB: Icom und Xiegu (CI-V), Yaesu (neues CAT und FT-817/857/897), Kenwood, Elecraft, FlexRadio SmartSDR CAT, QRP Labs, (tr)uSDX, Lab599 TX-500 — 54 Modelle. Unter Linux muss Ihr Benutzer in der Gruppe `dialout` sein |
+
+1. **TCI-CAT** öffnen und **Connection: Direct USB** wählen.
+2. Das Funkgerät unter **Rig** wählen. Die übliche **Baud**-Rate und bei Icom die **CI-V**-Adresse werden eingetragen; passen Sie sie an das Menü des Funkgeräts an.
+3. **Choose port…** anklicken und den USB-Anschluss des Funkgeräts in der Liste des Browsers wählen. Firefox fragt vorher einmal, ob die Seite seriellen Zugriff erhalten darf. Der Browser merkt sich den Anschluss für diesen Empfänger.
+4. **CAT Sync** einschalten. Der Anschluss öffnet sich, und die Seite geht auf Frequenz, Betriebsart und Filter des Funkgeräts.
+
+| Einstellung | Funktion |
+|---|---|
+| **Rig** | 54 Modelle nach Hersteller, darunter der **IC-7300MK2**; **Other CI-V rig** oder **Other Kenwood-compatible rig** für ein nicht aufgeführtes |
+| **Baud** | Aus der Geräteliste vorgegeben (115200 bei den Icoms mit Skop) und von der letzten Verbindung behalten. Diese Icoms werden immer zuerst mit 115200 versucht; antwortet ein Funkgerät nicht mit der eingestellten Rate, wird es bei 115200, 19200, 57600, 38400, 9600 und 4800 gesucht, und die Rate, die antwortet, bleibt |
+| **CI-V** | Nur Icom: die Adresse des Funkgeräts hexadezimal — `94` beim IC-7300, `B6` beim IC-7300MK2 |
+| **SSB FIL1/2/3** | Nur Icom: die Breiten der drei SSB-Filter des Funkgeräts, standardmäßig `2700,2400,1800` |
+| **Lines: DTR, RTS** | Standardmäßig aus. Bei vielen CAT-Kabeln tastet DTR oder RTS den Sender oder setzt das Funkgerät zurück — nur ankreuzen, wenn Ihre Schnittstelle es braucht |
+
+| Schaltfläche | Funktion |
+|---|---|
+| **Choose port…** | Wählt den USB-Anschluss (einmal gefragt; spätere Besuche finden ihn wieder) |
+| **Connect** / **Disconnect** | Öffnet oder schließt den Anschluss. Solange er geschlossen ist, können WSJT-X oder ein Logbuch das Funkgerät nutzen |
+| **⏻ Power on** | Sichtbar, solange keine Verbindung besteht: schaltet das Funkgerät über CAT ein, wartet bis zu 15 Sekunden auf seine Antwort und verbindet dann. Das Netzteil des Funkgeräts muss eingeschaltet bleiben |
+| **⏻ Power off** | Sichtbar bei bestehender Verbindung: schaltet das Funkgerät nach einer Rückfrage aus und gibt den Anschluss frei |
+
+- Der Anschluss öffnet sich nur bei eingeschaltetem **CAT Sync** von selbst — beim Laden der Seite und wenn CAT Sync nach einem Disconnect oder einer verlorenen Verbindung eingeschaltet wird. Das bloße Öffnen des Fensters nimmt das Funkgerät keinem anderen Programm weg.
+- Frequenz, Betriebsart und Filter folgen in beide Richtungen wie in der Tabelle oben. Bei Icom wählt eine Änderung der Durchlassbreite nur den nächstliegenden der Filter FIL1/FIL2/FIL3 nach den Breiten unter **SSB FIL1/2/3**; die Filterbreiten des Funkgeräts werden nie verändert.
+- Icom, Kenwood und Yaesu (neues und altes CAT) lassen sich ein- und ausschalten. Elecraft-Geräte schalten nur über ihre POWER-ON-Leitung ein; hier lassen sie sich nur ausschalten und haben kein **⏻ Power on**.
+- Abziehen des Kabels oder Ausschalten des Funkgeräts zeigt *Link lost*; nach dem Wiedereinstecken verbindet es sich von selbst.
+- **Rig scope.** Mit einem verbundenen Funkgerät mit Skop zeigt der Schalter **Rig scope** dessen eigenes Spektrumskop als Wasserfallstreifen unter dem Wasserfall des Empfängers, jeden Durchlauf unter denselben Frequenzen wie der Wasserfall darüber, sodass ein Signal in beiden übereinander steht — oben die Antenne der Station, unten Ihre. Außerhalb der Spanne des Funkgeräts bleibt der Streifen dunkel, seine Beschriftung zeigt die Spanne, und ein Klick stimmt dorthin ab. Spanne, Mitten-/Festmodus und Referenzpegel des Funkgeräts bestimmen, was ankommt. Das Skop braucht **115200** Baud (bei 19200 schafft es 2–3 Durchläufe pro Sekunde, und das Fenster sagt es); der Datenstrom endet bei Disconnect und beim Schließen der Seite. Zoomen Sie den Empfänger auf das Band: In der Gesamtansicht 0–30 MHz ist eine Spanne von ±25 kHz nur ein paar Pixel breit. Ausprobiert mit einem IC-7300. Unten links im Streifen zeigt das **S-Meter** des Funkgeräts, was Ihre Antenne auf der eingestellten Frequenz empfängt — S-Stufen, wie das Gerät sie meldet (S9 in der Mitte des Balkens, darüber +20/+40/+60, ein kurzer Spitzenwert, *TX* während das Gerät sendet), keine dBm; es wird nur gelesen, solange Rig scope an ist.
+- **Rig S-meter (Yaesu und ältere Icoms).** Mit einem Yaesu mit neuem CAT oder einem Icom, das kein Skop über CI-V sendet (IC-7851, IC-7100, IC-7410, IC-9100, IC-7600, IC-7200, IC-7700, IC-7000, IC-7800, IC-756PROIII/II, IC-746PRO, IC-718, IC-R75, Xiegu G90/X6100), heißt der Schalter **Rig S-meter** und zeigt unter dem Wasserfall des Empfängers einen schmalen Balken mit dem S-Meter des Geräts (S1 … S9+60, *TX* beim Senden). Es wird nur über CAT gelesen, solange der Balken sichtbar ist — `SM0` beim Yaesu, CI-V `15 02` beim Icom —, mit der Geschwindigkeit aus dem Menü des Geräts; der Schalter ändert sie nie, und an diese Geräte geht kein Skop-Befehl. Einen Wasserfall gibt es nicht, und das Fenster sagt warum: Diese Icoms senden kein Skop über CI-V, und Yaesu-Geräte senden ihres nicht über CAT. Beim FT-710 läuft es über einen eigenen FTDI-Chip im USB-Kabel, den ein Browser nicht öffnen kann; [Desktop PhantomSDR+](https://phantomsdr.psychomed.gr/desktop.html) liest diesen Chip und zeigt den Wasserfall des FT-710. Das Yaesu-S-Meter wurde an einem echten FT-710 geprüft: etwa 0,5 dB vom eigenen S-Meter des Geräts. Kenwood, Elecraft, FT-817/857/897 und die übrigen Geräte der Liste gleichen nur Frequenz, Betriebsart und PTT ab.
+- **IC-7300 auf Auto.** Steht **CI-V USB Baud Rate** auf *Auto*, behält der IC-7300 die erste Rate, die er nach dem Einschalten hört, und übergeht einen späteren Wechsel in beide Richtungen. Die Seite erreicht die Icoms mit Skop deshalb zuerst mit 115200, auch bei **⏻ Power on**; ein fest eingestelltes **115200** im Menü des Funkgeräts erspart die Frage ganz.
+- **Funkgeräte mit zwei USB-Anschlüssen.** IC-705 und IC-905 zeigen *Serial Port A (CI-V)* und *Serial Port B*, IC-7610 und IC-9700 einen *Enhanced* und einen *Standard COM Port*, alle mit denselben USB-Kennungen. Wählen Sie den CI-V-Anschluss — Port A bzw. den Enhanced Port; Windows listet Port B zuerst. Antwortet der gewählte Anschluss nicht, probiert die Seite selbst den anderen Anschluss des Funkgeräts und behält den, der antwortet.
+- **IC-705 unter Windows.** Icoms USB-Treiber für den IC-705 blockiert die Art, wie Browser eine serielle Schnittstelle lesen: Edge und Firefox frieren ein, und der Anschluss bleibt belegt, bis das Kabel neu eingesteckt wird. Die Seite öffnet einen IC-705 unter Windows deshalb nicht; verwenden Sie **Connection: TCI** mit der Hamlib-Brücke (`rigctl -m 3085 -r COM6 -s 115200`, COM6 = Port A) oder Desktop PhantomSDR+. Unter Linux nutzt der IC-705 den Treiber des Kernels.
+- Ausprobiert mit einem **Icom IC-7300**: Frequenz, Betriebsart, Filter, Stummschaltung beim Senden, Power on und Power off.
 
 ### Die Hamlib-Brücke (IC-7300 und andere Funkgeräte ohne TCI)
 
@@ -348,7 +416,7 @@ Icom-Geräte wie der IC-7300 nehmen nicht einfach jede Filterbreite an: Sie habe
 | AM | 9000 Hz | 6000 Hz | 3000 Hz |
 | FM | 15000 Hz | 10000 Hz | 7000 Hz |
 
-Beim IC-7300 (`-m 3073`) geschieht das automatisch. Stellen Sie die SSB-Filter des Funkgeräts passend ein — FIL1 2,7 kHz, FIL2 2,4 kHz, FIL3 1,8 kHz (**FIL** am Funkgerät gedrückt halten) —, dann wählt 2,7 / 2,4 / 1,8 kHz unter **IF Filters** FIL1 / FIL2 / FIL3, und die Taste **FIL** am Funkgerät setzt den Durchlassbereich der Seite auf die Breite dieses Filters. Die Brücke meldet zum Beispiel `page -> rig filter 2398 Hz  LSB  → FIL2  sent`.
+Beim IC-7300 (`-m 3073`) geschieht das automatisch. Stellen Sie die SSB-Filter des Funkgeräts passend ein — FIL1 2,7 kHz, FIL2 2,4 kHz, FIL3 1,8 kHz (**FIL** am Funkgerät gedrückt halten) —, dann wählt 2,7 / 2,4 / 1,8 kHz unter **IF Filters** FIL1 / FIL2 / FIL3, und die Taste **FIL** am Funkgerät setzt den Durchlassbereich der Seite auf die Breite dieses Filters. Die Brücke meldet zum Beispiel `page -> rig filter 2398 Hz  LSB  → FIL2  sent`. Der IC-7300MK2 (`-m 3094`) wird genauso behandelt, mit seiner eigenen CI-V-Adresse B6h; dazu braucht es eine Hamlib-Version, die den MK2 kennt.
 
 | Option | Zweck |
 |---|---|
@@ -428,10 +496,17 @@ Ohne `--rigctl` sucht die Brücke `rigctld` unter `127.0.0.1:4532` und meldet `r
 | Brücke meldet *the rig is not answering* | Der Port öffnet sich, aber das Funkgerät antwortet nicht: falsche Geschwindigkeit oder falsches Modell, CAT im Menü ausgeschaltet oder geänderte Icom-CI-V-Adresse | Die Prüfung `rigctl … f` wiederholen; bei geänderter CI-V-Adresse `-c` hinzufügen |
 | Brücke meldet *rigctld not reachable* | Ohne `--rigctl` gestartet, und kein `rigctld` läuft | `--rigctl …` hinzufügen oder zuerst `rigctld` starten |
 | `rigctld.exe` meldet *Access is denied* (Windows) | Windows verweigert die Ausführung | `--rigctl` verwenden — dafür genügt `rigctl.exe` |
-| Verbunden, aber der Empfänger bewegt sich nicht | **CAT Sync** ist aus | Einschalten — die Stummschaltung beim Senden wirkt auch ohne |
+| Verbunden, aber der Empfänger bewegt sich nicht | **CAT Sync** ist aus | Einschalten — die Seite geht sofort auf Frequenz, Betriebsart und Filter des Funkgeräts. Die Stummschaltung beim Senden wirkt auch ohne |
+| Das Funkgerät folgt der Seite nicht | **Split** ist ein | Split ausschalten — das Funkgerät wird sofort auf die Seite gesetzt |
 | Betriebsart des Funkgeräts folgt nicht | Eine Betriebsart ohne Entsprechung im Empfänger, oder der Hamlib-Treiber meldet einen ungewöhnlichen Namen | Die Frequenz wird trotzdem synchronisiert; Betriebsart auf der Seite einstellen |
-| Keine Stummschaltung beim Senden | Das Funkgerät oder sein Hamlib-Treiber meldet den Sendezustand nicht | Auf der Seite ist nichts einzustellen |
+| Keine Stummschaltung beim Senden | **Mute on TX** ist aus, oder das Funkgerät (bzw. sein Hamlib-Treiber) meldet den Sendezustand nicht | **Mute on TX** einschalten; sonst ist auf der Seite nichts einzustellen |
 | Die Skala springt hin und her | Desktop PhantomSDR+ oder ein anderes Programm synchronisiert das Funkgerät ebenfalls | Immer nur eine Steuerung verwenden |
+| **Direct USB** ist ausgegraut | Die Seite läuft unter einer einfachen http://-Adresse, oder der Browser hat kein Web Serial (Safari, Smartphones, Firefox vor 151) | Den Empfänger über https:// öffnen oder TCI mit der Brücke verwenden |
+| *Could not open the port* | Ein anderes Programm (WSJT-X, ein Logbuch, die Brücke) belegt ihn; unter Linux fehlt die Gruppe `dialout` | Das andere Programm schließen; `sudo usermod -aG dialout $USER`, dann ab- und wieder anmelden |
+| *The rig did not answer at any usual speed* | Das Funkgerät ist aus, oder **CI-V** oder der Gerätetyp passen nicht | Prüfen; **⏻ Power on**, wenn es aus ist |
+| *The rig did not switch on* | Das Netzteil des Funkgeräts ist aus, oder das Funkgerät wacht über CAT nicht auf | Netzteil einschalten; **Baud** und **CI-V** prüfen |
+| *The rig answers only at 19200 baud, so its scope runs slowly* | **CI-V USB Baud Rate** des Funkgeräts steht fest auf 19200, oder auf Auto und seit dem Einschalten auf 19200 | Auf 115200 stellen, oder das Funkgerät aus- und einschalten, damit Auto zuerst 115200 hört |
+| Der Browser friert mit einem IC-705 ein (Windows) | Icoms IC-705-Treiber blockiert die seriellen Lesezugriffe des Browsers | Das USB-Kabel neu einstecken, um den Anschluss freizugeben; TCI mit der Hamlib-Brücke oder Desktop PhantomSDR+ verwenden |
 
 ---
 
@@ -440,6 +515,8 @@ Ohne `--rigctl` sucht die Brücke `rigctld` unter `127.0.0.1:4532` und meldet `r
 Nichts einzustellen. Die Transceiver-Steuerung nutzt eine kleine JavaScript-Schnittstelle, die jede PhantomSDR-Plus-Seite bereits enthält; sie braucht keine Servereinstellung, keinen offenen Port und keine Admin-Berechtigung. Die Filter- und Stummschaltfunktionen kamen mit Version 4.1.0 — danach das Frontend neu bauen (`./recompile.sh`, Option 2); der Empfänger muss nicht angehalten werden. Auch KiwiSDR-, WebSDR- und UberSDR-Empfänger brauchen nichts: Die Anwendung nutzt die Bedienelemente, die ihre Seiten schon haben.
 
 Die Schaltfläche **TCI-CAT** kam ebenfalls mit 4.1.0, wieder nur ein Neubau des Frontends. Sie öffnet keinen Port auf dem Empfänger: Die Verbindung läuft vom Browser jedes Hörers zu seinem eigenen Computer. Die Hamlib-Brücke `tci-bridge/tci-rigctld.mjs` ist für Hörer zu Hause gedacht; der Empfänger benutzt sie nicht. Der Browser baut diese Verbindung erst auf, nachdem der Hörer **TCI-CAT** geöffnet oder **CAT Sync** eingeschaltet hat (pro Browser gespeichert); über https sehen Besucher, die es nie nutzen, daher keine Abfrage zum lokalen Netzwerk.
+
+Auch **Direct USB** (6.0.0) öffnet nichts auf dem Empfänger: Der Browser jedes Hörers spricht über USB mit dessen eigenem Funkgerät. Browser erlauben das nur auf einer sicheren Seite; entfernte Hörer haben es daher, wenn der Empfänger über https:// erreichbar ist (siehe [Sicherer Zugang (HTTPS)](HTTPS.md)); auf einer reinen http-Station bleiben ihnen TCI und Desktop PhantomSDR+.
 
 ---
 
@@ -468,5 +545,5 @@ Die Schaltfläche **TCI-CAT** kam ebenfalls mit 4.1.0, wieder nur ein Neubau des
 - Andere Empfänger als PhantomSDR-Plus, KiwiSDR, PA3FWM WebSDR und UberSDR — etwa OpenWebRX — werden nicht unterstützt.
 - Die integrierten Treiber folgen den veröffentlichten Protokollen der Hersteller und wurden gegen simulierte Geräte und echtes Hamlib getestet; für ein Gerät, das sich anders verhält, ist Hamlib die Ausweichlösung.
 - Split-Betrieb, VFO B, RIT/XIT und Speicherkanäle werden nicht synchronisiert — nur die Frequenz des aktiven VFO.
-- TCI-CAT auf der Empfängerseite synchronisiert weder Split noch VFO B, RIT/XIT oder Transverter-Versatz und wurde nur mit einem IC-7300 über die Hamlib-Brücke ausprobiert.
+- TCI-CAT und Direct USB auf der Empfängerseite synchronisieren weder VFO B noch RIT/XIT oder Transverter-Versatz — **Split** verhindert nur, dass die Seite das Funkgerät bewegt — und wurden nur mit einem IC-7300 ausprobiert (TCI über die Hamlib-Brücke).
 - Unter Linux verwenden die Pakete das Hamlib der Distribution; keines ist mitgeliefert.

@@ -459,7 +459,7 @@ Le curseur **Zoom** a 20 crans, affichés ×1 à ×20 (le cran, pas un grossisse
 
 ### Auto Adj. (cascade)
 
-L'interrupteur **Auto Adj.** des commandes de la cascade règle pour vous la luminosité et le contraste de la cascade. Il mesure le bruit de fond sur toute l'étendue visible et en fait un fond sombre et régulier — y compris là où le bruit diffère d'une partie de l'étendue à l'autre — puis étire tout ce qui se trouve au-dessus, si bien que les signaux faibles ressortent et que les plus forts atteignent les couleurs du haut. Il fonctionne de la même façon avec toutes les palettes, et seule la cascade change : la trace du spectre garde sa véritable échelle en dB. Tant qu'il est actif, les curseurs Min et Max sont verrouillés et affichent le bruit de fond et le pic mesurés ; en le désactivant, ils reviennent aux réglages de la bande.
+L'interrupteur **Auto Adj.** des commandes de la cascade règle pour vous la luminosité et le contraste de la cascade. Il mesure le bruit de fond sur toute l'étendue visible et en fait un fond sombre et régulier — y compris là où le bruit diffère d'une partie de l'étendue à l'autre — puis étire tout ce qui se trouve au-dessus, si bien que les signaux faibles ressortent et que les plus forts atteignent les couleurs du haut. Il fonctionne de la même façon avec toutes les palettes. La trace du spectre au-dessus de la cascade le suit aussi, comme la vue 3D ; ses hauteurs sont alors les niveaux ajustés et non des dB, c'est pourquoi son échelle en dB est masquée tant qu'Auto Adj. est actif. Tant qu'il est actif, les curseurs Min et Max sont verrouillés et affichent le bruit de fond et le pic mesurés ; en le désactivant, ils reviennent aux réglages de la bande. SERVICES, HF FAX et NAVTEX activent Auto Adj. à leur démarrage et le désactivent à leur arrêt ou quand un autre décodeur est choisi ; entre-temps, l'interrupteur reste utilisable à la main.
 
 ### Spectre 3D
 
@@ -487,14 +487,16 @@ Le bouton **📊 Show** de la section Spectrogram ouvre l'analyseur audio sous l
 
 Votre propre transceiver et la page du récepteur peuvent rester sur la même fréquence : tournez le bouton d'accord du poste et la cascade suit, ou cliquez sur un signal dans la cascade et le poste s'y accorde. Cela ne concerne que *votre* session d'écoute ; personne d'autre sur le récepteur n'est affecté.
 
-**Avec Desktop PhantomSDR+ (4.0 ou ultérieur).** L'application de bureau possède un menu **Rig**. *Rig → Rig control...* ouvre une fenêtre où vous choisissez votre poste et la façon de le joindre, et le menu lui-même active ou coupe la synchronisation. Elle synchronise la fréquence, le mode et la largeur de filtre, dans un sens ou dans les deux, et peut couper le son du récepteur pendant que vous émettez. Outre PhantomSDR-Plus, elle pilote de la même façon les récepteurs **KiwiSDR, PA3FWM WebSDR et UberSDR**. Le poste est joint de l'une de ces quatre façons :
+**Avec Desktop PhantomSDR+ (4.0 ou ultérieur).** L'application de bureau possède un menu **Rig**. *Rig → Rig control...* ouvre une fenêtre où vous choisissez votre poste et la façon de le joindre, et le menu lui-même active ou coupe la synchronisation. Elle synchronise la fréquence, le mode et la largeur de filtre, dans un sens ou dans les deux, et peut couper le son du récepteur pendant que vous émettez. Outre PhantomSDR-Plus, elle pilote de la même façon les récepteurs **KiwiSDR, PA3FWM WebSDR et UberSDR**. Le poste est joint de l'une de ces quatre façons : La version 6.0 ajoute le waterfall et le S-mètre du poste en haut de la fenêtre du récepteur (*Rig → Show rig waterfall and S-meter*) et une connexion **Icom LAN / WiFi**, par exemple un IC-705 en WiFi.
 
 - **Intégré** — sans autre logiciel : Icom (CI-V), Yaesu (nouveau CAT et FT-817/857/897), Kenwood, Elecraft, FlexRadio SmartSDR CAT, QRP Labs et autres postes compatibles Kenwood.
 - **Hamlib** — tous les postes que connaît Hamlib, plus de 300, choisis dans une liste avec recherche. Les installateurs Windows incluent Hamlib ; sous Linux, installez `libhamlib-utils`.
 - **rigctld sur le réseau** — un `rigctld` déjà lancé.
 - **flrig** — pour un poste que flrig partage déjà avec fldigi, WSJT-X ou un logiciel de carnet de trafic.
 
-L'application, ses installateurs et son manuel complet se trouvent sur [Desktop PhantomSDR+ (Dropbox)](https://www.dropbox.com/scl/fo/kjwj96zg3kj7dgq4fjef9/APnA3c9hhv4hk3YMGIGjH7s?rlkey=jfiwklly63kv73poalx631pk3&st=m37uvaym&dl=0).
+L'application, ses installateurs et son manuel complet se trouvent sur [Desktop PhantomSDR+](https://phantomsdr.psychomed.gr/desktop.html).
+
+**Sur la page du récepteur elle-même.** Le bouton **TCI-CAT** (**CAT** dans la disposition compacte) ouvre la fenêtre CAT. **TCI** se connecte à ExpertSDR, AetherSDR ou Thetis sur votre ordinateur, ou à tout poste Hamlib via le pont fourni ; **Direct USB** dialogue avec le poste directement par son câble USB, sans autre logiciel, dans Chrome, Edge, Opera ou Firefox 151+ sur une page https://, et peut aussi allumer et éteindre le poste. **CAT Sync**, **Split** et **Mute on TX** sont sur une seule ligne : Split laisse le poste où il est pendant que vous accordez la page, et Mute on TX coupe le son de la page pendant que vous émettez. Avec un Icom qui envoie son scope (IC-7300 et autres), un interrupteur **Rig scope** l'affiche en bande de chute d'eau sous celle du récepteur, sur les mêmes fréquences.
 
 **Avec un navigateur web.** Le [CATsync Tool for WebSDRs](https://catsyncsdr.wordpress.com/) (Windows) couple un poste à la page du récepteur ouverte dans votre navigateur. Il synchronise la fréquence et le mode.
 
@@ -637,6 +639,8 @@ Dans la zone de chat, et chaque fois qu'un curseur de réglage, une liste ou un 
 **Souris sur l'affichage de fréquence** : placez le pointeur sur un chiffre ; molette vers le haut ou clic gauche l'augmente, molette vers le bas ou clic droit le diminue, chaque fois de la valeur de position du chiffre (neuf chiffres, de 100 MHz à 1 Hz). Entre les chiffres, la molette avance du pas d'accord de la bande (1 kHz sauf indication du plan de bandes) ; **Shift** pour 1 kHz, **Alt** pour 10 kHz. Un clic ailleurs dans le cadre noir fréquence / S-mètre ouvre le pavé numérique (Méthode 2 dans *S'accorder sur une fréquence*).
 
 **Molette au-dessus de la cascade** : zoome. Maintenez **Ctrl** (ou **Cmd**) ou **Shift** pour accorder au lieu de zoomer, et **Shift + Ctrl** ensemble pour caler sur le kHz entier le plus proche.
+
+**Échap** ferme la fenêtre surgissante ouverte — Modes, Bands, IF Filters, TCI-CAT, Equalizer, Compressor, Bookmarks, Users, Statistics et les autres — comme son ✕, même quand le curseur est dans l'un de ses champs. S'il y en a deux, celle du dessus se ferme d'abord.
 
 > Il n'y a pas de raccourcis Page précédente / Page suivante.
 

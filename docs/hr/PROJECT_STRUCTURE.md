@@ -123,6 +123,7 @@ Svaka od donjih `start-*.sh` skripti samostalan je **pokretač + watchdog + zapi
 | `admin_server.py` | Sama administratorska ploča. Uz stranice za upravljanje pokreće i uzorkivač stranice **Grafikoni**: pozadinska dretva svake 2 sekunde bilježi frekvenciju procesora, opterećenje, temperaturu i broj korisnika te ih drži samo u memoriji — 1 sat u punoj razlučivosti plus 24 sata prosjeka po 30 sekundi. Ništa se ne zapisuje na disk pa se povijest gubi pri ponovnom pokretanju. |
 | `admin_config.json` | Postavke administratorske ploče (hash lozinke, portovi, opcije, pragovi toplinske zaštite) |
 | `proxy.py` | Javni port. Poslužuje stranicu i prosljeđuje `/admin` ploči te — na stanici postavljenoj čarobnjakom — `/rade`, `/stats` i `/relay` uslugama iza sebe, tako da se prosljeđuje samo jedan port. Portove čita iz `admin_config.json`, ili iz `station.conf` kad nema ploče (`setup_admin.sh --proxy-only`) |
+| `asn_db.py` | Zabrane mreža (ASN / ISP): traži adrese u tablici iptoasn.com u `asn-db/` i čuva pravila u `asn_bans.json`. Koriste ga `proxy.py` (odbija pri spajanju) i `admin_server.py` (pravila, popis Korisnika, provjera svakih 20 sekundi) |
 | `thermal_guard.py` | Zaštita od pregrijavanja procesora. Zaustavlja poslužitelj kada procesor postane prevruć i ponovno ga pokreće kad se ohladi, izvodeći pragove iz kritičnog praga koji objavljuje vaš vlastiti procesor umjesto iz fiksnog broja. Nikada ne pokušava prepoznati što nadzire poslužitelj — dok je pregrijan, ponavlja zaustavljanje svake 2 s, pa je watchdog, systemd jedinica ili cron zadatak koji ga oživi poništen dok se stroj ne ohladi. Samo standardna biblioteka; uvozi ga `admin_server.py` (takt daje uzorkivač Grafikona), a radi i samostalno za instalacije bez ploče. Zadano samo zapisuje, pa ni na što ne djeluje dok se ne uključi — vidi [Administratorska ploča]vidi [priručnik Thermal Guard](THERMAL_GUARD.md) |
 | `autorun/` | Daemon za prijavljivanje spotova — vidi [Autorun Spot Reporter](INSTALLATION.md#autorun-spot-reporter-ft8ft4wspr) |
 | `autorun.json` | Koje pojaseve/načine dekodirati i u kojim UTC satima, identitet, odredišta i automatsko pokretanje |
@@ -192,7 +193,7 @@ Web-sučelje izgrađeno pomoću Sveltea i Vitea.
 - Struktura rasporeda
 - Usklađivanje komponenti
 - **Red gumba dekodera** — po jedan gumb za svaki dekoder na glavnoj ploči, odmah ispod izbornika načina rada; jedan pritisak pokreće dekoder i otvara njegov prozor, drugi ga zaustavlja. Zamijenio je dotadašnji red za širinu pojasa. RADE-v2U/RADE-v1L/RADE-v1U su u `lib/ModesSelector.svelte`, uz izbornik načina rada te u skočnim prozorima **Modes** i **Bands**.
-- **Redak verzije** — „PhantomSDR+ | v5.5.0 original from github.com/sv1btl/PhantomSDR-Plus”, s adresom kao poveznicom; isti redak nalazi se i na stranici /mobile. Broj verzije i adresa nalaze se u `lib/version.js`; redak je navođenje autorstva obuhvaćeno datotekom `ADDITIONAL_TERMS.md`.
+- **Redak verzije** — „PhantomSDR+ | v6.0.0 original from github.com/sv1btl/PhantomSDR-Plus”, s adresom kao poveznicom; isti redak nalazi se i na stranici /mobile. Broj verzije i adresa nalaze se u `lib/version.js`; redak je navođenje autorstva obuhvaćeno datotekom `ADDITIONAL_TERMS.md`.
 
 #### 2. Prikaz slapa (`waterfall.js` + `lib/`)
 - Iscrtavanje spektra i slapa na platnu (canvas) i palete boja u `waterfall.js` (čisti JS, nije komponenta); preračunavanje svjetline/kontrasta za **Auto Adj.** je `lib/wfAutoLevel.js`
@@ -233,7 +234,7 @@ Svaki od zahtjevnih dekodera načina rada izvodi se u vlastitom Web Workeru, pa 
 | SSTV | `sstv.js` | `sstv.worker.js` | `sstvWorkerProxy.js` |
 | HF FAX | `fax.js` | `fax.worker.js` | `faxWorkerProxy.js` |
 | NAVTEX + FLDIGI (ALE 2G HAM, FSK/RTTY, PSK31/63/125, QPSK, Olivia, Contestia, PSK Browser, Olivia Browser, RTTY Browser, MFSK Browser, FST4W, MFSK, MSK144, DominoEX, THOR, THROB, Hellschreiber, MT63, Packet/APRS) + SERVICES (Maritime FSK / SITOR, Weather RTTY, ALE 2G) | `fsk.js`, `psk31.js`, `olivia.js`, `mfsk.js`, `ifk.js`, `throb.js`, `hell.js`, `mt63.js`, `fldigiFec.js`, `ax25.js`, `ale.js`, `fst4w.js`, `msk144.js`, `pskBrowser.js`, `oliviaBrowser.js`, `rttyBrowser.js`, `mfskBrowser.js` | `fsk.worker.js` | `fskWorkerProxy.js` |
-| SERVICES (DSC, Time Signals, HF Selcall) | `dsc.js`, `timesig.js` | `services.worker.js` | `servicesWorkerProxy.js` |
+| SERVICES (DSC, Time Signals, HF Selcall, AQC-ALE, SITOR-A/ARQ-E/ARQ-E3, STANAG 4285, MIL-STD-188-110A, 3G ALE) | `dsc.js`, `timesig.js`, `ale.js`, `krypto500/*.js` | `services.worker.js` | `servicesWorkerProxy.js` |
 | CW, CW Browser | `cwDecoder.js`, `cwBrowser.js` | `cw.worker.js` | `cwWorkerProxy.js` |
 
 #### 4b. Diverziti prijam (`diversity.js`)
@@ -280,6 +281,7 @@ Svaki od zahtjevnih dekodera načina rada izvodi se u vlastitom Web Workeru, pa 
 - Javni `/users`, `users.json` i `/logs/users_*.jsonl` koje čita `stats.html` ne sadrže IP adresu: kopija dnevnika umjesto nje nosi neprozirni kod `visitor` (hash s ključem, ključ u `logs/.visitor_salt`); datoteke na disku zadržavaju adrese. Administracijska ploča čita `/~~users`, na koji se odgovara samo loopback sugovorniku bez `X-Forwarded-For`
 - Dekoder koji radi ide istim putem: `App.svelte` šalje `{"cmd":"decoder","name":"FT8"}` (prazno kad nijedan ne radi) pri svakoj promjeni, a `audio.js` ga ponovno šalje na novom socketu. Poslužitelj čuva kratku oznaku (slova, znamenke, razmak, `-+/`, najviše 12) i daje je kao `decoder` u `/users` i u svakom retku `users_*.jsonl`; promjena se bilježi kao preugađanje, pa je `stats.html` (Decoder Popularity) i stranica Visitors administracije mogu brojati
 - Zabrane od 8/16/24 sata iz ploče čuvaju se u `admin_bans.json` (nikad se ne distribuira) i jednom u minuti ponovno šalju svakom prijemniku; `/~~unban` ukida jednu
+- Zabrane mreža (AS broj ili ime pružatelja, dok se ne uklone): `asn_db.py` traži svaku adresu u tablici iptoasn.com u `asn-db/` i čita pravila iz `asn_bans.json` (ništa od toga se ne distribuira); `proxy.py` odbija podudaranje pri spajanju, a ploča svakih 20 sekundi odspaja podudarne slušatelje koji su već spojeni
 
 #### 5. Upravljanje stanjem (`stores/`)
 - Reaktivne pohrane podataka

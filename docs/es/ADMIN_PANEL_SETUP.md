@@ -25,7 +25,7 @@ Ambos servicios leen su configuración de `admin_config.json`, que escribe `setu
 - **Marcadores** — ver y editar los marcadores de frecuencia
 - **Historial del chat** — ver el registro del chat del WebSDR, borrarlo por completo o eliminar mensajes concretos sin reiniciar el servidor
 - **Mensaje en la cascada** — difundir un cartel persistente a todos los usuarios conectados, visible en tiempo real en la cascada
-- **Usuarios** — lista en vivo de los oyentes conectados con su nombre o indicativo, ubicación y dirección IP, frecuencia, modo y duración, un botón ⚡ Kick y un menú ⛔ Ban ▾ (8, 16 o 24 horas), y un mapa de dónde están
+- **Usuarios** — lista en vivo de los oyentes conectados con su nombre o indicativo, ubicación y dirección IP, frecuencia, modo y duración, un botón ⚡ Kick y un menú ⛔ Ban ▾ (8, 16 o 24 horas), ⛔ bloqueos de redes enteras (número AS o nombre del proveedor), y un mapa de dónde están
 - **Eliminación de mensajes del chat** — botón 🗑 Delete que quita de inmediato ese único mensaje del registro
 - **Mensajes difundidos en la cascada** — permite enviar un cartel de texto persistente a la cascada de cada usuario conectado
 - **Spot Reporting** — iniciar/detener el decodificador autorun de FT8/FT4/JS8/WSPR, elegir bandas y modos e informar de spots a PSK Reporter / wsprnet (desactivado por defecto), con dos contadores: paneles por decodificador para la ejecución actual y un total histórico junto a cada casilla de banda/modo Cada banda y modo funciona en las horas UTC que se programen, y el demonio puede arrancar solo tras un reinicio o un fallo.
@@ -170,6 +170,8 @@ Junto al modo, la página Users muestra el decodificador que el oyente usa en su
 La expulsión es instantánea y quirúrgica: el servidor no se reinicia, el audio de nadie más se interrumpe y el usuario expulsado puede volver a conectarse de inmediato (la función sirve para quitar conexiones problemáticas o colgadas; para mantener a alguien fuera, use el bloqueo de abajo).
 
 **⛔ Ban ▾** abre un pequeño menú — **8**, **16** o **24 horas** — y la duración elegida desconecta al oyente de todos los receptores de la estación y rechaza esa dirección durante ese tiempo (24 horas es lo máximo que acepta el receptor) (código de cierre 4001, que la página no reintenta). El bloqueo se guarda en `admin_bans.json` junto al panel y se envía de nuevo a cada receptor una vez por minuto, de modo que reiniciar un receptor no lo levanta. Mientras haya bloqueos en vigor, una lista **Banned** bajo la tabla muestra cada uno con su nombre, dirección y hora de fin, y un botón **Unban** lo levanta al instante. Todos los que están detrás de la misma conexión a internet comparten la dirección y quedan bloqueados con ella.
+
+**Bloquear una red entera.** Algunos problemas vienen de un proveedor entero y no de una sola dirección, como un servicio en la nube o VPN que cambia de dirección en cada conexión. Bajo la dirección IP de cada oyente la página Usuarios muestra su red (`AS3329 …`), y **⛔ Ban ▾** ofrece además **Whole network AS… (until removed)**. La tarjeta **Banned networks (ASN / ISP)** bajo la tabla bloquea por **número AS** (`AS12345`) o por **ISP name contains** (toda red cuyo nombre contiene el texto, p. ej. `hetzner`); mientras escribe, lista las redes que cubriría la regla, en rojo cuando coinciden más de 20. Un bloqueo de red dura hasta **Remove**. `proxy.py` rechaza una red bloqueada antes de que el receptor la vea (código de cierre 4001), y cada 20 segundos el panel desconecta a los oyentes de esa red que ya estaban conectados o llegaron a un receptor sin pasar por el proxy (cada una de esas direcciones queda rechazada 10 minutos; se levanta al quitar la regla). Las redes vienen de la tabla gratuita de iptoasn.com, que se descarga en `asn-db/` con el primer bloqueo de red y se renueva cada semana (**↻ Update table** la descarga al momento); las reglas se guardan en `asn_bans.json`. Sin la tabla no se rechaza a nadie, y el panel no le deja bloquear la red desde la que ha iniciado sesión.
 
 ---
 
@@ -493,6 +495,8 @@ El demonio es deliberadamente ligero y funciona en hardware modesto (un i5 de cu
 Una tarjeta del **Dashboard**, actualizada cada 30 segundos (o con **↻ refresh**):
 
 - **Receptores** — cada receptor de la estación (el de `public_port` y cada receptor de `receivers.toml`): un punto verde y *on air, up 15h 5m* cuando responde, un **OFF THE AIR** rojo cuando no.
+- **RADE** — RADE V1 y RADE V2 (beta): *ready to decode* cuando el sidecar de RADE (`rade_helper.py`) está en marcha y esa versión está instalada, **NOT RUNNING** cuando el sidecar no lo está. Si el decodificador RADE V2 de la estación es anterior a la corrección de FreeDV para estaciones desplazadas unos 62 Hz de su frecuencia, la línea de V2 añade *decoder outdated — run ./install_rade.sh*: ejecútelo y después reinicie el receptor.
+- **Updates** — una vez al día el panel pregunta a GitHub si PhantomSDR-Plus o el decodificador RADE V2 de FreeDV tiene algo más nuevo que esta estación, y muestra *update on GitHub (5 changes, latest 16 Nov) — run ./update.sh*, *newer version from FreeDV — run ./install_rade.sh, then restart the receiver* o *up to date*. **↻ check now** pregunta al momento. El panel conoce la versión de la estación gracias a `update.sh`, que la anota tras cada actualización; una estación clonada con git y nunca actualizada se compara mediante git, y a cualquier otra se le pide ejecutar `./update.sh` una vez.
 - **Disco y carpetas de registros** — el espacio libre en el disco de la instalación (naranja desde el 80 % usado, rojo desde el 90 %), y el tamaño de `logs/`, `logproxy/` y de cada `instances/<id>/logs/`.
 - **Alertas recientes** — lo que la vigilancia de alertas ha visto desde que arrancó el panel (ver [Alertas](#alertas-correo--telegram)), se haya enviado un mensaje o no.
 - **Última entrada de crash.log** — el `crash.log` no vacío más reciente de todos los receptores, con su fecha y sus 12 últimas líneas.
@@ -607,7 +611,7 @@ El script toma cada respuesta de ese archivo y solo pide su contraseña de sudo 
 
 - cada `*.toml` de la instalación (configuraciones de los receptores y `receivers.toml`) y `station.conf`
 - `frontend/site_information.json`, `frontend/src/bands-config.js`, `markers.json`
-- `autorun.json` (spot reporting), `websdr_relay.json`, `drm.json`, `admin_bans.json`
+- `autorun.json` (spot reporting), `websdr_relay.json`, `drm.json`, `admin_bans.json`, `asn_bans.json`
 - para cada receptor adicional: `instances/<id>/config.toml`, `instance.env`, `markers.json`
 
 y un `BACKUP-INFO.json` con la fecha, el ordenador y la lista de archivos. **No** incluye: `admin_config.json` (contraseña de administrador, secretos de las alertas), los registros ni el propio programa.

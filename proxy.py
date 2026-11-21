@@ -47,6 +47,13 @@ except ImportError:
     print("        pip3 install aiohttp --break-system-packages", file=sys.stderr)
     sys.exit(1)
 
+# ASN / ISP bans (asn_db.py, rules from the admin panel). An older tree without
+# the module simply refuses no one by network.
+try:
+    import asn_db
+except Exception:
+    asn_db = None
+
 # ── Load configuration ─────────────────────────────────────────────────────────
 # Two sources. station.conf is written by configure-station.sh on a station set
 # up with it, and gives the ports of the whole station. admin_config.json is
@@ -379,6 +386,43 @@ def _unregister_ws(ip: str, ws) -> None:
             ACTIVE_WS.pop(ip, None)
 
 
+# ── ASN / ISP bans ────────────────────────────────────────────────────────────
+# The table (asn-db/) and the rules (asn_bans.json) are the admin panel's; this
+# side only reads them. One refusal per address is logged every 10 minutes, or a
+# page that keeps reopening its sockets would fill proxy.log.
+_ASN_LOGGED: "dict[str, float]" = {}
+
+
+def _asn_banned(ip: str):
+    if asn_db is None or not ip:
+        return None
+    try:
+        rule, info = asn_db.check(ip)
+    except Exception:
+        return None
+    if rule:
+        import time
+        now = time.monotonic()
+        if now - _ASN_LOGGED.get(ip, -1e9) >= 600:
+            if len(_ASN_LOGGED) > 5000:
+                _ASN_LOGGED.clear()
+            _ASN_LOGGED[ip] = now
+            logging.getLogger("proxy").info(
+                "Refused %s: network ban %s (AS%s %s)", ip,
+                asn_db.rule_label(rule), info[0], info[2])
+    return rule
+
+
+async def _asn_table_watch():
+    """Load the ASN table at start and again whenever the panel refreshes it."""
+    while True:
+        try:
+            asn_db.reload_if_changed()
+        except Exception:
+            pass
+        await asyncio.sleep(60)
+
+
 async def handle_kick(request: web.Request) -> web.Response:
     """Localhost-only control endpoint: close all WebSockets from a given IP.
 
@@ -605,6 +649,15 @@ async def proxy_websocket(request: web.Request, upstream: str,
     # Register for the admin kick (see handle_kick). request.remote is the real
     # client IP because the browser connects to this proxy directly.
     client_ip = _norm_ip(_client(request))
+
+    # A banned network is refused here, before the receiver sees anything. The
+    # socket is opened first so the page gets the same 4001 a kick sends,
+    # which it does not retry; a refused upgrade would only show as 1006.
+    rule = _asn_banned(client_ip) if not _is_local(request) else None
+    if rule:
+        await ws_client.close(code=KICK_CLOSE_CODE,
+                              message=b"disconnected by the sysop")
+        return ws_client
     _register_ws(client_ip, ws_client)
 
     ws_url = upstream.replace("http://", "ws://") + (path or _upstream_path(request))
@@ -769,7 +822,7 @@ async def handle(request: web.Request) -> web.StreamResponse:
 _QUIET_PATHS = ("/admin/api/status", "/admin/api/thermal", "/admin/api/logs",
                 "/admin/api/logs/clear", "/admin/api/health",
                 "/admin/api/autorun/status", "/admin/api/users", "/admin/api/sdr-users",
-                "/admin/api/graph-stats", "/admin/api/chat", "/admin/api/bans",
+                "/admin/api/graph-stats", "/admin/api/chat", "/admin/api/bans", "/admin/api/asn-bans",
                 "/admin/api/websdr-relay", "/admin/api/drm",
                 # every open listener page polls these every few seconds; who
                 # listened is in the /audio and /waterfall lines and logs/users_*.jsonl
@@ -880,6 +933,9 @@ async def main():
     if TLS_PORT:
         # loopback only: nothing but the https front may reach it
         await web.TCPSite(runner, TLS_BIND, TLS_PORT).start()
+
+    if asn_db is not None:
+        asyncio.get_running_loop().create_task(_asn_table_watch())
 
     print(f"╔══════════════════════════════════════════════════════╗")
     print(f"║  PhantomSDR-Plus Reverse Proxy                       ║")

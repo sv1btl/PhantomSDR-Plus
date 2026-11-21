@@ -965,14 +965,10 @@ export default class SpectrumWaterfall {
         this.drawWaterfall(arr, pxL, pxR, curL, curR);
       }
       if (this.spectrum) {
-        // Auto Adj. levels the waterfall only: the spectrum trace keeps its
-        // true dB shape so it still lines up with its dB scale.
-        let specArr = arr
-        if (this.autoAdjust) {
-          specArr = new Uint8Array(waterfallArray.length)
-          for (let i = 0; i < specArr.length; i++) specArr[i] = this.transformValue(waterfallArray[i])
-        }
-        this.drawSpectrum(specArr, pxL, pxR, curL, curR);
+        // The 2D spectrum takes the waterfall's own levels (Min/Max and Auto
+        // Adj.), as the 3D view does. Under Auto Adj. its heights are the
+        // remap's, not dB, so drawSpectrum hides the dB scale meanwhile.
+        this.drawSpectrum(arr, pxL, pxR, curL, curR);
       }
       // The 3D view takes the waterfall's own levels (Min/Max and Auto Adj.).
       if (this.view3d) {
@@ -1208,7 +1204,8 @@ export default class SpectrumWaterfall {
     ctx.textAlign = 'right';
     ctx.shadowBlur = 0;
 
-    for (let dB = dBStart; dB <= this.maxWaterfall; dB += gridStep) {
+    // Auto Adj.'s remap is not a fixed dB scale: no dB grid or labels then.
+    for (let dB = dBStart; !this.autoAdjust && dB <= this.maxWaterfall; dB += gridStep) {
       // y=0 → maxWaterfall (hottest), y=height → minWaterfall (coldest)
       const y = height - ((dB - this.minWaterfall) / dBRange) * height;
 

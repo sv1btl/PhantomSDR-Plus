@@ -123,6 +123,7 @@ Cada `start-*.sh` de los siguientes es un **lanzador autónomo + watchdog + regi
 | `admin_server.py` | El propio panel de administración. Además de las páginas de gestión ejecuta el muestreador de la página **Gráficos**: un hilo en segundo plano toma cada 2 segundos la frecuencia de CPU, la carga, la temperatura y los usuarios conectados, y los guarda solo en memoria: 1 hora a resolución completa más 24 horas de promedios de 30 segundos. No se escribe nada en disco, así que el historial se pierde al reiniciar. |
 | `admin_config.json` | Ajustes del panel de administración (hash de contraseña, puertos, opciones, umbrales de la protección térmica) |
 | `proxy.py` | El puerto público. Sirve la página y lleva `/admin` al panel y — en una estación configurada con el asistente — `/rade`, `/stats` y `/relay` a los servicios que hay detrás, de modo que solo se redirige un puerto. Lee sus puertos de `admin_config.json`, o de `station.conf` cuando no hay panel (`setup_admin.sh --proxy-only`) |
+| `asn_db.py` | Bloqueos de red (ASN / ISP): busca direcciones en la tabla de iptoasn.com en `asn-db/` y guarda las reglas en `asn_bans.json`. Lo usan `proxy.py` (rechaza al conectar) y `admin_server.py` (reglas, lista de Usuarios, la revisión cada 20 segundos) |
 | `thermal_guard.py` | Protección contra sobrecalentamiento de la CPU. Detiene el servidor cuando la CPU se calienta demasiado y lo reinicia una vez fría, derivando sus umbrales del límite crítico que publica su propia CPU en lugar de una cifra fija. Nunca intenta identificar qué supervisa el servidor: mientras hay exceso de temperatura repite la parada cada 2 s, de modo que un watchdog, una unidad de systemd o una tarea cron que lo reviva queda deshecha hasta que la máquina se enfríe. Solo biblioteca estándar; lo importa `admin_server.py` (temporizado por el muestreador de Gráficos) y también se ejecuta por su cuenta en instalaciones sin panel. Por defecto solo registra, así que no actúa sobre nada hasta que se active — véase [Panel de administración]véase el [manual del Thermal Guard](THERMAL_GUARD.md) |
 | `autorun/` | El demonio de reporte de spots — véase [Autorun Spot Reporter](INSTALLATION.md#autorun-spot-reporter-ft8ft4wspr) |
 | `autorun.json` | Qué bandas/modos decodificar y en qué horas UTC, identidad, destinos y arranque automático |
@@ -192,7 +193,7 @@ La interfaz de usuario web construida con Svelte y Vite.
 - Estructura del diseño
 - Orquestación de componentes
 - **Fila de botones de decodificador** — un botón por decodificador en el panel principal, justo debajo del selector de modos; una pulsación inicia el decodificador y abre su ventana, una segunda lo detiene. Sustituyó a la antigua fila de ancho de banda. RADE-v2U/RADE-v1L/RADE-v1U están en `lib/ModesSelector.svelte`, junto al selector de modos y dentro de las ventanas emergentes **Modes** y **Bands**.
-- **Línea de versión** — «PhantomSDR+ | v5.5.0 original from github.com/sv1btl/PhantomSDR-Plus», con la dirección como enlace; la misma línea aparece en la página /mobile. El número de versión y la dirección están en `lib/version.js`; la línea es una atribución de autoría cubierta por `ADDITIONAL_TERMS.md`.
+- **Línea de versión** — «PhantomSDR+ | v6.0.0 original from github.com/sv1btl/PhantomSDR-Plus», con la dirección como enlace; la misma línea aparece en la página /mobile. El número de versión y la dirección están en `lib/version.js`; la línea es una atribución de autoría cubierta por `ADDITIONAL_TERMS.md`.
 
 #### 2. Cascada (`waterfall.js` + `lib/`)
 - Representación del espectro y de la cascada en canvas y mapas de color en `waterfall.js` (JS puro, no un componente); el reajuste de brillo/contraste de **Auto Adj.** es `lib/wfAutoLevel.js`
@@ -233,7 +234,7 @@ Cada uno de los decodificadores de modo más pesados se ejecuta en su propio Web
 | SSTV | `sstv.js` | `sstv.worker.js` | `sstvWorkerProxy.js` |
 | FAX de HF | `fax.js` | `fax.worker.js` | `faxWorkerProxy.js` |
 | NAVTEX + FLDIGI (ALE 2G HAM, FSK/RTTY, PSK31/63/125, QPSK, Olivia, Contestia, PSK Browser, Olivia Browser, RTTY Browser, MFSK Browser, FST4W, MFSK, MSK144, DominoEX, THOR, THROB, Hellschreiber, MT63, Packet/APRS) + SERVICES (Maritime FSK / SITOR, Weather RTTY, ALE 2G) | `fsk.js`, `psk31.js`, `olivia.js`, `mfsk.js`, `ifk.js`, `throb.js`, `hell.js`, `mt63.js`, `fldigiFec.js`, `ax25.js`, `ale.js`, `fst4w.js`, `msk144.js`, `pskBrowser.js`, `oliviaBrowser.js`, `rttyBrowser.js`, `mfskBrowser.js` | `fsk.worker.js` | `fskWorkerProxy.js` |
-| SERVICES (DSC, Time Signals, HF Selcall) | `dsc.js`, `timesig.js` | `services.worker.js` | `servicesWorkerProxy.js` |
+| SERVICES (DSC, Time Signals, HF Selcall, AQC-ALE, SITOR-A/ARQ-E/ARQ-E3, STANAG 4285, MIL-STD-188-110A, 3G ALE) | `dsc.js`, `timesig.js`, `ale.js`, `krypto500/*.js` | `services.worker.js` | `servicesWorkerProxy.js` |
 | CW, CW Browser | `cwDecoder.js`, `cwBrowser.js` | `cw.worker.js` | `cwWorkerProxy.js` |
 
 #### 4b. Diversidad de recepción (`diversity.js`)
@@ -280,6 +281,7 @@ Cada uno de los decodificadores de modo más pesados se ejecuta en su propio Web
 - El `/users` público, `users.json` y los `/logs/users_*.jsonl` que lee `stats.html` no llevan dirección IP: la copia del log lleva en su lugar un código opaco `visitor` (hash con clave, clave en `logs/.visitor_salt`); los archivos en disco conservan las direcciones. El panel de administración lee `/~~users`, que solo se responde a un par loopback sin `X-Forwarded-For`
 - El decodificador en uso sigue el mismo camino: `App.svelte` envía `{"cmd":"decoder","name":"FT8"}` (vacío cuando no hay ninguno) cada vez que cambia, y `audio.js` lo reenvía en un socket nuevo. El servidor guarda una etiqueta corta (letras, dígitos, espacio, `-+/`, como máximo 12) y la da como `decoder` en `/users` y en cada línea de `users_*.jsonl`; un cambio se registra como una resintonía, para que `stats.html` (Decoder Popularity) y la página Visitors del panel lo cuenten
 - Los bloqueos de 8/16/24 horas del panel se guardan en `admin_bans.json` (nunca se distribuye) y se reenvían a cada receptor una vez por minuto; `/~~unban` levanta uno
+- Bloqueos de red (número AS o nombre del proveedor, hasta que se quitan): `asn_db.py` busca cada dirección en la tabla de iptoasn.com en `asn-db/` y lee las reglas de `asn_bans.json` (ninguno se distribuye); `proxy.py` rechaza una coincidencia al conectar, y el panel desconecta cada 20 segundos a los oyentes coincidentes que ya están conectados
 
 #### 5. Gestión del estado (`stores/`)
 - Almacenes de datos reactivos

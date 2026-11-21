@@ -12,7 +12,7 @@ Dos formas de conectar un equipo y un requisito en el receptor:
 
 | Pieza | Qué es | Sincroniza |
 |---|---|---|
-| **[Desktop PhantomSDR+](https://www.dropbox.com/scl/fo/kjwj96zg3kj7dgq4fjef9/APnA3c9hhv4hk3YMGIGjH7s?rlkey=jfiwklly63kv73poalx631pk3&st=m37uvaym&dl=0) 4.0 o posterior** | La aplicación de escritorio, con un menú **Rig**. Linux (PC y Raspberry Pi) y Windows. | Frecuencia, modo, ancho de filtro, silencio al transmitir — en un sentido o en ambos |
+| **[Desktop PhantomSDR+](https://phantomsdr.psychomed.gr/desktop.html) 4.0 o posterior** | La aplicación de escritorio, con un menú **Rig**. Linux (PC y Raspberry Pi) y Windows. | Frecuencia, modo, ancho de filtro, silencio al transmitir — en un sentido o en ambos |
 | **[CATsync Tool for WebSDRs](https://catsyncsdr.wordpress.com/)** | Un programa aparte para Windows que acopla un equipo a la página del receptor en su navegador. | Frecuencia y modo |
 | **TCI-CAT en la página del receptor** | Un botón en la propia página de PhantomSDR-Plus, en cualquier navegador. Habla TCI con ExpertSDR, AetherSDR o Thetis, o con cualquier equipo compatible con Hamlib a través de un pequeño puente. Solo en receptores PhantomSDR-Plus con la versión 4.1.0 o posterior. | Frecuencia, modo y ancho de filtro en ambos sentidos; silencio al transmitir |
 | **El receptor** | PhantomSDR-Plus, KiwiSDR, PA3FWM WebSDR o UberSDR. Un receptor PhantomSDR-Plus necesita la **4.1.0** o posterior para ancho de filtro y silencio. | Un PhantomSDR-Plus más antiguo sigue sincronizando frecuencia y modo |
@@ -63,6 +63,7 @@ Cada ajuste se guarda al cambiarlo. La próxima vez basta con **Rig → Connect*
 | Opción | Úsela cuando | Necesita |
 |---|---|---|
 | **Built-in** | Su equipo está en la lista de abajo. | Nada más |
+| **Icom LAN / WiFi** (Desktop 6.0) | Su Icom está en la red: un IC-705 por WiFi, o un IC-7300MK2, IC-7610, IC-9700, IC-905, IC-R8600, IC-7760, IC-785x por su puerto LAN. | La dirección IP del equipo, su Network User ID y contraseña, *Network Control* en ON |
 | **Hamlib (all rigs)** | Su equipo es cualquier otro — Hamlib conoce más de 300. La aplicación inicia el `rigctld` de Hamlib por usted, en un puerto local privado, y lo detiene al desconectar. | Windows: nada, Hamlib va incluido. Linux: `sudo apt install libhamlib-utils` |
 | **rigctld on network** | Ya hay un `rigctld` en marcha, en este ordenador u otro de su red. | Host y puerto (4532 por defecto) |
 | **flrig** | flrig ya controla el equipo para fldigi, WSJT-X o un programa de registro. | flrig en marcha, con su puerto XML-RPC (12345 por defecto) |
@@ -73,7 +74,7 @@ La velocidad y la dirección CI-V que aparecen son los valores de fábrica que r
 
 | Familia | Equipos | Velocidad por defecto | Notas |
 |---|---|---|---|
-| **Icom CI-V** | IC-7300, IC-7610, IC-705, IC-9700, IC-905, IC-7760, IC-7851, IC-7100, IC-7410, IC-9100, IC-7600, IC-7200, IC-7700, IC-7000, IC-7800, IC-756PROIII, IC-756PROII, IC-R8600 y cualquier otro equipo CI-V | 19200 | Dirección CI-V por modelo (IC-7300 `94`, IC-705 `A4`, IC-9700 `A2`, IC-7610 `98` …) |
+| **Icom CI-V** | IC-7300, IC-7300MK2, IC-7610, IC-705, IC-9700, IC-905, IC-7760, IC-7851, IC-7100, IC-7410, IC-9100, IC-7600, IC-7200, IC-7700, IC-7000, IC-7800, IC-756PROIII, IC-756PROII, IC-R8600 y cualquier otro equipo CI-V | 19200 | Dirección CI-V por modelo (IC-7300 `94`, IC-705 `A4`, IC-9700 `A2`, IC-7610 `98` …) |
 | | IC-746PRO, IC-718, IC-R75 | 9600 | |
 | **Xiegu** (CI-V) | G90, X6100 | 19200 | Dirección `70`; compruébela en el menú |
 | **Yaesu CAT nuevo** | FTDX101D/MP, FTDX10, FT-710, FT-991/A, FT-891, FTDX5000, FTDX3000, FTDX1200, FT-950, FT-2000, FT-450/450D | 38400 | |
@@ -82,6 +83,8 @@ La velocidad y la dirección CI-V que aparecen son los valores de fábrica que r
 | | TS-480, TS-2000, TS-870S | 57600 | |
 | **Elecraft** | K4, K3/K3S, KX3, KX2 | 38400 | Sincroniza el ancho de filtro |
 | **Compatibles Kenwood** | FlexRadio SmartSDR CAT (puerto virtual), QRP Labs QMX/QMX+/QDX, (tr)uSDX, Lab599 Discovery TX-500, otros compatibles Kenwood | 9600–38400 | |
+
+**Primero la velocidad más alta (Desktop 6.0).** Un Icom se conecta primero a 115200 baudios, luego a la velocidad ajustada en la ventana y después a 19200, 9600, 38400, 57600 y 4800; se conserva la velocidad que responde. Un equipo con *CI-V USB Baud Rate* en *Auto* mantiene la primera velocidad que oye tras encenderse, y la cascada del equipo necesita la rápida. Hamlib también prueba primero 115200 para IC-7300, IC-7300MK2, IC-705, IC-9700, IC-905, IC-R8600, IC-7610 e IC-7760.
 
 Un equipo que debería ser compatible pero no se entiende con un controlador integrado suele funcionar con **Hamlib**, que tolera muchas más variantes.
 
@@ -202,10 +205,28 @@ Necesita una conexión que informe del estado de transmisión — todos los cont
 |---|---|
 | **Rig control...** | Abre la ventana Rig control |
 | **Connect / Disconnect** *nombre del equipo* | Inicia o detiene la sincronización; con Hamlib también inicia o detiene `rigctld` |
+| **Power on / Power off...** (Desktop 6.0) | Enciende el equipo por CAT y conecta, o (tras preguntar) lo apaga y lo libera. No por flrig, no para Elecraft |
+| **Show rig waterfall and S-meter** (Desktop 6.0) | Muestra u oculta la cascada y el S-meter del equipo en la parte superior de la ventana del receptor - se ofrece mientras hay un equipo conectado |
 | **Rig to receiver / Receiver to rig / Both directions** | Sentido de la sincronización |
 | **Sync filter width** | Sí / no |
 | **Mute receiver while transmitting** | Sí / no |
 | Línea de estado | *Not connected*, *Connecting...*, *Connected: nombre*, o el último error |
+
+---
+
+## Cascada y S-meter del equipo
+
+*Rig → Show rig waterfall and S-meter* (se ofrece mientras hay un equipo conectado) - o el botón del mismo nombre en la ventana Rig control - coloca una franja en la parte superior de la ventana del receptor, encima de la página de la estación. La página baja para dejar sitio y conserva su propia disposición.
+
+- **La cascada** es el propio analizador de espectro de su transceptor, tal como el equipo lo envía por CAT: un Icom IC-7300, IC-7300MK2, IC-705, IC-9700, IC-905, IC-R8600, IC-7610, IC-7760, con la conexión **Built-in** o **Icom LAN / WiFi**. Mediante Hamlib o flrig la franja muestra solo el S-meter, porque `rigctld` y flrig no pueden transmitir el flujo del scope.
+- **Los colores** son los de la estación: en una estación PhantomSDR-Plus la franja usa el esquema de colores elegido en la página y lo sigue cuando lo cambia. Los demás receptores (UberSDR, KiwiSDR, WebSDR) reciben el esquema de colores predeterminado de PhantomSDR, así la franja se ve igual en todas las estaciones. El control **Brightness**, antes de él, fija cuánta parte de la banda toma color: a la izquierda las señales débiles quedan oscuras, a la derecha aparecen y después el ruido. El control **Contrast** fija cuánto destacan las señales sobre el ruido; se recuerda.
+- **Un clic** en la franja sintoniza allí el equipo; el receptor lo sigue mediante la sincronización. La línea roja es la frecuencia del equipo.
+- **▴ ▾** hacen la franja más baja o más alta, **✕** la oculta.
+- **El S-meter** es el del propio equipo, dibujado como el S-meter digital de PhantomSDR: segmentos cian hasta S9, rojos por encima, en la escala S1 … +60 dB, con la lectura al lado; *TX* en rojo mientras transmite.
+
+Un IC-7300 envía unos 4 barridos por segundo por CI-V incluso con el scope en FAST; es el límite del equipo, y la franja se desplaza con suavidad entre ellos. El scope necesita la velocidad CI-V rápida: ponga el *CI-V USB Baud Rate* del equipo en 115200 o *Auto*.
+
+**Icom LAN / WiFi.** En el equipo: conéctelo a su red (IC-705: *MENU › SET › WLAN Set*), ponga *Network Control* en ON y asígnele un *Network User1 ID* y *Password* (*Remote Settings*). En Rig control elija **Icom LAN / WiFi**, el modelo, y escriba la dirección IP, el usuario y la contraseña (guardada cifrada en este ordenador). El equipo admite un programa remoto a la vez: cierre antes wfview o RS-BA1.
 
 ---
 
@@ -223,7 +244,7 @@ sudo usermod -aG dialout $USER
 sudo apt install libhamlib-utils
 ```
 
-El paquete `.deb` de Desktop PhantomSDR+ lo recomienda, así que `sudo apt install ./phantomsdr-plus-desktop_4.0.0_amd64.deb` lo trae consigo; `dpkg -i` no instala paquetes recomendados. Los controladores integrados y flrig no necesitan Hamlib.
+El paquete `.deb` de Desktop PhantomSDR+ lo recomienda, así que `sudo apt install ./phantomsdr-plus-desktop_6.0.0_amd64.deb` lo trae consigo; `dpkg -i` no instala paquetes recomendados. Los controladores integrados y flrig no necesitan Hamlib.
 
 ## Windows
 
@@ -233,21 +254,26 @@ El propio `rigctld.exe` de Hamlib va incluido en el instalador de 64 bits y en e
 
 ## TCI-CAT en la página del receptor
 
-Una página de receptor PhantomSDR-Plus también puede seguir a un transceptor **por sí misma**, sin la aplicación de escritorio: el navegador habla directamente con un servidor **TCI** en su propio ordenador. TCI es el protocolo de control por WebSocket de ExpertSDR2/ExpertSDR3 (SunSDR), AetherSDR (FlexRadio) y Thetis (Apache Labs ANAN, Hermes). Para un equipo sin TCI, un pequeño puente incluido en PhantomSDR-Plus hace que cualquier equipo de Hamlib parezca un servidor TCI.
+Una página de receptor PhantomSDR-Plus también puede seguir a un transceptor **por sí misma**, sin la aplicación de escritorio: el navegador habla directamente con un servidor **TCI** en su propio ordenador. TCI es el protocolo de control por WebSocket de ExpertSDR2/ExpertSDR3 (SunSDR), AetherSDR (FlexRadio) y Thetis (Apache Labs ANAN, Hermes). Para un equipo sin TCI, un pequeño puente incluido en PhantomSDR-Plus hace que cualquier equipo de Hamlib parezca un servidor TCI. Desde la 6.0.0 también puede llegar al equipo sin ningún software TCI, directamente por su cable USB — vea *Direct USB* más abajo.
 
-Necesita un receptor PhantomSDR-Plus con la versión **4.1.0 o posterior**. Las páginas KiwiSDR, WebSDR y UberSDR no lo tienen.
+Necesita un receptor PhantomSDR-Plus con la versión **4.1.0 o posterior**. Las páginas KiwiSDR, WebSDR y UberSDR no lo tienen. Direct USB necesita la 6.0.0 o posterior.
 
 ### El botón TCI-CAT
 
-El botón está en la fila de **VFO**, **Modes**, **Bands** e **IF Filters** — **TCI-CAT** en el diseño ancho, **CAT** en el compacto. Su punto está **verde** mientras hay un servidor TCI conectado y **gris** en otro caso. Abre una ventana con: Hasta la 4.2.0 el botón se llamaba **QRG Sync**.
+El botón está en la fila de **VFO**, **Modes**, **Bands** e **IF Filters** — **TCI-CAT** en el diseño ancho, **CAT** en el compacto. Su punto está **verde** mientras hay un servidor TCI conectado y **gris** en otro caso. Abre una ventana con: Hasta la 4.2.0 el botón se llamaba **QRG Sync**. Al elegir **Direct USB** el título de la ventana pasa a *CAT control via USB*. **CAT Sync**, **Split** y **Mute on TX** están en una sola línea abajo.
 
 | Control | Qué hace |
 |---|---|
+| **Connection** | **TCI** — el servidor TCI o el puente descritos aquí — o **Direct USB**, el equipo directamente por su cable USB (vea *Direct USB* más abajo) |
 | Estado | *Active — TCI (port 50001)* cuando está conectado; *Inactive* con ⏳ *Wait* mientras busca |
-| **CAT Sync** | Activa o desactiva la sincronización de frecuencia, modo y filtro. El silencio al transmitir funciona en ambos casos |
+| **CAT Sync** | Activa o desactiva la sincronización de frecuencia, modo y filtro. Si se activa con un equipo conectado, la página pasa enseguida a la frecuencia, el modo y el filtro del equipo |
 | **Host** | El ordenador con el servidor TCI: `localhost` para este ordenador, o su dirección en la red local, p. ej. `192.168.1.42`. Pulse Intro o haga clic fuera para reconectar |
+| **Split** | Visible mientras hay un equipo conectado. Activado: sintonizar la página deja el equipo donde está, aunque el equipo sigue moviendo la página. Desactivado (por defecto): el equipo sigue a la página y se lleva a ella en cuanto se desactiva Split |
+| **Mute on TX** | Visible mientras hay un equipo conectado. Activado (por defecto): la página se silencia mientras el equipo transmite, con una marca roja **TX**; desactivado: el receptor sigue sonando |
+| **Rig scope** | Direct USB con un equipo que envía su espectroscopio por CI-V (IC-7300, IC-7300MK2, IC-705, IC-9700, IC-905, IC-R8600, IC-7610, IC-7760): el espectroscopio del propio equipo como franja de cascada bajo la del receptor — vea *Direct USB* más abajo |
+| **Rig S-meter** | Direct USB con un equipo sin espectroscopio legible por un navegador — un Yaesu de CAT nuevo (FT-710, FT-991A, FTDX10, FTDX101, ...) o un Icom sin flujo de espectroscopio (IC-7851, IC-7100, IC-7410, IC-9100, IC-7600, IC-7200, IC-7700, IC-7000, IC-7800, IC-756PROIII/II, IC-746PRO, IC-718, IC-R75, Xiegu G90/X6100): el S-metro del equipo bajo la cascada del receptor, pero sin cascada — vea *Direct USB* más abajo |
 
-No hay nada más que elegir: los puertos **50001** (ExpertSDR3, AetherSDR) y **40001** (ExpertSDR2, Thetis) se prueban a la vez y se reintentan cada pocos segundos, así que la página se conecta en cuanto arranca el programa. El navegador recuerda **CAT Sync** y **Host**.
+No hay nada más que elegir: los puertos **50001** (ExpertSDR3, AetherSDR) y **40001** (ExpertSDR2, Thetis) se prueban a la vez y se reintentan cada pocos segundos, así que la página se conecta en cuanto arranca el programa. El navegador recuerda **CAT Sync** y **Host**. **Split** y **Mute on TX** también se recuerdan.
 
 Los navegadores que piden permiso antes de que una página web acceda a su red local — las versiones recientes de Chrome y Edge lo hacen — preguntan una vez, la primera vez que la página se conecta. Permítalo, o el punto seguirá gris.
 
@@ -262,8 +288,8 @@ Los navegadores que piden permiso antes de que una página web acceda a su red l
 | **Receptor → equipo: modo** | Cada cambio de modo en la página — un botón de modo, el plan de bandas, un decodificador, un marcador — fija el modo del equipo (USB, LSB, CW, AM, FM; RADE como USB o LSB). Un equipo en modo de datos (USB-D) sigue en él |
 | **Receptor → equipo: ancho de filtro** | Los botones de **IF Filters**, el deslizador IF, arrastrar la banda de paso y un cambio de modo fijan el filtro del equipo; al arrastrar solo se envía el ancho final. En los equipos Icom el puente selecciona en su lugar FIL1, FIL2 o FIL3 — ver [Filtros Icom](#filtros-icom-fil1-fil2-fil3) |
 | **Sin eco** | Un cambio que vino del equipo nunca se le devuelve, y se ignora un aviso del modo o filtro anterior del equipo que llegue justo después de un cambio en la página |
-| **Silencio al transmitir** | Siempre activo, incluso con CAT Sync apagado: la página se silencia mientras el equipo transmite. Mover el deslizador de volumen durante la transmisión la mantiene en silencio; al recibir, el sonido vuelve con la posición actual del deslizador |
-| **No se gestiona** | Split, VFO B, RIT/XIT y desplazamientos de transverter. Solo se sigue el VFO A del primer receptor |
+| **Silencio al transmitir** | El interruptor **Mute on TX**, activado por defecto y válido también con CAT Sync desactivado: la página se silencia mientras el equipo transmite. Mover el control de volumen durante la transmisión la mantiene en silencio; al recibir el sonido vuelve al nivel actual del control |
+| **No se gestiona** | VFO B, RIT/XIT y desplazamientos de transverter; solo se sigue el VFO A del primer receptor. **Split** solo impide que la página mueva el equipo |
 
 ### Con qué transceptores funciona
 
@@ -271,7 +297,49 @@ Los navegadores que piden permiso antes de que una página web acceda a su red l
 |---|---|---|
 | SunSDR (ExpertSDR2/3), FlexRadio (AetherSDR), ANAN/Hermes (Thetis) | Sí | Directamente — active el servidor TCI en el programa. Aún no probado con estos programas; probado con un servidor TCI simulado |
 | Un equipo con puerto CAT compatible con Hamlib — la mayoría de Icom, Yaesu, Kenwood, Elecraft, Xiegu, QRP Labs | Sí | Mediante el puente Hamlib descrito abajo. Probado con un **Icom IC-7300** en Linux y Windows; otros controladores pueden diferir en los nombres de modo o en informar del PTT |
+| Un equipo con puerto CAT por USB — Icom y Xiegu CI-V, Yaesu, Kenwood, Elecraft, FlexRadio SmartSDR CAT, QRP Labs, (tr)uSDX, Lab599 TX-500 | Sí | Con **Direct USB** más abajo, sin otro software — en Chrome, Edge, Opera o Firefox 151+ en una página https://. Probado con un **Icom IC-7300** |
 | Un equipo sin puerto CAT, o no compatible con Hamlib | No | No hay de dónde leer la frecuencia |
+
+### Direct USB (sin software TCI, sin puente)
+
+Desde la 6.0.0 la ventana tiene una segunda conexión, **Direct USB**: la página habla ella misma con el transceptor por su cable USB, mediante el Web Serial del navegador. No se ejecuta nada más en su ordenador — ni software TCI, ni Hamlib, ni puente.
+
+| Necesita | |
+|---|---|
+| Navegador | Chrome, Edge u Opera, o Firefox 151 o posterior, en un ordenador de escritorio. Safari y los navegadores de móvil no tienen Web Serial |
+| Dirección de la página | `https://`, o `http://localhost` en el ordenador de la estación. Con una dirección `http://` simple el navegador oculta Web Serial, así que **Direct USB** aparece en gris con el motivo; quedan TCI con el puente o Desktop PhantomSDR+ |
+| El equipo | Un puerto CAT por USB: Icom y Xiegu (CI-V), Yaesu (CAT nuevo y FT-817/857/897), Kenwood, Elecraft, FlexRadio SmartSDR CAT, QRP Labs, (tr)uSDX, Lab599 TX-500 — 54 modelos. En Linux su usuario debe estar en el grupo `dialout` |
+
+1. Abra **TCI-CAT** y elija **Connection: Direct USB**.
+2. Elija el **Rig**. Se rellenan su velocidad **Baud** habitual y, en un Icom, su dirección **CI-V**; ajústelas al menú del propio equipo.
+3. Pulse **Choose port…** y elija el puerto USB del equipo en la lista del navegador. Firefox pregunta antes una vez si permite el acceso serie al sitio. El navegador recuerda el puerto para este receptor.
+4. Active **CAT Sync**. El puerto se abre y la página pasa a la frecuencia, el modo y el filtro del equipo.
+
+| Ajuste | Qué hace |
+|---|---|
+| **Rig** | 54 modelos por fabricante, entre ellos el **IC-7300MK2**; **Other CI-V rig** u **Other Kenwood-compatible rig** para uno que no está en la lista |
+| **Baud** | Se rellena desde la lista de equipos (115200 para los Icom con espectroscopio) y se conserva de la última conexión. Esos Icom se prueban siempre primero a 115200; un equipo que no responde a la velocidad ajustada se busca a 115200, 19200, 57600, 38400, 9600 y 4800, y se queda la velocidad que responde |
+| **CI-V** | Solo Icom: la dirección del equipo en hexadecimal — `94` para el IC-7300, `B6` para el IC-7300MK2 |
+| **SSB FIL1/2/3** | Solo Icom: los anchos de los tres filtros SSB del equipo, `2700,2400,1800` por defecto |
+| **Lines: DTR, RTS** | Desactivados por defecto. En muchos cables CAT, DTR o RTS ponen el transmisor en emisión o reinician el equipo — márquelos solo si su interfaz los necesita |
+
+| Botón | Qué hace |
+|---|---|
+| **Choose port…** | Elige el puerto USB (se pregunta una vez; las visitas siguientes lo vuelven a encontrar) |
+| **Connect** / **Disconnect** | Abre o cierra el puerto. Mientras está cerrado, WSJT-X o un programa de registro pueden usar el equipo |
+| **⏻ Power on** | Visible mientras no hay conexión: enciende el equipo por CAT, espera hasta 15 segundos a que responda y luego conecta. La fuente de alimentación del equipo debe seguir encendida |
+| **⏻ Power off** | Visible con conexión: tras una confirmación, apaga el equipo y libera el puerto |
+
+- El puerto se abre solo únicamente mientras **CAT Sync** está activado — al cargar la página, y al activar CAT Sync después de un Disconnect o de una conexión perdida. Abrir la ventana por sí solo nunca le quita el equipo a otro programa.
+- Frecuencia, modo y filtro se siguen en ambos sentidos como en la tabla de arriba. En los Icom un cambio de paso de banda solo **selecciona** el más cercano de FIL1/FIL2/FIL3 según los anchos de **SSB FIL1/2/3**; los anchos de filtro del propio equipo nunca se cambian.
+- Icom, Kenwood y Yaesu (CAT nuevo y antiguo) se pueden encender y apagar. Los Elecraft solo se encienden por su línea POWER ON, así que aquí solo se apagan y no tienen **⏻ Power on**.
+- Desconectar el cable o apagar el equipo muestra *Link lost*; al volver a conectarlo se reconecta solo.
+- **Rig scope.** Con un equipo con espectroscopio conectado, el interruptor **Rig scope** muestra el espectroscopio del propio equipo como franja de cascada bajo la cascada del receptor, cada barrido bajo las mismas frecuencias que la cascada de arriba, de modo que una señal queda alineada en ambas — arriba la antena de la estación, abajo la suya. Fuera del margen del equipo la franja queda oscura, su etiqueta muestra el margen, y un clic sintoniza allí. El margen, el modo centro/fijo y el nivel de referencia del propio equipo deciden lo que llega. El espectroscopio necesita **115200** baudios (a 19200 hace 2–3 barridos por segundo, y la ventana lo indica); el flujo se detiene con Disconnect y al cerrar la página. Acerque el receptor a la banda: en la vista completa de 0–30 MHz un margen de ±25 kHz ocupa solo un par de píxeles. Probado con un IC-7300. Abajo a la izquierda de la franja, el **S-meter** del equipo muestra lo que oye su antena en la frecuencia sintonizada — unidades S tal como las da el equipo (S9 en el centro de la barra, encima +20/+40/+60, una breve retención de pico, *TX* mientras transmite), no dBm; solo se lee mientras Rig scope está activado.
+- **Rig S-meter (Yaesu e Icom antiguos).** Con un Yaesu de CAT nuevo, o un Icom que no envía espectroscopio por CI-V (IC-7851, IC-7100, IC-7410, IC-9100, IC-7600, IC-7200, IC-7700, IC-7000, IC-7800, IC-756PROIII/II, IC-746PRO, IC-718, IC-R75, Xiegu G90/X6100), el interruptor se llama **Rig S-meter** y muestra bajo la cascada del receptor una franja estrecha con el S-metro del equipo (S1 … S9+60, *TX* al transmitir). Se lee por CAT solo mientras la franja está visible — `SM0` en un Yaesu, CI-V `15 02` en un Icom —, a la velocidad ajustada en el menú del equipo; el interruptor nunca la cambia y no se envía ninguna orden de espectroscopio a estos equipos. No hay cascada, y la ventana explica por qué: estos Icom no envían espectroscopio por CI-V y los Yaesu no envían el suyo por CAT. El del FT-710 pasa por un chip FTDI aparte en el cable USB, que un navegador no puede abrir; [Desktop PhantomSDR+](https://phantomsdr.psychomed.gr/desktop.html) lee ese chip y muestra la cascada del FT-710. El S-metro Yaesu se comprobó con un FT-710 real: a unos 0,5 dB del S-metro del propio equipo. Kenwood, Elecraft, FT-817/857/897 y los demás equipos de la lista sincronizan solo frecuencia, modo y PTT.
+- **IC-7300 en Auto.** Con **CI-V USB Baud Rate** en *Auto*, el IC-7300 se queda con la primera velocidad que oye tras encenderse e ignora un cambio posterior en ambos sentidos. Por eso la página llega a los Icom con espectroscopio primero a 115200, también con **⏻ Power on**; un **115200** fijo en el menú del equipo evita la cuestión por completo.
+- **Equipos con dos puertos USB.** El IC-705 y el IC-905 muestran *Serial Port A (CI-V)* y *Serial Port B*, el IC-7610 y el IC-9700 un *Enhanced* y un *Standard COM Port*, todos con los mismos identificadores USB. Elija el de CI-V — el Port A o el Enhanced; Windows lista primero el Port B. Si el puerto elegido no responde, la página prueba sola el otro puerto del equipo y se queda con el que responde.
+- **IC-705 en Windows.** El controlador USB de Icom para el IC-705 bloquea la forma en que los navegadores leen un puerto serie: Edge y Firefox se congelan y el puerto queda ocupado hasta volver a conectar el cable. Por eso la página no abre un IC-705 en Windows; use **Connection: TCI** con el puente Hamlib (`rigctl -m 3085 -r COM6 -s 115200`, siendo COM6 el Port A) o Desktop PhantomSDR+. En Linux el IC-705 usa el controlador propio del núcleo.
+- Probado con un **Icom IC-7300**: frecuencia, modo, filtro, silencio al transmitir, Power on y Power off.
 
 ### El puente Hamlib (IC-7300 y otros equipos sin TCI)
 
@@ -348,7 +416,7 @@ Los equipos Icom como el IC-7300 no aceptan cualquier ancho de filtro: tienen tr
 | AM | 9000 Hz | 6000 Hz | 3000 Hz |
 | FM | 15000 Hz | 10000 Hz | 7000 Hz |
 
-En el IC-7300 (`-m 3073`) es automático. Ajuste los filtros SSB del equipo en consonancia — FIL1 2,7 kHz, FIL2 2,4 kHz, FIL3 1,8 kHz (mantenga pulsado **FIL** en el equipo) — y elegir 2,7 / 2,4 / 1,8 kHz en **IF Filters** selecciona FIL1 / FIL2 / FIL3, mientras que pulsar **FIL** en el equipo pone la banda de paso de la página al ancho de ese filtro. El puente muestra, por ejemplo, `page -> rig filter 2398 Hz  LSB  → FIL2  sent`.
+En el IC-7300 (`-m 3073`) es automático. Ajuste los filtros SSB del equipo en consonancia — FIL1 2,7 kHz, FIL2 2,4 kHz, FIL3 1,8 kHz (mantenga pulsado **FIL** en el equipo) — y elegir 2,7 / 2,4 / 1,8 kHz en **IF Filters** selecciona FIL1 / FIL2 / FIL3, mientras que pulsar **FIL** en el equipo pone la banda de paso de la página al ancho de ese filtro. El puente muestra, por ejemplo, `page -> rig filter 2398 Hz  LSB  → FIL2  sent`. El IC-7300MK2 (`-m 3094`) se trata igual, en su propia dirección CI-V B6h; necesita una versión de Hamlib que conozca el MK2.
 
 | Opción | Uso |
 |---|---|
@@ -428,10 +496,17 @@ Sin `--rigctl` el puente busca `rigctld` en `127.0.0.1:4532` y muestra `rigctld 
 | El puente muestra *the rig is not answering* | El puerto se abre pero el equipo no responde: velocidad o modelo incorrectos, CAT desactivado en el menú, o dirección CI-V de Icom cambiada | Repita la comprobación `rigctl … f`; añada `-c` si la dirección CI-V está cambiada |
 | El puente muestra *rigctld not reachable* | Arrancado sin `--rigctl`, y no hay `rigctld` en marcha | Añada `--rigctl …`, o arranque primero `rigctld` |
 | `rigctld.exe` dice *Access is denied* (Windows) | Windows se niega a ejecutarlo | Use `--rigctl` — solo necesita `rigctl.exe` |
-| Conectado, pero el receptor no se mueve | **CAT Sync** está apagado | Actívelo — el silencio al transmitir funciona sin él |
+| Conectado, pero el receptor no se mueve | **CAT Sync** está desactivado | Actívelo — la página pasa enseguida a la frecuencia, el modo y el filtro del equipo. El silencio al transmitir funciona sin él |
+| El equipo no sigue a la página | **Split** está activado | Desactive Split — el equipo se lleva a la página enseguida |
 | El modo del equipo no sigue | Un modo sin equivalente en el receptor, o el controlador Hamlib informa de un nombre poco habitual | La frecuencia se sincroniza igualmente; ajuste el modo en la página |
-| No hay silencio al transmitir | El equipo o su controlador Hamlib no informa del estado de transmisión | No hay nada que ajustar en la página |
+| No hay silencio al transmitir | **Mute on TX** está desactivado, o el equipo (o su controlador Hamlib) no informa del estado de transmisión | Active **Mute on TX**; si no, no hay nada que ajustar en la página |
 | El dial salta de un lado a otro | Desktop PhantomSDR+ u otro programa también sincroniza el equipo | Use un solo controlador a la vez |
+| **Direct USB** aparece en gris | La página está en una dirección http:// simple, o el navegador no tiene Web Serial (Safari, móviles, Firefox anterior a 151) | Abra el receptor por https://, o use TCI con el puente |
+| *Could not open the port* | Otro programa (WSJT-X, un programa de registro, el puente) lo tiene; en Linux, el usuario no está en el grupo `dialout` | Cierre el otro programa; `sudo usermod -aG dialout $USER` y vuelva a iniciar sesión |
+| *The rig did not answer at any usual speed* | El equipo está apagado, o **CI-V** o el tipo de equipo no coinciden | Compruébelos; **⏻ Power on** si está apagado |
+| *The rig did not switch on* | La fuente de alimentación del equipo está apagada, o el equipo no despierta por CAT | Encienda la fuente; compruebe **Baud** y **CI-V** |
+| *The rig answers only at 19200 baud, so its scope runs slowly* | El **CI-V USB Baud Rate** del equipo está fijo en 19200, o en Auto y quedado en 19200 desde el encendido | Póngalo en 115200, o apague y encienda el equipo para que Auto oiga primero 115200 |
+| El navegador se congela con un IC-705 (Windows) | El controlador IC-705 de Icom bloquea las lecturas serie del navegador | Vuelva a conectar el cable USB para liberar el puerto; use TCI con el puente Hamlib o Desktop PhantomSDR+ |
 
 ---
 
@@ -440,6 +515,8 @@ Sin `--rigctl` el puente busca `rigctld` en `127.0.0.1:4532` y muestra `rigctld 
 Nada que configurar. El control del transceptor usa una pequeña interfaz JavaScript que ya lleva cada página de PhantomSDR-Plus; no requiere ajustes en el servidor, puertos abiertos ni permisos de administrador. Las funciones de filtro y silencio llegaron con la versión 4.1.0 — tras aplicarla, recompile el frontend (`./recompile.sh`, opción 2); no hace falta detener el receptor. Los receptores KiwiSDR, WebSDR y UberSDR tampoco necesitan nada: la aplicación usa los controles que sus páginas ya tienen.
 
 El botón **TCI-CAT** llegó también con la 4.1.0, de nuevo solo con recompilar el frontend. No abre ningún puerto en el receptor: la conexión va del navegador de cada oyente a su propio ordenador. El puente Hamlib, `tci-bridge/tci-rigctld.mjs`, es para que los oyentes lo ejecuten en casa; el receptor no lo usa. El navegador abre esa conexión solo después de que el oyente abra **TCI-CAT** o active **CAT Sync** (se recuerda por navegador), así que por https los visitantes que nunca lo usan no ven ninguna petición de acceso a la red local.
+
+Tampoco **Direct USB** (6.0.0) abre nada en el receptor: el navegador de cada oyente habla con su propio equipo por USB. Los navegadores solo lo permiten en una página segura, así que los oyentes remotos lo tienen cuando el receptor se alcanza por https:// (vea [Acceso seguro (HTTPS)](HTTPS.md)); en una estación solo http les quedan TCI y Desktop PhantomSDR+.
 
 ---
 
@@ -468,5 +545,5 @@ El botón **TCI-CAT** llegó también con la 4.1.0, de nuevo solo con recompilar
 - Receptores distintos de PhantomSDR-Plus, KiwiSDR, PA3FWM WebSDR y UberSDR — OpenWebRX, por ejemplo — no son compatibles.
 - Los controladores integrados siguen los protocolos publicados por los fabricantes y se probaron con equipos simulados y con Hamlib real; para un equipo que se comporte de otra forma, la alternativa es Hamlib.
 - No se sincronizan split, VFO B, RIT/XIT ni canales de memoria — solo la frecuencia del VFO activo.
-- TCI-CAT en la página del receptor no sincroniza split, VFO B, RIT/XIT ni desplazamientos de transverter, y solo se ha probado con un IC-7300 a través del puente Hamlib.
+- TCI-CAT y Direct USB en la página del receptor no sincronizan VFO B, RIT/XIT ni desplazamientos de transverter — **Split** solo impide que la página mueva el equipo — y solo se han probado con un IC-7300 (TCI a través del puente Hamlib).
 - En Linux los paquetes usan el Hamlib de la distribución; no incluyen uno propio.

@@ -25,7 +25,7 @@ Both services read their configuration from `admin_config.json`, which is writte
 - **Markers** — view and edit frequency markers
 - **Chat History** — view the WebSDR chat log, clear it entirely, or delete individual messages without restarting the server
 - **Waterfall Message** — broadcast a persistent banner message to all connected users, visible on the waterfall display in real time
-- **Users** — live list of connected listeners with their name or callsign, location and IP address, tuned frequency, mode and duration, a ⚡ Kick button and a ⛔ Ban ▾ menu (8, 16 or 24 hours), and a map of where they are
+- **Users** — live list of connected listeners with their name or callsign, location and IP address, tuned frequency, mode and duration, a ⚡ Kick button and a ⛔ Ban ▾ menu (8, 16 or 24 hours), and ⛔ bans of whole networks (AS number or ISP name), and a map of where they are
 - **Chat message deletion** — 🗑 Delete button that removes that single message from the log immediately
 - **Waterfall broadcast messages** —  lets you push a persistent text banner to every connected user's waterfall
 - **Spot Reporting** — start/stop the autorun FT8/FT4/JS8/WSPR decoder, pick bands/modes and the UTC hours each one runs, start it automatically after a reboot, and report spots to PSK Reporter / wsprnet (OFF by default), with two counters: per-decoder tiles for the current run and an all-time total beside each band/mode checkbox
@@ -170,6 +170,8 @@ Next to the mode the Users page shows the decoder a listener is running in their
 The kick is instant and surgical: the server does not restart, no audio is interrupted for anyone else, and the kicked user can reconnect immediately (the feature is for removing misbehaving or stuck connections; to keep someone out, use the ban below).
 
 **⛔ Ban ▾** opens a small menu — **8**, **16** or **24 hours** — and the chosen length disconnects the listener from every receiver of the station and refuses that address for that long (24 hours is the most the receiver accepts) (close code 4001, which the page does not retry). The ban is kept in `admin_bans.json` next to the panel and sent to every receiver again once a minute, so a receiver restart does not lift it. While bans are in force, a **Banned** list under the table shows each one with its name, address and end time, and an **Unban** button lifts it at once. Everyone behind the same internet connection shares the address and is banned with it.
+
+**Banning a whole network.** Some trouble comes from a whole provider rather than one address, such as a cloud or VPN service that changes address on every connection. Under each listener's IP address the Users page shows their network (`AS3329 …`), and **⛔ Ban ▾** also offers **Whole network AS… (until removed)**. The **Banned networks (ASN / ISP)** card under the table bans by **AS number** (`AS12345`) or by **ISP name contains** (every network whose name holds the text, e.g. `hetzner`); as you type it lists the networks the rule would cover, in red when more than 20 match. A network ban lasts until **Remove**. `proxy.py` refuses a banned network before the receiver sees it (close code 4001), and every 20 seconds the panel disconnects listeners from it who were already connected or reached a receiver without passing the proxy (each such address is refused for 10 minutes, lifted when the rule is removed). The networks come from the free iptoasn.com table, downloaded into `asn-db/` with the first network ban and refreshed every week (**↻ Update table** fetches it at once); the rules are kept in `asn_bans.json`. Without the table nothing is refused, and the panel does not let you ban the network you are logged in from.
 
 ---
 
@@ -493,6 +495,8 @@ The daemon is deliberately lightweight and runs on low-resource hardware (a 4-co
 A card on the **Dashboard**, refreshed every 30 seconds (or with **↻ refresh**):
 
 - **Receivers** — every receiver of the station (the one on `public_port` and every receiver in `receivers.toml`): a green dot and *on air, up 15h 5m* when it answers, a red **OFF THE AIR** when it does not.
+- **RADE** — RADE V1 and RADE V2 (beta): *ready to decode* when the RADE sidecar (`rade_helper.py`) is running and that version is installed, **NOT RUNNING** when the sidecar is not. When the station's RADE V2 decoder is older than FreeDV's fix for stations about 62 Hz off frequency, the V2 line adds *decoder outdated — run ./install_rade.sh*: run it, then restart the receiver.
+- **Updates** — once a day the panel asks GitHub whether PhantomSDR-Plus or FreeDV's RADE V2 decoder has something newer than this station, and says *update on GitHub (5 changes, latest 16 Nov) — run ./update.sh*, *newer version from FreeDV — run ./install_rade.sh, then restart the receiver*, or *up to date*. **↻ check now** asks at once. The panel knows the station's version from `update.sh`, which notes it after every update; a station that was cloned with git and never updated is compared from git, and any other is asked to run `./update.sh` once.
 - **Disk & log folders** — free space on the disk that holds the installation (amber from 80 % used, red from 90 %), and the size of `logs/`, `logproxy/` and each `instances/<id>/logs/`.
 - **Recent alerts** — what the alert monitor has seen since the panel started (see [Alerts](#alerts-email--telegram)), whether or not a message was sent.
 - **Last crash.log entry** — the newest non-empty `crash.log` of all receivers, with its date and its last 12 lines.
@@ -607,7 +611,7 @@ The script takes every answer from that file and asks only for your sudo passwor
 
 - every `*.toml` of the installation (receiver configs and `receivers.toml`) and `station.conf`
 - `frontend/site_information.json`, `frontend/src/bands-config.js`, `markers.json`
-- `autorun.json` (spot reporting), `websdr_relay.json`, `drm.json`, `admin_bans.json`
+- `autorun.json` (spot reporting), `websdr_relay.json`, `drm.json`, `admin_bans.json`, `asn_bans.json`
 - for every extra receiver: `instances/<id>/config.toml`, `instance.env`, `markers.json`
 
 and a `BACKUP-INFO.json` with the date, the computer and the file list. **Not** in it: `admin_config.json` (admin password, alert secrets), the logs, and the program itself.

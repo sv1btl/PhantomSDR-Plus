@@ -124,6 +124,7 @@ PhantomSDR-Plus
 | `admin_server.py` | Сама панель администратора. Помимо страниц управления она выполняет сбор данных для страницы **Графики**: фоновый поток каждые 2 секунды снимает частоту процессора, нагрузку, температуру и число слушателей и держит их только в памяти — 1 час в полном разрешении плюс 24 часа усреднений по 30 секунд. На диск ничего не пишется, поэтому история теряется при перезапуске. |
 | `admin_config.json` | Настройки панели администратора (хеш пароля, порты, параметры, пороги тепловой защиты) |
 | `proxy.py` | Публичный порт. Отдаёт страницу и передаёт `/admin` панели, а — на станции, настроенной мастером, — `/rade`, `/stats` и `/relay` службам за ним, так что пробрасывается только один порт. Берёт порты из `admin_config.json` или, без панели, из `station.conf` (`setup_admin.sh --proxy-only`) |
+| `asn_db.py` | Блокировки сетей (ASN / ISP): ищет адреса в таблице iptoasn.com в `asn-db/` и хранит правила в `asn_bans.json`. Используется `proxy.py` (отказывает при подключении) и `admin_server.py` (правила, список Пользователей, проверка каждые 20 секунд) |
 | `thermal_guard.py` | Защита от перегрева процессора. Останавливает сервер, когда процессор становится слишком горячим, и запускает его снова после остывания, выводя пороги из критического порога, который публикует ваш собственный процессор, а не из фиксированного числа. Она никогда не пытается определить, что присматривает за сервером: пока держится перегрев, она повторяет остановку каждые 2 с, так что watchdog, юнит systemd или задание cron, оживившие сервер, будут отменены, пока машина не остынет. Только стандартная библиотека; импортируется из `admin_server.py` (такт задаёт сборщик Графиков) и работает отдельно для установок без панели. По умолчанию только записывает, то есть ни на что не воздействует до включения — см. [Панель администратора]см. [руководство Thermal Guard](THERMAL_GUARD.md) |
 | `autorun/` | Служба отправки спотов — см. [Autorun Spot Reporter](INSTALLATION.md#autorun-spot-reporter-ft8ft4wspr) |
 | `autorun.json` | Какие диапазоны/режимы декодировать и в какие часы UTC, данные станции, адресаты и автозапуск |
@@ -193,7 +194,7 @@ PhantomSDR-Plus
 - Структура компоновки
 - Оркестрация компонентов
 - **Ряд кнопок декодеров** — по одной кнопке на декодер на главной панели, сразу под селектором режимов; одно нажатие запускает декодер и открывает его окно, второе — останавливает. Он заменил прежний ряд полосы пропускания. RADE-v2U/RADE-v1L/RADE-v1U находятся в `lib/ModesSelector.svelte` — рядом с селектором режимов и во всплывающих окнах **Modes** и **Bands**.
-- **Строка версии** — «PhantomSDR+ | v5.5.0 original from github.com/sv1btl/PhantomSDR-Plus», адрес — ссылка; та же строка есть на странице /mobile. Номер версии и адрес находятся в `lib/version.js`; строка — указание авторства, на которое распространяется `ADDITIONAL_TERMS.md`.
+- **Строка версии** — «PhantomSDR+ | v6.0.0 original from github.com/sv1btl/PhantomSDR-Plus», адрес — ссылка; та же строка есть на странице /mobile. Номер версии и адрес находятся в `lib/version.js`; строка — указание авторства, на которое распространяется `ADDITIONAL_TERMS.md`.
 
 #### 2. Отображение водопада (`waterfall.js` + `lib/`)
 - Отрисовка спектра и водопада на canvas и цветовые палитры — в `waterfall.js` (обычный JS, не компонент); пересчёт яркости/контраста для **Auto Adj.** — `lib/wfAutoLevel.js`
@@ -234,7 +235,7 @@ PhantomSDR-Plus
 | SSTV | `sstv.js` | `sstv.worker.js` | `sstvWorkerProxy.js` |
 | HF FAX | `fax.js` | `fax.worker.js` | `faxWorkerProxy.js` |
 | NAVTEX + FLDIGI (ALE 2G HAM, FSK/RTTY, PSK31/63/125, QPSK, Olivia, Contestia, PSK Browser, Olivia Browser, RTTY Browser, MFSK Browser, FST4W, MFSK, MSK144, DominoEX, THOR, THROB, Hellschreiber, MT63, Packet/APRS) + SERVICES (Maritime FSK / SITOR, Weather RTTY, ALE 2G) | `fsk.js`, `psk31.js`, `olivia.js`, `mfsk.js`, `ifk.js`, `throb.js`, `hell.js`, `mt63.js`, `fldigiFec.js`, `ax25.js`, `ale.js`, `fst4w.js`, `msk144.js`, `pskBrowser.js`, `oliviaBrowser.js`, `rttyBrowser.js`, `mfskBrowser.js` | `fsk.worker.js` | `fskWorkerProxy.js` |
-| SERVICES (DSC, Time Signals, HF Selcall) | `dsc.js`, `timesig.js` | `services.worker.js` | `servicesWorkerProxy.js` |
+| SERVICES (DSC, Time Signals, HF Selcall, AQC-ALE, SITOR-A/ARQ-E/ARQ-E3, STANAG 4285, MIL-STD-188-110A, 3G ALE) | `dsc.js`, `timesig.js`, `ale.js`, `krypto500/*.js` | `services.worker.js` | `servicesWorkerProxy.js` |
 | CW, CW Browser | `cwDecoder.js`, `cwBrowser.js` | `cw.worker.js` | `cwWorkerProxy.js` |
 
 #### 4b. Разнесённый приём (`diversity.js`)
@@ -281,6 +282,7 @@ PhantomSDR-Plus
 - Публичные `/users`, `users.json` и `/logs/users_*.jsonl`, которые читает `stats.html`, не содержат IP-адресов: в копии журнала вместо адреса — непрозрачный код `visitor` (хеш с ключом, ключ в `logs/.visitor_salt`); файлы на диске сохраняют адреса. Панель администратора читает `/~~users`, на который отвечают только loopback-клиенту без `X-Forwarded-For`
 - Работающий декодер передаётся так же: `App.svelte` при каждом изменении отправляет `{"cmd":"decoder","name":"FT8"}` (пусто, если декодер не запущен), `audio.js` повторяет его на новом сокете. Сервер хранит короткую метку (буквы, цифры, пробел, `-+/`, не больше 12) и отдаёт её как `decoder` в `/users` и в каждой строке `users_*.jsonl`; смена записывается как перестройка, поэтому `stats.html` (Decoder Popularity) и страница Visitors панели администратора могут её подсчитать
 - Блокировки панели на 8/16/24 часа хранятся в `admin_bans.json` (никогда не распространяется) и раз в минуту заново отправляются каждому приёмнику; `/~~unban` снимает одну
+- Блокировки сетей (номер AS или имя провайдера, до снятия): `asn_db.py` ищет каждый адрес в таблице iptoasn.com в `asn-db/` и читает правила из `asn_bans.json` (ни то, ни другое не распространяется); `proxy.py` отказывает совпадению при подключении, а панель каждые 20 секунд отключает уже подключённых совпадающих слушателей
 
 #### 5. Управление состоянием (`stores/`)
 - Реактивные хранилища данных

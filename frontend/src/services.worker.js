@@ -1,6 +1,6 @@
 /**
  * services.worker.js — the SERVICES decoders (DSC, time signals,
- * HF Selcall) off the main thread. HFDL keeps its own worker (hfdl.worker.js)
+ * HF Selcall, and the Krypto500 group) off the main thread. HFDL keeps its own worker (hfdl.worker.js)
  * because its engine is a large WebAssembly module.
  *
  * One engine runs at a time, chosen with { t: 'service' }.
@@ -22,6 +22,13 @@
 
 import { DscDecoder } from './dsc.js';
 import { TimeSignalDecoder } from './timesig.js';
+// Krypto500 group (SERVICES): AQC-ALE, ARQ FSK modes, STANAG 4285,
+// MIL-STD-188-110A serial tone, 3G ALE
+import { AleDecoder } from './ale.js';
+import { ArqFskDecoder } from './krypto500/arqfsk.js';
+import { S4285Decoder } from './krypto500/s4285.js';
+import { M110aDecoder } from './krypto500/m110a.js';
+import { Ale3gDecoder } from './krypto500/ale3g.js';
 
 let sampleRate = 12000;
 let enabled = false;
@@ -43,6 +50,11 @@ function build() {
     if (service === 'dsc') engine = new DscDecoder({ ...common, centerHz: opts.centerHz || 1700 });
     else if (service === 'time') engine = new TimeSignalDecoder({ ...common, station: opts.station || 'dcf77' });
     else if (service === 'selcall') engine = new DscDecoder({ ...common, centerHz: opts.centerHz || 1700, selcall: true });
+    else if (service === 'k5aqc') engine = new AleDecoder({ ...common, aqc: true });
+    else if (service === 'k5fsk') engine = new ArqFskDecoder({ ...common, mode: opts.mode || 'sitora', baud: opts.baud, shift: opts.shift, centerHz: opts.centerHz || 1700 });
+    else if (service === 'k5s4285') engine = new S4285Decoder(common);
+    else if (service === 'k5m110a') engine = new M110aDecoder(common);
+    else if (service === 'k5ale3g') engine = new Ale3gDecoder(common);
   } catch (e) {
     post({ type: 'error', message: String(e && e.message || e) });
   }
@@ -67,6 +79,7 @@ self.onmessage = ({ data }) => {
       opts = { ...opts, ...(m.opts || {}) };
       if (engine && engine.setCenter && opts.centerHz) engine.setCenter(opts.centerHz);
       if (engine && engine.setStation && opts.station) engine.setStation(opts.station);
+      if (engine && engine.setOptions) engine.setOptions(m.opts || {});
       break;
     case 'enable':
       enabled = !!m.on;

@@ -517,8 +517,11 @@ else
     fi
 fi
 
-if [[ -d "$RADE_C_DIR/.git" ]] && { $RADE_C_BUILD || [[ ! -x "$RADE_C_DIR/build/src/radae_rx" ]]; }; then
-    info "Building rade_c (radae_rx, lpcnet_demo)…"
+# rade_c's receiver is rade_rx_iq since 2026-11-20 (rade_c #37); radae_rx is
+# the old name, still built as an alias for now.
+rade_c_rx() { local b="$RADE_C_DIR/build/src"; [[ -x "$b/rade_rx_iq" ]] && echo "$b/rade_rx_iq" || echo "$b/radae_rx"; }
+if [[ -d "$RADE_C_DIR/.git" ]] && { $RADE_C_BUILD || [[ ! -x "$(rade_c_rx)" ]]; }; then
+    info "Building rade_c (receiver, lpcnet_demo)…"
     if cmake -S "$RADE_C_DIR" -B "$RADE_C_DIR/build" -DCMAKE_BUILD_TYPE=Release \
        && cmake --build "$RADE_C_DIR/build" -j"$(nproc)"; then
         :
@@ -527,8 +530,8 @@ if [[ -d "$RADE_C_DIR/.git" ]] && { $RADE_C_BUILD || [[ ! -x "$RADE_C_DIR/build/
     fi
 fi
 
-if [[ -x "$RADE_C_DIR/build/src/radae_rx" && -x "$RADE_C_DIR/build/src/lpcnet_demo" ]]; then
-    ok "RADE V2 ready: $RADE_C_DIR/build/src/radae_rx — rade_helper.py uses it from the next RADE2 connection"
+if [[ -x "$(rade_c_rx)" && -x "$RADE_C_DIR/build/src/lpcnet_demo" ]]; then
+    ok "RADE V2 ready: $(rade_c_rx) — rade_helper.py uses it from the next RADE2 connection"
 else
     warn "RADE V2 not available — the RADE2 button will say so; RADE V1 works as before"
 fi
@@ -674,7 +677,7 @@ else
 echo -e "  ${RED}✘${NC}  lpcnet_demo           NOT FOUND"
 fi
 
-if [[ -x "$HOME/rade_c/build/src/radae_rx" ]]; then
+if [[ -x "$HOME/rade_c/build/src/rade_rx_iq" || -x "$HOME/rade_c/build/src/radae_rx" ]]; then
 echo -e "  ${GREEN}✔${NC}  RADE V2 (beta)        $HOME/rade_c  (RADE2 button)"
 else
 echo -e "  ${YELLOW}!${NC}  RADE V2 (beta)        not built — RADE2 unavailable, V1 unaffected"

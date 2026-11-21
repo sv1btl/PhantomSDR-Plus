@@ -105,6 +105,16 @@
   let radeConnected = false
   let radeSynced = false
   let radeSnr = null
+  // RADE V2 tuning hint (see App.svelte radeMistune): +1 tune up, -1 down.
+  const RADE_CARRIER_STEP_HZ = 62
+  let radeMistune = 0
+  let radeMistuneHoldUntil = 0
+  function radeTuneByHint () {
+    if (!radeMistune) return
+    setFrequency(frequency + radeMistune * RADE_CARRIER_STEP_HZ, mode)
+    radeMistune = 0
+    radeMistuneHoldUntil = Date.now() + 3000
+  }
   let radeVersion = 1   // 2 while the RADE2 chip (RADE V2 beta, USB) runs
   let radeError = ''    // the helper's own refusal (e.g. V2 not installed)
 
@@ -952,6 +962,8 @@
       } else {
         if ('synced' in event) radeSynced = !!event.synced
         if ('snr' in event) radeSnr = event.snr
+        radeMistune = radeVersion === 2 && !radeSynced && Date.now() >= radeMistuneHoldUntil
+          ? Math.sign(Number(event.mistune) || 0) : 0
       }
     })
     audio.setRADEDecoding(true, sideband, undefined, radeVersion)
@@ -962,6 +974,7 @@
     radeConnected = false
     radeSynced = false
     radeSnr = null
+    radeMistune = 0
     try { audio.setRADEDecoding(false) } catch (e) {}
     try { audio.setRADECallback(null) } catch (e) {}
   }
@@ -1425,6 +1438,10 @@
               RADE sidecar offline — is rade_helper.py running?
             {:else if radeSynced}
               RADE{radeVersion === 2 ? ' V2 (beta)' : ''} synced{radeSnr !== null ? ` · SNR ${Number(radeSnr).toFixed(1)} dB` : ''}
+            {:else if radeMistune}
+              RADE V2 signal ~{RADE_CARRIER_STEP_HZ} Hz off
+              <button class="sq-btn hint-btn" on:click={radeTuneByHint}
+                aria-label="Tune {radeMistune > 0 ? 'up' : 'down'} {RADE_CARRIER_STEP_HZ} hertz">{radeMistune > 0 ? '▲' : '▼'} {RADE_CARRIER_STEP_HZ} Hz</button>
             {:else}
               RADE{radeVersion === 2 ? ' V2 (beta)' : ''} connected, searching…
             {/if}
@@ -2028,6 +2045,7 @@
   }
   .sq-btn.active { background: #6b3a12; border-color: #d1741f; color: #ffe6cc; }
   .sq-btn.buf { width: 42px; }
+  .sq-btn.hint-btn { width: auto; padding: 0 10px; margin-left: 6px; background: #6b3a12; border-color: #d1741f; color: #ffe6cc; }
   .sq-btn.buf.active { background: #174a1d; border-color: #2f9c3c; color: #d8ffdc; }
   .sq-btn.ai.active { background: #123a5c; border-color: #2f7fb5; color: #dcefff; }
   .sq-btn.pulse { animation: ai-pulse 1s ease-in-out infinite; }
